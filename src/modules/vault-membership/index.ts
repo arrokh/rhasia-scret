@@ -1,3 +1,3 @@
-export type VaultRole = "OWNER" | "VIEWER";
-
-export function canMutateVault(role: VaultRole): boolean { return role === "OWNER"; }
+export { createSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
+export type { SecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
+export { redeemSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link-redemption";
