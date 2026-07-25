@@ -62,6 +62,19 @@ export async function wrapKeyForRecipient(vaultKey: Uint8Array, recipientPublicK
   return { ...encrypted, ephemeralPublicKey: await crypto.subtle.exportKey("jwk", ephemeral.publicKey) };
 }
 
+export function serializeKeyWrapEnvelope(envelope: KeyWrapEnvelope): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify({ version: envelope.version, nonce: toBase64(envelope.nonce), ciphertext: toBase64(envelope.ciphertext), ephemeralPublicKey: envelope.ephemeralPublicKey }));
+}
+
+export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
+  let parsed: unknown;
+  try { parsed = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error("Encrypted key package is invalid."); }
+  if (!parsed || typeof parsed !== "object") throw new Error("Encrypted key package is invalid.");
+  const record = parsed as Record<string, unknown>;
+  if (record.version !== VERSION || typeof record.nonce !== "string" || typeof record.ciphertext !== "string" || !record.ephemeralPublicKey || typeof record.ephemeralPublicKey !== "object") throw new Error("Encrypted key package is invalid.");
+  return { version: VERSION, nonce: fromBase64(record.nonce), ciphertext: fromBase64(record.ciphertext), ephemeralPublicKey: record.ephemeralPublicKey as JsonWebKey };
+}
+
 export async function unwrapKeyForRecipient(envelope: KeyWrapEnvelope, recipientPrivateKey: JsonWebKey): Promise<Uint8Array> {
   const privateKey = await crypto.subtle.importKey("jwk", recipientPrivateKey, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
   const ephemeralPublicKey = await crypto.subtle.importKey("jwk", envelope.ephemeralPublicKey, { name: "ECDH", namedCurve: "P-256" }, false, []);
@@ -100,6 +113,9 @@ function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   copy.set(bytes);
   return copy;
 }
+
+function toBase64(bytes: Uint8Array): string { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
+function fromBase64(value: string): Uint8Array { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
 
 function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length);
