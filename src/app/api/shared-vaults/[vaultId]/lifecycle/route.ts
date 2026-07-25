@@ -3,6 +3,7 @@ import { loadApplicationUser } from "@/modules/identity/application/load-applica
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
+import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   return changeLifecycle(params, "delete");
@@ -19,5 +20,7 @@ async function changeLifecycle(params: Promise<{ vaultId: string }>, action: "de
   const { vaultId } = await params;
   const repository = new PrismaSharedVaultRecoveryRepository();
   const changed = action === "delete" ? await repository.delete(user.id, vaultId) : await repository.restore(user.id, vaultId);
-  return changed ? new NextResponse(null, { status: 204 }) : NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
+  if (!changed) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
+  await new PrismaVaultAuditRepository().record(vaultId, user.id, action === "delete" ? "VAULT_DELETED" : "VAULT_RESTORED");
+  return new NextResponse(null, { status: 204 });
 }
