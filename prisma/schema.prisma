@@ -17,6 +17,8 @@ model ApplicationUser {
   memberships    VaultMember[]
   receivedInvitations VaultInvitation[] @relation("InvitationRecipient")
   cryptoProfile  UserCryptoProfile?
+  passkeyRecoveryCredential PasskeyRecoveryCredential?
+  passkeyRecoveryChallenges PasskeyRecoveryChallenge[]
   @@map("application_users")
 }
 
@@ -54,6 +56,31 @@ model VaultInvitation {
   @@index([vaultId, status])
   @@index([recipientUserId, status])
   @@map("vault_invitations")
+}
+
+model PasskeyRecoveryCredential {
+  userId                   String   @id @map("user_id")
+  credentialId             Bytes    @unique @map("credential_id")
+  publicKey                Bytes    @map("public_key")
+  counter                  BigInt   @default(0)
+  transports               Json?    @map("transports")
+  encryptedRecoveryPackage Bytes    @map("encrypted_recovery_package")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  user                     ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("passkey_recovery_credentials")
+}
+
+model PasskeyRecoveryChallenge {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  purpose   String
+  challenge String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, purpose, expiresAt])
+  @@map("passkey_recovery_challenges")
 }
 
 model UserCryptoProfile {
