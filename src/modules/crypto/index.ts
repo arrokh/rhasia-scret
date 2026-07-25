@@ -15,3 +15,4 @@ export { loadEncryptedLocalVaultSnapshot, removeEncryptedLocalVaultSnapshot, sav
 export type { EncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
 export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";
 export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "./infrastructure/browser-vault-key-rotation";
+export { createEncryptedVaultExport, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";
