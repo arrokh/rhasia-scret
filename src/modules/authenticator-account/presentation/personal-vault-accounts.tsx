@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { unlockPersonalVault } from "@/modules/crypto";
+import { createUserEncryptionIdentity, serializeEncryptedEnvelope, unlockPersonalVault } from "@/modules/crypto";
 import { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAccount, sortAccounts, type DecryptedAuthenticatorAccount } from "../infrastructure/browser-account-payload";
 import { parseTotpUri } from "@/modules/otp-runtime";
 import { SharedVaultCreator } from "@/modules/vault-management";
 import { QrImportInput } from "./qr-import-input";
 
-type ProfileResponse = { vaultUnlockSalt: string; wrappedUserRootKey: string; encryptedPersonalVaultKey: string; encryptionVersion: number };
+type ProfileResponse = { vaultUnlockSalt: string; wrappedUserRootKey: string; encryptedPersonalVaultKey: string; encryptionVersion: number; userEncryptionPublicKey?: JsonWebKey; encryptedUserPrivateKey?: string };
 type AccountResponse = { id: string; encryptedPayload: string };
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
@@ -29,6 +29,15 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         encryptedPersonalVaultKey: fromBase64(profile.encryptedPersonalVaultKey),
         encryptionVersion: profile.encryptionVersion
       });
+      if (!profile.userEncryptionPublicKey || !profile.encryptedUserPrivateKey) {
+        const identity = await createUserEncryptionIdentity(unlocked.userRootKey);
+        const response = await fetch("/api/user-encryption-identity", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ publicKey: identity.publicKey, encryptedPrivateKey: toBase64(serializeEncryptedEnvelope(identity.encryptedPrivateKey)), encryptionVersion: 1 })
+        });
+        if (!response.ok) throw new Error("Unable to register user encryption identity.");
+      }
       const stored = await fetchJson<AccountResponse[]>(`/api/vaults/${vaultId}/accounts`);
       const decrypted = await Promise.all(stored.map((account) => decryptAccountConfiguration(unlocked.personalVaultKey, fromBase64(account.encryptedPayload))));
       setVaultKey(unlocked.personalVaultKey);
