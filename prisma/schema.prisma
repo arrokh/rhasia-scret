@@ -15,6 +15,7 @@ model ApplicationUser {
   updatedAt      DateTime              @updatedAt @map("updated_at")
   ownedVaults    Vault[]               @relation("VaultOwner")
   memberships    VaultMember[]
+  receivedInvitations VaultInvitation[] @relation("InvitationRecipient")
   cryptoProfile  UserCryptoProfile?
   @@map("application_users")
 }
@@ -33,8 +34,25 @@ model Vault {
   owner               ApplicationUser @relation("VaultOwner", fields: [ownerId], references: [id])
   members             VaultMember[]
   accounts            AuthenticatorAccount[]
+  invitations         VaultInvitation[]
   @@index([ownerId, type, lifecycle])
   @@map("vaults")
+}
+
+model VaultInvitation {
+  id               String   @id @default(cuid())
+  vaultId          String   @map("vault_id")
+  recipientUserId  String   @map("recipient_user_id")
+  linkVerifier     Bytes    @unique @map("link_verifier")
+  encryptedPackage Bytes    @map("encrypted_package")
+  status           String   @default("PENDING")
+  redeemedAt       DateTime? @map("redeemed_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  vault            Vault    @relation(fields: [vaultId], references: [id])
+  recipient        ApplicationUser @relation("InvitationRecipient", fields: [recipientUserId], references: [id])
+  @@index([vaultId, status])
+  @@index([recipientUserId, status])
+  @@map("vault_invitations")
 }
 
 model UserCryptoProfile {
