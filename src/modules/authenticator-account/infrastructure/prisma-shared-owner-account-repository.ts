@@ -15,6 +15,22 @@ export class PrismaSharedOwnerAccountRepository {
     const account = await prisma.authenticatorAccount.findUniqueOrThrow({ where: { id: accountId } });
     return new EncryptedAuthenticatorAccount(account.id, account.vaultId, account.encryptedPayload, account.encryptionVersion, account.revision);
   }
+
+  public async delete(ownerId: string, vaultId: string, accountId: string, expectedRevision: number): Promise<boolean> {
+    await assertOwner(ownerId, vaultId);
+    const result = await prisma.authenticatorAccount.updateMany({ where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null }, data: { deletedAt: new Date(), revision: { increment: 1 } } });
+    return result.count === 1;
+  }
+
+  public async restore(ownerId: string, vaultId: string, accountId: string): Promise<boolean> {
+    await assertOwner(ownerId, vaultId);
+    const result = await prisma.authenticatorAccount.updateMany({ where: { id: accountId, vaultId, deletedAt: { gte: recoveryDeadline() } }, data: { deletedAt: null, revision: { increment: 1 } } });
+    return result.count === 1;
+  }
+}
+
+function recoveryDeadline(): Date {
+  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 }
 
 async function assertOwner(ownerId: string, vaultId: string): Promise<void> {
