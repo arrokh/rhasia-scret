@@ -27,6 +27,21 @@ export function removeEncryptedLocalVaultSnapshot(vaultId: string): void {
   localStorage.removeItem(`${prefix}${vaultId}`);
 }
 
+/** Remove every device-local snapshot on explicit sign-out or device removal. */
+export function removeAllEncryptedLocalVaultSnapshots(): void {
+  const keys: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(prefix)) keys.push(key);
+  }
+  keys.forEach((key) => localStorage.removeItem(key));
+}
+
+/** A successful online authorization check removes a snapshot after revocation. */
+export function reconcileEncryptedLocalVaultSnapshot(vaultId: string, authorized: boolean): void {
+  if (!authorized) removeEncryptedLocalVaultSnapshot(vaultId);
+}
+
 function isSnapshot(value: unknown): value is EncryptedLocalVaultSnapshot {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Partial<EncryptedLocalVaultSnapshot>;
