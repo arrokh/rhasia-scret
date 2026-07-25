@@ -1,0 +1,6 @@
+[tools]
+node = "26.5.0"
+
+[tasks.setup]
+description = "Install the pinned pnpm version through the mise-managed Node runtime"
+run = "npm install --global pnpm@11.17.0"
