@@ -1,0 +1,60 @@
+{
+  "name": "shared-totp-vault",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=26.5.0",
+    "pnpm": ">=11.17.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --project integration --project contract",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:contract": "vitest run --project contract",
+    "test:browser": "playwright test",
+    "test:architecture": "dependency-cruiser --config .dependency-cruiser.cjs src",
+    "test:all": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run test:browser && pnpm run build",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "verify:database": "tsx scripts/verify-test-database.ts",
+    "verify:prisma-connections": "tsx scripts/verify-prisma-connections.ts",
+    "verify:supabase-auth": "tsx scripts/verify-supabase-auth.ts",
+    "ci": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.110.8",
+    "dotenv": "^17.3.1",
+    "next": "^16.2.11",
+    "pg": "^8.22.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@prisma/client": "^7.9.0",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "dependency-cruiser": "^17.3.4",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.2.11",
+    "jsdom": "^27.4.0",
+    "playwright": "^1.57.0",
+    "prisma": "^7.9.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
