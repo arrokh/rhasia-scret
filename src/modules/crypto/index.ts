@@ -13,3 +13,5 @@ export { forgetRememberedBrowser, enrollRememberedBrowser, supportsLocalVerifica
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { loadEncryptedLocalVaultSnapshot, removeEncryptedLocalVaultSnapshot, saveEncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
 export type { EncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
+export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";
+export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "./infrastructure/browser-vault-key-rotation";
