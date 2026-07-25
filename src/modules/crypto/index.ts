@@ -1,6 +1,6 @@
 export { redactSensitiveData } from "./application/redact-sensitive-data";
 export { UnlockedVaultSession } from "./application/unlocked-vault-session";
-export { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, generateSymmetricKey, generateUserEncryptionKeyPair, serializeEncryptedEnvelope, unwrapKeyForRecipient, wrapKeyForRecipient } from "./infrastructure/browser-crypto-envelope";
+export { decryptPayload, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, generateSymmetricKey, generateUserEncryptionKeyPair, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, wrapKeyForRecipient } from "./infrastructure/browser-crypto-envelope";
 export type { EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
@@ -9,6 +9,7 @@ export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-per
 export { changeVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
+export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
 export { forgetRememberedBrowser, enrollRememberedBrowser, supportsLocalVerification, verifyRememberedBrowser } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { loadEncryptedLocalVaultSnapshot, removeEncryptedLocalVaultSnapshot, saveEncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
