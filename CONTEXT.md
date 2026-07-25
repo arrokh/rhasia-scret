@@ -35,6 +35,10 @@ _Avoid_: Vault password, master key
 A random user-held key that protects the user’s Personal Vault Encryption Key and encrypted User Encryption Key Pair. It can be re-wrapped when the Vault Unlock Secret changes without re-encrypting vault content.
 _Avoid_: Vault Unlock Key, vault key
 
+**Passkey-Assisted Recovery**:
+An optional browser-held recovery path that uses a verified WebAuthn PRF output to open an encrypted User Root Key recovery package. The server stores only credential metadata and opaque ciphertext; it has no recovery key.
+_Avoid_: Server reset, passkey-only server decryption
+
 **Remembered Browser**:
 A browser profile that holds a local credential enabling its authenticated user to unlock a Vault without re-entering the Vault Unlock Secret.
 _Avoid_: Trusted device, device-bound browser
