@@ -11,3 +11,5 @@ export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructur
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { forgetRememberedBrowser, enrollRememberedBrowser, supportsLocalVerification, verifyRememberedBrowser } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
+export { loadEncryptedLocalVaultSnapshot, removeEncryptedLocalVaultSnapshot, saveEncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
+export type { EncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
