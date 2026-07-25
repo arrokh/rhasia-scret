@@ -35,6 +35,7 @@ model Vault {
   members             VaultMember[]
   accounts            AuthenticatorAccount[]
   invitations         VaultInvitation[]
+  auditEvents         VaultAuditEvent[]
   @@index([ownerId, type, lifecycle])
   @@map("vaults")
 }
@@ -86,6 +87,17 @@ model VaultMember {
   @@id([vaultId, userId])
   @@index([userId, status])
   @@map("vault_members")
+}
+
+model VaultAuditEvent {
+  id          String   @id @default(cuid())
+  vaultId     String   @map("vault_id")
+  actorUserId String   @map("actor_user_id")
+  eventType   String   @map("event_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+  vault       Vault    @relation(fields: [vaultId], references: [id])
+  @@index([vaultId, createdAt])
+  @@map("vault_audit_events")
 }
 
 model AuthenticatorAccount {
