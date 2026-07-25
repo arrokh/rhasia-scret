@@ -1,0 +1,53 @@
+import { Buffer } from "node:buffer";
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
+import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
+import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import type { PersonalAccountRepository } from "@/modules/authenticator-account/application/personal-account-repository";
+import { PrismaPersonalAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-personal-account-repository";
+import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+
+const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
+type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; accounts: PersonalAccountRepository };
+type Context = { params: Promise<{ vaultId: string }> };
+
+export function createPersonalAccountsHandlers({ sessionVerifier, applicationUsers, accounts }: Dependencies) {
+  async function user() {
+    const current = await loadApplicationUser(sessionVerifier, applicationUsers);
+    if (!current) return null;
+    if (!current.canAccessApplication()) throw new Error("inactive_user");
+    return current;
+  }
+  return {
+    GET: async (_request: NextRequest, { params }: Context) => {
+      try {
+        const current = await user();
+        if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const { vaultId } = await params;
+        const list = await accounts.list(current.id, vaultId);
+        return NextResponse.json(list.map((account) => ({ id: account.id, encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"), encryptionVersion: account.encryptionVersion, revision: account.revision })));
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
+      }
+    },
+    POST: async (request: NextRequest, { params }: Context) => {
+      try {
+        const current = await user();
+        if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const parsed = payloadSchema.safeParse(await request.json());
+        if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
+        const { vaultId } = await params;
+        const account = await accounts.create(current.id, vaultId, { encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"), encryptionVersion: parsed.data.encryptionVersion });
+        return NextResponse.json({ id: account.id, revision: account.revision }, { status: 201 });
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
+      }
+    }
+  };
+}
+
+const handlers = createPersonalAccountsHandlers({ sessionVerifier: new SupabaseSessionVerifier(), applicationUsers: new PrismaApplicationUserRepository(), accounts: new PrismaPersonalAccountRepository() });
+export const GET = handlers.GET;
+export const POST = handlers.POST;

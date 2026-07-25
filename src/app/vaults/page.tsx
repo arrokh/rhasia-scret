@@ -5,6 +5,7 @@ import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supab
 import { ensurePersonalVault } from "@/modules/vault-management/application/ensure-personal-vault";
 import { PrismaPersonalVaultRepository } from "@/modules/vault-management/infrastructure/prisma-personal-vault-repository";
 import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
+import { PersonalVaultAccounts } from "@/modules/authenticator-account";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function VaultsPage() {
       <p>Signed in as {user.email}</p>
       <section aria-labelledby="personal-vault-heading">
         <h2 id="personal-vault-heading">Personal Vault</h2>
-        {personalVault.lifecycle === "UNINITIALIZED" ? <PersonalVaultSetupForm /> : <p>Ready</p>}
+        {personalVault.lifecycle === "UNINITIALIZED" ? <PersonalVaultSetupForm /> : <PersonalVaultAccounts vaultId={personalVault.id} />}
       </section>
     </main>
   );
