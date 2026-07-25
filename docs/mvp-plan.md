@@ -65,6 +65,12 @@ Prisma runtime adapters use the pooled `DATABASE_URL`; Prisma CLI migrations and
 
 API contracts validate schemas with Zod. They never accept or return plaintext secrets, generated OTPs, raw QR payloads, plaintext vault keys, or private keys. The MVP uses server-side Prisma for application data access only; Supabase Data API/RLS hardening is explicitly deferred, so no browser or Supabase REST database access may be added before that security work is approved. Authenticated state-changing endpoints (vault/account changes, membership changes, key registration) are rate-limited; Supabase owns authentication-attempt limits. Read paths remain responsive under infrastructure protection.
 
+## Mobile UI reference
+
+Use [`ui-reference/rhasia-mobile/README.md`](ui-reference/rhasia-mobile/README.md) and its 15 numbered screen slices as the visual reference for the mobile experience. Every screen inherits the canonical [`ui-reference/rhasia-mobile/design-system.md`](ui-reference/rhasia-mobile/design-system.md) contract for tokens, layout, components, states, and accessibility. The reference maps each screen to the delivery slices and captures reusable OTP, countdown, Vault-card, role-badge, synchronization-status, and icon specimens.
+
+It is non-authoritative for behavior and terminology. In particular, do not reproduce its pictured PIN/auto-lock controls or “Can edit” role: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, and the Owner/Viewer role model defined above and in the ADRs. QR/raw URI handling, audit redaction, and offline write blocking remain security constraints even where the reference is silent.
+
 ## Slice 0 — architecture skeleton and quality gates
 
 ### Goal
