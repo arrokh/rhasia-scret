@@ -87,3 +87,4 @@ button, input { font: inherit; }
 .add-account-form { border-top: 1px solid #e2e8f0; padding-top: 16px; }
 .duplicate-account { display: flex; flex-wrap: wrap; gap: 8px; border-radius: 12px; background: #fff7ed; padding: 12px; color: #9a3412; }
 .duplicate-account p { width: 100%; margin: 0; font-size: .875rem; }
+.offline-notice { margin: 0; border: 1px solid #fbbf24; border-radius: 10px; background: #fffbeb; padding: 10px 12px; color: #92400e; font-size: .875rem; line-height: 1.4; }
