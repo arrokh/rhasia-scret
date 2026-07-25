@@ -1,1 +1,3 @@
-export const encryptionVersion = 1 as const;
+export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
+export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
+export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";

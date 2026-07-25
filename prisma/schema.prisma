@@ -15,6 +15,7 @@ model ApplicationUser {
   updatedAt      DateTime              @updatedAt @map("updated_at")
   ownedVaults    Vault[]               @relation("VaultOwner")
   memberships    VaultMember[]
+  cryptoProfile  UserCryptoProfile?
   @@map("application_users")
 }
 
@@ -23,7 +24,7 @@ model Vault {
   type                String
   lifecycle           String         @default("ACTIVE")
   ownerId             String         @map("owner_id")
-  encryptedName       Bytes          @map("encrypted_name")
+  encryptedName       Bytes?         @map("encrypted_name")
   encryptionVersion   Int            @map("encryption_version")
   deletedAt           DateTime?      @map("deleted_at")
   purgeAfter          DateTime?      @map("purge_after")
@@ -34,6 +35,19 @@ model Vault {
   accounts            AuthenticatorAccount[]
   @@index([ownerId, type, lifecycle])
   @@map("vaults")
+}
+
+model UserCryptoProfile {
+  userId                         String   @id @map("user_id")
+  vaultUnlockSalt                Bytes    @map("vault_unlock_salt")
+  wrappedUserRootKey             Bytes    @map("wrapped_user_root_key")
+  rootKeyWrappingVersion         Int      @map("root_key_wrapping_version")
+  encryptedPersonalVaultKey      Bytes    @map("encrypted_personal_vault_key")
+  personalVaultKeyEncryptionVersion Int   @map("personal_vault_key_encryption_version")
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+  user                           ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_crypto_profiles")
 }
 
 model VaultMember {
