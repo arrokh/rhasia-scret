@@ -4,6 +4,8 @@ export { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, generateS
 export type { EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
+export { unlockPersonalVault } from "./infrastructure/browser-personal-vault-unlock";
+export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-personal-vault-unlock";
 export { changeVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";

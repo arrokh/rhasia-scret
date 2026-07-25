@@ -1,7 +1,18 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import type { UserCryptoProfileRepository, UserRootKeyRewrap } from "../application/user-crypto-profile-repository";
+import type { EncryptedUserCryptoProfile, UserCryptoProfileRepository, UserRootKeyRewrap } from "../application/user-crypto-profile-repository";
 
 export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepository {
+  public async get(userId: string): Promise<EncryptedUserCryptoProfile | null> {
+    const profile = await prisma.userCryptoProfile.findUnique({ where: { userId } });
+    if (!profile) return null;
+    return {
+      vaultUnlockSalt: copyBytes(profile.vaultUnlockSalt),
+      wrappedUserRootKey: copyBytes(profile.wrappedUserRootKey),
+      encryptedPersonalVaultKey: copyBytes(profile.encryptedPersonalVaultKey),
+      encryptionVersion: profile.rootKeyWrappingVersion
+    };
+  }
+
   public async rewrapUserRootKey(userId: string, rewrap: UserRootKeyRewrap): Promise<void> {
     const updated = await prisma.userCryptoProfile.updateMany({
       where: { userId },
