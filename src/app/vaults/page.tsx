@@ -15,11 +15,14 @@ export default async function VaultsPage() {
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
 
   return (
-    <main>
-      <h1>Your Vaults</h1>
-      <p>Signed in as {user.email}</p>
-      <section aria-labelledby="personal-vault-heading">
-        <h2 id="personal-vault-heading">Personal Vault</h2>
+    <main className="vault-page">
+      <header className="vault-header">
+        <p className="eyebrow">YOUR VAULTS</p>
+        <h1>Authenticator accounts</h1>
+        <p className="vault-subtitle">Signed in as {user.email}</p>
+      </header>
+      <section className="vault-card" aria-labelledby="personal-vault-heading">
+        <div className="vault-card-heading"><div><p className="eyebrow">PERSONAL</p><h2 id="personal-vault-heading">Personal Vault</h2></div><span className="vault-lock" aria-label="Encrypted vault">🔒</span></div>
         {personalVault.lifecycle === "UNINITIALIZED" ? <PersonalVaultSetupForm /> : <PersonalVaultAccounts vaultId={personalVault.id} />}
       </section>
     </main>
