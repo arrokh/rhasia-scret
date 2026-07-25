@@ -6,6 +6,7 @@ import { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAc
 import { parseTotpUri } from "@/modules/otp-runtime";
 import { SharedVaultCreator } from "@/modules/vault-management";
 import { QrImportInput } from "./qr-import-input";
+import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 
 type ProfileResponse = { vaultUnlockSalt: string; wrappedUserRootKey: string; encryptedPersonalVaultKey: string; encryptionVersion: number; userEncryptionPublicKey?: JsonWebKey; encryptedUserPrivateKey?: string };
 type AccountResponse = { id: string; encryptedPayload: string };
@@ -18,6 +19,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const [uri, setUri] = useState("");
   const [error, setError] = useState("");
   const [duplicate, setDuplicate] = useState<DecryptedAuthenticatorAccount | null>(null);
+  const online = useOnlineStatus();
 
   async function unlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +53,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   }
 
   async function saveAccount(candidate: DecryptedAuthenticatorAccount) {
-    if (!vaultKey) return;
+    if (!vaultKey || !online) return;
     const encryptedPayload = await encryptAccountConfiguration(vaultKey, candidate);
     const response = await fetch(`/api/vaults/${vaultId}/accounts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedPayload: toBase64(encryptedPayload), encryptionVersion: 1 }) });
     if (!response.ok) throw new Error("save failed");
@@ -63,6 +65,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
 
   async function addAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!online) { setError("You are offline. Account changes are blocked and never queued."); return; }
     try {
       const candidate = parseTotpUri(uri);
       if (isDuplicateAccount(candidate, accounts)) {
@@ -85,7 +88,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   }
 
   if (!vaultKey) return <form className="auth-form vault-unlock-form" onSubmit={unlock}><p className="vault-flow-title">Unlock your vault</p><p className="vault-flow-copy">Your unlock secret stays on this device and is never sent to the service.</p><label htmlFor="vault-unlock-secret">Vault Unlock Secret</label><input id="vault-unlock-secret" type="password" value={secret} onChange={(event) => setSecret(event.target.value)} required /><button className="primary-button" type="submit">Unlock Personal Vault</button>{error && <p role="alert">{error}</p>}</form>;
-  return <section className="vault-accounts"><div className="vault-accounts-heading"><div><p className="eyebrow">AUTHENTICATORS</p><h2>Personal Vault accounts</h2></div><span className="account-count" aria-label={`${accounts.length} accounts`}>{accounts.length}</span></div>{userRootKey && <SharedVaultCreator userRootKey={userRootKey} />}{accounts.length ? <ul className="account-list">{accounts.map((account) => <li key={`${account.issuer}:${account.accountName}`}><strong>{account.issuer}</strong><span>{account.accountName}</span></li>)}</ul> : <p className="empty-accounts">No accounts yet. Add one from a QR code or authenticator URI.</p>}<QrImportInput onUri={setUri} /><form className="auth-form add-account-form" onSubmit={(event) => void addAccount(event)}><label htmlFor="account-uri">Authenticator URI</label><input id="account-uri" value={uri} onChange={(event) => setUri(event.target.value)} required /><button className="primary-button" type="submit">Add encrypted account</button></form>{duplicate && <aside className="duplicate-account"><p>A matching account already exists.</p><button type="button" onClick={() => setDuplicate(null)}>Cancel</button><button type="button" onClick={() => void addDuplicateAnyway()}>Add anyway</button></aside>}{error && <p role="alert">{error}</p>}</section>;
+  return <section className="vault-accounts"><div className="vault-accounts-heading"><div><p className="eyebrow">AUTHENTICATORS</p><h2>Personal Vault accounts</h2></div><span className="account-count" aria-label={`${accounts.length} accounts`}>{accounts.length}</span></div>{!online && <p className="offline-notice" role="status">Offline: read-only access is available; changes are blocked and never queued.</p>}{userRootKey && <SharedVaultCreator userRootKey={userRootKey} />}{accounts.length ? <ul className="account-list">{accounts.map((account) => <li key={`${account.issuer}:${account.accountName}`}><strong>{account.issuer}</strong><span>{account.accountName}</span></li>)}</ul> : <p className="empty-accounts">No accounts yet. Add one from a QR code or authenticator URI.</p>}<QrImportInput onUri={setUri} /><form className="auth-form add-account-form" onSubmit={(event) => void addAccount(event)}><label htmlFor="account-uri">Authenticator URI</label><input id="account-uri" value={uri} onChange={(event) => setUri(event.target.value)} required disabled={!online} /><button className="primary-button" type="submit" disabled={!online}>Add encrypted account</button></form>{duplicate && <aside className="duplicate-account"><p>A matching account already exists.</p><button type="button" onClick={() => setDuplicate(null)}>Cancel</button><button type="button" onClick={() => void addDuplicateAnyway()} disabled={!online}>Add anyway</button></aside>}{error && <p role="alert">{error}</p>}</section>;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
