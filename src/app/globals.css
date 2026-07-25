@@ -71,3 +71,19 @@ button, input { font: inherit; }
 .vault-card h2 { font-size: 1.25rem; }
 .vault-lock { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; background: #eef2ff; }
 @media (min-width: 640px) { .vault-page { padding-top: 48px; } }
+
+.vault-unlock-form { border-top: 1px solid #e2e8f0; padding-top: 20px; }
+.vault-flow-title { margin: 0; color: #172554; font-size: 1.1rem; font-weight: 700; }
+.vault-flow-copy { margin: -4px 0 8px; color: #64748b; font-size: .875rem; line-height: 1.45; }
+.vault-accounts { display: grid; gap: 16px; }
+.vault-accounts-heading { display: flex; align-items: center; justify-content: space-between; }
+.vault-accounts-heading h2 { margin: 0; color: #172554; font-size: 1.1rem; }
+.account-count { display: grid; min-width: 30px; height: 30px; place-items: center; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: .8rem; font-weight: 700; }
+.account-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.account-list li { display: grid; gap: 2px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px; }
+.account-list strong { color: #172554; font-size: .95rem; }
+.account-list span, .empty-accounts { color: #64748b; font-size: .875rem; line-height: 1.4; }
+.empty-accounts { margin: 0; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 16px; }
+.add-account-form { border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.duplicate-account { display: flex; flex-wrap: wrap; gap: 8px; border-radius: 12px; background: #fff7ed; padding: 12px; color: #9a3412; }
+.duplicate-account p { width: 100%; margin: 0; font-size: .875rem; }
