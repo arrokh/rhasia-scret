@@ -2,24 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useDeleteSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 
 export function OwnedSharedVaultResetBlocker({ vaultIds }: { vaultIds: string[] }) {
   const router = useRouter();
-  const [deletingVaultId, setDeletingVaultId] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const deleteMutation = useDeleteSharedVaultMutation();
 
-  async function deleteVault(vaultId: string) {
-    setDeletingVaultId(vaultId);
-    setError("");
-    try {
-      const response = await fetch(`/api/shared-vaults/${vaultId}/lifecycle`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Shared Vault deletion failed.");
-      router.refresh();
-    } catch {
-      setError("Brankas Bersama tidak dapat dihapus. Coba lagi.");
-      setDeletingVaultId(null);
-    }
+  function deleteVault(vaultId: string) {
+    deleteMutation.mutate(vaultId, { onSuccess: () => router.refresh() });
   }
 
   return (
@@ -36,17 +26,17 @@ export function OwnedSharedVaultResetBlocker({ vaultIds }: { vaultIds: string[] 
             <button
               className="danger-button"
               type="button"
-              disabled={deletingVaultId !== null}
-              aria-busy={deletingVaultId === vaultId}
-              onClick={() => void deleteVault(vaultId)}
+              disabled={deleteMutation.isPending}
+              aria-busy={deleteMutation.isPending && deleteMutation.variables === vaultId}
+              onClick={() => deleteVault(vaultId)}
             >
-              {deletingVaultId === vaultId ? "Menghapus…" : "Hapus brankas"}
+              {deleteMutation.isPending && deleteMutation.variables === vaultId ? "Menghapus…" : "Hapus brankas"}
             </button>
           </li>
         ))}
       </ul>
       <Link className="secondary-link" href="/vaults">Batal dan kembali</Link>
-      {error && <p className="form-status" role="alert">{error}</p>}
+      {deleteMutation.isError && <p className="form-status" role="alert">Brankas Bersama tidak dapat dihapus. Coba lagi.</p>}
     </div>
   );
 }

@@ -51,6 +51,28 @@ button, input, select { font: inherit; }
 .auth-form .checkbox-label { display: flex; align-items: flex-start; gap: 9px; line-height: 1.45; }
 .auth-form .checkbox-label input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 2px 0 0; padding: 0; accent-color: #312e81; }
 .auth-form .checkbox-label span { flex: 1; }
+.auth-form .passphrase-options { display: grid; gap: 10px; margin: 0; border: 0; padding: 0; }
+.auth-form .passphrase-options legend { margin-bottom: 8px; color: #334155; font-size: .875rem; font-weight: 600; }
+.auth-form .radio-label { display: flex; align-items: flex-start; gap: 9px; line-height: 1.45; }
+.auth-form .radio-label input[type="radio"] { flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 2px 0 0; padding: 0; accent-color: #312e81; }
+.auth-form .radio-label span { flex: 1; }
+.auth-form .generated-passphrase {
+  display: block;
+  color: #312e81;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .8125rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.auth-form .password-field { position: relative; }
+.auth-form .password-field input { width: 100%; padding-right: 48px; }
+.auth-form .password-visibility-button { position: absolute; top: 4px; right: 4px; display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #475569; cursor: pointer; }
+.auth-form .password-visibility-button:hover { color: #312e81; background: #eef2ff; }
+.auth-form .password-visibility-button:focus-visible { outline: 3px solid rgb(99 102 241 / 25%); }
+.auth-form .password-visibility-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .primary-button {
   min-height: 48px;
   border: 0;

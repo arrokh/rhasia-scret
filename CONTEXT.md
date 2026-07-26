@@ -24,7 +24,7 @@ The secret key that protects the encrypted contents of one Vault.
 _Avoid_: Vault password, master key
 
 **Vault Unlock Secret**:
-An app-specific passphrase of at least four randomly generated words, known only to the user, from which a client derives the Vault Unlock Key. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas**.
+An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase but accepts a user-created passphrase whose trimmed value is at least three characters long. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas**.
 _Avoid_: Rahasia Pembuka Brankas, PIN, Vault password, master key
 
 **Vault Unlock Key**:

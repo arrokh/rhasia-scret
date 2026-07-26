@@ -4,6 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SharedVaultManager } from "@/modules/vault-management/presentation/shared-vault-manager";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -24,10 +25,10 @@ describe("SharedVaultManager", () => {
   it("shows decrypted Shared Vaults and opens creation from the plus control", async () => {
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(SharedVaultManager, {
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultManager, {
       userRootKey: new Uint8Array(32),
       vaults: [{ id: "shared-1", name: "Tim Operasional", role: "OWNER" }]
-    })));
+    }))));
 
     await act(async () => findButton(container, "Brankas Bersama").click());
 

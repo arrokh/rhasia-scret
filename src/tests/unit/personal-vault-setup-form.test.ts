@@ -9,7 +9,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const cryptoMocks = vi.hoisted(() => ({
   generateVaultUnlockSecret: vi.fn(),
-  initializePersonalVaultInBrowser: vi.fn()
+  initializePersonalVaultInBrowser: vi.fn(),
+  validateVaultUnlockSecret: vi.fn((secret: string) => {
+    if (secret.trim().length < 3) throw new Error("At least three characters are required.");
+  })
 }));
 const navigationMocks = vi.hoisted(() => ({ refresh: vi.fn() }));
 
@@ -17,9 +20,13 @@ vi.mock("@/modules/crypto", () => cryptoMocks);
 vi.mock("next/navigation", () => ({ useRouter: () => navigationMocks }));
 
 import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("PersonalVaultSetupForm", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
 
   it("does not render a random Vault Unlock Secret until the client has hydrated", async () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
@@ -28,7 +35,7 @@ describe("PersonalVaultSetupForm", () => {
       .mockReturnValueOnce("canvas rabbit antenna volcano winter velvet");
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
-    const form = createElement(StrictMode, null, createElement(PersonalVaultSetupForm));
+    const form = createElement(StrictMode, null, createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
     container.innerHTML = renderToString(form);
 
     expect(cryptoMocks.generateVaultUnlockSecret).not.toHaveBeenCalled();
@@ -53,7 +60,85 @@ describe("PersonalVaultSetupForm", () => {
     await act(async () => root?.unmount());
   });
 
-  it("lets native validation explain missing confirmation or acknowledgement instead of silently disabling submit", async () => {
+  it("lets the user choose and submit their own Passphrase Brankas", async () => {
+    cryptoMocks.generateVaultUnlockSecret.mockReset();
+    cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
+    cryptoMocks.initializePersonalVaultInBrowser.mockReset();
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
+      vaultUnlockSalt: new Uint8Array(16),
+      wrappedUserRootKey: new Uint8Array(13),
+      encryptedPersonalVaultKey: new Uint8Array(13),
+      encryptedVaultName: new Uint8Array(13),
+      encryptionVersion: 1
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = createRoot(container);
+      root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
+    });
+
+    const customMode = container.querySelectorAll<HTMLInputElement>('input[name="secretMode"]')[1];
+    await act(async () => customMode.click());
+
+    expect(container.querySelector("output")).toBeNull();
+    expect(container.textContent).toContain("minimal 3 karakter");
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const customSecret = container.querySelector<HTMLInputElement>("#custom-unlock-secret");
+    const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
+    const acknowledgement = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const showCustomSecret = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Passphrase Brankas Anda"]');
+    const showConfirmation = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Konfirmasi Passphrase Brankas"]');
+
+    expect(customSecret?.type).toBe("password");
+    expect(confirmation?.type).toBe("password");
+    await act(async () => {
+      showCustomSecret?.click();
+      showConfirmation?.click();
+    });
+    expect(customSecret?.type).toBe("text");
+    expect(confirmation?.type).toBe("text");
+    expect(container.querySelector('[aria-label="Sembunyikan Passphrase Brankas Anda"]')).not.toBeNull();
+
+    await act(async () => {
+      setInputValue(customSecret, "abc");
+      setInputValue(confirmation, "abd");
+    });
+    expect(confirmation?.getAttribute("aria-invalid")).toBe("true");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("tidak cocok dengan Passphrase Brankas Anda");
+
+    await act(async () => {
+      setInputValue(customSecret, "ab");
+      setInputValue(confirmation, "ab");
+      acknowledgement?.click();
+    });
+    await act(async () => form?.requestSubmit());
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("minimal 3 karakter");
+    expect(confirmation?.getAttribute("aria-invalid")).toBe("false");
+    expect(cryptoMocks.initializePersonalVaultInBrowser).not.toHaveBeenCalled();
+
+    await act(async () => {
+      setInputValue(customSecret, "abc");
+      setInputValue(confirmation, "abc");
+    });
+    await act(async () => form?.requestSubmit());
+
+    expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith(
+      "abc",
+      "Brankas Pribadi"
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/initialize", expect.objectContaining({ method: "POST" }));
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    await act(async () => root?.unmount());
+  });
+
+  it("lets TanStack Form explain missing confirmation or acknowledgement instead of silently disabling submit", async () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
     cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
     cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
@@ -70,7 +155,7 @@ describe("PersonalVaultSetupForm", () => {
 
     await act(async () => {
       root = createRoot(container);
-      root.render(createElement(PersonalVaultSetupForm));
+      root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
     });
 
     const form = container.querySelector<HTMLFormElement>("form");

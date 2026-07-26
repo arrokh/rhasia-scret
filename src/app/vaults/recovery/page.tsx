@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PasskeyRecoveryReset } from "@/modules/crypto";
+import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
@@ -21,9 +22,7 @@ export default async function VaultRecoveryPage() {
           <h1>Pemulihan brankas</h1>
           <p className="vault-subtitle">Masuk sebagai {user.email}</p>
         </div>
-        <form action="/auth/logout" method="post">
-          <button className="logout-button" type="submit">Keluar</button>
-        </form>
+        <LogoutForm />
       </header>
       <section className="vault-card" aria-label="Atur ulang Passphrase Brankas">
         {eligibility.passkeyRecoveryEnrolled ? <PasskeyRecoveryReset /> : eligibility.activeOwnedSharedVaults > 0 ? (

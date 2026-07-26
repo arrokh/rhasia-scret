@@ -30,6 +30,7 @@ vi.mock("@/modules/vault-management/infrastructure/prisma-destructive-personal-v
 }));
 
 import VaultRecoveryPage from "@/app/vaults/recovery/page";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("VaultRecoveryPage", () => {
   beforeEach(() => {
@@ -39,7 +40,7 @@ describe("VaultRecoveryPage", () => {
   it("offers destructive reset when passkey recovery was not enrolled", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: false, activeOwnedSharedVaults: 0, activeOwnedSharedVaultIds: [] });
 
-    const markup = renderToStaticMarkup(await VaultRecoveryPage());
+    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"destructive-reset\"");
     expect(markup).not.toContain("data-testid=\"passkey-reset\"");
@@ -48,7 +49,7 @@ describe("VaultRecoveryPage", () => {
   it("renders the non-destructive reset form when passkey recovery is enrolled", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: true, activeOwnedSharedVaults: 0, activeOwnedSharedVaultIds: [] });
 
-    const markup = renderToStaticMarkup(await VaultRecoveryPage());
+    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"passkey-reset\"");
     expect(markup).not.toContain("data-testid=\"destructive-reset\"");
@@ -57,7 +58,7 @@ describe("VaultRecoveryPage", () => {
   it("blocks destructive reset while the user owns an active Shared Vault", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: false, activeOwnedSharedVaults: 2, activeOwnedSharedVaultIds: ["vault-1", "vault-2"] });
 
-    const markup = renderToStaticMarkup(await VaultRecoveryPage());
+    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"owned-vault-blocker\"");
     expect(markup).toContain("2 owned vaults");

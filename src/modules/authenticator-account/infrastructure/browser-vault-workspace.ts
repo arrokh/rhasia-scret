@@ -5,6 +5,8 @@ import {
   serializeEncryptedEnvelope,
   unlockPersonalVault
 } from "@/modules/crypto";
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 import { unlockSharedVault } from "@/modules/vault-membership";
 import { decryptAccountConfiguration, type DecryptedAuthenticatorAccount } from "./browser-account-payload";
 
@@ -60,18 +62,18 @@ export async function loadUnlockedVaultWorkspace(
   vaultUnlockSecret: string,
   personalVaultId: string
 ): Promise<UnlockedVaultWorkspace> {
-  const profile = await fetchJson<ProfileResponse>("/api/user-crypto-profile");
+  const profile = await browserApiClient.getJson<ProfileResponse>("/api/user-crypto-profile", { cache: "no-store" });
   const unlockedPersonalVault = await unlockPersonalVault(vaultUnlockSecret, {
-    vaultUnlockSalt: fromBase64(profile.vaultUnlockSalt),
-    wrappedUserRootKey: fromBase64(profile.wrappedUserRootKey),
-    encryptedPersonalVaultKey: fromBase64(profile.encryptedPersonalVaultKey),
+    vaultUnlockSalt: base64ToBytes(profile.vaultUnlockSalt),
+    wrappedUserRootKey: base64ToBytes(profile.wrappedUserRootKey),
+    encryptedPersonalVaultKey: base64ToBytes(profile.encryptedPersonalVaultKey),
     encryptionVersion: profile.encryptionVersion
   });
   await ensureUserEncryptionIdentity(profile, unlockedPersonalVault.userRootKey);
 
   const [personalAccounts, encryptedSharedVaults] = await Promise.all([
-    fetchJson<EncryptedAccountResponse[]>(`/api/vaults/${personalVaultId}/accounts`),
-    fetchJson<SharedVaultResponse[]>("/api/shared-vaults")
+    browserApiClient.getJson<EncryptedAccountResponse[]>(`/api/vaults/${personalVaultId}/accounts`, { cache: "no-store" }),
+    browserApiClient.getJson<SharedVaultResponse[]>("/api/shared-vaults", { cache: "no-store" })
   ]);
   const personalVault: UnlockedVault = {
     id: personalVaultId,
@@ -84,8 +86,8 @@ export async function loadUnlockedVaultWorkspace(
   const sharedResults = await Promise.allSettled(encryptedSharedVaults.map(async (encryptedVault) => {
     const unlocked = await unlockSharedVault(
       unlockedPersonalVault.userRootKey,
-      fromBase64(encryptedVault.encryptedVaultKey),
-      fromBase64(encryptedVault.encryptedName)
+      base64ToBytes(encryptedVault.encryptedVaultKey),
+      base64ToBytes(encryptedVault.encryptedName)
     );
     const vault: UnlockedVault = {
       id: encryptedVault.vaultId,
@@ -120,29 +122,18 @@ async function decryptAccounts(
     vaultId: vault.id,
     vaultName: vault.name,
     vaultType: vault.type,
-    ...await decryptAccountConfiguration(vault.key, fromBase64(account.encryptedPayload))
+    ...await decryptAccountConfiguration(vault.key, base64ToBytes(account.encryptedPayload))
   })));
 }
 
 async function ensureUserEncryptionIdentity(profile: ProfileResponse, userRootKey: Uint8Array) {
   if (profile.userEncryptionPublicKey && profile.encryptedUserPrivateKey) return;
   const identity = await createUserEncryptionIdentity(userRootKey);
-  const response = await fetch("/api/user-encryption-identity", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      publicKey: identity.publicKey,
-      encryptedPrivateKey: toBase64(serializeEncryptedEnvelope(identity.encryptedPrivateKey)),
-      encryptionVersion: 1
-    })
+  await browserApiClient.putEmpty("/api/user-encryption-identity", {
+    publicKey: identity.publicKey,
+    encryptedPrivateKey: bytesToBase64(serializeEncryptedEnvelope(identity.encryptedPrivateKey)),
+    encryptionVersion: 1
   });
-  if (!response.ok) throw new Error("Tidak dapat mendaftarkan identitas enkripsi pengguna.");
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error("Request failed.");
-  return response.json() as Promise<T>;
 }
 
 function sortWorkspaceAccounts(accounts: WorkspaceAuthenticatorAccount[]): WorkspaceAuthenticatorAccount[] {
@@ -151,15 +142,4 @@ function sortWorkspaceAccounts(accounts: WorkspaceAuthenticatorAccount[]): Works
       || left.accountName.localeCompare(right.accountName)
       || left.vaultName.localeCompare(right.vaultName)
   );
-}
-
-function fromBase64(value: string): Uint8Array {
-  const binary = atob(value);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
 }

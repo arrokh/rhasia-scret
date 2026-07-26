@@ -1,5 +1,7 @@
 "use client";
 
+import { base64UrlToBytes, bytesToBase64Url } from "@/shared/infrastructure/browser-base64";
+
 export async function createPasskeyCredential(options: PublicKeyCredentialCreationOptionsJSON): Promise<{ registrationResponse: unknown; prfOutput: Uint8Array; prfSalt: Uint8Array }> {
   const credential = await navigator.credentials.create({ publicKey: registrationOptions(options) });
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Passkey registration was cancelled.");
@@ -14,7 +16,7 @@ export async function evaluatePasskeyPrf(credentialId: Uint8Array, rpId: string,
 }
 
 export async function authenticatePasskey(options: PublicKeyCredentialRequestOptionsJSON): Promise<unknown> {
-  const credential = await navigator.credentials.get({ publicKey: { challenge: fromBase64Url(options.challenge), rpId: options.rpId, timeout: options.timeout, userVerification: options.userVerification as UserVerificationRequirement | undefined, allowCredentials: options.allowCredentials?.map((item) => ({ type: "public-key", id: fromBase64Url(item.id), transports: item.transports?.filter(isAuthenticatorTransport) })) } });
+  const credential = await navigator.credentials.get({ publicKey: { challenge: base64UrlToBytes(options.challenge), rpId: options.rpId, timeout: options.timeout, userVerification: options.userVerification as UserVerificationRequirement | undefined, allowCredentials: options.allowCredentials?.map((item) => ({ type: "public-key", id: base64UrlToBytes(item.id), transports: item.transports?.filter(isAuthenticatorTransport) })) } });
   if (!(credential instanceof PublicKeyCredential) || !(credential.response instanceof AuthenticatorAssertionResponse)) throw new Error("Passkey recovery was cancelled.");
   const response = credential.response;
   return { id: credential.id, rawId: toBase64Url(credential.rawId), type: credential.type, response: { authenticatorData: toBase64Url(response.authenticatorData), clientDataJSON: toBase64Url(response.clientDataJSON), signature: toBase64Url(response.signature), userHandle: response.userHandle ? toBase64Url(response.userHandle) : undefined }, clientExtensionResults: credential.getClientExtensionResults() };
@@ -32,7 +34,7 @@ async function evaluatePrf(credentialId: ArrayBuffer, rpId: string, prfSalt: Uin
 }
 
 function registrationOptions(options: PublicKeyCredentialCreationOptionsJSON): PublicKeyCredentialCreationOptions {
-  return { challenge: fromBase64Url(options.challenge), rp: options.rp, user: { ...options.user, id: fromBase64Url(options.user.id) }, pubKeyCredParams: options.pubKeyCredParams, timeout: options.timeout, attestation: options.attestation as AttestationConveyancePreference | undefined, authenticatorSelection: options.authenticatorSelection, excludeCredentials: options.excludeCredentials?.map((credential) => ({ type: "public-key", id: fromBase64Url(credential.id), transports: credential.transports?.filter(isAuthenticatorTransport) })), extensions: options.extensions as AuthenticationExtensionsClientInputs };
+  return { challenge: base64UrlToBytes(options.challenge), rp: options.rp, user: { ...options.user, id: base64UrlToBytes(options.user.id) }, pubKeyCredParams: options.pubKeyCredParams, timeout: options.timeout, attestation: options.attestation as AttestationConveyancePreference | undefined, authenticatorSelection: options.authenticatorSelection, excludeCredentials: options.excludeCredentials?.map((credential) => ({ type: "public-key", id: base64UrlToBytes(credential.id), transports: credential.transports?.filter(isAuthenticatorTransport) })), extensions: options.extensions as AuthenticationExtensionsClientInputs };
 }
 
 function registrationResponseJson(credential: PublicKeyCredential): unknown {
@@ -53,6 +55,5 @@ function prfResult(value: unknown): ArrayBuffer | null {
 
 function isAuthenticatorTransport(value: string): value is AuthenticatorTransport { return ["ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb"].includes(value); }
 function toArrayBuffer(bytes: ArrayBufferLike | Uint8Array): ArrayBuffer { const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes); const copy = new Uint8Array(input.byteLength); copy.set(input); return copy.buffer; }
-function fromBase64Url(value: string): Uint8Array<ArrayBuffer> { const normalized = value.replace(/-/g, "+").replace(/_/g, "/"); const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
-function toBase64Url(bytes: ArrayBuffer): string { let binary = ""; for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte); return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""); }
+function toBase64Url(bytes: ArrayBuffer): string { return bytesToBase64Url(new Uint8Array(bytes)); }
 function randomBytes(length: number): Uint8Array { const bytes = new Uint8Array(length); crypto.getRandomValues(bytes); return bytes; }

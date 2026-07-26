@@ -1,23 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { createPasskeyCredential } from "../infrastructure/browser-passkey-prf";
-import { createPasskeyRecoveryPackage } from "../infrastructure/browser-passkey-recovery-package";
+import { enrollPasskeyRecovery } from "../infrastructure/browser-passkey-recovery-workflow";
 
 export function PasskeyRecoveryEnrollment({ userRootKey }: { userRootKey: Uint8Array }) {
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<"idle" | "enrolling" | "success" | "error">("idle");
+
   async function enroll() {
+    setStatus("enrolling");
     try {
-      setStatus("Membuat pemulihan kunci akses…");
-      const options = await fetchJson<PublicKeyCredentialCreationOptionsJSON>("/api/passkey-recovery/registration/options");
-      const credential = await createPasskeyCredential(options);
-      const encryptedRecoveryPackage = toBase64(await createPasskeyRecoveryPackage(userRootKey, credential.prfOutput, credential.prfSalt));
-      const response = await fetch("/api/passkey-recovery/registration/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ response: credential.registrationResponse, encryptedRecoveryPackage }) });
-      if (!response.ok) throw new Error("Pendaftaran pemulihan kunci akses gagal.");
-      setStatus("Pemulihan kunci akses diaktifkan di perangkat ini.");
-    } catch { setStatus("Tidak dapat mengaktifkan pemulihan kunci akses. Browser ini harus mendukung PRF WebAuthn."); }
+      await enrollPasskeyRecovery(userRootKey);
+      setStatus("success");
+    } catch {
+      setStatus("error");
+    }
   }
-  return <section className="passkey-recovery"><p>Pemulihan kunci akses opsional melindungi paket pemulihan terenkripsi; layanan tidak pernah menerima kunci brankas yang dapat digunakan.</p><button className="primary-button" type="button" onClick={() => void enroll()}>Aktifkan pemulihan kunci akses</button>{status && <p aria-live="polite">{status}</p>}</section>;
+
+  return (
+    <section className="passkey-recovery">
+      <p>Pemulihan kunci akses opsional melindungi paket pemulihan terenkripsi; layanan tidak pernah menerima kunci brankas yang dapat digunakan.</p>
+      <button className="primary-button" type="button" onClick={() => void enroll()} disabled={status === "enrolling"} aria-busy={status === "enrolling"}>
+        {status === "enrolling" ? "Membuat pemulihan kunci akses…" : "Aktifkan pemulihan kunci akses"}
+      </button>
+      <p aria-live="polite">
+        {status === "success" && "Pemulihan kunci akses diaktifkan di perangkat ini."}
+        {status === "error" && "Tidak dapat mengaktifkan pemulihan kunci akses. Browser ini harus mendukung PRF WebAuthn."}
+      </p>
+    </section>
+  );
 }
-async function fetchJson<T>(url: string): Promise<T> { const response = await fetch(url, { method: "POST", cache: "no-store" }); if (!response.ok) throw new Error("request failed"); return response.json() as Promise<T>; }
-function toBase64(bytes: Uint8Array): string { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }

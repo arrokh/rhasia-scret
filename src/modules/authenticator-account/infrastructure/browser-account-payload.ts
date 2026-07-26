@@ -2,6 +2,7 @@
 
 import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, serializeEncryptedEnvelope } from "@/modules/crypto";
 import type { TotpConfiguration } from "@/modules/otp-runtime";
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 
 export type DecryptedAuthenticatorAccount = Omit<TotpConfiguration, "secret"> & { secret: Uint8Array };
 
@@ -9,7 +10,7 @@ export async function encryptAccountConfiguration(vaultKey: Uint8Array, configur
   const payload = JSON.stringify({
     issuer: configuration.issuer,
     accountName: configuration.accountName,
-    secret: toBase64(configuration.secret),
+    secret: bytesToBase64(configuration.secret),
     algorithm: configuration.algorithm,
     digits: configuration.digits,
     period: configuration.period
@@ -27,7 +28,7 @@ export async function decryptAccountConfiguration(vaultKey: Uint8Array, encrypte
   if (record.algorithm !== "SHA-1" && record.algorithm !== "SHA-256" && record.algorithm !== "SHA-512") throw new Error("Encrypted account payload is invalid.");
   if (record.digits !== 6 && record.digits !== 8) throw new Error("Encrypted account payload is invalid.");
   if (typeof record.period !== "number" || !Number.isSafeInteger(record.period) || record.period <= 0) throw new Error("Encrypted account payload is invalid.");
-  return { issuer: record.issuer, accountName: record.accountName, secret: fromBase64(record.secret), algorithm: record.algorithm, digits: record.digits, period: record.period };
+  return { issuer: record.issuer, accountName: record.accountName, secret: base64ToBytes(record.secret), algorithm: record.algorithm, digits: record.digits, period: record.period };
 }
 
 export function sortAccounts(accounts: DecryptedAuthenticatorAccount[]): DecryptedAuthenticatorAccount[] {
@@ -41,17 +42,4 @@ export function isDuplicateAccount(candidate: DecryptedAuthenticatorAccount, acc
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   if (left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-function fromBase64(value: string): Uint8Array {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
 }

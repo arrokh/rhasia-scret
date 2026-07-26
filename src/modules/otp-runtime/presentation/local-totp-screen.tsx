@@ -1,18 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
 import { generateTotp } from "../application/generate-totp";
 import { hasClockDrift } from "../domain/clock-drift";
 import { parseTotpUri, type TotpConfiguration } from "../domain/totp-configuration";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
+import { useServerTimeQuery } from "./hooks/use-server-time-query";
 
 export function LocalTotpScreen() {
-  const [uri, setUri] = useState("");
   const [configuration, setConfiguration] = useState<TotpConfiguration | null>(null);
   const [code, setCode] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
-  const [clockDriftWarning, setClockDriftWarning] = useState(false);
+  const serverTime = useServerTimeQuery(configuration !== null);
+  const clockDriftWarning = serverTime.data ? hasClockDrift(new Date(), serverTime.data) : false;
+  const form = useForm({
+    defaultValues: { uri: "" },
+    onSubmit: ({ value }) => {
+      try {
+        setConfiguration(parseTotpUri(value.uri));
+        setError("");
+      } catch (reason) {
+        setConfiguration(null);
+        setCode("");
+        setError(reason instanceof Error ? reason.message : "URI autentikator tidak valid.");
+      }
+    }
+  });
 
   useEffect(() => {
     if (!configuration) return;
@@ -32,28 +48,6 @@ export function LocalTotpScreen() {
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [configuration]);
 
-  useEffect(() => {
-    if (!configuration) return;
-    let cancelled = false;
-    void fetch("/api/time", { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() as Promise<{ now: string }> : Promise.reject(new Error("time unavailable")))
-      .then(({ now }) => { if (!cancelled) setClockDriftWarning(hasClockDrift(new Date(), new Date(now))); })
-      .catch(() => { if (!cancelled) setClockDriftWarning(false); });
-    return () => { cancelled = true; };
-  }, [configuration]);
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    try {
-      setConfiguration(parseTotpUri(uri));
-      setError("");
-    } catch (reason) {
-      setConfiguration(null);
-      setCode("");
-      setError(reason instanceof Error ? reason.message : "URI autentikator tidak valid.");
-    }
-  }
-
   async function copyCode() {
     if (!code) return;
     await navigator.clipboard.writeText(code);
@@ -64,10 +58,13 @@ export function LocalTotpScreen() {
       <section className="auth-card" aria-labelledby="totp-title">
         <h1 id="totp-title">TOTP Lokal</h1>
         <p>Tempel URI TOTP yang didukung. URI diproses dan hanya digunakan di browser ini.</p>
-        <form className="auth-form" onSubmit={submit}>
-          <label htmlFor="totp-uri">URI autentikator</label>
-          <input id="totp-uri" value={uri} onChange={(event) => setUri(event.target.value)} autoComplete="off" required />
-          <button className="primary-button" type="submit">Buat kode</button>
+        <form noValidate className="auth-form" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
+          <form.Field name="uri" validators={{ onSubmit: requiredText("URI autentikator") }}>
+            {(field) => <><label htmlFor="totp-uri">URI autentikator</label><input id="totp-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "totp-uri-error" : undefined} required /><FormFieldError id="totp-uri-error" errors={field.state.meta.errors} /></>}
+          </form.Field>
+          <form.Subscribe selector={(formState) => formState.isSubmitting}>
+            {(isSubmitting) => <button className="primary-button" type="submit" disabled={isSubmitting}>Buat kode</button>}
+          </form.Subscribe>
         </form>
         {error && <p className="form-status" role="alert">{error}</p>}
         {clockDriftWarning && <p className="form-status" role="alert">Waktu perangkat Anda berbeda lebih dari 30 detik dari server. Kode mungkin gagal.</p>}

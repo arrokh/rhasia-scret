@@ -27,6 +27,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace"
 vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: () => null }));
 
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account/presentation/authenticator-account-creator";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("AuthenticatorAccountCreator", () => {
   let root: Root | undefined;
@@ -53,7 +54,7 @@ describe("AuthenticatorAccountCreator", () => {
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1" })));
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1" }))));
 
     await act(async () => {
       setInputValue(container.querySelector("#account-vault-unlock-secret"), "four random secret words");

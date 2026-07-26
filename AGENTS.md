@@ -17,6 +17,16 @@
 - Server code must not import client crypto/decryption or OTP runtime modules.
 - Use server-side Prisma for application data access. Supabase Data API/RLS hardening is deferred; do not add browser or Supabase REST database access until that work is explicitly approved.
 
+### Client forms and server state
+
+- Implement interactive forms with TanStack Form. Keep field state, submission state, validation, and accessible warnings in the form model; associate errors with controls through `aria-invalid` and `aria-describedby`.
+- Put TanStack Query operations in context-owned hooks under `src/modules/<context>/presentation/hooks/`. Group hooks by cohesive use case or aggregate (for example Personal Vault versus Shared Vault), use stable context-prefixed keys, and keep components free of raw query configuration.
+- Presentation components must not call `fetch` directly. Context infrastructure clients own endpoint paths, request/response types, and context-specific error mapping; reuse the shared `BrowserApiClient` for identical HTTP transport and JSON behavior.
+- Centralize only genuinely identical mechanics in shared classes or helpers. Keep domain language, endpoint semantics, authorization outcomes, and use-case orchestration inside the owning bounded context; do not create a cross-context god client or generic repository.
+- Use TanStack Query only for permitted server state. Never place plaintext TOTP secrets, raw QR data, generated OTPs, Vault Encryption Keys, User Root Keys, Vault Unlock Secrets, private encryption keys, or decrypted Vault content in query keys, query results, mutation variables, mutation results, or mutation-function closures retained by the cache.
+- Keep unlock, decryption, OTP, and passkey-recovery workflows as direct client-only operations outside TanStack Query. Do not persist the Query Client cache. Route all app content through the root `QueryProvider`, and use an isolated Query Client in component tests.
+- Maintain architecture tests that inventory all forms, reject direct presentation-layer `fetch`, reject TanStack Query imports outside presentation hooks/providers, and verify Query Client persistence remains disabled.
+
 ## Quality
 
 - Generate Prisma migrations only with the Prisma CLI (`prisma migrate dev`); never author migration SQL by hand. Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for Prisma migrations, introspection, and administrative tooling.

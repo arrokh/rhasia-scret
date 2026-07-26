@@ -20,6 +20,7 @@ vi.mock("@/modules/crypto", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }) }));
 
 import { DestructivePersonalVaultResetForm } from "@/modules/vault-management/presentation/destructive-personal-vault-reset-form";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("DestructivePersonalVaultResetForm", () => {
   let root: Root | undefined;
@@ -36,7 +37,7 @@ describe("DestructivePersonalVaultResetForm", () => {
     const container = document.createElement("div");
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(DestructivePersonalVaultResetForm)));
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
     expect(container.textContent).toContain("Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus");
     await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
@@ -57,7 +58,7 @@ describe("DestructivePersonalVaultResetForm", () => {
     const container = document.createElement("div");
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(DestructivePersonalVaultResetForm)));
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
     await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "hapus data brankas"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
