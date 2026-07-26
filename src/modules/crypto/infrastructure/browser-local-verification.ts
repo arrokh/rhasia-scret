@@ -9,9 +9,11 @@ export function supportsLocalVerification(): boolean {
   return typeof window !== "undefined" && window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials;
 }
 
-export async function enrollRememberedBrowser(profileId: string, userRootKey: Uint8Array): Promise<void> {
+export async function enrollRememberedBrowser(profileId: string, userRootKey: Uint8Array, signal?: AbortSignal): Promise<void> {
   if (!supportsLocalVerification()) throw new Error("Verifikasi Lokal tidak tersedia di browser ini.");
+  if (userRootKey.length !== 32) throw new Error("User Root Key tidak valid.");
   const rpId = window.location.hostname;
+  throwIfAborted(signal);
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
@@ -24,13 +26,16 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
     }
   });
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Pendaftaran Verifikasi Lokal dibatalkan.");
-
+  throwIfAborted(signal);
+  const retainedUserRootKey = userRootKey.slice();
   const prfSalt = randomBytes(32);
   let prfOutput: Uint8Array | undefined;
   let encryptedPackage: Uint8Array | undefined;
   try {
     prfOutput = await evaluatePasskeyPrf(new Uint8Array(credential.rawId), rpId, prfSalt);
-    encryptedPackage = await createPasskeyRecoveryPackage(userRootKey, prfOutput, prfSalt);
+    throwIfAborted(signal);
+    encryptedPackage = await createPasskeyRecoveryPackage(retainedUserRootKey, prfOutput, prfSalt);
+    throwIfAborted(signal);
     await new BrowserOfflineVaultRepository().saveRememberedBrowser({
       version: 1,
       profileId,
@@ -41,35 +46,73 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
       enrolledAt: new Date().toISOString()
     });
   } finally {
+    retainedUserRootKey.fill(0);
     prfOutput?.fill(0);
     encryptedPackage?.fill(0);
     prfSalt.fill(0);
   }
 }
 
-export async function recoverUserRootKeyWithRememberedBrowser(profileId: string): Promise<Uint8Array> {
+export async function recoverUserRootKeyWithRememberedBrowser(profileId: string, signal?: AbortSignal): Promise<Uint8Array> {
   if (!supportsLocalVerification()) throw new Error("Verifikasi Lokal tidak tersedia di browser ini.");
   const browserPackage = await new BrowserOfflineVaultRepository().readRememberedBrowser(profileId);
   if (!browserPackage) throw new Error("Browser ini belum diingat.");
-  if (browserPackage.origin !== window.location.origin || browserPackage.rpId !== window.location.hostname) throw new Error("Paket Browser yang Diingat tidak berlaku untuk situs ini.");
+  assertCurrentSite(browserPackage.origin, browserPackage.rpId);
 
+  throwIfAborted(signal);
   const encryptedPackage = base64ToBytes(browserPackage.encryptedUserRootKeyPackage);
-  const prfSalt = passkeyRecoverySalt(encryptedPackage);
+  let prfSalt: Uint8Array | undefined;
   let prfOutput: Uint8Array | undefined;
   try {
+    prfSalt = passkeyRecoverySalt(encryptedPackage);
     prfOutput = await evaluatePasskeyPrf(base64ToBytes(browserPackage.credentialId), browserPackage.rpId, prfSalt);
+    throwIfAborted(signal);
     const recovered = await recoverUserRootKeyFromPasskeyPackage(prfOutput, encryptedPackage);
+    if (signal?.aborted) { recovered.userRootKey.fill(0); recovered.prfSalt.fill(0); throwIfAborted(signal); }
     recovered.prfSalt.fill(0);
     return recovered.userRootKey;
   } finally {
     prfOutput?.fill(0);
-    prfSalt.fill(0);
+    prfSalt?.fill(0);
     encryptedPackage.fill(0);
   }
 }
 
+export async function rememberedBrowserEnrollment(profileId: string): Promise<{ enrolledAt: string } | null> {
+  const browserPackage = await new BrowserOfflineVaultRepository().readRememberedBrowser(profileId);
+  if (!browserPackage) return null;
+  assertCurrentSite(browserPackage.origin, browserPackage.rpId);
+  return { enrolledAt: browserPackage.enrolledAt };
+}
+
+export async function hasRememberedBrowserForPersonalVault(personalVaultId: string): Promise<boolean> {
+  if (!supportsLocalVerification()) return false;
+  const repository = new BrowserOfflineVaultRepository();
+  const profiles = await repository.listProfiles();
+  for (const profile of profiles) {
+    if (profile.personalVaultId !== personalVaultId) continue;
+    try {
+      const browserPackage = await repository.readRememberedBrowser(profile.profileId);
+      if (!browserPackage) continue;
+      assertCurrentSite(browserPackage.origin, browserPackage.rpId);
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
 export async function forgetRememberedBrowser(profileId: string): Promise<void> {
   await new BrowserOfflineVaultRepository().removeRememberedBrowser(profileId);
+}
+
+function assertCurrentSite(origin: string, rpId: string): void {
+  if (origin !== window.location.origin || rpId !== window.location.hostname) throw new Error("Paket Browser yang Diingat tidak berlaku untuk situs ini.");
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException("Remembered Browser operation was cancelled.", "AbortError");
 }
 
 function randomBytes(length: number): Uint8Array<ArrayBuffer> {

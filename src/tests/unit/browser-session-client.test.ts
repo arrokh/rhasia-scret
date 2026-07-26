@@ -8,16 +8,27 @@ vi.mock("@/modules/sync", () => ({ clearAllOfflineVaultData: mocks.clearAllOffli
 import { terminateBrowserSession } from "@/modules/identity/infrastructure/browser-session-client";
 
 describe("terminateBrowserSession", () => {
-  afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); });
 
   it("clears all local snapshot and Remembered Browser data before successful server logout", async () => {
     const order: string[] = [];
+    mocks.requestLocalVaultLock.mockImplementation(() => { order.push("in-memory-lock"); });
     mocks.clearAllOfflineVaultData.mockImplementation(async () => { order.push("local-cleanup"); });
     vi.stubGlobal("fetch", vi.fn(async () => { order.push("server-logout"); return { ok: true, url: "/?auth=signed_out" }; }));
 
     await expect(terminateBrowserSession()).resolves.toBe("/?auth=signed_out");
-    expect(order).toEqual(["local-cleanup", "server-logout"]);
+    expect(order).toEqual(["in-memory-lock", "local-cleanup", "server-logout"]);
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+  });
+
+  it("locks in-memory keys even when local cleanup fails", async () => {
+    mocks.clearAllOfflineVaultData.mockRejectedValue(new Error("IndexedDB unavailable"));
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/IndexedDB unavailable/);
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps local cleanup complete when server logout fails", async () => {
