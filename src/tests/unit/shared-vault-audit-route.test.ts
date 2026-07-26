@@ -23,9 +23,15 @@ describe("Shared Vault audit route", () => {
   });
 
   it("applies exact account and actor filters before returning redacted owner-only events", async () => {
-    mocks.listForOwner.mockResolvedValue([{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: new Date("2026-07-26T12:00:00.000Z") }]);
+    mocks.listForOwner.mockResolvedValue({ items: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: new Date("2026-07-26T12:00:00.000Z") }], nextCursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "event-1" } });
     const response = await GET(new NextRequest("http://localhost/api?accountId=account-1&actorUserId=viewer-1"), { params: Promise.resolve({ vaultId: "vault-1" }) });
-    expect(mocks.listForOwner).toHaveBeenCalledWith("user-1", "vault-1", { accountId: "account-1", actorUserId: "viewer-1" });
-    await expect(response.json()).resolves.toEqual({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T12:00:00.000Z" }] });
+    expect(mocks.listForOwner).toHaveBeenCalledWith("user-1", "vault-1", { accountId: "account-1", actorUserId: "viewer-1" }, { cursor: null, limit: 20 });
+    const body = await response.json();
+    expect(body).toEqual({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T12:00:00.000Z" }], nextCursor: expect.any(String) });
+    const nextResponse = await GET(new NextRequest(`http://localhost/api?accountId=account-1&actorUserId=viewer-1&cursor=${encodeURIComponent(body.nextCursor)}`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(nextResponse.status).toBe(200);
+    expect(mocks.listForOwner).toHaveBeenLastCalledWith("user-1", "vault-1", { accountId: "account-1", actorUserId: "viewer-1" }, { cursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "event-1" }, limit: 20 });
+    const wrongFilter = await GET(new NextRequest(`http://localhost/api?accountId=other&actorUserId=viewer-1&cursor=${encodeURIComponent(body.nextCursor)}`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(wrongFilter.status).toBe(400);
   });
 });

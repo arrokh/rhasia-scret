@@ -82,7 +82,7 @@ describe("Prisma retention purge", () => {
 
     const stored = await prisma.vault.findUniqueOrThrow({ where: { id: vault.id }, select: { deletedAt: true, purgeAfter: true } });
     expect(stored).toEqual({ deletedAt, purgeAfter: new Date("2026-08-25T12:00:00.000Z") });
-    await expect(new PrismaVaultAuditRepository(() => new Date("2026-08-01T00:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ eventType: "VAULT_DELETED" }), expect.objectContaining({ eventType: "ACCOUNT_ACCESSED" })]));
+    await expect(new PrismaVaultAuditRepository(() => new Date("2026-08-01T00:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toEqual(expect.objectContaining({ items: expect.arrayContaining([expect.objectContaining({ eventType: "VAULT_DELETED" }), expect.objectContaining({ eventType: "ACCOUNT_ACCESSED" })]) }));
     await expect(new PrismaVaultAuditRepository().listForOwner(viewer.id, vault.id)).resolves.toBeNull();
 
     const retention = new PrismaExpiredVaultRetentionRepository();
@@ -95,7 +95,8 @@ describe("Prisma retention purge", () => {
     expect(await prisma.authenticatorAccount.findUnique({ where: { id: account.id } })).toBeNull();
     expect(await prisma.vaultMember.count({ where: { vaultId: vault.id } })).toBe(0);
     expect(await prisma.vaultInvitation.findUnique({ where: { id: invitation.id } })).toBeNull();
-    await expect(new PrismaVaultAuditRepository(() => new Date("2027-07-26T11:59:59.999Z")).listForOwner(owner.id, vault.id)).resolves.toHaveLength(2);
+    const retainedAuditPage = await new PrismaVaultAuditRepository(() => new Date("2027-07-26T11:59:59.999Z")).listForOwner(owner.id, vault.id);
+    expect(retainedAuditPage?.items).toHaveLength(2);
     await expect(new PrismaVaultAuditRepository().listForOwner(viewer.id, vault.id)).resolves.toBeNull();
 
     const ownAuditIds = (await prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { id: true } })).map(({ id }) => id);

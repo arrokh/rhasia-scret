@@ -44,9 +44,10 @@ export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vau
   const [auditFilter, setAuditFilter] = useState<SelectedAuditFilter>({ query: {}, label: "" });
   const renameMutation = useRenameSharedVaultMutation();
   const participants = useVaultParticipantsQuery(vault.id, vault.role === "OWNER");
+  const participantItems = participants.data?.pages.flatMap((page) => page.participants) ?? [];
   const audit = useVaultAuditQuery(vault.id, auditFilter.query, vault.role === "OWNER" && activeTab === "audit");
   const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); setStatus("Nama brankas diperbarui."); } catch { setStatus("Tidak dapat memperbarui nama brankas."); } } });
-  const owner = participants.data?.find((participant) => participant.kind === "OWNER");
+  const owner = participants.data?.pages[0]?.owner;
 
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
 
@@ -65,25 +66,27 @@ export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vau
         <VaultAccountManagementList vaultId={vault.id} vaultName={vault.name} accounts={vault.accounts} editable={vault.role === "OWNER"} onAudit={vault.role === "OWNER" ? (account) => openAudit({ accountId: account.id }, `${account.issuer} · ${account.accountName}`) : undefined} onAccountDeleted={onAccountDeleted} />
         {status && <StatusBanner tone={status.includes("diperbarui") ? "success" : "danger"}>{status}</StatusBanner>}
       </TabsContent>
-      {vault.role === "OWNER" && <TabsContent value="invitations"><InvitationPanel vault={vault} participants={participants.data ?? []} loading={participants.isPending} failed={participants.isError} onCreated={() => void participants.refetch()} onAudit={(participant) => participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)} /></TabsContent>}
+      {vault.role === "OWNER" && <TabsContent value="invitations"><InvitationPanel vault={vault} participants={participantItems} loading={participants.isPending} loadingMore={participants.isFetchingNextPage} failed={participants.isError} hasMore={participants.hasNextPage} onLoadMore={() => void participants.fetchNextPage()} onCreated={() => void participants.refetch()} onAudit={(participant) => participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)} /></TabsContent>}
       {vault.role === "OWNER" && <TabsContent value="audit"><AuditHistory audit={audit} accounts={vault.accounts} filter={auditFilter} onClearFilter={() => setAuditFilter({ query: {}, label: "" })} /></TabsContent>}
     </Tabs>
   </div>;
 }
 
-function InvitationPanel({ vault, participants, loading, failed, onCreated, onAudit }: { vault: SharedVaultSummary; participants: BrowserVaultParticipant[]; loading: boolean; failed: boolean; onCreated: () => void; onAudit: (participant: BrowserVaultParticipant) => void }) {
+function InvitationPanel({ vault, participants, loading, loadingMore, failed, hasMore, onLoadMore, onCreated, onAudit }: { vault: SharedVaultSummary; participants: BrowserVaultParticipant[]; loading: boolean; loadingMore: boolean; failed: boolean; hasMore: boolean; onLoadMore: () => void; onCreated: () => void; onAudit: (participant: BrowserVaultParticipant) => void }) {
   const [participantToDelete, setParticipantToDelete] = useState<BrowserVaultParticipant | null>(null);
   const deleteMutation = useDeleteVaultParticipantMutation(vault.id);
-  const invited = participants.filter((participant) => participant.kind !== "OWNER");
+  const invited = participants;
   async function removeParticipant() { if (!participantToDelete) return; await deleteMutation.mutateAsync(participantToDelete); setParticipantToDelete(null); }
   return <div className="grid gap-5">
     <InvitationForm vault={vault} onCreated={onCreated} />
     <section className="grid gap-3" aria-labelledby="invited-users-title">
       <div><h3 id="invited-users-title" className="font-bold text-ink-strong">Pengguna yang diundang</h3><p className="mt-1 text-sm text-muted-foreground">Anggota aktif dan undangan yang masih menunggu.</p></div>
       {loading && <p className="text-sm text-muted-foreground">Memuat pengguna…</p>}
-      {failed && <StatusBanner tone="danger" role="alert">Daftar pengguna tidak dapat dimuat.</StatusBanner>}
+      {failed && <StatusBanner tone="danger" role="alert">{invited.length ? "Pengguna berikutnya tidak dapat dimuat." : "Daftar pengguna tidak dapat dimuat."}</StatusBanner>}
       {!loading && !failed && !invited.length && <p className="rounded-md border border-dashed bg-muted/30 p-5 text-center text-sm text-muted-foreground">Belum ada pengguna yang diundang.</p>}
       {!!invited.length && <ul className="grid list-none gap-2 p-0">{invited.map((participant) => <li key={participant.key} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border bg-card p-3"><span className="grid min-w-0 gap-1"><strong className="truncate text-sm">{participant.email}</strong><Badge className="w-fit bg-muted text-muted-foreground">{participant.kind === "MEMBER" ? "Anggota aktif" : "Menunggu"}</Badge></span><span className="flex items-center"><Button variant="ghost" size="icon-sm" type="button" aria-label={`Lihat audit ${participant.email}`} title={participant.userId ? "Lihat audit pengguna" : "Audit tersedia setelah pengguna masuk"} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={`Hapus ${participant.email}`} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>)}</ul>}
+      {hasMore && <Button variant="outline" type="button" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? "Memuat pengguna…" : "Muat lebih banyak pengguna"}</Button>}
+      {!!invited.length && !hasMore && <p className="text-center text-xs text-muted-foreground" aria-live="polite">Semua pengguna telah dimuat.</p>}
     </section>
     {participantToDelete && <ConfirmationDialog title={participantToDelete.kind === "MEMBER" ? "Cabut akses pengguna?" : "Hapus undangan?"} description={participantToDelete.kind === "MEMBER" ? `${participantToDelete.email} tidak akan dapat membuka Brankas Bersama ini lagi.` : `Tautan undangan untuk ${participantToDelete.email} tidak akan dapat digunakan.`} confirmLabel={participantToDelete.kind === "MEMBER" ? "Cabut akses" : "Hapus undangan"} danger pending={deleteMutation.isPending} onCancel={() => setParticipantToDelete(null)} onConfirm={() => void removeParticipant()} />}
   </div>;
@@ -104,11 +107,12 @@ function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCre
 }
 
 function AuditHistory({ audit, accounts, filter, onClearFilter }: { audit: ReturnType<typeof useVaultAuditQuery>; accounts: SharedVaultAccountSummary[]; filter: SelectedAuditFilter; onClearFilter: () => void }) {
+  const events = audit.data?.pages.flatMap((page) => page.events) ?? [];
   const filterNotice = filter.label && <div className="mb-3 flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm"><span className="truncate">Filter: <strong>{filter.label}</strong></span><Button variant="ghost" size="icon-xs" type="button" aria-label="Hapus filter audit" onClick={onClearFilter}><X /></Button></div>;
   if (audit.isPending) return <>{filterNotice}<p className="text-sm text-muted-foreground">Memuat riwayat audit…</p></>;
-  if (audit.isError) return <>{filterNotice}<StatusBanner tone="danger" role="alert">Riwayat audit tidak dapat dimuat.</StatusBanner></>;
-  if (!audit.data?.length) return <>{filterNotice}<div className="grid justify-items-center gap-2 rounded-md border border-dashed bg-muted/30 p-6 text-center"><History className="size-6 text-taupe" /><p className="font-bold">Belum ada aktivitas</p><p className="text-sm text-muted-foreground">Tidak ada aktivitas yang cocok dengan filter ini.</p></div></>;
-  return <>{filterNotice}<ul className="grid list-none gap-2 p-0">{audit.data.map((event) => <li key={event.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-md border bg-card p-3"><p className="min-w-0 text-xs text-muted-foreground"><span className="break-all">{event.actorEmail}</span> · {formatJakartaAuditTime(event.createdAt)}</p><p className="text-right text-sm font-bold text-foreground">{auditEventLabel(event.eventType)}</p>{event.targetId && <p className="text-xs text-muted-foreground">{accountAuditLabel(accounts, event.targetId)}</p>}<p className="col-start-2 text-right text-xs text-muted-foreground">{relativeAuditTime(event.createdAt)}</p></li>)}</ul></>;
+  if (audit.isError && !events.length) return <>{filterNotice}<StatusBanner tone="danger" role="alert">Riwayat audit tidak dapat dimuat.</StatusBanner></>;
+  if (!events.length) return <>{filterNotice}<div className="grid justify-items-center gap-2 rounded-md border border-dashed bg-muted/30 p-6 text-center"><History className="size-6 text-taupe" /><p className="font-bold">Belum ada aktivitas</p><p className="text-sm text-muted-foreground">Tidak ada aktivitas yang cocok dengan filter ini.</p></div></>;
+  return <>{filterNotice}<div className="grid gap-3"><ul className="grid list-none gap-2 p-0">{events.map((event) => <li key={event.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-md border bg-card p-3"><p className="min-w-0 text-xs text-muted-foreground"><span className="break-all">{event.actorEmail}</span> · {formatJakartaAuditTime(event.createdAt)}</p><p className="text-right text-sm font-bold text-foreground">{auditEventLabel(event.eventType)}</p>{event.targetId && <p className="text-xs text-muted-foreground">{accountAuditLabel(accounts, event.targetId)}</p>}<p className="col-start-2 text-right text-xs text-muted-foreground">{relativeAuditTime(event.createdAt)}</p></li>)}</ul>{audit.isError && <StatusBanner tone="danger" role="alert">Aktivitas berikutnya tidak dapat dimuat.</StatusBanner>}{audit.hasNextPage ? <Button variant="outline" type="button" disabled={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>{audit.isFetchingNextPage ? "Memuat aktivitas…" : "Muat lebih banyak aktivitas"}</Button> : <p className="text-center text-xs text-muted-foreground" aria-live="polite">Semua aktivitas telah dimuat.</p>}</div></>;
 }
 
 function accountAuditLabel(accounts: SharedVaultAccountSummary[], targetId: string): string {

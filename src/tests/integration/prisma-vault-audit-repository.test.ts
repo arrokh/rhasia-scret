@@ -31,19 +31,32 @@ describe("PrismaVaultAuditRepository", () => {
     await expect(repository.recordAccountAccess(viewer.id, vault.id, account.id)).resolves.toBe(true);
     await expect(repository.recordAccountAccess(outsider.id, vault.id, account.id)).resolves.toBe(false);
     await expect(repository.listForOwner(viewer.id, vault.id)).resolves.toBeNull();
-    await expect(repository.listForOwner(owner.id, vault.id)).resolves.toEqual([
-      expect.objectContaining({ eventType: "ACCOUNT_ACCESSED", targetId: account.id, actorUserId: viewer.id, actorEmail: viewer.email })
-    ]);
-    await expect(repository.listForOwner(owner.id, vault.id, { accountId: account.id, actorUserId: viewer.id })).resolves.toHaveLength(1);
-    await expect(repository.listForOwner(owner.id, vault.id, { accountId: "different-account" })).resolves.toEqual([]);
-    await expect(repository.listForOwner(owner.id, vault.id, { actorUserId: outsider.id })).resolves.toEqual([]);
+    await expect(repository.listForOwner(owner.id, vault.id)).resolves.toEqual({
+      items: [expect.objectContaining({ eventType: "ACCOUNT_ACCESSED", targetId: account.id, actorUserId: viewer.id, actorEmail: viewer.email })],
+      nextCursor: null
+    });
+    await expect(repository.listForOwner(owner.id, vault.id, { accountId: account.id, actorUserId: viewer.id })).resolves.toEqual(expect.objectContaining({ items: [expect.any(Object)] }));
+    await expect(repository.listForOwner(owner.id, vault.id, { accountId: "different-account" })).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(repository.listForOwner(owner.id, vault.id, { actorUserId: outsider.id })).resolves.toEqual({ items: [], nextCursor: null });
+
+    const tiedAt = new Date("2026-07-26T11:00:00.000Z");
+    await prisma.vaultAuditEvent.createMany({ data: [
+      { id: `audit-a-${randomUUID()}`, vaultId: vault.id, ownerId: owner.id, actorUserId: viewer.id, eventType: "ACCOUNT_ACCESSED", targetId: "tie-target", createdAt: tiedAt },
+      { id: `audit-z-${randomUUID()}`, vaultId: vault.id, ownerId: owner.id, actorUserId: viewer.id, eventType: "ACCOUNT_ACCESSED", targetId: "tie-target", createdAt: tiedAt }
+    ] });
+    const firstPage = await repository.listForOwner(owner.id, vault.id, { accountId: "tie-target" }, { cursor: null, limit: 1 });
+    await prisma.vaultAuditEvent.delete({ where: { id: firstPage!.items[0]!.id } });
+    const secondPage = await repository.listForOwner(owner.id, vault.id, { accountId: "tie-target" }, { cursor: firstPage!.nextCursor, limit: 1 });
+    expect(firstPage!.items[0]!.id).toMatch(/^audit-z-/);
+    expect(secondPage!.items[0]!.id).toMatch(/^audit-a-/);
+    expect(secondPage!.nextCursor).toBeNull();
 
     const deletedAt = new Date("2026-07-26T12:00:00.000Z");
     await new PrismaSharedVaultRecoveryRepository(() => deletedAt).delete(owner.id, vault.id);
-    await expect(new PrismaVaultAuditRepository(() => new Date("2026-08-01T00:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toEqual(expect.arrayContaining([
+    await expect(new PrismaVaultAuditRepository(() => new Date("2026-08-01T00:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toEqual(expect.objectContaining({ items: expect.arrayContaining([
       expect.objectContaining({ eventType: "ACCOUNT_ACCESSED" }),
       expect.objectContaining({ eventType: "VAULT_DELETED" })
-    ]));
+    ]) }));
     await expect(repository.listForOwner(viewer.id, vault.id)).resolves.toBeNull();
     await expect(repository.recordAccountAccess(viewer.id, vault.id, account.id)).resolves.toBe(false);
   });

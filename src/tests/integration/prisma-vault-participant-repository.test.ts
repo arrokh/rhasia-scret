@@ -19,18 +19,34 @@ describe("PrismaVaultParticipantRepository", () => {
   it.skipIf(!process.env.DATABASE_URL)("lists owner-visible participants and restricts pending Invitation deletion to that owner", async () => {
     const owner = await user("owner");
     const viewer = await user("viewer");
+    const secondViewer = await user("second-viewer");
     const outsider = await user("outsider");
     const vault = await prisma.vault.create({ data: { ownerId: owner.id, type: "SHARED", lifecycle: "ACTIVE", encryptedName: bytes("name"), encryptionVersion: 1, members: { create: [{ userId: owner.id, role: "OWNER" }, { userId: viewer.id, role: "VIEWER" }] } } });
     vaultIds.push(vault.id);
+    const tiedAt = new Date("2026-07-26T12:00:00.000Z");
+    await prisma.vaultMember.update({ where: { vaultId_userId: { vaultId: vault.id, userId: viewer.id } }, data: { createdAt: tiedAt } });
+    await prisma.vaultMember.create({ data: { vaultId: vault.id, userId: secondViewer.id, role: "VIEWER", createdAt: tiedAt } });
     const invitation = await prisma.vaultInvitation.create({ data: { vaultId: vault.id, recipientEmail: "pending@example.test", linkVerifier: bytes(randomUUID()), encryptedPackage: bytes("package") } });
     const repository = new PrismaVaultParticipantRepository();
 
-    await expect(repository.listForOwner(outsider.id, vault.id)).resolves.toBeNull();
-    await expect(repository.listForOwner(owner.id, vault.id)).resolves.toEqual([
-      expect.objectContaining({ kind: "OWNER", userId: owner.id, email: owner.email }),
-      expect.objectContaining({ kind: "MEMBER", userId: viewer.id, email: viewer.email }),
-      expect.objectContaining({ kind: "INVITATION", invitationId: invitation.id, userId: null, email: "pending@example.test" })
-    ]);
+    await expect(repository.listForOwner(outsider.id, vault.id, { cursor: null, limit: 1 })).resolves.toBeNull();
+    const orderedViewerIds = [viewer.id, secondViewer.id].sort();
+    const firstPage = await repository.listForOwner(owner.id, vault.id, { cursor: null, limit: 1 });
+    expect(firstPage).toEqual(expect.objectContaining({
+      owner: { id: owner.id, email: owner.email },
+      items: [expect.objectContaining({ kind: "MEMBER", userId: orderedViewerIds[0] })],
+      nextCursor: expect.objectContaining({ key: `member:${orderedViewerIds[0]}` })
+    }));
+    const secondPage = await repository.listForOwner(owner.id, vault.id, { cursor: firstPage!.nextCursor, limit: 1 });
+    expect(secondPage).toEqual(expect.objectContaining({
+      items: [expect.objectContaining({ kind: "MEMBER", userId: orderedViewerIds[1] })],
+      nextCursor: expect.objectContaining({ key: `member:${orderedViewerIds[1]}` })
+    }));
+    const thirdPage = await repository.listForOwner(owner.id, vault.id, { cursor: secondPage!.nextCursor, limit: 1 });
+    expect(thirdPage).toEqual(expect.objectContaining({
+      items: [expect.objectContaining({ kind: "INVITATION", invitationId: invitation.id, userId: null, email: "pending@example.test" })],
+      nextCursor: null
+    }));
 
     await expect(repository.cancelInvitation(outsider.id, vault.id, invitation.id)).resolves.toBe(false);
     await expect(repository.cancelInvitation(owner.id, vault.id, invitation.id)).resolves.toBe(true);

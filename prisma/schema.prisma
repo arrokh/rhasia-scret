@@ -72,7 +72,7 @@ model VaultInvitation {
   vault            Vault            @relation(fields: [vaultId], references: [id])
   recipient        ApplicationUser? @relation("InvitationRecipient", fields: [recipientUserId], references: [id])
 
-  @@index([vaultId, status])
+  @@index([vaultId, status, createdAt, id])
   @@index([recipientEmail, status])
   @@index([recipientUserId, status])
   @@map("vault_invitations")
@@ -136,6 +136,7 @@ model VaultMember {
   user              ApplicationUser @relation(fields: [userId], references: [id])
 
   @@id([vaultId, userId])
+  @@index([vaultId, role, status, createdAt, userId])
   @@index([userId, status])
   @@map("vault_members")
 }
@@ -151,7 +152,9 @@ model VaultAuditEvent {
   createdAt           DateTime        @default(now()) @map("created_at")
   actor               ApplicationUser @relation("AuditActor", fields: [actorUserId], references: [id])
 
-  @@index([vaultId, ownerId, createdAt])
+  @@index([vaultId, ownerId, createdAt, id])
+  @@index([vaultId, targetId, createdAt, id])
+  @@index([vaultId, actorUserId, createdAt, id])
   @@index([retentionPurgeAfter, id])
   @@map("vault_audit_events")
 }

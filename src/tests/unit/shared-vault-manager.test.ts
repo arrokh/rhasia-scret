@@ -28,7 +28,7 @@ describe("dedicated Vault management", () => {
   });
 
   it("manages accounts on a page, shows the owner, and exposes invitation and audit tabs", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ participants: [{ key: "owner:owner-1", email: "owner@example.test", kind: "OWNER", userId: "owner-1", invitationId: null, invitedAt: null }] }) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null }) }));
     const onAccountDeleted = vi.fn(async () => undefined);
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted }))));
@@ -73,7 +73,7 @@ describe("dedicated Vault management", () => {
   });
 
   it("opens Audit with an exact account filter and renders the Jakarta event layout", async () => {
-    const fetchMock = vi.fn().mockImplementation(async (url: string) => ({ ok: true, json: async () => url.includes("/participants") ? { participants: [] } : { events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T13:28:00.000Z" }] } }));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => ({ ok: true, json: async () => url.includes("/participants") ? { owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null } : { events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: null } }));
     vi.stubGlobal("fetch", fetchMock);
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
@@ -86,16 +86,104 @@ describe("dedicated Vault management", () => {
     expect(container.textContent).toContain("Example · person@example.test");
   });
 
+  it("renders loading and empty states for both paginated lists", async () => {
+    let resolveParticipants: ((response: unknown) => void) | undefined;
+    let resolveAudit: ((response: unknown) => void) | undefined;
+    const fetchMock = vi.fn().mockImplementation((url: string) => new Promise((resolve) => {
+      if (String(url).includes("/participants")) resolveParticipants = resolve;
+      else resolveAudit = resolve;
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    await act(async () => clickTab(container, "Undangan"));
+    expect(container.textContent).toContain("Memuat pengguna…");
+    await act(async () => resolveParticipants?.({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null }) }));
+    await vi.waitFor(() => expect(container.textContent).toContain("Belum ada pengguna yang diundang."));
+
+    await act(async () => clickTab(container, "Audit"));
+    expect(container.textContent).toContain("Memuat riwayat audit…");
+    await act(async () => resolveAudit?.({ ok: true, json: async () => ({ events: [], nextCursor: null }) }));
+    await vi.waitFor(() => expect(container.textContent).toContain("Belum ada aktivitas"));
+  });
+
+  it("renders request errors for both paginated lists", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "unavailable" }) }));
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    await act(async () => clickTab(container, "Undangan"));
+    await vi.waitFor(() => expect(container.textContent).toContain("Daftar pengguna tidak dapat dimuat."));
+    await act(async () => clickTab(container, "Audit"));
+    await vi.waitFor(() => expect(container.textContent).toContain("Riwayat audit tidak dapat dimuat."));
+  });
+
+  it("retains loaded rows and reports subsequent page failures", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("cursor=")) return { ok: false, status: 500, json: async () => ({ error: "unavailable" }) };
+      if (requestUrl.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "member:viewer-1", email: "viewer1@example.test", kind: "MEMBER", userId: "viewer-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: "participants-page-2" }) };
+      return { ok: true, json: async () => ({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer1@example.test", createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: "audit-page-2" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    await act(async () => clickTab(container, "Undangan"));
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer1@example.test"));
+    await act(async () => findButton(container, "Muat lebih banyak pengguna").click());
+    await vi.waitFor(() => expect(container.textContent).toContain("Pengguna berikutnya tidak dapat dimuat."));
+    expect(container.textContent).toContain("viewer1@example.test");
+
+    await act(async () => clickTab(container, "Audit"));
+    await vi.waitFor(() => expect(container.textContent).toContain("Akun autentikator disalin"));
+    await act(async () => findButton(container, "Muat lebih banyak aktivitas").click());
+    await vi.waitFor(() => expect(container.textContent).toContain("Aktivitas berikutnya tidak dapat dimuat."));
+    expect(container.textContent).toContain("viewer1@example.test");
+  });
+
+  it("loads subsequent cursor pages and exposes completion states in Undangan and Audit", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/participants")) {
+        const secondPage = requestUrl.includes("cursor=participants-page-2");
+        return { ok: true, json: async () => ({
+          owner: { id: "owner-1", email: "owner@example.test" },
+          participants: [{ key: `member:viewer-${secondPage ? "2" : "1"}`, email: `viewer${secondPage ? "2" : "1"}@example.test`, kind: "MEMBER", userId: `viewer-${secondPage ? "2" : "1"}`, invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }],
+          nextCursor: secondPage ? null : "participants-page-2"
+        }) };
+      }
+      const secondPage = requestUrl.includes("cursor=audit-page-2");
+      return { ok: true, json: async () => ({ events: [{ id: `event-${secondPage ? "2" : "1"}`, eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: `viewer-${secondPage ? "2" : "1"}`, actorEmail: `viewer${secondPage ? "2" : "1"}@example.test`, createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: secondPage ? null : "audit-page-2" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    await act(async () => clickTab(container, "Undangan"));
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer1@example.test"));
+    await act(async () => findButton(container, "Muat lebih banyak pengguna").click());
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer2@example.test"));
+    expect(container.textContent).toContain("Semua pengguna telah dimuat.");
+
+    await act(async () => clickTab(container, "Audit"));
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer1@example.test"));
+    await act(async () => findButton(container, "Muat lebih banyak aktivitas").click());
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer2@example.test"));
+    expect(container.textContent).toContain("Semua aktivitas telah dimuat.");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("participants?cursor=participants-page-2"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?cursor=audit-page-2"))).toBe(true);
+  });
+
   it("lists invited users, filters Audit by exact user id, and deletes a pending Invitation", async () => {
     const participants = [
-      { key: "owner:owner-1", email: "owner@example.test", kind: "OWNER", userId: "owner-1", invitationId: null, invitedAt: null },
       { key: "member:viewer-1", email: "viewer@example.test", kind: "MEMBER", userId: "viewer-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" },
       { key: "invitation:pending-1", email: "pending@example.test", kind: "INVITATION", userId: null, invitationId: "pending-1", invitedAt: "2026-07-26T12:00:00.000Z" }
     ];
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "DELETE") return { ok: true, status: 204 };
-      if (url.includes("/participants")) return { ok: true, json: async () => ({ participants }) };
-      return { ok: true, json: async () => ({ events: [] }) };
+      if (url.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants, nextCursor: null }) };
+      return { ok: true, json: async () => ({ events: [], nextCursor: null }) };
     });
     vi.stubGlobal("fetch", fetchMock);
     const container = mount(); root = createRoot(container);

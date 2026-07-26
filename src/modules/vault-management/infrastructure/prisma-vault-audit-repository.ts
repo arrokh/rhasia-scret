@@ -1,3 +1,5 @@
+import { buildCursorPage, DEFAULT_CURSOR_PAGE_SIZE, type CursorPage, type CursorPageRequest } from "@/shared/application/cursor-page";
+import { timestampKeysetWhere } from "@/shared/infrastructure/prisma-cursor-pagination";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import type { RedactedVaultAuditEvent, VaultAuditFilter, VaultAuditRepository } from "../application/manage-vault-audit";
 import { auditPurgeAfter } from "../domain/vault-retention-policy";
@@ -21,7 +23,7 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
     return true;
   }
 
-  public async listForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter = {}): Promise<RedactedVaultAuditEvent[] | null> {
+  public async listForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter = {}, request: CursorPageRequest = { cursor: null, limit: DEFAULT_CURSOR_PAGE_SIZE }): Promise<CursorPage<RedactedVaultAuditEvent> | null> {
     const now = this.now();
     const vault = await prisma.vault.findFirst({
       where: { id: vaultId, ownerId, type: "SHARED", lifecycle: { in: ["ACTIVE", "DELETED"] } },
@@ -36,17 +38,22 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
     const events = await prisma.vaultAuditEvent.findMany({
       where: {
         vaultId,
-        ...(vault?.lifecycle === "ACTIVE"
-          ? { OR: [{ ownerId }, { ownerId: null }] }
-          : vault?.lifecycle === "DELETED"
-            ? { OR: [{ ownerId, retentionPurgeAfter: { gt: now } }, { ownerId: null, retentionPurgeAfter: null }] }
-            : { ownerId, retentionPurgeAfter: { gt: now } }),
         ...(filter.accountId ? { targetId: filter.accountId } : {}),
-        ...(filter.actorUserId ? { actorUserId: filter.actorUserId } : {})
+        ...(filter.actorUserId ? { actorUserId: filter.actorUserId } : {}),
+        AND: [
+          vault?.lifecycle === "ACTIVE"
+            ? { OR: [{ ownerId }, { ownerId: null }] }
+            : vault?.lifecycle === "DELETED"
+              ? { OR: [{ ownerId, retentionPurgeAfter: { gt: now } }, { ownerId: null, retentionPurgeAfter: null }] }
+              : { ownerId, retentionPurgeAfter: { gt: now } },
+          ...(request.cursor ? [timestampKeysetWhere(request.cursor, "id", "descending")] : [])
+        ]
       },
       select: { id: true, eventType: true, targetId: true, actorUserId: true, createdAt: true, actor: { select: { email: true } } },
-      orderBy: { createdAt: "desc" }
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: request.limit + 1
     });
-    return events.map((event) => ({ id: event.id, eventType: event.eventType, targetId: event.targetId, actorUserId: event.actorUserId, actorEmail: event.actor.email, createdAt: event.createdAt }));
+    const rows = events.map((event) => ({ id: event.id, eventType: event.eventType, targetId: event.targetId, actorUserId: event.actorUserId, actorEmail: event.actor.email, createdAt: event.createdAt }));
+    return buildCursorPage(rows, request.limit, (event) => ({ createdAt: event.createdAt, key: event.id }));
   }
 }
