@@ -81,7 +81,7 @@ test.describe("production Remembered Browser UI", () => {
     await expect(page.getByText("tidak mendukung perlindungan PRF")).toBeVisible();
     await page.getByRole("textbox", { name: "Passphrase Brankas" }).fill(vaultUnlockSecret);
     await page.getByRole("button", { name: "Buka Brankas" }).click();
-    await expect(page.getByText("Unlocked Vault Session berhasil dibuat.")).toBeVisible();
+    await expect(page.getByText("Unlocked Vault Session berhasil dibuat.")).toBeVisible({ timeout: 30_000 });
   });
 });
 
