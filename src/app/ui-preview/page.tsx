@@ -15,7 +15,7 @@ export default function MobilePreviewPage() {
           <h1>Akun autentikator</h1>
           <p className="vault-subtitle">Pratinjau UI lokal. Tidak ada materi akun, passphrase, OTP, atau kunci yang digunakan dalam data contoh ini.</p>
         </div>
-        <LogoutForm />
+        <LogoutForm email="preview@local.invalid" />
       </header>
       <section className="vault-card" aria-label="Daftar akun autentikator">
         <section className="vault-dashboard" aria-labelledby="preview-account-list-heading">

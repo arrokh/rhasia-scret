@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TotpConfiguration } from "../domain/totp-configuration";
 import { generateTotp } from "../application/generate-totp";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
 
 export function TotpAccountButton({
   configuration,
-  vaultName
+  vaultName,
+  onManage
 }: {
   configuration: TotpConfiguration;
   vaultName: string;
+  onManage?: () => void;
 }) {
   const [code, setCode] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
+  const holdTimer = useRef<number | null>(null);
+  const suppressCopy = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -36,10 +40,30 @@ export function TotpAccountButton({
     return () => {
       active = false;
       window.clearInterval(interval);
+      if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
     };
   }, [configuration]);
 
+  function startHold() {
+    if (!onManage) return;
+    suppressCopy.current = false;
+    holdTimer.current = window.setTimeout(() => {
+      suppressCopy.current = true;
+      onManage();
+    }, 650);
+  }
+
+  function cancelHold() {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  }
+
   async function copyOtp() {
+    cancelHold();
+    if (suppressCopy.current) {
+      suppressCopy.current = false;
+      return;
+    }
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
@@ -49,15 +73,36 @@ export function TotpAccountButton({
     }
   }
 
-  const accessibleName = `Salin OTP untuk ${configuration.issuer} ${configuration.accountName}`;
+  const accessibleName = `Salin OTP untuk ${configuration.accountName}, ${configuration.issuer}`;
   return (
-    <button className="account-totp-button" type="button" onClick={() => void copyOtp()} disabled={!code} aria-label={accessibleName}>
-      <span className="account-avatar" aria-hidden="true">{configuration.issuer.slice(0, 1).toUpperCase()}</span>
+    <button
+      className="account-totp-button"
+      type="button"
+      onClick={() => void copyOtp()}
+      onPointerDown={startHold}
+      onPointerUp={cancelHold}
+      onPointerCancel={cancelHold}
+      onPointerLeave={cancelHold}
+      onContextMenu={(event) => {
+        if (!onManage) return;
+        event.preventDefault();
+        onManage();
+      }}
+      onKeyDown={(event) => {
+        if (onManage && event.shiftKey && event.key === "Enter") {
+          event.preventDefault();
+          onManage();
+        }
+      }}
+      aria-label={accessibleName}
+      aria-disabled={!code}
+      title={onManage ? "Klik untuk menyalin OTP. Tekan lama untuk mengelola akun." : "Klik untuk menyalin OTP."}
+    >
       <span className="account-copy">
-        <strong>{configuration.issuer}</strong>
-        <span>{configuration.accountName}</span>
-        <small className="vault-badge">{vaultName}</small>
+        <strong>{configuration.accountName}</strong>
+        <span>{configuration.issuer}</span>
       </span>
+      <small className="vault-badge">{vaultName}</small>
       <span className="account-otp" aria-live="polite">
         <span className="otp-code">
           <output aria-label="OTP saat ini">{code ? formatOtp(code) : "••• •••"}</output>

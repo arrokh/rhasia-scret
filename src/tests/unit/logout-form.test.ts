@@ -22,8 +22,10 @@ describe("LogoutForm", () => {
   it("requires confirmation before terminating the authenticated and unlocked sessions", async () => {
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(LogoutForm)));
+    await act(async () => root?.render(createElement(LogoutForm, { email: "person@example.test" })));
 
+    expect(container.querySelector(".account-menu-trigger")?.getAttribute("aria-label")).toBe("Pengaturan akun");
+    expect(container.textContent).toContain("person@example.test");
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Keluar dari aplikasi?");

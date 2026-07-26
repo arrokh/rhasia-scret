@@ -20,9 +20,8 @@ export default async function VaultRecoveryPage() {
         <div>
           <p className="eyebrow">rhasia-scret</p>
           <h1>Pemulihan brankas</h1>
-          <p className="vault-subtitle">Masuk sebagai {user.email}</p>
         </div>
-        <LogoutForm />
+        <LogoutForm email={user.email} />
       </header>
       <section className="vault-card" aria-label="Atur ulang Passphrase Brankas">
         {eligibility.passkeyRecoveryEnrolled ? <PasskeyRecoveryReset /> : eligibility.activeOwnedSharedVaults > 0 ? (

@@ -92,9 +92,14 @@ describe("AuthenticatorAccountCreator", () => {
       setSelectValue(target, "shared-1");
       setInputValue(container.querySelector("#account-uri"), "otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example");
     });
+    expect(container.textContent).toContain("Metadata autentikator");
+    expect(container.textContent).toContain("SHA-1");
+    expect(container.textContent).toContain("30 detik");
+    expect(container.querySelector<HTMLInputElement>("#account-label")?.value).toBe("person@example.test");
+    await act(async () => setInputValue(container.querySelector("#account-label"), "Alice Mobile"));
     await act(async () => container.querySelector<HTMLFormElement>(".add-account-form")?.requestSubmit());
 
-    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, candidate);
+    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" });
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/accounts", expect.objectContaining({ method: "POST" }));
     expect(mocks.push).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).toHaveBeenCalledOnce();

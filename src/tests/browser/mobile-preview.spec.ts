@@ -4,6 +4,15 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ui-preview");
   await expect(page.getByRole("heading", { level: 1, name: "Akun autentikator" })).toBeVisible();
+  const accountMenuTrigger = page.getByLabel("Pengaturan akun");
+  await accountMenuTrigger.click();
+  await expect(page.getByText("preview@local.invalid")).toBeVisible();
+  const triggerBox = await accountMenuTrigger.boundingBox();
+  const menuBox = await page.locator("#account-profile-menu").boundingBox();
+  expect(Math.abs((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0)))).toBeLessThan(4);
+  await page.getByRole("heading", { level: 1, name: "Akun autentikator" }).click();
+  await expect(page.getByText("preview@local.invalid")).toBeHidden();
+  await accountMenuTrigger.click();
   await expect(page.getByRole("button", { name: "Keluar" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Brankas Bersama" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();

@@ -8,13 +8,15 @@ import { TotpAccountButton } from "@/modules/otp-runtime";
 import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
 import { SharedVaultManager } from "@/modules/vault-management";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
-import { loadUnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { loadUnlockedVaultWorkspace, type WorkspaceAuthenticatorAccount } from "../infrastructure/browser-vault-workspace";
+import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useDeleteEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const [status, setStatus] = useState<"idle" | "error">("idle");
+  const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const online = useOnlineStatus();
   const deleteAccountMutation = useDeleteEncryptedAuthenticatorAccountMutation();
   const unlockForm = useForm({
@@ -75,7 +77,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             accounts: current.accounts.map((account) => account.vaultId === vaultId ? { ...account, vaultName: name } : account)
           } : current)}
           onAccountDeleted={async (vaultId, accountId, expectedRevision) => {
-            await deleteAccountMutation.mutateAsync({ vaultId, accountId, expectedRevision });
+            await deleteAccountMutation.mutateAsync({ vaultId, vaultType: "SHARED", accountId, expectedRevision });
             setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== vaultId) } : current);
           }}
         />
@@ -96,15 +98,35 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
       </div>
       {workspace.accounts.length ? (
         <ul className="account-list account-list-across-vaults">
-          {workspace.accounts.map((account) => (
-            <li key={`${account.vaultId}:${account.id}`}>
-              <TotpAccountButton configuration={account} vaultName={account.vaultName} />
-            </li>
-          ))}
+          {workspace.accounts.map((account) => {
+            const accountVault = workspace.vaults.find((vault) => vault.id === account.vaultId);
+            const writable = accountVault?.type === "PERSONAL" || accountVault?.role === "OWNER";
+            return (
+              <li key={`${account.vaultId}:${account.id}`}>
+                <TotpAccountButton configuration={account} vaultName={account.vaultName} onManage={writable ? () => setManagedAccount(account) : undefined} />
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="empty-accounts">Belum ada akun autentikator di brankas yang dapat Anda akses.</p>
       )}
+      {managedAccount && (() => {
+        const managedVault = workspace.vaults.find((vault) => vault.id === managedAccount.vaultId);
+        if (!managedVault) return null;
+        return (
+          <AuthenticatorAccountManagerDialog
+            account={managedAccount}
+            vaultKey={managedVault.key}
+            onUpdated={(updated) => {
+              setManagedAccount(updated);
+              setWorkspace((current) => current ? { ...current, accounts: current.accounts.map((account) => account.id === updated.id && account.vaultId === updated.vaultId ? updated : account) } : current);
+            }}
+            onDeleted={(deleted) => setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== deleted.id || account.vaultId !== deleted.vaultId) } : current)}
+            onClose={() => setManagedAccount(null)}
+          />
+        );
+      })()}
     </section>
   );
 }

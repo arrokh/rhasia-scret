@@ -18,8 +18,27 @@ describe("TotpAccountButton", () => {
   let root: Root | undefined;
   afterEach(async () => {
     await act(async () => root?.unmount());
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it("opens account management only after a press-and-hold gesture", async () => {
+    vi.useFakeTimers();
+    const onManage = vi.fn();
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(TotpAccountButton, {
+      configuration: { issuer: "OTPAuth", accountName: "Alice", secret: Uint8Array.of(1), algorithm: "SHA-1", digits: 6, period: 30 },
+      vaultName: "Brankas Pribadi",
+      onManage
+    })));
+    const button = container.querySelector<HTMLButtonElement>("button");
+    await act(async () => button?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTime(649));
+    expect(onManage).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(onManage).toHaveBeenCalledOnce();
   });
 
   it("generates an OTP locally and copies it from the clickable account row", async () => {
@@ -33,8 +52,12 @@ describe("TotpAccountButton", () => {
     })));
 
     expect(container.textContent).toContain("123 456");
+    expect(container.querySelector(".account-avatar")).toBeNull();
+    const accountCopy = container.querySelector(".account-copy");
+    expect(accountCopy?.querySelector("strong")?.textContent).toBe("Alice");
+    expect(accountCopy?.querySelector("span")?.textContent).toBe("OTPAuth");
     expect(container.querySelector(".otp-timer svg")).not.toBeNull();
-    expect(container.querySelector(".account-copy .vault-badge")?.textContent).toBe("Brankas Pribadi");
+    expect(container.querySelector(".account-totp-button > .vault-badge")?.textContent).toBe("Brankas Pribadi");
     const button = container.querySelector<HTMLButtonElement>("button");
     expect(button?.getAttribute("aria-label")).toContain("Salin OTP");
     await act(async () => button?.click());

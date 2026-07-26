@@ -28,6 +28,10 @@ export class BrowserApiClient {
     await this.requireSuccess(await this.post(url, body, init));
   }
 
+  async patchJson<T>(url: string, body: unknown, init?: RequestInit): Promise<T> {
+    return this.readJson(await this.request(url, this.jsonInit("PATCH", body, init)));
+  }
+
   async patchEmpty(url: string, body: unknown, init?: RequestInit): Promise<void> {
     await this.requireSuccess(await this.request(url, this.jsonInit("PATCH", body, init)));
   }
