@@ -8,6 +8,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({
   loadUnlockedVaultWorkspace: vi.fn(),
   loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
+  loadUnlockedVaultWorkspaceWithRememberedBrowser: vi.fn(),
   clearUnlockedVaultWorkspace: vi.fn(),
   refreshUnlockedVaultWorkspace: vi.fn(),
   passkeyEnrolled: true
@@ -16,11 +17,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey,
+  loadUnlockedVaultWorkspaceWithRememberedBrowser: mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser,
   clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
   refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace
 }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
-vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null, RememberedBrowserEnrollment: () => null }));
+vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null, RememberedBrowserEnrollment: () => null, hasRememberedBrowserForPersonalVault: vi.fn().mockResolvedValue(false) }));
 vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
 vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));
 
@@ -35,6 +37,7 @@ describe("PersonalVaultAccounts", () => {
   beforeEach(() => {
     mocks.loadUnlockedVaultWorkspace.mockReset();
     mocks.loadUnlockedVaultWorkspaceWithPasskey.mockReset();
+    mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
     mocks.passkeyEnrolled = true;
   });
   afterEach(async () => act(async () => root?.unmount()));

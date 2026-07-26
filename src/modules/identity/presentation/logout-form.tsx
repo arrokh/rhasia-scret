@@ -27,7 +27,7 @@ export function LogoutForm({ email }: { email?: string }) {
       window.location.assign(await terminateMutation.mutateAsync());
     } catch {
       setConfirming(false);
-      setError("Data brankas lokal telah dihapus, tetapi sesi server tidak dapat diakhiri. Tutup aplikasi dan coba keluar lagi saat daring.");
+      setError("Brankas telah dikunci, tetapi data perangkat atau sesi server tidak dapat dibersihkan. Tutup aplikasi, hapus data situs browser ini, lalu coba keluar lagi saat daring.");
     }
   }
 

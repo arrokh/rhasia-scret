@@ -39,6 +39,7 @@ import {
   loadOfflineVaultWorkspaceWithRememberedBrowser,
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
+  loadUnlockedVaultWorkspaceWithRememberedBrowser,
   refreshUnlockedVaultWorkspace
 } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
 
@@ -80,6 +81,20 @@ describe("Vault workspace loading", () => {
     const workspace = await loadUnlockedVaultWorkspaceWithPasskey("personal-1");
 
     expect(mocks.recoverUserRootKeyWithPasskey).toHaveBeenCalledOnce();
+    expect(workspace.syncState).toBe("CURRENT");
+    expect(mocks.replace).toHaveBeenCalledOnce();
+  });
+
+  it("loads a fresh authorized online bundle through PRF-bound Remembered Browser unlock", async () => {
+    const userRootKey = Uint8Array.of(3);
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(bundle({ sharedVaults: [] }));
+    mocks.recoverUserRootKeyWithRememberedBrowser.mockResolvedValue(userRootKey);
+    mocks.unlockPersonalVaultWithUserRootKey.mockResolvedValue(Uint8Array.of(4));
+
+    const workspace = await loadUnlockedVaultWorkspaceWithRememberedBrowser("personal-1");
+
+    expect(mocks.fetchAuthorizedOfflineBundle).toHaveBeenCalledOnce();
+    expect(mocks.recoverUserRootKeyWithRememberedBrowser).toHaveBeenCalledWith("profile-1", undefined);
     expect(workspace.syncState).toBe("CURRENT");
     expect(mocks.replace).toHaveBeenCalledOnce();
   });

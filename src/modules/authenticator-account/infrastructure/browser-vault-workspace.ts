@@ -55,6 +55,23 @@ export async function loadUnlockedVaultWorkspace(
   return decryptAndPersistOnlineBundle(bundle, unlocked.userRootKey, unlocked.personalVaultKey);
 }
 
+export async function loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVaultId: string, signal?: AbortSignal): Promise<UnlockedVaultWorkspace> {
+  const bundle = await fetchAuthorizedOfflineBundle();
+  assertPersonalVault(bundle, personalVaultId);
+  let userRootKey: Uint8Array | undefined;
+  let personalVaultKey: Uint8Array | undefined;
+  try {
+    userRootKey = await recoverUserRootKeyWithRememberedBrowser(bundle.profileId, signal);
+    personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profileMaterial(bundle));
+    if (signal?.aborted) throw new DOMException("Remembered Browser unlock was cancelled.", "AbortError");
+    return await decryptAndPersistOnlineBundle(bundle, userRootKey, personalVaultKey);
+  } catch (error) {
+    userRootKey?.fill(0);
+    personalVaultKey?.fill(0);
+    throw error;
+  }
+}
+
 export async function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
   const bundle = await fetchAuthorizedOfflineBundle();
   assertPersonalVault(bundle, personalVaultId);

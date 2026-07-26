@@ -10,7 +10,7 @@ export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from ".
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
-export { enrollRememberedBrowser, forgetRememberedBrowser, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
+export { enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, rememberedBrowserEnrollment, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { PasskeyRecoveryEnrollment } from "./presentation/passkey-recovery-enrollment";
 export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";

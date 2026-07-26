@@ -11,4 +11,11 @@ describe("passkey recovery package", () => {
     await expect(recoverUserRootKeyFromPasskeyPackage(generateSymmetricKey(), packageBytes)).rejects.toThrow("authentication");
     await expect(recoverUserRootKeyFromPasskeyPackage(prfOutput, packageBytes)).resolves.toEqual({ userRootKey: rootKey, prfSalt: salt });
   });
+
+  it("rejects malformed, oversized, or non-32-byte key material", async () => {
+    await expect(createPasskeyRecoveryPackage(Uint8Array.of(1), generateSymmetricKey(), generateSymmetricKey())).rejects.toThrow(/32 bytes/);
+    expect(() => passkeyRecoverySalt(new Uint8Array(4097))).toThrow(/invalid/);
+    const malformed = new TextEncoder().encode(JSON.stringify({ version: 1, prfSalt: "AQ==", encryptedRecoveryWrappingKey: "AQ==", encryptedUserRootKey: "AQ==", unexpected: true }));
+    expect(() => passkeyRecoverySalt(malformed)).toThrow(/invalid/);
+  });
 });

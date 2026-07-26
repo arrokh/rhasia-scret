@@ -14,7 +14,7 @@ import { clearAllOfflineVaultData, requestLocalVaultLock } from "@/modules/sync"
 import { DESTRUCTIVE_RESET_CONFIRMATION } from "../application/destructive-personal-vault-reset";
 import { useDestructivePersonalVaultResetMutation } from "./hooks/use-personal-vault-mutations";
 
-type Status = "idle" | "confirming" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error";
+type Status = "idle" | "confirming" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error" | "cleanup_error";
 
 export function DestructivePersonalVaultResetForm() {
   const router = useRouter();
@@ -25,13 +25,17 @@ export function DestructivePersonalVaultResetForm() {
 
   async function confirmReset() {
     setStatus("resetting");
+    let resetCompleted = false;
     try {
       const result = await resetMutation.mutateAsync(form.state.values.confirmation);
       if (result.status === "invalid_confirmation") { setStatus("invalid_confirmation"); return; }
       if (result.status === "owned_shared_vaults_exist") { setBlockedVaults(result.count); setStatus("blocked"); return; }
       if (result.status === "passkey_recovery_available") { router.refresh(); return; }
-      await clearAllOfflineVaultData(); requestLocalVaultLock(); router.replace("/vaults"); router.refresh();
-    } catch { setStatus("reset_error"); }
+      resetCompleted = true;
+      requestLocalVaultLock();
+      await clearAllOfflineVaultData();
+      router.replace("/vaults"); router.refresh();
+    } catch { setStatus(resetCompleted ? "cleanup_error" : "reset_error"); }
   }
 
   return <form noValidate className="grid gap-5" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
@@ -45,6 +49,7 @@ export function DestructivePersonalVaultResetForm() {
     {status === "invalid_confirmation" && <StatusBanner tone="danger" role="alert">Server menolak frasa konfirmasi. Ketik frasa persis seperti yang ditampilkan.</StatusBanner>}
     {status === "blocked" && <StatusBanner tone="danger" role="alert">Reset diblokir karena Anda masih memiliki {blockedVaults} Brankas Bersama aktif.</StatusBanner>}
     {status === "reset_error" && <StatusBanner tone="danger" role="alert">Data brankas tidak dapat diatur ulang. Coba lagi.</StatusBanner>}
+    {status === "cleanup_error" && <StatusBanner tone="danger" role="alert">Reset server selesai dan brankas telah dikunci, tetapi data perangkat tidak dapat dibersihkan. Hapus data situs browser ini sebelum melanjutkan.</StatusBanner>}
     {status === "confirming" && <ConfirmationDialog title="Atur ulang Brankas Pribadi?" description="Seluruh akun, kunci, dan data terenkripsi Brankas Pribadi akan dihancurkan. Tindakan ini tidak dapat dibatalkan." confirmLabel="Hapus dan atur ulang" danger onCancel={() => setStatus("idle")} onConfirm={() => void confirmReset()} />}
   </form>;
 }

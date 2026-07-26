@@ -25,7 +25,7 @@ describe("DestructivePersonalVaultResetForm", () => {
   afterEach(async () => {
     await act(async () => root?.unmount());
     vi.unstubAllGlobals();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     document.body.innerHTML = "";
   });
 
@@ -53,6 +53,24 @@ describe("DestructivePersonalVaultResetForm", () => {
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
     expect(mocks.replace).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("locks decrypted keys and reports local cleanup failure after a completed server reset", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    mocks.clearAllOfflineVaultData.mockRejectedValue(new Error("IndexedDB unavailable"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
+    await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
+    await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
+    await act(async () => confirm?.click());
+
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("Reset server selesai dan brankas telah dikunci");
+    expect(mocks.replace).not.toHaveBeenCalled();
   });
 
   it("does not call the server when confirmation does not match", async () => {
