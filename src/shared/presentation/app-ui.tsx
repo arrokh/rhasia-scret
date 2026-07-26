@@ -1,7 +1,9 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertCircle, CheckCircle2, Info, LockKeyhole, ShieldAlert, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Info, LockKeyhole, ShieldAlert, WifiOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +11,7 @@ export function AppPage({ children, centered = false, className }: { children: R
   return (
     <main className={cn(
       "mx-auto min-h-dvh w-full max-w-3xl px-4 pt-7 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-12",
-      centered && "grid max-w-none place-items-center py-8 sm:py-12",
+      centered && "grid max-w-none place-items-center pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pt-12",
       className
     )}>
       {children}
@@ -17,15 +19,18 @@ export function AppPage({ children, centered = false, className }: { children: R
   );
 }
 
-export function PageHeader({ eyebrow, title, description, action, className }: { eyebrow?: string; title: string; description?: string; action?: ReactNode; className?: string }) {
+export function PageHeader({ eyebrow, title, description, action, backHref, backLabel = "Kembali", className }: { eyebrow?: string; title: string; description?: string; action?: ReactNode; backHref?: string; backLabel?: string; className?: string }) {
   return (
-    <header className={cn("mb-6 flex items-start justify-between gap-4", className)}>
-      <div className="min-w-0">
-        {eyebrow && <p className="mb-1.5 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{eyebrow}</p>}
-        <h1 className="text-2xl leading-8 font-bold tracking-tight text-ink-strong sm:text-[2rem] sm:leading-10">{title}</h1>
-        {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>}
+    <header className={cn("mb-6 flex items-center justify-between gap-3 sm:gap-4", className)}>
+      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+        {backHref && <Button variant="ghost" size="icon" asChild className="shrink-0 self-start" title={backLabel}><Link href={backHref} aria-label={backLabel}><ArrowLeft aria-hidden="true" /></Link></Button>}
+        <div className="min-w-0">
+          {eyebrow && <p className="mb-1.5 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{eyebrow}</p>}
+          <h1 className="text-xl leading-7 font-bold tracking-tight text-ink-strong first-letter:uppercase sm:text-2xl sm:leading-8">{title}</h1>
+          {description && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-2">{description}</p>}
+        </div>
       </div>
-      {action}
+      {action && <div className="shrink-0 self-center">{action}</div>}
     </header>
   );
 }
@@ -34,10 +39,20 @@ export function SurfaceCard({ children, className, ...props }: React.ComponentPr
   return <Card className={cn("gap-0 rounded-lg border border-border bg-card py-0 shadow-card ring-0", className)} {...props}>{children}</Card>;
 }
 
+export function AppFooter() {
+  return (
+    <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-center text-center">
+        <span className="text-base font-bold tracking-tight"><span className="text-foreground">rhasia-</span><span className="text-primary">scret</span></span>
+      </div>
+    </footer>
+  );
+}
+
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className={cn("flex items-center gap-3", compact ? "gap-2" : "flex-col text-center")}>
-      <div className={cn("relative overflow-hidden rounded-xl bg-gold-soft", compact ? "size-10" : "size-24 rounded-xl")}>
+      <div className={cn("relative overflow-hidden rounded-xl", compact ? "size-10" : "size-24 rounded-xl")}>
         <Image src="/pwa/icon512_rounded.png" alt="" fill sizes={compact ? "40px" : "96px"} className="object-cover" priority={!compact} />
       </div>
       <span className={cn("font-bold tracking-tight", compact ? "text-base" : "text-2xl")}>

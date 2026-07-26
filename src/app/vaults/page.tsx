@@ -20,7 +20,7 @@ export default async function VaultsPage() {
 
   return (
     <AppPage>
-      <PageHeader eyebrow="rhasia-scret" title="Akun autentikator" description={uninitialized ? "Siapkan brankas untuk mulai menyimpan kode dengan aman." : "Lihat dan salin kode dari semua brankas yang dapat Anda akses."} action={<LogoutForm email={user.email} />} />
+      <PageHeader title="Akun autentikator" description={uninitialized ? "Siapkan brankas untuk mulai menyimpan kode dengan aman." : "Lihat dan salin kode dari semua brankas yang dapat Anda akses."} action={<LogoutForm email={user.email} />} />
       <SurfaceCard aria-label={uninitialized ? "Siapkan Brankas Pribadi" : "Daftar akun autentikator"}>
         {uninitialized ? (
           <div className="grid gap-6 p-5 sm:p-6">

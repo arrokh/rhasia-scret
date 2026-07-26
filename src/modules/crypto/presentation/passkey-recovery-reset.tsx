@@ -1,17 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Check, Copy, Fingerprint, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
+import { PasswordInput } from "@/shared/presentation/password-input";
 import { validateVaultUnlockSecret } from "../infrastructure/browser-vault-unlock-key";
 import { resetVaultUnlockSecretWithPasskey } from "../infrastructure/browser-passkey-recovery-workflow";
 import { generateVaultUnlockSecret } from "./generate-vault-unlock-secret";
@@ -26,6 +25,8 @@ export function PasskeyRecoveryReset() {
   const [secret, setSecret] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
+  const [customSecretVisible, setCustomSecretVisible] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
   const form = useForm({
     defaultValues: { mode: "generated" as SecretMode, customSecret: "", confirmation: "", acknowledged: false },
     onSubmit: async ({ value }) => reset(value.mode === "generated" ? secret : value.customSecret, value.confirmation)
@@ -88,13 +89,13 @@ export function PasskeyRecoveryReset() {
         </div>
       ) : (
         <form.Field name="customSecret" validators={{ onSubmit: ({ value }) => validateCustomSecret(value) }}>
-          {(field) => <div className="grid gap-2"><Label htmlFor="recovery-custom-secret">Passphrase Brankas baru</Label><Input id="recovery-custom-secret" type="password" value={field.state.value} onChange={(event) => { field.handleChange(event.target.value); form.setFieldValue("confirmation", ""); setStatus("idle"); }} autoComplete="new-password" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "recovery-custom-secret-error" : "recovery-custom-secret-help"} disabled={unavailable} required /><p id="recovery-custom-secret-help" className="text-xs leading-5 text-muted-foreground">Gunakan minimal 3 karakter dan simpan passphrase secara luring.</p><FormFieldError id="recovery-custom-secret-error" errors={field.state.meta.errors} /></div>}
+          {(field) => <div className="grid gap-2"><Label htmlFor="recovery-custom-secret">Passphrase Brankas baru</Label><PasswordInput id="recovery-custom-secret" label="Passphrase Brankas baru" visible={customSecretVisible} onToggleVisibility={() => setCustomSecretVisible((visible) => !visible)} value={field.state.value} onChange={(event) => { field.handleChange(event.target.value); form.setFieldValue("confirmation", ""); setStatus("idle"); }} autoComplete="new-password" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "recovery-custom-secret-error" : "recovery-custom-secret-help"} disabled={unavailable} required /><p id="recovery-custom-secret-help" className="text-xs leading-5 text-muted-foreground">Gunakan minimal 3 karakter dan simpan passphrase secara luring.</p><FormFieldError id="recovery-custom-secret-error" errors={field.state.meta.errors} /></div>}
         </form.Field>
       )}
     </form.Subscribe>
 
     <form.Field name="confirmation" validators={{ onSubmit: ({ value }) => value.trim() === currentSecret(form.state.values.mode, secret, form.state.values.customSecret).trim() ? undefined : "Konfirmasi harus cocok dengan passphrase baru." }}>
-      {(field) => <div className="grid gap-2"><Label htmlFor="recovery-secret-confirmation">Masukkan kembali passphrase baru</Label><Input id="recovery-secret-confirmation" type="password" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="new-password" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "recovery-confirmation-error" : undefined} disabled={unavailable} required /><FormFieldError id="recovery-confirmation-error" errors={field.state.meta.errors} /></div>}
+      {(field) => <div className="grid gap-2"><Label htmlFor="recovery-secret-confirmation">Masukkan kembali passphrase baru</Label><PasswordInput id="recovery-secret-confirmation" label="Konfirmasi Passphrase Brankas baru" visible={confirmationVisible} onToggleVisibility={() => setConfirmationVisible((visible) => !visible)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="new-password" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "recovery-confirmation-error" : undefined} disabled={unavailable} required /><FormFieldError id="recovery-confirmation-error" errors={field.state.meta.errors} /></div>}
     </form.Field>
     <form.Field name="acknowledged" validators={{ onSubmit: ({ value }) => value ? undefined : "Konfirmasikan bahwa passphrase baru telah disimpan secara luring." }}>
       {(field) => <div className="grid gap-2"><div className="flex items-start gap-3 rounded-md border bg-muted/50 p-3"><Checkbox id="recovery-acknowledgement" checked={field.state.value} onCheckedChange={(checked) => field.handleChange(checked === true)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "recovery-acknowledgement-error" : undefined} disabled={unavailable} /><Label htmlFor="recovery-acknowledgement" className="text-sm leading-5 font-normal">Saya telah menyimpan passphrase baru secara luring.</Label></div><FormFieldError id="recovery-acknowledgement-error" errors={field.state.meta.errors} /></div>}
@@ -102,7 +103,6 @@ export function PasskeyRecoveryReset() {
     <form.Subscribe selector={(state) => ({ isSubmitting: state.isSubmitting, mode: state.values.mode, customSecret: state.values.customSecret })}>
       {({ isSubmitting, mode, customSecret }) => <Button type="submit" disabled={!(mode === "generated" ? secret : customSecret.trim()) || isSubmitting || status === "success"} aria-busy={isSubmitting}>{isSubmitting ? "Memverifikasi kunci akses…" : "Atur ulang passphrase"}</Button>}
     </form.Subscribe>
-    {status !== "recovering" && <Button variant="outline" asChild><Link href="/vaults">Kembali ke pembukaan brankas</Link></Button>}
     {status === "recovery_error" && <StatusBanner tone="danger" role="alert">Passphrase tidak dapat diatur ulang. Pastikan kunci akses pemulihan tersedia dan coba lagi.</StatusBanner>}
     {status === "success" && <StatusBanner tone="success">Passphrase berhasil diatur ulang. Simpan passphrase baru, lalu gunakan untuk membuka brankas.</StatusBanner>}
   </form>;

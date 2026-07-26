@@ -9,7 +9,11 @@ test("renders public product copy in Bahasa Indonesia", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
   await expect(page).toHaveTitle("rhasia-scret");
-  await expect(page.getByRole("heading", { name: "rhasia-scret" })).toBeVisible();
+  const brandHeading = page.getByRole("heading", { name: "rhasia-scret" });
+  await expect(brandHeading).toBeVisible();
+  const brandIcon = brandHeading.locator("img");
+  await expect(brandIcon).toHaveAttribute("src", /icon512_rounded\.png/);
+  expect(await brandIcon.locator("..").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
   await expect(page.getByLabel("Alamat email yang diundang")).toBeVisible();
   await expect(page.getByRole("button", { name: "Kirim tautan masuk" })).toBeVisible();
 });

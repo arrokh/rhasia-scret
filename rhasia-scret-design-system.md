@@ -948,7 +948,16 @@ const colors = {
 - recovery
 - encrypted backup
 
-## 20. Final Design Direction
+## 20. Shared Page Navigation
+
+- Every application page uses a clear title and supporting subtitle on the left.
+- Authenticated pages place the account settings action on the right, vertically centered against the title block.
+- A subpage uses one icon-only back action with an accessible label. Do not repeat that navigation as a `Kembali` or `Batal` button in page content.
+- `Batal` remains appropriate inside a confirmation or reversible inline decision where it cancels an action rather than navigates away.
+- A fixed bottom footer consistently shows the application icon and the attribution `dev by arrokh`, with `arrokh` linking to the developer's GitHub profile. Content reserves enough bottom space to remain unobscured.
+- Vault navigation is page-based: the directory lists Brankas Pribadi first and then every accessible Brankas Bersama; Shared Vault details expose separate Detail, Undangan, and Audit tabs.
+
+## 21. Final Design Direction
 
 The product should visually communicate:
 

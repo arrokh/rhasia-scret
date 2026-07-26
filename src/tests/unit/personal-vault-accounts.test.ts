@@ -18,7 +18,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace"
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null }));
 vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
-vi.mock("@/modules/vault-management", () => ({ SharedVaultManager: () => createElement("button", { type: "button" }, "Brankas Bersama") }));
+vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));
 
 import type { UnlockedVaultWorkspace } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account/presentation/personal-vault-accounts";

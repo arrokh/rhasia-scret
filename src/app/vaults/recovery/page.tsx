@@ -17,7 +17,7 @@ export default async function VaultRecoveryPage() {
 
   return (
     <AppPage>
-      <PageHeader eyebrow="rhasia-scret · Keamanan" title="Pemulihan brankas" description="Pilih jalur yang tersedia untuk mendapatkan kembali akses ke brankas Anda." action={<LogoutForm email={user.email} />} />
+      <PageHeader backHref="/vaults" backLabel="Kembali ke brankas" title="Pemulihan brankas" description="Pilih jalur yang tersedia untuk mendapatkan kembali akses ke brankas Anda." action={<LogoutForm email={user.email} />} />
       <SurfaceCard className="p-5 sm:p-6" aria-label="Atur ulang Passphrase Brankas">
         {eligibility.passkeyRecoveryEnrolled ? <PasskeyRecoveryReset /> : eligibility.activeOwnedSharedVaults > 0 ? <OwnedSharedVaultResetBlocker vaultIds={eligibility.activeOwnedSharedVaultIds} /> : <DestructivePersonalVaultResetForm />}
       </SurfaceCard>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "next/navigation";
@@ -43,7 +42,6 @@ export function DestructivePersonalVaultResetForm() {
     </StatusBanner>
     <form.Field name="confirmation" validators={{ onSubmit: ({ value }) => value === DESTRUCTIVE_RESET_CONFIRMATION ? undefined : "Frasa konfirmasi tidak cocok." }}>{(field) => <div className="grid gap-2"><Label htmlFor="destructive-reset-confirmation" className="block leading-5">Ketik <strong>{DESTRUCTIVE_RESET_CONFIRMATION}</strong> untuk melanjutkan</Label><Input id="destructive-reset-confirmation" value={field.state.value} onChange={(event) => { field.handleChange(event.target.value); if (status !== "resetting") setStatus("idle"); }} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "destructive-reset-confirmation-error" : undefined} disabled={status === "resetting"} required /><FormFieldError id="destructive-reset-confirmation-error" errors={field.state.meta.errors} /></div>}</form.Field>
     <form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button variant="destructive" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}><Trash2 />{isSubmitting ? "Menghapus data brankas…" : "Hapus data dan atur ulang brankas"}</Button>}</form.Subscribe>
-    {status !== "resetting" && <Button variant="outline" asChild><Link href="/vaults">Batal dan kembali</Link></Button>}
     {status === "invalid_confirmation" && <StatusBanner tone="danger" role="alert">Server menolak frasa konfirmasi. Ketik frasa persis seperti yang ditampilkan.</StatusBanner>}
     {status === "blocked" && <StatusBanner tone="danger" role="alert">Reset diblokir karena Anda masih memiliki {blockedVaults} Brankas Bersama aktif.</StatusBanner>}
     {status === "reset_error" && <StatusBanner tone="danger" role="alert">Data brankas tidak dapat diatur ulang. Coba lagi.</StatusBanner>}
