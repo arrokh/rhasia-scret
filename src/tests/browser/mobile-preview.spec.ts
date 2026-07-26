@@ -115,7 +115,10 @@ test("requires explicit confirmation for destructive Personal Vault reset", asyn
 
   await expect(page.getByRole("heading", { name: "Hapus data terenkripsi dan mulai ulang" })).toBeVisible();
   await expect(page.getByText(/Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus/)).toBeVisible();
-  await page.getByLabel(/Ketik HAPUS DATA BRANKAS/).fill("HAPUS DATA BRANKAS");
+  const confirmation = page.getByLabel(/Ketik HAPUS DATA BRANKAS/);
+  await confirmation.pressSequentially("HAPUS DATA BRANKAS", { delay: 5 });
+  await expect(confirmation).toHaveValue("HAPUS DATA BRANKAS");
+  await confirmation.press("Tab");
   await page.getByRole("button", { name: "Hapus data dan atur ulang brankas" }).click();
 
   await expect(page.getByRole("heading", { name: "Atur ulang Brankas Pribadi?" })).toBeVisible();

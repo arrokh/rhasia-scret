@@ -10,12 +10,11 @@ export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from ".
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
-export { forgetRememberedBrowser, enrollRememberedBrowser, supportsLocalVerification, verifyRememberedBrowser } from "./infrastructure/browser-local-verification";
+export { enrollRememberedBrowser, forgetRememberedBrowser, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { PasskeyRecoveryEnrollment } from "./presentation/passkey-recovery-enrollment";
 export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";
-export { loadEncryptedLocalVaultSnapshot, reconcileEncryptedLocalVaultSnapshot, removeAllEncryptedLocalVaultSnapshots, removeEncryptedLocalVaultSnapshot, saveEncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
-export type { EncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
+export { RememberedBrowserEnrollment } from "./presentation/remembered-browser-enrollment";
 export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";
 export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "./infrastructure/browser-vault-key-rotation";
 export { createEncryptedVaultExport, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";

@@ -15,11 +15,22 @@ export async function encryptAccountConfiguration(vaultKey: Uint8Array, configur
     digits: configuration.digits,
     period: configuration.period
   });
-  return serializeEncryptedEnvelope(await encryptPayload(vaultKey, new TextEncoder().encode(payload)));
+  const plaintext = new TextEncoder().encode(payload);
+  try {
+    return serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
+  } finally {
+    plaintext.fill(0);
+  }
 }
 
 export async function decryptAccountConfiguration(vaultKey: Uint8Array, encryptedPayload: Uint8Array): Promise<DecryptedAuthenticatorAccount> {
-  const decoded: unknown = JSON.parse(new TextDecoder().decode(await decryptPayload(vaultKey, deserializeEncryptedEnvelope(encryptedPayload))));
+  const plaintext = await decryptPayload(vaultKey, deserializeEncryptedEnvelope(encryptedPayload));
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext));
+  } finally {
+    plaintext.fill(0);
+  }
   if (!decoded || typeof decoded !== "object") throw new Error("Encrypted account payload is invalid.");
   const record = decoded as Record<string, unknown>;
   if (typeof record.issuer !== "string" || typeof record.accountName !== "string" || typeof record.secret !== "string") {

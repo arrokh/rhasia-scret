@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   encryptAccountConfiguration: vi.fn(),
   isDuplicateAccount: vi.fn(),
   loadUnlockedVaultWorkspace: vi.fn(),
+  clearUnlockedVaultWorkspace: vi.fn(),
+  refreshUnlockedVaultWorkspace: vi.fn(),
   parseTotpUri: vi.fn(),
   qrOnUri: undefined as undefined | ((uri: string) => void),
   push: vi.fn(),
@@ -23,7 +25,9 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
   isDuplicateAccount: mocks.isDuplicateAccount
 }));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace", () => ({
-  loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace
+  loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
+  clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
+  refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace
 }));
 vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: ({ onUri }: { onUri: (uri: string) => void }) => { mocks.qrOnUri = onUri; return null; } }));
 
@@ -41,6 +45,10 @@ describe("AuthenticatorAccountCreator", () => {
 
   it("preselects the Shared Vault requested from its management modal", async () => {
     const sessionWorkspace = {
+      profileId: "profile-1",
+      synchronizedAt: "2026-01-01T00:00:00.000Z",
+      synchronizationToken: "sync-1",
+      syncState: "CURRENT" as const,
       userRootKey: new Uint8Array(32),
       vaults: [
         { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL" as const, role: "OWNER" as const, key: new Uint8Array(32) },
@@ -67,6 +75,10 @@ describe("AuthenticatorAccountCreator", () => {
     const candidate = { issuer: "Example", accountName: "person@example.test", secret: Uint8Array.of(1), algorithm: "SHA-1", digits: 6, period: 30 };
     const sharedKey = Uint8Array.of(8);
     mocks.loadUnlockedVaultWorkspace.mockResolvedValue({
+      profileId: "profile-1",
+      synchronizedAt: "2026-01-01T00:00:00.000Z",
+      synchronizationToken: "sync-1",
+      syncState: "CURRENT",
       userRootKey: Uint8Array.of(7),
       vaults: [
         { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", key: Uint8Array.of(6) },

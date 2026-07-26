@@ -1,5 +1,7 @@
 "use client";
 
+import { assertBrowserMutationAllowed } from "./browser-write-policy";
+
 export class BrowserApiError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
@@ -9,6 +11,8 @@ export class BrowserApiError extends Error {
 
 export class BrowserApiClient {
   request(url: string, init?: RequestInit): Promise<Response> {
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") assertBrowserMutationAllowed();
     return fetch(url, init);
   }
 
