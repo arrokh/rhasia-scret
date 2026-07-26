@@ -1,3 +1,3 @@
 export default function SmokePage() {
-  return <main><h1>Browser smoke test</h1><p data-testid="smoke-ready">Ready</p></main>;
+  return <main><h1>Uji cepat browser</h1><p data-testid="smoke-ready">Siap</p></main>;
 }

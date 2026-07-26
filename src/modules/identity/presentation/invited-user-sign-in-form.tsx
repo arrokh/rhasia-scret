@@ -30,7 +30,7 @@ export function InvitedUserSignInForm() {
 
   return (
     <form className="auth-form" onSubmit={submit}>
-      <label htmlFor="email">Invited email address</label>
+      <label htmlFor="email">Alamat email yang diundang</label>
       <input
         id="email"
         name="email"
@@ -41,12 +41,12 @@ export function InvitedUserSignInForm() {
         onChange={(event) => setEmail(event.target.value)}
       />
       <button className="primary-button" type="submit" disabled={status === "sending" || retrySeconds > 0}>
-        {status === "sending" ? "Sending…" : retrySeconds > 0 ? `Try again in ${retrySeconds}s` : "Send sign-in link"}
+        {status === "sending" ? "Mengirim…" : retrySeconds > 0 ? `Coba lagi dalam ${retrySeconds} dtk` : "Kirim tautan masuk"}
       </button>
       <p className="form-status" aria-live="polite">
-        {status === "sent" && "If this address is invited, check its inbox for a sign-in link."}
-        {status === "rate_limited" && "Too many sign-in requests. Please wait a minute, then check your inbox or try again."}
-        {status === "error" && "We could not send a sign-in link. Confirm the address is invited and try again."}
+        {status === "sent" && "Jika alamat ini diundang, periksa kotak masuknya untuk tautan masuk."}
+        {status === "rate_limited" && "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi."}
+        {status === "error" && "Kami tidak dapat mengirim tautan masuk. Pastikan alamat ini diundang, lalu coba lagi."}
       </p>
     </form>
   );

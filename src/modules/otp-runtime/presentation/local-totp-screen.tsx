@@ -24,7 +24,7 @@ export function LocalTotpScreen() {
         setCode(next.value);
         setSeconds(Math.max(0, Math.ceil((next.validUntil.getTime() - Date.now()) / 1_000)));
       } catch {
-        if (!cancelled) setError("Unable to generate an OTP on this browser.");
+        if (!cancelled) setError("Tidak dapat membuat OTP di browser ini.");
       }
     };
     void update();
@@ -50,7 +50,7 @@ export function LocalTotpScreen() {
     } catch (reason) {
       setConfiguration(null);
       setCode("");
-      setError(reason instanceof Error ? reason.message : "The authenticator URI is invalid.");
+      setError(reason instanceof Error ? reason.message : "URI autentikator tidak valid.");
     }
   }
 
@@ -62,16 +62,16 @@ export function LocalTotpScreen() {
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="totp-title">
-        <h1 id="totp-title">Local TOTP</h1>
-        <p>Paste a supported TOTP URI. It is parsed and used only in this browser.</p>
+        <h1 id="totp-title">TOTP Lokal</h1>
+        <p>Tempel URI TOTP yang didukung. URI diproses dan hanya digunakan di browser ini.</p>
         <form className="auth-form" onSubmit={submit}>
-          <label htmlFor="totp-uri">Authenticator URI</label>
+          <label htmlFor="totp-uri">URI autentikator</label>
           <input id="totp-uri" value={uri} onChange={(event) => setUri(event.target.value)} autoComplete="off" required />
-          <button className="primary-button" type="submit">Generate code</button>
+          <button className="primary-button" type="submit">Buat kode</button>
         </form>
         {error && <p className="form-status" role="alert">{error}</p>}
-        {clockDriftWarning && <p className="form-status" role="alert">Your device clock differs from the server by more than 30 seconds. Codes may fail.</p>}
-        {configuration && <section aria-live="polite"><h2>{configuration.issuer}</h2><p>{configuration.accountName}</p><output aria-label="Current OTP">{code}</output><p>{seconds}s remaining</p><button type="button" onClick={() => void copyCode()}>Copy OTP</button></section>}
+        {clockDriftWarning && <p className="form-status" role="alert">Waktu perangkat Anda berbeda lebih dari 30 detik dari server. Kode mungkin gagal.</p>}
+        {configuration && <section aria-live="polite"><h2>{configuration.issuer}</h2><p>{configuration.accountName}</p><output aria-label="OTP saat ini">{code}</output><p>{seconds} dtk tersisa</p><button type="button" onClick={() => void copyCode()}>Salin OTP</button></section>}
       </section>
     </main>
   );

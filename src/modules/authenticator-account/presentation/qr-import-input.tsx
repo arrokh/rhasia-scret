@@ -15,7 +15,7 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
       onUri(await decodeQrImage(file));
       setError("");
     } catch {
-      setError("Unable to read a QR code from that image.");
+      setError("Tidak dapat membaca kode QR dari gambar tersebut.");
     }
   }
 
@@ -28,11 +28,11 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
         controls.current = null;
         onUri(uri);
         setError("");
-      }, () => setError("Unable to scan a QR code from the camera."));
+      }, () => setError("Tidak dapat memindai kode QR dari kamera."));
     } catch {
-      setError("Camera access is unavailable. Upload an image or enter a URI instead.");
+      setError("Akses kamera tidak tersedia. Unggah gambar atau masukkan URI sebagai gantinya.");
     }
   }
 
-  return <section><h3>Import QR code</h3><label htmlFor="qr-image">Upload QR image</label><input id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} /><button type="button" onClick={() => void startCamera()}>Scan with camera</button><video ref={video} muted playsInline />{error && <p role="alert">{error}</p>}</section>;
+  return <section><h3>Impor kode QR</h3><label htmlFor="qr-image">Unggah gambar QR</label><input id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} /><button type="button" onClick={() => void startCamera()}>Pindai dengan kamera</button><video ref={video} muted playsInline />{error && <p role="alert">{error}</p>}</section>;
 }

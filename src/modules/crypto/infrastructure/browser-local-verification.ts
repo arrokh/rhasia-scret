@@ -7,18 +7,18 @@ export function supportsLocalVerification(): boolean {
 }
 
 export async function enrollRememberedBrowser(): Promise<void> {
-  if (!supportsLocalVerification()) throw new Error("Local Verification is unavailable in this browser.");
+  if (!supportsLocalVerification()) throw new Error("Verifikasi Lokal tidak tersedia di browser ini.");
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
-      rp: { name: "Shared TOTP Vault" },
-      user: { id: randomBytes(32), name: "remembered-browser", displayName: "Remembered Browser" },
+      rp: { name: "Brankas TOTP Bersama" },
+      user: { id: randomBytes(32), name: "remembered-browser", displayName: "Browser yang Diingat" },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: { userVerification: "required", residentKey: "preferred" },
       timeout: 60_000
     }
   });
-  if (!(credential instanceof PublicKeyCredential)) throw new Error("Local Verification enrollment was cancelled.");
+  if (!(credential instanceof PublicKeyCredential)) throw new Error("Pendaftaran Verifikasi Lokal dibatalkan.");
   window.localStorage.setItem(CREDENTIAL_KEY, toBase64(new Uint8Array(credential.rawId)));
 }
 
