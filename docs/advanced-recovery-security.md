@@ -23,8 +23,8 @@ Remembered-browser verification and encrypted Local Vault Snapshots are device-l
 
 Normal Vault Encryption Key rotation must create a fresh key client-side, re-encrypt all active account ciphertext and vault name locally, then wrap the replacement key independently for every active member. User-key rotation must create a new user encryption key pair client-side and re-wrap affected Vault Encryption Keys locally. These operations require a complete transactional protocol and independent recovery-device/passkey enrollment UI; they are not safely representable as a server-side fallback.
 
-Export/import must use an explicitly user-initiated, client-side encrypted archive. Unencrypted export is prohibited. Passkey-assisted recovery may protect a client-held recovery wrapping key but must never give the service a key capable of decrypting Vault Encryption Keys or user private keys.
+Export/import uses an explicitly user-initiated, client-side Encrypted Vault Archive as defined by ADR 0033. Import authenticates, validates, previews, duplicate-checks, and re-encrypts all content in browser memory before one atomic ciphertext-only write; unencrypted export/import is prohibited. Passkey-assisted recovery may protect a client-held recovery wrapping key but must never give the service a key capable of decrypting Vault Encryption Keys or user private keys.
 
 ## Current compromise playbook
 
-Until the complete rotation, recovery-device, encrypted export/import, and passkey enrollment flows are delivered, a suspected compromise requires creating a new vault, resetting/re-adding TOTP secrets at original services, granting members again, then deleting the old Shared Vault. This limitation is intentional and must be displayed in product recovery UX.
+Until the complete rotation and recovery-device flows are delivered, a suspected compromise requires creating a new vault, resetting/re-adding TOTP secrets at original services, granting members again, then deleting the old Shared Vault. This limitation is intentional and must be displayed in product recovery UX.

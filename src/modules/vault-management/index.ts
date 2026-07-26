@@ -9,5 +9,6 @@ export type { PersonalVaultSummary } from "./presentation/personal-vault-manager
 export { SharedVaultDirectory, SharedVaultDetails } from "./presentation/shared-vault-manager";
 export type { SharedVaultSummary } from "./presentation/shared-vault-manager";
 export { recordSharedVaultAccountAccess } from "./infrastructure/browser-vault-management-client";
+export { createSharedVaultMaterial } from "./infrastructure/browser-shared-vault-creator";
 export { DestructivePersonalVaultResetForm } from "./presentation/destructive-personal-vault-reset-form";
 export { OwnedSharedVaultResetBlocker } from "./presentation/owned-shared-vault-reset-blocker";
