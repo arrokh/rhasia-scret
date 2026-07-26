@@ -1,25 +1,63 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return NextResponse.next({ request });
+type CookieToSet = { name: string; value: string; options: CookieOptions };
+type SetAuthCookies = (cookies: CookieToSet[]) => void;
+type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
 
-  let response = NextResponse.next({ request });
-  const client = createServerClient(url, key, {
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll: (cookiesToSet) => {
+const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
+
+export function isProtectedPagePath(pathname: string): boolean {
+  return PROTECTED_PAGE_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+export function createAuthProxy(verifySession: VerifySession = verifySupabaseSession) {
+  return async function authProxy(request: NextRequest) {
+    let response = NextResponse.next({ request });
+    let hasSession = false;
+    try {
+      hasSession = await verifySession(request, (cookiesToSet) => {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
-      }
+      });
+    } catch {
+      hasSession = false;
     }
-  });
-  await client.auth.getClaims();
+
+    if (!hasSession && isProtectedPagePath(request.nextUrl.pathname)) {
+      return redirectToSignIn(request, response);
+    }
+    return response;
+  };
+}
+
+async function verifySupabaseSession(request: NextRequest, setAuthCookies: SetAuthCookies): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return false;
+
+  try {
+    const client = createServerClient(url, key, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: setAuthCookies
+      }
+    });
+    const { data, error } = await client.auth.getClaims();
+    return !error && typeof data?.claims?.sub === "string" && data.claims.sub.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse): NextResponse {
+  const response = NextResponse.redirect(new URL("/?auth=required", request.url));
+  for (const cookie of refreshedResponse.cookies.getAll()) response.cookies.set(cookie);
   return response;
 }
+
+export const proxy = createAuthProxy();
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"]

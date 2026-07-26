@@ -17,9 +17,14 @@ export default async function VaultsPage() {
   return (
     <main className="vault-page">
       <header className="vault-header">
-        <p className="eyebrow">BRANKAS ANDA</p>
-        <h1>Akun autentikator</h1>
-        <p className="vault-subtitle">Masuk sebagai {user.email}</p>
+        <div>
+          <p className="eyebrow">BRANKAS ANDA</p>
+          <h1>Akun autentikator</h1>
+          <p className="vault-subtitle">Masuk sebagai {user.email}</p>
+        </div>
+        <form action="/auth/logout" method="post">
+          <button className="logout-button" type="submit">Keluar</button>
+        </form>
       </header>
       <section className="vault-card" aria-labelledby="personal-vault-heading">
         <div className="vault-card-heading"><div><p className="eyebrow">PRIBADI</p><h2 id="personal-vault-heading">Brankas Pribadi</h2></div><span className="vault-lock" aria-label="Brankas terenkripsi">🔒</span></div>

@@ -33,7 +33,7 @@
     "@prisma/adapter-pg": "^7.9.0",
     "@scure/bip39": "2.2.0",
     "@simplewebauthn/server": "^13.3.2",
-    "@supabase/ssr": "^0.8.0",
+    "@supabase/ssr": "0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@zxing/browser": "0.2.1",
     "dotenv": "^17.3.1",
