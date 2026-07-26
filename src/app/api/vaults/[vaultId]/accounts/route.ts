@@ -8,6 +8,7 @@ import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructu
 import type { PersonalAccountRepository } from "@/modules/authenticator-account/application/personal-account-repository";
 import { PrismaPersonalAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-personal-account-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
 const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
@@ -38,6 +39,8 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
       try {
         const current = await user();
         if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const rateLimited = await rateLimitApplicationUser("account_mutation", current.id);
+        if (rateLimited) return rateLimited;
         const parsed = payloadSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
@@ -51,6 +54,8 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
       try {
         const current = await user();
         if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const rateLimited = await rateLimitApplicationUser("account_mutation", current.id);
+        if (rateLimited) return rateLimited;
         const parsed = updateSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
@@ -67,6 +72,8 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
       try {
         const current = await user();
         if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const rateLimited = await rateLimitApplicationUser("account_mutation", current.id);
+        if (rateLimited) return rateLimited;
         const parsed = deleteSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;

@@ -8,6 +8,7 @@ import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructu
 import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
 import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import type { SharedVaultAccessRepository } from "@/modules/vault-membership/application/shared-vault-access-repository";
 import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
 
@@ -20,6 +21,8 @@ export function createSharedVaultHandler({ sessionVerifier, applicationUsers, sh
     const user = await loadApplicationUser(sessionVerifier, applicationUsers);
     if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const rateLimited = await rateLimitApplicationUser("vault_mutation", user.id);
+    if (rateLimited) return rateLimited;
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_vault" }, { status: 400 });
     const vault = await sharedVaults.create(user.id, {

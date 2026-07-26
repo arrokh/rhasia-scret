@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createRenameSharedVaultHandler } from "@/app/api/shared-vaults/[vaultId]/route";
 import { createListSharedVaultsHandler, createSharedVaultHandler } from "@/app/api/shared-vaults/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
 import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { Vault } from "@/modules/vault-management";
 
 const payload = { encryptedName: Buffer.from("encrypted-shared-vault-name").toString("base64"), encryptedOwnerVaultKey: Buffer.from("encrypted-owner-vault-key").toString("base64"), encryptionVersion: 1 };
@@ -62,6 +63,36 @@ describe("PATCH /api/shared-vaults/:vaultId contract", () => {
 });
 
 describe("POST /api/shared-vaults contract", () => {
+  it("authenticates before consulting the application-user limiter", async () => {
+    const handler = createSharedVaultHandler({
+      sessionVerifier: new FakeSessionVerifier(null),
+      applicationUsers: { provision: vi.fn() },
+      sharedVaults: { create: vi.fn(), rename: vi.fn() }
+    });
+
+    const response = await handler(new NextRequest("http://localhost/api/shared-vaults", { method: "POST", body: "invalid" }));
+
+    expect(response.status).toBe(401);
+    expect(rateLimitApplicationUser).not.toHaveBeenCalled();
+  });
+
+  it("returns throttling distinctly before validation or domain mutation", async () => {
+    vi.mocked(rateLimitApplicationUser).mockResolvedValueOnce(NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "retry-after": "20" } }));
+    const create = vi.fn();
+    const handler = createSharedVaultHandler({
+      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      sharedVaults: { create, rename: vi.fn() }
+    });
+
+    const response = await handler(new NextRequest("http://localhost/api/shared-vaults", { method: "POST", body: "invalid" }));
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ error: "rate_limited" });
+    expect(response.headers.get("retry-after")).toBe("20");
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("creates a Shared Vault from opaque owner material", async () => {
     const create = vi.fn().mockResolvedValue(new Vault("vault-1", "SHARED", "user-1"));
     const handler = createSharedVaultHandler({

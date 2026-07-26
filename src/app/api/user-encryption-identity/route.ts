@@ -8,6 +8,7 @@ import type { UserCryptoProfileRepository } from "@/modules/identity/application
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const publicKeySchema = z.object({ kty: z.literal("EC"), crv: z.literal("P-256"), x: z.string(), y: z.string() }).passthrough().refine((key) => !("d" in key));
 const schema = z.object({ publicKey: publicKeySchema, encryptedPrivateKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
@@ -18,6 +19,8 @@ export function createUserEncryptionIdentityHandler({ sessionVerifier, applicati
     const user = await loadApplicationUser(sessionVerifier, applicationUsers);
     if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const rateLimited = await rateLimitApplicationUser("key_material_mutation", user.id);
+    if (rateLimited) return rateLimited;
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_identity" }, { status: 400 });
     await cryptoProfiles.registerUserEncryptionIdentity(user.id, {

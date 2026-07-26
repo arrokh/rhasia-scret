@@ -4,6 +4,7 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { PrismaVaultKeyRotationRepository } from "@/modules/vault-management/infrastructure/prisma-vault-key-rotation-repository";
 
 const ciphertext = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
@@ -13,6 +14,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const rateLimited = await rateLimitApplicationUser("key_material_mutation", user.id);
+  if (rateLimited) return rateLimited;
   const parsed = rotationSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "invalid_rotation" }, { status: 400 });
   const { vaultId } = await params;

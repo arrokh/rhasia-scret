@@ -6,6 +6,7 @@ import type { ApplicationUserRepository } from "@/modules/identity/application/a
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
   importEncryptedVaultArchive,
   MAX_IMPORTED_CIPHERTEXT_BYTES,
@@ -46,6 +47,8 @@ export function createEncryptedVaultImportHandler({ sessionVerifier, application
     const user = await loadApplicationUser(sessionVerifier, applicationUsers);
     if (!user) return json({ error: "unauthenticated" }, 401);
     if (!user.canAccessApplication()) return json({ error: "inactive_user" }, 403);
+    const rateLimited = await rateLimitApplicationUser("archive_import", user.id);
+    if (rateLimited) return rateLimited;
     const declaredLength = Number(request.headers.get("content-length") ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES) return json({ error: "archive_import_too_large" }, 413);
     let boundedBody: string | null;
