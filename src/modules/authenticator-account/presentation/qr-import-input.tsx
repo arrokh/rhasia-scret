@@ -34,5 +34,5 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
     }
   }
 
-  return <section><h3>Impor kode QR</h3><label htmlFor="qr-image">Unggah gambar QR</label><input id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} /><button type="button" onClick={() => void startCamera()}>Pindai dengan kamera</button><video ref={video} muted playsInline />{error && <p role="alert">{error}</p>}</section>;
+  return <section><h3>Impor kode QR</h3><label htmlFor="qr-image">Unggah gambar QR</label><input id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} /><button className="secondary-button" type="button" onClick={() => void startCamera()}>Pindai dengan kamera</button><video ref={video} muted playsInline />{error && <p role="alert">{error}</p>}</section>;
 }

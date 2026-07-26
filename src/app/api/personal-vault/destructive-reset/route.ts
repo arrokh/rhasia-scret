@@ -1,0 +1,55 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
+import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
+import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import {
+  ActiveOwnedSharedVaultsPreventResetError,
+  InvalidDestructiveResetConfirmationError,
+  PasskeyRecoveryAlreadyEnrolledError,
+  destructivelyResetPersonalVault,
+  type DestructivePersonalVaultResetRepository
+} from "@/modules/vault-management/application/destructive-personal-vault-reset";
+import { PrismaDestructivePersonalVaultResetRepository } from "@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository";
+
+const bodySchema = z.object({ confirmation: z.string() });
+
+type Dependencies = {
+  sessionVerifier: SessionVerifier;
+  applicationUsers: ApplicationUserRepository;
+  resets: DestructivePersonalVaultResetRepository;
+};
+
+export function createDestructivePersonalVaultResetHandler({ sessionVerifier, applicationUsers, resets }: Dependencies) {
+  return async function POST(request: NextRequest) {
+    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
+    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const parsed = bodySchema.safeParse(await request.json());
+    if (!parsed.success) return NextResponse.json({ error: "invalid_confirmation" }, { status: 400 });
+
+    try {
+      await destructivelyResetPersonalVault(user.id, parsed.data.confirmation, resets);
+      return new NextResponse(null, { status: 204 });
+    } catch (error) {
+      if (error instanceof InvalidDestructiveResetConfirmationError) {
+        return NextResponse.json({ error: "invalid_confirmation" }, { status: 400 });
+      }
+      if (error instanceof PasskeyRecoveryAlreadyEnrolledError) {
+        return NextResponse.json({ error: "passkey_recovery_available" }, { status: 409 });
+      }
+      if (error instanceof ActiveOwnedSharedVaultsPreventResetError) {
+        return NextResponse.json({ error: "owned_shared_vaults_exist", count: error.count }, { status: 409 });
+      }
+      return NextResponse.json({ error: "destructive_reset_failed" }, { status: 500 });
+    }
+  };
+}
+
+export const POST = createDestructivePersonalVaultResetHandler({
+  sessionVerifier: new SupabaseSessionVerifier(),
+  applicationUsers: new PrismaApplicationUserRepository(),
+  resets: new PrismaDestructivePersonalVaultResetRepository()
+});

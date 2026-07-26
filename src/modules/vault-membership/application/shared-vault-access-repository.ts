@@ -1,5 +1,6 @@
 export type SharedVaultAccess = {
   vaultId: string;
+  role: "OWNER" | "VIEWER";
   encryptedName: Uint8Array;
   encryptionVersion: number;
   encryptedVaultKey: Uint8Array;
@@ -9,4 +10,5 @@ export type SharedVaultAccess = {
 
 export interface SharedVaultAccessRepository {
   getForMember(userId: string, vaultId: string): Promise<SharedVaultAccess | null>;
+  listForMember(userId: string): Promise<SharedVaultAccess[]>;
 }

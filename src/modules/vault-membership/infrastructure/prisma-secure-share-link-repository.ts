@@ -18,7 +18,20 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
     await prisma.$transaction(async (transaction) => {
       const invitation = await transaction.vaultInvitation.findFirst({ where: { id: invitationId, recipientUserId, status: "PENDING" } });
       if (!invitation) throw new Error("Secure Share Link is unavailable.");
-      await transaction.vaultMember.create({ data: { vaultId: invitation.vaultId, userId: recipientUserId, role: "VIEWER", encryptedVaultKey: copyBytes(encryptedVaultKey), keyVersion } });
+      const existingMembership = await transaction.vaultMember.findUnique({
+        where: { vaultId_userId: { vaultId: invitation.vaultId, userId: recipientUserId } }
+      });
+      if (existingMembership) {
+        if (existingMembership.role !== "VIEWER" || existingMembership.status === "ACTIVE") {
+          throw new Error("Secure Share Link cannot replace the existing membership.");
+        }
+        await transaction.vaultMember.update({
+          where: { vaultId_userId: { vaultId: invitation.vaultId, userId: recipientUserId } },
+          data: { status: "ACTIVE", encryptedVaultKey: copyBytes(encryptedVaultKey), keyVersion, revokedAt: null }
+        });
+      } else {
+        await transaction.vaultMember.create({ data: { vaultId: invitation.vaultId, userId: recipientUserId, role: "VIEWER", encryptedVaultKey: copyBytes(encryptedVaultKey), keyVersion } });
+      }
       await transaction.vaultInvitation.update({ where: { id: invitation.id }, data: { status: "REDEEMED", redeemedAt: new Date() } });
     });
   }

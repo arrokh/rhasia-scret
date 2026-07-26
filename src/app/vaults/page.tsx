@@ -18,7 +18,7 @@ export default async function VaultsPage() {
     <main className="vault-page">
       <header className="vault-header">
         <div>
-          <p className="eyebrow">BRANKAS ANDA</p>
+          <p className="eyebrow">rhasia-scret</p>
           <h1>Akun autentikator</h1>
           <p className="vault-subtitle">Masuk sebagai {user.email}</p>
         </div>
@@ -26,9 +26,8 @@ export default async function VaultsPage() {
           <button className="logout-button" type="submit">Keluar</button>
         </form>
       </header>
-      <section className="vault-card" aria-labelledby="personal-vault-heading">
-        <div className="vault-card-heading"><div><p className="eyebrow">PRIBADI</p><h2 id="personal-vault-heading">Brankas Pribadi</h2></div><span className="vault-lock" aria-label="Brankas terenkripsi">🔒</span></div>
-        {personalVault.lifecycle === "UNINITIALIZED" ? <PersonalVaultSetupForm /> : <PersonalVaultAccounts vaultId={personalVault.id} />}
+      <section className="vault-card" aria-label={personalVault.lifecycle === "UNINITIALIZED" ? "Siapkan Brankas Pribadi" : "Daftar akun autentikator"}>
+        {personalVault.lifecycle === "UNINITIALIZED" ? <><div className="vault-card-heading"><div><p className="eyebrow">PRIBADI</p><h2>Siapkan Brankas Pribadi</h2></div><span className="vault-lock" aria-label="Brankas terenkripsi">🔒</span></div><PersonalVaultSetupForm /></> : <PersonalVaultAccounts vaultId={personalVault.id} />}
       </section>
     </main>
   );

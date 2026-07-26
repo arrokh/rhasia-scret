@@ -11,7 +11,7 @@ export async function enrollRememberedBrowser(): Promise<void> {
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
-      rp: { name: "Brankas TOTP Bersama" },
+      rp: { name: "rhasia-scret" },
       user: { id: randomBytes(32), name: "remembered-browser", displayName: "Browser yang Diingat" },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: { userVerification: "required", residentKey: "preferred" },

@@ -18,7 +18,12 @@ export class PrismaPasskeyRecoveryRepository {
   }
 
   public async saveCredential(userId: string, credentialId: Uint8Array, publicKey: Uint8Array, counter: bigint, transports: string[] | undefined, encryptedRecoveryPackage: Uint8Array): Promise<void> {
-    await prisma.passkeyRecoveryCredential.upsert({ where: { userId }, create: { userId, credentialId: copyBytes(credentialId), publicKey: copyBytes(publicKey), counter, transports: transports ?? undefined, encryptedRecoveryPackage: copyBytes(encryptedRecoveryPackage) }, update: { credentialId: copyBytes(credentialId), publicKey: copyBytes(publicKey), counter, transports: transports ?? undefined, encryptedRecoveryPackage: copyBytes(encryptedRecoveryPackage) } });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+      const cryptoProfile = await transaction.userCryptoProfile.findUnique({ where: { userId }, select: { userId: true } });
+      if (!cryptoProfile) throw new Error("User crypto profile does not exist.");
+      await transaction.passkeyRecoveryCredential.upsert({ where: { userId }, create: { userId, credentialId: copyBytes(credentialId), publicKey: copyBytes(publicKey), counter, transports: transports ?? undefined, encryptedRecoveryPackage: copyBytes(encryptedRecoveryPackage) }, update: { credentialId: copyBytes(credentialId), publicKey: copyBytes(publicKey), counter, transports: transports ?? undefined, encryptedRecoveryPackage: copyBytes(encryptedRecoveryPackage) } });
+    });
   }
 
   public async updateCounter(userId: string, counter: bigint): Promise<void> {

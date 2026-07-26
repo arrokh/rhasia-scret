@@ -6,13 +6,14 @@ export { initializePersonalVaultInBrowser } from "./infrastructure/browser-perso
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
 export { unlockPersonalVault } from "./infrastructure/browser-personal-vault-unlock";
 export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-personal-vault-unlock";
-export { changeVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
+export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
 export { forgetRememberedBrowser, enrollRememberedBrowser, supportsLocalVerification, verifyRememberedBrowser } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { PasskeyRecoveryEnrollment } from "./presentation/passkey-recovery-enrollment";
+export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";
 export { loadEncryptedLocalVaultSnapshot, reconcileEncryptedLocalVaultSnapshot, removeAllEncryptedLocalVaultSnapshots, removeEncryptedLocalVaultSnapshot, saveEncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
 export type { EncryptedLocalVaultSnapshot } from "./infrastructure/browser-local-vault-snapshot";
 export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";

@@ -71,7 +71,7 @@ export function LocalTotpScreen() {
         </form>
         {error && <p className="form-status" role="alert">{error}</p>}
         {clockDriftWarning && <p className="form-status" role="alert">Waktu perangkat Anda berbeda lebih dari 30 detik dari server. Kode mungkin gagal.</p>}
-        {configuration && <section aria-live="polite"><h2>{configuration.issuer}</h2><p>{configuration.accountName}</p><output aria-label="OTP saat ini">{code}</output><p>{seconds} dtk tersisa</p><button type="button" onClick={() => void copyCode()}>Salin OTP</button></section>}
+        {configuration && <section aria-live="polite"><h2>{configuration.issuer}</h2><p>{configuration.accountName}</p><output aria-label="OTP saat ini">{code}</output><p>{seconds} dtk tersisa</p><button className="primary-button" type="button" onClick={() => void copyCode()}>Salin OTP</button></section>}
       </section>
     </main>
   );

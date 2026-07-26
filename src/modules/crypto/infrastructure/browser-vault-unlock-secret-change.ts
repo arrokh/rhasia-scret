@@ -16,6 +16,13 @@ export async function changeVaultUnlockSecret(
 ): Promise<RewrappedUserRootKey> {
   const currentUnlockKey = await deriveVaultUnlockKey(currentSecret, currentSalt);
   const userRootKey = await decryptPayload(currentUnlockKey, deserializeEncryptedEnvelope(currentWrappedUserRootKey));
+  return wrapUserRootKeyWithVaultUnlockSecret(userRootKey, nextSecret);
+}
+
+export async function wrapUserRootKeyWithVaultUnlockSecret(
+  userRootKey: Uint8Array,
+  nextSecret: string
+): Promise<RewrappedUserRootKey> {
   const vaultUnlockSalt = randomBytes(16);
   const nextUnlockKey = await deriveVaultUnlockKey(nextSecret, vaultUnlockSalt);
   return {

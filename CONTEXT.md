@@ -1,4 +1,4 @@
-# Shared TOTP Vault
+# rhasia-scret
 
 A zero-knowledge authenticator application for personal and shared TOTP accounts.
 
@@ -24,8 +24,8 @@ The secret key that protects the encrypted contents of one Vault.
 _Avoid_: Vault password, master key
 
 **Vault Unlock Secret**:
-An app-specific passphrase of at least four randomly generated words, known only to the user, from which a client derives the Vault Unlock Key. It is separate from the authentication credential and not recoverable by the application.
-_Avoid_: PIN, Vault password, master key
+An app-specific passphrase of at least four randomly generated words, known only to the user, from which a client derives the Vault Unlock Key. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas**.
+_Avoid_: Rahasia Pembuka Brankas, PIN, Vault password, master key
 
 **Vault Unlock Key**:
 A client-derived key that unlocks the User Root Key. It is distinct from any Vault Encryption Key.
@@ -38,6 +38,10 @@ _Avoid_: Vault Unlock Key, vault key
 **Passkey-Assisted Recovery**:
 An optional browser-held recovery path that uses a verified WebAuthn PRF output to open an encrypted User Root Key recovery package. The server stores only credential metadata and opaque ciphertext; it has no recovery key.
 _Avoid_: Server reset, passkey-only server decryption
+
+**Destructive Personal Vault Reset**:
+An authenticated, explicitly confirmed destruction path for a user who lost their Vault Unlock Secret without enrolling Passkey-Assisted Recovery. It deletes unusable Personal Vault ciphertext and cryptographic material, leaves Viewer memberships, and returns the Personal Vault to Uninitialized; it never recovers encrypted data and is blocked while the user owns an active Shared Vault.
+_Avoid_: Recovery, key reset, data restoration
 
 **Remembered Browser**:
 A browser profile that holds a local credential enabling its authenticated user to unlock a Vault without re-entering the Vault Unlock Secret.

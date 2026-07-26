@@ -6,7 +6,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 
 .auth-page {
   display: grid;
@@ -39,24 +39,35 @@ button, input { font: inherit; }
 .auth-card > p { margin: 0 0 28px; color: #475569; line-height: 1.5; }
 .auth-form { display: grid; gap: 12px; }
 .auth-form label { color: #334155; font-size: .875rem; font-weight: 600; }
-.auth-form input {
+.auth-form input, .auth-form select {
   min-height: 48px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
+  background: #fff;
   padding: 0 12px;
   color: #0f172a;
 }
-.auth-form input:focus { outline: 3px solid rgb(99 102 241 / 25%); border-color: #4f46e5; }
+.auth-form input:focus, .auth-form select:focus { outline: 3px solid rgb(99 102 241 / 25%); border-color: #4f46e5; }
+.auth-form .checkbox-label { display: flex; align-items: flex-start; gap: 9px; line-height: 1.45; }
+.auth-form .checkbox-label input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 2px 0 0; padding: 0; accent-color: #312e81; }
+.auth-form .checkbox-label span { flex: 1; }
 .primary-button {
   min-height: 48px;
   border: 0;
   border-radius: 10px;
   color: #ffffff;
   background: #312e81;
+  padding: 0 16px;
   font-weight: 700;
   cursor: pointer;
 }
-.primary-button:disabled { cursor: wait; opacity: .65; }
+.primary-button:hover:not(:disabled) { background: #3730a3; }
+.primary-button:disabled { cursor: not-allowed; opacity: .65; }
+.primary-button[aria-busy="true"]:disabled { cursor: wait; }
+.danger-button { min-height: 48px; border: 0; border-radius: 10px; background: #b91c1c; padding: 0 16px; color: #fff; font-weight: 700; cursor: pointer; }
+.danger-button:hover:not(:disabled) { background: #991b1b; }
+.danger-button:disabled { cursor: not-allowed; opacity: .65; }
+.danger-button[aria-busy="true"]:disabled { cursor: wait; }
 .form-status { min-height: 1.5rem; margin: 4px 0 0; color: #475569; font-size: .875rem; line-height: 1.4; }
 .auth-notice { border: 1px solid #c7d2fe; border-radius: 10px; background: #eef2ff; padding: 10px 12px; color: #3730a3; font-size: .875rem; line-height: 1.4; }
 .auth-help { margin: 24px 0 0; color: #64748b; font-size: .8125rem; line-height: 1.5; }
@@ -76,9 +87,24 @@ button, input { font: inherit; }
 .vault-lock { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; background: #eef2ff; }
 @media (min-width: 640px) { .vault-page { padding-top: 48px; } }
 
-.vault-unlock-form { border-top: 1px solid #e2e8f0; padding-top: 20px; }
+.vault-unlock-form { padding-top: 0; }
 .vault-flow-title { margin: 0; color: #172554; font-size: 1.1rem; font-weight: 700; }
 .vault-flow-copy { margin: -4px 0 8px; color: #64748b; font-size: .875rem; line-height: 1.45; }
+.recovery-unavailable { display: grid; gap: 12px; }
+.recovery-unavailable h2, .recovery-unavailable p { margin: 0; }
+.recovery-unavailable h2 { color: #172554; font-size: 1.1rem; }
+.recovery-unavailable p { color: #64748b; font-size: .875rem; line-height: 1.5; }
+.recovery-unavailable .secondary-link { margin-top: 4px; }
+.destructive-warning { border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; padding: 14px; color: #7f1d1d; }
+.destructive-warning h2, .destructive-warning p, .destructive-warning ul { margin: 0; }
+.destructive-warning h2 { font-size: 1.05rem; }
+.destructive-warning p, .destructive-warning li { font-size: .875rem; line-height: 1.5; }
+.destructive-warning p + p, .destructive-warning p + ul, .destructive-warning ul + p { margin-top: 8px; }
+.destructive-warning ul { padding-left: 20px; }
+.owned-vault-reset-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.owned-vault-reset-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 12px; }
+.owned-vault-reset-list span { color: #7f1d1d; font-size: .875rem; font-weight: 700; }
+.owned-vault-reset-list .danger-button { min-height: 40px; }
 .vault-accounts { display: grid; gap: 16px; }
 .vault-accounts-heading { display: flex; align-items: center; justify-content: space-between; }
 .vault-accounts-heading h2 { margin: 0; color: #172554; font-size: 1.1rem; }
@@ -92,3 +118,70 @@ button, input { font: inherit; }
 .duplicate-account { display: flex; flex-wrap: wrap; gap: 8px; border-radius: 12px; background: #fff7ed; padding: 12px; color: #9a3412; }
 .duplicate-account p { width: 100%; margin: 0; font-size: .875rem; }
 .offline-notice { margin: 0; border: 1px solid #fbbf24; border-radius: 10px; background: #fffbeb; padding: 10px 12px; color: #92400e; font-size: .875rem; line-height: 1.4; }
+
+.vault-dashboard { display: grid; gap: 18px; }
+.dashboard-toolbar { display: flex; align-items: center; gap: 8px; }
+.secondary-button, .secondary-link, .security-menu > summary {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 12px;
+  color: #334155;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.add-account-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  border-radius: 10px;
+  background: #312e81;
+  padding: 0 13px;
+  color: #fff;
+  font-size: .875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.add-account-link svg, .icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
+.security-menu { position: relative; }
+.security-menu > summary { gap: 7px; list-style: none; }
+.security-menu > summary::-webkit-details-marker { display: none; }
+.security-menu > summary svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linejoin: round; stroke-width: 1.8; }
+.security-menu[open] .passkey-recovery { position: absolute; z-index: 4; top: calc(100% + 8px); left: 0; width: min(22rem, calc(100vw - 40px)); border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 16px; box-shadow: 0 14px 36px rgb(15 23 42 / 14%); }
+.passkey-recovery p { color: #475569; font-size: .875rem; line-height: 1.45; }
+.account-list-across-vaults li { grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+.account-list-across-vaults .account-avatar { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #eef2ff; color: #3730a3; font-weight: 800; }
+.account-list-across-vaults .account-copy { display: grid; min-width: 0; gap: 2px; }
+.account-list-across-vaults .vault-badge { max-width: 9rem; overflow: hidden; border-radius: 999px; background: #f1f5f9; padding: 5px 8px; color: #475569; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+.vault-dialog { width: min(calc(100% - 32px), 30rem); border: 0; border-radius: 18px; padding: 20px; color: #172554; box-shadow: 0 24px 70px rgb(15 23 42 / 28%); }
+.vault-dialog::backdrop { background: rgb(15 23 42 / 52%); backdrop-filter: blur(2px); }
+.dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.dialog-heading h2 { margin: 0; }
+.dialog-actions { display: flex; gap: 8px; }
+.icon-button { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; cursor: pointer; }
+.icon-button:hover, .secondary-button:hover, .secondary-link:hover { border-color: #818cf8; color: #312e81; }
+.secondary-button:disabled, .icon-button:disabled { cursor: not-allowed; opacity: .55; }
+.primary-button:focus-visible, .danger-button:focus-visible, .secondary-button:focus-visible, .icon-button:focus-visible, .secondary-link:focus-visible { outline: 3px solid rgb(99 102 241 / 25%); outline-offset: 2px; }
+.shared-vault-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.shared-vault-list li { display: flex; align-items: center; gap: 12px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+.shared-vault-list li > span:last-child { display: grid; gap: 3px; }
+.shared-vault-list small { color: #64748b; }
+.vault-list-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 11px; background: #eef2ff; color: #3730a3; }
+.form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.form-actions .primary-button { padding-inline: 18px; }
+@media (max-width: 520px) {
+  .dashboard-toolbar { flex-wrap: nowrap; }
+  .security-menu > summary { width: 42px; padding: 0; }
+  .security-menu > summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .add-account-link { width: 42px; justify-content: center; margin-left: auto; padding: 0; }
+  .add-account-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .account-list-across-vaults li { grid-template-columns: 40px minmax(0, 1fr); }
+  .account-list-across-vaults .vault-badge { grid-column: 2; justify-self: start; }
+}

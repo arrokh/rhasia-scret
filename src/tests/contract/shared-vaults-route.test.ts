@@ -1,11 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { createSharedVaultHandler } from "@/app/api/shared-vaults/route";
+import { createListSharedVaultsHandler, createSharedVaultHandler } from "@/app/api/shared-vaults/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
 import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import { Vault } from "@/modules/vault-management";
 
 const payload = { encryptedName: Buffer.from("encrypted-shared-vault-name").toString("base64"), encryptedOwnerVaultKey: Buffer.from("encrypted-owner-vault-key").toString("base64"), encryptionVersion: 1 };
+
+describe("GET /api/shared-vaults contract", () => {
+  it("returns only encrypted Shared Vault access material", async () => {
+    const listForMember = vi.fn().mockResolvedValue([{
+      vaultId: "vault-1",
+      role: "OWNER",
+      encryptedName: Uint8Array.from([1, 2, 3]),
+      encryptionVersion: 1,
+      encryptedVaultKey: Uint8Array.from([4, 5, 6]),
+      keyVersion: 1,
+      accounts: [{ id: "account-1", encryptedPayload: Uint8Array.from([7, 8, 9]), encryptionVersion: 1, revision: 2 }]
+    }]);
+    const handler = createListSharedVaultsHandler({
+      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      sharedVaultAccess: { getForMember: vi.fn(), listForMember }
+    });
+
+    const response = await handler();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([{
+      vaultId: "vault-1",
+      role: "OWNER",
+      encryptedName: "AQID",
+      encryptionVersion: 1,
+      encryptedVaultKey: "BAUG",
+      keyVersion: 1,
+      accounts: [{ id: "account-1", encryptedPayload: "BwgJ", encryptionVersion: 1, revision: 2 }]
+    }]);
+    expect(listForMember).toHaveBeenCalledWith("user-1");
+  });
+});
 
 describe("POST /api/shared-vaults contract", () => {
   it("creates a Shared Vault from opaque owner material", async () => {

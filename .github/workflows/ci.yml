@@ -78,6 +78,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
     steps:
@@ -102,6 +104,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Generate Prisma Client
+        run: pnpm run prisma:generate
       - name: Install Playwright system dependencies
         run: pnpm exec playwright install-deps chromium
       - name: Install Chromium on cache miss

@@ -8,6 +8,8 @@ import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructu
 import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
 import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import type { SharedVaultAccessRepository } from "@/modules/vault-membership/application/shared-vault-access-repository";
+import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
 
 const blob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
 const schema = z.object({ encryptedName: blob, encryptedOwnerVaultKey: blob, encryptionVersion: z.literal(1) });
@@ -29,8 +31,47 @@ export function createSharedVaultHandler({ sessionVerifier, applicationUsers, sh
   };
 }
 
+export function createListSharedVaultsHandler({
+  sessionVerifier,
+  applicationUsers,
+  sharedVaultAccess
+}: {
+  sessionVerifier: SessionVerifier;
+  applicationUsers: ApplicationUserRepository;
+  sharedVaultAccess: SharedVaultAccessRepository;
+}) {
+  return async function GET() {
+    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
+    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const vaults = await sharedVaultAccess.listForMember(user.id);
+    return NextResponse.json(vaults.map((vault) => ({
+      vaultId: vault.vaultId,
+      role: vault.role,
+      encryptedName: Buffer.from(vault.encryptedName).toString("base64"),
+      encryptionVersion: vault.encryptionVersion,
+      encryptedVaultKey: Buffer.from(vault.encryptedVaultKey).toString("base64"),
+      keyVersion: vault.keyVersion,
+      accounts: vault.accounts.map((account) => ({
+        id: account.id,
+        encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"),
+        encryptionVersion: account.encryptionVersion,
+        revision: account.revision
+      }))
+    })));
+  };
+}
+
+const sessionVerifier = new SupabaseSessionVerifier();
+const applicationUsers = new PrismaApplicationUserRepository();
+
+export const GET = createListSharedVaultsHandler({
+  sessionVerifier,
+  applicationUsers,
+  sharedVaultAccess: new PrismaSharedVaultAccessRepository()
+});
 export const POST = createSharedVaultHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier,
+  applicationUsers,
   sharedVaults: new PrismaSharedVaultRepository()
 });
