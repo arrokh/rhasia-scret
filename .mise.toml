@@ -1,5 +1,5 @@
 [tools]
-node = "26.5.0"
+node = "24"
 
 [tasks.setup]
 description = "Install the pinned pnpm version through the mise-managed Node runtime"
