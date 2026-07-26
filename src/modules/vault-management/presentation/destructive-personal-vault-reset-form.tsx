@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
-import { forgetRememberedBrowser, removeAllEncryptedLocalVaultSnapshots } from "@/modules/crypto";
+import { clearAllOfflineVaultData, requestLocalVaultLock } from "@/modules/sync";
 import { DESTRUCTIVE_RESET_CONFIRMATION } from "../application/destructive-personal-vault-reset";
 import { useDestructivePersonalVaultResetMutation } from "./hooks/use-personal-vault-mutations";
 
@@ -30,7 +30,7 @@ export function DestructivePersonalVaultResetForm() {
       if (result.status === "invalid_confirmation") { setStatus("invalid_confirmation"); return; }
       if (result.status === "owned_shared_vaults_exist") { setBlockedVaults(result.count); setStatus("blocked"); return; }
       if (result.status === "passkey_recovery_available") { router.refresh(); return; }
-      forgetRememberedBrowser(); removeAllEncryptedLocalVaultSnapshots(); router.replace("/vaults"); router.refresh();
+      await clearAllOfflineVaultData(); requestLocalVaultLock(); router.replace("/vaults"); router.refresh();
     } catch { setStatus("reset_error"); }
   }
 

@@ -1,1 +1,9 @@
-export type SyncStatus = "IDLE" | "SYNCING" | "OFFLINE" | "CONFLICT";
+export type { OfflineSyncBundleReader } from "./application/offline-sync-bundle-reader";
+export { OFFLINE_BUNDLE_SCHEMA_VERSION, parseEncryptedOfflineVaultBundle } from "./domain/offline-vault-bundle";
+export type { EncryptedOfflineAccount, EncryptedOfflinePersonalVault, EncryptedOfflineSharedVault, EncryptedOfflineVaultBundle } from "./domain/offline-vault-bundle";
+export { isReadOnlySyncState, nextOfflineSyncState } from "./domain/offline-sync-state";
+export type { OfflineSyncEvent, OfflineSyncState } from "./domain/offline-sync-state";
+export { BrowserOfflineVaultRepository, clearAllOfflineVaultData } from "./infrastructure/browser-offline-vault-repository";
+export type { OfflineProfileSummary, RememberedBrowserPackage } from "./infrastructure/browser-offline-vault-repository";
+export { fetchAuthorizedOfflineBundle } from "./infrastructure/browser-offline-sync-client";
+export { requestLocalVaultLock, subscribeToLocalVaultLock } from "./infrastructure/browser-vault-lock";

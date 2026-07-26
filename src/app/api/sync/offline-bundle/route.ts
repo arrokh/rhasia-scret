@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { loadApplicationUser } from "@/modules/identity";
+import type { ApplicationUserRepository, SessionVerifier } from "@/modules/identity";
+import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import type { OfflineSyncBundleReader } from "@/modules/sync";
+import { PrismaOfflineSyncBundleReader } from "@/modules/sync/infrastructure/prisma-offline-sync-bundle-reader";
+
+export function createOfflineSyncBundleHandler({
+  sessionVerifier,
+  applicationUsers,
+  bundles
+}: {
+  sessionVerifier: SessionVerifier;
+  applicationUsers: ApplicationUserRepository;
+  bundles: OfflineSyncBundleReader;
+}) {
+  return async function GET() {
+    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
+    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const bundle = await bundles.readAuthorizedBundle(user.id);
+    if (!bundle) return NextResponse.json({ error: "not_initialized" }, { status: 404 });
+    return NextResponse.json(bundle, { headers: { "cache-control": "no-store, private" } });
+  };
+}
+
+export const GET = createOfflineSyncBundleHandler({
+  sessionVerifier: new SupabaseSessionVerifier(),
+  applicationUsers: new PrismaApplicationUserRepository(),
+  bundles: new PrismaOfflineSyncBundleReader()
+});

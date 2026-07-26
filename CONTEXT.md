@@ -48,12 +48,12 @@ An authenticated, explicitly confirmed destruction path for a user who lost thei
 _Avoid_: Recovery, key reset, data restoration
 
 **Remembered Browser**:
-A browser profile that holds a local credential enabling its authenticated user to unlock a Vault without re-entering the Vault Unlock Secret.
-_Avoid_: Trusted device, device-bound browser
+A browser profile that holds a versioned, origin/RP-bound local WebAuthn PRF package enabling its authenticated user to recover the User Root Key after Local Verification without re-entering the Vault Unlock Secret. It is enrolled explicitly from an online Unlocked Vault Session, remains separate from server-mediated Passkey-Assisted Unlock, and falls back to the Vault Unlock Secret when PRF is unavailable or fails.
+_Avoid_: Trusted device, device-bound browser, assertion-only key gate
 
 **Local Verification**:
-A browser-mediated biometric or device-PIN check that confirms the person using a Remembered Browser before it unlocks a Vault.
-_Avoid_: Vault Unlock Secret, server authentication
+A browser-mediated biometric or device-PIN check whose WebAuthn PRF output cryptographically releases a Remembered Browser's encrypted User Root Key package. Generic assertion success without PRF-bound key release is insufficient.
+_Avoid_: Vault Unlock Secret, server authentication, UI-only assertion gate
 
 **Unlocked Vault Session**:
 The period during which a Vault is available in an authenticated browser after it has been unlocked. It ends when the user explicitly locks the Vault or logs out.

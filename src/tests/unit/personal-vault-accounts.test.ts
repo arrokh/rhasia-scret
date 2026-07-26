@@ -8,21 +8,26 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({
   loadUnlockedVaultWorkspace: vi.fn(),
   loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
+  clearUnlockedVaultWorkspace: vi.fn(),
+  refreshUnlockedVaultWorkspace: vi.fn(),
   passkeyEnrolled: true
 }));
 
 vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
-  loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey
+  loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey,
+  clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
+  refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace
 }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
-vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null }));
+vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null, RememberedBrowserEnrollment: () => null }));
 vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
 vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));
 
 import type { UnlockedVaultWorkspace } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account/presentation/personal-vault-accounts";
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
+import { requestLocalVaultLock } from "@/modules/sync";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("PersonalVaultAccounts", () => {
@@ -45,6 +50,19 @@ describe("PersonalVaultAccounts", () => {
     expect(container.querySelector("#vault-unlock-secret")).toBeNull();
     expect(container.textContent).toContain("personal@example.test");
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("clears the in-memory workspace when logout or local cleanup requests a global lock", async () => {
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(
+      createElement(TestQueryProvider, null, createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: workspace() }, createElement(PersonalVaultAccounts, { vaultId: "personal-1" })))
+    ));
+
+    await act(async () => requestLocalVaultLock());
+
+    expect(mocks.clearUnlockedVaultWorkspace).toHaveBeenCalledOnce();
+    expect(container.querySelector("#vault-unlock-secret")).not.toBeNull();
   });
 
   it("opens the same in-memory workspace with an enrolled recovery passkey", async () => {
@@ -88,6 +106,10 @@ describe("PersonalVaultAccounts", () => {
 
 function workspace(): UnlockedVaultWorkspace {
   return {
+    profileId: "profile-1",
+    synchronizedAt: "2026-01-01T00:00:00.000Z",
+    synchronizationToken: "sync-1",
+    syncState: "CURRENT",
     userRootKey: Uint8Array.of(1),
     vaults: [
       { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", key: Uint8Array.of(2) },

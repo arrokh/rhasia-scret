@@ -1,42 +1,22 @@
 "use client";
 
 import {
-  createUserEncryptionIdentity,
+  decryptPayload,
+  deserializeEncryptedEnvelope,
   recoverUserRootKeyWithPasskey,
-  serializeEncryptedEnvelope,
+  recoverUserRootKeyWithRememberedBrowser,
   unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey
 } from "@/modules/crypto";
-import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
-import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import {
+  BrowserOfflineVaultRepository,
+  fetchAuthorizedOfflineBundle,
+  type EncryptedOfflineVaultBundle,
+  type OfflineSyncState
+} from "@/modules/sync";
 import { unlockSharedVault } from "@/modules/vault-membership";
+import { base64ToBytes } from "@/shared/infrastructure/browser-base64";
 import { decryptAccountConfiguration, type DecryptedAuthenticatorAccount } from "./browser-account-payload";
-
-type ProfileResponse = {
-  vaultUnlockSalt: string;
-  wrappedUserRootKey: string;
-  encryptedPersonalVaultKey: string;
-  encryptionVersion: number;
-  userEncryptionPublicKey?: JsonWebKey;
-  encryptedUserPrivateKey?: string;
-};
-
-type EncryptedAccountResponse = {
-  id: string;
-  encryptedPayload: string;
-  encryptionVersion: number;
-  revision: number;
-};
-
-type SharedVaultResponse = {
-  vaultId: string;
-  role: "OWNER" | "VIEWER";
-  encryptedName: string;
-  encryptionVersion: number;
-  encryptedVaultKey: string;
-  keyVersion: number;
-  accounts: EncryptedAccountResponse[];
-};
 
 export type UnlockedVault = {
   id: string;
@@ -55,6 +35,10 @@ export type WorkspaceAuthenticatorAccount = DecryptedAuthenticatorAccount & {
 };
 
 export type UnlockedVaultWorkspace = {
+  profileId: string;
+  synchronizedAt: string;
+  synchronizationToken: string;
+  syncState: OfflineSyncState;
   userRootKey: Uint8Array;
   vaults: UnlockedVault[];
   accounts: WorkspaceAuthenticatorAccount[];
@@ -65,19 +49,21 @@ export async function loadUnlockedVaultWorkspace(
   vaultUnlockSecret: string,
   personalVaultId: string
 ): Promise<UnlockedVaultWorkspace> {
-  const profile = await loadProfile();
-  const unlockedPersonalVault = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(profile));
-  return loadWorkspace(profile, personalVaultId, unlockedPersonalVault.userRootKey, unlockedPersonalVault.personalVaultKey);
+  const bundle = await fetchAuthorizedOfflineBundle();
+  assertPersonalVault(bundle, personalVaultId);
+  const unlocked = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
+  return decryptAndPersistOnlineBundle(bundle, unlocked.userRootKey, unlocked.personalVaultKey);
 }
 
 export async function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
-  const profile = await loadProfile();
+  const bundle = await fetchAuthorizedOfflineBundle();
+  assertPersonalVault(bundle, personalVaultId);
   let userRootKey: Uint8Array | undefined;
   let personalVaultKey: Uint8Array | undefined;
   try {
     userRootKey = await recoverUserRootKeyWithPasskey();
-    personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profileMaterial(profile));
-    return await loadWorkspace(profile, personalVaultId, userRootKey, personalVaultKey);
+    personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profileMaterial(bundle));
+    return await decryptAndPersistOnlineBundle(bundle, userRootKey, personalVaultKey);
   } catch (error) {
     userRootKey?.fill(0);
     personalVaultKey?.fill(0);
@@ -85,26 +71,88 @@ export async function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: str
   }
 }
 
-async function loadWorkspace(
-  profile: ProfileResponse,
-  personalVaultId: string,
+export async function loadOfflineVaultWorkspace(
+  profileId: string,
+  vaultUnlockSecret: string
+): Promise<UnlockedVaultWorkspace> {
+  const bundle = await loadLocalBundle(profileId);
+  const unlocked = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
+  try {
+    return await loadWorkspace(bundle, unlocked.userRootKey, unlocked.personalVaultKey, navigator.onLine ? "STALE" : "OFFLINE");
+  } catch (error) {
+    unlocked.userRootKey.fill(0);
+    unlocked.personalVaultKey.fill(0);
+    throw error;
+  }
+}
+
+export async function loadOfflineVaultWorkspaceWithRememberedBrowser(profileId: string): Promise<UnlockedVaultWorkspace> {
+  const bundle = await loadLocalBundle(profileId);
+  let userRootKey: Uint8Array | undefined;
+  let personalVaultKey: Uint8Array | undefined;
+  try {
+    userRootKey = await recoverUserRootKeyWithRememberedBrowser(profileId);
+    personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profileMaterial(bundle));
+    return await loadWorkspace(bundle, userRootKey, personalVaultKey, navigator.onLine ? "STALE" : "OFFLINE");
+  } catch (error) {
+    userRootKey?.fill(0);
+    personalVaultKey?.fill(0);
+    throw error;
+  }
+}
+
+export async function refreshUnlockedVaultWorkspace(userRootKey: Uint8Array, expectedProfileId: string): Promise<UnlockedVaultWorkspace> {
+  const retainedUserRootKey = userRootKey.slice();
+  try {
+    const bundle = await fetchAuthorizedOfflineBundle();
+    if (bundle.profileId !== expectedProfileId) throw new Error("The authenticated profile does not match the unlocked Local Vault Snapshot.");
+    const personalVaultKey = await unlockPersonalVaultWithUserRootKey(retainedUserRootKey, profileMaterial(bundle));
+    return await decryptAndPersistOnlineBundle(bundle, retainedUserRootKey, personalVaultKey);
+  } catch (error) {
+    retainedUserRootKey.fill(0);
+    throw error;
+  }
+}
+
+export function clearUnlockedVaultWorkspace(workspace: UnlockedVaultWorkspace | null): void {
+  if (!workspace) return;
+  workspace.userRootKey.fill(0);
+  for (const vault of workspace.vaults) vault.key.fill(0);
+  for (const account of workspace.accounts) account.secret.fill(0);
+}
+
+async function decryptAndPersistOnlineBundle(
+  bundle: EncryptedOfflineVaultBundle,
   userRootKey: Uint8Array,
   personalVaultKey: Uint8Array
 ): Promise<UnlockedVaultWorkspace> {
-  await ensureUserEncryptionIdentity(profile, userRootKey);
-  const [personalAccounts, encryptedSharedVaults] = await Promise.all([
-    browserApiClient.getJson<EncryptedAccountResponse[]>(`/api/vaults/${personalVaultId}/accounts`, { cache: "no-store" }),
-    browserApiClient.getJson<SharedVaultResponse[]>("/api/shared-vaults", { cache: "no-store" })
-  ]);
+  let workspace: UnlockedVaultWorkspace | undefined;
+  try {
+    workspace = await loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT");
+    await new BrowserOfflineVaultRepository().replace(bundle);
+    return workspace;
+  } catch (error) {
+    if (workspace) clearUnlockedVaultWorkspace(workspace);
+    else { userRootKey.fill(0); personalVaultKey.fill(0); }
+    throw error;
+  }
+}
+
+async function loadWorkspace(
+  bundle: EncryptedOfflineVaultBundle,
+  userRootKey: Uint8Array,
+  personalVaultKey: Uint8Array,
+  syncState: OfflineSyncState
+): Promise<UnlockedVaultWorkspace> {
   const personalVault: UnlockedVault = {
-    id: personalVaultId,
-    name: "Brankas Pribadi",
+    id: bundle.personalVault.vaultId,
+    name: await decryptName(personalVaultKey, bundle.personalVault.encryptedName),
     type: "PERSONAL",
     role: "OWNER",
     key: personalVaultKey
   };
-  const decryptedPersonalAccounts = await decryptAccounts(personalAccounts, personalVault);
-  const sharedResults = await Promise.allSettled(encryptedSharedVaults.map(async (encryptedVault) => {
+  const decryptedPersonalAccounts = await decryptAccounts(bundle.personalVault.accounts, personalVault);
+  const sharedResults = await Promise.allSettled(bundle.sharedVaults.map(async (encryptedVault) => {
     const unlocked = await unlockSharedVault(
       userRootKey,
       base64ToBytes(encryptedVault.encryptedVaultKey),
@@ -117,16 +165,24 @@ async function loadWorkspace(
       role: encryptedVault.role,
       key: unlocked.vaultKey
     };
-    return { vault, accounts: await decryptAccounts(encryptedVault.accounts, vault) };
+    try {
+      return { vault, accounts: await decryptAccounts(encryptedVault.accounts, vault) };
+    } catch (error) {
+      vault.key.fill(0);
+      throw error;
+    }
   }));
   const sharedWorkspaces = sharedResults.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-
   const vaults = [personalVault, ...sharedWorkspaces.map(({ vault }) => vault)];
   const accounts = sortWorkspaceAccounts([
     ...decryptedPersonalAccounts,
     ...sharedWorkspaces.flatMap(({ accounts: sharedAccounts }) => sharedAccounts)
   ]);
   return {
+    profileId: bundle.profileId,
+    synchronizedAt: bundle.synchronizedAt,
+    synchronizationToken: bundle.synchronizationToken,
+    syncState,
     userRootKey,
     vaults,
     accounts,
@@ -134,41 +190,57 @@ async function loadWorkspace(
   };
 }
 
-function loadProfile(): Promise<ProfileResponse> {
-  return browserApiClient.getJson<ProfileResponse>("/api/user-crypto-profile", { cache: "no-store" });
+async function loadLocalBundle(profileId: string): Promise<EncryptedOfflineVaultBundle> {
+  const bundle = await new BrowserOfflineVaultRepository().read(profileId);
+  if (!bundle) throw new Error("Local Vault Snapshot tidak ditemukan.");
+  return bundle;
 }
 
-function profileMaterial(profile: ProfileResponse) {
+function profileMaterial(bundle: EncryptedOfflineVaultBundle) {
   return {
-    vaultUnlockSalt: base64ToBytes(profile.vaultUnlockSalt),
-    wrappedUserRootKey: base64ToBytes(profile.wrappedUserRootKey),
-    encryptedPersonalVaultKey: base64ToBytes(profile.encryptedPersonalVaultKey),
-    encryptionVersion: profile.encryptionVersion
+    vaultUnlockSalt: base64ToBytes(bundle.cryptoProfile.vaultUnlockSalt),
+    wrappedUserRootKey: base64ToBytes(bundle.cryptoProfile.wrappedUserRootKey),
+    encryptedPersonalVaultKey: base64ToBytes(bundle.cryptoProfile.encryptedPersonalVaultKey),
+    encryptionVersion: bundle.cryptoProfile.encryptionVersion
   };
 }
 
-async function decryptAccounts(
-  encryptedAccounts: EncryptedAccountResponse[],
-  vault: UnlockedVault
-): Promise<WorkspaceAuthenticatorAccount[]> {
-  return Promise.all(encryptedAccounts.map(async (account) => ({
-    id: account.id,
-    vaultId: vault.id,
-    vaultName: vault.name,
-    vaultType: vault.type,
-    revision: account.revision,
-    ...await decryptAccountConfiguration(vault.key, base64ToBytes(account.encryptedPayload))
-  })));
+async function decryptName(key: Uint8Array, encryptedName: string): Promise<string> {
+  const plaintext = await decryptPayload(key, deserializeEncryptedEnvelope(base64ToBytes(encryptedName)));
+  try {
+    const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
+    if (!name || name.length > 120) throw new Error("Vault name is invalid.");
+    return name;
+  } finally {
+    plaintext.fill(0);
+  }
 }
 
-async function ensureUserEncryptionIdentity(profile: ProfileResponse, userRootKey: Uint8Array) {
-  if (profile.userEncryptionPublicKey && profile.encryptedUserPrivateKey) return;
-  const identity = await createUserEncryptionIdentity(userRootKey);
-  await browserApiClient.putEmpty("/api/user-encryption-identity", {
-    publicKey: identity.publicKey,
-    encryptedPrivateKey: bytesToBase64(serializeEncryptedEnvelope(identity.encryptedPrivateKey)),
-    encryptionVersion: 1
-  });
+async function decryptAccounts(
+  encryptedAccounts: EncryptedOfflineVaultBundle["personalVault"]["accounts"],
+  vault: UnlockedVault
+): Promise<WorkspaceAuthenticatorAccount[]> {
+  const decrypted: WorkspaceAuthenticatorAccount[] = [];
+  try {
+    for (const account of encryptedAccounts) {
+      decrypted.push({
+        id: account.id,
+        vaultId: vault.id,
+        vaultName: vault.name,
+        vaultType: vault.type,
+        revision: account.revision,
+        ...await decryptAccountConfiguration(vault.key, base64ToBytes(account.encryptedPayload))
+      });
+    }
+    return decrypted;
+  } catch (error) {
+    for (const account of decrypted) account.secret.fill(0);
+    throw error;
+  }
+}
+
+function assertPersonalVault(bundle: EncryptedOfflineVaultBundle, expectedVaultId: string): void {
+  if (bundle.personalVault.vaultId !== expectedVaultId) throw new Error("Authorized synchronization returned a different Personal Vault.");
 }
 
 function sortWorkspaceAccounts(accounts: WorkspaceAuthenticatorAccount[]): WorkspaceAuthenticatorAccount[] {

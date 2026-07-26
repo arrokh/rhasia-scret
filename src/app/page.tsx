@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
@@ -29,6 +31,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div className="mt-6 grid gap-5">
           {notice && <StatusBanner tone={notice.tone} role={notice.role}>{notice.message}</StatusBanner>}
           <InvitedUserSignInForm />
+          <Button variant="outline" asChild><Link href="/offline">Buka snapshot luring</Link></Button>
           <p className="text-center text-xs leading-5 text-muted-foreground">Akses hanya tersedia melalui undangan. Minta pemilik brankas atau administrator mengundang alamat email Anda.</p>
         </div>
       </SurfaceCard>

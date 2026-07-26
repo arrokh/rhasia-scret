@@ -7,16 +7,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({
-  forgetRememberedBrowser: vi.fn(),
-  removeAllEncryptedLocalVaultSnapshots: vi.fn(),
+  clearAllOfflineVaultData: vi.fn(),
+  requestLocalVaultLock: vi.fn(),
   replace: vi.fn(),
   refresh: vi.fn()
 }));
 
-vi.mock("@/modules/crypto", () => ({
-  forgetRememberedBrowser: mocks.forgetRememberedBrowser,
-  removeAllEncryptedLocalVaultSnapshots: mocks.removeAllEncryptedLocalVaultSnapshots
-}));
+vi.mock("@/modules/sync", () => ({ clearAllOfflineVaultData: mocks.clearAllOfflineVaultData, requestLocalVaultLock: mocks.requestLocalVaultLock }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }) }));
 
 import { DestructivePersonalVaultResetForm } from "@/modules/vault-management/presentation/destructive-personal-vault-reset-form";
@@ -52,8 +49,8 @@ describe("DestructivePersonalVaultResetForm", () => {
       method: "POST",
       body: JSON.stringify({ confirmation: "HAPUS DATA BRANKAS" })
     }));
-    expect(mocks.forgetRememberedBrowser).toHaveBeenCalledOnce();
-    expect(mocks.removeAllEncryptedLocalVaultSnapshots).toHaveBeenCalledOnce();
+    expect(mocks.clearAllOfflineVaultData).toHaveBeenCalledOnce();
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
     expect(mocks.replace).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).toHaveBeenCalledOnce();
   });

@@ -13,9 +13,17 @@ export type EncryptedPersonalVaultProfile = {
 export async function unlockPersonalVault(vaultUnlockSecret: string, profile: EncryptedPersonalVaultProfile): Promise<{ userRootKey: Uint8Array; personalVaultKey: Uint8Array }> {
   if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
   const unlockKey = await deriveVaultUnlockKey(vaultUnlockSecret, profile.vaultUnlockSalt);
-  const userRootKey = await decryptPayload(unlockKey, deserializeEncryptedEnvelope(profile.wrappedUserRootKey));
-  const personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profile);
-  return { userRootKey, personalVaultKey };
+  let userRootKey: Uint8Array | undefined;
+  try {
+    userRootKey = await decryptPayload(unlockKey, deserializeEncryptedEnvelope(profile.wrappedUserRootKey));
+    const personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profile);
+    return { userRootKey, personalVaultKey };
+  } catch (error) {
+    userRootKey?.fill(0);
+    throw error;
+  } finally {
+    unlockKey.fill(0);
+  }
 }
 
 export async function unlockPersonalVaultWithUserRootKey(userRootKey: Uint8Array, profile: EncryptedPersonalVaultProfile): Promise<Uint8Array> {
