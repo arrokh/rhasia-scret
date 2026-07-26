@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LogoutForm } from "@/modules/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default function MobilePreviewPage() {
           <h1>Akun autentikator</h1>
           <p className="vault-subtitle">Pratinjau UI lokal. Tidak ada materi akun, passphrase, OTP, atau kunci yang digunakan dalam data contoh ini.</p>
         </div>
-        <form action="/auth/logout" method="post"><button className="logout-button" type="submit">Keluar</button></form>
+        <LogoutForm />
       </header>
       <section className="vault-card" aria-label="Daftar akun autentikator">
         <section className="vault-dashboard" aria-labelledby="preview-account-list-heading">

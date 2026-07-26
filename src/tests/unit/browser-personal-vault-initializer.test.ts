@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { initializePersonalVaultInBrowser } from "@/modules/crypto/infrastructure/browser-personal-vault-initializer";
 
 describe("initializePersonalVaultInBrowser", () => {
-  it("rejects a Vault Unlock Secret with fewer than four words", async () => {
-    await expect(initializePersonalVaultInBrowser("one two three", "Personal Vault")).rejects.toThrow(
-      "at least four words"
+  it("accepts a custom Vault Unlock Secret with at least three characters", async () => {
+    await expect(initializePersonalVaultInBrowser("ab", "Personal Vault")).rejects.toThrow(
+      "at least three characters"
     );
+
+    const material = await initializePersonalVaultInBrowser("abc", "Personal Vault");
+    expect(material.encryptionVersion).toBe(1);
   });
 
   it("creates opaque encrypted material without returning key plaintext", async () => {

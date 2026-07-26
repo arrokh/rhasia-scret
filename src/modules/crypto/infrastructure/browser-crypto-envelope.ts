@@ -1,5 +1,7 @@
 "use client";
 
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+
 const VERSION = 1;
 const NONCE_LENGTH = 12;
 const KEY_LENGTH = 32;
@@ -63,7 +65,7 @@ export async function wrapKeyForRecipient(vaultKey: Uint8Array, recipientPublicK
 }
 
 export function serializeKeyWrapEnvelope(envelope: KeyWrapEnvelope): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify({ version: envelope.version, nonce: toBase64(envelope.nonce), ciphertext: toBase64(envelope.ciphertext), ephemeralPublicKey: envelope.ephemeralPublicKey }));
+  return new TextEncoder().encode(JSON.stringify({ version: envelope.version, nonce: bytesToBase64(envelope.nonce), ciphertext: bytesToBase64(envelope.ciphertext), ephemeralPublicKey: envelope.ephemeralPublicKey }));
 }
 
 export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
@@ -72,7 +74,7 @@ export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
   if (!parsed || typeof parsed !== "object") throw new Error("Encrypted key package is invalid.");
   const record = parsed as Record<string, unknown>;
   if (record.version !== VERSION || typeof record.nonce !== "string" || typeof record.ciphertext !== "string" || !record.ephemeralPublicKey || typeof record.ephemeralPublicKey !== "object") throw new Error("Encrypted key package is invalid.");
-  return { version: VERSION, nonce: fromBase64(record.nonce), ciphertext: fromBase64(record.ciphertext), ephemeralPublicKey: record.ephemeralPublicKey as JsonWebKey };
+  return { version: VERSION, nonce: base64ToBytes(record.nonce), ciphertext: base64ToBytes(record.ciphertext), ephemeralPublicKey: record.ephemeralPublicKey as JsonWebKey };
 }
 
 export async function unwrapKeyForRecipient(envelope: KeyWrapEnvelope, recipientPrivateKey: JsonWebKey): Promise<Uint8Array> {
@@ -114,8 +116,6 @@ function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   return copy;
 }
 
-function toBase64(bytes: Uint8Array): string { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
-function fromBase64(value: string): Uint8Array { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
 
 function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length);

@@ -29,6 +29,7 @@ vi.mock("@/modules/crypto/infrastructure/browser-vault-unlock-secret-change", ()
 }));
 
 import { PasskeyRecoveryReset } from "@/modules/crypto/presentation/passkey-recovery-reset";
+import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("PasskeyRecoveryReset", () => {
   let root: Root | undefined;
@@ -55,7 +56,7 @@ describe("PasskeyRecoveryReset", () => {
     const container = document.createElement("div");
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(PasskeyRecoveryReset)));
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
     await act(async () => {
       setInputValue(container.querySelector("#recovery-secret-confirmation"), "alpha bravo charlie delta echo foxtrot");
       container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click();
@@ -83,7 +84,7 @@ describe("PasskeyRecoveryReset", () => {
     const container = document.createElement("div");
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(PasskeyRecoveryReset)));
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
     await act(async () => {
       setInputValue(container.querySelector("#recovery-secret-confirmation"), "wrong confirmation words here");
       container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click();

@@ -7,8 +7,8 @@ const ARGON2_ITERATIONS = 3;
 const ARGON2_PARALLELISM = 1;
 
 export function validateVaultUnlockSecret(secret: string) {
-  if (secret.trim().split(/\s+/).filter(Boolean).length < 4) {
-    throw new Error("A Vault Unlock Secret must contain at least four words.");
+  if (secret.trim().length < 3) {
+    throw new Error("A Vault Unlock Secret must contain at least three characters.");
   }
 }
 

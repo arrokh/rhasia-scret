@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { PasskeyRecoveryEnrollment } from "@/modules/crypto";
+import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
 import { SharedVaultManager } from "@/modules/vault-management";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import {
@@ -12,32 +14,32 @@ import {
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(null);
-  const [secret, setSecret] = useState("");
-  const [status, setStatus] = useState<"idle" | "unlocking" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "error">("idle");
   const online = useOnlineStatus();
-
-  async function unlock(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus("unlocking");
-    try {
-      setWorkspace(await loadUnlockedVaultWorkspace(secret, vaultId));
-      setSecret("");
+  const unlockForm = useForm({
+    defaultValues: { secret: "" },
+    onSubmit: async ({ value }) => {
       setStatus("idle");
-    } catch {
-      setStatus("error");
+      try {
+        setWorkspace(await loadUnlockedVaultWorkspace(value.secret, vaultId));
+        unlockForm.reset();
+      } catch {
+        setStatus("error");
+      }
     }
-  }
+  });
 
   if (!workspace) {
     return (
-      <form className="auth-form vault-unlock-form" onSubmit={unlock}>
+      <form noValidate className="auth-form vault-unlock-form" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void unlockForm.handleSubmit(); }}>
         <p className="vault-flow-title">Buka brankas Anda</p>
         <p className="vault-flow-copy">Passphrase Brankas Anda tetap di perangkat ini dan tidak pernah dikirim ke layanan.</p>
-        <label htmlFor="vault-unlock-secret">Passphrase Brankas</label>
-        <input id="vault-unlock-secret" type="password" value={secret} onChange={(event) => setSecret(event.target.value)} required />
-        <button className="primary-button" type="submit" disabled={status === "unlocking"} aria-busy={status === "unlocking"}>
-          {status === "unlocking" ? "Membuka semua brankas…" : "Buka Brankas"}
-        </button>
+        <unlockForm.Field name="secret" validators={{ onSubmit: requiredText("Passphrase Brankas") }}>
+          {(field) => <><label htmlFor="vault-unlock-secret">Passphrase Brankas</label><input id="vault-unlock-secret" type="password" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-unlock-secret-error" : undefined} required /><FormFieldError id="vault-unlock-secret-error" errors={field.state.meta.errors} /></>}
+        </unlockForm.Field>
+        <unlockForm.Subscribe selector={(formState) => formState.isSubmitting}>
+          {(isSubmitting) => <button className="primary-button" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? "Membuka semua brankas…" : "Buka Brankas"}</button>}
+        </unlockForm.Subscribe>
         <Link className="secondary-link" href="/vaults/recovery">Lupa Passphrase Brankas?</Link>
         {status === "error" && <p role="alert">Tidak dapat membuka brankas Anda.</p>}
       </form>

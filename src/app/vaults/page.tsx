@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
@@ -22,9 +23,7 @@ export default async function VaultsPage() {
           <h1>Akun autentikator</h1>
           <p className="vault-subtitle">Masuk sebagai {user.email}</p>
         </div>
-        <form action="/auth/logout" method="post">
-          <button className="logout-button" type="submit">Keluar</button>
-        </form>
+        <LogoutForm />
       </header>
       <section className="vault-card" aria-label={personalVault.lifecycle === "UNINITIALIZED" ? "Siapkan Brankas Pribadi" : "Daftar akun autentikator"}>
         {personalVault.lifecycle === "UNINITIALIZED" ? <><div className="vault-card-heading"><div><p className="eyebrow">PRIBADI</p><h2>Siapkan Brankas Pribadi</h2></div><span className="vault-lock" aria-label="Brankas terenkripsi">🔒</span></div><PersonalVaultSetupForm /></> : <PersonalVaultAccounts vaultId={personalVault.id} />}

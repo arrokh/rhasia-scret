@@ -1,0 +1,3 @@
+# TanStack Form for client forms
+
+All interactive HTML forms use TanStack Form as their state, submission, and validation coordinator. Field validation messages are rendered explicitly and associated with invalid controls through `aria-invalid` and `aria-describedby`; forms disable native browser validation so warnings are consistent and testable. Domain parsing, cryptographic validation, and server authorization remain in their existing domain, client-crypto, and application layers rather than moving into the form library. Stateless logout controls use a TanStack Form client component that posts to the existing same-origin logout endpoint and follows its redirect.

@@ -1,18 +1,23 @@
 "use client";
 
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, generateSymmetricKey, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
 
 const VERSION = 1;
 
 export async function createPasskeyRecoveryPackage(userRootKey: Uint8Array, prfOutput: Uint8Array, prfSalt: Uint8Array): Promise<Uint8Array> {
   const recoveryWrappingKey = generateSymmetricKey();
-  const packageData = {
-    version: VERSION,
-    prfSalt: toBase64(prfSalt),
-    encryptedRecoveryWrappingKey: toBase64(serializeEncryptedEnvelope(await encryptPayload(prfOutput, recoveryWrappingKey))),
-    encryptedUserRootKey: toBase64(serializeEncryptedEnvelope(await encryptPayload(recoveryWrappingKey, userRootKey)))
-  };
-  return new TextEncoder().encode(JSON.stringify(packageData));
+  try {
+    const packageData = {
+      version: VERSION,
+      prfSalt: bytesToBase64(prfSalt),
+      encryptedRecoveryWrappingKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayload(prfOutput, recoveryWrappingKey))),
+      encryptedUserRootKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayload(recoveryWrappingKey, userRootKey)))
+    };
+    return new TextEncoder().encode(JSON.stringify(packageData));
+  } finally {
+    recoveryWrappingKey.fill(0);
+  }
 }
 
 export function passkeyRecoverySalt(packageBytes: Uint8Array): Uint8Array {
@@ -21,9 +26,13 @@ export function passkeyRecoverySalt(packageBytes: Uint8Array): Uint8Array {
 
 export async function recoverUserRootKeyFromPasskeyPackage(prfOutput: Uint8Array, packageBytes: Uint8Array): Promise<{ userRootKey: Uint8Array; prfSalt: Uint8Array }> {
   const data = parsePackage(packageBytes);
-  const recoveryWrappingKey = await decryptPayload(prfOutput, deserializeEncryptedEnvelope(fromBase64(data.encryptedRecoveryWrappingKey)));
-  const userRootKey = await decryptPayload(recoveryWrappingKey, deserializeEncryptedEnvelope(fromBase64(data.encryptedUserRootKey)));
-  return { userRootKey, prfSalt: data.prfSalt };
+  const recoveryWrappingKey = await decryptPayload(prfOutput, deserializeEncryptedEnvelope(base64ToBytes(data.encryptedRecoveryWrappingKey)));
+  try {
+    const userRootKey = await decryptPayload(recoveryWrappingKey, deserializeEncryptedEnvelope(base64ToBytes(data.encryptedUserRootKey)));
+    return { userRootKey, prfSalt: data.prfSalt };
+  } finally {
+    recoveryWrappingKey.fill(0);
+  }
 }
 
 function parsePackage(packageBytes: Uint8Array): { prfSalt: Uint8Array; encryptedRecoveryWrappingKey: string; encryptedUserRootKey: string } {
@@ -32,8 +41,5 @@ function parsePackage(packageBytes: Uint8Array): { prfSalt: Uint8Array; encrypte
   if (!parsed || typeof parsed !== "object") throw new Error("Passkey recovery package is invalid.");
   const data = parsed as Record<string, unknown>;
   if (data.version !== VERSION || typeof data.prfSalt !== "string" || typeof data.encryptedRecoveryWrappingKey !== "string" || typeof data.encryptedUserRootKey !== "string") throw new Error("Passkey recovery package is invalid.");
-  return { prfSalt: fromBase64(data.prfSalt), encryptedRecoveryWrappingKey: data.encryptedRecoveryWrappingKey, encryptedUserRootKey: data.encryptedUserRootKey };
+  return { prfSalt: base64ToBytes(data.prfSalt), encryptedRecoveryWrappingKey: data.encryptedRecoveryWrappingKey, encryptedUserRootKey: data.encryptedUserRootKey };
 }
-
-function toBase64(bytes: Uint8Array): string { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
-function fromBase64(value: string): Uint8Array { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
