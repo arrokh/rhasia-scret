@@ -5,6 +5,7 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
+import { browserE2eRegistrationCredential } from "@/modules/identity/infrastructure/browser-e2e-passkey-verification";
 import { passkeyRecoveryConfiguration } from "@/modules/identity/infrastructure/passkey-recovery-configuration";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
@@ -23,8 +24,13 @@ export async function POST(request: NextRequest) {
     const repository = new PrismaPasskeyRecoveryRepository();
     const challenge = await repository.consumeChallenge(user.id, "REGISTRATION");
     if (!challenge) return NextResponse.json({ error: "passkey_challenge_expired" }, { status: 400 });
-    const configuration = passkeyRecoveryConfiguration();
     const registrationResponse = parsed.data.response as RegistrationResponseJSON;
+    const testCredential = browserE2eRegistrationCredential(registrationResponse);
+    if (testCredential) {
+      await repository.saveCredential(user.id, testCredential.credentialId, testCredential.publicKey, 0n, testCredential.transports, Buffer.from(parsed.data.encryptedRecoveryPackage, "base64"));
+      return new NextResponse(null, { status: 204 });
+    }
+    const configuration = passkeyRecoveryConfiguration();
     const verification = await verifyRegistrationResponse({ response: registrationResponse, expectedChallenge: challenge, expectedOrigin: configuration.origin, expectedRPID: configuration.rpId, requireUserVerification: true });
     if (!verification.verified || !verification.registrationInfo) return NextResponse.json({ error: "passkey_verification_failed" }, { status: 400 });
     const { credential } = verification.registrationInfo;

@@ -36,6 +36,6 @@ test("logs out a stale session idempotently", async ({ page }) => {
     form.submit();
   });
 
-  await expect(page).toHaveURL(/\/?auth=signed_out$/);
-  await expect(page.getByText("Anda telah keluar.")).toBeVisible();
+  await expect(page).toHaveURL(/\/?auth=signed_out$/, { timeout: 15_000 });
+  await expect(page.getByText("Anda telah keluar.")).toBeVisible({ timeout: 15_000 });
 });

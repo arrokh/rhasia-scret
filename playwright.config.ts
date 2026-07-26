@@ -8,7 +8,7 @@ export const supportedBrowserProjects = [
 
 export default defineConfig({
   testDir: "src/tests/browser",
-  testIgnore: "offline-pwa.spec.ts",
+  testIgnore: ["offline-pwa.spec.ts", "encrypted-vault-workflows.spec.ts"],
   fullyParallel: false,
   workers: 3,
   timeout: 60_000,

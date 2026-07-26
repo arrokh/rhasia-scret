@@ -28,7 +28,8 @@ export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
   "POST /api/vault-imports": "archive_import",
   "POST /api/vaults/[vaultId]/accounts": "account_mutation",
   "PATCH /api/vaults/[vaultId]/accounts": "account_mutation",
-  "DELETE /api/vaults/[vaultId]/accounts": "account_mutation"
+  "DELETE /api/vaults/[vaultId]/accounts": "account_mutation",
+  "PUT /api/vaults/[vaultId]/accounts": "account_mutation"
 } as const satisfies Record<string, ApplicationRateLimitPolicyId>;
 
 export const STATE_CHANGING_ROUTE_RATE_LIMIT_EXCLUSIONS = {

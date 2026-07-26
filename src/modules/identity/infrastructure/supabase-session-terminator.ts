@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { SessionTerminator } from "../application/session-terminator";
+import { BROWSER_E2E_SESSION_COOKIE, browserE2eTestSession } from "./browser-e2e-test-session";
 
 type AuthCookie = { name: string; value: string; options: CookieOptions };
 type AuthCookieStore = {
@@ -25,8 +26,13 @@ export class SupabaseSessionTerminator implements SessionTerminator {
   ) {}
 
   public async terminateCurrentSession(): Promise<void> {
-    const { url, key } = this.getConfiguration();
     const cookieStore = await this.getCookieStore();
+    const testAlias = cookieStore.getAll().find(({ name }) => name === BROWSER_E2E_SESSION_COOKIE)?.value;
+    if (browserE2eTestSession(testAlias)) {
+      cookieStore.set(BROWSER_E2E_SESSION_COOKIE, "", { expires: new Date(0), httpOnly: true, maxAge: 0, path: "/", sameSite: "lax" });
+      return;
+    }
+    const { url, key } = this.getConfiguration();
     const client = this.createClient(url, key, {
       getAll: () => cookieStore.getAll(),
       setAll: (cookiesToSet) => {

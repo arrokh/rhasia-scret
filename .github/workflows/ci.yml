@@ -76,7 +76,20 @@ jobs:
   browser-smoke:
     name: Browser smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: browser_smoke
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d browser_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
@@ -106,6 +119,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Generate Prisma Client
         run: pnpm run prisma:generate
+      - name: Apply migrations
+        run: pnpm run prisma:migrate:deploy
       - name: Install Playwright system dependencies
         run: pnpm exec playwright install-deps chromium firefox webkit
       - name: Ensure supported browsers are installed

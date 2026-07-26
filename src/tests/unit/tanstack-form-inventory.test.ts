@@ -23,6 +23,7 @@ describe("TanStack Form inventory", () => {
     expect(forms.map(({ path, count }) => ({ path, count }))).toEqual([
       { path: "src/modules/authenticator-account/presentation/authenticator-account-creator.tsx", count: 2 },
       { path: "src/modules/authenticator-account/presentation/authenticator-account-manager-dialog.tsx", count: 1 },
+      { path: "src/modules/authenticator-account/presentation/qr-import-input.tsx", count: 1 },
       { path: "src/modules/authenticator-account/presentation/vault-workspace-unlock.tsx", count: 1 },
       { path: "src/modules/crypto/presentation/passkey-recovery-reset.tsx", count: 1 },
       { path: "src/modules/crypto/presentation/remembered-browser-enrollment.tsx", count: 1 },

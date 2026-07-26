@@ -18,7 +18,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:contract": "vitest run --project contract",
-    "test:browser": "playwright test --config playwright.config.ts && playwright test --config playwright.pwa.config.ts",
+    "test:browser": "playwright test --config playwright.config.ts && playwright test --config playwright.e2e.config.ts && playwright test --config playwright.pwa.config.ts",
     "test:architecture": "dependency-cruiser --config .dependency-cruiser.cjs src",
     "test:all": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run test:browser && pnpm run build",
     "prisma:generate": "prisma generate",

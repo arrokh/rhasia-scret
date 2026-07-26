@@ -1,6 +1,6 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
-import { accountPurgeAfter } from "../domain/account-retention-policy";
+import { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "../domain/account-retention-policy";
 import type { NewEncryptedAccount, PersonalAccountRepository } from "../application/personal-account-repository";
 
 type AccountRecord = {
@@ -48,6 +48,24 @@ export class PrismaPersonalAccountRepository implements PersonalAccountRepositor
       data: { deletedAt, purgeAfter: accountPurgeAfter(deletedAt), revision: { increment: 1 } }
     });
     return deleted.count === 1;
+  }
+
+  public async restore(ownerId: string, vaultId: string, accountId: string): Promise<boolean> {
+    await assertActivePersonalVault(ownerId, vaultId);
+    const now = this.now();
+    const restored = await prisma.authenticatorAccount.updateMany({
+      where: {
+        id: accountId,
+        vaultId,
+        deletedAt: { not: null },
+        OR: [
+          { purgeAfter: { gt: now } },
+          { purgeAfter: null, deletedAt: { gt: new Date(now.getTime() - ACCOUNT_RECOVERY_DAYS * 24 * 60 * 60 * 1_000) } }
+        ]
+      },
+      data: { deletedAt: null, purgeAfter: null, revision: { increment: 1 } }
+    });
+    return restored.count === 1;
   }
 }
 
