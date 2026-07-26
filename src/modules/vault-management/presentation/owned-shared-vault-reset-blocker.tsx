@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { useDeleteSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 
 export function OwnedSharedVaultResetBlocker({ vaultIds }: { vaultIds: string[] }) {
   const router = useRouter();
   const deleteMutation = useDeleteSharedVaultMutation();
+  const [vaultToDelete, setVaultToDelete] = useState<string | null>(null);
 
   function deleteVault(vaultId: string) {
-    deleteMutation.mutate(vaultId, { onSuccess: () => router.refresh() });
+    deleteMutation.mutate(vaultId, { onSuccess: () => { setVaultToDelete(null); router.refresh(); } });
   }
 
   return (
@@ -28,7 +31,7 @@ export function OwnedSharedVaultResetBlocker({ vaultIds }: { vaultIds: string[] 
               type="button"
               disabled={deleteMutation.isPending}
               aria-busy={deleteMutation.isPending && deleteMutation.variables === vaultId}
-              onClick={() => deleteVault(vaultId)}
+              onClick={() => setVaultToDelete(vaultId)}
             >
               {deleteMutation.isPending && deleteMutation.variables === vaultId ? "Menghapus…" : "Hapus brankas"}
             </button>
@@ -37,6 +40,17 @@ export function OwnedSharedVaultResetBlocker({ vaultIds }: { vaultIds: string[] 
       </ul>
       <Link className="secondary-link" href="/vaults">Batal dan kembali</Link>
       {deleteMutation.isError && <p className="form-status" role="alert">Brankas Bersama tidak dapat dihapus. Coba lagi.</p>}
+      {vaultToDelete && (
+        <ConfirmationDialog
+          title="Hapus Brankas Bersama?"
+          description="Semua anggota akan langsung kehilangan akses. Brankas memasuki masa pemulihan 30 hari sebelum dihapus permanen."
+          confirmLabel="Hapus brankas"
+          danger
+          pending={deleteMutation.isPending}
+          onCancel={() => setVaultToDelete(null)}
+          onConfirm={() => deleteVault(vaultToDelete)}
+        />
+      )}
     </div>
   );
 }

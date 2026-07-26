@@ -1,9 +1,19 @@
 import { Buffer } from "node:buffer";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
+import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
+import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
+import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
+
+const renameSchema = z.object({
+  encryptedName: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
+  encryptionVersion: z.literal(1)
+});
 
 export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
@@ -21,3 +31,30 @@ export async function GET(_request: Request, { params }: { params: Promise<{ vau
     accounts: access.accounts.map((account) => ({ id: account.id, encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"), encryptionVersion: account.encryptionVersion, revision: account.revision }))
   });
 }
+
+export function createRenameSharedVaultHandler({
+  sessionVerifier,
+  applicationUsers,
+  sharedVaults
+}: {
+  sessionVerifier: SessionVerifier;
+  applicationUsers: ApplicationUserRepository;
+  sharedVaults: SharedVaultRepository;
+}) {
+  return async (request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) => {
+    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
+    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const parsed = renameSchema.safeParse(await request.json());
+    if (!parsed.success) return NextResponse.json({ error: "invalid_vault_name" }, { status: 400 });
+    const { vaultId } = await params;
+    const renamed = await sharedVaults.rename(user.id, vaultId, Buffer.from(parsed.data.encryptedName, "base64"), parsed.data.encryptionVersion);
+    return renamed ? new NextResponse(null, { status: 204 }) : NextResponse.json({ error: "owner_access_required" }, { status: 404 });
+  };
+}
+
+export const PATCH = createRenameSharedVaultHandler({
+  sessionVerifier: new SupabaseSessionVerifier(),
+  applicationUsers: new PrismaApplicationUserRepository(),
+  sharedVaults: new PrismaSharedVaultRepository()
+});

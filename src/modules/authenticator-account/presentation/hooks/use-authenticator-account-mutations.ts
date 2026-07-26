@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { createEncryptedAuthenticatorAccount } from "../../infrastructure/browser-authenticator-account-client";
+import { createEncryptedAuthenticatorAccount, deleteEncryptedAuthenticatorAccount } from "../../infrastructure/browser-authenticator-account-client";
+
+export function useDeleteEncryptedAuthenticatorAccountMutation() {
+  return useMutation({
+    mutationKey: ["authenticator-account", "delete"],
+    mutationFn: ({ vaultId, accountId, expectedRevision }: { vaultId: string; accountId: string; expectedRevision: number }) =>
+      deleteEncryptedAuthenticatorAccount(vaultId, accountId, expectedRevision)
+  });
+}
 
 export function useCreateEncryptedAuthenticatorAccountMutation() {
   return useMutation({

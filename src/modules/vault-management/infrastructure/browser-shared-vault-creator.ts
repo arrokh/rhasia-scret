@@ -7,8 +7,14 @@ export async function createSharedVaultMaterial(userRootKey: Uint8Array, vaultNa
   const vaultKey = generateSymmetricKey();
   return {
     vaultKey,
-    encryptedName: serializeEncryptedEnvelope(await encryptPayload(vaultKey, new TextEncoder().encode(vaultName))),
+    encryptedName: await encryptSharedVaultName(vaultKey, vaultName),
     encryptedOwnerVaultKey: serializeEncryptedEnvelope(await encryptPayload(userRootKey, vaultKey)),
     encryptionVersion: 1
   };
+}
+
+export async function encryptSharedVaultName(vaultKey: Uint8Array, vaultName: string): Promise<Uint8Array> {
+  const normalizedName = vaultName.trim();
+  if (!normalizedName) throw new Error("A Vault Name is required.");
+  return serializeEncryptedEnvelope(await encryptPayload(vaultKey, new TextEncoder().encode(normalizedName)));
 }

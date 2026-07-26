@@ -5,3 +5,4 @@ export { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAc
 export type { DecryptedAuthenticatorAccount } from "./infrastructure/browser-account-payload";
 export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
 export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";
+export { UnlockedVaultWorkspaceProvider } from "./presentation/unlocked-vault-workspace-provider";

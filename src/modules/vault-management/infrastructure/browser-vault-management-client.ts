@@ -30,6 +30,10 @@ export function createSharedVault(request: SharedVaultCreationRequest): Promise<
   return browserApiClient.postJson("/api/shared-vaults", request);
 }
 
+export function renameSharedVault(vaultId: string, encryptedName: string): Promise<void> {
+  return browserApiClient.patchEmpty(`/api/shared-vaults/${vaultId}`, { encryptedName, encryptionVersion: 1 });
+}
+
 export function deleteSharedVault(vaultId: string): Promise<void> {
   return browserApiClient.deleteEmpty(`/api/shared-vaults/${vaultId}/lifecycle`);
 }

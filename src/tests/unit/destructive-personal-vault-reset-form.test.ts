@@ -41,6 +41,10 @@ describe("DestructivePersonalVaultResetForm", () => {
     expect(container.textContent).toContain("Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus");
     await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Atur ulang Brankas Pribadi?");
+    const confirm = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
+    await act(async () => confirm?.click());
 
     expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/destructive-reset", expect.objectContaining({
       method: "POST",
