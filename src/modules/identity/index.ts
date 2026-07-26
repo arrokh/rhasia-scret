@@ -4,3 +4,4 @@ export type { SessionVerifier, VerifiedSession } from "./application/session-ver
 export type { ApplicationUserRepository } from "./application/application-user-repository";
 export { loadApplicationUser } from "./application/load-application-user";
 export { LogoutForm } from "./presentation/logout-form";
+export { usePasskeyRecoveryStatusQuery, useRemovePasskeyRecoveryMutation } from "./presentation/hooks/use-passkey-recovery-status-query";

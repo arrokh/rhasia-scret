@@ -14,7 +14,13 @@ export async function unlockPersonalVault(vaultUnlockSecret: string, profile: En
   if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
   const unlockKey = await deriveVaultUnlockKey(vaultUnlockSecret, profile.vaultUnlockSalt);
   const userRootKey = await decryptPayload(unlockKey, deserializeEncryptedEnvelope(profile.wrappedUserRootKey));
+  const personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profile);
+  return { userRootKey, personalVaultKey };
+}
+
+export async function unlockPersonalVaultWithUserRootKey(userRootKey: Uint8Array, profile: EncryptedPersonalVaultProfile): Promise<Uint8Array> {
+  if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
   const personalVaultKey = await decryptPayload(userRootKey, deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey));
   if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
-  return { userRootKey, personalVaultKey };
+  return personalVaultKey;
 }

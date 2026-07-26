@@ -14,15 +14,12 @@ import type { WorkspaceAuthenticatorAccount } from "@/modules/authenticator-acco
 import { AuthenticatorAccountManagerDialog } from "@/modules/authenticator-account/presentation/authenticator-account-manager-dialog";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
-if (!HTMLDialogElement.prototype.showModal) {
-  HTMLDialogElement.prototype.showModal = function showModal() { this.open = true; };
-}
-
 describe("AuthenticatorAccountManagerDialog", () => {
   let root: Root | undefined;
   afterEach(async () => {
     await act(async () => root?.unmount());
     vi.unstubAllGlobals();
+    document.body.innerHTML = "";
   });
 
   it("encrypts and revision-updates an edited account label", async () => {
@@ -30,11 +27,12 @@ describe("AuthenticatorAccountManagerDialog", () => {
     vi.stubGlobal("fetch", fetchMock);
     const onUpdated = vi.fn();
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
     await renderDialog(root, { onUpdated });
 
-    await act(async () => setInputValue(container.querySelector("input"), "Alice Mobile"));
-    await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+    await act(async () => setInputValue(document.body.querySelector("input"), "Alice Mobile"));
+    await act(async () => document.body.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(fetchMock).toHaveBeenCalledWith("/api/vaults/personal-1/accounts", expect.objectContaining({
       method: "PATCH",
@@ -48,13 +46,15 @@ describe("AuthenticatorAccountManagerDialog", () => {
     vi.stubGlobal("fetch", fetchMock);
     const onDeleted = vi.fn();
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
     await renderDialog(root, { onDeleted });
 
-    await act(async () => findButton(container, "Hapus akun", ".account-manager-actions").click());
+    await act(async () => findButton(document.body, "Hapus akun").click());
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Hapus akun autentikator?");
-    await act(async () => findButton(container, "Hapus akun", ".confirmation-dialog").click());
+    expect(document.body.textContent).toContain("Hapus akun autentikator?");
+    const confirmation = document.body.querySelectorAll('[role="dialog"]')[1] ?? document.body.querySelector('[role="alertdialog"]');
+    await act(async () => findButton(confirmation ?? document.body, "Hapus akun").click());
 
     expect(fetchMock).toHaveBeenCalledWith("/api/vaults/personal-1/accounts", expect.objectContaining({ method: "DELETE" }));
     expect(onDeleted).toHaveBeenCalledWith(expect.objectContaining({ id: "account-1" }));
@@ -89,8 +89,8 @@ function setInputValue(input: HTMLInputElement | null, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function findButton(container: HTMLElement, name: string, scope: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll<HTMLButtonElement>(`${scope} button`)].find((candidate) => candidate.textContent === name);
+function findButton(container: Element | HTMLElement, name: string): HTMLButtonElement {
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent === name);
   if (!button) throw new Error(`Expected button: ${name}`);
   return button;
 }

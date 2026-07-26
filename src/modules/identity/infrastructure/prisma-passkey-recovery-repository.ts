@@ -29,5 +29,12 @@ export class PrismaPasskeyRecoveryRepository {
   public async updateCounter(userId: string, counter: bigint): Promise<void> {
     await prisma.passkeyRecoveryCredential.update({ where: { userId }, data: { counter } });
   }
+
+  public async removeCredential(userId: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.passkeyRecoveryChallenge.deleteMany({ where: { userId } }),
+      prisma.passkeyRecoveryCredential.deleteMany({ where: { userId } })
+    ]);
+  }
 }
 function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> { const copy = new Uint8Array(bytes.length); copy.set(bytes); return copy; }

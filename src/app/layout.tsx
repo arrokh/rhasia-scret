@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope, Roboto_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/shared/presentation/query-provider";
+import { cn } from "@/lib/utils";
 import "./globals.css";
+
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
+const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
 
 export const metadata: Metadata = {
   title: "rhasia-scret",
@@ -51,14 +56,20 @@ export const metadata: Metadata = {
   },
   other: {
     "msapplication-config": "/pwa/browserconfig.xml",
-    "msapplication-TileColor": "#d6c2ae"
+    "msapplication-TileColor": "#E5A72E"
   }
 };
 
 export const viewport: Viewport = {
-  themeColor: "#d6c2ae"
+  themeColor: "#F8F4ED"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  return <html lang="id"><body><QueryProvider>{children}</QueryProvider></body></html>;
+  return (
+    <html lang="id">
+      <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
+    </html>
+  );
 }

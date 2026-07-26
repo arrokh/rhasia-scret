@@ -1,23 +1,11 @@
 import { notFound } from "next/navigation";
 import { DestructivePersonalVaultResetForm } from "@/modules/vault-management";
+import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 
 export const dynamic = "force-dynamic";
 
 /** Fixture khusus pengembangan untuk memeriksa reset destruktif tanpa data pengguna. */
 export default function RecoveryPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  return (
-    <main className="vault-page">
-      <header className="vault-header">
-        <div>
-          <p className="eyebrow">rhasia-scret · PRATINJAU UI</p>
-          <h1>Reset destruktif</h1>
-          <p className="vault-subtitle">Fixture ini tidak memuat data, ciphertext, atau kunci pengguna.</p>
-        </div>
-      </header>
-      <section className="vault-card" aria-label="Pratinjau reset destruktif">
-        <DestructivePersonalVaultResetForm />
-      </section>
-    </main>
-  );
+  return <AppPage><PageHeader eyebrow="rhasia-scret · Pratinjau UI" title="Reset destruktif" description="Fixture ini tidak memuat data, ciphertext, atau kunci pengguna." /><SurfaceCard className="p-5 sm:p-6" aria-label="Pratinjau reset destruktif"><DestructivePersonalVaultResetForm /></SurfaceCard></AppPage>;
 }

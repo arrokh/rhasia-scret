@@ -8,6 +8,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({
   generateVaultUnlockSecret: vi.fn(() => "alpha bravo charlie delta echo foxtrot"),
+  routerReplace: vi.fn(),
   authenticatePasskey: vi.fn(async () => ({ id: "credential-response" })),
   evaluatePasskeyPrf: vi.fn(async () => Uint8Array.of(3, 4)),
   passkeyRecoverySalt: vi.fn(() => Uint8Array.of(5, 6)),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   wrapUserRootKeyWithVaultUnlockSecret: vi.fn(async () => ({ vaultUnlockSalt: new Uint8Array(16), wrappedUserRootKey: new Uint8Array(13) }))
 }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.routerReplace }) }));
 vi.mock("@/modules/crypto/presentation/generate-vault-unlock-secret", () => ({ generateVaultUnlockSecret: mocks.generateVaultUnlockSecret }));
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-prf", () => ({
   authenticatePasskey: mocks.authenticatePasskey,
@@ -59,7 +61,7 @@ describe("PasskeyRecoveryReset", () => {
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
     await act(async () => {
       setInputValue(container.querySelector("#recovery-secret-confirmation"), "alpha bravo charlie delta echo foxtrot");
-      container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click();
+      container.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click();
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
@@ -76,6 +78,45 @@ describe("PasskeyRecoveryReset", () => {
       encryptionVersion: 1
     });
     expect(container.textContent).toContain("Passphrase berhasil diatur ulang");
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/vaults");
+  });
+
+  it("copies the generated Passphrase Brankas baru", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
+    const copyButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Salin passphrase"));
+    await act(async () => copyButton?.click());
+
+    expect(writeText).toHaveBeenCalledWith("alpha bravo charlie delta echo foxtrot");
+    expect(container.textContent).toContain("Disalin");
+  });
+
+  it("accepts a custom Passphrase Brankas baru", async () => {
+    const options = { challenge: "challenge", rpId: "example.test", allowCredentials: [{ id: "AQI", type: "public-key" }] } as PublicKeyCredentialRequestOptionsJSON;
+    vi.stubGlobal("fetch", vi.fn(async (input: string) => {
+      if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
+      if (input === "/api/passkey-recovery/authentication/verify") return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
+      if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
+      throw new Error(`Unexpected request: ${input}`);
+    }));
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
+    await act(async () => container.querySelector<HTMLButtonElement>("#recovery-custom-mode")?.click());
+    await act(async () => {
+      setInputValue(container.querySelector("#recovery-custom-secret"), "my custom recovery phrase");
+      setInputValue(container.querySelector("#recovery-secret-confirmation"), "my custom recovery phrase");
+      container.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click();
+    });
+    await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+
+    expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(expect.any(Uint8Array), "my custom recovery phrase");
+    expect(container.textContent).toContain("Passphrase berhasil diatur ulang");
   });
 
   it("does not request recovery when the confirmation does not match", async () => {
@@ -87,7 +128,7 @@ describe("PasskeyRecoveryReset", () => {
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
     await act(async () => {
       setInputValue(container.querySelector("#recovery-secret-confirmation"), "wrong confirmation words here");
-      container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click();
+      container.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click();
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 

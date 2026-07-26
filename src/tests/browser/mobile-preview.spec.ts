@@ -8,17 +8,25 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await accountMenuTrigger.click();
   await expect(page.getByText("preview@local.invalid")).toBeVisible();
   const triggerBox = await accountMenuTrigger.boundingBox();
-  const menuBox = await page.locator("#account-profile-menu").boundingBox();
-  expect(Math.abs((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0)))).toBeLessThan(4);
-  await page.getByRole("heading", { level: 1, name: "Akun autentikator" }).click();
+  const menuBox = await page.locator('[data-slot="dropdown-menu-content"]').boundingBox();
+  expect(Math.abs((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0)))).toBeLessThan(8);
+  await page.keyboard.press("Escape");
   await expect(page.getByText("preview@local.invalid")).toBeHidden();
   await accountMenuTrigger.click();
   await expect(page.getByRole("button", { name: "Keluar" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Brankas Bersama" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
+
+  const touchTargets = page.locator("main button, main a");
+  for (let index = 0; index < await touchTargets.count(); index += 1) {
+    const box = await touchTargets.nth(index).boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {

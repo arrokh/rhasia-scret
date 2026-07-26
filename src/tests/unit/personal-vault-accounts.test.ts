@@ -5,13 +5,19 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-const mocks = vi.hoisted(() => ({ loadUnlockedVaultWorkspace: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  loadUnlockedVaultWorkspace: vi.fn(),
+  loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
+  passkeyEnrolled: true
+}));
 
 vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace", () => ({
-  loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace
+  loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
+  loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey
 }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null }));
+vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
 vi.mock("@/modules/vault-management", () => ({ SharedVaultManager: () => createElement("button", { type: "button" }, "Brankas Bersama") }));
 
 import type { UnlockedVaultWorkspace } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
@@ -21,7 +27,11 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("PersonalVaultAccounts", () => {
   let root: Root | undefined;
-  beforeEach(() => mocks.loadUnlockedVaultWorkspace.mockReset());
+  beforeEach(() => {
+    mocks.loadUnlockedVaultWorkspace.mockReset();
+    mocks.loadUnlockedVaultWorkspaceWithPasskey.mockReset();
+    mocks.passkeyEnrolled = true;
+  });
   afterEach(async () => act(async () => root?.unmount()));
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
@@ -37,6 +47,22 @@ describe("PersonalVaultAccounts", () => {
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
   });
 
+  it("opens the same in-memory workspace with an enrolled recovery passkey", async () => {
+    mocks.loadUnlockedVaultWorkspaceWithPasskey.mockResolvedValue(workspace());
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(
+      createElement(TestQueryProvider, null, createElement(UnlockedVaultWorkspaceProvider, null, createElement(PersonalVaultAccounts, { vaultId: "personal-1" })))
+    ));
+
+    const passkeyButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Buka dengan passkey"));
+    await act(async () => passkeyButton?.click());
+
+    expect(mocks.loadUnlockedVaultWorkspaceWithPasskey).toHaveBeenCalledWith("personal-1");
+    expect(container.textContent).toContain("personal@example.test");
+    expect(container.querySelector("#vault-unlock-secret")).toBeNull();
+  });
+
   it("renders only the aggregated account list with vault provenance and a dedicated add-page link", async () => {
     mocks.loadUnlockedVaultWorkspace.mockResolvedValue(workspace());
     const container = document.createElement("div");
@@ -44,19 +70,19 @@ describe("PersonalVaultAccounts", () => {
     await act(async () => root?.render(
       createElement(TestQueryProvider, null, createElement(UnlockedVaultWorkspaceProvider, null, createElement(PersonalVaultAccounts, { vaultId: "personal-1" })))
     ));
-    const recoveryLink = container.querySelector<HTMLAnchorElement>(".secondary-link");
+    const recoveryLink = container.querySelector<HTMLAnchorElement>('a[href="/vaults/recovery"]');
     expect(recoveryLink?.textContent).toBe("Lupa Passphrase Brankas?");
     expect(recoveryLink?.pathname).toBe("/vaults/recovery");
     await act(async () => setInputValue(container.querySelector("#vault-unlock-secret"), "four random secret words"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(container.querySelectorAll(".account-list > li")).toHaveLength(2);
+    expect(container.querySelectorAll("ul > li article")).toHaveLength(2);
     expect(container.textContent).toContain("personal@example.test");
     expect(container.textContent).toContain("work@example.test");
     expect(container.textContent).toContain("Brankas Pribadi");
     expect(container.textContent).toContain("Tim Operasional");
     expect(container.querySelector<HTMLAnchorElement>('a[aria-label="Tambahkan akun autentikator"]')?.pathname).toBe("/vaults/accounts/new");
-    expect(container.querySelector(".add-account-form")).toBeNull();
+    expect(container.querySelector("#account-uri")).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@ export { decryptPayload, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelop
 export type { EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
-export { unlockPersonalVault } from "./infrastructure/browser-personal-vault-unlock";
+export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infrastructure/browser-personal-vault-unlock";
 export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-personal-vault-unlock";
 export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
@@ -21,3 +21,4 @@ export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "
 export { createEncryptedVaultExport, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";
 export { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./infrastructure/browser-passkey-recovery-package";
 export { authenticatePasskey, createPasskeyCredential, evaluatePasskeyPrf } from "./infrastructure/browser-passkey-prf";
+export { recoverUserRootKeyWithPasskey } from "./infrastructure/browser-passkey-recovery-workflow";

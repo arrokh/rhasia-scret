@@ -29,12 +29,14 @@ describe("DestructivePersonalVaultResetForm", () => {
     await act(async () => root?.unmount());
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    document.body.innerHTML = "";
   });
 
   it("requires exact confirmation, clears local material, and returns to secure setup", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
@@ -42,8 +44,8 @@ describe("DestructivePersonalVaultResetForm", () => {
     await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Atur ulang Brankas Pribadi?");
-    const confirm = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
+    expect(document.body.textContent).toContain("Atur ulang Brankas Pribadi?");
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
     await act(async () => confirm?.click());
 
     expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/destructive-reset", expect.objectContaining({
@@ -60,6 +62,7 @@ describe("DestructivePersonalVaultResetForm", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
@@ -67,7 +70,7 @@ describe("DestructivePersonalVaultResetForm", () => {
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(container.querySelector('.form-status[role="alert"]')?.textContent).toContain("Frasa konfirmasi tidak cocok");
+    expect(container.textContent).toContain("Frasa konfirmasi tidak cocok");
   });
 });
 

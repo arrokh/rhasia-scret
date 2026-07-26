@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback } from "react";
+import { TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 
 export function ConfirmationDialog({
   title,
@@ -19,31 +28,23 @@ export function ConfirmationDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const openDialog = useCallback((dialog: HTMLDialogElement | null) => {
-    if (!dialog || dialog.open) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
-  }, []);
-
   return (
-    <dialog
-      ref={openDialog}
-      className="vault-dialog confirmation-dialog"
-      aria-labelledby="confirmation-title"
-      onCancel={onCancel}
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !pending) onCancel();
-      }}
-    >
-      <div className="confirmation-icon" aria-hidden="true">!</div>
-      <h2 id="confirmation-title">{title}</h2>
-      <p>{description}</p>
-      <div className="form-actions confirmation-actions">
-        <button className="secondary-button" type="button" onClick={onCancel} disabled={pending}>Batal</button>
-        <button className={danger ? "danger-button" : "primary-button"} type="button" onClick={onConfirm} disabled={pending} aria-busy={pending}>
-          {pending ? "Memproses…" : confirmLabel}
-        </button>
-      </div>
-    </dialog>
+    <Dialog open onOpenChange={(open) => { if (!open && !pending) onCancel(); }}>
+      <DialogContent className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet" showCloseButton={!pending}>
+        <DialogHeader className="items-center text-center sm:items-center sm:text-center">
+          <span className={`grid size-12 place-items-center rounded-full ${danger ? "bg-danger-surface text-destructive" : "bg-warning-surface text-warning"}`} aria-hidden="true">
+            <TriangleAlert className="size-6" />
+          </span>
+          <DialogTitle className="text-xl leading-7 font-bold text-ink-strong">{title}</DialogTitle>
+          <DialogDescription className="text-center leading-5 text-muted-foreground">{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="-mx-5 -mb-5 mt-1 grid grid-cols-2 gap-2 bg-muted/60 p-4 sm:grid-cols-2">
+          <Button variant="outline" type="button" onClick={onCancel} disabled={pending}>Batal</Button>
+          <Button variant={danger ? "destructive" : "default"} type="button" onClick={onConfirm} disabled={pending} aria-busy={pending}>
+            {pending ? "Memproses…" : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
