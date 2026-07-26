@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
 import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 
@@ -37,8 +38,13 @@ describe("PrismaVaultAuditRepository", () => {
     await expect(repository.listForOwner(owner.id, vault.id, { accountId: "different-account" })).resolves.toEqual([]);
     await expect(repository.listForOwner(owner.id, vault.id, { actorUserId: outsider.id })).resolves.toEqual([]);
 
-    await prisma.vault.update({ where: { id: vault.id }, data: { lifecycle: "DELETED", deletedAt: new Date(), purgeAfter: new Date(Date.now() + 86_400_000) } });
-    await expect(repository.listForOwner(owner.id, vault.id)).resolves.toBeNull();
+    const deletedAt = new Date("2026-07-26T12:00:00.000Z");
+    await new PrismaSharedVaultRecoveryRepository(() => deletedAt).delete(owner.id, vault.id);
+    await expect(new PrismaVaultAuditRepository(() => new Date("2026-08-01T00:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ eventType: "ACCOUNT_ACCESSED" }),
+      expect.objectContaining({ eventType: "VAULT_DELETED" })
+    ]));
+    await expect(repository.listForOwner(viewer.id, vault.id)).resolves.toBeNull();
     await expect(repository.recordAccountAccess(viewer.id, vault.id, account.id)).resolves.toBe(false);
   });
 });

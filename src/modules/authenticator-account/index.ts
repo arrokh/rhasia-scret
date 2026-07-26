@@ -1,4 +1,7 @@
 export { AccountRevision } from "./domain/account-revision";
+export { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "./domain/account-retention-policy";
+export { purgeExpiredAuthenticatorAccounts } from "./application/purge-expired-accounts";
+export type { AccountPurgeBatch, ExpiredAccountPurgeRepository } from "./application/purge-expired-accounts";
 export { EncryptedAuthenticatorAccount } from "./domain/encrypted-account";
 export type { NewEncryptedAccount, PersonalAccountRepository } from "./application/personal-account-repository";
 export { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAccount, sortAccounts } from "./infrastructure/browser-account-payload";

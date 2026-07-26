@@ -39,9 +39,9 @@ model Vault {
   members           VaultMember[]
   accounts          AuthenticatorAccount[]
   invitations       VaultInvitation[]
-  auditEvents       VaultAuditEvent[]
 
   @@index([ownerId, type, lifecycle])
+  @@index([type, lifecycle, purgeAfter, id])
   @@map("vaults")
 }
 
@@ -127,16 +127,18 @@ model VaultMember {
 }
 
 model VaultAuditEvent {
-  id          String          @id @default(cuid())
-  vaultId     String          @map("vault_id")
-  actorUserId String          @map("actor_user_id")
-  eventType   String          @map("event_type")
-  targetId    String?         @map("target_id")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  vault       Vault           @relation(fields: [vaultId], references: [id])
-  actor       ApplicationUser @relation("AuditActor", fields: [actorUserId], references: [id])
+  id                  String          @id @default(cuid())
+  vaultId             String          @map("vault_id")
+  ownerId             String?         @map("owner_id")
+  actorUserId         String          @map("actor_user_id")
+  eventType           String          @map("event_type")
+  targetId            String?         @map("target_id")
+  retentionPurgeAfter DateTime?       @map("retention_purge_after")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  actor               ApplicationUser @relation("AuditActor", fields: [actorUserId], references: [id])
 
-  @@index([vaultId, createdAt])
+  @@index([vaultId, ownerId, createdAt])
+  @@index([retentionPurgeAfter, id])
   @@map("vault_audit_events")
 }
 
@@ -153,5 +155,6 @@ model AuthenticatorAccount {
   vault             Vault     @relation(fields: [vaultId], references: [id])
 
   @@index([vaultId, deletedAt])
+  @@index([purgeAfter, id])
   @@map("authenticator_accounts")
 }
