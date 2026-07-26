@@ -1,4 +1,4 @@
-# Shared TOTP Vault — MVP Plan
+# rhasia-scret — MVP Plan
 
 ## Outcome
 

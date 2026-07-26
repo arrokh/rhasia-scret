@@ -4,3 +4,4 @@ export type { NewEncryptedAccount, PersonalAccountRepository } from "./applicati
 export { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAccount, sortAccounts } from "./infrastructure/browser-account-payload";
 export type { DecryptedAuthenticatorAccount } from "./infrastructure/browser-account-payload";
 export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
+export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";

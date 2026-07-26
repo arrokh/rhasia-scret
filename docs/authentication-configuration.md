@@ -17,7 +17,7 @@ The application continues to use Supabase Auth through `@supabase/ssr`; adding a
 
 Route inventory:
 
-- Public pages and support routes: `/`, `/auth/confirm`, `/auth/logout` (POST only, so stale sessions can be cleared), `/smoke`, and the development-only `/ui-preview` fixture.
+- Public pages and support routes: `/` for signed-out or inactive users, `/auth/confirm`, `/auth/logout` (POST only, so stale sessions can be cleared), `/smoke`, and the development-only `/ui-preview` fixture. An active authenticated user who visits `/` is redirected to `/vaults`.
 - Protected pages: `/vaults` and descendants, plus `/totp`.
 - Public APIs: `/api/health` and `/api/time`; neither returns user or vault data.
 - Every other application API verifies the Supabase session in its route handler and applies its existing resource-authorization checks before accessing data.

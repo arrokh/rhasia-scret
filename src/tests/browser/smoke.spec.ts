@@ -8,14 +8,14 @@ test("renders the browser smoke page", async ({ page }) => {
 test("renders public product copy in Bahasa Indonesia", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
-  await expect(page).toHaveTitle("Brankas TOTP Bersama");
-  await expect(page.getByRole("heading", { name: "Brankas TOTP Bersama" })).toBeVisible();
+  await expect(page).toHaveTitle("rhasia-scret");
+  await expect(page.getByRole("heading", { name: "rhasia-scret" })).toBeVisible();
   await expect(page.getByLabel("Alamat email yang diundang")).toBeVisible();
   await expect(page.getByRole("button", { name: "Kirim tautan masuk" })).toBeVisible();
 });
 
 test("redirects unauthenticated users away from protected pages", async ({ page }) => {
-  for (const pathname of ["/vaults", "/totp"]) {
+  for (const pathname of ["/vaults", "/vaults/accounts/new", "/vaults/recovery", "/totp"]) {
     await page.goto(pathname);
     await expect(page).toHaveURL(/\/?auth=required$/);
     await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();

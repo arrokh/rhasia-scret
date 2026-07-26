@@ -4,7 +4,15 @@ import { useState, type FormEvent } from "react";
 import { createSharedVaultMaterial } from "../infrastructure/browser-shared-vault-creator";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 
-export function SharedVaultCreator({ userRootKey }: { userRootKey: Uint8Array }) {
+export function SharedVaultCreator({
+  userRootKey,
+  onCreated,
+  onCancel
+}: {
+  userRootKey: Uint8Array;
+  onCreated?: (vault: { id: string; name: string }) => void;
+  onCancel?: () => void;
+}) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState("");
   const online = useOnlineStatus();
@@ -16,14 +24,17 @@ export function SharedVaultCreator({ userRootKey }: { userRootKey: Uint8Array })
       const material = await createSharedVaultMaterial(userRootKey, name);
       const response = await fetch("/api/shared-vaults", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedName: toBase64(material.encryptedName), encryptedOwnerVaultKey: toBase64(material.encryptedOwnerVaultKey), encryptionVersion: material.encryptionVersion }) });
       if (!response.ok) throw new Error("create failed");
+      const created = await response.json() as { id: string };
+      const createdName = name.trim();
       setName("");
       setStatus("Brankas Bersama dibuat. Undang anggota dari pengaturannya.");
+      onCreated?.({ id: created.id, name: createdName });
     } catch {
       setStatus("Tidak dapat membuat Brankas Bersama.");
     }
   }
 
-  return <form className="auth-form" onSubmit={submit}><label htmlFor="shared-vault-name">Nama Brankas Bersama Baru</label><input id="shared-vault-name" value={name} onChange={(event) => setName(event.target.value)} required disabled={!online} /><button className="primary-button" type="submit" disabled={!online}>Buat Brankas Bersama</button>{!online && <p className="offline-notice" role="status">Luring: perubahan diblokir dan tidak pernah diantrikan.</p>}{status && <p aria-live="polite">{status}</p>}</form>;
+  return <form className="auth-form" onSubmit={submit}><label htmlFor="shared-vault-name">Nama Brankas Bersama</label><input id="shared-vault-name" value={name} onChange={(event) => setName(event.target.value)} required disabled={!online} autoFocus /><div className="form-actions">{onCancel && <button className="secondary-button" type="button" onClick={onCancel}>Batal</button>}<button className="primary-button" type="submit" disabled={!online}>Buat Brankas Bersama</button></div>{!online && <p className="offline-notice" role="status">Luring: perubahan diblokir dan tidak pernah diantrikan.</p>}{status && <p aria-live="polite">{status}</p>}</form>;
 }
 
 function toBase64(bytes: Uint8Array): string { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }

@@ -40,7 +40,7 @@ All screen analyses inherit [`design-system.md`](design-system.md). It standardi
 
 The source is a visual reference only. Implementations must follow `CONTEXT.md`, `docs/mvp-plan.md`, and the ADRs when this reference differs:
 
-- Call the product **Shared TOTP Vault** and use the glossary terms: **Vault**, **Authenticator Account**, **Vault Unlock Secret**, **Vault Owner**, and **Vault Viewer**.
+- Call the product **rhasia-scret** and use the glossary terms: **Vault**, **Authenticator Account**, **Vault Unlock Secret** (labelled **Passphrase Brankas** in Indonesian UI), **Vault Owner**, and **Vault Viewer**.
 - Do **not** implement the pictured numeric “Vault PIN,” PIN change, or one-minute auto-lock. A Vault Unlock Secret contains at least four randomly generated words; sessions end only on explicit lock or logout. See ADR-0001, ADR-0002, ADR-0007, and ADR-0021.
 - The only Shared Vault roles are Owner and Viewer. Do not add the pictured “Can edit” role. Viewer access is read/copy only; members and audit history are owner-only.
 - The client may scan or manually enter an `otpauth://totp` URI, but raw QR data, raw URIs, TOTP secrets, and generated OTPs must never reach or persist on the server.
