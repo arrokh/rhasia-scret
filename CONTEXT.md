@@ -142,3 +142,7 @@ _Avoid_: Best-effort webview support, private-mode persistence
 **Local Vault Snapshot**:
 An encrypted browser-stored copy of a previously synchronized Vault used for read-only offline OTP generation. On a later successful contact, it is deleted if the server reports the user no longer has access.
 _Avoid_: Plaintext offline cache, offline write queue
+
+**Encrypted Vault Archive**:
+A portable, explicitly user-created versioned archive whose authenticated ciphertext contains one plaintext Vault Name and normalized TOTP configurations only while opened in client memory. Import requires user-supplied 32-byte archive key material, validates and previews all content locally, then atomically stores newly encrypted account ciphertext in an owned destination Vault or a newly created Shared Vault. It is never an unencrypted backup or server-readable export.
+_Avoid_: Plaintext backup, server-side archive, recovery package

@@ -23,6 +23,7 @@ describe("offline PWA architecture boundaries", () => {
       "src/modules/crypto/infrastructure/browser-passkey-recovery-client.ts",
       "src/modules/identity/infrastructure/browser-passkey-recovery-status-client.ts",
       "src/modules/identity/infrastructure/browser-session-client.ts",
+      "src/modules/vault-archive/infrastructure/browser-vault-import-client.ts",
       "src/modules/vault-management/infrastructure/browser-vault-management-client.ts",
       "src/modules/vault-membership/infrastructure/browser-secure-share-link-workflow.ts",
       "src/modules/vault-membership/infrastructure/browser-shared-vault-invitation.ts",
