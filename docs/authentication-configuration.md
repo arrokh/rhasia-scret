@@ -10,3 +10,16 @@ Slice 1 uses administrator-invited, passwordless email authentication. Configure
 The browser always sends `shouldCreateUser: false` when requesting a link. Runtime behavior and the Supabase project setting are both required: the former prevents accidental client-side creation attempts; the latter ensures the Auth service does not accept public registrations from another client.
 
 A verified server-side session is the only input to application-user provisioning. No `allowed_emails` table, application invitation endpoint, or in-app user-management UI is permitted.
+
+## Route protection and logout
+
+The application continues to use Supabase Auth through `@supabase/ssr`; adding a second Auth.js/NextAuth session system would conflict with the invite-only Supabase identity boundary in ADR-0011. The Next.js 16 `proxy.ts` follows the current Supabase SSR guidance: it calls `getClaims()` to refresh and optimistically verify cookie-backed sessions, copies refreshed cookies to the request and response, and redirects unauthenticated protected-page requests to `/?auth=required`. Page and API authorization checks remain close to their data sources because Proxy is not a sufficient authorization boundary.
+
+Route inventory:
+
+- Public pages and support routes: `/`, `/auth/confirm`, `/auth/logout` (POST only, so stale sessions can be cleared), `/smoke`, and the development-only `/ui-preview` fixture.
+- Protected pages: `/vaults` and descendants, plus `/totp`.
+- Public APIs: `/api/health` and `/api/time`; neither returns user or vault data.
+- Every other application API verifies the Supabase session in its route handler and applies its existing resource-authorization checks before accessing data.
+
+Logout is submitted as a same-origin `POST /auth/logout`; requests with a missing or different `Origin` are rejected to prevent forced-logout CSRF. It calls `supabase.auth.signOut({ scope: "local" })` on the server so only the current browser session is terminated, SSR auth cookies are cleared through the cookie adapter, and sessions on the user's other devices remain active. Missing or already-expired sessions are treated idempotently. The endpoint redirects to the sign-in page with a redacted success or failure state and never exposes provider errors.
