@@ -35,6 +35,7 @@ describe("AuthenticatorAccountCreator", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await act(async () => root?.unmount());
+    document.body.innerHTML = "";
   });
 
   it("preselects the Shared Vault requested from its management modal", async () => {
@@ -48,6 +49,7 @@ describe("AuthenticatorAccountCreator", () => {
       unavailableSharedVaults: 0
     };
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(TestQueryProvider, null,
@@ -56,7 +58,7 @@ describe("AuthenticatorAccountCreator", () => {
       )
     )));
 
-    expect(container.querySelector<HTMLSelectElement>("#account-target-vault")?.value).toBe("shared-1");
+    expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
     expect(container.querySelector("#account-vault-unlock-secret")).toBeNull();
   });
 
@@ -77,9 +79,10 @@ describe("AuthenticatorAccountCreator", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "new-account", revision: 1 }) });
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null,
-      createElement(UnlockedVaultWorkspaceProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1" }))
+      createElement(UnlockedVaultWorkspaceProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" }))
     )));
 
     await act(async () => {
@@ -87,17 +90,14 @@ describe("AuthenticatorAccountCreator", () => {
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    const target = container.querySelector<HTMLSelectElement>("#account-target-vault");
-    await act(async () => {
-      setSelectValue(target, "shared-1");
-      setInputValue(container.querySelector("#account-uri"), "otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example");
-    });
+    expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
+    await act(async () => setInputValue(container.querySelector("#account-uri"), "otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
     expect(container.textContent).toContain("Metadata autentikator");
     expect(container.textContent).toContain("SHA-1");
     expect(container.textContent).toContain("30 detik");
     expect(container.querySelector<HTMLInputElement>("#account-label")?.value).toBe("person@example.test");
     await act(async () => setInputValue(container.querySelector("#account-label"), "Alice Mobile"));
-    await act(async () => container.querySelector<HTMLFormElement>(".add-account-form")?.requestSubmit());
+    await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" });
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/accounts", expect.objectContaining({ method: "POST" }));
@@ -110,10 +110,4 @@ function setInputValue(input: HTMLInputElement | null, value: string) {
   if (!input) throw new Error("Expected input.");
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
-function setSelectValue(select: HTMLSelectElement | null, value: string) {
-  if (!select) throw new Error("Expected select.");
-  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, value);
-  select.dispatchEvent(new Event("change", { bubbles: true }));
 }

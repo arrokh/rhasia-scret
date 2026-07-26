@@ -1,7 +1,7 @@
 "use client";
 
 export class BrowserApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
     this.name = "BrowserApiError";
   }
@@ -61,7 +61,17 @@ export class BrowserApiClient {
   }
 
   private async requireSuccess(response: Response): Promise<void> {
-    if (!response.ok) throw new BrowserApiError("Request failed.", response.status);
+    if (response.ok) return;
+    let code: string | undefined;
+    try {
+      const body = await response.json() as unknown;
+      if (body && typeof body === "object" && typeof (body as Record<string, unknown>).error === "string") {
+        code = (body as Record<string, string>).error;
+      }
+    } catch {
+      // Some endpoints intentionally return an empty error response.
+    }
+    throw new BrowserApiError("Request failed.", response.status, code);
   }
 }
 

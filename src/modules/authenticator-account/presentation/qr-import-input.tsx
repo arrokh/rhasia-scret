@@ -2,6 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { IScannerControls } from "@zxing/browser";
+import { Camera, ImageUp, ScanLine, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { StatusBanner, SectionHeading } from "@/shared/presentation/app-ui";
 import { decodeQrImage, scanQrCamera } from "../infrastructure/browser-qr-importer";
 
 export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
@@ -13,78 +16,41 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
 
   const attachVideo = useCallback((element: HTMLVideoElement | null) => {
     video.current = element;
-    return () => {
-      controls.current?.stop();
-      controls.current = null;
-      video.current = null;
-    };
+    return () => { controls.current?.stop(); controls.current = null; video.current = null; };
   }, []);
 
   async function upload(file: File | undefined) {
     if (!file) return;
-    try {
-      onUri(await decodeQrImage(file));
-      setFileName(file.name);
-      setError("");
-    } catch {
-      setError("Tidak dapat membaca kode QR dari gambar tersebut.");
-    }
+    try { onUri(await decodeQrImage(file)); setFileName(file.name); setError(""); }
+    catch { setError("Tidak dapat membaca kode QR dari gambar tersebut."); }
   }
 
   async function startCamera() {
     if (!video.current) return;
     try {
-      controls.current?.stop();
-      setCameraActive(true);
-      controls.current = await scanQrCamera(video.current, (uri) => {
-        controls.current?.stop();
-        controls.current = null;
-        setCameraActive(false);
-        onUri(uri);
-        setError("");
-      }, () => {
-        setCameraActive(false);
-        setError("Tidak dapat memindai kode QR dari kamera.");
-      });
-    } catch {
-      setCameraActive(false);
-      setError("Akses kamera tidak tersedia. Unggah gambar atau masukkan URI sebagai gantinya.");
-    }
+      controls.current?.stop(); setCameraActive(true);
+      controls.current = await scanQrCamera(video.current, (uri) => { controls.current?.stop(); controls.current = null; setCameraActive(false); onUri(uri); setError(""); }, () => { setCameraActive(false); setError("Tidak dapat memindai kode QR dari kamera."); });
+    } catch { setCameraActive(false); setError("Akses kamera tidak tersedia. Unggah gambar atau masukkan URI sebagai gantinya."); }
   }
 
-  function stopCamera() {
-    controls.current?.stop();
-    controls.current = null;
-    setCameraActive(false);
-  }
+  function stopCamera() { controls.current?.stop(); controls.current = null; setCameraActive(false); }
 
   return (
-    <section className="qr-import-panel" aria-labelledby="qr-import-title">
-      <div className="account-section-heading">
-        <span className="account-section-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM15 14h2M20 14v3M14 20h3M20 20h.01" /></svg>
-        </span>
-        <div>
-          <h2 id="qr-import-title">Impor kode QR</h2>
-          <p>Gunakan gambar dari perangkat atau pindai langsung dengan kamera.</p>
+    <section className="grid gap-5 p-5 sm:p-6" aria-labelledby="qr-import-title">
+      <SectionHeading icon={ScanLine} title="Impor kode QR" description="Gunakan gambar dari perangkat atau pindai langsung dengan kamera." />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Button variant="outline" asChild className="w-full"><label htmlFor="qr-image"><ImageUp /><span className="max-w-[15rem] truncate">{fileName || "Unggah gambar QR"}</span></label></Button>
+        <input className="sr-only" id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} />
+        <Button variant={cameraActive ? "secondary" : "outline"} type="button" onClick={() => void (cameraActive ? stopCamera() : startCamera())}>{cameraActive ? <Square /> : <Camera />}<span>{cameraActive ? "Hentikan kamera" : "Pindai dengan kamera"}</span></Button>
+      </div>
+      <div className={`${cameraActive ? "block" : "hidden"} relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-ink-strong sm:aspect-video`} aria-hidden={!cameraActive}>
+        <video ref={attachVideo} muted playsInline className="size-full object-cover" aria-label="Pratinjau kamera pemindai QR" />
+        <div className="pointer-events-none absolute inset-[16%_20%] rounded-lg border-2 border-card shadow-[0_0_0_999px_rgb(23_29_34/35%)]" aria-hidden="true">
+          <span className="absolute top-1/2 left-2 h-0.5 w-[calc(100%-1rem)] -translate-y-1/2 bg-primary shadow-[0_0_8px_rgb(229_167_46/60%)]" />
         </div>
+        <p className="absolute right-4 bottom-4 left-4 rounded-md bg-ink-strong/75 px-3 py-2 text-center text-sm text-card">Posisikan kode QR di dalam bingkai</p>
       </div>
-      <div className="qr-import-actions">
-        <label className="qr-action-button" htmlFor="qr-image">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5" /></svg>
-          <span>{fileName || "Pilih gambar QR"}</span>
-        </label>
-        <input className="visually-hidden" id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} />
-        <button className="qr-action-button" type="button" onClick={() => void (cameraActive ? stopCamera() : startCamera())}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 8 17 5h-5l-2 3H5a2 2 0 0 0-2 2v8h18v-8a2 2 0 0 0-2-2h-4ZM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></svg>
-          <span>{cameraActive ? "Hentikan kamera" : "Pindai dengan kamera"}</span>
-        </button>
-      </div>
-      <div className={`camera-preview${cameraActive ? " is-active" : ""}`} aria-hidden={!cameraActive}>
-        <video ref={attachVideo} muted playsInline aria-label="Pratinjau kamera pemindai QR" />
-        <span className="camera-guide" aria-hidden="true" />
-      </div>
-      {error && <p className="qr-import-error" role="alert">{error}</p>}
+      {error && <StatusBanner tone="danger" role="alert">{error}</StatusBanner>}
     </section>
   );
 }

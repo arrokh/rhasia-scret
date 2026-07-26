@@ -21,10 +21,11 @@ export async function POST(request: NextRequest) {
     const challenge = await repository.consumeChallenge(user.id, "REGISTRATION");
     if (!challenge) return NextResponse.json({ error: "passkey_challenge_expired" }, { status: 400 });
     const configuration = passkeyRecoveryConfiguration();
-    const verification = await verifyRegistrationResponse({ response: parsed.data.response as RegistrationResponseJSON, expectedChallenge: challenge, expectedOrigin: configuration.origin, expectedRPID: configuration.rpId, requireUserVerification: true });
+    const registrationResponse = parsed.data.response as RegistrationResponseJSON;
+    const verification = await verifyRegistrationResponse({ response: registrationResponse, expectedChallenge: challenge, expectedOrigin: configuration.origin, expectedRPID: configuration.rpId, requireUserVerification: true });
     if (!verification.verified || !verification.registrationInfo) return NextResponse.json({ error: "passkey_verification_failed" }, { status: 400 });
-    const { credential, authenticatorExtensionResults } = verification.registrationInfo;
-    if (!prfEnabled(authenticatorExtensionResults)) return NextResponse.json({ error: "passkey_prf_required" }, { status: 400 });
+    const { credential } = verification.registrationInfo;
+    if (!prfEnabled(registrationResponse.clientExtensionResults)) return NextResponse.json({ error: "passkey_prf_required" }, { status: 400 });
     await repository.saveCredential(user.id, Buffer.from(credential.id, "base64url"), credential.publicKey, BigInt(credential.counter), credential.transports, Buffer.from(parsed.data.encryptedRecoveryPackage, "base64"));
     return new NextResponse(null, { status: 204 });
   } catch { return NextResponse.json({ error: "passkey_verification_failed" }, { status: 400 }); }

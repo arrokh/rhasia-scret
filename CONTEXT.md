@@ -36,8 +36,12 @@ A random user-held key that protects the user’s Personal Vault Encryption Key 
 _Avoid_: Vault Unlock Key, vault key
 
 **Passkey-Assisted Recovery**:
-An optional browser-held recovery path that uses a verified WebAuthn PRF output to open an encrypted User Root Key recovery package. The server stores only credential metadata and opaque ciphertext; it has no recovery key.
+An optional browser-held recovery path that uses a verified WebAuthn PRF output to open an encrypted User Root Key recovery package. The server stores only credential metadata and opaque ciphertext; it has no recovery key. The same enrolled recovery package can support Passkey-Assisted Unlock without changing the configured Vault Unlock Secret. Detaching recovery deletes the server-held credential metadata and recovery package but cannot delete a passkey entry from the user's operating system or password manager.
 _Avoid_: Server reset, passkey-only server decryption
+
+**Passkey-Assisted Unlock**:
+An optional alternative way to start an Unlocked Vault Session by verifying the enrolled recovery passkey and opening the User Root Key recovery package entirely in the browser. It does not change or remove the Vault Unlock Secret, is not a second authentication factor, and requires an online server-verified WebAuthn assertion.
+_Avoid_: Second factor, passwordless account login, server-side vault unlock
 
 **Destructive Personal Vault Reset**:
 An authenticated, explicitly confirmed destruction path for a user who lost their Vault Unlock Secret without enrolling Passkey-Assisted Recovery. It deletes unusable Personal Vault ciphertext and cryptographic material, leaves Viewer memberships, and returns the Personal Vault to Uninitialized; it never recovers encrypted data and is blocked while the user owns an active Shared Vault.

@@ -28,6 +28,7 @@ describe("TanStack Query boundaries", () => {
 
     expect(queryImports).toEqual([
       "src/modules/authenticator-account/presentation/hooks/use-authenticator-account-mutations.ts",
+      "src/modules/identity/presentation/hooks/use-passkey-recovery-status-query.ts",
       "src/modules/identity/presentation/hooks/use-session-mutations.ts",
       "src/modules/otp-runtime/presentation/hooks/use-server-time-query.ts",
       "src/modules/vault-management/presentation/hooks/use-personal-vault-mutations.ts",

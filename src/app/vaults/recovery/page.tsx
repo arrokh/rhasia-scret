@@ -6,6 +6,7 @@ import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructu
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { DestructivePersonalVaultResetForm, OwnedSharedVaultResetBlocker } from "@/modules/vault-management";
 import { PrismaDestructivePersonalVaultResetRepository } from "@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository";
+import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -15,19 +16,11 @@ export default async function VaultRecoveryPage() {
   const eligibility = await new PrismaDestructivePersonalVaultResetRepository().getEligibility(user.id);
 
   return (
-    <main className="vault-page">
-      <header className="vault-header">
-        <div>
-          <p className="eyebrow">rhasia-scret</p>
-          <h1>Pemulihan brankas</h1>
-        </div>
-        <LogoutForm email={user.email} />
-      </header>
-      <section className="vault-card" aria-label="Atur ulang Passphrase Brankas">
-        {eligibility.passkeyRecoveryEnrolled ? <PasskeyRecoveryReset /> : eligibility.activeOwnedSharedVaults > 0 ? (
-          <OwnedSharedVaultResetBlocker vaultIds={eligibility.activeOwnedSharedVaultIds} />
-        ) : <DestructivePersonalVaultResetForm />}
-      </section>
-    </main>
+    <AppPage>
+      <PageHeader eyebrow="rhasia-scret · Keamanan" title="Pemulihan brankas" description="Pilih jalur yang tersedia untuk mendapatkan kembali akses ke brankas Anda." action={<LogoutForm email={user.email} />} />
+      <SurfaceCard className="p-5 sm:p-6" aria-label="Atur ulang Passphrase Brankas">
+        {eligibility.passkeyRecoveryEnrolled ? <PasskeyRecoveryReset /> : eligibility.activeOwnedSharedVaults > 0 ? <OwnedSharedVaultResetBlocker vaultIds={eligibility.activeOwnedSharedVaultIds} /> : <DestructivePersonalVaultResetForm />}
+      </SurfaceCard>
+    </AppPage>
   );
 }

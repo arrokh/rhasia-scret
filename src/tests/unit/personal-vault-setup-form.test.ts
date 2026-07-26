@@ -52,7 +52,8 @@ describe("PersonalVaultSetupForm", () => {
     expect(cryptoMocks.generateVaultUnlockSecret).toHaveBeenCalledTimes(1);
     expect(container.querySelector("output")?.textContent).toBe("picnic trophy sheriff coin wire ocean");
 
-    await act(async () => container.querySelector<HTMLButtonElement>('button[type="button"]')?.click());
+    const regenerate = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Buat passphrase lain"));
+    await act(async () => regenerate?.click());
 
     expect(cryptoMocks.generateVaultUnlockSecret).toHaveBeenCalledTimes(2);
     expect(container.querySelector("output")?.textContent).toBe("canvas rabbit antenna volcano winter velvet");
@@ -81,8 +82,8 @@ describe("PersonalVaultSetupForm", () => {
       root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
     });
 
-    const customMode = container.querySelectorAll<HTMLInputElement>('input[name="secretMode"]')[1];
-    await act(async () => customMode.click());
+    const customMode = container.querySelector<HTMLButtonElement>("#custom-secret");
+    await act(async () => customMode?.click());
 
     expect(container.querySelector("output")).toBeNull();
     expect(container.textContent).toContain("minimal 3 karakter");
@@ -90,7 +91,7 @@ describe("PersonalVaultSetupForm", () => {
     const form = container.querySelector<HTMLFormElement>("form");
     const customSecret = container.querySelector<HTMLInputElement>("#custom-unlock-secret");
     const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
-    const acknowledgement = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
     const showCustomSecret = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Passphrase Brankas Anda"]');
     const showConfirmation = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Konfirmasi Passphrase Brankas"]');
 
@@ -160,7 +161,7 @@ describe("PersonalVaultSetupForm", () => {
 
     const form = container.querySelector<HTMLFormElement>("form");
     const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
-    const acknowledgement = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
     const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]');
 
     expect(submit?.disabled).toBe(false);

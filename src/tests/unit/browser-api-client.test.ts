@@ -29,4 +29,13 @@ describe("BrowserApiClient", () => {
     );
     expect(fetchMock).toHaveBeenCalledWith("/api/time", { cache: "no-store", method: "GET" });
   });
+
+  it("preserves structured API error codes for context-specific messages", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "passkey_prf_required" }) }));
+    const client = new BrowserApiClient();
+
+    await expect(client.postEmpty("/api/passkey-recovery/registration/verify", {})).rejects.toEqual(
+      expect.objectContaining<Partial<BrowserApiError>>({ status: 400, code: "passkey_prf_required" })
+    );
+  });
 });

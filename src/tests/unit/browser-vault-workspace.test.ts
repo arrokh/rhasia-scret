@@ -3,21 +3,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createUserEncryptionIdentity: vi.fn(),
   decryptAccountConfiguration: vi.fn(),
+  recoverUserRootKeyWithPasskey: vi.fn(),
   unlockPersonalVault: vi.fn(),
+  unlockPersonalVaultWithUserRootKey: vi.fn(),
   unlockSharedVault: vi.fn()
 }));
 
 vi.mock("@/modules/crypto", () => ({
   createUserEncryptionIdentity: mocks.createUserEncryptionIdentity,
+  recoverUserRootKeyWithPasskey: mocks.recoverUserRootKeyWithPasskey,
   serializeEncryptedEnvelope: vi.fn(),
-  unlockPersonalVault: mocks.unlockPersonalVault
+  unlockPersonalVault: mocks.unlockPersonalVault,
+  unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey
 }));
 vi.mock("@/modules/vault-membership", () => ({ unlockSharedVault: mocks.unlockSharedVault }));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload", () => ({
   decryptAccountConfiguration: mocks.decryptAccountConfiguration
 }));
 
-import { loadUnlockedVaultWorkspace } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
+import { loadUnlockedVaultWorkspace, loadUnlockedVaultWorkspaceWithPasskey } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
 
 describe("loadUnlockedVaultWorkspace", () => {
   beforeEach(() => vi.resetAllMocks());
@@ -70,6 +74,28 @@ describe("loadUnlockedVaultWorkspace", () => {
       { issuer: "Zulu", vaultName: "Brankas Pribadi" }
     ]);
     expect(mocks.createUserEncryptionIdentity).not.toHaveBeenCalled();
+  });
+
+  it("loads the same workspace from a User Root Key recovered with a passkey", async () => {
+    const userRootKey = Uint8Array.of(1);
+    const personalVaultKey = Uint8Array.of(2);
+    mocks.recoverUserRootKeyWithPasskey.mockResolvedValue(userRootKey);
+    mocks.unlockPersonalVaultWithUserRootKey.mockResolvedValue(personalVaultKey);
+    vi.stubGlobal("fetch", vi.fn(async (input: string) => {
+      if (input === "/api/user-crypto-profile") return jsonResponse({
+        vaultUnlockSalt: "AQ==", wrappedUserRootKey: "Ag==", encryptedPersonalVaultKey: "Aw==", encryptionVersion: 1,
+        userEncryptionPublicKey: { kty: "EC" }, encryptedUserPrivateKey: "BA=="
+      });
+      if (input === "/api/vaults/personal-1/accounts" || input === "/api/shared-vaults") return jsonResponse([]);
+      throw new Error(`Unexpected request: ${input}`);
+    }));
+
+    const workspace = await loadUnlockedVaultWorkspaceWithPasskey("personal-1");
+
+    expect(mocks.recoverUserRootKeyWithPasskey).toHaveBeenCalledOnce();
+    expect(mocks.unlockPersonalVaultWithUserRootKey).toHaveBeenCalledWith(userRootKey, expect.objectContaining({ encryptionVersion: 1 }));
+    expect(workspace.userRootKey).toBe(userRootKey);
+    expect(workspace.vaults[0]?.key).toBe(personalVaultKey);
   });
 
   it("keeps valid accounts available when one Shared Vault cannot be decrypted", async () => {

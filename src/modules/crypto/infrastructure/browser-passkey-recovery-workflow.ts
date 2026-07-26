@@ -25,9 +25,8 @@ export async function enrollPasskeyRecovery(userRootKey: Uint8Array): Promise<vo
   }
 }
 
-export async function resetVaultUnlockSecretWithPasskey(secret: string): Promise<void> {
+export async function recoverUserRootKeyWithPasskey(): Promise<Uint8Array> {
   let prfOutput: Uint8Array | undefined;
-  let userRootKey: Uint8Array | undefined;
   try {
     const options = await loadPasskeyAuthenticationOptions();
     const credential = requiredRecoveryCredential(options);
@@ -39,7 +38,16 @@ export async function resetVaultUnlockSecretWithPasskey(secret: string): Promise
       credential.rpId,
       passkeyRecoverySalt(packageBytes)
     );
-    ({ userRootKey } = await recoverUserRootKeyFromPasskeyPackage(prfOutput, packageBytes));
+    return (await recoverUserRootKeyFromPasskeyPackage(prfOutput, packageBytes)).userRootKey;
+  } finally {
+    prfOutput?.fill(0);
+  }
+}
+
+export async function resetVaultUnlockSecretWithPasskey(secret: string): Promise<void> {
+  let userRootKey: Uint8Array | undefined;
+  try {
+    userRootKey = await recoverUserRootKeyWithPasskey();
     const rewrapped = await wrapUserRootKeyWithVaultUnlockSecret(userRootKey, secret);
     await rewrapUserRootKey({
       vaultUnlockSalt: bytesToBase64(rewrapped.vaultUnlockSalt),
@@ -47,7 +55,6 @@ export async function resetVaultUnlockSecretWithPasskey(secret: string): Promise
       encryptionVersion: 1
     });
   } finally {
-    prfOutput?.fill(0);
     userRootKey?.fill(0);
   }
 }

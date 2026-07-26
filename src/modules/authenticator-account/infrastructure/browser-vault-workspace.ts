@@ -2,8 +2,10 @@
 
 import {
   createUserEncryptionIdentity,
+  recoverUserRootKeyWithPasskey,
   serializeEncryptedEnvelope,
-  unlockPersonalVault
+  unlockPersonalVault,
+  unlockPersonalVaultWithUserRootKey
 } from "@/modules/crypto";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
@@ -66,6 +68,21 @@ export async function loadUnlockedVaultWorkspace(
   const profile = await loadProfile();
   const unlockedPersonalVault = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(profile));
   return loadWorkspace(profile, personalVaultId, unlockedPersonalVault.userRootKey, unlockedPersonalVault.personalVaultKey);
+}
+
+export async function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
+  const profile = await loadProfile();
+  let userRootKey: Uint8Array | undefined;
+  let personalVaultKey: Uint8Array | undefined;
+  try {
+    userRootKey = await recoverUserRootKeyWithPasskey();
+    personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profileMaterial(profile));
+    return await loadWorkspace(profile, personalVaultId, userRootKey, personalVaultKey);
+  } catch (error) {
+    userRootKey?.fill(0);
+    personalVaultKey?.fill(0);
+    throw error;
+  }
 }
 
 async function loadWorkspace(
