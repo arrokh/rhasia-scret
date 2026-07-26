@@ -24,11 +24,11 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   const initialVaultId = workspace ? selectWritableVaultId(workspace, preferredVaultId) : "";
 
   const accountForm = useForm({
-    defaultValues: { selectedVaultId: initialVaultId, uri: "" },
+    defaultValues: { selectedVaultId: initialVaultId, uri: "", accountLabel: "" },
     onSubmit: async ({ value }) => {
       if (!workspace || !online) return;
       try {
-        const candidate = parseTotpUri(value.uri);
+        const candidate = { ...parseTotpUri(value.uri), accountName: value.accountLabel.trim() };
         const existing = workspace.accounts.filter((account) => account.vaultId === value.selectedVaultId);
         if (isDuplicateAccount(candidate, existing)) {
           setDuplicate(candidate);
@@ -40,6 +40,11 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
       }
     }
   });
+
+  function updateAuthenticatorUri(uri: string) {
+    accountForm.setFieldValue("uri", uri);
+    accountForm.setFieldValue("accountLabel", parseAuthenticatorMetadata(uri)?.accountName ?? "");
+  }
 
   function openWorkspace(unlocked: UnlockedVaultWorkspace) {
     setWorkspace(unlocked);
@@ -126,7 +131,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   return (
     <>
       {!online && <p className="offline-notice" role="status">Luring: akun baru tidak dapat disimpan.</p>}
-      <QrImportInput onUri={(uri) => accountForm.setFieldValue("uri", uri)} />
+      <QrImportInput onUri={updateAuthenticatorUri} />
       <form noValidate className="auth-form add-account-form" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void accountForm.handleSubmit(); }}>
         <div className="account-section-heading">
           <span className="account-section-icon" aria-hidden="true">
@@ -142,8 +147,31 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
             {(field) => <div className="account-field"><label htmlFor="account-target-vault">Simpan ke brankas</label><select id="account-target-vault" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-target-vault-error" : undefined} required>{writableVaults.map((vault) => <option key={vault.id} value={vault.id}>{vault.name}</option>)}</select><FormFieldError id="account-target-vault-error" errors={field.state.meta.errors} /></div>}
           </accountForm.Field>
           <accountForm.Field name="uri" validators={{ onSubmit: requiredText("URI autentikator") }}>
-            {(field) => <div className="account-field"><label htmlFor="account-uri">URI autentikator</label><input id="account-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} placeholder="otpauth://totp/…" autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-uri-error" : undefined} required disabled={!online} /><FormFieldError id="account-uri-error" errors={field.state.meta.errors} /></div>}
+            {(field) => <div className="account-field"><label htmlFor="account-uri">URI autentikator</label><input id="account-uri" value={field.state.value} onChange={(event) => updateAuthenticatorUri(event.target.value)} placeholder="otpauth://totp/…" autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-uri-error" : undefined} required disabled={!online} /><FormFieldError id="account-uri-error" errors={field.state.meta.errors} /></div>}
           </accountForm.Field>
+          <accountForm.Subscribe selector={(formState) => formState.values.uri}>
+            {(uri) => {
+              const metadata = parseAuthenticatorMetadata(uri);
+              if (!metadata) return null;
+              return (
+                <section className="authenticator-metadata" aria-labelledby="authenticator-metadata-title">
+                  <div className="authenticator-metadata-heading">
+                    <div><p className="eyebrow">PRATINJAU</p><h3 id="authenticator-metadata-title">Metadata autentikator</h3></div>
+                    <span>Rahasia terdeteksi</span>
+                  </div>
+                  <accountForm.Field name="accountLabel" validators={{ onSubmit: requiredText("Label akun") }}>
+                    {(field) => <div className="account-field"><label htmlFor="account-label">Label akun</label><input id="account-label" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-label-help account-label-error" : "account-label-help"} required /><small id="account-label-help" className="field-help">Label ini akan tampil di daftar akun dan disimpan dalam keadaan terenkripsi.</small><FormFieldError id="account-label-error" errors={field.state.meta.errors} /></div>}
+                  </accountForm.Field>
+                  <dl className="authenticator-metadata-grid">
+                    <div><dt>Penerbit</dt><dd>{metadata.issuer}</dd></div>
+                    <div><dt>Algoritma</dt><dd>{metadata.algorithm}</dd></div>
+                    <div><dt>Digit</dt><dd>{metadata.digits}</dd></div>
+                    <div><dt>Periode</dt><dd>{metadata.period} detik</dd></div>
+                  </dl>
+                </section>
+              );
+            }}
+          </accountForm.Subscribe>
         </div>
         <div className="form-actions account-form-actions">
           <Link className="secondary-link" href="/vaults">Batal</Link>
@@ -156,6 +184,15 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
       {message && <p className="form-status" role="alert">{message}</p>}
     </>
   );
+}
+
+function parseAuthenticatorMetadata(uri: string): ReturnType<typeof parseTotpUri> | null {
+  if (!uri.trim()) return null;
+  try {
+    return parseTotpUri(uri);
+  } catch {
+    return null;
+  }
 }
 
 function selectWritableVaultId(workspace: UnlockedVaultWorkspace, preferredVaultId?: string): string {

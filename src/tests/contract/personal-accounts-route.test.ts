@@ -13,18 +13,42 @@ describe("Personal Vault accounts API", () => {
     const handlers = createPersonalAccountsHandlers({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
       applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
-      accounts: { create, list: async () => [] }
+      accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn() }
     });
     const response = await handlers.POST(new NextRequest("http://localhost/api/vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(payload) }), { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(201);
     expect(create).toHaveBeenCalledWith("user-1", "vault-1", expect.objectContaining({ encryptionVersion: 1 }));
   });
 
+  it("updates and deletes opaque content with Account Revision protection", async () => {
+    const update = vi.fn().mockResolvedValue(new EncryptedAuthenticatorAccount("account-1", "vault-1", new Uint8Array([1, 2, 3]), 1, 3));
+    const remove = vi.fn().mockResolvedValue(true);
+    const handlers = createPersonalAccountsHandlers({
+      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      accounts: { create: vi.fn(), list: vi.fn(), update, delete: remove }
+    });
+    const context = { params: Promise.resolve({ vaultId: "vault-1" }) };
+    const updated = await handlers.PATCH(new NextRequest("http://localhost/api/vaults/vault-1/accounts", {
+      method: "PATCH",
+      body: JSON.stringify({ ...payload, accountId: "account-1", expectedRevision: 2 })
+    }), context);
+    const deleted = await handlers.DELETE(new NextRequest("http://localhost/api/vaults/vault-1/accounts", {
+      method: "DELETE",
+      body: JSON.stringify({ accountId: "account-1", expectedRevision: 3 })
+    }), context);
+
+    expect(updated.status).toBe(200);
+    expect(update).toHaveBeenCalledWith("user-1", "vault-1", "account-1", 2, expect.objectContaining({ encryptionVersion: 1 }));
+    expect(deleted.status).toBe(204);
+    expect(remove).toHaveBeenCalledWith("user-1", "vault-1", "account-1", 3);
+  });
+
   it("does not list accounts for an unauthenticated caller", async () => {
     const handlers = createPersonalAccountsHandlers({
       sessionVerifier: new FakeSessionVerifier(null),
       applicationUsers: { provision: async () => { throw new Error("must not provision"); } },
-      accounts: { create: async () => { throw new Error("must not create"); }, list: async () => { throw new Error("must not list"); } }
+      accounts: { create: async () => { throw new Error("must not create"); }, list: async () => { throw new Error("must not list"); }, update: vi.fn(), delete: vi.fn() }
     });
     const response = await handlers.GET(new NextRequest("http://localhost/api/vaults/vault-1/accounts"), { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(401);

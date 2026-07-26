@@ -27,6 +27,25 @@ export class PrismaPersonalAccountRepository implements PersonalAccountRepositor
     });
     return accounts.map(toAccount);
   }
+
+  public async update(ownerId: string, vaultId: string, accountId: string, expectedRevision: number, account: NewEncryptedAccount): Promise<EncryptedAuthenticatorAccount | null> {
+    await assertActivePersonalVault(ownerId, vaultId);
+    const updated = await prisma.authenticatorAccount.updateMany({
+      where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
+      data: { encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion, revision: { increment: 1 } }
+    });
+    if (updated.count !== 1) return null;
+    return toAccount(await prisma.authenticatorAccount.findUniqueOrThrow({ where: { id: accountId } }));
+  }
+
+  public async delete(ownerId: string, vaultId: string, accountId: string, expectedRevision: number): Promise<boolean> {
+    await assertActivePersonalVault(ownerId, vaultId);
+    const deleted = await prisma.authenticatorAccount.updateMany({
+      where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
+      data: { deletedAt: new Date(), revision: { increment: 1 } }
+    });
+    return deleted.count === 1;
+  }
 }
 
 async function assertActivePersonalVault(ownerId: string, vaultId: string): Promise<void> {

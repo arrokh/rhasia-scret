@@ -179,12 +179,12 @@ button, input, select { font: inherit; }
 .security-menu[open] .passkey-recovery { position: absolute; z-index: 4; top: calc(100% + 8px); left: 0; width: min(22rem, calc(100vw - 40px)); border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 16px; box-shadow: 0 14px 36px rgb(15 23 42 / 14%); }
 .passkey-recovery p { color: #475569; font-size: .875rem; line-height: 1.45; }
 .account-list-across-vaults li { display: block; overflow: hidden; padding: 0; }
-.account-totp-button { display: grid; width: 100%; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 11px; border: 0; background: #fff; padding: 12px; color: #172554; text-align: left; cursor: pointer; }
-.account-totp-button:hover:not(:disabled) { background: #f8faff; }
+.account-totp-button { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto minmax(8.5rem, 1fr); align-items: center; gap: 14px; border: 0; background: #fff; padding: 14px 16px; color: #172554; text-align: left; cursor: pointer; }
+.account-totp-button:hover { background: #f8faff; }
+.account-totp-button:active { background: #eef2ff; transform: scale(.995); }
 .account-totp-button:focus-visible { position: relative; outline: 3px solid rgb(99 102 241 / 30%); outline-offset: -3px; }
 .account-totp-button:disabled { cursor: wait; }
-.account-list-across-vaults .account-avatar { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #eef2ff; color: #3730a3; font-weight: 800; }
-.account-list-across-vaults .account-copy { display: grid; min-width: 0; gap: 2px; }
+.account-list-across-vaults .account-copy { display: grid; min-width: 0; justify-items: start; gap: 2px; text-align: left; }
 .account-otp { display: flex; min-width: 8.5rem; align-items: center; justify-content: flex-end; gap: 10px; color: #312e81; text-align: right; }
 .otp-code { display: grid; gap: 2px; }
 .account-otp output { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 1.05rem; font-weight: 800; letter-spacing: .04em; }
@@ -195,7 +195,8 @@ button, input, select { font: inherit; }
 .otp-timer-background { stroke: #e2e8f0; }
 .otp-timer-progress { stroke: #4f46e5; stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
 .otp-timer > small { position: relative; color: #3730a3; font-size: .68rem; font-weight: 800; }
-.account-list-across-vaults .vault-badge { max-width: 9rem; justify-self: start; overflow: hidden; border-radius: 999px; background: #f1f5f9; padding: 4px 7px; color: #475569; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.account-list-across-vaults .vault-badge { max-width: 9rem; justify-self: center; overflow: hidden; border-radius: 999px; background: #f1f5f9; padding: 4px 7px; color: #475569; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.account-totp-button .account-otp { justify-self: end; }
 .vault-dialog { width: min(calc(100% - 32px), 30rem); border: 0; border-radius: 18px; padding: 20px; color: #172554; box-shadow: 0 24px 70px rgb(15 23 42 / 28%); }
 .vault-dialog::backdrop { background: rgb(15 23 42 / 52%); backdrop-filter: blur(2px); }
 .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
@@ -234,15 +235,39 @@ button, input, select { font: inherit; }
 .confirmation-dialog h2 { margin: 0; color: #172554; font-size: 1.2rem; }
 .confirmation-dialog p { margin: 10px 0 20px; color: #64748b; font-size: .875rem; line-height: 1.5; }
 .confirmation-actions > * { flex: 1; }
+.account-manager-dialog > .vault-flow-copy { margin: -12px 0 18px; }
+.account-manager-actions { display: grid; width: 100%; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+.account-manager-actions > * { width: 100%; min-height: 48px; }
+.account-manager-actions .primary-button { order: 1; }
+.account-manager-actions .danger-button { order: 2; border: 1px solid #fecaca; background: #fff; color: #b91c1c; }
+.account-manager-actions .danger-button:hover:not(:disabled) { border-color: #f87171; background: #fef2f2; }
 .form-actions .primary-button { padding-inline: 18px; }
+.account-menu { position: relative; flex: 0 0 auto; }
+.account-menu-trigger { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #334155; cursor: pointer; }
+.account-menu-trigger:hover { border-color: #818cf8; background: #f8faff; color: #312e81; }
+.account-menu-trigger:focus-visible { outline: 3px solid rgb(99 102 241 / 25%); outline-offset: 2px; }
+.account-menu-trigger svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.account-menu-popover { position: fixed; z-index: 8; top: var(--account-menu-top, 72px); right: var(--account-menu-right, 16px); bottom: auto; left: auto; width: min(17rem, calc(100vw - 32px)); margin: 0; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 10px; color: #172554; box-shadow: 0 16px 40px rgb(15 23 42 / 16%); }
+.account-menu-popover::backdrop { background: transparent; }
+.account-menu-profile { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 8px; }
+.account-menu-profile-icon { display: grid; flex: 0 0 auto; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: #eef2ff; color: #3730a3; }
+.account-menu-profile-icon svg, .account-menu-logout svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.account-menu-profile > span:last-child { display: grid; min-width: 0; gap: 2px; }
+.account-menu-profile small { color: #64748b; font-size: .68rem; font-weight: 700; text-transform: uppercase; }
+.account-menu-profile strong { overflow: hidden; color: #172554; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-popover form { border-top: 1px solid #e2e8f0; margin-top: 6px; padding-top: 6px; }
+.account-menu-logout { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 9px; border: 0; border-radius: 9px; background: transparent; padding: 0 10px; color: #b91c1c; font-weight: 700; cursor: pointer; }
+.account-menu-logout:hover { background: #fef2f2; }
 @media (max-width: 520px) {
   .dashboard-toolbar { flex-wrap: nowrap; }
   .security-menu > summary { width: 42px; padding: 0; }
   .security-menu > summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .add-account-link { width: 42px; justify-content: center; margin-left: auto; padding: 0; }
   .add-account-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .account-totp-button { grid-template-columns: 40px minmax(0, 1fr) auto; }
-  .account-totp-button .account-otp { grid-column: 3; }
+  .account-totp-button { grid-template-columns: minmax(0, 1fr) auto; }
+  .account-totp-button .account-copy { grid-column: 1; grid-row: 1; }
+  .account-totp-button .account-otp { grid-column: 2; grid-row: 1; }
+  .account-totp-button .vault-badge { grid-column: 1 / -1; grid-row: 2; }
   .otp-code > small { display: none; }
 }
 
@@ -325,6 +350,15 @@ button, input, select { font: inherit; }
 .add-account-form { gap: 20px; border-top: 1px solid #e2e8f0; background: #fbfdff; }
 .account-fields { display: grid; gap: 16px; }
 .account-field { display: grid; gap: 7px; }
+.field-help { color: #64748b; font-size: .75rem; line-height: 1.4; }
+.authenticator-metadata { display: grid; gap: 16px; border: 1px solid #c7d2fe; border-radius: 14px; background: #f8faff; padding: 16px; }
+.authenticator-metadata-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.authenticator-metadata-heading h3 { margin: 0; color: #172554; font-size: 1rem; }
+.authenticator-metadata-heading > span { flex: 0 0 auto; border-radius: 999px; background: #dcfce7; padding: 5px 8px; color: #166534; font-size: .68rem; font-weight: 800; }
+.authenticator-metadata-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.authenticator-metadata-grid div { display: grid; gap: 3px; border-radius: 10px; background: #fff; padding: 10px; }
+.authenticator-metadata-grid dt { color: #64748b; font-size: .68rem; font-weight: 700; text-transform: uppercase; }
+.authenticator-metadata-grid dd { min-width: 0; overflow: hidden; margin: 0; color: #172554; font-size: .8rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .account-field select, .account-field input { width: 100%; }
 .account-form-actions { padding-top: 4px; }
 .account-form-actions > * { width: 9.5rem; min-height: 48px; }
@@ -340,6 +374,8 @@ button, input, select { font: inherit; }
   .qr-import-actions { grid-template-columns: 1fr; }
   .camera-preview { aspect-ratio: 4 / 3; max-height: 70vh; }
   .camera-guide { inset: 17% 20%; }
+  .authenticator-metadata-heading { align-items: flex-start; }
+  .authenticator-metadata-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .account-form-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .account-form-actions > * { width: 100%; padding-inline: 10px; }
   .account-creator-card > .offline-notice { margin: 20px 16px 0; }

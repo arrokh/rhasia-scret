@@ -10,6 +10,8 @@ import { PrismaPersonalAccountRepository } from "@/modules/authenticator-account
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 
 const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
+const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
+const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; accounts: PersonalAccountRepository };
 type Context = { params: Promise<{ vaultId: string }> };
 
@@ -44,6 +46,36 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
       } catch (error) {
         return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
       }
+    },
+    PATCH: async (request: NextRequest, { params }: Context) => {
+      try {
+        const current = await user();
+        if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const parsed = updateSchema.safeParse(await request.json());
+        if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
+        const { vaultId } = await params;
+        const account = await accounts.update(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision, {
+          encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"),
+          encryptionVersion: parsed.data.encryptionVersion
+        });
+        return account ? NextResponse.json({ id: account.id, revision: account.revision }) : NextResponse.json({ error: "stale_revision" }, { status: 409 });
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
+      }
+    },
+    DELETE: async (request: NextRequest, { params }: Context) => {
+      try {
+        const current = await user();
+        if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const parsed = deleteSchema.safeParse(await request.json());
+        if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
+        const { vaultId } = await params;
+        return await accounts.delete(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision)
+          ? new NextResponse(null, { status: 204 })
+          : NextResponse.json({ error: "stale_revision" }, { status: 409 });
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
+      }
     }
   };
 }
@@ -51,3 +83,5 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
 const handlers = createPersonalAccountsHandlers({ sessionVerifier: new SupabaseSessionVerifier(), applicationUsers: new PrismaApplicationUserRepository(), accounts: new PrismaPersonalAccountRepository() });
 export const GET = handlers.GET;
 export const POST = handlers.POST;
+export const PATCH = handlers.PATCH;
+export const DELETE = handlers.DELETE;
