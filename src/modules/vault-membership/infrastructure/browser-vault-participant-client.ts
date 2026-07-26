@@ -8,12 +8,20 @@ export type BrowserVaultParticipant = {
   kind: "OWNER" | "MEMBER" | "INVITATION";
   userId: string | null;
   invitationId: string | null;
-  invitedAt: string | null;
+  invitedAt: string;
 };
 
-export async function loadVaultParticipants(vaultId: string): Promise<BrowserVaultParticipant[]> {
-  const response = await browserApiClient.getJson<{ participants: BrowserVaultParticipant[] }>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/participants`, { cache: "no-store" });
-  return response.participants;
+export type BrowserVaultParticipantPage = {
+  owner: { id: string; email: string };
+  participants: BrowserVaultParticipant[];
+  nextCursor: string | null;
+};
+
+export function loadVaultParticipants(vaultId: string, cursor: string | null): Promise<BrowserVaultParticipantPage> {
+  const search = new URLSearchParams();
+  if (cursor) search.set("cursor", cursor);
+  const query = search.size ? `?${search.toString()}` : "";
+  return browserApiClient.getJson<BrowserVaultParticipantPage>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`, { cache: "no-store" });
 }
 
 export function deleteVaultParticipant(vaultId: string, participant: BrowserVaultParticipant): Promise<void> {

@@ -43,8 +43,17 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   let invitationBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
   page.on("pageerror", (error) => pageErrors.push(error));
-  await page.route("**/api/shared-vaults/shared-preview/audit-events**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "opaque-account-1", actorUserId: "viewer-preview", actorEmail: "viewer@local.invalid", createdAt: "2026-07-26T13:28:00.000Z" }] }) }));
-  await page.route("**/api/shared-vaults/shared-preview/participants", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ participants: [{ key: "owner:owner-preview", email: "owner@local.invalid", kind: "OWNER", userId: "owner-preview", invitationId: null, invitedAt: null }, { key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }, { key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:00:00.000Z" }] }) }));
+  await page.route("**/api/shared-vaults/shared-preview/audit-events**", (route) => {
+    const nextPage = new URL(route.request().url()).searchParams.has("cursor");
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{ id: nextPage ? "event-2" : "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "opaque-account-1", actorUserId: "viewer-preview", actorEmail: "viewer@local.invalid", createdAt: nextPage ? "2026-07-26T13:27:00.000Z" : "2026-07-26T13:28:00.000Z" }], nextCursor: nextPage ? null : "audit-page-2" }) });
+  });
+  await page.route("**/api/shared-vaults/shared-preview/participants**", (route) => {
+    const nextPage = new URL(route.request().url()).searchParams.has("cursor");
+    const participants = nextPage
+      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:01:00.000Z" }]
+      : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }];
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
+  });
   await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
     invitationBody = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "invitation-preview" }) });
@@ -67,9 +76,15 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByText("Filter: Layanan contoh · viewer@local.invalid")).toBeVisible();
   await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
   await expect(page.getByText(/viewer@local\.invalid · 26 Jul 2026, 20\.28/)).toBeVisible();
+  await page.getByRole("button", { name: "Muat lebih banyak aktivitas" }).click();
+  await expect(page.getByText("Semua aktivitas telah dimuat.")).toBeVisible();
+  await expect(page.getByText(/viewer@local\.invalid · 26 Jul 2026, 20\.27/)).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();
   await expect(page.getByText("viewer@local.invalid")).toBeVisible();
+  await expect(page.getByText("pending@local.invalid")).toHaveCount(0);
+  await page.getByRole("button", { name: "Muat lebih banyak pengguna" }).click();
   await expect(page.getByText("pending@local.invalid")).toBeVisible();
+  await expect(page.getByText("Semua pengguna telah dimuat.")).toBeVisible();
   await page.getByLabel("Email penerima").fill("viewer@example.test");
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman");

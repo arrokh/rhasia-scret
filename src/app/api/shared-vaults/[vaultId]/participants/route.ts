@@ -3,19 +3,23 @@ import { loadApplicationUser } from "@/modules/identity/application/load-applica
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { listVaultParticipantsForOwner } from "@/modules/vault-membership/application/manage-vault-participants";
+import { parseVaultParticipantCursorKey } from "@/modules/vault-membership/application/vault-participant-repository";
 import { PrismaVaultParticipantRepository } from "@/modules/vault-membership/infrastructure/prisma-vault-participant-repository";
+import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const { vaultId } = await params;
-  const participants = await listVaultParticipantsForOwner(user.id, vaultId, new PrismaVaultParticipantRepository());
-  if (!participants) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
+  const scope = `vault-participants:${vaultId}`;
+  const pagination = parseTimestampCursorPageRequest(new URL(request.url).searchParams, scope, (key) => parseVaultParticipantCursorKey(key) !== null);
+  if (!pagination.valid) return NextResponse.json({ error: pagination.error }, { status: 400 });
+  const page = await listVaultParticipantsForOwner(user.id, vaultId, pagination.request, new PrismaVaultParticipantRepository());
+  if (!page) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   return NextResponse.json({
-    participants: participants.map((participant) => ({
-      ...participant,
-      invitedAt: participant.invitedAt?.toISOString() ?? null
-    }))
+    owner: page.owner,
+    participants: page.items.map((participant) => ({ ...participant, invitedAt: participant.invitedAt.toISOString() })),
+    nextCursor: page.nextCursor ? encodeTimestampCursor(page.nextCursor, scope) : null
   });
 }

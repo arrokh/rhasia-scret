@@ -8,15 +8,29 @@ vi.mock("@/modules/vault-membership/infrastructure/prisma-vault-participant-repo
 
 import { GET } from "@/app/api/shared-vaults/[vaultId]/participants/route";
 import { DELETE } from "@/app/api/shared-vaults/[vaultId]/share-links/[invitationId]/route";
+import { encodeTimestampCursor } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 describe("Shared Vault participant routes", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("returns owner-visible members and pending invitations", async () => {
-    mocks.listForOwner.mockResolvedValue([{ key: "member:user-1", email: "viewer@example.test", kind: "MEMBER", userId: "user-1", invitationId: null, invitedAt: new Date("2026-07-26T12:00:00.000Z") }]);
+    mocks.listForOwner.mockResolvedValue({ owner: { id: "owner-1", email: "owner@example.test" }, items: [{ key: "member:user-1", email: "viewer@example.test", kind: "MEMBER", userId: "user-1", invitationId: null, invitedAt: new Date("2026-07-26T12:00:00.000Z") }], nextCursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "member:user-1" } });
     const response = await GET(new Request("http://localhost/api"), { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ participants: [{ key: "member:user-1", email: "viewer@example.test", kind: "MEMBER", userId: "user-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }] });
+    const body = await response.json();
+    expect(body).toEqual({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "member:user-1", email: "viewer@example.test", kind: "MEMBER", userId: "user-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: expect.any(String) });
+    expect(mocks.listForOwner).toHaveBeenCalledWith("owner-1", "vault-1", { cursor: null, limit: 20 });
+
+    await GET(new Request(`http://localhost/api?cursor=${encodeURIComponent(body.nextCursor)}&limit=1`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(mocks.listForOwner).toHaveBeenLastCalledWith("owner-1", "vault-1", { cursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "member:user-1" }, limit: 1 });
+  });
+
+  it("rejects a structurally invalid participant cursor", async () => {
+    const cursor = encodeTimestampCursor({ createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "member:" }, "vault-participants:vault-1");
+    const response = await GET(new Request(`http://localhost/api?cursor=${encodeURIComponent(cursor)}`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_cursor" });
+    expect(mocks.listForOwner).not.toHaveBeenCalled();
   });
 
   it("deletes only an exact pending invitation owned by the caller", async () => {

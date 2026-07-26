@@ -12,12 +12,13 @@ describe("loadVaultAuditEvents", () => {
       { id: "wrong-account", eventType: "ACCOUNT_ACCESSED", targetId: "account-2", actorUserId: "user-1", actorEmail: "one@example.test", createdAt: "2026-07-26T12:00:00.000Z" },
       { id: "wrong-user", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "user-2", actorEmail: "two@example.test", createdAt: "2026-07-26T12:00:00.000Z" }
     ];
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ events }) });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ events, nextCursor: "next-page" }) });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(loadVaultAuditEvents("vault/1", { accountId: "account/1", actorUserId: "user/1" })).resolves.toEqual([]);
+    await expect(loadVaultAuditEvents("vault/1", { accountId: "account/1", actorUserId: "user/1" })).resolves.toEqual({ events: [], nextCursor: "next-page" });
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/vault%2F1/audit-events?accountId=account%2F1&actorUserId=user%2F1", { cache: "no-store", method: "GET" });
 
-    await expect(loadVaultAuditEvents("vault-1", { accountId: "account-1", actorUserId: "user-1" })).resolves.toEqual([events[0]]);
+    await expect(loadVaultAuditEvents("vault-1", { accountId: "account-1", actorUserId: "user-1" }, "opaque cursor")).resolves.toEqual({ events: [events[0]], nextCursor: "next-page" });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/shared-vaults/vault-1/audit-events?accountId=account-1&actorUserId=user-1&cursor=opaque+cursor", { cache: "no-store", method: "GET" });
   });
 });
