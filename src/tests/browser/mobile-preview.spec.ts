@@ -25,5 +25,8 @@ test("requires explicit confirmation for destructive Personal Vault reset", asyn
   await page.getByLabel(/Ketik HAPUS DATA BRANKAS/).fill("HAPUS DATA BRANKAS");
   await page.getByRole("button", { name: "Hapus data dan atur ulang brankas" }).click();
 
+  await expect(page.getByRole("heading", { name: "Atur ulang Brankas Pribadi?" })).toBeVisible();
+  expect(submittedBody).toBeUndefined();
+  await page.getByRole("button", { name: "Hapus dan atur ulang" }).click();
   await expect.poll(() => submittedBody).toEqual({ confirmation: "HAPUS DATA BRANKAS" });
 });
