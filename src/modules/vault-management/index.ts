@@ -1,4 +1,7 @@
 export { Vault } from "./domain/vault";
+export { VAULT_RECOVERY_DAYS, auditPurgeAfter, vaultPurgeAfter } from "./domain/vault-retention-policy";
+export { purgeExpiredSharedVaults, purgeExpiredVaultAuditEvents } from "./application/purge-expired-vault-retention";
+export type { AuditPurgeBatch, ExpiredVaultRetentionRepository, VaultPurgeBatch } from "./application/purge-expired-vault-retention";
 export type { VaultLifecycle, VaultType } from "./domain/vault";
 export { SharedVaultCreator } from "./presentation/shared-vault-creator";
 export { PersonalVaultDetails } from "./presentation/personal-vault-manager";

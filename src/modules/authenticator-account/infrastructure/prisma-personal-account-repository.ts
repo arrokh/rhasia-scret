@@ -1,5 +1,6 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
+import { accountPurgeAfter } from "../domain/account-retention-policy";
 import type { NewEncryptedAccount, PersonalAccountRepository } from "../application/personal-account-repository";
 
 type AccountRecord = {
@@ -11,6 +12,7 @@ type AccountRecord = {
 };
 
 export class PrismaPersonalAccountRepository implements PersonalAccountRepository {
+  constructor(private readonly now: () => Date = () => new Date()) {}
   public async create(ownerId: string, vaultId: string, account: NewEncryptedAccount): Promise<EncryptedAuthenticatorAccount> {
     await assertActivePersonalVault(ownerId, vaultId);
     const created = await prisma.authenticatorAccount.create({
@@ -40,9 +42,10 @@ export class PrismaPersonalAccountRepository implements PersonalAccountRepositor
 
   public async delete(ownerId: string, vaultId: string, accountId: string, expectedRevision: number): Promise<boolean> {
     await assertActivePersonalVault(ownerId, vaultId);
+    const deletedAt = this.now();
     const deleted = await prisma.authenticatorAccount.updateMany({
       where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
-      data: { deletedAt: new Date(), revision: { increment: 1 } }
+      data: { deletedAt, purgeAfter: accountPurgeAfter(deletedAt), revision: { increment: 1 } }
     });
     return deleted.count === 1;
   }

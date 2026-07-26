@@ -1,7 +1,9 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
+import { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "../domain/account-retention-policy";
 
 export class PrismaSharedOwnerAccountRepository {
+  constructor(private readonly now: () => Date = () => new Date()) {}
   public async create(ownerId: string, vaultId: string, encryptedPayload: Uint8Array, encryptionVersion: number): Promise<EncryptedAuthenticatorAccount> {
     await assertOwner(ownerId, vaultId);
     const account = await prisma.authenticatorAccount.create({ data: { vaultId, encryptedPayload: copyBytes(encryptedPayload), encryptionVersion } });
@@ -18,20 +20,23 @@ export class PrismaSharedOwnerAccountRepository {
 
   public async delete(ownerId: string, vaultId: string, accountId: string, expectedRevision: number): Promise<boolean> {
     await assertOwner(ownerId, vaultId);
-    const result = await prisma.authenticatorAccount.updateMany({ where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null }, data: { deletedAt: new Date(), revision: { increment: 1 } } });
+    const deletedAt = this.now();
+    const result = await prisma.authenticatorAccount.updateMany({ where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null }, data: { deletedAt, purgeAfter: accountPurgeAfter(deletedAt), revision: { increment: 1 } } });
     return result.count === 1;
   }
 
   public async restore(ownerId: string, vaultId: string, accountId: string): Promise<boolean> {
     await assertOwner(ownerId, vaultId);
-    const result = await prisma.authenticatorAccount.updateMany({ where: { id: accountId, vaultId, deletedAt: { gte: recoveryDeadline() } }, data: { deletedAt: null, revision: { increment: 1 } } });
+    const now = this.now();
+    const legacyRecoveryCutoff = new Date(now.getTime() - ACCOUNT_RECOVERY_DAYS * 24 * 60 * 60 * 1000);
+    const result = await prisma.authenticatorAccount.updateMany({
+      where: { id: accountId, vaultId, deletedAt: { not: null }, OR: [{ purgeAfter: { gt: now } }, { purgeAfter: null, deletedAt: { gt: legacyRecoveryCutoff } }] },
+      data: { deletedAt: null, purgeAfter: null, revision: { increment: 1 } }
+    });
     return result.count === 1;
   }
 }
 
-function recoveryDeadline(): Date {
-  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-}
 
 async function assertOwner(ownerId: string, vaultId: string): Promise<void> {
   const vault = await prisma.vault.findFirst({ where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null } });

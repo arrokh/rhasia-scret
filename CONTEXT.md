@@ -92,7 +92,7 @@ The immediate denial of all future application access for a Vault member. It can
 _Avoid_: Retroactive deletion, secret invalidation
 
 **Vault Audit History**:
-The non-sensitive record of a Vault’s security-relevant activity. It is visible only to that Vault’s owner and is retained for one year after the Vault is deleted. It may identify the acting member by account email and an Authenticator Account only by its opaque identifier; it never stores account names, issuers, TOTP configuration, generated OTPs, or decrypted Vault content. Opening or copying a Shared Vault Authenticator Account records an Account Access event.
+The non-sensitive record of a Vault’s security-relevant activity. It is visible only to that Vault’s owner and remains independently addressable by opaque Vault and owner identifiers after encrypted Vault content is purged. It is retained for one calendar year after Vault deletion, unless restoration clears that deadline; a later deletion starts a new retention period. It may identify the acting member by account email and an Authenticator Account only by its opaque identifier; it never stores account names, issuers, TOTP configuration, generated OTPs, or decrypted Vault content. Opening or copying a Shared Vault Authenticator Account records an Account Access event.
 _Avoid_: Public activity feed, secret log, plaintext account activity
 
 **Vault Owner**:
@@ -104,11 +104,11 @@ A Shared Vault member who may read accounts and generate or copy OTPs but may no
 _Avoid_: Editor, collaborator
 
 **Deleted Vault**:
-A Vault hidden from all users and denied all application access during its 30-day recovery window, after which its retained records are permanently purged. Only its owner may restore it.
+A Vault hidden from all users and denied all application access during its 30-day recovery window, after which its encrypted content, accounts, memberships, invitations, and lifecycle row are permanently purged. Its redacted Vault Audit History remains owner-only until the separate one-year audit deadline. Only its owner may restore it before the recovery deadline.
 _Avoid_: Active vault, permanent archive
 
 **Authenticator Account**:
-A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A deleted account is recoverable for 30 days before purge by its owner.
+A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable by its owner before that deadline, and is then permanently purged by bounded server cleanup.
 _Avoid_: Token, credential
 
 **Account Revision**:
