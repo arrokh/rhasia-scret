@@ -23,7 +23,7 @@ describe("TanStack Form inventory", () => {
     expect(forms.map(({ path, count }) => ({ path, count }))).toEqual([
       { path: "src/modules/authenticator-account/presentation/authenticator-account-creator.tsx", count: 2 },
       { path: "src/modules/authenticator-account/presentation/authenticator-account-manager-dialog.tsx", count: 1 },
-      { path: "src/modules/authenticator-account/presentation/personal-vault-accounts.tsx", count: 1 },
+      { path: "src/modules/authenticator-account/presentation/vault-workspace-unlock.tsx", count: 1 },
       { path: "src/modules/crypto/presentation/passkey-recovery-reset.tsx", count: 1 },
       { path: "src/modules/identity/presentation/invited-user-sign-in-form.tsx", count: 1 },
       { path: "src/modules/identity/presentation/logout-form.tsx", count: 1 },
@@ -31,7 +31,7 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/vault-management/presentation/destructive-personal-vault-reset-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/personal-vault-setup-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/shared-vault-creator.tsx", count: 1 },
-      { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 1 }
+      { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 2 }
     ]);
     for (const form of forms) {
       expect(form.source, form.path).toContain("@tanstack/react-form");

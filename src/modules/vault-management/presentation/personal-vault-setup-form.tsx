@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
-import { Eye, EyeOff, LoaderCircle, RefreshCw } from "lucide-react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { generateVaultUnlockSecret, initializePersonalVaultInBrowser, validateVa
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
+import { PasswordInput } from "@/shared/presentation/password-input";
 import { useInitializePersonalVaultMutation } from "./hooks/use-personal-vault-mutations";
 
 type SecretMode = "generated" | "custom";
@@ -86,7 +87,7 @@ export function PersonalVaultSetupForm() {
               ) : (
                 <Field>
                   <Label htmlFor="custom-unlock-secret">Passphrase Brankas Anda</Label>
-                  <PasswordField id="custom-unlock-secret" label="Passphrase Brankas Anda" value={secretField.state.value} visible={secretVisible} onChange={(value) => { secretField.handleChange(value); if (form.state.values.confirmation) form.setFieldValue("confirmation", ""); setStatus("idle"); }} onToggleVisibility={() => setSecretVisible((visible) => !visible)} invalid={secretField.state.meta.errors.length > 0} describedBy={secretField.state.meta.errors.length ? "custom-secret-error" : "custom-secret-guidance"} />
+                  <PasswordInput id="custom-unlock-secret" label="Passphrase Brankas Anda" value={secretField.state.value} visible={secretVisible} onChange={(event) => { secretField.handleChange(event.target.value); if (form.state.values.confirmation) form.setFieldValue("confirmation", ""); setStatus("idle"); }} onToggleVisibility={() => setSecretVisible((visible) => !visible)} aria-invalid={secretField.state.meta.errors.length > 0} aria-describedby={secretField.state.meta.errors.length ? "custom-secret-error" : "custom-secret-guidance"} autoComplete="new-password" required />
                   <p id="custom-secret-guidance" className="text-xs leading-5 text-muted-foreground">Gunakan minimal 3 karakter. Pilih passphrase yang sulit ditebak dan unik untuk brankas ini.</p>
                   <FormFieldError id="custom-secret-error" errors={secretField.state.meta.errors} />
                 </Field>
@@ -97,7 +98,7 @@ export function PersonalVaultSetupForm() {
       </form.Field>
 
       <form.Field name="confirmation" validators={{ onChange: ({ value }) => value && value !== form.state.values.secret ? "Konfirmasi Passphrase Brankas tidak cocok dengan Passphrase Brankas Anda." : undefined, onSubmit: ({ value }) => value === form.state.values.secret ? undefined : "Konfirmasi Passphrase Brankas tidak cocok dengan Passphrase Brankas Anda." }}>
-        {(field) => <Field><Label htmlFor="unlock-secret-confirmation">Masukkan kembali Passphrase Brankas</Label><PasswordField id="unlock-secret-confirmation" label="Konfirmasi Passphrase Brankas" value={field.state.value} visible={confirmationVisible} onChange={(value) => { field.handleChange(value); setStatus("idle"); }} onToggleVisibility={() => setConfirmationVisible((visible) => !visible)} invalid={field.state.meta.errors.length > 0} describedBy={field.state.meta.errors.length ? "confirmation-error" : undefined} /><FormFieldError id="confirmation-error" errors={field.state.meta.errors} /></Field>}
+        {(field) => <Field><Label htmlFor="unlock-secret-confirmation">Masukkan kembali Passphrase Brankas</Label><PasswordInput id="unlock-secret-confirmation" label="Konfirmasi Passphrase Brankas" value={field.state.value} visible={confirmationVisible} onChange={(event) => { field.handleChange(event.target.value); setStatus("idle"); }} onToggleVisibility={() => setConfirmationVisible((visible) => !visible)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "confirmation-error" : undefined} autoComplete="new-password" required /><FormFieldError id="confirmation-error" errors={field.state.meta.errors} /></Field>}
       </form.Field>
 
       <form.Field name="acknowledged" validators={{ onSubmit: ({ value }) => value ? undefined : "Konfirmasikan bahwa Anda memahami batas pemulihan passphrase." }}>
@@ -120,8 +121,3 @@ function Choice({ id, value, title, description }: { id: string; value: SecretMo
 }
 
 function validateSecret(secret: string): string | undefined { try { validateVaultUnlockSecret(secret); return undefined; } catch { return "Passphrase Brankas harus berisi minimal 3 karakter."; } }
-
-type PasswordFieldProps = { id: string; label: string; value: string; visible: boolean; onChange: (value: string) => void; onToggleVisibility: () => void; invalid?: boolean; describedBy?: string };
-function PasswordField({ id, label, value, visible, onChange, onToggleVisibility, invalid = false, describedBy }: PasswordFieldProps) {
-  return <div className="relative"><Input id={id} type={visible ? "text" : "password"} className="pr-12" value={value} onChange={(event) => onChange(event.target.value)} autoComplete="new-password" aria-invalid={invalid} aria-describedby={describedBy} required /><Button variant="ghost" size="icon-sm" className="absolute top-1 right-1" type="button" onClick={onToggleVisibility} aria-label={`${visible ? "Sembunyikan" : "Tampilkan"} ${label}`} aria-pressed={visible}>{visible ? <EyeOff /> : <Eye />}</Button></div>;
-}

@@ -88,14 +88,23 @@ describe("PrismaDestructivePersonalVaultResetRepository", () => {
         accounts: { create: { encryptedPayload: bytes("shared-account"), encryptionVersion: 1 } }
       }
     });
-    await prisma.vaultInvitation.create({
-      data: {
-        vaultId: sharedVault.id,
-        recipientUserId: resettingUser.id,
-        linkVerifier: bytes(randomUUID()),
-        encryptedPackage: bytes("pending-package"),
-        status: "PENDING"
-      }
+    await prisma.vaultInvitation.createMany({
+      data: [
+        {
+          vaultId: sharedVault.id,
+          recipientUserId: resettingUser.id,
+          linkVerifier: bytes(randomUUID()),
+          encryptedPackage: bytes("pending-package"),
+          status: "PENDING"
+        },
+        {
+          vaultId: sharedVault.id,
+          recipientEmail: resettingUser.email.toUpperCase(),
+          linkVerifier: bytes(randomUUID()),
+          encryptedPackage: bytes("email-bound-package"),
+          status: "PENDING"
+        }
+      ]
     });
     await prisma.passkeyRecoveryChallenge.create({
       data: { userId: resettingUser.id, purpose: "REGISTRATION", challenge: randomUUID(), expiresAt: new Date(Date.now() + 60_000) }
@@ -106,7 +115,7 @@ describe("PrismaDestructivePersonalVaultResetRepository", () => {
     await expect(prisma.userCryptoProfile.findUnique({ where: { userId: resettingUser.id } })).resolves.toBeNull();
     await expect(prisma.authenticatorAccount.count({ where: { vaultId: personalVault.id } })).resolves.toBe(0);
     await expect(prisma.passkeyRecoveryChallenge.count({ where: { userId: resettingUser.id } })).resolves.toBe(0);
-    await expect(prisma.vaultInvitation.count({ where: { recipientUserId: resettingUser.id, status: "PENDING" } })).resolves.toBe(0);
+    await expect(prisma.vaultInvitation.count({ where: { status: "PENDING", OR: [{ recipientUserId: resettingUser.id }, { recipientEmail: { equals: resettingUser.email, mode: "insensitive" } }] } })).resolves.toBe(0);
     await expect(prisma.vault.findUnique({ where: { id: personalVault.id }, select: { lifecycle: true, encryptedName: true } })).resolves.toEqual({ lifecycle: "UNINITIALIZED", encryptedName: null });
     await expect(prisma.vaultMember.findUnique({ where: { vaultId_userId: { vaultId: sharedVault.id, userId: resettingUser.id } }, select: { status: true, encryptedVaultKey: true, keyVersion: true } })).resolves.toEqual({ status: "LEFT", encryptedVaultKey: null, keyVersion: null });
     await expect(prisma.vault.findUnique({ where: { id: sharedVault.id }, select: { lifecycle: true } })).resolves.toEqual({ lifecycle: "ACTIVE" });
@@ -119,7 +128,7 @@ describe("PrismaDestructivePersonalVaultResetRepository", () => {
       linkVerifier: bytes(randomUUID()),
       encryptedPackage: bytes("replacement-package")
     });
-    await shareLinks.redeem(resettingUser.id, replacementInvitation.id, bytes("replacement-viewer-key"), 2);
+    await shareLinks.redeem({ userId: resettingUser.id, email: resettingUser.email }, replacementInvitation.id, bytes("replacement-viewer-key"), 2);
     await expect(prisma.vaultMember.findUnique({
       where: { vaultId_userId: { vaultId: sharedVault.id, userId: resettingUser.id } },
       select: { status: true, encryptedVaultKey: true, keyVersion: true, revokedAt: true }

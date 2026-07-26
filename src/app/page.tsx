@@ -22,8 +22,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <SurfaceCard className="w-full max-w-md px-5 py-7 sm:px-8 sm:py-9" aria-labelledby="page-title">
         <div className="flex flex-col items-center">
           <h1 id="page-title"><Brand /></h1>
-          <p className="mt-5 text-center text-lg leading-7 font-bold text-ink-strong">Kode bersama keluarga Anda, aman dan mudah dijangkau.</p>
-          <p className="mt-2 text-center text-sm leading-6 text-muted-foreground">Masuk dengan alamat email yang telah diundang. Kode dibuat secara privat di perangkat ini.</p>
+          <p className="mt-5 text-center text-sm leading-6 text-muted-foreground">
+            Simpan dan bagikan akun autentikasi melalui brankas terenkripsi
+          </p>
         </div>
         <div className="mt-6 grid gap-5">
           {notice && <StatusBanner tone={notice.tone} role={notice.role}>{notice.message}</StatusBanner>}

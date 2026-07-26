@@ -7,137 +7,151 @@ datasource db {
 }
 
 model ApplicationUser {
-  id             String                @id @default(cuid())
-  supabaseUserId String                @unique @map("supabase_user_id")
-  email          String                @unique
-  status         String                @default("ACTIVE")
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
-  ownedVaults    Vault[]               @relation("VaultOwner")
-  memberships    VaultMember[]
-  receivedInvitations VaultInvitation[] @relation("InvitationRecipient")
-  cryptoProfile  UserCryptoProfile?
+  id                        String                     @id @default(cuid())
+  supabaseUserId            String                     @unique @map("supabase_user_id")
+  email                     String                     @unique
+  status                    String                     @default("ACTIVE")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  ownedVaults               Vault[]                    @relation("VaultOwner")
+  memberships               VaultMember[]
+  receivedInvitations       VaultInvitation[]          @relation("InvitationRecipient")
+  cryptoProfile             UserCryptoProfile?
   passkeyRecoveryCredential PasskeyRecoveryCredential?
   passkeyRecoveryChallenges PasskeyRecoveryChallenge[]
+  auditEvents               VaultAuditEvent[]          @relation("AuditActor")
+
   @@map("application_users")
 }
 
 model Vault {
-  id                  String         @id @default(cuid())
-  type                String
-  lifecycle           String         @default("ACTIVE")
-  ownerId             String         @map("owner_id")
-  encryptedName       Bytes?         @map("encrypted_name")
-  encryptionVersion   Int            @map("encryption_version")
-  deletedAt           DateTime?      @map("deleted_at")
-  purgeAfter          DateTime?      @map("purge_after")
-  createdAt           DateTime       @default(now()) @map("created_at")
-  updatedAt           DateTime       @updatedAt @map("updated_at")
-  owner               ApplicationUser @relation("VaultOwner", fields: [ownerId], references: [id])
-  members             VaultMember[]
-  accounts            AuthenticatorAccount[]
-  invitations         VaultInvitation[]
-  auditEvents         VaultAuditEvent[]
+  id                String                 @id @default(cuid())
+  type              String
+  lifecycle         String                 @default("ACTIVE")
+  ownerId           String                 @map("owner_id")
+  encryptedName     Bytes?                 @map("encrypted_name")
+  encryptionVersion Int                    @map("encryption_version")
+  deletedAt         DateTime?              @map("deleted_at")
+  purgeAfter        DateTime?              @map("purge_after")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  owner             ApplicationUser        @relation("VaultOwner", fields: [ownerId], references: [id])
+  members           VaultMember[]
+  accounts          AuthenticatorAccount[]
+  invitations       VaultInvitation[]
+  auditEvents       VaultAuditEvent[]
+
   @@index([ownerId, type, lifecycle])
   @@map("vaults")
 }
 
 model VaultInvitation {
-  id               String   @id @default(cuid())
-  vaultId          String   @map("vault_id")
-  recipientUserId  String   @map("recipient_user_id")
-  linkVerifier     Bytes    @unique @map("link_verifier")
-  encryptedPackage Bytes    @map("encrypted_package")
-  status           String   @default("PENDING")
-  redeemedAt       DateTime? @map("redeemed_at")
-  createdAt        DateTime @default(now()) @map("created_at")
-  vault            Vault    @relation(fields: [vaultId], references: [id])
-  recipient        ApplicationUser @relation("InvitationRecipient", fields: [recipientUserId], references: [id])
+  id               String           @id @default(cuid())
+  vaultId          String           @map("vault_id")
+  recipientEmail   String?          @map("recipient_email")
+  recipientUserId  String?          @map("recipient_user_id")
+  linkVerifier     Bytes            @unique @map("link_verifier")
+  encryptedPackage Bytes            @map("encrypted_package")
+  status           String           @default("PENDING")
+  redeemedAt       DateTime?        @map("redeemed_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  vault            Vault            @relation(fields: [vaultId], references: [id])
+  recipient        ApplicationUser? @relation("InvitationRecipient", fields: [recipientUserId], references: [id])
+
   @@index([vaultId, status])
+  @@index([recipientEmail, status])
   @@index([recipientUserId, status])
   @@map("vault_invitations")
 }
 
 model PasskeyRecoveryCredential {
-  userId                   String   @id @map("user_id")
-  credentialId             Bytes    @unique @map("credential_id")
-  publicKey                Bytes    @map("public_key")
-  counter                  BigInt   @default(0)
-  transports               Json?    @map("transports")
-  encryptedRecoveryPackage Bytes    @map("encrypted_recovery_package")
-  createdAt                DateTime @default(now()) @map("created_at")
-  updatedAt                DateTime @updatedAt @map("updated_at")
+  userId                   String          @id @map("user_id")
+  credentialId             Bytes           @unique @map("credential_id")
+  publicKey                Bytes           @map("public_key")
+  counter                  BigInt          @default(0)
+  transports               Json?           @map("transports")
+  encryptedRecoveryPackage Bytes           @map("encrypted_recovery_package")
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
   user                     ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("passkey_recovery_credentials")
 }
 
 model PasskeyRecoveryChallenge {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
+  id        String          @id @default(cuid())
+  userId    String          @map("user_id")
   purpose   String
   challenge String
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime        @map("expires_at")
+  createdAt DateTime        @default(now()) @map("created_at")
   user      ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, purpose, expiresAt])
   @@map("passkey_recovery_challenges")
 }
 
 model UserCryptoProfile {
-  userId                         String   @id @map("user_id")
-  vaultUnlockSalt                Bytes    @map("vault_unlock_salt")
-  wrappedUserRootKey             Bytes    @map("wrapped_user_root_key")
-  rootKeyWrappingVersion         Int      @map("root_key_wrapping_version")
-  encryptedPersonalVaultKey      Bytes    @map("encrypted_personal_vault_key")
-  personalVaultKeyEncryptionVersion Int   @map("personal_vault_key_encryption_version")
-  userEncryptionPublicKey        Json?    @map("user_encryption_public_key")
-  encryptedUserPrivateKey        Bytes?   @map("encrypted_user_private_key")
-  userEncryptionKeyVersion       Int?     @map("user_encryption_key_version")
-  createdAt                      DateTime @default(now()) @map("created_at")
-  updatedAt                      DateTime @updatedAt @map("updated_at")
-  user                           ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                            String          @id @map("user_id")
+  vaultUnlockSalt                   Bytes           @map("vault_unlock_salt")
+  wrappedUserRootKey                Bytes           @map("wrapped_user_root_key")
+  rootKeyWrappingVersion            Int             @map("root_key_wrapping_version")
+  encryptedPersonalVaultKey         Bytes           @map("encrypted_personal_vault_key")
+  personalVaultKeyEncryptionVersion Int             @map("personal_vault_key_encryption_version")
+  userEncryptionPublicKey           Json?           @map("user_encryption_public_key")
+  encryptedUserPrivateKey           Bytes?          @map("encrypted_user_private_key")
+  userEncryptionKeyVersion          Int?            @map("user_encryption_key_version")
+  createdAt                         DateTime        @default(now()) @map("created_at")
+  updatedAt                         DateTime        @updatedAt @map("updated_at")
+  user                              ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("user_crypto_profiles")
 }
 
 model VaultMember {
-  vaultId             String           @map("vault_id")
-  userId              String           @map("user_id")
-  role                String           
-  status              String           @default("ACTIVE")
-  encryptedVaultKey   Bytes?           @map("encrypted_vault_key")
-  keyVersion          Int?             @map("key_version")
-  revokedAt           DateTime?        @map("revoked_at")
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-  vault               Vault            @relation(fields: [vaultId], references: [id])
-  user                ApplicationUser  @relation(fields: [userId], references: [id])
+  vaultId           String          @map("vault_id")
+  userId            String          @map("user_id")
+  role              String
+  status            String          @default("ACTIVE")
+  encryptedVaultKey Bytes?          @map("encrypted_vault_key")
+  keyVersion        Int?            @map("key_version")
+  revokedAt         DateTime?       @map("revoked_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  vault             Vault           @relation(fields: [vaultId], references: [id])
+  user              ApplicationUser @relation(fields: [userId], references: [id])
+
   @@id([vaultId, userId])
   @@index([userId, status])
   @@map("vault_members")
 }
 
 model VaultAuditEvent {
-  id          String   @id @default(cuid())
-  vaultId     String   @map("vault_id")
-  actorUserId String   @map("actor_user_id")
-  eventType   String   @map("event_type")
-  createdAt   DateTime @default(now()) @map("created_at")
-  vault       Vault    @relation(fields: [vaultId], references: [id])
+  id          String          @id @default(cuid())
+  vaultId     String          @map("vault_id")
+  actorUserId String          @map("actor_user_id")
+  eventType   String          @map("event_type")
+  targetId    String?         @map("target_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  vault       Vault           @relation(fields: [vaultId], references: [id])
+  actor       ApplicationUser @relation("AuditActor", fields: [actorUserId], references: [id])
+
   @@index([vaultId, createdAt])
   @@map("vault_audit_events")
 }
 
 model AuthenticatorAccount {
-  id                  String   @id @default(cuid())
-  vaultId             String   @map("vault_id")
-  encryptedPayload    Bytes    @map("encrypted_payload")
-  encryptionVersion   Int      @map("encryption_version")
-  revision            Int      @default(1)
-  deletedAt           DateTime? @map("deleted_at")
-  purgeAfter          DateTime? @map("purge_after")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-  vault               Vault    @relation(fields: [vaultId], references: [id])
+  id                String    @id @default(cuid())
+  vaultId           String    @map("vault_id")
+  encryptedPayload  Bytes     @map("encrypted_payload")
+  encryptionVersion Int       @map("encryption_version")
+  revision          Int       @default(1)
+  deletedAt         DateTime? @map("deleted_at")
+  purgeAfter        DateTime? @map("purge_after")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  vault             Vault     @relation(fields: [vaultId], references: [id])
+
   @@index([vaultId, deletedAt])
   @@map("authenticator_accounts")
 }

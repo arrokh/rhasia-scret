@@ -3,6 +3,7 @@ node_modules/
 coverage/
 playwright-report/
 test-results/
+artifacts/ui-audit/
 *.tsbuildinfo
 next-env.d.ts
 .env

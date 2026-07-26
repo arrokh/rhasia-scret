@@ -28,9 +28,10 @@ describe("TotpAccountButton", () => {
   it("generates an OTP locally and copies it from the shadcn account card", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("navigator", { clipboard: { writeText: mocks.writeText } });
+    const onAccess = vi.fn();
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TotpAccountButton, { configuration: configuration(), vaultName: "Brankas Pribadi" })));
+    await act(async () => root?.render(createElement(TotpAccountButton, { configuration: configuration(), vaultName: "Brankas Pribadi", onAccess })));
     expect(container.textContent).toContain("123 456");
     expect(container.textContent).toContain("OTPAuth");
     expect(container.textContent).toContain("Alice");
@@ -39,6 +40,7 @@ describe("TotpAccountButton", () => {
     const copy = container.querySelector<HTMLButtonElement>('[aria-label^="Salin OTP"]');
     await act(async () => copy?.click());
     expect(mocks.writeText).toHaveBeenCalledWith("123456");
+    expect(onAccess).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("Disalin");
     expect(container.querySelector(".lucide-check")).not.toBeNull();
     expect(container.querySelector("circle.stroke-success")).not.toBeNull();

@@ -10,8 +10,15 @@ export type RedeemableSecureShareLink = {
   encryptedPackage: Uint8Array;
 };
 
+export type SecureShareLinkRecipient = { userId: string; email: string };
+
+export class InvitationRecipientUnavailableError extends Error {}
+export class InvitationConflictError extends Error {}
+export class SecureShareLinkUnavailableError extends Error {}
+
 export interface SecureShareLinkRepository {
   create(ownerId: string, vaultId: string, link: NewSecureShareLink): Promise<{ id: string }>;
-  findForRecipient(recipientUserId: string, linkVerifier: Uint8Array): Promise<RedeemableSecureShareLink | null>;
-  redeem(recipientUserId: string, invitationId: string, encryptedVaultKey: Uint8Array, keyVersion: number): Promise<void>;
+  createForEmail(ownerId: string, vaultId: string, recipientEmail: string, link: Omit<NewSecureShareLink, "recipientUserId">): Promise<{ id: string }>;
+  findForRecipient(recipient: SecureShareLinkRecipient, linkVerifier: Uint8Array): Promise<RedeemableSecureShareLink | null>;
+  redeem(recipient: SecureShareLinkRecipient, invitationId: string, encryptedVaultKey: Uint8Array, keyVersion: number): Promise<void>;
 }

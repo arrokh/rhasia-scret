@@ -38,6 +38,22 @@ export function deleteSharedVault(vaultId: string): Promise<void> {
   return browserApiClient.deleteEmpty(`/api/shared-vaults/${vaultId}/lifecycle`);
 }
 
+export type VaultAuditFilter = { accountId?: string; actorUserId?: string };
+export type VaultAuditEvent = { id: string; eventType: string; targetId: string | null; actorUserId: string; actorEmail: string; createdAt: string };
+
+export async function loadVaultAuditEvents(vaultId: string, filter: VaultAuditFilter = {}): Promise<VaultAuditEvent[]> {
+  const search = new URLSearchParams();
+  if (filter.accountId) search.set("accountId", filter.accountId);
+  if (filter.actorUserId) search.set("actorUserId", filter.actorUserId);
+  const query = search.size ? `?${search.toString()}` : "";
+  const response = await browserApiClient.getJson<{ events: VaultAuditEvent[] }>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events${query}`, { cache: "no-store" });
+  return response.events.filter((event) => (!filter.accountId || event.targetId === filter.accountId) && (!filter.actorUserId || event.actorUserId === filter.actorUserId));
+}
+
+export function recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
+  return browserApiClient.postEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`, { eventType: "ACCOUNT_ACCESSED", accountId });
+}
+
 export async function destructivelyResetPersonalVault(confirmation: string): Promise<DestructiveResetResult> {
   const response = await browserApiClient.post("/api/personal-vault/destructive-reset", { confirmation });
   if (response.ok) return { status: "reset" };

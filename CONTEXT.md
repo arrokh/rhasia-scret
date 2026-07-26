@@ -76,11 +76,11 @@ A versioned encrypted package that allows one User Encryption Key Pair to recove
 _Avoid_: Plaintext vault key, shared password
 
 **Invitation**:
-A no-acceptance request by a Shared Vault owner to give a pre-registered user access. It includes a one-time Secure Share Link so the recipient can complete key delivery after cryptographic enrollment.
+A no-acceptance request by a Shared Vault owner to give a pre-registered user access. It includes a one-time Secure Share Link so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User.
 _Avoid_: Pending membership
 
 **Secure Share Link**:
-A one-time secret link delivered by the owner through a secure out-of-band channel. It is bound to the intended invited user and lets them obtain an encrypted Vault Encryption Key package without giving that key to the server. The MVP has no expiry, cancellation, or reissue flow.
+A one-time secret link delivered by the owner through a secure out-of-band channel. It is bound to the intended invited user and lets them obtain an encrypted Vault Encryption Key package without giving that key to the server. The owner may cancel a pending Invitation, which permanently invalidates its Secure Share Link; the MVP has no expiry or reissue flow.
 _Avoid_: Server-visible key link, reusable sharing URL
 
 **Membership Grant**:
@@ -92,8 +92,8 @@ The immediate denial of all future application access for a Vault member. It can
 _Avoid_: Retroactive deletion, secret invalidation
 
 **Vault Audit History**:
-The non-sensitive record of a Vault’s security-relevant activity. It is visible only to that Vault’s owner and is retained for one year after the Vault is deleted. It stores opaque identifiers rather than account names or issuers.
-_Avoid_: Viewer activity feed, secret log
+The non-sensitive record of a Vault’s security-relevant activity. It is visible only to that Vault’s owner and is retained for one year after the Vault is deleted. It may identify the acting member by account email and an Authenticator Account only by its opaque identifier; it never stores account names, issuers, TOTP configuration, generated OTPs, or decrypted Vault content. Opening or copying a Shared Vault Authenticator Account records an Account Access event.
+_Avoid_: Public activity feed, secret log, plaintext account activity
 
 **Vault Owner**:
 The sole member responsible for a Shared Vault’s membership and authenticator-account changes. The owner is also entitled to read its accounts.

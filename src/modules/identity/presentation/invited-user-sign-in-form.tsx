@@ -36,7 +36,7 @@ export function InvitedUserSignInForm() {
       <form.Field name="email" validators={{ onBlur: ({ value }) => validateEmail(value), onSubmit: ({ value }) => validateEmail(value) }}>
         {(field) => (
           <div className="grid gap-2">
-            <Label htmlFor="email">Alamat email yang diundang</Label>
+            <Label htmlFor="email" className="sr-only">Alamat email yang diundang</Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder="nama@keluarga.id" required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : undefined} />
@@ -47,9 +47,16 @@ export function InvitedUserSignInForm() {
       </form.Field>
       <form.Subscribe selector={(formState) => formState.isSubmitting}>
         {(isSubmitting) => (
-          <Button type="submit" className="w-full" disabled={isSubmitting || retrySeconds > 0} aria-busy={isSubmitting}>
+          <Button
+            type={status === "sent" ? "button" : "submit"}
+            variant={status === "sent" ? "ghost" : "default"}
+            className="w-full"
+            disabled={isSubmitting || retrySeconds > 0}
+            aria-busy={isSubmitting}
+            onClick={status === "sent" ? () => window.location.reload() : undefined}
+          >
             {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {isSubmitting ? "Mengirim…" : retrySeconds > 0 ? `Coba lagi dalam ${retrySeconds} dtk` : "Kirim tautan masuk"}
+            {isSubmitting ? "Mengirim…" : status === "sent" ? "Refresh page for retry" : retrySeconds > 0 ? `Coba lagi dalam ${retrySeconds} dtk` : "Kirim tautan masuk"}
           </Button>
         )}
       </form.Subscribe>

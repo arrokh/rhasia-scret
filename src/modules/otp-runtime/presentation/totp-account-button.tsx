@@ -9,7 +9,7 @@ import type { TotpConfiguration } from "../domain/totp-configuration";
 import { generateTotp } from "../application/generate-totp";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
 
-export function TotpAccountButton({ configuration, vaultName, onManage }: { configuration: TotpConfiguration; vaultName: string; onManage?: () => void }) {
+export function TotpAccountButton({ configuration, vaultName, onManage, onAccess }: { configuration: TotpConfiguration; vaultName: string; onManage?: () => void; onAccess?: () => void | Promise<void> }) {
   const [code, setCode] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
@@ -39,6 +39,7 @@ export function TotpAccountButton({ configuration, vaultName, onManage }: { conf
   async function copyOtp() {
     if (!code) return;
     setShaking(true);
+    try { void Promise.resolve(onAccess?.()).catch(() => undefined); } catch { /* Audit failure must not block local OTP copy. */ }
     try { await navigator.clipboard.writeText(code); setStatus("copied"); }
     catch { setStatus("error"); }
   }

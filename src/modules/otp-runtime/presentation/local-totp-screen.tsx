@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Copy, KeyRound } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AppPage, SectionHeading, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
+import { AppPage, PageHeader, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
 import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
 import { generateTotp } from "../application/generate-totp";
 import { hasClockDrift } from "../domain/clock-drift";
@@ -33,8 +33,7 @@ export function LocalTotpScreen() {
 
   async function copyCode() { if (!code) return; try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setError("OTP tidak dapat disalin."); } }
 
-  return <AppPage centered><SurfaceCard className="grid w-full max-w-md gap-6 p-5 sm:p-7" aria-labelledby="totp-title">
-    <SectionHeading icon={KeyRound} title="TOTP Lokal" description="Tempel URI TOTP yang didukung. URI diproses dan hanya digunakan di browser ini." />
+  return <AppPage><PageHeader title="TOTP Lokal" description="Tempel URI TOTP yang didukung. URI diproses dan hanya digunakan di browser ini." /><SurfaceCard className="grid gap-6 p-5 sm:p-7">
     <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}><form.Field name="uri" validators={{ onSubmit: requiredText("URI autentikator") }}>{(field) => <div className="grid gap-2"><Label htmlFor="totp-uri">URI autentikator</Label><Input id="totp-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "totp-uri-error" : undefined} required /><FormFieldError id="totp-uri-error" errors={field.state.meta.errors} /></div>}</form.Field><Button type="submit">Buat kode</Button></form>
     {error && <StatusBanner tone="danger" role="alert">{error}</StatusBanner>}
     {clockDriftWarning && <StatusBanner tone="warning" role="alert">Waktu perangkat Anda berbeda lebih dari 30 detik dari server. Kode mungkin gagal.</StatusBanner>}

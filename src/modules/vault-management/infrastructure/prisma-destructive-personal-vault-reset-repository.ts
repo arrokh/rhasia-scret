@@ -37,17 +37,28 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
       });
       if (activeOwnedSharedVaults > 0) throw new ActiveOwnedSharedVaultsPreventResetError(activeOwnedSharedVaults);
 
-      const personalVault = await transaction.vault.findFirst({
-        where: { ownerId: userId, type: "PERSONAL" },
-        orderBy: { createdAt: "asc" },
-        select: { id: true }
-      });
-      if (!personalVault) throw new Error("Personal Vault does not exist.");
+      const [personalVault, resettingUser] = await Promise.all([
+        transaction.vault.findFirst({
+          where: { ownerId: userId, type: "PERSONAL" },
+          orderBy: { createdAt: "asc" },
+          select: { id: true }
+        }),
+        transaction.applicationUser.findUnique({ where: { id: userId }, select: { email: true } })
+      ]);
+      if (!personalVault || !resettingUser) throw new Error("Personal Vault owner does not exist.");
 
       await transaction.authenticatorAccount.deleteMany({ where: { vaultId: personalVault.id } });
       await transaction.userCryptoProfile.deleteMany({ where: { userId } });
       await transaction.passkeyRecoveryChallenge.deleteMany({ where: { userId } });
-      await transaction.vaultInvitation.deleteMany({ where: { recipientUserId: userId, status: "PENDING" } });
+      await transaction.vaultInvitation.deleteMany({
+        where: {
+          status: "PENDING",
+          OR: [
+            { recipientUserId: userId },
+            { recipientEmail: { equals: resettingUser.email, mode: "insensitive" } }
+          ]
+        }
+      });
       await transaction.vaultMember.updateMany({
         where: { userId, role: "VIEWER", status: "ACTIVE", vault: { type: "SHARED" } },
         data: { status: "LEFT", encryptedVaultKey: null, keyVersion: null, revokedAt: new Date() }

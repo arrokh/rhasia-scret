@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   isDuplicateAccount: vi.fn(),
   loadUnlockedVaultWorkspace: vi.fn(),
   parseTotpUri: vi.fn(),
+  qrOnUri: undefined as undefined | ((uri: string) => void),
   push: vi.fn(),
   refresh: vi.fn()
 }));
@@ -24,7 +25,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace
 }));
-vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: () => null }));
+vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: ({ onUri }: { onUri: (uri: string) => void }) => { mocks.qrOnUri = onUri; return null; } }));
 
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account/presentation/authenticator-account-creator";
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
@@ -91,7 +92,8 @@ describe("AuthenticatorAccountCreator", () => {
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
-    await act(async () => setInputValue(container.querySelector("#account-uri"), "otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+    await act(async () => mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+    expect(container.querySelector<HTMLInputElement>("#account-uri")?.readOnly).toBe(true);
     expect(container.textContent).toContain("Metadata autentikator");
     expect(container.textContent).toContain("SHA-1");
     expect(container.textContent).toContain("30 detik");
