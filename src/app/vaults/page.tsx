@@ -17,12 +17,12 @@ export default async function VaultsPage() {
   return (
     <main className="vault-page">
       <header className="vault-header">
-        <p className="eyebrow">YOUR VAULTS</p>
-        <h1>Authenticator accounts</h1>
-        <p className="vault-subtitle">Signed in as {user.email}</p>
+        <p className="eyebrow">BRANKAS ANDA</p>
+        <h1>Akun autentikator</h1>
+        <p className="vault-subtitle">Masuk sebagai {user.email}</p>
       </header>
       <section className="vault-card" aria-labelledby="personal-vault-heading">
-        <div className="vault-card-heading"><div><p className="eyebrow">PERSONAL</p><h2 id="personal-vault-heading">Personal Vault</h2></div><span className="vault-lock" aria-label="Encrypted vault">🔒</span></div>
+        <div className="vault-card-heading"><div><p className="eyebrow">PRIBADI</p><h2 id="personal-vault-heading">Brankas Pribadi</h2></div><span className="vault-lock" aria-label="Brankas terenkripsi">🔒</span></div>
         {personalVault.lifecycle === "UNINITIALIZED" ? <PersonalVaultSetupForm /> : <PersonalVaultAccounts vaultId={personalVault.id} />}
       </section>
     </main>

@@ -39,14 +39,14 @@ export function PersonalVaultSetupForm() {
 
   return (
     <form className="auth-form" onSubmit={submit}>
-      <label htmlFor="vault-name">Vault Name</label>
-      <input id="vault-name" name="vaultName" defaultValue="Personal Vault" required />
-      <p>Your Vault Unlock Secret is generated on this browser. Save it offline before continuing.</p>
-      <output aria-label="Vault Unlock Secret">{secret}</output>
+      <label htmlFor="vault-name">Nama Brankas</label>
+      <input id="vault-name" name="vaultName" defaultValue="Brankas Pribadi" required />
+      <p>Rahasia Pembuka Brankas Anda dibuat di browser ini. Simpan secara luring sebelum melanjutkan.</p>
+      <output aria-label="Rahasia Pembuka Brankas">{secret}</output>
       <button type="button" onClick={() => { setSecret(generateVaultUnlockSecret()); setConfirmation(""); }}>
-        Generate another secret
+        Buat rahasia lain
       </button>
-      <label htmlFor="unlock-secret-confirmation">Re-enter the Vault Unlock Secret</label>
+      <label htmlFor="unlock-secret-confirmation">Masukkan kembali Rahasia Pembuka Brankas</label>
       <input
         id="unlock-secret-confirmation"
         value={confirmation}
@@ -54,11 +54,11 @@ export function PersonalVaultSetupForm() {
         autoComplete="off"
         required
       />
-      <label><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} required /> I understand this cannot be recovered.</label>
+      <label><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} required /> Saya memahami bahwa ini tidak dapat dipulihkan.</label>
       <button className="primary-button" type="submit" disabled={!acknowledged || status === "saving"}>
-        {status === "saving" ? "Securing Vault…" : "Secure Personal Vault"}
+        {status === "saving" ? "Mengamankan Brankas…" : "Amankan Brankas Pribadi"}
       </button>
-      {status === "error" && <p className="form-status" role="alert">Check the confirmation and try again. No secret was sent to the server.</p>}
+      {status === "error" && <p className="form-status" role="alert">Periksa konfirmasi, lalu coba lagi. Tidak ada rahasia yang dikirim ke server.</p>}
     </form>
   );
 }

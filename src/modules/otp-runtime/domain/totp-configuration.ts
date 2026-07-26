@@ -14,17 +14,17 @@ export function parseTotpUri(uri: string): TotpConfiguration {
   try {
     url = new URL(uri);
   } catch {
-    throw new Error("The authenticator URI is invalid.");
+    throw new Error("URI autentikator tidak valid.");
   }
   if (url.protocol !== "otpauth:" || url.hostname !== "totp") {
-    throw new Error("Only otpauth://totp configurations are supported.");
+    throw new Error("Hanya konfigurasi otpauth://totp yang didukung.");
   }
   const secret = url.searchParams.get("secret");
-  if (!secret) throw new Error("The authenticator URI has no secret.");
+  if (!secret) throw new Error("URI autentikator tidak memiliki rahasia.");
   const { issuer: labelIssuer, accountName } = parseLabel(url.pathname);
   const issuer = url.searchParams.get("issuer") ?? labelIssuer;
-  if (!issuer) throw new Error("The authenticator URI has no issuer.");
-  if (labelIssuer && issuer !== labelIssuer) throw new Error("The issuer label and parameter must match.");
+  if (!issuer) throw new Error("URI autentikator tidak memiliki penerbit.");
+  if (labelIssuer && issuer !== labelIssuer) throw new Error("Label dan parameter penerbit harus sama.");
   const algorithm = parseAlgorithm(url.searchParams.get("algorithm") ?? "SHA1");
   const digits = parseDigits(url.searchParams.get("digits") ?? "6");
   const period = parsePeriod(url.searchParams.get("period") ?? "30");
@@ -32,13 +32,18 @@ export function parseTotpUri(uri: string): TotpConfiguration {
 }
 
 function parseLabel(pathname: string): { issuer?: string; accountName: string } {
-  const label = decodeURIComponent(pathname.replace(/^\//, ""));
-  if (!label) throw new Error("The authenticator URI has no account label.");
+  let label: string;
+  try {
+    label = decodeURIComponent(pathname.replace(/^\//, ""));
+  } catch {
+    throw new Error("Label URI autentikator tidak valid.");
+  }
+  if (!label) throw new Error("URI autentikator tidak memiliki label akun.");
   const separator = label.indexOf(":");
   if (separator === -1) return { accountName: label };
   const issuer = label.slice(0, separator).trim();
   const accountName = label.slice(separator + 1).trim();
-  if (!issuer || !accountName) throw new Error("The authenticator URI label is invalid.");
+  if (!issuer || !accountName) throw new Error("Label URI autentikator tidak valid.");
   return { issuer, accountName };
 }
 
@@ -47,24 +52,24 @@ function parseAlgorithm(value: string): TotpAlgorithm {
   if (normalized === "SHA1") return "SHA-1";
   if (normalized === "SHA256") return "SHA-256";
   if (normalized === "SHA512") return "SHA-512";
-  throw new Error("The authenticator URI uses an unsupported algorithm.");
+  throw new Error("URI autentikator menggunakan algoritme yang tidak didukung.");
 }
 
 function parseDigits(value: string): 6 | 8 {
   if (value === "6") return 6;
   if (value === "8") return 8;
-  throw new Error("The authenticator URI uses unsupported digits.");
+  throw new Error("URI autentikator menggunakan jumlah digit yang tidak didukung.");
 }
 
 function parsePeriod(value: string): number {
   const period = Number(value);
-  if (!Number.isSafeInteger(period) || period <= 0) throw new Error("The authenticator URI period is invalid.");
+  if (!Number.isSafeInteger(period) || period <= 0) throw new Error("Periode URI autentikator tidak valid.");
   return period;
 }
 
 function decodeBase32(value: string): Uint8Array {
   const normalized = value.replace(/[\s-]/g, "").replace(/=+$/, "").toUpperCase();
-  if (!/^[A-Z2-7]+$/.test(normalized)) throw new Error("The authenticator URI secret is invalid.");
+  if (!/^[A-Z2-7]+$/.test(normalized)) throw new Error("Rahasia URI autentikator tidak valid.");
   let bits = 0;
   let bitCount = 0;
   const bytes: number[] = [];

@@ -38,7 +38,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ publicKey: identity.publicKey, encryptedPrivateKey: toBase64(serializeEncryptedEnvelope(identity.encryptedPrivateKey)), encryptionVersion: 1 })
         });
-        if (!response.ok) throw new Error("Unable to register user encryption identity.");
+        if (!response.ok) throw new Error("Tidak dapat mendaftarkan identitas enkripsi pengguna.");
       }
       const stored = await fetchJson<AccountResponse[]>(`/api/vaults/${vaultId}/accounts`);
       const decrypted = await Promise.all(stored.map((account) => decryptAccountConfiguration(unlocked.personalVaultKey, fromBase64(account.encryptedPayload))));
@@ -48,7 +48,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
       setSecret("");
       setError("");
     } catch {
-      setError("Unable to unlock this Personal Vault.");
+      setError("Tidak dapat membuka Brankas Pribadi ini.");
     }
   }
 
@@ -56,7 +56,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
     if (!vaultKey || !online) return;
     const encryptedPayload = await encryptAccountConfiguration(vaultKey, candidate);
     const response = await fetch(`/api/vaults/${vaultId}/accounts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedPayload: toBase64(encryptedPayload), encryptionVersion: 1 }) });
-    if (!response.ok) throw new Error("save failed");
+    if (!response.ok) throw new Error("Tidak dapat menyimpan akun.");
     setAccounts(sortAccounts([...accounts, candidate]));
     setUri("");
     setDuplicate(null);
@@ -65,7 +65,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
 
   async function addAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!online) { setError("You are offline. Account changes are blocked and never queued."); return; }
+    if (!online) { setError("Anda sedang luring. Perubahan akun diblokir dan tidak pernah diantrikan."); return; }
     try {
       const candidate = parseTotpUri(uri);
       if (isDuplicateAccount(candidate, accounts)) {
@@ -74,7 +74,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
       }
       await saveAccount(candidate);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to add this account.");
+      setError(reason instanceof Error ? reason.message : "Tidak dapat menambahkan akun ini.");
     }
   }
 
@@ -83,12 +83,12 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
     try {
       await saveAccount(duplicate);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to add this account.");
+      setError(reason instanceof Error ? reason.message : "Tidak dapat menambahkan akun ini.");
     }
   }
 
-  if (!vaultKey) return <form className="auth-form vault-unlock-form" onSubmit={unlock}><p className="vault-flow-title">Unlock your vault</p><p className="vault-flow-copy">Your unlock secret stays on this device and is never sent to the service.</p><label htmlFor="vault-unlock-secret">Vault Unlock Secret</label><input id="vault-unlock-secret" type="password" value={secret} onChange={(event) => setSecret(event.target.value)} required /><button className="primary-button" type="submit">Unlock Personal Vault</button>{error && <p role="alert">{error}</p>}</form>;
-  return <section className="vault-accounts"><div className="vault-accounts-heading"><div><p className="eyebrow">AUTHENTICATORS</p><h2>Personal Vault accounts</h2></div><span className="account-count" aria-label={`${accounts.length} accounts`}>{accounts.length}</span></div>{!online && <p className="offline-notice" role="status">Offline: read-only access is available; changes are blocked and never queued.</p>}{userRootKey && <><SharedVaultCreator userRootKey={userRootKey} /><PasskeyRecoveryEnrollment userRootKey={userRootKey} /></>}{accounts.length ? <ul className="account-list">{accounts.map((account) => <li key={`${account.issuer}:${account.accountName}`}><strong>{account.issuer}</strong><span>{account.accountName}</span></li>)}</ul> : <p className="empty-accounts">No accounts yet. Add one from a QR code or authenticator URI.</p>}<QrImportInput onUri={setUri} /><form className="auth-form add-account-form" onSubmit={(event) => void addAccount(event)}><label htmlFor="account-uri">Authenticator URI</label><input id="account-uri" value={uri} onChange={(event) => setUri(event.target.value)} required disabled={!online} /><button className="primary-button" type="submit" disabled={!online}>Add encrypted account</button></form>{duplicate && <aside className="duplicate-account"><p>A matching account already exists.</p><button type="button" onClick={() => setDuplicate(null)}>Cancel</button><button type="button" onClick={() => void addDuplicateAnyway()} disabled={!online}>Add anyway</button></aside>}{error && <p role="alert">{error}</p>}</section>;
+  if (!vaultKey) return <form className="auth-form vault-unlock-form" onSubmit={unlock}><p className="vault-flow-title">Buka brankas Anda</p><p className="vault-flow-copy">Rahasia pembuka Anda tetap di perangkat ini dan tidak pernah dikirim ke layanan.</p><label htmlFor="vault-unlock-secret">Rahasia Pembuka Brankas</label><input id="vault-unlock-secret" type="password" value={secret} onChange={(event) => setSecret(event.target.value)} required /><button className="primary-button" type="submit">Buka Brankas Pribadi</button>{error && <p role="alert">{error}</p>}</form>;
+  return <section className="vault-accounts"><div className="vault-accounts-heading"><div><p className="eyebrow">AUTENTIKATOR</p><h2>Akun Brankas Pribadi</h2></div><span className="account-count" aria-label={`${accounts.length} akun`}>{accounts.length}</span></div>{!online && <p className="offline-notice" role="status">Luring: akses hanya baca tersedia; perubahan diblokir dan tidak pernah diantrikan.</p>}{userRootKey && <><SharedVaultCreator userRootKey={userRootKey} /><PasskeyRecoveryEnrollment userRootKey={userRootKey} /></>}{accounts.length ? <ul className="account-list">{accounts.map((account) => <li key={`${account.issuer}:${account.accountName}`}><strong>{account.issuer}</strong><span>{account.accountName}</span></li>)}</ul> : <p className="empty-accounts">Belum ada akun. Tambahkan akun dari kode QR atau URI autentikator.</p>}<QrImportInput onUri={setUri} /><form className="auth-form add-account-form" onSubmit={(event) => void addAccount(event)}><label htmlFor="account-uri">URI autentikator</label><input id="account-uri" value={uri} onChange={(event) => setUri(event.target.value)} required disabled={!online} /><button className="primary-button" type="submit" disabled={!online}>Tambahkan akun terenkripsi</button></form>{duplicate && <aside className="duplicate-account"><p>Akun yang sama sudah ada.</p><button type="button" onClick={() => setDuplicate(null)}>Batal</button><button type="button" onClick={() => void addDuplicateAnyway()} disabled={!online}>Tetap tambahkan</button></aside>}{error && <p role="alert">{error}</p>}</section>;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
