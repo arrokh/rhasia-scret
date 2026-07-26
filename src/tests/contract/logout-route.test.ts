@@ -35,6 +35,7 @@ describe("POST /auth/logout contract", () => {
     const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
 
     expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=signed_out");
     expect(terminateCurrentSession).toHaveBeenCalledOnce();
   });
 

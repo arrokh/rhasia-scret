@@ -10,4 +10,5 @@ export interface PersonalAccountRepository {
   list(ownerId: string, vaultId: string): Promise<EncryptedAuthenticatorAccount[]>;
   update(ownerId: string, vaultId: string, accountId: string, expectedRevision: number, account: NewEncryptedAccount): Promise<EncryptedAuthenticatorAccount | null>;
   delete(ownerId: string, vaultId: string, accountId: string, expectedRevision: number): Promise<boolean>;
+  restore(ownerId: string, vaultId: string, accountId: string): Promise<boolean>;
 }

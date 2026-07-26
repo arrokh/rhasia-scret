@@ -23,6 +23,7 @@ export function UnlockedVaultWorkspaceProvider({
 }) {
   const [workspace, setWorkspaceState] = useState<UnlockedVaultWorkspace | null>(initialWorkspace);
   const workspaceRef = useRef(workspace);
+  const lastClearedWorkspaceRef = useRef<UnlockedVaultWorkspace | null>(null);
   const reconcilingRef = useRef(false);
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
   useEffect(() => () => {
@@ -33,13 +34,26 @@ export function UnlockedVaultWorkspaceProvider({
   const setWorkspace: Dispatch<SetStateAction<UnlockedVaultWorkspace | null>> = useCallback((update) => {
     setWorkspaceState((current) => {
       const next = typeof update === "function" ? update(current) : update;
-      if (current && next === null) clearUnlockedVaultWorkspace(current);
+      if (current && next === null) {
+        clearUnlockedVaultWorkspace(current);
+        lastClearedWorkspaceRef.current = current;
+      }
       return next;
     });
   }, []);
 
   const lockWorkspace = useCallback(() => setWorkspace(null), [setWorkspace]);
   useEffect(() => subscribeToLocalVaultLock(lockWorkspace), [lockWorkspace]);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
+    const target = window as typeof window & { __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown };
+    target.__RHSIA_E2E_WORKSPACE_STATE__ = () => ({
+      workspacePresent: workspaceRef.current !== null,
+      lastClearedAllZero: lastClearedWorkspaceRef.current ? workspaceKeyMaterialIsCleared(lastClearedWorkspaceRef.current) : null,
+      activeKeyMaterial: workspaceRef.current ? workspaceKeyMaterial(workspaceRef.current).map(bytesToBase64) : []
+    });
+    return () => { delete target.__RHSIA_E2E_WORKSPACE_STATE__; };
+  }, []);
 
   useEffect(() => {
     setBrowserWritesReadOnly(workspace && workspace.syncState !== "CURRENT" ? `Vault workspace is ${workspace.syncState.toLowerCase()}.` : null);
@@ -92,6 +106,18 @@ export function UnlockedVaultWorkspaceProvider({
   }, []);
 
   return <WorkspaceContext value={{ workspace, setWorkspace, lockWorkspace }}>{children}</WorkspaceContext>;
+}
+
+function workspaceKeyMaterialIsCleared(workspace: UnlockedVaultWorkspace): boolean {
+  return workspaceKeyMaterial(workspace).every((value) => value.every((byte) => byte === 0));
+}
+
+function workspaceKeyMaterial(workspace: UnlockedVaultWorkspace): Uint8Array[] {
+  return [workspace.userRootKey, ...workspace.vaults.map((vault) => vault.key), ...workspace.accounts.map((account) => account.secret)];
+}
+
+function bytesToBase64(value: Uint8Array): string {
+  return btoa(String.fromCharCode(...value));
 }
 
 export function useUnlockedVaultWorkspace(): UnlockedVaultWorkspaceSession {

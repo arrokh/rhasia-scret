@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { BROWSER_E2E_SESSION_COOKIE, browserE2eTestSession } from "@/modules/identity/infrastructure/browser-e2e-test-session";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 type SetAuthCookies = (cookies: CookieToSet[]) => void;
@@ -33,6 +34,7 @@ export function createAuthProxy(verifySession: VerifySession = verifySupabaseSes
 }
 
 async function verifySupabaseSession(request: NextRequest, setAuthCookies: SetAuthCookies): Promise<boolean> {
+  if (browserE2eTestSession(request.cookies.get(BROWSER_E2E_SESSION_COOKIE)?.value)) return true;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return false;

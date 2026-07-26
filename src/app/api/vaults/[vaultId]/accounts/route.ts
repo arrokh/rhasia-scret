@@ -13,6 +13,7 @@ import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
 const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
+const restoreSchema = z.object({ accountId: z.string().min(1) });
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; accounts: PersonalAccountRepository };
 type Context = { params: Promise<{ vaultId: string }> };
 
@@ -83,6 +84,22 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
       } catch (error) {
         return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
       }
+    },
+    PUT: async (request: NextRequest, { params }: Context) => {
+      try {
+        const current = await user();
+        if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+        const rateLimited = await rateLimitApplicationUser("account_mutation", current.id);
+        if (rateLimited) return rateLimited;
+        const parsed = restoreSchema.safeParse(await request.json());
+        if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
+        const { vaultId } = await params;
+        return await accounts.restore(current.id, vaultId, parsed.data.accountId)
+          ? new NextResponse(null, { status: 204 })
+          : NextResponse.json({ error: "account_unavailable" }, { status: 404 });
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });
+      }
     }
   };
 }
@@ -92,3 +109,4 @@ export const GET = handlers.GET;
 export const POST = handlers.POST;
 export const PATCH = handlers.PATCH;
 export const DELETE = handlers.DELETE;
+export const PUT = handlers.PUT;
