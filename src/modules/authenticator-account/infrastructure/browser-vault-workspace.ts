@@ -49,6 +49,7 @@ export type WorkspaceAuthenticatorAccount = DecryptedAuthenticatorAccount & {
   vaultId: string;
   vaultName: string;
   vaultType: "PERSONAL" | "SHARED";
+  revision: number;
 };
 
 export type UnlockedVaultWorkspace = {
@@ -62,15 +63,18 @@ export async function loadUnlockedVaultWorkspace(
   vaultUnlockSecret: string,
   personalVaultId: string
 ): Promise<UnlockedVaultWorkspace> {
-  const profile = await browserApiClient.getJson<ProfileResponse>("/api/user-crypto-profile", { cache: "no-store" });
-  const unlockedPersonalVault = await unlockPersonalVault(vaultUnlockSecret, {
-    vaultUnlockSalt: base64ToBytes(profile.vaultUnlockSalt),
-    wrappedUserRootKey: base64ToBytes(profile.wrappedUserRootKey),
-    encryptedPersonalVaultKey: base64ToBytes(profile.encryptedPersonalVaultKey),
-    encryptionVersion: profile.encryptionVersion
-  });
-  await ensureUserEncryptionIdentity(profile, unlockedPersonalVault.userRootKey);
+  const profile = await loadProfile();
+  const unlockedPersonalVault = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(profile));
+  return loadWorkspace(profile, personalVaultId, unlockedPersonalVault.userRootKey, unlockedPersonalVault.personalVaultKey);
+}
 
+async function loadWorkspace(
+  profile: ProfileResponse,
+  personalVaultId: string,
+  userRootKey: Uint8Array,
+  personalVaultKey: Uint8Array
+): Promise<UnlockedVaultWorkspace> {
+  await ensureUserEncryptionIdentity(profile, userRootKey);
   const [personalAccounts, encryptedSharedVaults] = await Promise.all([
     browserApiClient.getJson<EncryptedAccountResponse[]>(`/api/vaults/${personalVaultId}/accounts`, { cache: "no-store" }),
     browserApiClient.getJson<SharedVaultResponse[]>("/api/shared-vaults", { cache: "no-store" })
@@ -80,12 +84,12 @@ export async function loadUnlockedVaultWorkspace(
     name: "Brankas Pribadi",
     type: "PERSONAL",
     role: "OWNER",
-    key: unlockedPersonalVault.personalVaultKey
+    key: personalVaultKey
   };
   const decryptedPersonalAccounts = await decryptAccounts(personalAccounts, personalVault);
   const sharedResults = await Promise.allSettled(encryptedSharedVaults.map(async (encryptedVault) => {
     const unlocked = await unlockSharedVault(
-      unlockedPersonalVault.userRootKey,
+      userRootKey,
       base64ToBytes(encryptedVault.encryptedVaultKey),
       base64ToBytes(encryptedVault.encryptedName)
     );
@@ -106,10 +110,23 @@ export async function loadUnlockedVaultWorkspace(
     ...sharedWorkspaces.flatMap(({ accounts: sharedAccounts }) => sharedAccounts)
   ]);
   return {
-    userRootKey: unlockedPersonalVault.userRootKey,
+    userRootKey,
     vaults,
     accounts,
     unavailableSharedVaults: sharedResults.length - sharedWorkspaces.length
+  };
+}
+
+function loadProfile(): Promise<ProfileResponse> {
+  return browserApiClient.getJson<ProfileResponse>("/api/user-crypto-profile", { cache: "no-store" });
+}
+
+function profileMaterial(profile: ProfileResponse) {
+  return {
+    vaultUnlockSalt: base64ToBytes(profile.vaultUnlockSalt),
+    wrappedUserRootKey: base64ToBytes(profile.wrappedUserRootKey),
+    encryptedPersonalVaultKey: base64ToBytes(profile.encryptedPersonalVaultKey),
+    encryptionVersion: profile.encryptionVersion
   };
 }
 
@@ -122,6 +139,7 @@ async function decryptAccounts(
     vaultId: vault.id,
     vaultName: vault.name,
     vaultType: vault.type,
+    revision: account.revision,
     ...await decryptAccountConfiguration(vault.key, base64ToBytes(account.encryptedPayload))
   })));
 }

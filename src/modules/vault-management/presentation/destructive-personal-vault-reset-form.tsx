@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "next/navigation";
+import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { forgetRememberedBrowser, removeAllEncryptedLocalVaultSnapshots } from "@/modules/crypto";
 import { DESTRUCTIVE_RESET_CONFIRMATION } from "../application/destructive-personal-vault-reset";
 import { useDestructivePersonalVaultResetMutation } from "./hooks/use-personal-vault-mutations";
 
-type Status = "idle" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error";
+type Status = "idle" | "confirming" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error";
 
 export function DestructivePersonalVaultResetForm() {
   const router = useRouter();
@@ -18,10 +19,13 @@ export function DestructivePersonalVaultResetForm() {
   const resetMutation = useDestructivePersonalVaultResetMutation();
   const form = useForm({
     defaultValues: { confirmation: "" },
-    onSubmit: async ({ value }) => {
-      setStatus("resetting");
-      try {
-        const result = await resetMutation.mutateAsync(value.confirmation);
+    onSubmit: () => setStatus("confirming")
+  });
+
+  async function confirmReset() {
+    setStatus("resetting");
+    try {
+        const result = await resetMutation.mutateAsync(form.state.values.confirmation);
         if (result.status === "invalid_confirmation") {
           setStatus("invalid_confirmation");
           return;
@@ -39,11 +43,10 @@ export function DestructivePersonalVaultResetForm() {
         removeAllEncryptedLocalVaultSnapshots();
         router.replace("/vaults");
         router.refresh();
-      } catch {
-        setStatus("reset_error");
-      }
+    } catch {
+      setStatus("reset_error");
     }
-  });
+  }
 
   return (
     <form noValidate className="auth-form destructive-reset-form" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
@@ -86,6 +89,16 @@ export function DestructivePersonalVaultResetForm() {
       {status === "invalid_confirmation" && <p className="form-status" role="alert">Server menolak frasa konfirmasi. Ketik frasa persis seperti yang ditampilkan.</p>}
       {status === "blocked" && <p className="form-status" role="alert">Reset diblokir karena Anda masih memiliki {blockedVaults} Brankas Bersama aktif.</p>}
       {status === "reset_error" && <p className="form-status" role="alert">Data brankas tidak dapat diatur ulang. Coba lagi.</p>}
+      {status === "confirming" && (
+        <ConfirmationDialog
+          title="Atur ulang Brankas Pribadi?"
+          description="Seluruh akun, kunci, dan data terenkripsi Brankas Pribadi akan dihancurkan. Tindakan ini tidak dapat dibatalkan."
+          confirmLabel="Hapus dan atur ulang"
+          danger
+          onCancel={() => setStatus("idle")}
+          onConfirm={() => void confirmReset()}
+        />
+      )}
     </form>
   );
 }

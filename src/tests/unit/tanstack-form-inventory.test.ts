@@ -29,7 +29,8 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/otp-runtime/presentation/local-totp-screen.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/destructive-personal-vault-reset-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/personal-vault-setup-form.tsx", count: 1 },
-      { path: "src/modules/vault-management/presentation/shared-vault-creator.tsx", count: 1 }
+      { path: "src/modules/vault-management/presentation/shared-vault-creator.tsx", count: 1 },
+      { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 1 }
     ]);
     for (const form of forms) {
       expect(form.source, form.path).toContain("@tanstack/react-form");

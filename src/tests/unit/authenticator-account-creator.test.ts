@@ -27,6 +27,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace"
 vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: () => null }));
 
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account/presentation/authenticator-account-creator";
+import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("AuthenticatorAccountCreator", () => {
@@ -34,6 +35,29 @@ describe("AuthenticatorAccountCreator", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await act(async () => root?.unmount());
+  });
+
+  it("preselects the Shared Vault requested from its management modal", async () => {
+    const sessionWorkspace = {
+      userRootKey: new Uint8Array(32),
+      vaults: [
+        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL" as const, role: "OWNER" as const, key: new Uint8Array(32) },
+        { id: "shared-1", name: "Tim Operasional", type: "SHARED" as const, role: "OWNER" as const, key: new Uint8Array(32) }
+      ],
+      accounts: [],
+      unavailableSharedVaults: 0
+    };
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(TestQueryProvider, null,
+      createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: sessionWorkspace },
+        createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" })
+      )
+    )));
+
+    expect(container.querySelector<HTMLSelectElement>("#account-target-vault")?.value).toBe("shared-1");
+    expect(container.querySelector("#account-vault-unlock-secret")).toBeNull();
   });
 
   it("unlocks, selects an owned Shared Vault, encrypts locally, and posts from the dedicated page", async () => {
@@ -50,11 +74,13 @@ describe("AuthenticatorAccountCreator", () => {
     mocks.parseTotpUri.mockReturnValue(candidate);
     mocks.isDuplicateAccount.mockReturnValue(false);
     mocks.encryptAccountConfiguration.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "new-account", revision: 1 }) });
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1" }))));
+    await act(async () => root?.render(createElement(TestQueryProvider, null,
+      createElement(UnlockedVaultWorkspaceProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1" }))
+    )));
 
     await act(async () => {
       setInputValue(container.querySelector("#account-vault-unlock-secret"), "four random secret words");

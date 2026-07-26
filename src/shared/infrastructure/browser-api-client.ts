@@ -28,6 +28,10 @@ export class BrowserApiClient {
     await this.requireSuccess(await this.post(url, body, init));
   }
 
+  async patchEmpty(url: string, body: unknown, init?: RequestInit): Promise<void> {
+    await this.requireSuccess(await this.request(url, this.jsonInit("PATCH", body, init)));
+  }
+
   async putEmpty(url: string, body: unknown, init?: RequestInit): Promise<void> {
     await this.requireSuccess(await this.request(url, this.jsonInit("PUT", body, init)));
   }
@@ -36,7 +40,11 @@ export class BrowserApiClient {
     await this.requireSuccess(await this.request(url, { ...init, method: "DELETE" }));
   }
 
-  private jsonInit(method: "POST" | "PUT", body: unknown, init?: RequestInit): RequestInit {
+  async deleteJsonEmpty(url: string, body: unknown, init?: RequestInit): Promise<void> {
+    await this.requireSuccess(await this.request(url, this.jsonInit("DELETE", body, init)));
+  }
+
+  private jsonInit(method: "POST" | "PATCH" | "PUT" | "DELETE", body: unknown, init?: RequestInit): RequestInit {
     if (body === undefined) return { ...init, method };
     const headers = new Headers(init?.headers);
     headers.set("content-type", "application/json");

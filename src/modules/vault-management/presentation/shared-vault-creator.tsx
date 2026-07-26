@@ -14,7 +14,7 @@ export function SharedVaultCreator({
   onCancel
 }: {
   userRootKey: Uint8Array;
-  onCreated?: (vault: { id: string; name: string }) => void;
+  onCreated?: (vault: { id: string; name: string; key: Uint8Array }) => void;
   onCancel?: () => void;
 }) {
   const [status, setStatus] = useState("");
@@ -37,7 +37,7 @@ export function SharedVaultCreator({
         const createdName = value.name.trim();
         form.reset();
         setStatus("Brankas Bersama dibuat. Undang anggota dari pengaturannya.");
-        onCreated?.({ id: created.id, name: createdName });
+        onCreated?.({ id: created.id, name: createdName, key: material.vaultKey });
       } catch {
         setStatus("Tidak dapat membuat Brankas Bersama.");
       }

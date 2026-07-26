@@ -4,18 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { PasskeyRecoveryEnrollment } from "@/modules/crypto";
+import { TotpAccountButton } from "@/modules/otp-runtime";
 import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
 import { SharedVaultManager } from "@/modules/vault-management";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
-import {
-  loadUnlockedVaultWorkspace,
-  type UnlockedVaultWorkspace
-} from "../infrastructure/browser-vault-workspace";
+import { loadUnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { useDeleteEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
+import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
-  const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(null);
+  const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const [status, setStatus] = useState<"idle" | "error">("idle");
   const online = useOnlineStatus();
+  const deleteAccountMutation = useDeleteEncryptedAuthenticatorAccountMutation();
   const unlockForm = useForm({
     defaultValues: { secret: "" },
     onSubmit: async ({ value }) => {
@@ -48,12 +49,36 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
 
   const sharedVaults = workspace.vaults
     .filter((vault) => vault.type === "SHARED")
-    .map((vault) => ({ id: vault.id, name: vault.name, role: vault.role }));
+    .map((vault) => ({
+      id: vault.id,
+      name: vault.name,
+      role: vault.role,
+      key: vault.key,
+      accounts: workspace.accounts
+        .filter((account) => account.vaultId === vault.id)
+        .map(({ id, issuer, accountName, revision }) => ({ id, issuer, accountName, revision }))
+    }));
 
   return (
     <section className="vault-dashboard" aria-labelledby="account-list-heading">
       <div className="dashboard-toolbar">
-        <SharedVaultManager userRootKey={workspace.userRootKey} vaults={sharedVaults} />
+        <SharedVaultManager
+          userRootKey={workspace.userRootKey}
+          vaults={sharedVaults}
+          onVaultCreated={(vault) => setWorkspace((current) => current ? {
+            ...current,
+            vaults: [...current.vaults, { ...vault, type: "SHARED", role: "OWNER" }]
+          } : current)}
+          onVaultRenamed={(vaultId, name) => setWorkspace((current) => current ? {
+            ...current,
+            vaults: current.vaults.map((vault) => vault.id === vaultId ? { ...vault, name } : vault),
+            accounts: current.accounts.map((account) => account.vaultId === vaultId ? { ...account, vaultName: name } : account)
+          } : current)}
+          onAccountDeleted={async (vaultId, accountId, expectedRevision) => {
+            await deleteAccountMutation.mutateAsync({ vaultId, accountId, expectedRevision });
+            setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== vaultId) } : current);
+          }}
+        />
         <details className="security-menu">
           <summary><SecurityIcon /><span>Keamanan</span></summary>
           <PasskeyRecoveryEnrollment userRootKey={workspace.userRootKey} />
@@ -73,9 +98,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         <ul className="account-list account-list-across-vaults">
           {workspace.accounts.map((account) => (
             <li key={`${account.vaultId}:${account.id}`}>
-              <span className="account-avatar" aria-hidden="true">{account.issuer.slice(0, 1).toUpperCase()}</span>
-              <span className="account-copy"><strong>{account.issuer}</strong><span>{account.accountName}</span></span>
-              <small className="vault-badge">{account.vaultName}</small>
+              <TotpAccountButton configuration={account} vaultName={account.vaultName} />
             </li>
           ))}
         </ul>

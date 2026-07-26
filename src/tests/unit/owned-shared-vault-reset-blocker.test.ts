@@ -27,7 +27,10 @@ describe("OwnedSharedVaultResetBlocker", () => {
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(OwnedSharedVaultResetBlocker, { vaultIds: ["shared-1"] }))));
-    await act(async () => container.querySelector<HTMLButtonElement>(".danger-button")?.click());
+    await act(async () => container.querySelector<HTMLButtonElement>(".owned-vault-reset-list .danger-button")?.click());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Hapus Brankas Bersama?");
+    await act(async () => container.querySelector<HTMLButtonElement>(".confirmation-dialog .danger-button")?.click());
 
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
     expect(mocks.refresh).toHaveBeenCalledOnce();
