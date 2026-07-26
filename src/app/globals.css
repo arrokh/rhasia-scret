@@ -105,6 +105,12 @@
   ::selection { @apply bg-gold-soft text-ink-strong; }
 }
 
+@keyframes page-progress {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(300%); }
+}
+
 @keyframes account-card-shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-2px); }
@@ -114,6 +120,10 @@
 }
 
 @layer utilities {
+  .animate-page-progress {
+    animation: page-progress 1.2s ease-in-out infinite;
+  }
+
   .animate-account-shake {
     animation: account-card-shake 280ms ease-in-out;
   }

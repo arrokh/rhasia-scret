@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Roboto_Mono } from "next/font/google";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { QueryProvider } from "@/shared/presentation/query-provider";
 import { AppFooter } from "@/shared/presentation/app-ui";
+import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -69,7 +70,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="id">
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
-        <QueryProvider><div className="min-h-dvh">{children}<AppFooter /></div></QueryProvider>
+        <QueryProvider>
+          <Suspense fallback={null}><NavigationProgress /></Suspense>
+          <div className="min-h-dvh">{children}<AppFooter /></div>
+        </QueryProvider>
       </body>
     </html>
   );
