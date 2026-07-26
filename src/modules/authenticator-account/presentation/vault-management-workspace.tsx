@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SecureShareLinkRedemption } from "@/modules/vault-membership";
-import { SharedVaultCreator, SharedVaultDetails, SharedVaultDirectory, type SharedVaultSummary } from "@/modules/vault-management";
+import { PersonalVaultDetails, SharedVaultCreator, SharedVaultDetails, SharedVaultDirectory, type PersonalVaultSummary, type SharedVaultSummary } from "@/modules/vault-management";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { useDeleteEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
@@ -14,6 +14,15 @@ export function VaultDirectoryWorkspace({ personalVaultId }: { personalVaultId: 
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   return <SharedVaultDirectory vaults={sharedVaultSummaries(workspace)} />;
+}
+
+export function PersonalVaultDetailWorkspace({ personalVaultId, ownerEmail }: { personalVaultId: string; ownerEmail: string }) {
+  const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
+  const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
+  if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
+  const personalVault = personalVaultSummary(workspace, personalVaultId);
+  if (!personalVault) return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="danger" role="alert">Brankas Pribadi tidak dapat dibuka.</StatusBanner><Button variant="outline" asChild><Link href="/vaults/manage">Lihat semua brankas</Link></Button></div>;
+  return <PersonalVaultDetails vault={personalVault} ownerEmail={ownerEmail} onAccountDeleted={async (vaultId, accountId, expectedRevision) => { await deleteAccount.mutateAsync({ vaultId, vaultType: "PERSONAL", accountId, expectedRevision }); setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== vaultId) } : current); }} />;
 }
 
 export function SharedVaultDetailWorkspace({ personalVaultId, vaultId }: { personalVaultId: string; vaultId: string }) {
@@ -36,6 +45,11 @@ export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaul
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   return <div className="p-5 sm:p-6"><SharedVaultCreator userRootKey={workspace.userRootKey} onCreated={(vault) => { setWorkspace((current) => current ? { ...current, vaults: [...current.vaults, { ...vault, type: "SHARED", role: "OWNER" }] } : current); router.push(`/vaults/manage/${encodeURIComponent(vault.id)}`); }} /></div>;
+}
+
+function personalVaultSummary(workspace: NonNullable<ReturnType<typeof useUnlockedVaultWorkspace>["workspace"]>, personalVaultId: string): PersonalVaultSummary | undefined {
+  const vault = workspace.vaults.find((entry) => entry.id === personalVaultId && entry.type === "PERSONAL");
+  return vault ? { id: vault.id, name: vault.name, accounts: workspace.accounts.filter((account) => account.vaultId === vault.id).map(({ id, issuer, accountName, revision }) => ({ id, issuer, accountName, revision })) } : undefined;
 }
 
 function sharedVaultSummaries(workspace: NonNullable<ReturnType<typeof useUnlockedVaultWorkspace>["workspace"]>): SharedVaultSummary[] {
