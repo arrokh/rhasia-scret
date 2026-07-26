@@ -18,8 +18,9 @@ import { encryptSharedVaultName } from "../infrastructure/browser-shared-vault-c
 import type { VaultAuditFilter } from "../infrastructure/browser-vault-management-client";
 import { useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 import { useVaultAuditQuery } from "./hooks/use-vault-audit-query";
+import { VaultAccountManagementList, type ManagedVaultAccountSummary } from "./vault-account-management-list";
 
-type SharedVaultAccountSummary = { id: string; issuer: string; accountName: string; revision: number };
+type SharedVaultAccountSummary = ManagedVaultAccountSummary;
 export type SharedVaultSummary = { id: string; name: string; role: "OWNER" | "VIEWER"; key: Uint8Array; accounts: SharedVaultAccountSummary[] };
 type SelectedAuditFilter = { query: VaultAuditFilter; label: string };
 
@@ -27,7 +28,7 @@ export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] 
   return <div className="grid gap-5 p-5 sm:p-6">
     <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-ink-strong">Semua brankas</h2><p className="mt-1 text-sm text-muted-foreground">Brankas Pribadi selalu ditampilkan pertama.</p></div><Button size="sm" asChild><Link href="/vaults/manage/new"><Plus />Brankas Bersama</Link></Button></div>
     <ul className="grid list-none gap-2 p-0">
-      <li><VaultDirectoryLink href="/vaults" icon={KeyRound} name="Brankas Pribadi" detail="Pribadi · Pemilik" badge="Pribadi" /></li>
+      <li><VaultDirectoryLink href="/vaults/manage/personal" icon={KeyRound} name="Brankas Pribadi" detail="Pribadi · Pemilik" badge="Pribadi" /></li>
       {vaults.map((vault) => <li key={vault.id}><VaultDirectoryLink href={`/vaults/manage/${encodeURIComponent(vault.id)}`} icon={UsersRound} name={vault.name} detail={`${vault.accounts.length} akun · ${vault.role === "OWNER" ? "Pemilik" : "Dapat melihat"}`} badge={vault.role === "OWNER" ? "Pemilik" : "Viewer"} /></li>)}
     </ul>
   </div>;
@@ -40,8 +41,6 @@ function VaultDirectoryLink({ href, icon: Icon, name, detail, badge }: { href: s
 export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vault: SharedVaultSummary; onRenamed: (vaultId: string, name: string) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
   const [activeTab, setActiveTab] = useState("details");
   const [status, setStatus] = useState("");
-  const [accountToDelete, setAccountToDelete] = useState<SharedVaultAccountSummary | null>(null);
-  const [deletingAccount, setDeletingAccount] = useState(false);
   const [auditFilter, setAuditFilter] = useState<SelectedAuditFilter>({ query: {}, label: "" });
   const renameMutation = useRenameSharedVaultMutation();
   const participants = useVaultParticipantsQuery(vault.id, vault.role === "OWNER");
@@ -49,29 +48,26 @@ export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vau
   const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); setStatus("Nama brankas diperbarui."); } catch { setStatus("Tidak dapat memperbarui nama brankas."); } } });
   const owner = participants.data?.find((participant) => participant.kind === "OWNER");
 
-  async function removeAccount(account: SharedVaultAccountSummary) { setStatus(""); setDeletingAccount(true); try { await onAccountDeleted(vault.id, account.id, account.revision); setAccountToDelete(null); setStatus("Akun autentikator dihapus."); } catch { setStatus("Tidak dapat menghapus akun autentikator."); } finally { setDeletingAccount(false); } }
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
 
   return <div className="p-5 sm:p-6">
     <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <TabsList className={vault.role === "OWNER" ? "grid-cols-3" : "grid-cols-1"}>
+      {vault.role === "OWNER" && <TabsList className="grid-cols-3">
         <TabsTrigger value="details">Detail</TabsTrigger>
-        {vault.role === "OWNER" && <TabsTrigger value="invitations">Undangan</TabsTrigger>}
-        {vault.role === "OWNER" && <TabsTrigger value="audit">Audit</TabsTrigger>}
-      </TabsList>
-      <TabsContent value="details" className="grid gap-5">
+        <TabsTrigger value="invitations">Undangan</TabsTrigger>
+        <TabsTrigger value="audit">Audit</TabsTrigger>
+      </TabsList>}
+      <TabsContent value="details" className={`grid gap-5 ${vault.role === "OWNER" ? "" : "mt-0"}`}>
         {vault.role === "OWNER" ? <>
           <div className="grid gap-1"><p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Pemilik</p><p className="text-sm font-bold text-foreground">{participants.isPending ? "Memuat…" : owner?.email ?? "Tidak tersedia"}</p></div>
           <form noValidate className="grid gap-2" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void renameForm.handleSubmit(); }}><renameForm.Field name="name" validators={{ onSubmit: requiredText("Nama Brankas Bersama") }}>{(field) => <><Label htmlFor={`shared-vault-name-${vault.id}`}>Nama Brankas Bersama</Label><div className="grid grid-cols-[1fr_auto] gap-2"><Input id={`shared-vault-name-${vault.id}`} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? `shared-vault-name-${vault.id}-error` : undefined} required /><Button variant="outline" type="submit" disabled={renameMutation.isPending}>{renameMutation.isPending ? "Menyimpan…" : "Simpan"}</Button></div><FormFieldError id={`shared-vault-name-${vault.id}-error`} errors={field.state.meta.errors} /></>}</renameForm.Field></form>
         </> : <StatusBanner tone="info">Anda dapat melihat dan menyalin OTP, tetapi tidak dapat mengubah akun.</StatusBanner>}
-        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Akun</p><h3 className="mt-1 font-bold text-ink-strong">Akun autentikator</h3></div>{vault.role === "OWNER" && <Button size="sm" asChild><Link href={`/vaults/accounts/new?vaultId=${encodeURIComponent(vault.id)}`}><Plus />Tambah akun</Link></Button>}</div>
-        {vault.accounts.length ? <ul className="grid list-none gap-2 p-0">{vault.accounts.map((account) => <li key={account.id} className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 rounded-md border bg-card p-2.5"><span className="grid size-10 place-items-center rounded-md bg-muted font-bold text-foreground" aria-hidden="true">{account.issuer.slice(0, 1).toUpperCase()}</span><span className="grid min-w-0"><strong className="truncate text-sm">{account.issuer}</strong><span className="truncate text-xs text-muted-foreground">{account.accountName}</span></span>{vault.role === "OWNER" && <span className="flex items-center"><Button variant="ghost" size="icon-sm" type="button" aria-label={`Lihat audit ${account.issuer} ${account.accountName}`} onClick={() => openAudit({ accountId: account.id }, `${account.issuer} · ${account.accountName}`)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={`Hapus ${account.issuer} ${account.accountName}`} onClick={() => setAccountToDelete(account)}><Trash2 /></Button></span>}</li>)}</ul> : <p className="rounded-md border border-dashed bg-muted/30 p-5 text-center text-sm text-muted-foreground">Brankas bersama ini belum memiliki akun.</p>}
-        {status && <StatusBanner tone={status.includes("diperbarui") || status.includes("dihapus") ? "success" : "danger"}>{status}</StatusBanner>}
+        <VaultAccountManagementList vaultId={vault.id} vaultName={vault.name} accounts={vault.accounts} editable={vault.role === "OWNER"} onAudit={vault.role === "OWNER" ? (account) => openAudit({ accountId: account.id }, `${account.issuer} · ${account.accountName}`) : undefined} onAccountDeleted={onAccountDeleted} />
+        {status && <StatusBanner tone={status.includes("diperbarui") ? "success" : "danger"}>{status}</StatusBanner>}
       </TabsContent>
       {vault.role === "OWNER" && <TabsContent value="invitations"><InvitationPanel vault={vault} participants={participants.data ?? []} loading={participants.isPending} failed={participants.isError} onCreated={() => void participants.refetch()} onAudit={(participant) => participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)} /></TabsContent>}
       {vault.role === "OWNER" && <TabsContent value="audit"><AuditHistory audit={audit} accounts={vault.accounts} filter={auditFilter} onClearFilter={() => setAuditFilter({ query: {}, label: "" })} /></TabsContent>}
     </Tabs>
-    {accountToDelete && <ConfirmationDialog title="Hapus akun autentikator?" description={`${accountToDelete.issuer} (${accountToDelete.accountName}) akan dihapus dari ${vault.name}. Akun dapat dipulihkan selama masa pemulihan.`} confirmLabel="Hapus akun" danger pending={deletingAccount} onCancel={() => setAccountToDelete(null)} onConfirm={() => void removeAccount(accountToDelete)} />}
   </div>;
 }
 

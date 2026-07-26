@@ -6,4 +6,4 @@ export type { DecryptedAuthenticatorAccount } from "./infrastructure/browser-acc
 export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
 export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";
 export { UnlockedVaultWorkspaceProvider } from "./presentation/unlocked-vault-workspace-provider";
-export { VaultDirectoryWorkspace, SharedVaultDetailWorkspace, SharedVaultCreationWorkspace, InvitationRedemptionWorkspace } from "./presentation/vault-management-workspace";
+export { VaultDirectoryWorkspace, PersonalVaultDetailWorkspace, SharedVaultDetailWorkspace, SharedVaultCreationWorkspace, InvitationRedemptionWorkspace } from "./presentation/vault-management-workspace";

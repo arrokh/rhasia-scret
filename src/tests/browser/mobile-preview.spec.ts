@@ -22,7 +22,11 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
-  await expect(page.locator("footer")).toHaveText(/rhasia-scret/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretbyarrokh/);
+  const developerLink = page.locator("footer").getByRole("link", { name: "arrokh" });
+  await expect(developerLink).toHaveAttribute("href", "https://github.com/arrokh");
+  await expect(developerLink).toHaveAttribute("target", "_blank");
+  await expect(developerLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 
@@ -56,6 +60,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByLabel("Kembali ke pratinjau akun")).toBeVisible();
   const vaultLinks = page.locator('[aria-label="Daftar brankas"] li > a');
   await expect(vaultLinks.nth(0)).toContainText("Brankas Pribadi");
+  await expect(vaultLinks.nth(0)).toHaveAttribute("href", "/vaults/manage/personal");
   await expect(vaultLinks.nth(1)).toContainText("Tim Operasional");
   await expect(page.getByText("owner@local.invalid")).toBeVisible();
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
@@ -79,7 +84,11 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect.poll(() => cancelledInvitation).toBe(true);
   await page.getByRole("tab", { name: "Audit" }).click();
   await expect(page.getByText(/^viewer@local\.invalid ·/)).toBeVisible();
-  await expect(page.locator("footer")).toHaveText(/rhasia-scret/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretbyarrokh/);
+  const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
+  await expect(footerDeveloperLink).toHaveAttribute("href", "https://github.com/arrokh");
+  await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
+  await expect(footerDeveloperLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });

@@ -23,7 +23,7 @@ describe("dedicated Vault management", () => {
       expect.stringContaining("Brankas Pribadi"),
       expect.stringContaining("Tim Operasional")
     ]);
-    expect(links[0]?.pathname).toBe("/vaults");
+    expect(links[0]?.pathname).toBe("/vaults/manage/personal");
     expect(links[1]?.pathname).toBe("/vaults/manage/shared-1");
   });
 
@@ -43,6 +43,16 @@ describe("dedicated Vault management", () => {
     expect(document.body.textContent).toContain("Hapus akun autentikator?");
     await act(async () => findButton(document.body, "Hapus akun").click());
     expect(onAccountDeleted).toHaveBeenCalledWith("shared-1", "account-1", 2);
+  });
+
+  it("hides the tab navigation when a Viewer can only see Detail", async () => {
+    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const };
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+    expect(container.querySelector('[role="tab"]')).toBeNull();
+    expect(container.textContent).toContain("Akun autentikator");
   });
 
   it("creates a complete client-only invitation URL from the Undangan tab", async () => {

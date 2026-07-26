@@ -1,6 +1,8 @@
 export { Vault } from "./domain/vault";
 export type { VaultLifecycle, VaultType } from "./domain/vault";
 export { SharedVaultCreator } from "./presentation/shared-vault-creator";
+export { PersonalVaultDetails } from "./presentation/personal-vault-manager";
+export type { PersonalVaultSummary } from "./presentation/personal-vault-manager";
 export { SharedVaultDirectory, SharedVaultDetails } from "./presentation/shared-vault-manager";
 export type { SharedVaultSummary } from "./presentation/shared-vault-manager";
 export { recordSharedVaultAccountAccess } from "./infrastructure/browser-vault-management-client";
