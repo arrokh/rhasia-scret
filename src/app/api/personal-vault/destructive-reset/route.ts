@@ -5,6 +5,7 @@ import type { ApplicationUserRepository } from "@/modules/identity/application/a
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
   InvalidDestructiveResetConfirmationError,
@@ -27,6 +28,8 @@ export function createDestructivePersonalVaultResetHandler({ sessionVerifier, ap
     const user = await loadApplicationUser(sessionVerifier, applicationUsers);
     if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const rateLimited = await rateLimitApplicationUser("destructive_mutation", user.id);
+    if (rateLimited) return rateLimited;
     const parsed = bodySchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_confirmation" }, { status: 400 });
 

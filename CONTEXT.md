@@ -71,6 +71,10 @@ _Avoid_: Malicious-server-resistant, trusted key custodian
 A person invited through Supabase Auth by the administrator before they can access the application. A verified session from such an invited user is the application’s access gate.
 _Avoid_: Public signup, self-registered user, separate email allowlist
 
+**Application Mutation Rate Limit**:
+A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or Supabase Auth limits.
+_Avoid_: Authentication rate limit, per-instance counter, request-body fingerprint
+
 **Key-Wrap Envelope**:
 A versioned encrypted package that allows one User Encryption Key Pair to recover a Vault Encryption Key.
 _Avoid_: Plaintext vault key, shared password

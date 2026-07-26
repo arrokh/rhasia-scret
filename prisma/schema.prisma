@@ -7,21 +7,35 @@ datasource db {
 }
 
 model ApplicationUser {
-  id                        String                     @id @default(cuid())
-  supabaseUserId            String                     @unique @map("supabase_user_id")
-  email                     String                     @unique
-  status                    String                     @default("ACTIVE")
-  createdAt                 DateTime                   @default(now()) @map("created_at")
-  updatedAt                 DateTime                   @updatedAt @map("updated_at")
-  ownedVaults               Vault[]                    @relation("VaultOwner")
+  id                        String                       @id @default(cuid())
+  supabaseUserId            String                       @unique @map("supabase_user_id")
+  email                     String                       @unique
+  status                    String                       @default("ACTIVE")
+  createdAt                 DateTime                     @default(now()) @map("created_at")
+  updatedAt                 DateTime                     @updatedAt @map("updated_at")
+  ownedVaults               Vault[]                      @relation("VaultOwner")
   memberships               VaultMember[]
-  receivedInvitations       VaultInvitation[]          @relation("InvitationRecipient")
+  receivedInvitations       VaultInvitation[]            @relation("InvitationRecipient")
   cryptoProfile             UserCryptoProfile?
   passkeyRecoveryCredential PasskeyRecoveryCredential?
   passkeyRecoveryChallenges PasskeyRecoveryChallenge[]
-  auditEvents               VaultAuditEvent[]          @relation("AuditActor")
+  auditEvents               VaultAuditEvent[]            @relation("AuditActor")
+  rateLimitWindows          ApplicationRateLimitWindow[]
 
   @@map("application_users")
+}
+
+model ApplicationRateLimitWindow {
+  userId          String          @map("user_id")
+  operation       String
+  windowStartedAt DateTime        @map("window_started_at")
+  expiresAt       DateTime        @map("expires_at")
+  requestCount    Int             @map("request_count")
+  user            ApplicationUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, operation, windowStartedAt])
+  @@index([expiresAt])
+  @@map("application_rate_limit_windows")
 }
 
 model Vault {
