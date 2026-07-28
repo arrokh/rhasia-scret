@@ -30,6 +30,7 @@ test("switches to English without changing routes and persists through redirects
   await page.goto("/");
   await page.getByRole("button", { name: "English" }).click();
 
+  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
@@ -50,6 +51,7 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
   await page.getByRole("button", { name: "Bahasa Indonesia" }).click();
+  await expect(page.getByRole("button", { name: "Bahasa Indonesia" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
   await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();
 });
@@ -57,6 +59,7 @@ test("switches to English without changing routes and persists through redirects
 test("renders representative English OTP, Shared Vault, validation, and recovery previews", async ({ page }) => {
   await page.goto("/ui-preview");
   await page.getByRole("button", { name: "English" }).click();
+  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1, name: "Authenticator accounts" })).toBeVisible();
   await expect(page.getByText("Sample service", { exact: true })).toBeVisible();

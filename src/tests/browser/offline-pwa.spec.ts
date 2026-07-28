@@ -65,6 +65,7 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
     await page.getByRole("button", { name: "English" }).click();
+    await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect.poll(() => page.evaluate(async () => (await caches.match("/offline"))?.text())).toContain("Offline vault access");
