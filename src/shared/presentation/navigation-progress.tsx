@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 const MINIMUM_VISIBLE_MS = 350;
@@ -62,12 +63,13 @@ export function NavigationProgress() {
 }
 
 export function PageProgressBar() {
+  const t = useTranslations("Common");
   return (
     <div
       className="fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-gold-soft"
       role="progressbar"
-      aria-label="Membuka halaman"
-      aria-valuetext="Sedang memuat"
+      aria-label={t("openingPage")}
+      aria-valuetext={t("loading")}
     >
       <span className="block h-full w-1/3 animate-page-progress bg-primary" />
     </div>

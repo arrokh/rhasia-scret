@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { AlertCircle, ArrowLeft, CheckCircle2, Info, LockKeyhole, ShieldAlert, WifiOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LocaleSwitcher } from "@/i18n/locale-switcher";
 
 export function AppPage({ children, centered = false, className }: { children: ReactNode; centered?: boolean; className?: string }) {
   return (
@@ -19,11 +21,13 @@ export function AppPage({ children, centered = false, className }: { children: R
   );
 }
 
-export function PageHeader({ eyebrow, title, description, action, backHref, backLabel = "Kembali", className }: { eyebrow?: string; title: string; description?: string; action?: ReactNode; backHref?: string; backLabel?: string; className?: string }) {
+export function PageHeader({ eyebrow, title, description, action, backHref, backLabel, className }: { eyebrow?: string; title: string; description?: string; action?: ReactNode; backHref?: string; backLabel?: string; className?: string }) {
+  const t = useTranslations("Common");
+  const resolvedBackLabel = backLabel ?? t("back");
   return (
     <header className={cn("mb-6 flex items-center justify-between gap-3 sm:gap-4", className)}>
       <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-        {backHref && <Button variant="ghost" size="icon" asChild className="shrink-0 self-start" title={backLabel}><Link href={backHref} aria-label={backLabel}><ArrowLeft aria-hidden="true" /></Link></Button>}
+        {backHref && <Button variant="ghost" size="icon" asChild className="shrink-0 self-start" title={resolvedBackLabel}><Link href={backHref} aria-label={resolvedBackLabel}><ArrowLeft aria-hidden="true" /></Link></Button>}
         <div className="min-w-0">
           {eyebrow && <p className="mb-1.5 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{eyebrow}</p>}
           <h1 className="text-xl leading-7 font-bold tracking-tight text-ink-strong first-letter:uppercase sm:text-2xl sm:leading-8">{title}</h1>
@@ -40,10 +44,12 @@ export function SurfaceCard({ children, className, ...props }: React.ComponentPr
 }
 
 export function AppFooter() {
+  const t = useTranslations("Common");
   return (
     <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
-      <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-center text-center">
-        <p className="flex items-baseline gap-1.5 text-sm text-muted-foreground"><span className="text-base font-bold tracking-tight"><span className="text-foreground">rhasia-</span><span className="text-primary">scret</span></span><span>by</span><a href="https://github.com/arrokh" target="_blank" rel="noopener noreferrer" className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">arrokh</a></p>
+      <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between gap-3 text-center">
+        <p className="flex items-baseline gap-1.5 text-sm text-muted-foreground"><span className="text-base font-bold tracking-tight"><span className="text-foreground">rhasia-</span><span className="text-primary">scret</span></span><span>{t("by")}</span><a href="https://github.com/arrokh" target="_blank" rel="noopener noreferrer" className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">arrokh</a></p>
+        <LocaleSwitcher />
       </div>
     </footer>
   );

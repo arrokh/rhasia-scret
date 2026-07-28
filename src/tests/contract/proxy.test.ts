@@ -23,8 +23,8 @@ describe("authentication proxy contract", () => {
     expect(verifySession).toHaveBeenCalledOnce();
   });
 
-  it("redirects an unauthenticated protected request to sign in", async () => {
-    const response = await createAuthProxy(async () => false)(request("/vaults/shared?tab=accounts"));
+  it.each(["id", "en", "malformed"])("keeps auth paths locale-independent for the %s cookie", async (locale) => {
+    const response = await createAuthProxy(async () => false)(request("/vaults/shared?tab=accounts", locale));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
@@ -54,6 +54,6 @@ describe("authentication proxy contract", () => {
   });
 });
 
-function request(pathname: string): NextRequest {
-  return new NextRequest(`https://vault.example.test${pathname}`);
+function request(pathname: string, locale?: string): NextRequest {
+  return new NextRequest(`https://vault.example.test${pathname}`, locale ? { headers: { cookie: `RHSIA_LOCALE=${locale}` } } : undefined);
 }

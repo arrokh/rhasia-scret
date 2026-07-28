@@ -2,6 +2,13 @@
 
 import { base64UrlToBytes, bytesToBase64Url } from "@/shared/infrastructure/browser-base64";
 
+export class PasskeyPrfUnsupportedError extends Error {
+  public constructor() {
+    super("Passkey PRF is unsupported.");
+    this.name = "PasskeyPrfUnsupportedError";
+  }
+}
+
 export async function createPasskeyCredential(options: PublicKeyCredentialCreationOptionsJSON): Promise<{ registrationResponse: unknown; prfOutput: Uint8Array; prfSalt: Uint8Array }> {
   const credential = await navigator.credentials.create({ publicKey: registrationOptions(options) });
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Passkey registration was cancelled.");
@@ -29,7 +36,7 @@ async function evaluatePrf(credentialId: ArrayBuffer, rpId: string, prfSalt: Uin
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Passkey recovery was cancelled.");
   const result = credential.getClientExtensionResults() as unknown;
   const first = prfResult(result);
-  if (!first) throw new Error("This passkey does not support PRF recovery.");
+  if (!first) throw new PasskeyPrfUnsupportedError();
   return new Uint8Array(first);
 }
 

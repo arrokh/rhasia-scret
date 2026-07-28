@@ -340,6 +340,41 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   }
 });
 
+test("English setup, unlock, account creation, and OTP smoke use the real stack", async ({ page, context, browserName }) => {
+  test.skip(browserName !== "chromium", "One Chromium scenario provides the English real-stack smoke while every browser keeps the Indonesian security baseline.");
+  const alias = scenarioAlias(browserName, "english");
+  await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
+  await authenticate(context, alias);
+  await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseUrl, sameSite: "Lax" }]);
+
+  const secret = "e2e english vault passphrase";
+  await page.goto("/vaults");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.getByLabel("Vault name").fill("");
+  await page.getByRole("button", { name: "Secure Personal Vault" }).click();
+  await expect(page.getByText("Vault name is required.")).toBeVisible();
+  await page.getByLabel("Vault name").fill("E2E English Personal Vault");
+  await page.getByLabel("Create your own").click();
+  await page.getByRole("textbox", { name: "Your Vault Passphrase", exact: true }).fill(secret);
+  await page.getByRole("textbox", { name: "Re-enter your Vault Passphrase" }).fill(secret);
+  await page.getByLabel(/I understand that without an access-recovery key/).click();
+  await page.getByRole("button", { name: "Secure Personal Vault" }).click();
+
+  await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("textbox", { name: "Vault Passphrase", exact: true }).fill(secret);
+  await page.getByRole("button", { name: "Unlock Vault" }).click();
+  await expect(page.getByRole("button", { name: "Lock" })).toBeVisible({ timeout: 120_000 });
+
+  await page.getByRole("link", { name: "Add authenticator account" }).click();
+  await page.locator("#qr-image").setInputFiles(resolve(process.cwd(), "src/tests/browser/fixtures/e2e-totp-qr.svg"));
+  await expect(page.getByRole("heading", { name: "Authenticator metadata" })).toBeVisible();
+  await page.getByRole("button", { name: "Save account" }).click();
+  await expect(page).toHaveURL(/\/vaults$/);
+  await expect(page.getByLabel("Current OTP")).toHaveText(/\d{3} \d{3}/);
+  await page.getByRole("button", { name: "Copy OTP for image-user, E2E Image" }).click();
+  await expect(page.getByText("Copied", { exact: true })).toBeVisible();
+});
+
 test("Passkey-assisted enrollment and unlock release the local package only after verification with fallback", async ({ page, context, browserName }) => {
   const alias = scenarioAlias(browserName, "passkey");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
@@ -392,10 +427,12 @@ async function initializeUserContext(page: Page, context: BrowserContext, alias:
 }
 
 async function openSharedManagement(page: Page, secret: string, sharedName: string): Promise<void> {
-  await page.goto("/vaults");
+  await page.goto("/vaults", { waitUntil: "domcontentloaded" });
   await unlockVault(page, secret);
   await page.getByRole("link", { name: "Brankas", exact: true }).click();
+  await expect(page).toHaveURL(/\/vaults\/manage\/?$/);
   await page.getByRole("link", { name: sharedName }).click();
+  await expect(page).toHaveURL(/\/vaults\/manage\/[^/]+$/);
   await expect(page.getByRole("tab", { name: "Undangan" })).toBeVisible();
 }
 
@@ -449,7 +486,10 @@ async function initializePersonalVault(page: Page, name: string, secret: string)
 }
 
 async function unlockVault(page: Page, secret: string): Promise<void> {
-  await page.getByRole("textbox", { name: "Passphrase Brankas", exact: true }).fill(secret);
+  const input = page.getByRole("textbox", { name: "Passphrase Brankas", exact: true });
+  await expect(input).toBeVisible();
+  await input.fill(secret);
+  await expect(input).toHaveValue(secret);
   await page.getByRole("button", { name: "Buka Brankas" }).click();
   await expect(page.getByRole("button", { name: "Kunci" })).toBeVisible({ timeout: 120_000 });
 }

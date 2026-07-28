@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import LandingPage from "@/app/page";
 
 describe("LandingPage", () => {
-  it("presents the public product landing page with a sign-in call to action", () => {
-    const markup = renderToStaticMarkup(createElement(LandingPage));
+  it("presents the public product landing page with a sign-in call to action", async () => {
+    const page = await LandingPage();
+    const markup = renderToStaticMarkup(createElement("div", null, page));
 
     expect(markup).toContain("rhasia-");
     expect(markup).toContain("scret");

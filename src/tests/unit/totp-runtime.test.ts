@@ -10,9 +10,9 @@ describe("TOTP runtime", () => {
   });
 
   it("rejects HOTP and unsupported TOTP parameters", () => {
-    expect(() => parseTotpUri(rfcTotpUri().replace("otpauth://totp", "otpauth://hotp"))).toThrow("totp");
-    expect(() => parseTotpUri(rfcTotpUri("digits=7"))).toThrow("digit");
-    expect(() => parseTotpUri(rfcTotpUri().replace("Example:alice", "%E0%A4%A"))).toThrow("Label URI autentikator tidak valid.");
+    expect(() => parseTotpUri(rfcTotpUri().replace("otpauth://totp", "otpauth://hotp"))).toThrow("totpOnly");
+    expect(() => parseTotpUri(rfcTotpUri("digits=7"))).toThrow("unsupportedDigits");
+    expect(() => parseTotpUri(rfcTotpUri().replace("Example:alice", "%E0%A4%A"))).toThrow("invalidLabel");
   });
 
   it("formats an RFC 4226 dynamic-truncation value", async () => {

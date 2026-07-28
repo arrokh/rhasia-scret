@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, MoreVertical } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { generateTotp } from "../application/generate-totp";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
 
 export function TotpAccountButton({ configuration, vaultName, onManage, onAccess }: { configuration: TotpConfiguration; vaultName: string; onManage?: () => void; onAccess?: () => void | Promise<void> }) {
+  const t = useTranslations("OtpRuntime.account");
   const [code, setCode] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
@@ -62,7 +64,7 @@ export function TotpAccountButton({ configuration, vaultName, onManage, onAccess
         type="button"
         onClick={() => void copyOtp()}
         disabled={!code}
-        aria-label={`Salin OTP untuk ${configuration.accountName}, ${configuration.issuer}`}
+        aria-label={t("copyLabel", { account: configuration.accountName, issuer: configuration.issuer })}
       />
       <div className="pointer-events-none relative z-10 grid min-h-32 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-4">
         <span className="grid min-w-0 gap-0.5 self-center">
@@ -71,12 +73,12 @@ export function TotpAccountButton({ configuration, vaultName, onManage, onAccess
         </span>
         <span className="flex items-center gap-3 self-center">
           <span className="grid gap-0.5 text-right">
-            <output className="font-mono text-[2rem] leading-10 font-semibold tracking-[0.02em] text-ink-strong" aria-label="OTP saat ini">{code ? formatOtp(code) : "••• •••"}</output>
+            <output className="font-mono text-[2rem] leading-10 font-semibold tracking-[0.02em] text-ink-strong" aria-label={t("current")}>{code ? formatOtp(code) : "••• •••"}</output>
             <span className={cn("text-xs font-semibold", status === "error" ? "text-destructive" : status === "copied" ? "text-success" : nearlyExpired ? "text-warning" : "text-muted-foreground")}>
-              {status === "copied" ? <span className="inline-flex items-center justify-end gap-1">Disalin <Check className="size-3.5" aria-hidden="true" /></span> : status === "error" ? "Tidak tersedia" : nearlyExpired ? `Berakhir dalam ${seconds} detik` : "Ketuk untuk menyalin"}
+              {status === "copied" ? <span className="inline-flex items-center justify-end gap-1">{t("copied")} <Check className="size-3.5" aria-hidden="true" /></span> : status === "error" ? t("unavailable") : nearlyExpired ? t("expires", { seconds }) : t("tap")}
             </span>
           </span>
-          <Countdown seconds={seconds} period={configuration.period} warning={nearlyExpired} copied={status === "copied"} />
+          <Countdown seconds={seconds} period={configuration.period} warning={nearlyExpired} copied={status === "copied"} label={t("remaining", { seconds })} />
         </span>
         <span className="col-span-2 h-px bg-border/70" aria-hidden="true" />
         <Badge variant="secondary" className="max-w-full self-center truncate bg-muted text-taupe">{vaultName}</Badge>
@@ -87,20 +89,20 @@ export function TotpAccountButton({ configuration, vaultName, onManage, onAccess
             className="pointer-events-auto relative justify-self-end after:absolute after:-inset-1.5 after:content-['']"
             type="button"
             onClick={onManage}
-            aria-label={`Kelola ${configuration.accountName}`}
-            title="Kelola akun"
+            aria-label={t("manage", { account: configuration.accountName })}
+            title={t("manageTitle")}
           >
             <MoreVertical />
           </Button>
         )}
-        <span className="sr-only" aria-live="polite">{status === "copied" ? `${configuration.accountName} disalin` : status === "error" ? "OTP tidak dapat disalin" : ""}</span>
+        <span className="sr-only" aria-live="polite">{status === "copied" ? t("copiedAnnouncement", { account: configuration.accountName }) : status === "error" ? t("copyError") : ""}</span>
       </div>
     </article>
   );
 }
 
-function Countdown({ seconds, period, warning, copied }: { seconds: number; period: number; warning: boolean; copied: boolean }) {
-  return <span className="relative grid size-11 shrink-0 place-items-center" aria-label={`${seconds} detik tersisa`}><svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true"><circle className="fill-none stroke-border stroke-[3]" cx="18" cy="18" r="15.5" /><circle className={cn("fill-none stroke-primary stroke-[3] transition-[stroke-dashoffset,stroke] duration-200", warning && "stroke-warning", copied && "stroke-success")} cx="18" cy="18" r="15.5" pathLength="100" strokeLinecap="round" strokeDasharray="100" strokeDashoffset={100 - timerProgress(seconds, period)} /></svg><small className={cn("relative text-[0.68rem] font-bold transition-colors duration-200", warning ? "text-warning" : "text-foreground", copied && "text-success")}>{seconds}</small></span>;
+function Countdown({ seconds, period, warning, copied, label }: { seconds: number; period: number; warning: boolean; copied: boolean; label: string }) {
+  return <span className="relative grid size-11 shrink-0 place-items-center" aria-label={label}><svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true"><circle className="fill-none stroke-border stroke-[3]" cx="18" cy="18" r="15.5" /><circle className={cn("fill-none stroke-primary stroke-[3] transition-[stroke-dashoffset,stroke] duration-200", warning && "stroke-warning", copied && "stroke-success")} cx="18" cy="18" r="15.5" pathLength="100" strokeLinecap="round" strokeDasharray="100" strokeDashoffset={100 - timerProgress(seconds, period)} /></svg><small className={cn("relative text-[0.68rem] font-bold transition-colors duration-200", warning ? "text-warning" : "text-foreground", copied && "text-success")}>{seconds}</small></span>;
 }
 
 function timerProgress(seconds: number, period: number): number { return Math.max(0, Math.min(100, (seconds / period) * 100)); }

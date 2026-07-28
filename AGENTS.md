@@ -27,6 +27,15 @@
 - Keep unlock, decryption, OTP, and passkey-recovery workflows as direct client-only operations outside TanStack Query. Do not persist the Query Client cache. Route all app content through the root `QueryProvider`, and use an isolated Query Client in component tests.
 - Maintain architecture tests that inventory all forms, reject direct presentation-layer `fetch`, reject TanStack Query imports outside presentation hooks/providers, and verify Query Client persistence remains disabled.
 
+## Localization
+
+- Read `docs/adr/0035-cookie-based-english-and-indonesian-localization.md` and `docs/i18n-implementation-plan.md` before changing user-facing copy or presentation behavior.
+- Keep every production and development-preview surface complete in both Indonesian (`id`) and English (`en`), including visible copy, accessibility text, form validation, user-facing errors, dates/plurals, metadata, the web app manifest, and the read-only offline shell. Update `messages/id.json` and `messages/en.json` together with exact key parity; Indonesian remains the no-cookie default.
+- Use `next-intl` only in `src/i18n`, App Router composition, and presentation layers. Domain, application, infrastructure, API, database, archive, audit, and cryptographic contracts must expose typed locale-independent values or error codes rather than localized messages.
+- Do not add locale-prefixed or translated paths, infer locale from `Accept-Language`, or persist locale in Prisma, IndexedDB, TanStack Query, encrypted content, or cryptographic payloads. Locale selection remains the validated `RHSIA_LOCALE` cookie defined by ADR-0035.
+- Never place user-provided Vault/account labels, TOTP configuration, OTPs, secrets, keys, Secure Share Link material, or decrypted content in message catalogs, locale state, Query caches, or service-worker caches.
+- Extend catalog-parity, hard-coded-copy, architecture, contract, and browser/offline coverage with each localized surface. Preserve the exact destructive-reset token `HAPUS DATA BRANKAS` in both locales.
+
 ## Quality
 
 - Generate Prisma migrations only with the Prisma CLI (`prisma migrate dev`); never author migration SQL by hand. Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for Prisma migrations, introspection, and administrative tooling.

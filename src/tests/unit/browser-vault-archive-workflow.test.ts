@@ -45,7 +45,7 @@ describe("encrypted Vault archive browser workflow", () => {
   it("rejects unsupported TOTP configurations and oversized archives", async () => {
     const unsupported = await createArchive(accountPayload({ ...configuration, algorithm: "MD5" }));
     await expect(openAndValidateEncryptedVaultArchive(unsupported.archiveKey, unsupported.archive)).rejects.toThrow("payload is invalid");
-    await expect(openAndValidateEncryptedVaultArchive(generateSymmetricKey(), new Uint8Array(MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES + 1))).rejects.toThrow("terlalu besar");
+    await expect(openAndValidateEncryptedVaultArchive(generateSymmetricKey(), new Uint8Array(MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES + 1))).rejects.toThrow("archiveTooLarge");
   });
 
   it("warns for destination and within-archive duplicates", () => {

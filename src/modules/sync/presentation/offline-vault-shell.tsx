@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
+import { useLocale, useTranslations } from "next-intl";
 import { Fingerprint, KeyRound, Lock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,8 @@ import { TotpAccountButton } from "@/modules/otp-runtime";
 import { AppPage, Brand, PageHeader, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
-import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
+import { FormFieldError } from "@/shared/presentation/form-field-error";
+import { formatLocalDateTime } from "@/i18n/format";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { BrowserOfflineVaultRepository } from "../infrastructure/browser-offline-vault-repository";
 import { subscribeToLocalVaultLock } from "../infrastructure/browser-vault-lock";
@@ -26,6 +28,8 @@ import { nextOfflineSyncState, type OfflineSyncState } from "../domain/offline-s
 import type { OfflineProfileSummary } from "../infrastructure/browser-offline-vault-repository";
 
 export function OfflineVaultShell() {
+  const t = useTranslations("Sync.offline");
+  const locale = useLocale();
   const [profiles, setProfiles] = useState<OfflineProfileSummary[]>([]);
   const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(null);
   const workspaceRef = useRef(workspace);
@@ -125,38 +129,42 @@ export function OfflineVaultShell() {
   if (workspace) return <UnlockedOfflineWorkspace workspace={workspace} onLock={() => replaceWorkspace(null)} onClear={() => void clearDevice()} />;
 
   return <AppPage>
-    <PageHeader title="Akses brankas luring" description="Buka snapshot terenkripsi di perangkat ini tanpa menghubungi server." action={<Brand compact />} />
+    <PageHeader title={t("title")} description={t("description")} action={<Brand compact />} />
     <SurfaceCard className="grid gap-5 p-5 sm:p-6">
-      <StatusBanner tone="offline" title="Mode baca-saja">Otorisasi tidak dapat diperiksa sampai sinkronisasi daring berhasil. Perubahan dan audit akses tidak disimpan atau diputar ulang.</StatusBanner>
-      {status === "loading" && <p className="text-sm text-muted-foreground">Mencari snapshot terenkripsi…</p>}
-      {status === "empty" && <StatusBanner tone="warning">Belum ada snapshot lokal. Buka brankas sekali saat daring untuk menyinkronkan perangkat ini.</StatusBanner>}
+      <StatusBanner tone="offline" title={t("readOnly")}>{t("readOnlyDescription")}</StatusBanner>
+      {status === "loading" && <p className="text-sm text-muted-foreground">{t("searching")}</p>}
+      {status === "empty" && <StatusBanner tone="warning">{t("empty")}</StatusBanner>}
       {profiles.length > 0 && <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-        <form.Field name="profileId">{(field) => <div className="grid gap-2"><Label htmlFor="offline-profile">Profil lokal anonim</Label><Select value={field.state.value} onValueChange={field.handleChange}><SelectTrigger id="offline-profile" className="w-full"><SelectValue placeholder="Pilih snapshot" /></SelectTrigger><SelectContent>{profiles.map((profile, index) => <SelectItem key={profile.profileId} value={profile.profileId}>Snapshot {index + 1} · {new Date(profile.synchronizedAt).toLocaleString("id-ID")} · {profile.sharedVaultCount + 1} brankas</SelectItem>)}</SelectContent></Select></div>}</form.Field>
-        <form.Field name="secret" validators={{ onSubmit: requiredText("Passphrase Brankas") }}>{(field) => <div className="grid gap-2"><Label htmlFor="offline-secret">Passphrase Brankas</Label><PasswordInput id="offline-secret" label="Passphrase Brankas" visible={secretVisible} onToggleVisibility={() => setSecretVisible((value) => !value)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "offline-secret-error" : undefined} autoComplete="current-password" required /><FormFieldError id="offline-secret-error" errors={field.state.meta.errors} /></div>}</form.Field>
-        <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={pending} aria-busy={pending}><KeyRound />{pending ? "Membuka…" : "Buka dengan Passphrase Brankas"}</Button>}</form.Subscribe>
-        <Button type="button" variant="outline" onClick={() => void unlockRemembered()}><Fingerprint />Buka dengan Verifikasi Lokal</Button>
+        <form.Field name="profileId">{(field) => <div className="grid gap-2"><Label htmlFor="offline-profile">{t("profile")}</Label><Select value={field.state.value} onValueChange={field.handleChange}><SelectTrigger id="offline-profile" className="w-full"><SelectValue placeholder={t("chooseSnapshot")} /></SelectTrigger><SelectContent>{profiles.map((profile, index) => <SelectItem key={profile.profileId} value={profile.profileId}>{t("profileSummary", { number: index + 1, date: formatLocalDateTime(profile.synchronizedAt, locale), count: profile.sharedVaultCount + 1 })}</SelectItem>)}</SelectContent></Select></div>}</form.Field>
+        <form.Field name="secret" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("passphraseRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="offline-secret">{t("passphrase")}</Label><PasswordInput id="offline-secret" label={t("passphrase")} visible={secretVisible} onToggleVisibility={() => setSecretVisible((value) => !value)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "offline-secret-error" : undefined} autoComplete="current-password" required /><FormFieldError id="offline-secret-error" errors={field.state.meta.errors} /></div>}</form.Field>
+        <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={pending} aria-busy={pending}><KeyRound />{pending ? t("unlocking") : t("unlockPassphrase")}</Button>}</form.Subscribe>
+        <Button type="button" variant="outline" onClick={() => void unlockRemembered()}><Fingerprint />{t("unlockLocal")}</Button>
       </form>}
-      {status === "unlock_error" && <StatusBanner tone="danger" role="alert">Passphrase atau snapshot tidak valid. Tidak ada data parsial yang dibuka.</StatusBanner>}
-      {status === "remembered_error" && <StatusBanner tone="warning">Verifikasi Lokal gagal atau PRF tidak tersedia. Gunakan Passphrase Brankas.</StatusBanner>}
-      {status === "storage_error" && <StatusBanner tone="danger" role="alert">Penyimpanan snapshot lokal tidak dapat dibuka. Data lama tidak dihapus.</StatusBanner>}
-      <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link href="/sign-in">Kembali ke masuk</Link></Button>{profiles.length > 0 && <Button type="button" variant="ghost" className="text-destructive" onClick={() => void clearDevice()}><Trash2 />Hapus data perangkat</Button>}</div>
+      {status === "unlock_error" && <StatusBanner tone="danger" role="alert">{t("unlockError")}</StatusBanner>}
+      {status === "remembered_error" && <StatusBanner tone="warning">{t("rememberedError")}</StatusBanner>}
+      {status === "storage_error" && <StatusBanner tone="danger" role="alert">{t("storageError")}</StatusBanner>}
+      <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link href="/sign-in">{t("backSignIn")}</Link></Button>{profiles.length > 0 && <Button type="button" variant="ghost" className="text-destructive" onClick={() => void clearDevice()}><Trash2 />{t("clearDevice")}</Button>}</div>
     </SurfaceCard>
   </AppPage>;
 }
 
 function UnlockedOfflineWorkspace({ workspace, onLock, onClear }: { workspace: UnlockedVaultWorkspace; onLock: () => void; onClear: () => void }) {
+  const t = useTranslations("Sync.offline");
+  const locale = useLocale();
+  const snapshotDate = formatLocalDateTime(workspace.synchronizedAt, locale);
   return <AppPage>
-    <PageHeader title="Akun autentikator luring" description={`Snapshot ${new Date(workspace.synchronizedAt).toLocaleString("id-ID")}`} action={<Button variant="outline" onClick={onLock}><Lock />Kunci</Button>} />
+    <PageHeader title={t("accountsTitle")} description={t("snapshotDate", { date: snapshotDate })} action={<Button variant="outline" onClick={onLock}><Lock />{t("lock")}</Button>} />
     <SurfaceCard className="grid gap-5 p-4 sm:p-5">
-      <StatusBanner tone={workspace.syncState === "CURRENT" ? "success" : "offline"} title={syncTitle(workspace.syncState)}>{workspace.syncState === "CURRENT" ? <>Sinkronisasi lengkap berhasil. <Link href="/vaults" className="font-bold underline">Lanjutkan ke aplikasi daring</Link>.</> : "Snapshot tetap usang dan baca-saja sampai otorisasi daring serta sinkronisasi lengkap berhasil. OTP memakai waktu perangkat; pemeriksaan drift dan audit akses tidak tersedia."}</StatusBanner>
-      {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger">{workspace.unavailableSharedVaults} Brankas Bersama tidak dapat didekripsi.</StatusBanner>}
+      <StatusBanner tone={workspace.syncState === "CURRENT" ? "success" : "offline"} title={syncTitle(workspace.syncState, t)}>{workspace.syncState === "CURRENT" ? <>{t("syncComplete")} <Link href="/vaults" className="font-bold underline">{t("continueOnline")}</Link>.</> : t("staleDescription")}</StatusBanner>
+      {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}
       <ul className="grid list-none gap-3 p-0">{workspace.accounts.map((account) => <li key={`${account.vaultId}:${account.id}`}><TotpAccountButton configuration={account} vaultName={account.vaultName} /></li>)}</ul>
-      {!workspace.accounts.length && <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Snapshot ini tidak berisi akun autentikator.</p>}
-      <Button type="button" variant="ghost" className="justify-self-start text-destructive" onClick={onClear}><Trash2 />Hapus snapshot dan Browser yang Diingat</Button>
+      {!workspace.accounts.length && <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">{t("emptyAccounts")}</p>}
+      <Button type="button" variant="ghost" className="justify-self-start text-destructive" onClick={onClear}><Trash2 />{t("clearSnapshot")}</Button>
     </SurfaceCard>
   </AppPage>;
 }
 
-function syncTitle(state: OfflineSyncState): string {
-  return ({ OFFLINE: "Luring · baca-saja", STALE: "Sinkronisasi gagal · snapshot dipertahankan", SYNCING: "Memeriksa otorisasi dan sinkronisasi…", CURRENT: "Snapshot terkini", AUTH_REQUIRED: "Masuk kembali diperlukan", ERROR: "Kesalahan sinkronisasi" })[state];
+function syncTitle(state: OfflineSyncState, t: ReturnType<typeof useTranslations<"Sync.offline">>): string {
+  const keys = { OFFLINE: "stateOffline", STALE: "stateStale", SYNCING: "stateSyncing", CURRENT: "stateCurrent", AUTH_REQUIRED: "stateAuthRequired", ERROR: "stateError" } as const;
+  return t(keys[state]);
 }

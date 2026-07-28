@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { vaultAuditEventLabel } from "@/modules/vault-management/presentation/vault-audit-history";
+import { vaultAuditEventMessageKey } from "@/modules/vault-management/presentation/vault-audit-history";
 
-describe("Vault Audit History labels", () => {
-  it("renders localized archive action labels", () => {
-    expect(vaultAuditEventLabel("ARCHIVE_EXPORTED")).toBe("Arsip Brankas diekspor");
-    expect(vaultAuditEventLabel("ARCHIVE_IMPORTED")).toBe("Arsip Brankas diimpor");
+describe("Vault Audit History archive labels", () => {
+  it("maps archive audit events to stable localization keys", () => {
+    expect(vaultAuditEventMessageKey("ARCHIVE_EXPORTED")).toBe("archiveExported");
+    expect(vaultAuditEventMessageKey("ARCHIVE_IMPORTED")).toBe("archiveImported");
+    expect(vaultAuditEventMessageKey("FUTURE_EVENT")).toBe("securityActivity");
   });
 });

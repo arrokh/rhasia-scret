@@ -8,14 +8,23 @@ import {
 } from "@/modules/authenticator-account";
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, openEncryptedVaultExport } from "@/modules/crypto";
 
+export type VaultArchiveWorkflowErrorCode = "invalidKeyLength" | "archiveTooLarge";
+
+export class VaultArchiveWorkflowError extends Error {
+  public constructor(public readonly code: VaultArchiveWorkflowErrorCode) {
+    super(`Vault archive workflow failed: ${code}.`);
+    this.name = "VaultArchiveWorkflowError";
+  }
+}
+
 export type OpenedVaultArchive = {
   vaultName: string;
   accounts: DecryptedAuthenticatorAccount[];
 };
 
 export async function openAndValidateEncryptedVaultArchive(archiveKey: Uint8Array, archive: Uint8Array): Promise<OpenedVaultArchive> {
-  if (archiveKey.length !== 32) throw new Error("Kunci arsip harus berupa tepat 32 byte.");
-  if (archive.length === 0 || archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new Error("Arsip terenkripsi terlalu besar atau kosong.");
+  if (archiveKey.length !== 32) throw new VaultArchiveWorkflowError("invalidKeyLength");
+  if (archive.length === 0 || archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new VaultArchiveWorkflowError("archiveTooLarge");
   const opened = await openEncryptedVaultExport(archiveKey, archive);
   const accounts: DecryptedAuthenticatorAccount[] = [];
   try {

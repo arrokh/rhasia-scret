@@ -3,7 +3,7 @@
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 
 export async function decodeQrImage(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("Unggah gambar yang berisi kode QR.");
+  if (!file.type.startsWith("image/")) throw new Error("A QR image file is required.");
   const url = URL.createObjectURL(file);
   try {
     const result = await new BrowserQRCodeReader().decodeFromImageUrl(url);

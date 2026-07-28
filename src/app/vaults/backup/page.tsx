@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
@@ -11,9 +12,10 @@ import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 export const dynamic = "force-dynamic";
 
 export default async function VaultArchiveBackupPage() {
+  const t = await getTranslations("VaultArchive.backupPage");
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
-  return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke Brankas" title="Cadangan Brankas" description="Buat arsip terenkripsi dan simpan kuncinya secara terpisah." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Cadangan Brankas terenkripsi"><VaultArchiveExportWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
+  return <AppPage><PageHeader backHref="/vaults/manage" backLabel={t("back")} title={t("title")} description={t("description")} action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label={t("label")}><VaultArchiveExportWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
 }

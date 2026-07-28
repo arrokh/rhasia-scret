@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { LogoutForm } from "@/modules/identity";
 import { AppPage, PageHeader } from "@/shared/presentation/app-ui";
 import { VaultManagementPreview } from "./vault-management-preview";
 
 export const dynamic = "force-dynamic";
 
-export default function VaultManagementPreviewPage() {
+export default async function VaultManagementPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  return <AppPage><PageHeader backHref="/ui-preview" backLabel="Kembali ke pratinjau akun" title="Brankas" description="Pratinjau navigasi dan pengelolaan brankas khusus pengembangan." action={<LogoutForm email="preview@local.invalid" />} /><VaultManagementPreview /></AppPage>;
+  const t = await getTranslations("Preview.vaults");
+  return <AppPage><PageHeader backHref="/ui-preview" backLabel={t("back")} title={t("title")} description={t("description")} action={<LogoutForm email="preview@local.invalid" />} /><VaultManagementPreview /></AppPage>;
 }

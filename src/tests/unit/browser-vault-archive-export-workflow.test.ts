@@ -45,8 +45,8 @@ describe("Vault archive export workflow", () => {
   });
 
   it("rejects Viewer exports, mixed-Vault accounts, and more than 500 accounts", async () => {
-    await expect(prepareEncryptedVaultArchive({ ...ownerVault, role: "VIEWER" }, [account])).rejects.toThrow("pemilik");
-    await expect(prepareEncryptedVaultArchive(ownerVault, [{ ...account, vaultId: "other-vault" }])).rejects.toThrow("tidak cocok");
-    await expect(prepareEncryptedVaultArchive(ownerVault, Array.from({ length: 501 }, (_, index) => ({ ...account, id: `account-${index}` })))).rejects.toThrow("too large");
+    await expect(prepareEncryptedVaultArchive({ ...ownerVault, role: "VIEWER" }, [account])).rejects.toMatchObject({ code: "owner_required" });
+    await expect(prepareEncryptedVaultArchive(ownerVault, [{ ...account, vaultId: "other-vault" }])).rejects.toMatchObject({ code: "account_mismatch" });
+    await expect(prepareEncryptedVaultArchive(ownerVault, Array.from({ length: 501 }, (_, index) => ({ ...account, id: `account-${index}` })))).rejects.toMatchObject({ code: "too_large" });
   });
 });

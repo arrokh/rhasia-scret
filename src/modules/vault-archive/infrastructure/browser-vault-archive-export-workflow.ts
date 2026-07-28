@@ -4,6 +4,15 @@ import { serializeDecryptedAccountPayload, type WorkspaceAuthenticatorAccount } 
 import { createEncryptedVaultArchive, generateSymmetricKey, MAX_VAULT_ARCHIVE_ACCOUNTS } from "@/modules/crypto";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 
+export type VaultArchiveExportErrorCode = "owner_required" | "too_large" | "account_mismatch";
+
+export class VaultArchiveExportError extends Error {
+  public constructor(public readonly code: VaultArchiveExportErrorCode) {
+    super(code);
+    this.name = "VaultArchiveExportError";
+  }
+}
+
 export type PreparedVaultArchive = {
   vaultId: string;
   archive: Uint8Array;
@@ -17,13 +26,13 @@ export async function prepareEncryptedVaultArchive(
   accounts: WorkspaceAuthenticatorAccount[],
   now = new Date()
 ): Promise<PreparedVaultArchive> {
-  if (vault.role !== "OWNER") throw new Error("Hanya pemilik Brankas yang dapat membuat cadangan.");
-  if (accounts.length > MAX_VAULT_ARCHIVE_ACCOUNTS) throw new Error("Encrypted vault export is too large.");
+  if (vault.role !== "OWNER") throw new VaultArchiveExportError("owner_required");
+  if (accounts.length > MAX_VAULT_ARCHIVE_ACCOUNTS) throw new VaultArchiveExportError("too_large");
   const archiveKey = generateSymmetricKey();
   const plaintexts: Uint8Array[] = [];
   try {
     for (const account of accounts) {
-      if (account.vaultId !== vault.id) throw new Error("Akun cadangan tidak cocok dengan Brankas yang dipilih.");
+      if (account.vaultId !== vault.id) throw new VaultArchiveExportError("account_mismatch");
       plaintexts.push(serializeDecryptedAccountPayload(account));
     }
     const archive = await createEncryptedVaultArchive(archiveKey, vault.name, plaintexts);

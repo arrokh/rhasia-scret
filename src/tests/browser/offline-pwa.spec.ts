@@ -59,6 +59,22 @@ test.describe("encrypted read-only offline PWA", () => {
     test.info().annotations.push({ type: "capability", description: `${browserName}: Vault Unlock Secret is the baseline; WebAuthn PRF Remembered Browser requires platform capability and real-device Safari verification.` });
   });
 
+  test("refreshes and boots the public offline shell in the selected English locale", async ({ page, context, browserName }) => {
+    test.skip(browserName !== "chromium", "The locale-specific cache refresh is covered once in Chromium.");
+    await page.goto("/offline");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await page.getByRole("button", { name: "English" }).click();
+    await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect.poll(() => page.evaluate(async () => (await caches.match("/offline"))?.text())).toContain("Offline vault access");
+
+    await context.setOffline(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  });
+
   test("unlocks ciphertext offline, generates OTPs, retains stale data on failures, and reconciles revocation only after complete success", async ({ page, context, browserName }) => {
     test.skip(browserName !== "chromium", "Full encrypted flow is covered in Chromium; Firefox/WebKit run the PWA and fallback smoke above.");
     test.setTimeout(60_000);
