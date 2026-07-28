@@ -14,11 +14,18 @@ describe("terminateBrowserSession", () => {
     const order: string[] = [];
     mocks.requestLocalVaultLock.mockImplementation(() => { order.push("in-memory-lock"); });
     mocks.clearAllOfflineVaultData.mockImplementation(async () => { order.push("local-cleanup"); });
-    vi.stubGlobal("fetch", vi.fn(async () => { order.push("server-logout"); return { ok: true, url: "/?auth=signed_out" }; }));
+    vi.stubGlobal("fetch", vi.fn(async () => { order.push("server-logout"); return { ok: true, url: "/sign-in?auth=signed_out" }; }));
 
-    await expect(terminateBrowserSession()).resolves.toBe("/?auth=signed_out");
+    await expect(terminateBrowserSession()).resolves.toBe("/sign-in?auth=signed_out");
     expect(order).toEqual(["in-memory-lock", "local-cleanup", "server-logout"]);
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to sign in when a successful logout response omits its URL", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, url: "" }));
+
+    await expect(terminateBrowserSession()).resolves.toBe("/sign-in");
   });
 
   it("locks in-memory keys even when local cleanup fails", async () => {

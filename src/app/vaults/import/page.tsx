@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VaultArchiveImportPage() {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/");
+  if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
   return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke Brankas" title="Import arsip Brankas" description="Tinjau arsip terenkripsi, pilih tujuan, lalu simpan seluruh akun secara atomik." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Import arsip Brankas terenkripsi"><VaultArchiveImportWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Check, ChevronRight, Clipboard, KeyRound, MailPlus, Plus, ScrollText, Trash2, UsersRound } from "lucide-react";
+import { Check, ChevronRight, Clipboard, Download, KeyRound, MailPlus, Plus, ScrollText, Trash2, Upload, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,10 @@ export type SharedVaultSummary = { id: string; name: string; role: "OWNER" | "VI
 export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] }) {
   return <div className="grid gap-5 p-5 sm:p-6">
     <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-ink-strong">Semua brankas</h2><p className="mt-1 text-sm text-muted-foreground">Brankas Pribadi selalu ditampilkan pertama.</p></div><Button size="sm" asChild><Link href="/vaults/manage/new"><Plus />Brankas Bersama</Link></Button></div>
+    <nav aria-label="Aksi arsip Brankas" className="grid grid-cols-2 gap-2 sm:ml-auto sm:w-fit">
+      <Button variant="outline" size="sm" className="w-full sm:min-w-40" asChild><Link href="/vaults/backup"><Download />Buat cadangan</Link></Button>
+      <Button variant="outline" size="sm" className="w-full sm:min-w-40" asChild><Link href="/vaults/import"><Upload />Import arsip</Link></Button>
+    </nav>
     <ul className="grid list-none gap-2 p-0">
       <li><VaultDirectoryLink href="/vaults/manage/personal" icon={KeyRound} name="Brankas Pribadi" detail="Pribadi · Pemilik" badge="Pribadi" /></li>
       {vaults.map((vault) => <li key={vault.id}><VaultDirectoryLink href={`/vaults/manage/${encodeURIComponent(vault.id)}`} icon={UsersRound} name={vault.name} detail={`${vault.accounts.length} akun · ${vault.role === "OWNER" ? "Pemilik" : "Dapat melihat"}`} badge={vault.role === "OWNER" ? "Pemilik" : "Viewer"} /></li>)}

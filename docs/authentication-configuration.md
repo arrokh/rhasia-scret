@@ -13,11 +13,11 @@ A verified server-side session is the only input to application-user provisionin
 
 ## Route protection and logout
 
-The application continues to use Supabase Auth through `@supabase/ssr`; adding a second Auth.js/NextAuth session system would conflict with the invite-only Supabase identity boundary in ADR-0011. The Next.js 16 `proxy.ts` follows the current Supabase SSR guidance: it calls `getClaims()` to refresh and optimistically verify cookie-backed sessions, copies refreshed cookies to the request and response, and redirects unauthenticated protected-page requests to `/?auth=required`. Page and API authorization checks remain close to their data sources because Proxy is not a sufficient authorization boundary.
+The application continues to use Supabase Auth through `@supabase/ssr`; adding a second Auth.js/NextAuth session system would conflict with the invite-only Supabase identity boundary in ADR-0011. The Next.js 16 `proxy.ts` follows the current Supabase SSR guidance: it calls `getClaims()` to refresh and optimistically verify cookie-backed sessions, copies refreshed cookies to the request and response, and redirects unauthenticated protected-page requests to `/sign-in?auth=required`. Page and API authorization checks remain close to their data sources because Proxy is not a sufficient authorization boundary.
 
 Route inventory:
 
-- Public pages and support routes: `/` for signed-out or inactive users, `/auth/confirm`, `/auth/logout` (POST only, so stale sessions can be cleared), `/smoke`, and the development-only `/ui-preview` fixture. An active authenticated user who visits `/` is redirected to `/vaults`.
+- Public pages and support routes: `/` is the product landing page for every visitor; `/sign-in` owns invite-only authentication and redirects an active authenticated user to `/vaults`; `/auth/confirm`; `/auth/logout` (POST only, so stale sessions can be cleared); `/smoke`; and the development-only `/ui-preview` fixture.
 - Protected pages: `/vaults` and descendants, plus `/totp`.
 - Public APIs: `/api/health` and `/api/time`; neither returns user or vault data.
 - Every other application API verifies the Supabase session in its route handler and applies its existing resource-authorization checks before accessing data.

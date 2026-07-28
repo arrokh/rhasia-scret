@@ -21,7 +21,7 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
 
   await test.step("protected routes reject an unauthenticated browser", async () => {
     await page.goto("/vaults");
-    await expect(page).toHaveURL(/\/?auth=required$/);
+    await expect(page).toHaveURL(/\/sign-in\?auth=required$/);
   });
 
   await test.step("a configured administrator-invited test session reaches first-login setup", async () => {
@@ -30,6 +30,12 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
     await initializePersonalVault(page, personalName, personalSecret);
     await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+    await page.goto("/vaults/manage");
+    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
+    await expect(page.locator('a[href="/vaults/backup"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/vaults/import"]')).toHaveCount(0);
+    await page.goto("/vaults");
+    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
   });
 
   await test.step("unlock creates only an in-memory workspace and explicit lock clears key buffers", async () => {
@@ -55,9 +61,9 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     releaseLogout();
     await logout;
     await page.unroute("**/auth/logout");
-    await expect(page).toHaveURL(/\/?auth=signed_out$/);
+    await expect(page).toHaveURL(/\/sign-in\?auth=signed_out$/);
     await page.goto("/vaults");
-    await expect(page).toHaveURL(/\/?auth=required$/);
+    await expect(page).toHaveURL(/\/sign-in\?auth=required$/);
     expect(await persistedApplicationRecordCount(page)).toBe(0);
   });
 

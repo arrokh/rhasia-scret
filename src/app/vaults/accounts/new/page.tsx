@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewAuthenticatorAccountPage({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/");
+  if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   const { vaultId: preferredVaultId } = await searchParams;
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");

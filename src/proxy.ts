@@ -54,7 +54,7 @@ async function verifySupabaseSession(request: NextRequest, setAuthCookies: SetAu
 }
 
 function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse): NextResponse {
-  const response = NextResponse.redirect(new URL("/?auth=required", request.url));
+  const response = NextResponse.redirect(new URL("/sign-in?auth=required", request.url));
   for (const cookie of refreshedResponse.cookies.getAll()) response.cookies.set(cookie);
   return response;
 }
