@@ -14,7 +14,7 @@ import {
   type EncryptedOfflineVaultBundle,
   type OfflineSyncState
 } from "@/modules/sync";
-import { unlockSharedVault } from "@/modules/vault-membership";
+import { unlockSharedVault, type EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
 import { base64ToBytes } from "@/shared/infrastructure/browser-base64";
 import { decryptAccountConfiguration, type DecryptedAuthenticatorAccount } from "./browser-account-payload";
 
@@ -23,10 +23,19 @@ export type UnlockedVault = {
   name: string;
   type: "PERSONAL" | "SHARED";
   role: "OWNER" | "VIEWER";
+  effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
   key: Uint8Array;
 };
 
 export type WorkspaceAuthenticatorAccount = DecryptedAuthenticatorAccount & {
+  id: string;
+  vaultId: string;
+  vaultName: string;
+  vaultType: "PERSONAL" | "SHARED";
+  revision: number;
+};
+
+export type UnavailableWorkspaceAuthenticatorAccount = {
   id: string;
   vaultId: string;
   vaultName: string;
@@ -42,6 +51,7 @@ export type UnlockedVaultWorkspace = {
   userRootKey: Uint8Array;
   vaults: UnlockedVault[];
   accounts: WorkspaceAuthenticatorAccount[];
+  unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[];
   unavailableSharedVaults: number;
 };
 
@@ -166,9 +176,13 @@ async function loadWorkspace(
     name: await decryptName(personalVaultKey, bundle.personalVault.encryptedName),
     type: "PERSONAL",
     role: "OWNER",
+    effectiveAccountPermissions: {
+      permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+      sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" }
+    },
     key: personalVaultKey
   };
-  const decryptedPersonalAccounts = await decryptAccounts(bundle.personalVault.accounts, personalVault);
+  const personalAccountResult = await decryptAccounts(bundle.personalVault.accounts, personalVault);
   const sharedResults = await Promise.allSettled(bundle.sharedVaults.map(async (encryptedVault) => {
     const unlocked = await unlockSharedVault(
       userRootKey,
@@ -180,10 +194,11 @@ async function loadWorkspace(
       name: unlocked.name,
       type: "SHARED",
       role: encryptedVault.role,
+      effectiveAccountPermissions: encryptedVault.effectiveAccountPermissions,
       key: unlocked.vaultKey
     };
     try {
-      return { vault, accounts: await decryptAccounts(encryptedVault.accounts, vault) };
+      return { vault, accountResult: await decryptAccounts(encryptedVault.accounts, vault) };
     } catch (error) {
       vault.key.fill(0);
       throw error;
@@ -192,9 +207,13 @@ async function loadWorkspace(
   const sharedWorkspaces = sharedResults.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
   const vaults = [personalVault, ...sharedWorkspaces.map(({ vault }) => vault)];
   const accounts = sortWorkspaceAccounts([
-    ...decryptedPersonalAccounts,
-    ...sharedWorkspaces.flatMap(({ accounts: sharedAccounts }) => sharedAccounts)
+    ...personalAccountResult.accounts,
+    ...sharedWorkspaces.flatMap(({ accountResult }) => accountResult.accounts)
   ]);
+  const unavailableAccounts = [
+    ...personalAccountResult.unavailableAccounts,
+    ...sharedWorkspaces.flatMap(({ accountResult }) => accountResult.unavailableAccounts)
+  ];
   return {
     profileId: bundle.profileId,
     synchronizedAt: bundle.synchronizedAt,
@@ -203,6 +222,7 @@ async function loadWorkspace(
     userRootKey,
     vaults,
     accounts,
+    unavailableAccounts,
     unavailableSharedVaults: sharedResults.length - sharedWorkspaces.length
   };
 }
@@ -236,24 +256,30 @@ async function decryptName(key: Uint8Array, encryptedName: string): Promise<stri
 async function decryptAccounts(
   encryptedAccounts: EncryptedOfflineVaultBundle["personalVault"]["accounts"],
   vault: UnlockedVault
-): Promise<WorkspaceAuthenticatorAccount[]> {
-  const decrypted: WorkspaceAuthenticatorAccount[] = [];
-  try {
-    for (const account of encryptedAccounts) {
-      decrypted.push({
-        id: account.id,
+): Promise<{ accounts: WorkspaceAuthenticatorAccount[]; unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[] }> {
+  const accounts: WorkspaceAuthenticatorAccount[] = [];
+  const unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[] = [];
+  for (const encryptedAccount of encryptedAccounts) {
+    try {
+      accounts.push({
+        id: encryptedAccount.id,
         vaultId: vault.id,
         vaultName: vault.name,
         vaultType: vault.type,
-        revision: account.revision,
-        ...await decryptAccountConfiguration(vault.key, base64ToBytes(account.encryptedPayload))
+        revision: encryptedAccount.revision,
+        ...await decryptAccountConfiguration(vault.key, base64ToBytes(encryptedAccount.encryptedPayload))
+      });
+    } catch {
+      unavailableAccounts.push({
+        id: encryptedAccount.id,
+        vaultId: vault.id,
+        vaultName: vault.name,
+        vaultType: vault.type,
+        revision: encryptedAccount.revision
       });
     }
-    return decrypted;
-  } catch (error) {
-    for (const account of decrypted) account.secret.fill(0);
-    throw error;
   }
+  return { accounts, unavailableAccounts };
 }
 
 function assertPersonalVault(bundle: EncryptedOfflineVaultBundle, expectedVaultId: string): void {

@@ -39,20 +39,24 @@ model ApplicationRateLimitWindow {
 }
 
 model Vault {
-  id                String                 @id @default(cuid())
-  type              String
-  lifecycle         String                 @default("ACTIVE")
-  ownerId           String                 @map("owner_id")
-  encryptedName     Bytes?                 @map("encrypted_name")
-  encryptionVersion Int                    @map("encryption_version")
-  deletedAt         DateTime?              @map("deleted_at")
-  purgeAfter        DateTime?              @map("purge_after")
-  createdAt         DateTime               @default(now()) @map("created_at")
-  updatedAt         DateTime               @updatedAt @map("updated_at")
-  owner             ApplicationUser        @relation("VaultOwner", fields: [ownerId], references: [id])
-  members           VaultMember[]
-  accounts          AuthenticatorAccount[]
-  invitations       VaultInvitation[]
+  id                        String                 @id @default(cuid())
+  type                      String
+  lifecycle                 String                 @default("ACTIVE")
+  ownerId                   String                 @map("owner_id")
+  encryptedName             Bytes?                 @map("encrypted_name")
+  encryptionVersion         Int                    @map("encryption_version")
+  membersCanAddAccounts     Boolean                @default(false) @map("members_can_add_accounts")
+  membersCanEditAccounts    Boolean                @default(false) @map("members_can_edit_accounts")
+  membersCanDeleteAccounts  Boolean                @default(false) @map("members_can_delete_accounts")
+  memberPermissionsRevision Int                    @default(1) @map("member_permissions_revision")
+  deletedAt                 DateTime?              @map("deleted_at")
+  purgeAfter                DateTime?              @map("purge_after")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
+  owner                     ApplicationUser        @relation("VaultOwner", fields: [ownerId], references: [id])
+  members                   VaultMember[]
+  accounts                  AuthenticatorAccount[]
+  invitations               VaultInvitation[]
 
   @@index([ownerId, type, lifecycle])
   @@index([type, lifecycle, purgeAfter, id])
@@ -123,17 +127,21 @@ model UserCryptoProfile {
 }
 
 model VaultMember {
-  vaultId           String          @map("vault_id")
-  userId            String          @map("user_id")
-  role              String
-  status            String          @default("ACTIVE")
-  encryptedVaultKey Bytes?          @map("encrypted_vault_key")
-  keyVersion        Int?            @map("key_version")
-  revokedAt         DateTime?       @map("revoked_at")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  vault             Vault           @relation(fields: [vaultId], references: [id])
-  user              ApplicationUser @relation(fields: [userId], references: [id])
+  vaultId                   String          @map("vault_id")
+  userId                    String          @map("user_id")
+  role                      String
+  status                    String          @default("ACTIVE")
+  encryptedVaultKey         Bytes?          @map("encrypted_vault_key")
+  keyVersion                Int?            @map("key_version")
+  canAddAccountsOverride    Boolean?        @map("can_add_accounts_override")
+  canEditAccountsOverride   Boolean?        @map("can_edit_accounts_override")
+  canDeleteAccountsOverride Boolean?        @map("can_delete_accounts_override")
+  permissionsRevision       Int             @default(1) @map("permissions_revision")
+  revokedAt                 DateTime?       @map("revoked_at")
+  createdAt                 DateTime        @default(now()) @map("created_at")
+  updatedAt                 DateTime        @updatedAt @map("updated_at")
+  vault                     Vault           @relation(fields: [vaultId], references: [id])
+  user                      ApplicationUser @relation(fields: [userId], references: [id])
 
   @@id([vaultId, userId])
   @@index([vaultId, role, status, createdAt, userId])

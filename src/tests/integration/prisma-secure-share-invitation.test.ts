@@ -51,6 +51,34 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
     await expect(repository.findForRecipient({ userId: recipient.id, email: recipient.email }, verifier)).resolves.toBeNull();
   });
 
+  it.skipIf(!process.env.DATABASE_URL)("reactivates a revoked membership with every personal permission override cleared", async () => {
+    const owner = await user("owner");
+    const recipient = await user("recipient");
+    const vault = await prisma.vault.create({
+      data: {
+        ownerId: owner.id,
+        type: "SHARED",
+        lifecycle: "ACTIVE",
+        encryptedName: bytes("name"),
+        encryptionVersion: 1,
+        members: { create: [
+          { userId: owner.id, role: "OWNER" },
+          { userId: recipient.id, role: "VIEWER", status: "REVOKED", canAddAccountsOverride: true, canEditAccountsOverride: false, canDeleteAccountsOverride: true }
+        ] }
+      }
+    });
+    vaultIds.push(vault.id);
+    const repository = new PrismaSecureShareLinkRepository();
+    const invitation = await repository.createForEmail(owner.id, vault.id, recipient.email, { linkVerifier: new Uint8Array(32).fill(8), encryptedPackage: bytes("encrypted-package") });
+
+    await repository.redeem({ userId: recipient.id, email: recipient.email }, invitation.id, bytes("wrapped-vault-key"), 1);
+
+    await expect(prisma.vaultMember.findUnique({
+      where: { vaultId_userId: { vaultId: vault.id, userId: recipient.id } },
+      select: { status: true, canAddAccountsOverride: true, canEditAccountsOverride: true, canDeleteAccountsOverride: true, permissionsRevision: true }
+    })).resolves.toEqual({ status: "ACTIVE", canAddAccountsOverride: null, canEditAccountsOverride: null, canDeleteAccountsOverride: null, permissionsRevision: 2 });
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("does not let a recycled email override an invitation already bound to another user id", async () => {
     const owner = await user("owner");
     const originalEmail = `recipient-${randomUUID()}@example.test`;

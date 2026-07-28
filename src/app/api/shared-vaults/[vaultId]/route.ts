@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ vau
   if (!access) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
   return NextResponse.json({
     vaultId: access.vaultId,
+    effectiveAccountPermissions: access.effectiveAccountPermissions,
     encryptedName: Buffer.from(access.encryptedName).toString("base64"),
     encryptionVersion: access.encryptionVersion,
     encryptedVaultKey: Buffer.from(access.encryptedVaultKey).toString("base64"),

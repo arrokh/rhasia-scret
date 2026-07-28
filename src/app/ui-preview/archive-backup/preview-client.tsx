@@ -20,6 +20,8 @@ function PreviewHarness() {
 }
 
 function createPreviewWorkspace(labels: { personal: string; team: string; viewer: string; issuer: string }): UnlockedVaultWorkspace {
+  const ownerPermissions = { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } };
+  const viewerPermissions = { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } };
   return {
     profileId: "preview-profile",
     synchronizedAt: new Date(0).toISOString(),
@@ -27,11 +29,12 @@ function createPreviewWorkspace(labels: { personal: string; team: string; viewer
     syncState: "CURRENT",
     userRootKey: Uint8Array.from({ length: 32 }, (_, index) => 100 + index),
     vaults: [
-      { id: "preview-personal-vault", name: labels.personal, type: "PERSONAL", role: "OWNER", key: Uint8Array.from({ length: 32 }, (_, index) => index + 1) },
-      { id: "preview-owned-shared-vault", name: labels.team, type: "SHARED", role: "OWNER", key: Uint8Array.from({ length: 32 }, (_, index) => 25 + index) },
-      { id: "preview-viewer-vault", name: labels.viewer, type: "SHARED", role: "VIEWER", key: Uint8Array.from({ length: 32 }, (_, index) => 50 + index) }
+      { id: "preview-personal-vault", name: labels.personal, type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: Uint8Array.from({ length: 32 }, (_, index) => index + 1) },
+      { id: "preview-owned-shared-vault", name: labels.team, type: "SHARED", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: Uint8Array.from({ length: 32 }, (_, index) => 25 + index) },
+      { id: "preview-viewer-vault", name: labels.viewer, type: "SHARED", role: "VIEWER", effectiveAccountPermissions: viewerPermissions, key: Uint8Array.from({ length: 32 }, (_, index) => 50 + index) }
     ],
     accounts: [{ id: "preview-account", vaultId: "preview-personal-vault", vaultName: labels.personal, vaultType: "PERSONAL", revision: 1, issuer: labels.issuer, accountName: "sample@local.invalid", secret: new Uint8Array([1, 2, 3, 4]), algorithm: "SHA-1", digits: 6, period: 30 }],
+    unavailableAccounts: [],
     unavailableSharedVaults: 0
   };
 }

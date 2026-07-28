@@ -14,6 +14,7 @@ describe("GET /api/shared-vaults contract", () => {
     const listForMember = vi.fn().mockResolvedValue([{
       vaultId: "vault-1",
       role: "OWNER",
+      effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } },
       encryptedName: Uint8Array.from([1, 2, 3]),
       encryptionVersion: 1,
       encryptedVaultKey: Uint8Array.from([4, 5, 6]),
@@ -32,6 +33,7 @@ describe("GET /api/shared-vaults contract", () => {
     await expect(response.json()).resolves.toEqual([{
       vaultId: "vault-1",
       role: "OWNER",
+      effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } },
       encryptedName: "AQID",
       encryptionVersion: 1,
       encryptedVaultKey: "BAUG",

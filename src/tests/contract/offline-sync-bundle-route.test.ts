@@ -6,15 +6,15 @@ import type { EncryptedOfflineVaultBundle } from "@/modules/sync";
 
 const ciphertext = Buffer.alloc(32, 7).toString("base64");
 const bundle: EncryptedOfflineVaultBundle = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   profileId: "user_1",
   synchronizedAt: "2026-01-01T00:00:00.000Z",
   synchronizationToken: "sync_1",
   cryptoProfile: { vaultUnlockSalt: Buffer.alloc(16, 1).toString("base64"), wrappedUserRootKey: ciphertext, encryptedPersonalVaultKey: ciphertext, encryptionVersion: 1 },
   personalVault: { vaultId: "personal_1", lifecycle: "ACTIVE", encryptedName: ciphertext, encryptionVersion: 1, accounts: [{ id: "account_1", encryptedPayload: ciphertext, encryptionVersion: 1, revision: 1 }] },
   sharedVaults: [
-    { vaultId: "owner_vault", lifecycle: "ACTIVE", role: "OWNER", encryptedName: ciphertext, encryptionVersion: 1, encryptedVaultKey: ciphertext, keyVersion: 1, accounts: [] },
-    { vaultId: "viewer_vault", lifecycle: "ACTIVE", role: "VIEWER", encryptedName: ciphertext, encryptionVersion: 1, encryptedVaultKey: ciphertext, keyVersion: 2, accounts: [] }
+    { vaultId: "owner_vault", lifecycle: "ACTIVE", role: "OWNER", effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } }, encryptedName: ciphertext, encryptionVersion: 1, encryptedVaultKey: ciphertext, keyVersion: 1, accounts: [] },
+    { vaultId: "viewer_vault", lifecycle: "ACTIVE", role: "VIEWER", effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" } }, encryptedName: ciphertext, encryptionVersion: 1, encryptedVaultKey: ciphertext, keyVersion: 2, accounts: [] }
   ]
 };
 

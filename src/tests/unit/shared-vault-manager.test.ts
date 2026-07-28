@@ -46,13 +46,61 @@ describe("dedicated Vault management", () => {
   });
 
   it("hides the tab navigation when a Viewer can only see Detail", async () => {
-    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const };
+    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } } };
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
 
     expect(container.querySelector('[role="tablist"]')).toBeNull();
     expect(container.querySelector('[role="tab"]')).toBeNull();
     expect(container.textContent).toContain("Akun autentikator");
+  });
+
+  it("shows only the independently authorized account controls for a Viewer", async () => {
+    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "MEMBER" as const } } };
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    expect(container.querySelector<HTMLAnchorElement>('a[href*="vaultId=shared-1"]')).not.toBeNull();
+    expect([...container.querySelectorAll("button")].some((button) => button.getAttribute("aria-label")?.startsWith("Hapus Example"))).toBe(false);
+    expect(container.textContent).toContain("Dapat menambah");
+  });
+
+  it("edits Vault defaults and exposes independent member fallback controls", async () => {
+    const participant = {
+      key: "member:viewer-1",
+      email: "viewer@example.test",
+      kind: "MEMBER",
+      userId: "viewer-1",
+      invitationId: null,
+      invitedAt: "2026-07-26T12:00:00.000Z",
+      permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false },
+      effectiveAccountPermissions: {
+        permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false },
+        sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" }
+      },
+      permissionsRevision: 2
+    };
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PATCH") return { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 2 }) };
+      if (url.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants: [participant], nextCursor: null }) };
+      return { ok: true, json: async () => ({ events: [], nextCursor: null }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+
+    await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
+    await act(async () => container.querySelector<HTMLButtonElement>("#vault-default-canAddAccounts")?.click());
+    await act(async () => findButton(container, "Simpan bawaan anggota").click());
+    await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/member-permissions") && init?.method === "PATCH" && String(init.body).includes('"canAddAccounts":true'))).toBe(true));
+
+    await act(async () => clickTab(container, "Undangan"));
+    await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
+    await act(async () => findButton(container, "Atur izin akun untuk viewer@example.test").click());
+    expect(document.body.textContent).toContain("Izin akun anggota");
+    expect(document.body.querySelectorAll('[role="combobox"]')).toHaveLength(3);
+    expect(document.body.textContent).toContain("Gunakan bawaan Brankas");
+    expect(document.body.textContent).toContain("penggantian anggota");
   });
 
   it("creates a complete client-only invitation URL from the Undangan tab", async () => {
@@ -202,7 +250,7 @@ describe("dedicated Vault management", () => {
   });
 });
 
-function vaults() { return [{ id: "shared-1", name: "Tim Operasional", role: "OWNER" as const, key: new Uint8Array(32), accounts: [{ id: "account-1", issuer: "Example", accountName: "person@example.test", revision: 2 }, { id: "account-2", issuer: "Other", accountName: "other@example.test", revision: 1 }] }]; }
+function vaults() { return [{ id: "shared-1", name: "Tim Operasional", role: "OWNER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } }, key: new Uint8Array(32), accounts: [{ id: "account-1", issuer: "Example", accountName: "person@example.test", revision: 2 }, { id: "account-2", issuer: "Other", accountName: "other@example.test", revision: 1 }] }]; }
 function mount() { const container = document.createElement("div"); document.body.append(container); return container; }
 function setInputValue(input: HTMLInputElement | null, value: string) { if (!input) throw new Error("Expected input."); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }
 function clickTab(container: ParentNode, name: string) { const tab = findButton(container, name); tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 })); tab.click(); }

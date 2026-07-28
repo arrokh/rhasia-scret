@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { prisma } from "@/shared/infrastructure/prisma-client";
+import { effectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
 import type { OfflineSyncBundleReader } from "../application/offline-sync-bundle-reader";
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
 
@@ -23,7 +24,7 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
 
       const synchronizedAt = new Date().toISOString();
       return parseEncryptedOfflineVaultBundle({
-        schemaVersion: 1,
+        schemaVersion: 2,
         profileId: userId,
         synchronizedAt,
         synchronizationToken: synchronizedAt,
@@ -48,6 +49,19 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
             vaultId: vault.id,
             lifecycle: "ACTIVE" as const,
             role: membership.role,
+            effectiveAccountPermissions: effectiveSharedVaultAccountPermissions(
+              membership.role,
+              {
+                canAddAccounts: vault.membersCanAddAccounts,
+                canEditAccounts: vault.membersCanEditAccounts,
+                canDeleteAccounts: vault.membersCanDeleteAccounts
+              },
+              {
+                canAddAccounts: membership.canAddAccountsOverride,
+                canEditAccounts: membership.canEditAccountsOverride,
+                canDeleteAccounts: membership.canDeleteAccountsOverride
+              }
+            ),
             encryptedName: base64(vault.encryptedName),
             encryptionVersion: vault.encryptionVersion,
             encryptedVaultKey: base64(membership.encryptedVaultKey),

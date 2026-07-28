@@ -44,14 +44,20 @@ describe("BrowserOfflineVaultRepository", () => {
       { profileId: "profile_b", personalVaultId: "personal_profile_b", synchronizedAt: "2026-01-02T00:00:00.000Z", sharedVaultCount: 1 },
       { profileId: "profile_a", personalVaultId: "personal_profile_a", synchronizedAt: "2026-01-01T00:00:00.000Z", sharedVaultCount: 1 }
     ]);
-    expect((await repository.read("profile_a"))?.personalVault.accounts).toHaveLength(1);
+    const restored = await repository.read("profile_a");
+    expect(restored?.personalVault.accounts).toHaveLength(1);
+    expect(restored?.schemaVersion).toBe(2);
+    expect(restored?.sharedVaults[0]?.effectiveAccountPermissions).toEqual({
+      permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+      sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" }
+    });
   });
 
   it("rejects malformed, plaintext-shaped, unknown-version, incomplete, and regressing records while preserving the last valid bundle", async () => {
     const current = bundle("profile_a", "2026-01-02T00:00:00.000Z");
     await repository.replace(current);
 
-    expect(() => parseEncryptedOfflineVaultBundle({ ...current, schemaVersion: 2 })).toThrow(/unsupported schema/);
+    expect(() => parseEncryptedOfflineVaultBundle({ ...current, schemaVersion: 3 })).toThrow(/unsupported schema/);
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: "plaintext secret" } })).toThrow(/base64/);
     const unknownEnvelope = Buffer.from([2, ...Array<number>(31).fill(7)]).toString("base64");
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: unknownEnvelope } })).toThrow(/envelope version/);

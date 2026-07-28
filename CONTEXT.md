@@ -103,12 +103,24 @@ _Avoid_: Retroactive deletion, secret invalidation
 The non-sensitive record of a Vault’s security-relevant activity. It is visible only to that Vault’s owner and remains independently addressable by opaque Vault and owner identifiers after encrypted Vault content is purged. It is retained for one calendar year after Vault deletion, unless restoration clears that deadline; a later deletion starts a new retention period. It may identify the acting member by account email and an Authenticator Account only by its opaque identifier; it never stores account names, issuers, TOTP configuration, generated OTPs, or decrypted Vault content. Opening or copying a Shared Vault Authenticator Account records an Account Access event.
 _Avoid_: Public activity feed, secret log, plaintext account activity
 
+**Vault-wide Member Permissions**:
+The Shared Vault owner’s server-visible default authorization for member creation, editing, and deletion of Authenticator Accounts. Each capability defaults to denied and applies only when that member has no corresponding Member Permission Override.
+_Avoid_: Editor role, client-only permission
+
+**Member Permission Override**:
+An optional server-visible allow or deny for one member and one Shared Vault account capability. Add, edit, and delete overrides fall back independently: an unset value inherits the corresponding Vault-wide Member Permission, while explicit allow or deny takes precedence.
+_Avoid_: Role, all-or-nothing permission profile
+
+**Effective Shared Vault Account Permissions**:
+The add, edit, and delete authorization resolved for the current member. A Vault Owner always has all three capabilities; each Vault Viewer capability resolves from its Member Permission Override when set and otherwise from the Vault-wide Member Permission.
+_Avoid_: UI visibility, cached authorization decision
+
 **Vault Owner**:
-The sole member responsible for a Shared Vault’s membership and authenticator-account changes. The owner is also entitled to read its accounts.
+The sole member responsible for a Shared Vault’s membership, permissions, Vault lifecycle, recovery, and key administration. The owner is entitled to read its accounts and always has authority to add, edit, soft-delete, and restore them regardless of member defaults or overrides.
 _Avoid_: Admin, editor
 
 **Vault Viewer**:
-A Shared Vault member who may read accounts and generate or copy OTPs but may not change accounts or membership. A Viewer may revoke their own membership by leaving the Vault and cannot see other members, invitations, or Secure Share Links.
+A non-owner Shared Vault member who may read accounts and generate or copy OTPs. A Viewer may add, replace the complete encrypted payload of, or soft-delete Authenticator Accounts only when the corresponding Effective Shared Vault Account Permission allows it. A Viewer may leave the Vault but cannot restore accounts, manage the Vault or membership, see other members/invitations/Secure Share Links, or view Vault Audit History.
 _Avoid_: Editor, collaborator
 
 **Deleted Vault**:
@@ -116,7 +128,7 @@ A Vault hidden from all users and denied all application access during its 30-da
 _Avoid_: Active vault, permanent archive
 
 **Authenticator Account**:
-A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable by its owner before that deadline, and is then permanently purged by bounded server cleanup.
+A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A Shared Vault member may create, replace, or soft-delete it only through the corresponding Effective Shared Vault Account Permission. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable only by its owner before that deadline, and is then permanently purged by bounded server cleanup.
 _Avoid_: Token, credential
 
 **Account Revision**:

@@ -17,6 +17,8 @@ export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
   "POST /api/shared-vaults/[vaultId]/leave": "membership_mutation",
   "DELETE /api/shared-vaults/[vaultId]/lifecycle": "destructive_mutation",
   "POST /api/shared-vaults/[vaultId]/lifecycle": "destructive_mutation",
+  "PATCH /api/shared-vaults/[vaultId]/member-permissions": "membership_mutation",
+  "PATCH /api/shared-vaults/[vaultId]/members/[userId]": "membership_mutation",
   "DELETE /api/shared-vaults/[vaultId]/members/[userId]": "membership_mutation",
   "PATCH /api/shared-vaults/[vaultId]/rotation": "key_material_mutation",
   "PATCH /api/shared-vaults/[vaultId]": "vault_mutation",

@@ -17,7 +17,7 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 - A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. The vault stays unlocked until explicit lock or logout; there is no automatic timeout. Browsers without Local Verification require the Vault Unlock Secret.
 - AES-256-GCM encrypts payloads. P-256 ECDH, HKDF-SHA-256, and AES-256-GCM create versioned Key-Wrap Envelopes.
 - Vault names, account issuer/name, and normalized TOTP configuration are encrypted vault content. Before unlock, the UI uses generic locked labels.
-- A Shared Vault has exactly one Owner and zero or more Viewers. Owners manage accounts and membership; Viewers only use accounts, may leave, and cannot list members or audit history.
+- A Shared Vault has exactly one Owner and zero or more Viewers. Owners always manage accounts, membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
 - Owners may invite an exact pre-registered user before that user has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs in, completes enrollment, redeems the link, and receives access without the owner returning. Secure Share Link expiry/cancel/reissue is deferred.
 - Membership revocation immediately denies future online access and removes the local snapshot on next successful contact. It cannot erase copied secrets or offline caches; owners must reset the original service's 2FA for full credential revocation.
 - Shared Vaults and accounts soft-delete for 30 days and only owners may restore them. Personal Vaults cannot be deleted. Vault audit history is owner-only, opaque-ID-only, and retained one year after vault deletion.
@@ -69,7 +69,7 @@ API contracts validate schemas with Zod. They never accept or return plaintext s
 
 Use [`ui-reference/rhasia-mobile/README.md`](ui-reference/rhasia-mobile/README.md) and its 15 numbered screen slices as the visual reference for the mobile experience. Every screen inherits the canonical [`ui-reference/rhasia-mobile/design-system.md`](ui-reference/rhasia-mobile/design-system.md) contract for tokens, layout, components, states, and accessibility. The reference maps each screen to the delivery slices and captures reusable OTP, countdown, Vault-card, role-badge, synchronization-status, and icon specimens.
 
-It is non-authoritative for behavior and terminology. In particular, do not reproduce its pictured PIN/auto-lock controls or “Can edit” role: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, and the Owner/Viewer role model defined above and in the ADRs. QR/raw URI handling, audit redaction, and offline write blocking remain security constraints even where the reference is silent.
+It is non-authoritative for behavior and terminology. In particular, do not reproduce its pictured PIN/auto-lock controls or “Can edit” role: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, and the Owner/Viewer role plus granular account-capability model defined above and in the ADRs. QR/raw URI handling, audit redaction, and offline write blocking remain security constraints even where the reference is silent.
 
 ## Slice 0 — architecture skeleton and quality gates
 
@@ -118,7 +118,7 @@ Camera scanning, image upload fallback, and manual URI input remain client-side.
 
 ## Slice 7 — Shared Vault creation
 
-Create a named encrypted Shared Vault and owner membership atomically. The owner is the only member-manager and only mutator in the MVP.
+Create a named encrypted Shared Vault and owner membership atomically. The owner is the only member-manager and always has every mutation capability. Vault-wide member account permissions start denied.
 
 ## Slice 8 — user encryption identity
 
@@ -132,9 +132,9 @@ Owners create recipient-bound one-time Secure Share Links for exact pre-register
 
 A Viewer unwraps only their Key-Wrap Envelope, decrypts vault name/accounts locally, and copies OTPs. Server responses exclude other members' envelopes and all plaintext. A locked state exposes only generic vault labels.
 
-## Slice 11 — owner account mutations in Shared Vaults
+## Slice 11 — authorized account mutations in Shared Vaults
 
-Owners add encrypted accounts. Viewers receive only ciphertext and independently generate OTPs. Optimistic Account Revision rejects stale writes; owners may reload or save stale content as a new account.
+Owners always add encrypted accounts. Viewers may add accounts only when their effective add permission allows it; that permission resolves from a nullable member override or the Vault-wide default. Viewers receive only ciphertext and independently generate OTPs. Optimistic Account Revision rejects stale writes; authorized writers may reload or save stale content as a new account.
 
 ## Slice 12 — revocation and leaving
 
@@ -142,7 +142,7 @@ Owners revoke viewers; viewers may leave. Future online fetches fail immediately
 
 ## Slice 13 — edits, deletion, and recovery
 
-Owners update/delete/restore accounts with revisions. Shared Vault deletion is owner-only and soft-deletes for 30 days; owners restore during that window. Personal Vault deletion is forbidden.
+Owners always update/delete/restore accounts with revisions. Viewers may replace the complete encrypted account payload or soft-delete an account only when the matching effective permission allows it. Account restoration and Shared Vault deletion/restoration remain owner-only; both deletion lifecycles retain their 30-day recovery windows. Personal Vault deletion is forbidden.
 
 ## Slice 14 — encrypted offline PWA
 
@@ -156,7 +156,7 @@ Write redacted events for vault creation, invitation/link lifecycle, membership 
 
 Threat-model and implement recovery, device lifecycle, normal vault-key rotation, user-key rotation, export/import, and passkey-assisted recovery. Before this slice, suspected compromise requires a new vault, original-service 2FA reset/re-add, member re-grants, and deletion of the old vault.
 
-[Encrypted Vault Archive V1 backup/import](encrypted-vault-backup.md) is delivered as a client-cryptographic vertical slice: owners export a browser-created archive with a separate random key, import validates and previews locally before an atomic write, and successful exports/imports create redacted owner-only Vault Audit events for Personal and Shared Vaults. Archive bytes, archive keys, Vault Names, account counts, and TOTP content never enter export-audit requests, logs, or TanStack Query. Import requests contain only permitted opaque identifiers, versions, and re-encrypted account ciphertext; the server can observe the imported record count but cannot read archive or TOTP content.
+[Encrypted Vault Archive V1 backup/import](encrypted-vault-backup.md) is delivered as a client-cryptographic vertical slice: owners export a browser-created archive with a separate random key; import into an existing Shared Vault is available to a Viewer with effective add permission, while Personal Vault and new Shared Vault ownership rules remain unchanged; import validates and previews locally before an atomic write; and successful exports/imports create redacted owner-only Vault Audit events for Personal and Shared Vaults. Archive bytes, archive keys, Vault Names, account counts, and TOTP content never enter export-audit requests, logs, or TanStack Query. Import requests contain only permitted opaque identifiers, versions, and re-encrypted account ciphertext; the server can observe the imported record count but cannot read archive or TOTP content.
 
 ## Delivery order
 

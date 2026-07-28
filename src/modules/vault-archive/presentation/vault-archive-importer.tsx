@@ -75,7 +75,7 @@ export function VaultArchiveImporter({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const planRef = useRef<ImportPlan | null>(null);
 
-  const writableVaults = workspace.vaults.filter((vault) => vault.type === "PERSONAL" || vault.role === "OWNER");
+  const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
   const initialDestination = writableVaults[0]?.id ?? NEW_SHARED_DESTINATION;
   const previewForm = useForm({
     defaultValues: { archive: null as File | null, keyMaterial: "" },
@@ -187,6 +187,14 @@ export function VaultArchiveImporter({
       router.refresh();
     } catch (error) {
       if (!activeRef.current) return;
+      if (error instanceof VaultImportClientError && error.code === "clientDestinationUnavailable") {
+        try {
+          const refreshed = await refreshAfterImport(workspace);
+          replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
+        } catch {
+          // Preserve the current unlocked workspace when authorization refresh also fails.
+        }
+      }
       if (uploaded) {
         replaceOpened(null);
         setErrorCode("refreshError");

@@ -124,6 +124,26 @@ describe("Vault workspace loading", () => {
     expect(mocks.unlockPersonalVaultWithUserRootKey).not.toHaveBeenCalled();
   });
 
+  it("isolates one malformed account without making its Shared Vault unavailable", async () => {
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(bundle({ sharedVaults: [{ ...sharedVault(), accounts: [
+      { id: "shared-valid", encryptedPayload: "CA==", encryptionVersion: 1 as const, revision: 1 },
+      { id: "shared-invalid", encryptedPayload: "CQ==", encryptionVersion: 1 as const, revision: 4 }
+    ] }] }));
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
+    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Tim" });
+    mocks.decryptAccountConfiguration
+      .mockResolvedValueOnce(account("Personal", "owner"))
+      .mockResolvedValueOnce(account("Shared", "valid"))
+      .mockRejectedValueOnce(new Error("invalid authenticated payload"));
+
+    const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
+
+    expect(workspace.vaults.map((vault) => vault.id)).toContain("shared-1");
+    expect(workspace.accounts.map(({ id }) => id)).toContain("shared-valid");
+    expect(workspace.unavailableAccounts).toEqual([{ id: "shared-invalid", vaultId: "shared-1", vaultName: "Tim", vaultType: "SHARED", revision: 4 }]);
+    expect(workspace.unavailableSharedVaults).toBe(0);
+  });
+
   it("keeps valid accounts available when one Shared Vault cannot be decrypted and clears all key material on lock", async () => {
     mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(bundle({ sharedVaults: [sharedVault("shared-good"), sharedVault("shared-bad")] }));
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
@@ -147,12 +167,12 @@ function account(issuer: string, accountName: string, secret = Uint8Array.of(9))
 }
 
 function sharedVault(vaultId = "shared-1") {
-  return { vaultId, lifecycle: "ACTIVE" as const, role: "VIEWER" as const, encryptedName: "Bg==", encryptionVersion: 1 as const, encryptedVaultKey: "Bw==", keyVersion: 1, accounts: [] };
+  return { vaultId, lifecycle: "ACTIVE" as const, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } }, encryptedName: "Bg==", encryptionVersion: 1 as const, encryptedVaultKey: "Bw==", keyVersion: 1, accounts: [] };
 }
 
 function bundle(overrides: Record<string, unknown> = {}) {
   return {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     profileId: "profile-1",
     synchronizedAt: "2026-01-01T00:00:00.000Z",
     synchronizationToken: "sync-1",

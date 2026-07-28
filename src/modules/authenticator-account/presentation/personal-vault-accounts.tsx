@@ -20,7 +20,7 @@ import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
   const locale = useLocale();
-  const { workspace, setWorkspace, lockWorkspace } = useUnlockedVaultWorkspace();
+  const { workspace, setWorkspace, lockWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const [auditError, setAuditError] = useState(false);
 
@@ -52,14 +52,15 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         <ul className="grid list-none gap-3 p-0">
           {workspace.accounts.map((account) => {
             const accountVault = workspace.vaults.find((vault) => vault.id === account.vaultId);
-            const writable = current && (accountVault?.type === "PERSONAL" || accountVault?.role === "OWNER");
-            return <li key={`${account.vaultId}:${account.id}`}><TotpAccountButton configuration={account} vaultName={account.vaultName} onManage={writable ? () => setManagedAccount(account) : undefined} onAccess={current && accountVault?.type === "SHARED" ? async () => { try { await recordSharedVaultAccountAccess(account.vaultId, account.id); setAuditError(false); } catch { setAuditError(true); } } : undefined} /></li>;
+            const canEdit = current && accountVault?.effectiveAccountPermissions.permissions.canEditAccounts === true;
+            const canDelete = current && accountVault?.effectiveAccountPermissions.permissions.canDeleteAccounts === true;
+            return <li key={`${account.vaultId}:${account.id}`}><TotpAccountButton configuration={account} vaultName={account.vaultName} onManage={canEdit || canDelete ? () => setManagedAccount(account) : undefined} onAccess={current && accountVault?.type === "SHARED" ? async () => { try { await recordSharedVaultAccountAccess(account.vaultId, account.id); setAuditError(false); } catch { setAuditError(true); } } : undefined} /></li>;
           })}
         </ul>
       ) : (
         <div className="grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center"><KeyRound className="size-7 text-taupe" aria-hidden="true" /><p className="font-bold text-foreground">{t("empty")}</p><p className="text-sm text-muted-foreground">{current ? t("emptyCurrent") : t("emptySnapshot")}</p>{current && <Button asChild className="mt-2"><Link href="/vaults/accounts/new"><Plus />{t("addAccount")}</Link></Button>}</div>
       )}
-      {managedAccount && (() => { const managedVault = workspace.vaults.find((vault) => vault.id === managedAccount.vaultId); if (!managedVault) return null; return <AuthenticatorAccountManagerDialog account={managedAccount} vaultKey={managedVault.key} onUpdated={(updated) => { setManagedAccount(updated); setWorkspace((current) => current ? { ...current, accounts: current.accounts.map((account) => account.id === updated.id && account.vaultId === updated.vaultId ? updated : account) } : current); }} onDeleted={(deleted) => setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== deleted.id || account.vaultId !== deleted.vaultId) } : current)} onClose={() => setManagedAccount(null)} />; })()}
+      {managedAccount && (() => { const managedVault = workspace.vaults.find((vault) => vault.id === managedAccount.vaultId); if (!managedVault) return null; return <AuthenticatorAccountManagerDialog account={managedAccount} vaultKey={managedVault.key} canEdit={managedVault.effectiveAccountPermissions.permissions.canEditAccounts} canDelete={managedVault.effectiveAccountPermissions.permissions.canDeleteAccounts} onPermissionChanged={refreshWorkspaceAuthorization} onUpdated={(updated) => { setManagedAccount(updated); setWorkspace((current) => current ? { ...current, accounts: current.accounts.map((account) => account.id === updated.id && account.vaultId === updated.vaultId ? updated : account) } : current); }} onDeleted={(deleted) => setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== deleted.id || account.vaultId !== deleted.vaultId) } : current)} onClose={() => setManagedAccount(null)} />; })()}
     </section>
   );
 }

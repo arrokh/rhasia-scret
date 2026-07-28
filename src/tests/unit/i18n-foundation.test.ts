@@ -106,7 +106,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
   const values = {
     account: "account", count: 2, date: "date", email: "user@example.test", id: "opaque-id", issuer: "issuer", label: "label",
     language: "language", name: "name", newVault: "no", number: 2, role: "role", seconds: 2, state: "state", vault: "vault",
-    token: (chunks: ReactNode) => chunks
+    source: "source", value: "value", token: (chunks: ReactNode) => chunks
   };
   for (const { key } of catalogEntries(messages)) translator.rich(key as never, values as never);
   return errors;

@@ -1,5 +1,6 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import type { SharedVaultAccess, SharedVaultAccessRepository } from "../application/shared-vault-access-repository";
+import { effectiveSharedVaultAccountPermissions } from "../domain/shared-vault-account-permissions";
 
 export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepository {
   public async listForMember(userId: string): Promise<SharedVaultAccess[]> {
@@ -23,6 +24,19 @@ export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepos
       return [{
         vaultId: membership.vaultId,
         role: membership.role,
+        effectiveAccountPermissions: effectiveSharedVaultAccountPermissions(
+          membership.role,
+          {
+            canAddAccounts: membership.vault.membersCanAddAccounts,
+            canEditAccounts: membership.vault.membersCanEditAccounts,
+            canDeleteAccounts: membership.vault.membersCanDeleteAccounts
+          },
+          {
+            canAddAccounts: membership.canAddAccountsOverride,
+            canEditAccounts: membership.canEditAccountsOverride,
+            canDeleteAccounts: membership.canDeleteAccountsOverride
+          }
+        ),
         encryptedName: copyBytes(membership.vault.encryptedName),
         encryptionVersion: membership.vault.encryptionVersion,
         encryptedVaultKey: copyBytes(membership.encryptedVaultKey),
@@ -51,6 +65,19 @@ export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepos
     return {
       vaultId: membership.vaultId,
       role: membership.role,
+      effectiveAccountPermissions: effectiveSharedVaultAccountPermissions(
+        membership.role,
+        {
+          canAddAccounts: membership.vault.membersCanAddAccounts,
+          canEditAccounts: membership.vault.membersCanEditAccounts,
+          canDeleteAccounts: membership.vault.membersCanDeleteAccounts
+        },
+        {
+          canAddAccounts: membership.canAddAccountsOverride,
+          canEditAccounts: membership.canEditAccountsOverride,
+          canDeleteAccounts: membership.canDeleteAccountsOverride
+        }
+      ),
       encryptedName: copyBytes(membership.vault.encryptedName),
       encryptionVersion: membership.vault.encryptionVersion,
       encryptedVaultKey: copyBytes(membership.encryptedVaultKey),

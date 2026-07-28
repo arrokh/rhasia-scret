@@ -1,4 +1,9 @@
 import type { CursorPage, CursorPageRequest } from "@/shared/application/cursor-page";
+import type {
+  EffectiveSharedVaultAccountPermissions,
+  SharedVaultAccountPermissionOverrides,
+  SharedVaultAccountPermissions
+} from "../domain/shared-vault-account-permissions";
 
 export type VaultParticipant = {
   key: string;
@@ -7,10 +12,15 @@ export type VaultParticipant = {
   userId: string | null;
   invitationId: string | null;
   invitedAt: Date;
+  permissionOverrides: SharedVaultAccountPermissionOverrides | null;
+  effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions | null;
+  permissionsRevision: number | null;
 };
 
 export type VaultParticipantPage = CursorPage<VaultParticipant> & {
   owner: { id: string; email: string };
+  vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
+  vaultDefaultAccountPermissionsRevision: number;
 };
 
 export type VaultParticipantCursorKey = { kind: "MEMBER" | "INVITATION"; id: string };

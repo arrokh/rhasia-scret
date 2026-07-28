@@ -16,7 +16,7 @@ The source establishes a clean, mobile-first security utility aesthetic: white/v
 - **Icon set:** locked/secure, members, QR, camera, settings, edit, cloud/offline, delete, and share actions need accessible labels.
 
 ## Implementation expectations
-Build these as reusable presentation components with semantic labels, keyboard support, visible focus, sufficient contrast, and loading/empty/error variants. Components may display decrypted content only after client unlock. The visual system does not override the product's security model: no PIN UI, no auto-lock timer, no server-visible plaintext, and no Viewer mutation affordances.
+Build these as reusable presentation components with semantic labels, keyboard support, visible focus, sufficient contrast, and loading/empty/error variants. Components may display decrypted content only after client unlock. The visual system does not override the product's security model: no PIN UI, no auto-lock timer, no server-visible plaintext, and Viewer mutation affordances only for server-authorized effective account capabilities.
 
 ## Composition flow
 Use the OTP card and Vault card as the primary browsing units → drill into context-specific screens → present a single clear primary action → feed status back through the defined color/icon system and explicit text.

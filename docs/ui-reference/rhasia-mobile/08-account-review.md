@@ -11,7 +11,7 @@ A centered heading and reminder establish a confirmation step. The detected issu
 Use a restrained review form: centered identity mark, label/value pairs, rounded destination selector, amber informational callout, and deep-indigo primary button. Components: review header, issuer icon, parsed field list, Vault picker, contextual authorization notice, confirm button.
 
 ## Expected behaviour
-Show only locally parsed and normalized data. Permit an owner to choose an authorized Vault; a Viewer cannot add to a Shared Vault. Before final save, compare decrypted configurations locally and present the required duplicate warning choices. Encrypt before sending; the API receives ciphertext and permitted metadata only.
+Show only locally parsed and normalized data. Permit the user to choose a Vault whose effective add permission allows account creation; a Viewer without effective add permission cannot select that Shared Vault. Before final save, compare decrypted configurations locally and present the required duplicate warning choices. Encrypt before sending; the API receives ciphertext and permitted metadata only.
 
 ## Flow
 Import/manual parse → normalize/validate → review fields and target Vault → local duplicate check → confirm → encrypt and persist → return to account list.

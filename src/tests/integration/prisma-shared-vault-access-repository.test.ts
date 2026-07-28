@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe("PrismaSharedVaultAccessRepository", () => {
-  it.skipIf(!process.env.DATABASE_URL)("lists active encrypted Shared Vault material and accounts for a member", async () => {
+  it.skipIf(!process.env.DATABASE_URL)("lists active encrypted Shared Vault material, accounts, and effective permissions for a member", async () => {
     const user = await prisma.applicationUser.create({
       data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` }
     });
@@ -42,6 +42,10 @@ describe("PrismaSharedVaultAccessRepository", () => {
       role: "OWNER",
       encryptedName: Uint8Array.from([1, 2, 3]),
       encryptedVaultKey: Uint8Array.from([4, 5, 6]),
+      effectiveAccountPermissions: {
+        permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+        sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" }
+      },
       accounts: [expect.objectContaining({ encryptedPayload: Uint8Array.from([7, 8, 9]) })]
     })]);
   });

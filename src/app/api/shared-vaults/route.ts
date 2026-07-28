@@ -51,6 +51,7 @@ export function createListSharedVaultsHandler({
     return NextResponse.json(vaults.map((vault) => ({
       vaultId: vault.vaultId,
       role: vault.role,
+      effectiveAccountPermissions: vault.effectiveAccountPermissions,
       encryptedName: Buffer.from(vault.encryptedName).toString("base64"),
       encryptionVersion: vault.encryptionVersion,
       encryptedVaultKey: Buffer.from(vault.encryptedVaultKey).toString("base64"),

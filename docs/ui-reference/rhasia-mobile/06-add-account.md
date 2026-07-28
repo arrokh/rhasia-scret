@@ -14,4 +14,4 @@ This is a choice-sheet pattern on a white surface: bold heading, spacious card g
 All import paths remain client-only. Scanned/image/manual input is parsed as a supported `otpauth://totp` configuration, then previewed before save. Reject HOTP, proprietary formats, invalid algorithms/digits/periods, and malformed inputs. Never upload raw QR pixels, URI, secret, or OTP to the server.
 
 ## Flow
-Owner or Personal Vault user chooses add → select scan/upload/manual → local parse and normalize → review → duplicate warning if applicable → client encrypts → save ciphertext with revision.
+User with effective add permission chooses add → select scan/upload/manual → local parse and normalize → review → duplicate warning if applicable → client encrypts → save ciphertext with revision.

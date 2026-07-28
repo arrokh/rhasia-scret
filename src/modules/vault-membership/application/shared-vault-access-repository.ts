@@ -1,6 +1,9 @@
+import type { EffectiveSharedVaultAccountPermissions } from "../domain/shared-vault-account-permissions";
+
 export type SharedVaultAccess = {
   vaultId: string;
   role: "OWNER" | "VIEWER";
+  effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
   encryptedName: Uint8Array;
   encryptionVersion: number;
   encryptedVaultKey: Uint8Array;

@@ -10,6 +10,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({ recordVaultArchiveExport: vi.fn() }));
 vi.mock("@/modules/vault-management", async (importOriginal) => ({ ...await importOriginal<typeof import("@/modules/vault-management")>(), recordVaultArchiveExport: mocks.recordVaultArchiveExport }));
 
+const ownerPermissions = { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } };
+const viewerPermissions = { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } };
 const workspace = {
   profileId: "profile-1",
   synchronizedAt: "2026-07-27T12:00:00.000Z",
@@ -17,10 +19,11 @@ const workspace = {
   syncState: "CURRENT" as const,
   userRootKey: new Uint8Array(32),
   vaults: [
-    { id: "personal-1", name: "Personal", type: "PERSONAL" as const, role: "OWNER" as const, key: new Uint8Array(32) },
-    { id: "shared-viewer", name: "Viewer Vault", type: "SHARED" as const, role: "VIEWER" as const, key: new Uint8Array(32) }
+    { id: "personal-1", name: "Personal", type: "PERSONAL" as const, role: "OWNER" as const, effectiveAccountPermissions: ownerPermissions, key: new Uint8Array(32) },
+    { id: "shared-viewer", name: "Viewer Vault", type: "SHARED" as const, role: "VIEWER" as const, effectiveAccountPermissions: viewerPermissions, key: new Uint8Array(32) }
   ],
   accounts: [{ id: "account-1", vaultId: "personal-1", vaultName: "Personal", vaultType: "PERSONAL" as const, revision: 1, issuer: "Example", accountName: "alice@example.test", secret: new Uint8Array([1, 2, 3]), algorithm: "SHA-1" as const, digits: 6 as const, period: 30 }],
+  unavailableAccounts: [],
   unavailableSharedVaults: 0
 };
 

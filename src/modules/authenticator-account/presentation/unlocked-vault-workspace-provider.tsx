@@ -10,6 +10,7 @@ type UnlockedVaultWorkspaceSession = {
   workspace: UnlockedVaultWorkspace | null;
   setWorkspace: Dispatch<SetStateAction<UnlockedVaultWorkspace | null>>;
   lockWorkspace: () => void;
+  refreshWorkspaceAuthorization: () => Promise<void>;
 };
 
 const WorkspaceContext = createContext<UnlockedVaultWorkspaceSession | null>(null);
@@ -43,6 +44,20 @@ export function UnlockedVaultWorkspaceProvider({
   }, []);
 
   const lockWorkspace = useCallback(() => setWorkspace(null), [setWorkspace]);
+  const refreshWorkspaceAuthorization = useCallback(async () => {
+    const current = workspaceRef.current;
+    if (!current) return;
+    const key = current.userRootKey.slice();
+    try {
+      const refreshed = await refreshUnlockedVaultWorkspace(key, current.profileId);
+      setWorkspaceState((value) => {
+        if (value) clearUnlockedVaultWorkspace(value);
+        return refreshed;
+      });
+    } finally {
+      key.fill(0);
+    }
+  }, []);
   useEffect(() => subscribeToLocalVaultLock(lockWorkspace), [lockWorkspace]);
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
@@ -105,7 +120,7 @@ export function UnlockedVaultWorkspaceProvider({
     };
   }, []);
 
-  return <WorkspaceContext value={{ workspace, setWorkspace, lockWorkspace }}>{children}</WorkspaceContext>;
+  return <WorkspaceContext value={{ workspace, setWorkspace, lockWorkspace, refreshWorkspaceAuthorization }}>{children}</WorkspaceContext>;
 }
 
 function workspaceKeyMaterialIsCleared(workspace: UnlockedVaultWorkspace): boolean {

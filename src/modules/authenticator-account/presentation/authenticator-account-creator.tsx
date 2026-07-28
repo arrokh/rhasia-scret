@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { parseTotpUri, TotpConfigurationError, type TotpConfigurationErrorCode } from "@/modules/otp-runtime";
+import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -38,7 +39,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   const tTotpError = useTranslations("OtpRuntime.errors");
   const router = useRouter();
   const online = useOnlineStatus();
-  const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
+  const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [duplicate, setDuplicate] = useState<DecryptedAuthenticatorAccount | null>(null);
   const [secretVisible, setSecretVisible] = useState(false);
   const [message, setMessage] = useState<CreatorMessage | null>(null);
@@ -69,9 +70,18 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   async function save(candidate: DecryptedAuthenticatorAccount, selectedVaultId: string) {
     if (!workspace) return;
     const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
-    if (!vault || (vault.type === "SHARED" && vault.role !== "OWNER")) throw new AccountCreatorError("destinationUnavailable");
+    if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) throw new AccountCreatorError("destinationUnavailable");
     const encryptedPayload = await encryptAccountConfiguration(vault.key, candidate);
-    const created = await createAccountMutation.mutateAsync({ vaultId: vault.id, vaultType: vault.type, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
+    let created: { id: string; revision: number };
+    try {
+      created = await createAccountMutation.mutateAsync({ vaultId: vault.id, vaultType: vault.type, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
+    } catch (error) {
+      if (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") {
+        await refreshWorkspaceAuthorization();
+        throw new AccountCreatorError("destinationUnavailable");
+      }
+      throw error;
+    }
     setWorkspace({ ...workspace, accounts: [...workspace.accounts, { ...candidate, id: created.id, revision: created.revision, vaultId: vault.id, vaultName: vault.name, vaultType: vault.type }].sort((left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName)) });
     setDuplicate(null); router.push("/vaults"); router.refresh();
   }
@@ -87,7 +97,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
     </form>
   );
 
-  const writableVaults = workspace.vaults.filter((vault) => vault.type === "PERSONAL" || vault.role === "OWNER");
+  const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
   return <>
     {!online && <div className="m-5 mb-0"><StatusBanner tone="offline">{t("offline")}</StatusBanner></div>}
     <QrImportInput onUri={updateAuthenticatorUri} />
@@ -112,4 +122,4 @@ function classifyCreatorError(reason: unknown): CreatorMessage {
 
 function Field({ children }: { children: React.ReactNode }) { return <div className="grid gap-2">{children}</div>; }
 function parseAuthenticatorMetadata(uri: string): ReturnType<typeof parseTotpUri> | null { if (!uri.trim()) return null; try { return parseTotpUri(uri); } catch { return null; } }
-function selectWritableVaultId(workspace: UnlockedVaultWorkspace, preferredVaultId?: string): string { const writableVaults = workspace.vaults.filter((vault) => vault.type === "PERSONAL" || vault.role === "OWNER"); return writableVaults.find((vault) => vault.id === preferredVaultId)?.id ?? writableVaults[0]?.id ?? ""; }
+function selectWritableVaultId(workspace: UnlockedVaultWorkspace, preferredVaultId?: string): string { const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts); return writableVaults.find((vault) => vault.id === preferredVaultId)?.id ?? writableVaults[0]?.id ?? ""; }

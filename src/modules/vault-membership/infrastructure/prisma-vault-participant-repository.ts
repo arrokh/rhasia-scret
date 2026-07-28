@@ -2,6 +2,7 @@ import { buildCursorPage, type CursorPageRequest } from "@/shared/application/cu
 import { timestampKeysetWhere } from "@/shared/infrastructure/prisma-cursor-pagination";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { parseVaultParticipantCursorKey, type VaultParticipant, type VaultParticipantPage, type VaultParticipantRepository } from "../application/vault-participant-repository";
+import { effectiveSharedVaultAccountPermissions, type SharedVaultAccountPermissions } from "../domain/shared-vault-account-permissions";
 
 const memberKey = (userId: string) => `member:${userId}`;
 const invitationKey = (id: string) => `invitation:${id}`;
@@ -10,13 +11,26 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
   public async listForOwner(ownerId: string, vaultId: string, request: CursorPageRequest): Promise<VaultParticipantPage | null> {
     const vault = await prisma.vault.findFirst({
       where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
-      select: { owner: { select: { id: true, email: true } } }
+      select: {
+        owner: { select: { id: true, email: true } },
+        membersCanAddAccounts: true,
+        membersCanEditAccounts: true,
+        membersCanDeleteAccounts: true,
+        memberPermissionsRevision: true
+      }
     });
     if (!vault) return null;
+    const defaults = vaultPermissions(vault);
 
     const participants: VaultParticipant[] = [];
     const cursorKey = request.cursor ? parseVaultParticipantCursorKey(request.cursor.key) : null;
-    if (request.cursor && !cursorKey) return { owner: vault.owner, items: [], nextCursor: null };
+    if (request.cursor && !cursorKey) return {
+      owner: vault.owner,
+      vaultDefaultAccountPermissions: defaults,
+      vaultDefaultAccountPermissionsRevision: vault.memberPermissionsRevision,
+      items: [],
+      nextCursor: null
+    };
 
     if (cursorKey?.kind !== "INVITATION") {
       const cursorUserId = cursorKey?.kind === "MEMBER" ? cursorKey.id : null;
@@ -28,11 +42,36 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
           vault: { ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
           ...(request.cursor && cursorUserId ? timestampKeysetWhere({ createdAt: request.cursor.createdAt, key: cursorUserId }, "userId", "ascending") : {})
         },
-        select: { userId: true, createdAt: true, user: { select: { email: true } } },
+        select: {
+          userId: true,
+          createdAt: true,
+          canAddAccountsOverride: true,
+          canEditAccountsOverride: true,
+          canDeleteAccountsOverride: true,
+          permissionsRevision: true,
+          user: { select: { email: true } }
+        },
         orderBy: [{ createdAt: "asc" }, { userId: "asc" }],
         take: request.limit + 1
       });
-      participants.push(...members.map((member) => ({ key: memberKey(member.userId), email: member.user.email, kind: "MEMBER" as const, userId: member.userId, invitationId: null, invitedAt: member.createdAt })));
+      participants.push(...members.map((member) => {
+        const permissionOverrides = {
+          canAddAccounts: member.canAddAccountsOverride,
+          canEditAccounts: member.canEditAccountsOverride,
+          canDeleteAccounts: member.canDeleteAccountsOverride
+        };
+        return {
+          key: memberKey(member.userId),
+          email: member.user.email,
+          kind: "MEMBER" as const,
+          userId: member.userId,
+          invitationId: null,
+          invitedAt: member.createdAt,
+          permissionOverrides,
+          effectiveAccountPermissions: effectiveSharedVaultAccountPermissions("VIEWER", defaults, permissionOverrides),
+          permissionsRevision: member.permissionsRevision
+        };
+      }));
     }
 
     if (participants.length <= request.limit) {
@@ -54,12 +93,27 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
       });
       participants.push(...invitations.flatMap((invitation) => {
         const email = invitation.recipientEmail ?? invitation.recipient?.email;
-        return email ? [{ key: invitationKey(invitation.id), email, kind: "INVITATION" as const, userId: invitation.recipientUserId, invitationId: invitation.id, invitedAt: invitation.createdAt }] : [];
+        return email ? [{
+          key: invitationKey(invitation.id),
+          email,
+          kind: "INVITATION" as const,
+          userId: invitation.recipientUserId,
+          invitationId: invitation.id,
+          invitedAt: invitation.createdAt,
+          permissionOverrides: null,
+          effectiveAccountPermissions: null,
+          permissionsRevision: null
+        }] : [];
       }));
     }
 
     const page = buildCursorPage(participants, request.limit, (participant) => ({ createdAt: participant.invitedAt, key: participant.key }));
-    return { owner: vault.owner, ...page };
+    return {
+      owner: vault.owner,
+      vaultDefaultAccountPermissions: defaults,
+      vaultDefaultAccountPermissionsRevision: vault.memberPermissionsRevision,
+      ...page
+    };
   }
 
   public async cancelInvitation(ownerId: string, vaultId: string, invitationId: string): Promise<boolean> {
@@ -73,4 +127,16 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
     });
     return deleted.count === 1;
   }
+}
+
+function vaultPermissions(value: {
+  membersCanAddAccounts: boolean;
+  membersCanEditAccounts: boolean;
+  membersCanDeleteAccounts: boolean;
+}): SharedVaultAccountPermissions {
+  return {
+    canAddAccounts: value.membersCanAddAccounts,
+    canEditAccounts: value.membersCanEditAccounts,
+    canDeleteAccounts: value.membersCanDeleteAccounts
+  };
 }
