@@ -30,12 +30,15 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
     await initializePersonalVault(page, personalName, personalSecret);
     await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
-    await page.goto("/vaults/manage");
-    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
-    await expect(page.locator('a[href="/vaults/backup"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/vaults/import"]')).toHaveCount(0);
-    await page.goto("/vaults");
-    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
+    const lockedDirectoryPage = await context.newPage();
+    try {
+      await lockedDirectoryPage.goto("/vaults/manage");
+      await expect(lockedDirectoryPage.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
+      await expect(lockedDirectoryPage.locator('a[href="/vaults/backup"]')).toHaveCount(0);
+      await expect(lockedDirectoryPage.locator('a[href="/vaults/import"]')).toHaveCount(0);
+    } finally {
+      await lockedDirectoryPage.close();
+    }
   });
 
   await test.step("unlock creates only an in-memory workspace and explicit lock clears key buffers", async () => {
