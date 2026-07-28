@@ -17,7 +17,7 @@ export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";
 export { RememberedBrowserEnrollment } from "./presentation/remembered-browser-enrollment";
 export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";
 export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "./infrastructure/browser-vault-key-rotation";
-export { createEncryptedVaultExport, MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";
+export { createEncryptedVaultArchive, createEncryptedVaultExport, MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";
 export { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./infrastructure/browser-passkey-recovery-package";
 export { authenticatePasskey, createPasskeyCredential, evaluatePasskeyPrf } from "./infrastructure/browser-passkey-prf";
 export { recoverUserRootKeyWithPasskey } from "./infrastructure/browser-passkey-recovery-workflow";

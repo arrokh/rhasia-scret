@@ -16,9 +16,9 @@ describe("loadVaultAuditEvents", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(loadVaultAuditEvents("vault/1", { accountId: "account/1", actorUserId: "user/1" })).resolves.toEqual({ events: [], nextCursor: "next-page" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/vault%2F1/audit-events?accountId=account%2F1&actorUserId=user%2F1", { cache: "no-store", method: "GET" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/vaults/vault%2F1/audit-events?accountId=account%2F1&actorUserId=user%2F1", { cache: "no-store", method: "GET" });
 
     await expect(loadVaultAuditEvents("vault-1", { accountId: "account-1", actorUserId: "user-1" }, "opaque cursor")).resolves.toEqual({ events: [events[0]], nextCursor: "next-page" });
-    expect(fetchMock).toHaveBeenLastCalledWith("/api/shared-vaults/vault-1/audit-events?accountId=account-1&actorUserId=user-1&cursor=opaque+cursor", { cache: "no-store", method: "GET" });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/vaults/vault-1/audit-events?accountId=account-1&actorUserId=user-1&cursor=opaque+cursor", { cache: "no-store", method: "GET" });
   });
 });

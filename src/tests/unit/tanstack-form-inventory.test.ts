@@ -31,6 +31,7 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/identity/presentation/logout-form.tsx", count: 1 },
       { path: "src/modules/otp-runtime/presentation/local-totp-screen.tsx", count: 1 },
       { path: "src/modules/sync/presentation/offline-vault-shell.tsx", count: 1 },
+      { path: "src/modules/vault-archive/presentation/vault-archive-exporter.tsx", count: 1 },
       { path: "src/modules/vault-archive/presentation/vault-archive-importer.tsx", count: 2 },
       { path: "src/modules/vault-management/presentation/destructive-personal-vault-reset-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/personal-vault-setup-form.tsx", count: 1 },

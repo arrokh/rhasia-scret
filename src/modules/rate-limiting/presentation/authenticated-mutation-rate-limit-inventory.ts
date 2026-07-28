@@ -26,6 +26,7 @@ export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
   "POST /api/user-crypto-profile/rewrap": "key_material_mutation",
   "PUT /api/user-encryption-identity": "key_material_mutation",
   "POST /api/vault-imports": "archive_import",
+  "POST /api/vaults/[vaultId]/archive-exports": "archive_export",
   "POST /api/vaults/[vaultId]/accounts": "account_mutation",
   "PATCH /api/vaults/[vaultId]/accounts": "account_mutation",
   "DELETE /api/vaults/[vaultId]/accounts": "account_mutation",

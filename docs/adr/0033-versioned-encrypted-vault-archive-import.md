@@ -1,4 +1,4 @@
-# Versioned encrypted Vault archive import
+# Versioned encrypted Vault archive backup and import
 
 ## Status
 
@@ -18,6 +18,8 @@ One authenticated import request carries only opaque destination identifiers, en
 
 Temporary archive bytes, archive keys, decrypted account copies, and newly generated Vault material are cleared or released after preview failure, cancellation, completion, lock, logout, or component teardown. Decrypted archive material never enters TanStack Query, browser persistence, request payloads, or logs. After success, a fresh ciphertext synchronization rebuilds the ordinary Unlocked Vault Session.
 
+Export is owner-only for Personal and Shared Vaults and requires a current online Unlocked Vault Session. The browser generates a separate random 32-byte archive key and constructs the archive locally. Before exposing the archive download or key, it sends only the opaque Vault identifier to an authenticated, rate-limited endpoint. The server re-authorizes active ownership and records one redacted `ARCHIVE_EXPORTED` Vault Audit event; an audit failure clears the prepared archive and key without releasing either. A successful import writes one redacted `ARCHIVE_IMPORTED` event in the same transaction as its accounts and optional new Shared Vault. Idempotent import replay does not duplicate the event. Both event types apply to Personal and Shared Vaults and contain no archive bytes, keys, Vault Names, account counts, labels, configurations, secrets, or OTPs.
+
 ## Consequences
 
-Version evolution requires an explicit new parser and migration decision rather than permissive fallback. The server cannot inspect semantic duplicates or imported TOTP validity; those remain client-only checks. A network interruption can make completion temporarily ambiguous, but stable opaque identifiers make retry non-duplicating and the atomic transaction prevents an incomplete import.
+Version evolution requires an explicit new parser and migration decision rather than permissive fallback. The server cannot inspect semantic duplicates or imported TOTP validity; those remain client-only checks. A network interruption can make completion temporarily ambiguous, but stable opaque identifiers make retry non-duplicating and the atomic transaction prevents an incomplete import. Export requires online audit authorization even though archive cryptography remains client-only; the event means the application released a prepared archive and key for download, not that the operating system completed saving either file.

@@ -7,4 +7,5 @@ export {
   VAULT_ARCHIVE_ENCRYPTION_VERSION
 } from "./domain/encrypted-vault-import";
 export type { EncryptedVaultImport, EncryptedVaultImportResult } from "./domain/encrypted-vault-import";
+export { VaultArchiveExportWorkspace } from "./presentation/vault-archive-exporter";
 export { VaultArchiveImportWorkspace } from "./presentation/vault-archive-importer";

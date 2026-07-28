@@ -43,7 +43,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   let invitationBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
   page.on("pageerror", (error) => pageErrors.push(error));
-  await page.route("**/api/shared-vaults/shared-preview/audit-events**", (route) => {
+  await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{ id: nextPage ? "event-2" : "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "opaque-account-1", actorUserId: "viewer-preview", actorEmail: "viewer@local.invalid", createdAt: nextPage ? "2026-07-26T13:27:00.000Z" : "2026-07-26T13:28:00.000Z" }], nextCursor: nextPage ? null : "audit-page-2" }) });
   });

@@ -13,6 +13,7 @@ export type RedactedVaultAuditEvent = {
 
 export interface VaultAuditRepository {
   recordAccountAccess(actorUserId: string, vaultId: string, accountId: string): Promise<boolean>;
+  recordArchiveExport(ownerId: string, vaultId: string): Promise<boolean>;
   listForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter, request: CursorPageRequest): Promise<CursorPage<RedactedVaultAuditEvent> | null>;
 }
 
@@ -20,6 +21,10 @@ export function recordSharedVaultAccountAccess(actorUserId: string, vaultId: str
   return repository.recordAccountAccess(actorUserId, vaultId, accountId);
 }
 
-export function listSharedVaultAuditForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter, request: CursorPageRequest, repository: VaultAuditRepository) {
+export function recordVaultArchiveExport(ownerId: string, vaultId: string, repository: VaultAuditRepository) {
+  return repository.recordArchiveExport(ownerId, vaultId);
+}
+
+export function listVaultAuditForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter, request: CursorPageRequest, repository: VaultAuditRepository) {
   return repository.listForOwner(ownerId, vaultId, filter, request);
 }

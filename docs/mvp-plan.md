@@ -156,6 +156,8 @@ Write redacted events for vault creation, invitation/link lifecycle, membership 
 
 Threat-model and implement recovery, device lifecycle, normal vault-key rotation, user-key rotation, export/import, and passkey-assisted recovery. Before this slice, suspected compromise requires a new vault, original-service 2FA reset/re-add, member re-grants, and deletion of the old vault.
 
+[Encrypted Vault Archive V1 backup/import](encrypted-vault-backup.md) is delivered as a client-cryptographic vertical slice: owners export a browser-created archive with a separate random key, import validates and previews locally before an atomic write, and successful exports/imports create redacted owner-only Vault Audit events for Personal and Shared Vaults. Archive bytes, archive keys, Vault Names, account counts, and TOTP content never enter export-audit requests, logs, or TanStack Query. Import requests contain only permitted opaque identifiers, versions, and re-encrypted account ciphertext; the server can observe the imported record count but cannot read archive or TOTP content.
+
 ## Delivery order
 
 1. Slice 0 foundation.
