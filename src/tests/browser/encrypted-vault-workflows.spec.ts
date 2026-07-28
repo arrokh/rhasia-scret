@@ -299,7 +299,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
 
     await test.step("owner sees redacted audit transport without plaintext labels or OTPs", async () => {
       await openSharedManagement(page, ownerSecret, sharedName);
-      const auditResponse = page.waitForResponse((response) => response.request().method() === "GET" && response.url().includes(`/api/shared-vaults/${sharedVaultId}/audit-events`));
+      const auditResponse = page.waitForResponse((response) => response.request().method() === "GET" && response.url().includes(`/api/vaults/${sharedVaultId}/audit-events`));
       await page.getByRole("tab", { name: "Audit" }).click();
       await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
       const auditBody = await (await auditResponse).text();

@@ -11,19 +11,30 @@ const MAX_ACCOUNT_LABEL_LENGTH = 240;
 const MAX_ACCOUNT_SECRET_BYTES = 512;
 
 export async function encryptAccountConfiguration(vaultKey: Uint8Array, configuration: TotpConfiguration): Promise<Uint8Array> {
-  const payload = JSON.stringify({
+  const plaintext = serializeDecryptedAccountPayload(configuration);
+  try {
+    return serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
+  } finally {
+    plaintext.fill(0);
+  }
+}
+
+export function serializeDecryptedAccountPayload(configuration: TotpConfiguration): Uint8Array {
+  const plaintext = new TextEncoder().encode(JSON.stringify({
     issuer: configuration.issuer,
     accountName: configuration.accountName,
     secret: bytesToBase64(configuration.secret),
     algorithm: configuration.algorithm,
     digits: configuration.digits,
     period: configuration.period
-  });
-  const plaintext = new TextEncoder().encode(payload);
+  }));
   try {
-    return serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
-  } finally {
+    const parsed = parseDecryptedAccountPayload(plaintext);
+    parsed.secret.fill(0);
+    return plaintext;
+  } catch (error) {
     plaintext.fill(0);
+    throw error;
   }
 }
 

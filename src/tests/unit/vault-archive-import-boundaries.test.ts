@@ -8,7 +8,9 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 describe("Encrypted Vault Archive boundaries", () => {
   it("keeps decrypted archive state outside TanStack Query and persistent browser storage", () => {
     const sources = [
+      read("src/modules/vault-archive/presentation/vault-archive-exporter.tsx"),
       read("src/modules/vault-archive/presentation/vault-archive-importer.tsx"),
+      read("src/modules/vault-archive/infrastructure/browser-vault-archive-export-workflow.ts"),
       read("src/modules/vault-archive/infrastructure/browser-vault-archive-workflow.ts"),
       read("src/modules/vault-archive/infrastructure/browser-vault-import-client.ts")
     ].join("\n");
@@ -16,9 +18,10 @@ describe("Encrypted Vault Archive boundaries", () => {
     expect(sources).not.toMatch(/localStorage|sessionStorage|indexedDB|console\./i);
   });
 
-  it("keeps server import code ciphertext-only and free of client crypto or OTP runtime", () => {
+  it("keeps server archive code ciphertext-only and free of client crypto or OTP runtime", () => {
     const sources = [
       read("src/app/api/vault-imports/route.ts"),
+      read("src/app/api/vaults/[vaultId]/archive-exports/route.ts"),
       read("src/modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts")
     ].join("\n");
     expect(sources).not.toMatch(/modules\/crypto|otp-runtime|decryptPayload|openEncryptedVaultExport|parseTotpUri/);
@@ -26,14 +29,21 @@ describe("Encrypted Vault Archive boundaries", () => {
   });
 
   it("keeps the interactive test harness unavailable in production", () => {
-    const previewPage = read("src/app/ui-preview/archive-import/page.tsx");
-    expect(previewPage).toContain('process.env.NODE_ENV === "production"');
-    expect(previewPage).toContain("notFound()");
+    for (const path of ["src/app/ui-preview/archive-backup/page.tsx", "src/app/ui-preview/archive-import/page.tsx"]) {
+      const previewPage = read(path);
+      expect(previewPage).toContain('process.env.NODE_ENV === "production"');
+      expect(previewPage).toContain("notFound()");
+    }
   });
 
   it("clears archive keys, decrypted account secrets, and temporary Vault material", () => {
+    const exporter = read("src/modules/vault-archive/presentation/vault-archive-exporter.tsx");
+    const exportWorkflow = read("src/modules/vault-archive/infrastructure/browser-vault-archive-export-workflow.ts");
     const importer = read("src/modules/vault-archive/presentation/vault-archive-importer.tsx");
     const workflow = read("src/modules/vault-archive/infrastructure/browser-vault-archive-workflow.ts");
+    expect(exporter).toContain("clearPreparedVaultArchive(preparedRef.current)");
+    expect(exportWorkflow).toContain("prepared.archive.fill(0)");
+    expect(exportWorkflow).toContain("prepared.key.fill(0)");
     expect(importer).toContain("value.archive.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES");
     expect(importer).toContain("archiveKey?.fill(0)");
     expect(importer).toContain("newVaultMaterial?.vaultKey.fill(0)");

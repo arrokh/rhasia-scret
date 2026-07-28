@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Check, ChevronRight, Clipboard, History, KeyRound, MailPlus, Plus, ScrollText, Trash2, UsersRound, X } from "lucide-react";
+import { Check, ChevronRight, Clipboard, KeyRound, MailPlus, Plus, ScrollText, Trash2, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +19,10 @@ import type { VaultAuditFilter } from "../infrastructure/browser-vault-managemen
 import { useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 import { useVaultAuditQuery } from "./hooks/use-vault-audit-query";
 import { VaultAccountManagementList, type ManagedVaultAccountSummary } from "./vault-account-management-list";
+import { VaultAuditHistory, type SelectedAuditFilter } from "./vault-audit-history";
 
 type SharedVaultAccountSummary = ManagedVaultAccountSummary;
 export type SharedVaultSummary = { id: string; name: string; role: "OWNER" | "VIEWER"; key: Uint8Array; accounts: SharedVaultAccountSummary[] };
-type SelectedAuditFilter = { query: VaultAuditFilter; label: string };
 
 export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] }) {
   return <div className="grid gap-5 p-5 sm:p-6">
@@ -67,7 +67,7 @@ export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vau
         {status && <StatusBanner tone={status.includes("diperbarui") ? "success" : "danger"}>{status}</StatusBanner>}
       </TabsContent>
       {vault.role === "OWNER" && <TabsContent value="invitations"><InvitationPanel vault={vault} participants={participantItems} loading={participants.isPending} loadingMore={participants.isFetchingNextPage} failed={participants.isError} hasMore={participants.hasNextPage} onLoadMore={() => void participants.fetchNextPage()} onCreated={() => void participants.refetch()} onAudit={(participant) => participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)} /></TabsContent>}
-      {vault.role === "OWNER" && <TabsContent value="audit"><AuditHistory audit={audit} accounts={vault.accounts} filter={auditFilter} onClearFilter={() => setAuditFilter({ query: {}, label: "" })} /></TabsContent>}
+      {vault.role === "OWNER" && <TabsContent value="audit"><VaultAuditHistory audit={audit} accounts={vault.accounts} filter={auditFilter} onClearFilter={() => setAuditFilter({ query: {}, label: "" })} /></TabsContent>}
     </Tabs>
   </div>;
 }
@@ -104,50 +104,4 @@ function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCre
     {result && <div className="grid gap-2 rounded-md border border-success/20 bg-success-surface p-3"><p className="text-sm font-bold text-success">Tautan undangan siap dikirim</p><output className="break-all rounded-sm bg-card p-2 font-mono text-xs" aria-label="Tautan undangan aman">{result.link}</output><Button variant="outline" type="button" onClick={() => void copyLink()}>{result.copied ? <Check /> : <Clipboard />}{result.copied ? "Disalin" : "Salin tautan"}</Button></div>}
     {error && <StatusBanner tone="danger" role="alert">{error}</StatusBanner>}
   </form>;
-}
-
-function AuditHistory({ audit, accounts, filter, onClearFilter }: { audit: ReturnType<typeof useVaultAuditQuery>; accounts: SharedVaultAccountSummary[]; filter: SelectedAuditFilter; onClearFilter: () => void }) {
-  const events = audit.data?.pages.flatMap((page) => page.events) ?? [];
-  const filterNotice = filter.label && <div className="mb-3 flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm"><span className="truncate">Filter: <strong>{filter.label}</strong></span><Button variant="ghost" size="icon-xs" type="button" aria-label="Hapus filter audit" onClick={onClearFilter}><X /></Button></div>;
-  if (audit.isPending) return <>{filterNotice}<p className="text-sm text-muted-foreground">Memuat riwayat audit…</p></>;
-  if (audit.isError && !events.length) return <>{filterNotice}<StatusBanner tone="danger" role="alert">Riwayat audit tidak dapat dimuat.</StatusBanner></>;
-  if (!events.length) return <>{filterNotice}<div className="grid justify-items-center gap-2 rounded-md border border-dashed bg-muted/30 p-6 text-center"><History className="size-6 text-taupe" /><p className="font-bold">Belum ada aktivitas</p><p className="text-sm text-muted-foreground">Tidak ada aktivitas yang cocok dengan filter ini.</p></div></>;
-  return <>{filterNotice}<div className="grid gap-3"><ul className="grid list-none gap-2 p-0">{events.map((event) => <li key={event.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-md border bg-card p-3"><p className="min-w-0 text-xs text-muted-foreground"><span className="break-all">{event.actorEmail}</span> · {formatJakartaAuditTime(event.createdAt)}</p><p className="text-right text-sm font-bold text-foreground">{auditEventLabel(event.eventType)}</p>{event.targetId && <p className="text-xs text-muted-foreground">{accountAuditLabel(accounts, event.targetId)}</p>}<p className="col-start-2 text-right text-xs text-muted-foreground">{relativeAuditTime(event.createdAt)}</p></li>)}</ul>{audit.isError && <StatusBanner tone="danger" role="alert">Aktivitas berikutnya tidak dapat dimuat.</StatusBanner>}{audit.hasNextPage ? <Button variant="outline" type="button" disabled={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>{audit.isFetchingNextPage ? "Memuat aktivitas…" : "Muat lebih banyak aktivitas"}</Button> : <p className="text-center text-xs text-muted-foreground" aria-live="polite">Semua aktivitas telah dimuat.</p>}</div></>;
-}
-
-function accountAuditLabel(accounts: SharedVaultAccountSummary[], targetId: string): string {
-  const account = accounts.find((entry) => entry.id === targetId);
-  return account ? `${account.issuer} · ${account.accountName}` : `Akun ${targetId}`;
-}
-
-function auditEventLabel(eventType: string): string {
-  if (eventType === "ACCOUNT_ACCESSED") return "Akun autentikator disalin";
-  if (eventType === "VAULT_CREATED") return "Brankas dibuat";
-  if (eventType === "ACCOUNT_ADDED") return "Akun ditambahkan";
-  if (eventType === "MEMBER_REVOKED") return "Akses anggota dicabut";
-  if (eventType === "VAULT_DELETED") return "Brankas dihapus";
-  if (eventType === "VAULT_RESTORED") return "Brankas dipulihkan";
-  return "Aktivitas keamanan";
-}
-
-function formatJakartaAuditTime(value: string): string {
-  return new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
-}
-
-function relativeAuditTime(value: string): string {
-  const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1_000);
-  const absoluteSeconds = Math.abs(seconds);
-  const formatter = new Intl.RelativeTimeFormat("id-ID", { numeric: "auto" });
-  if (absoluteSeconds < 60) return formatter.format(seconds, "second");
-  const minutes = Math.round(seconds / 60);
-  if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute");
-  const hours = Math.round(minutes / 60);
-  if (Math.abs(hours) < 24) return formatter.format(hours, "hour");
-  const days = Math.round(hours / 24);
-  if (Math.abs(days) < 7) return formatter.format(days, "day");
-  const weeks = Math.round(days / 7);
-  if (Math.abs(weeks) < 5) return formatter.format(weeks, "week");
-  const months = Math.round(days / 30);
-  if (Math.abs(months) < 12) return formatter.format(months, "month");
-  return formatter.format(Math.round(days / 365), "year");
 }

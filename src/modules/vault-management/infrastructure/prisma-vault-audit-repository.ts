@@ -23,10 +23,27 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
     return true;
   }
 
+  public async recordArchiveExport(ownerId: string, vaultId: string): Promise<boolean> {
+    return prisma.$transaction(async (transaction) => {
+      const vaults = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "vaults"
+        WHERE "id" = ${vaultId}
+          AND "owner_id" = ${ownerId}
+          AND "lifecycle" = 'ACTIVE'
+          AND "deleted_at" IS NULL
+        FOR UPDATE
+      `;
+      if (!vaults[0]) return false;
+      await transaction.vaultAuditEvent.create({ data: { vaultId, ownerId, actorUserId: ownerId, eventType: "ARCHIVE_EXPORTED" } });
+      return true;
+    });
+  }
+
   public async listForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter = {}, request: CursorPageRequest = { cursor: null, limit: DEFAULT_CURSOR_PAGE_SIZE }): Promise<CursorPage<RedactedVaultAuditEvent> | null> {
     const now = this.now();
     const vault = await prisma.vault.findFirst({
-      where: { id: vaultId, ownerId, type: "SHARED", lifecycle: { in: ["ACTIVE", "DELETED"] } },
+      where: { id: vaultId, ownerId, lifecycle: { in: ["ACTIVE", "DELETED"] } },
       select: { lifecycle: true, deletedAt: true }
     });
     const retainedAfterVaultPurge = vault ? false : await prisma.vaultAuditEvent.count({

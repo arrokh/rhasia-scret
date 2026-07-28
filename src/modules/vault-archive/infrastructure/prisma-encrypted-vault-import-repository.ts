@@ -41,7 +41,7 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
           if (request.accounts.length) {
             await transaction.authenticatorAccount.createMany({ data: request.accounts.map((account) => ({ id: account.id, vaultId: request.destination.vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion })) });
           }
-          if (request.destination.vaultType === "SHARED") await transaction.vaultAuditEvent.create({ data: { vaultId: request.destination.vaultId, ownerId, actorUserId: ownerId, eventType: "ARCHIVE_IMPORTED" } });
+          await transaction.vaultAuditEvent.create({ data: { vaultId: request.destination.vaultId, ownerId, actorUserId: ownerId, eventType: "ARCHIVE_IMPORTED" } });
         }
         return { status: "IMPORTED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated: request.destination.kind === "NEW_SHARED" };
       });

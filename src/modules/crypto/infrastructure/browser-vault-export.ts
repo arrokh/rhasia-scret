@@ -11,29 +11,34 @@ const MAX_ARCHIVED_ACCOUNT_BYTES = 16 * 1024;
 
 type VaultExportPayload = { version: 1; vaultName: string; accounts: string[] };
 
-/** Produces a portable encrypted archive entirely in the browser. */
+/** Produces a portable encrypted archive from normalized plaintext held only in browser memory. */
+export async function createEncryptedVaultArchive(archiveKey: Uint8Array, vaultName: string, accountPlaintexts: Uint8Array[]): Promise<Uint8Array> {
+  if (archiveKey.length !== 32) throw new Error("Encrypted vault export key is invalid.");
+  const normalizedName = vaultName.trim();
+  if (!normalizedName || normalizedName.length > MAX_VAULT_NAME_LENGTH) throw new Error("Encrypted vault export is invalid.");
+  if (accountPlaintexts.length > MAX_VAULT_ARCHIVE_ACCOUNTS) throw new Error("Encrypted vault export is too large.");
+  const accounts = accountPlaintexts.map((plaintext) => {
+    if (plaintext.length === 0 || plaintext.length > MAX_ARCHIVED_ACCOUNT_BYTES) throw new Error("Encrypted vault export is too large.");
+    return bytesToBase64(plaintext);
+  });
+  const plaintext = new TextEncoder().encode(JSON.stringify({ version: FORMAT_VERSION, vaultName: normalizedName, accounts } satisfies VaultExportPayload));
+  try {
+    if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29) throw new Error("Encrypted vault export is too large.");
+    return serializeEncryptedEnvelope(await encryptPayload(archiveKey, plaintext));
+  } finally {
+    plaintext.fill(0);
+  }
+}
+
+/** Produces the same archive from existing Vault ciphertext without exposing plaintext to callers. */
 export async function createEncryptedVaultExport(vaultKey: Uint8Array, archiveKey: Uint8Array, encryptedName: Uint8Array, encryptedAccounts: Uint8Array[]): Promise<Uint8Array> {
   if (encryptedAccounts.length > MAX_VAULT_ARCHIVE_ACCOUNTS) throw new Error("Encrypted vault export is too large.");
   const nameBytes = await decryptPayload(vaultKey, deserializeEncryptedEnvelope(encryptedName));
   const accountPlaintexts: Uint8Array[] = [];
   try {
-    const vaultName = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes).trim();
-    if (!vaultName || vaultName.length > MAX_VAULT_NAME_LENGTH) throw new Error("Encrypted vault export is invalid.");
-    const accounts: string[] = [];
-    for (const account of encryptedAccounts) {
-      const plaintext = await decryptPayload(vaultKey, deserializeEncryptedEnvelope(account));
-      accountPlaintexts.push(plaintext);
-      if (plaintext.length === 0 || plaintext.length > MAX_ARCHIVED_ACCOUNT_BYTES) throw new Error("Encrypted vault export is too large.");
-      accounts.push(bytesToBase64(plaintext));
-    }
-    const payload: VaultExportPayload = { version: FORMAT_VERSION, vaultName, accounts };
-    const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-    try {
-      if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29) throw new Error("Encrypted vault export is too large.");
-      return serializeEncryptedEnvelope(await encryptPayload(archiveKey, plaintext));
-    } finally {
-      plaintext.fill(0);
-    }
+    const vaultName = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes);
+    for (const account of encryptedAccounts) accountPlaintexts.push(await decryptPayload(vaultKey, deserializeEncryptedEnvelope(account)));
+    return await createEncryptedVaultArchive(archiveKey, vaultName, accountPlaintexts);
   } finally {
     nameBytes.fill(0);
     for (const account of accountPlaintexts) account.fill(0);

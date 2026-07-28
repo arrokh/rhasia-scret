@@ -48,7 +48,7 @@ export async function loadVaultAuditEvents(vaultId: string, filter: VaultAuditFi
   if (filter.actorUserId) search.set("actorUserId", filter.actorUserId);
   if (cursor) search.set("cursor", cursor);
   const query = search.size ? `?${search.toString()}` : "";
-  const response = await browserApiClient.getJson<VaultAuditPage>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events${query}`, { cache: "no-store" });
+  const response = await browserApiClient.getJson<VaultAuditPage>(`/api/vaults/${encodeURIComponent(vaultId)}/audit-events${query}`, { cache: "no-store" });
   return {
     events: response.events.filter((event) => (!filter.accountId || event.targetId === filter.accountId) && (!filter.actorUserId || event.actorUserId === filter.actorUserId)),
     nextCursor: response.nextCursor
@@ -57,6 +57,10 @@ export async function loadVaultAuditEvents(vaultId: string, filter: VaultAuditFi
 
 export function recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
   return browserApiClient.postEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`, { eventType: "ACCOUNT_ACCESSED", accountId });
+}
+
+export function recordVaultArchiveExport(vaultId: string): Promise<void> {
+  return browserApiClient.postEmpty(`/api/vaults/${encodeURIComponent(vaultId)}/archive-exports`);
 }
 
 export async function destructivelyResetPersonalVault(confirmation: string): Promise<DestructiveResetResult> {

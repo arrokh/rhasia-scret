@@ -33,6 +33,19 @@ describe("PrismaEncryptedVaultImportRepository", () => {
     await expect(repository.import(owner.id, request)).resolves.toEqual({ status: "IMPORTED", vaultId: vault.id, accountIds, vaultCreated: false });
     await expect(repository.import(owner.id, request)).resolves.toEqual({ status: "REPLAYED", vaultId: vault.id, accountIds, vaultCreated: false });
     expect(await prisma.authenticatorAccount.count({ where: { vaultId: vault.id } })).toBe(2);
+    expect(await prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { eventType: true, targetId: true } })).toEqual([{ eventType: "ARCHIVE_IMPORTED", targetId: null }]);
+  });
+
+  it.skipIf(!process.env.DATABASE_URL)("imports into an existing owned Shared Vault with one redacted audit event", async () => {
+    const owner = await createUser("shared-owner");
+    const vault = await createVault(owner.id, "SHARED");
+    const accountId = randomUUID();
+    const request = {
+      destination: { kind: "EXISTING" as const, vaultId: vault.id, vaultType: "SHARED" as const },
+      accounts: [{ id: accountId, encryptedPayload: bytes("encrypted-account"), encryptionVersion: 1 as const }]
+    };
+    await expect(new PrismaEncryptedVaultImportRepository().import(owner.id, request)).resolves.toEqual({ status: "IMPORTED", vaultId: vault.id, accountIds: [accountId], vaultCreated: false });
+    expect(await prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { eventType: true, targetId: true } })).toEqual([{ eventType: "ARCHIVE_IMPORTED", targetId: null }]);
   });
 
   it.skipIf(!process.env.DATABASE_URL)("creates a Shared Vault, owner key, all accounts, and redacted audit event in one transaction", async () => {
@@ -74,6 +87,7 @@ describe("PrismaEncryptedVaultImportRepository", () => {
     await expect(repository.import(owner.id, duplicateRequest)).resolves.toEqual({ status: "CONFLICT" });
     expect(await prisma.vault.findUnique({ where: { id: newVaultId } })).toBeNull();
     expect(await prisma.authenticatorAccount.count({ where: { id: repeatedAccountId } })).toBe(0);
+    expect(await prisma.vaultAuditEvent.count({ where: { vaultId: newVaultId } })).toBe(0);
     expect(await prisma.authenticatorAccount.count({ where: { id: conflicting.id } })).toBe(1);
   });
 });

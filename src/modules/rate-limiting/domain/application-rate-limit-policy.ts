@@ -1,5 +1,6 @@
 export const APPLICATION_RATE_LIMIT_POLICIES = {
   account_mutation: { limit: 120, windowSeconds: 60 },
+  archive_export: { limit: 10, windowSeconds: 3_600 },
   archive_import: { limit: 10, windowSeconds: 3_600 },
   audit_event: { limit: 120, windowSeconds: 60 },
   destructive_mutation: { limit: 5, windowSeconds: 3_600 },

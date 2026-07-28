@@ -7,7 +7,8 @@ vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", 
 vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
 vi.mock("@/modules/vault-management/infrastructure/prisma-vault-audit-repository", () => ({ PrismaVaultAuditRepository: class { listForOwner = mocks.listForOwner; recordAccountAccess = mocks.recordAccountAccess; } }));
 
-import { GET, POST } from "@/app/api/shared-vaults/[vaultId]/audit-events/route";
+import { GET } from "@/app/api/vaults/[vaultId]/audit-events/route";
+import { POST } from "@/app/api/shared-vaults/[vaultId]/audit-events/route";
 
 describe("Shared Vault audit route", () => {
   afterEach(() => vi.clearAllMocks());

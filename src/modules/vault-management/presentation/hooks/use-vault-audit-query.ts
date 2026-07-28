@@ -5,7 +5,7 @@ import { loadVaultAuditEvents, type VaultAuditFilter } from "../../infrastructur
 
 export function useVaultAuditQuery(vaultId: string, filter: VaultAuditFilter, enabled: boolean) {
   return useInfiniteQuery({
-    queryKey: ["vault-management", "shared-vault", vaultId, "audit-events", filter.accountId ?? null, filter.actorUserId ?? null],
+    queryKey: ["vault-management", "vault", vaultId, "audit-events", filter.accountId ?? null, filter.actorUserId ?? null],
     queryFn: ({ pageParam }) => loadVaultAuditEvents(vaultId, filter, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
