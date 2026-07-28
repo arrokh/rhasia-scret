@@ -27,5 +27,5 @@ export async function GET(request: NextRequest) {
 }
 
 function redirectToSignIn(request: NextRequest, reason: string) {
-  return NextResponse.redirect(new URL(`/?auth=${reason}`, request.url));
+  return NextResponse.redirect(new URL(`/sign-in?auth=${reason}`, request.url));
 }

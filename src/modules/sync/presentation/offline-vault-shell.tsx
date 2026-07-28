@@ -139,7 +139,7 @@ export function OfflineVaultShell() {
       {status === "unlock_error" && <StatusBanner tone="danger" role="alert">Passphrase atau snapshot tidak valid. Tidak ada data parsial yang dibuka.</StatusBanner>}
       {status === "remembered_error" && <StatusBanner tone="warning">Verifikasi Lokal gagal atau PRF tidak tersedia. Gunakan Passphrase Brankas.</StatusBanner>}
       {status === "storage_error" && <StatusBanner tone="danger" role="alert">Penyimpanan snapshot lokal tidak dapat dibuka. Data lama tidak dihapus.</StatusBanner>}
-      <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link href="/">Kembali ke masuk</Link></Button>{profiles.length > 0 && <Button type="button" variant="ghost" className="text-destructive" onClick={() => void clearDevice()}><Trash2 />Hapus data perangkat</Button>}</div>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link href="/sign-in">Kembali ke masuk</Link></Button>{profiles.length > 0 && <Button type="button" variant="ghost" className="text-destructive" onClick={() => void clearDevice()}><Trash2 />Hapus data perangkat</Button>}</div>
     </SurfaceCard>
   </AppPage>;
 }

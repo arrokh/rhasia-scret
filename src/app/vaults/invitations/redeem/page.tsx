@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RedeemInvitationPage() {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/");
+  if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
   return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke daftar brankas" title="Undangan Brankas Bersama" description="Verifikasi dan terima tautan aman yang dikirim pemilik brankas." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Terima undangan Brankas Bersama"><InvitationRedemptionWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;

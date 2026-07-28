@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function VaultRecoveryPage() {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/");
+  if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const eligibility = await new PrismaDestructivePersonalVaultResetRepository().getEligibility(user.id);
 
   return (

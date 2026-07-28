@@ -28,6 +28,17 @@ describe("OfflineVaultShell", () => {
   let root: Root | undefined;
   afterEach(async () => { await act(async () => root?.unmount()); vi.clearAllMocks(); document.body.innerHTML = ""; });
 
+  it("links an empty offline state back to sign in", async () => {
+    mocks.listProfiles.mockResolvedValue([]);
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(OfflineVaultShell)));
+
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/sign-in"]')?.textContent).toContain("Kembali ke masuk");
+  });
+
   it("unlocks Personal, Owner Shared, and Viewer Shared snapshots read-only and exposes no mutation affordances", async () => {
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     mocks.listProfiles.mockResolvedValue([{ profileId: "profile_1", personalVaultId: "personal_1", synchronizedAt: "2026-01-01T00:00:00.000Z", sharedVaultCount: 2 }]);

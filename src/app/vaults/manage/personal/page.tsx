@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PersonalVaultManagementPage() {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/");
+  if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
   return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke daftar brankas" title="Kelola Brankas Pribadi" description="Kelola akun autentikator yang hanya dapat Anda akses." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Detail Brankas Pribadi"><PersonalVaultDetailWorkspace personalVaultId={personalVault.id} ownerEmail={user.email} /></SurfaceCard></AppPage>;

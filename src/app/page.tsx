@@ -1,47 +1,21 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
-import { InvitedUserSignInForm } from "@/modules/identity/presentation/invited-user-sign-in-form";
+import { AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 
-export const dynamic = "force-dynamic";
-
-type HomePageProps = { searchParams: Promise<{ auth?: string | string[] }> };
-type AuthNotice = { message: string; role: "alert" | "status"; tone: "danger" | "success" | "info" };
-
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (user?.canAccessApplication()) redirect("/vaults");
-
-  const auth = (await searchParams).auth;
-  const notice = authNotice(Array.isArray(auth) ? auth[0] : auth);
-
+export default function LandingPage() {
   return (
     <AppPage centered>
-      <SurfaceCard className="w-full max-w-md px-5 py-7 sm:px-8 sm:py-9" aria-labelledby="page-title">
-        <div className="flex flex-col items-center">
+      <SurfaceCard className="w-full max-w-xl px-5 py-8 sm:px-10 sm:py-12" aria-labelledby="page-title">
+        <div className="flex flex-col items-center text-center">
           <h1 id="page-title"><Brand /></h1>
-          <p className="mt-5 text-center text-sm leading-6 text-muted-foreground">
-            Simpan dan bagikan akun autentikasi melalui brankas terenkripsi
+          <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground sm:text-lg">
+            Autentikator TOTP terenkripsi untuk menyimpan akun Anda dan membagikannya dengan aman melalui brankas bersama.
           </p>
-        </div>
-        <div className="mt-6 grid gap-5">
-          {notice && <StatusBanner tone={notice.tone} role={notice.role}>{notice.message}</StatusBanner>}
-          <InvitedUserSignInForm />
-          <Button variant="outline" asChild><Link href="/offline">Buka snapshot luring</Link></Button>
-          <p className="text-center text-xs leading-5 text-muted-foreground">Akses hanya tersedia melalui undangan. Minta pemilik brankas atau administrator mengundang alamat email Anda.</p>
+          <Button asChild className="mt-8 w-full sm:w-auto sm:min-w-40">
+            <Link href="/sign-in">Masuk</Link>
+          </Button>
         </div>
       </SurfaceCard>
     </AppPage>
   );
-}
-
-function authNotice(auth: string | undefined): AuthNotice | null {
-  if (auth === "required") return { message: "Silakan masuk untuk melanjutkan.", role: "status", tone: "info" };
-  if (auth === "signed_out") return { message: "Anda telah keluar.", role: "status", tone: "success" };
-  if (auth === "logout_failed") return { message: "Proses keluar tidak dapat diselesaikan. Coba lagi.", role: "alert", tone: "danger" };
-  return null;
 }

@@ -31,7 +31,7 @@ function isSameOrigin(request: NextRequest): boolean {
 
 function redirectToSignIn(request: NextRequest, reason: "signed_out" | "logout_failed"): NextResponse {
   const validatedOrigin = request.headers.get("origin");
-  return NextResponse.redirect(new URL(`/?auth=${reason}`, validatedOrigin ?? request.url), { status: 303 });
+  return NextResponse.redirect(new URL(`/sign-in?auth=${reason}`, validatedOrigin ?? request.url), { status: 303 });
 }
 
 export const POST = createLogoutHandler({ sessionTerminator: new SupabaseSessionTerminator() });

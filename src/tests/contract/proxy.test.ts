@@ -7,7 +7,7 @@ describe("authentication proxy contract", () => {
     expect(isProtectedPagePath(pathname)).toBe(true);
   });
 
-  it.each(["/", "/auth/confirm", "/api/health", "/api/time", "/smoke", "/ui-preview", "/vaultsmith"])(
+  it.each(["/", "/sign-in", "/auth/confirm", "/api/health", "/api/time", "/smoke", "/ui-preview", "/vaultsmith"])(
     "keeps %s public",
     (pathname) => {
       expect(isProtectedPagePath(pathname)).toBe(false);
@@ -27,14 +27,14 @@ describe("authentication proxy contract", () => {
     const response = await createAuthProxy(async () => false)(request("/vaults/shared?tab=accounts"));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=required");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
   });
 
   it("fails closed when stale-session verification throws", async () => {
     const response = await createAuthProxy(async () => { throw new Error("expired session"); })(request("/totp"));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=required");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
   });
 
   it("preserves refreshed auth cookies on a redirect", async () => {

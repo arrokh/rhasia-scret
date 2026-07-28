@@ -9,7 +9,7 @@ describe("POST /auth/logout contract", () => {
 
     expect(terminateCurrentSession).toHaveBeenCalledOnce();
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=signed_out");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
   });
 
   it("keeps stale-session logout idempotent", async () => {
@@ -18,7 +18,7 @@ describe("POST /auth/logout contract", () => {
     })(request());
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toContain("auth=signed_out");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
   });
 
   it("accepts same-origin submissions behind a trusted reverse proxy", async () => {
@@ -35,7 +35,7 @@ describe("POST /auth/logout contract", () => {
     const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=signed_out");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
     expect(terminateCurrentSession).toHaveBeenCalledOnce();
   });
 
@@ -45,7 +45,7 @@ describe("POST /auth/logout contract", () => {
     })(request());
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/?auth=logout_failed");
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=logout_failed");
     expect(response.headers.get("location")).not.toContain("provider");
   });
 
