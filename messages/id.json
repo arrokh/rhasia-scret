@@ -1,4 +1,7 @@
 {
+  "Navigation": {
+    "loadingPage": "Memuat halaman…"
+  },
   "Common": {
     "back": "Kembali",
     "cancel": "Batal",
@@ -254,6 +257,7 @@
       "title": "Impor kode QR",
       "description": "Gunakan gambar dari perangkat atau pindai langsung dengan kamera.",
       "upload": "Unggah gambar QR",
+      "loadingScanner": "Menyiapkan pemindai…",
       "stopCamera": "Hentikan kamera",
       "scanCamera": "Pindai dengan kamera",
       "manualLabel": "Masukkan URI secara manual",
@@ -461,6 +465,7 @@
       "saving": "Menyimpan…",
       "saveMember": "Simpan izin anggota",
       "saved": "Bawaan anggota disimpan.",
+      "loadingError": "Bawaan izin anggota tidak dapat dimuat. Coba lagi.",
       "error": "Izin tidak dapat disimpan. Muat ulang jika sesi pemilik lain telah mengubahnya.",
       "cancel": "Batal"
     },

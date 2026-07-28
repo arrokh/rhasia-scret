@@ -14,13 +14,16 @@ import { hasClockDrift } from "../domain/clock-drift";
 import { parseTotpUri, TotpConfigurationError, type TotpConfiguration, type TotpConfigurationErrorCode } from "../domain/totp-configuration";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
 import { useServerTimeQuery } from "./hooks/use-server-time-query";
+import { useTotpClock } from "./use-totp-clock";
 
 export function LocalTotpScreen() {
   const t = useTranslations("OtpRuntime.local");
   const tError = useTranslations("OtpRuntime.errors");
   const [configuration, setConfiguration] = useState<TotpConfiguration | null>(null);
   const [code, setCode] = useState("");
-  const [seconds, setSeconds] = useState(0);
+  const now = useTotpClock();
+  const counter = configuration && now > 0 ? Math.floor(now / (configuration.period * 1_000)) : null;
+  const seconds = configuration && counter !== null ? Math.max(0, Math.ceil((((counter + 1) * configuration.period * 1_000) - now) / 1_000)) : 0;
   const [error, setError] = useState<TotpConfigurationErrorCode | "generation" | "copy" | null>(null);
   const [copied, setCopied] = useState(false);
   const serverTime = useServerTimeQuery(configuration !== null);
@@ -28,11 +31,13 @@ export function LocalTotpScreen() {
   const form = useForm({ defaultValues: { uri: "" }, onSubmit: ({ value }) => { try { setConfiguration(parseTotpUri(value.uri)); setError(null); } catch (reason) { setConfiguration(null); setCode(""); setError(reason instanceof TotpConfigurationError ? reason.code : "invalidUri"); } } });
 
   useEffect(() => {
-    if (!configuration) return;
+    if (!configuration || counter === null) return;
     let cancelled = false;
-    const update = async () => { try { const next = await generateTotp(configuration, new BrowserHmacGenerator()); if (cancelled) return; setCode((current) => { if (current !== next.value) setCopied(false); return next.value; }); setSeconds(Math.max(0, Math.ceil((next.validUntil.getTime() - Date.now()) / 1_000))); } catch { if (!cancelled) setError("generation"); } };
-    void update(); const interval = window.setInterval(() => { void update(); }, 1_000); return () => { cancelled = true; window.clearInterval(interval); };
-  }, [configuration]);
+    generateTotp(configuration, new BrowserHmacGenerator(), new Date(counter * configuration.period * 1_000))
+      .then((next) => { if (!cancelled) setCode((current) => { if (current !== next.value) setCopied(false); return next.value; }); })
+      .catch(() => { if (!cancelled) setError("generation"); });
+    return () => { cancelled = true; };
+  }, [configuration, counter]);
 
   async function copyCode() { if (!code) return; try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setError("copy"); } }
 

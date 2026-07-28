@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { IScannerControls } from "@zxing/browser";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Camera, ImageUp, ScanLine, Square } from "lucide-react";
+import { Camera, ImageUp, LoaderCircle, ScanLine, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
   const controls = useRef<IScannerControls | null>(null);
   const [error, setError] = useState<QrError | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [scannerLoading, setScannerLoading] = useState(false);
   const [fileName, setFileName] = useState("");
   const manualForm = useForm({
     defaultValues: { uri: "" },
@@ -37,16 +38,20 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
 
   async function upload(file: File | undefined) {
     if (!file) return;
+    setScannerLoading(true);
     try { onUri(await decodeQrImage(file)); setFileName(file.name); setError(null); }
     catch { setError("imageError"); }
+    finally { setScannerLoading(false); }
   }
 
   async function startCamera() {
     if (!video.current) return;
+    setScannerLoading(true);
     try {
       controls.current?.stop(); setCameraActive(true);
       controls.current = await scanQrCamera(video.current, (uri) => { controls.current?.stop(); controls.current = null; setCameraActive(false); onUri(uri); setError(null); }, () => { setCameraActive(false); setError("scanError"); });
     } catch { setCameraActive(false); setError("cameraError"); }
+    finally { setScannerLoading(false); }
   }
 
   function stopCamera() { controls.current?.stop(); controls.current = null; setCameraActive(false); }
@@ -55,9 +60,9 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
     <section className="grid gap-5 p-5 sm:p-6" aria-labelledby="qr-import-title">
       <SectionHeading icon={ScanLine} title={t("title")} description={t("description")} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button variant="outline" asChild className="w-full"><label htmlFor="qr-image"><ImageUp /><span className="max-w-[15rem] truncate">{fileName || t("upload")}</span></label></Button>
-        <input className="sr-only" id="qr-image" type="file" accept="image/*" onChange={(event) => void upload(event.target.files?.[0])} />
-        <Button variant={cameraActive ? "secondary" : "outline"} type="button" onClick={() => void (cameraActive ? stopCamera() : startCamera())}>{cameraActive ? <Square /> : <Camera />}<span>{cameraActive ? t("stopCamera") : t("scanCamera")}</span></Button>
+        <Button variant="outline" asChild className="w-full" aria-disabled={scannerLoading}><label htmlFor="qr-image">{scannerLoading ? <LoaderCircle className="animate-spin" /> : <ImageUp />}<span className="max-w-[15rem] truncate">{scannerLoading ? t("loadingScanner") : fileName || t("upload")}</span></label></Button>
+        <input className="sr-only" id="qr-image" type="file" accept="image/*" disabled={scannerLoading} onChange={(event) => void upload(event.target.files?.[0])} />
+        <Button variant={cameraActive ? "secondary" : "outline"} type="button" disabled={scannerLoading} aria-busy={scannerLoading} onClick={() => void (cameraActive ? stopCamera() : startCamera())}>{scannerLoading ? <LoaderCircle className="animate-spin" /> : cameraActive ? <Square /> : <Camera />}<span>{scannerLoading ? t("loadingScanner") : cameraActive ? t("stopCamera") : t("scanCamera")}</span></Button>
       </div>
       <form noValidate className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void manualForm.handleSubmit(); }}>
         <manualForm.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("uriRequired") }}>

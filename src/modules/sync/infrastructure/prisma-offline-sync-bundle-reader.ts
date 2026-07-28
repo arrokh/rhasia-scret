@@ -1,12 +1,14 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { effectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+import { measureServerOperation } from "@/shared/infrastructure/server-performance";
 import type { OfflineSyncBundleReader } from "../application/offline-sync-bundle-reader";
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
 
 export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
   async readAuthorizedBundle(userId: string): Promise<EncryptedOfflineVaultBundle | null> {
-    return prisma.$transaction(async (transaction) => {
+    return measureServerOperation("rhsia:server:offline-bundle-read", () => prisma.$transaction(async (transaction) => {
       const [profile, personalVault, memberships] = await Promise.all([
         transaction.userCryptoProfile.findUnique({ where: { userId } }),
         transaction.vault.findFirst({
@@ -23,11 +25,9 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
       if (!profile || !personalVault?.encryptedName) return null;
 
       const synchronizedAt = new Date().toISOString();
-      return parseEncryptedOfflineVaultBundle({
-        schemaVersion: 2,
+      const content = {
+        schemaVersion: 2 as const,
         profileId: userId,
-        synchronizedAt,
-        synchronizationToken: synchronizedAt,
         cryptoProfile: {
           vaultUnlockSalt: base64(profile.vaultUnlockSalt),
           wrappedUserRootKey: base64(profile.wrappedUserRootKey),
@@ -69,8 +69,10 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
             accounts: vault.accounts.map(accountRecord)
           }];
         })
-      });
-    }, { isolationLevel: "RepeatableRead" });
+      };
+      const synchronizationToken = createHash("sha256").update(JSON.stringify(content)).digest("base64url");
+      return parseEncryptedOfflineVaultBundle({ ...content, synchronizedAt, synchronizationToken });
+    }, { isolationLevel: "RepeatableRead" }));
   }
 }
 

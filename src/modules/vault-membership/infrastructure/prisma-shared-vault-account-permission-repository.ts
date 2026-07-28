@@ -12,6 +12,19 @@ import {
 } from "../domain/shared-vault-account-permissions";
 
 export class PrismaSharedVaultAccountPermissionRepository implements SharedVaultAccountPermissionRepository {
+  public async readVaultDefaults(ownerId: string, vaultId: string): Promise<VaultMemberPermissionDefaults | null> {
+    const vault = await prisma.vault.findFirst({
+      where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
+      select: {
+        membersCanAddAccounts: true,
+        membersCanEditAccounts: true,
+        membersCanDeleteAccounts: true,
+        memberPermissionsRevision: true
+      }
+    });
+    return vault ? { permissions: vaultPermissions(vault), revision: vault.memberPermissionsRevision } : null;
+  }
+
   public updateVaultDefaults(
     ownerId: string,
     vaultId: string,

@@ -32,10 +32,28 @@ describe("GET /api/sync/offline-bundle contract", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
+    expect(response.headers.get("etag")).toBe('"sync_1"');
+    expect(response.headers.get("x-synchronized-at")).toBe(bundle.synchronizedAt);
     expect(readAuthorizedBundle).toHaveBeenCalledWith("user_1");
     expect(body.sharedVaults.map((vault: { role: string }) => vault.role)).toEqual(["OWNER", "VIEWER"]);
     expect(JSON.stringify(body)).not.toContain("person@example.test");
     expect(body).not.toHaveProperty("encryptedUserPrivateKey");
+  });
+
+  it("revalidates authorization and returns no ciphertext when the encrypted snapshot is unchanged", async () => {
+    const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
+    const handler = createOfflineSyncBundleHandler({
+      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
+      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase-1", "person@example.test", "ACTIVE") },
+      bundles: { readAuthorizedBundle }
+    });
+
+    const response = await handler(new Request("https://vault.example.test/api/sync/offline-bundle", { headers: { "if-none-match": '"sync_1"' } }));
+
+    expect(response.status).toBe(304);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("x-synchronized-at")).toBe(bundle.synchronizedAt);
+    expect(readAuthorizedBundle).toHaveBeenCalledWith("user_1");
   });
 
   it("fails closed for missing authentication and never reads Vault data", async () => {

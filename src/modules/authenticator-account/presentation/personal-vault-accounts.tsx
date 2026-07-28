@@ -30,7 +30,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   return (
     <section className="grid gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
       <div className="flex items-center gap-2">
-        {current && <Button variant="outline" asChild><Link href="/vaults/manage" aria-label={t("vaults")} title={t("vaults")}><UsersRound aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
+        {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><UsersRound aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
         {current && <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="icon" aria-label={t("security")}><ShieldKeyhole /></Button></SheetTrigger>
           <SheetContent side="bottom" className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">

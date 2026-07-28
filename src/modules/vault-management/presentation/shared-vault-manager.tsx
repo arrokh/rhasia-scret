@@ -18,6 +18,7 @@ import {
   useDeleteVaultParticipantMutation,
   useUpdateVaultDefaultAccountPermissionsMutation,
   useUpdateVaultMemberAccountPermissionOverridesMutation,
+  useVaultDefaultAccountPermissionsQuery,
   useVaultParticipantsQuery,
   type BrowserVaultParticipant,
   type EffectiveSharedVaultAccountPermissions,
@@ -27,6 +28,7 @@ import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
+import { FormLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
 import { encryptSharedVaultName } from "../infrastructure/browser-shared-vault-creator";
 import type { VaultAuditFilter } from "../infrastructure/browser-vault-management-client";
 import { useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
@@ -63,18 +65,19 @@ function VaultDirectoryLink({ href, icon: Icon, name, detail, badge }: { href: s
   return <Button variant="outline" className="h-auto min-h-16 w-full justify-start gap-3 p-3 text-left" asChild><Link href={href}><span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-foreground"><Icon /></span><span className="grid min-w-0 flex-1 gap-1"><strong className="truncate text-sm text-foreground">{name}</strong><span className="text-xs font-normal text-muted-foreground">{detail}</span></span><Badge className="bg-muted text-muted-foreground">{badge}</Badge><ChevronRight className="text-muted-foreground" /></Link></Button>;
 }
 
-export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vault: SharedVaultSummary; onRenamed: (vaultId: string, name: string) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
+export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPermissions, onRenamed, onAccountDeleted }: { vault: SharedVaultSummary; ownerEmail: string; initialDefaultAccountPermissions?: { permissions: SharedVaultAccountPermissions; revision: number }; onRenamed: (vaultId: string, name: string) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
   const t = useTranslations("VaultManagement.details");
+  const permissionsT = useTranslations("VaultManagement.permissions");
   const [activeTab, setActiveTab] = useState("details");
   const [status, setStatus] = useState<"renamed" | "renameError" | null>(null);
   const [auditFilter, setAuditFilter] = useState<SelectedAuditFilter>({ query: {}, label: "" });
   const renameMutation = useRenameSharedVaultMutation();
-  const participants = useVaultParticipantsQuery(vault.id, vault.role === "OWNER");
-  const participantPage = participants.data?.pages[0];
+  const defaults = useVaultDefaultAccountPermissionsQuery(vault.id, vault.role === "OWNER" && !initialDefaultAccountPermissions);
+  const participants = useVaultParticipantsQuery(vault.id, vault.role === "OWNER" && activeTab === "invitations");
   const participantItems = participants.data?.pages.flatMap((page) => page.participants) ?? [];
   const audit = useVaultAuditQuery(vault.id, auditFilter.query, vault.role === "OWNER" && activeTab === "audit");
   const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); setStatus("renamed"); } catch { setStatus("renameError"); } } });
-  const owner = participantPage?.owner;
+  const defaultPermissionState = initialDefaultAccountPermissions ?? (defaults.data ? { permissions: defaults.data.vaultDefaultAccountPermissions, revision: defaults.data.vaultDefaultAccountPermissionsRevision } : undefined);
 
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
 
@@ -87,9 +90,11 @@ export function SharedVaultDetails({ vault, onRenamed, onAccountDeleted }: { vau
       </TabsList>}
       <TabsContent value="details" className={`grid gap-5 ${vault.role === "OWNER" ? "" : "mt-0"}`}>
         {vault.role === "OWNER" ? <>
-          <div className="grid gap-1"><p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{t("owner")}</p><p className="text-sm font-bold text-foreground">{participants.isPending ? t("loading") : owner?.email ?? t("unavailable")}</p></div>
+          <div className="grid gap-1"><p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{t("owner")}</p><p className="text-sm font-bold text-foreground">{ownerEmail}</p></div>
           <form noValidate className="grid gap-2" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void renameForm.handleSubmit(); }}><renameForm.Field name="name" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("nameRequired") }}>{(field) => <><Label htmlFor={`shared-vault-name-${vault.id}`}>{t("sharedName")}</Label><div className="grid grid-cols-[1fr_auto] gap-2"><Input id={`shared-vault-name-${vault.id}`} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? `shared-vault-name-${vault.id}-error` : undefined} required /><Button variant="outline" type="submit" disabled={renameMutation.isPending}>{renameMutation.isPending ? t("saving") : t("save")}</Button></div><FormFieldError id={`shared-vault-name-${vault.id}-error`} errors={field.state.meta.errors} /></>}</renameForm.Field></form>
-          {participantPage && <VaultDefaultPermissionsForm key={participantPage.vaultDefaultAccountPermissionsRevision} vaultId={vault.id} permissions={participantPage.vaultDefaultAccountPermissions} revision={participantPage.vaultDefaultAccountPermissionsRevision} />}
+          {defaults.isPending && !initialDefaultAccountPermissions && <FormLoadingPlaceholder />}
+          {defaults.isError && !initialDefaultAccountPermissions && <StatusBanner tone="danger" role="alert">{permissionsT("loadingError")}</StatusBanner>}
+          {defaultPermissionState && <VaultDefaultPermissionsForm key={defaultPermissionState.revision} vaultId={vault.id} permissions={defaultPermissionState.permissions} revision={defaultPermissionState.revision} />}
         </> : <MemberPermissionNotice effective={vault.effectiveAccountPermissions} />}
         {vault.accounts.some((account) => account.unavailable) && <StatusBanner tone="warning" role="status">{t("unavailableAccountWarning")}</StatusBanner>}
         <VaultAccountManagementList
@@ -210,7 +215,7 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
     <InvitationForm vault={vault} onCreated={onCreated} />
     <section className="grid gap-3" aria-labelledby="invited-users-title">
       <div><h3 id="invited-users-title" className="font-bold text-ink-strong">{t("usersTitle")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("usersDescription")}</p></div>
-      {loading && <p className="text-sm text-muted-foreground">{t("loading")}</p>}
+      {loading && <SectionLoadingPlaceholder rows={2} label={t("loading")} />}
       {failed && <StatusBanner tone="danger" role="alert">{t(invited.length ? "nextError" : "listError")}</StatusBanner>}
       {!loading && !failed && !invited.length && <p className="rounded-md border border-dashed bg-muted/30 p-5 text-center text-sm text-muted-foreground">{t("empty")}</p>}
       {!!invited.length && <ul className="grid list-none gap-2 p-0">{invited.map((participant) => <li key={participant.key} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border bg-card p-3"><span className="grid min-w-0 gap-1"><strong className="truncate text-sm">{participant.email}</strong><span className="flex flex-wrap items-center gap-2"><Badge className="w-fit bg-muted text-muted-foreground">{participant.kind === "MEMBER" ? t("active") : t("pending")}</Badge>{participant.effectiveAccountPermissions && <span className="text-xs text-muted-foreground"><PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} /></span>}</span></span><span className="flex items-center">{participant.kind === "MEMBER" && <Button variant="ghost" size="icon-sm" type="button" aria-label={t("configurePermissions", { email: participant.email })} onClick={() => setParticipantToConfigure(participant)}><Settings2 /></Button>}<Button variant="ghost" size="icon-sm" type="button" aria-label={t("viewAudit", { email: participant.email })} title={participant.userId ? t("viewAuditTitle") : t("auditUnavailable")} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={t("deleteLabel", { email: participant.email })} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>)}</ul>}

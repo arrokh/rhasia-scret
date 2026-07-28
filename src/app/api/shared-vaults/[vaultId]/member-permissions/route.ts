@@ -4,7 +4,7 @@ import { loadApplicationUser } from "@/modules/identity/application/load-applica
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
 import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { updateSharedVaultMemberPermissionDefaults } from "@/modules/vault-membership/application/manage-shared-vault-account-permissions";
+import { loadSharedVaultMemberPermissionDefaults, updateSharedVaultMemberPermissionDefaults } from "@/modules/vault-membership/application/manage-shared-vault-account-permissions";
 import { PrismaSharedVaultAccountPermissionRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository";
 
 const defaultsSchema = z.object({
@@ -13,6 +13,19 @@ const defaultsSchema = z.object({
   canEditAccounts: z.boolean(),
   canDeleteAccounts: z.boolean()
 }).strict();
+
+export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
+  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const { vaultId } = await params;
+  const defaults = await loadSharedVaultMemberPermissionDefaults(user.id, vaultId, new PrismaSharedVaultAccountPermissionRepository());
+  if (!defaults) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
+  return NextResponse.json({
+    vaultDefaultAccountPermissions: defaults.permissions,
+    vaultDefaultAccountPermissionsRevision: defaults.revision
+  });
+}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());

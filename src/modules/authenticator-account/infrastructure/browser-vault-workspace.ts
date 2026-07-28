@@ -16,6 +16,7 @@ import {
 } from "@/modules/sync";
 import { unlockSharedVault, type EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
 import { base64ToBytes } from "@/shared/infrastructure/browser-base64";
+import { measureBrowserOperation } from "@/shared/infrastructure/browser-performance";
 import { decryptAccountConfiguration, type DecryptedAuthenticatorAccount } from "./browser-account-payload";
 
 export type UnlockedVault = {
@@ -59,14 +60,14 @@ export async function loadUnlockedVaultWorkspace(
   vaultUnlockSecret: string,
   personalVaultId: string
 ): Promise<UnlockedVaultWorkspace> {
-  const bundle = await fetchAuthorizedOfflineBundle();
+  const bundle = await fetchMeasuredAuthorizedOfflineBundle({ personalVaultId });
   assertPersonalVault(bundle, personalVaultId);
   const unlocked = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
   return decryptAndPersistOnlineBundle(bundle, unlocked.userRootKey, unlocked.personalVaultKey);
 }
 
 export async function loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVaultId: string, signal?: AbortSignal): Promise<UnlockedVaultWorkspace> {
-  const bundle = await fetchAuthorizedOfflineBundle();
+  const bundle = await fetchMeasuredAuthorizedOfflineBundle({ personalVaultId });
   assertPersonalVault(bundle, personalVaultId);
   let userRootKey: Uint8Array | undefined;
   let personalVaultKey: Uint8Array | undefined;
@@ -83,7 +84,7 @@ export async function loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVa
 }
 
 export async function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
-  const bundle = await fetchAuthorizedOfflineBundle();
+  const bundle = await fetchMeasuredAuthorizedOfflineBundle({ personalVaultId });
   assertPersonalVault(bundle, personalVaultId);
   let userRootKey: Uint8Array | undefined;
   let personalVaultKey: Uint8Array | undefined;
@@ -131,7 +132,7 @@ export async function loadOfflineVaultWorkspaceWithRememberedBrowser(profileId: 
 export async function refreshUnlockedVaultWorkspace(userRootKey: Uint8Array, expectedProfileId: string): Promise<UnlockedVaultWorkspace> {
   const retainedUserRootKey = userRootKey.slice();
   try {
-    const bundle = await fetchAuthorizedOfflineBundle();
+    const bundle = await fetchMeasuredAuthorizedOfflineBundle({ profileId: expectedProfileId });
     if (bundle.profileId !== expectedProfileId) throw new Error("The authenticated profile does not match the unlocked Local Vault Snapshot.");
     const personalVaultKey = await unlockPersonalVaultWithUserRootKey(retainedUserRootKey, profileMaterial(bundle));
     return await decryptAndPersistOnlineBundle(bundle, retainedUserRootKey, personalVaultKey);
@@ -154,11 +155,15 @@ async function decryptAndPersistOnlineBundle(
   personalVaultKey: Uint8Array
 ): Promise<UnlockedVaultWorkspace> {
   let workspace: UnlockedVaultWorkspace | undefined;
+  const persistence = measureBrowserOperation("rhsia:unlock:persist", () => new BrowserOfflineVaultRepository().replace(bundle))
+    .then(() => ({ ok: true as const }), (error: unknown) => ({ ok: false as const, error }));
   try {
-    workspace = await loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT");
-    await new BrowserOfflineVaultRepository().replace(bundle);
+    workspace = await measureBrowserOperation("rhsia:unlock:decrypt", () => loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT"));
+    const persisted = await persistence;
+    if (!persisted.ok) throw persisted.error;
     return workspace;
   } catch (error) {
+    await persistence;
     if (workspace) clearUnlockedVaultWorkspace(workspace);
     else { userRootKey.fill(0); personalVaultKey.fill(0); }
     throw error;
@@ -227,6 +232,18 @@ async function loadWorkspace(
   };
 }
 
+function fetchMeasuredAuthorizedOfflineBundle(identifier: { personalVaultId?: string; profileId?: string }): Promise<EncryptedOfflineVaultBundle> {
+  return measureBrowserOperation("rhsia:unlock:fetch", async () => {
+    const repository = new BrowserOfflineVaultRepository();
+    const cached = identifier.profileId
+      ? await repository.read(identifier.profileId)
+      : identifier.personalVaultId
+        ? await repository.readByPersonalVaultId(identifier.personalVaultId)
+        : null;
+    return fetchAuthorizedOfflineBundle(cached);
+  });
+}
+
 async function loadLocalBundle(profileId: string): Promise<EncryptedOfflineVaultBundle> {
   const bundle = await new BrowserOfflineVaultRepository().read(profileId);
   if (!bundle) throw new Error("Local Vault Snapshot was not found.");
@@ -257,29 +274,39 @@ async function decryptAccounts(
   encryptedAccounts: EncryptedOfflineVaultBundle["personalVault"]["accounts"],
   vault: UnlockedVault
 ): Promise<{ accounts: WorkspaceAuthenticatorAccount[]; unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[] }> {
-  const accounts: WorkspaceAuthenticatorAccount[] = [];
-  const unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[] = [];
-  for (const encryptedAccount of encryptedAccounts) {
-    try {
-      accounts.push({
-        id: encryptedAccount.id,
-        vaultId: vault.id,
-        vaultName: vault.name,
-        vaultType: vault.type,
-        revision: encryptedAccount.revision,
-        ...await decryptAccountConfiguration(vault.key, base64ToBytes(encryptedAccount.encryptedPayload))
-      });
-    } catch {
-      unavailableAccounts.push({
-        id: encryptedAccount.id,
-        vaultId: vault.id,
-        vaultName: vault.name,
-        vaultType: vault.type,
-        revision: encryptedAccount.revision
-      });
+  const accounts = new Array<WorkspaceAuthenticatorAccount | undefined>(encryptedAccounts.length);
+  const unavailableAccounts = new Array<UnavailableWorkspaceAuthenticatorAccount | undefined>(encryptedAccounts.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(8, encryptedAccounts.length) }, async () => {
+    while (nextIndex < encryptedAccounts.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const encryptedAccount = encryptedAccounts[index];
+      try {
+        accounts[index] = {
+          id: encryptedAccount.id,
+          vaultId: vault.id,
+          vaultName: vault.name,
+          vaultType: vault.type,
+          revision: encryptedAccount.revision,
+          ...await decryptAccountConfiguration(vault.key, base64ToBytes(encryptedAccount.encryptedPayload))
+        };
+      } catch {
+        unavailableAccounts[index] = {
+          id: encryptedAccount.id,
+          vaultId: vault.id,
+          vaultName: vault.name,
+          vaultType: vault.type,
+          revision: encryptedAccount.revision
+        };
+      }
     }
-  }
-  return { accounts, unavailableAccounts };
+  });
+  await Promise.all(workers);
+  return {
+    accounts: accounts.filter((account): account is WorkspaceAuthenticatorAccount => account !== undefined),
+    unavailableAccounts: unavailableAccounts.filter((account): account is UnavailableWorkspaceAuthenticatorAccount => account !== undefined)
+  };
 }
 
 function assertPersonalVault(bundle: EncryptedOfflineVaultBundle, expectedVaultId: string): void {

@@ -1,28 +1,18 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account";
-import { LogoutForm } from "@/modules/identity";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
-import { ensurePersonalVault } from "@/modules/vault-management/application/ensure-personal-vault";
-import { PrismaPersonalVaultRepository } from "@/modules/vault-management/infrastructure/prisma-personal-vault-repository";
-import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
+import { loadVaultPageContext } from "@/app/vaults/load-vault-page-context";
+import { VaultPageFrame } from "@/app/vaults/vault-page-frame";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewAuthenticatorAccountPage({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {
   const t = await getTranslations("VaultManagement.pages");
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
-  if (!user || !user.canAccessApplication()) redirect("/sign-in");
-  const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
-  const { vaultId: preferredVaultId } = await searchParams;
-  if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
+  return <VaultPageFrame backHref="/vaults" backLabel={t("backVaults")} title={t("newAccountTitle")} description={t("newAccountDescription")} contentLabel={t("newAccountLabel")}><NewAccountContent searchParams={searchParams} /></VaultPageFrame>;
+}
 
-  return (
-    <AppPage>
-      <PageHeader backHref="/vaults" backLabel={t("backVaults")} title={t("newAccountTitle")} description={t("newAccountDescription")} action={<LogoutForm email={user.email} />} />
-      <SurfaceCard aria-label={t("newAccountLabel")}><AuthenticatorAccountCreator personalVaultId={personalVault.id} preferredVaultId={preferredVaultId} /></SurfaceCard>
-    </AppPage>
-  );
+async function NewAccountContent({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {
+  const [{ personalVault }, { vaultId: preferredVaultId }] = await Promise.all([loadVaultPageContext(), searchParams]);
+  if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
+  return <AuthenticatorAccountCreator personalVaultId={personalVault.id} preferredVaultId={preferredVaultId} />;
 }

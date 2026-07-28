@@ -13,7 +13,7 @@ const verifier = z.base64().refine((value) => Buffer.byteLength(value, "base64")
 const redeemSchema = z.object({ invitationId: z.string().min(1), encryptedVaultKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), keyVersion: z.literal(1) });
 
 export async function GET(request: NextRequest) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(new SupabaseSessionVerifier("fresh-user"), new PrismaApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const parsed = verifier.safeParse(request.nextUrl.searchParams.get("verifier"));
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(new SupabaseSessionVerifier("fresh-user"), new PrismaApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);

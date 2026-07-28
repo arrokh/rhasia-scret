@@ -12,7 +12,7 @@ import { TotpAccountButton } from "@/modules/otp-runtime/presentation/totp-accou
 
 describe("TotpAccountButton", () => {
   let root: Root | undefined;
-  afterEach(async () => { await act(async () => root?.unmount()); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+  afterEach(async () => { await act(async () => root?.unmount()); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 
   it("offers an explicit, accessible account-management action", async () => {
     const onManage = vi.fn();
@@ -53,6 +53,48 @@ describe("TotpAccountButton", () => {
     expect(container.textContent).not.toContain("Disalin");
     expect(container.querySelector(".lucide-check")).toBeNull();
     expect(container.querySelector("circle.stroke-success")).toBeNull();
+  });
+
+  it("pauses the shared clock while hidden and resynchronizes on visibility", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(TotpAccountButton, { configuration: configuration(), vaultName: "Brankas Pribadi" })));
+    expect(mocks.generateTotp).toHaveBeenCalledOnce();
+
+    visibility.mockReturnValue("hidden");
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(mocks.generateTotp).toHaveBeenCalledOnce();
+
+    visibility.mockReturnValue("visible");
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(mocks.generateTotp).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one clock and signs only when the TOTP counter changes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(createElement("div", null,
+      ...Array.from({ length: 100 }, (_, index) => createElement(TotpAccountButton, {
+        key: index,
+        configuration: { ...configuration(), accountName: `Account ${index}` },
+        vaultName: "Brankas Pribadi"
+      }))
+    )));
+
+    expect(mocks.generateTotp).toHaveBeenCalledTimes(100);
+    expect(vi.getTimerCount()).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(29_000));
+    expect(mocks.generateTotp).toHaveBeenCalledTimes(100);
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    expect(mocks.generateTotp).toHaveBeenCalledTimes(200);
   });
 });
 

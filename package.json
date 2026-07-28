@@ -19,9 +19,12 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:contract": "vitest run --project contract",
-    "test:browser": "playwright test --config playwright.config.ts && playwright test --config playwright.e2e.config.ts && playwright test --config playwright.pwa.config.ts",
+    "test:browser": "playwright test --config playwright.config.ts && pnpm run clean:next-dev && playwright test --config playwright.e2e.config.ts && playwright test --config playwright.pwa.config.ts",
+    "clean:next-dev": "tsx scripts/clear-next-dev-cache.ts",
+    "test:performance": "playwright test --config playwright.performance.config.ts",
+    "performance:bundles": "tsx scripts/report-route-bundles.ts --build-dir .next --output artifacts/performance/route-bundles.json --enforce",
     "test:architecture": "dependency-cruiser --config .dependency-cruiser.cjs src",
-    "test:all": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run test:browser && pnpm run build",
+    "test:all": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run test:browser && pnpm run build && pnpm run performance:bundles",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -29,7 +32,7 @@
     "verify:database": "tsx scripts/verify-test-database.ts",
     "verify:prisma-connections": "tsx scripts/verify-prisma-connections.ts",
     "verify:supabase-auth": "tsx scripts/verify-supabase-auth.ts",
-    "ci": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build"
+    "ci": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build && pnpm run performance:bundles"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.0",

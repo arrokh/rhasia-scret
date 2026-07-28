@@ -21,13 +21,13 @@ export function AppPage({ children, centered = false, className }: { children: R
   );
 }
 
-export function PageHeader({ eyebrow, title, description, action, backHref, backLabel, className }: { eyebrow?: string; title: string; description?: string; action?: ReactNode; backHref?: string; backLabel?: string; className?: string }) {
+export function PageHeader({ eyebrow, title, description, action, backHref, backLabel, backPrefetch, className }: { eyebrow?: string; title: string; description?: ReactNode; action?: ReactNode; backHref?: string; backLabel?: string; backPrefetch?: boolean; className?: string }) {
   const t = useTranslations("Common");
   const resolvedBackLabel = backLabel ?? t("back");
   return (
     <header className={cn("mb-6 flex items-center justify-between gap-3 sm:gap-4", className)}>
       <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-        {backHref && <Button variant="ghost" size="icon" asChild className="shrink-0 self-start" title={resolvedBackLabel}><Link href={backHref} aria-label={resolvedBackLabel}><ArrowLeft aria-hidden="true" /></Link></Button>}
+        {backHref && <Button variant="ghost" size="icon" asChild className="shrink-0 self-start" title={resolvedBackLabel}><Link href={backHref} prefetch={backPrefetch} aria-label={resolvedBackLabel}><ArrowLeft aria-hidden="true" /></Link></Button>}
         <div className="min-w-0">
           {eyebrow && <p className="mb-1.5 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{eyebrow}</p>}
           <h1 className="text-xl leading-7 font-bold tracking-tight text-ink-strong first-letter:uppercase sm:text-2xl sm:leading-8">{title}</h1>
