@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { SecureShareLinkRedemption } from "@/modules/vault-membership";
 import { PersonalVaultDetails, SharedVaultCreator, SharedVaultDetails, SharedVaultDirectory, type PersonalVaultSummary, type SharedVaultSummary } from "@/modules/vault-management";
@@ -18,22 +19,24 @@ export function VaultDirectoryWorkspace({ personalVaultId }: { personalVaultId: 
 }
 
 export function PersonalVaultDetailWorkspace({ personalVaultId, ownerEmail }: { personalVaultId: string; ownerEmail: string }) {
+  const t = useTranslations("AuthenticatorAccount.workspace");
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
   const personalVault = personalVaultSummary(workspace, personalVaultId);
-  if (!personalVault) return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="danger" role="alert">Brankas Pribadi tidak dapat dibuka.</StatusBanner><Button variant="outline" asChild><Link href="/vaults/manage">Lihat semua brankas</Link></Button></div>;
+  if (!personalVault) return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="danger" role="alert">{t("personalUnavailable")}</StatusBanner><Button variant="outline" asChild><Link href="/vaults/manage">{t("allVaults")}</Link></Button></div>;
   return <PersonalVaultDetails vault={personalVault} ownerEmail={ownerEmail} onAccountDeleted={async (vaultId, accountId, expectedRevision) => { await deleteAccount.mutateAsync({ vaultId, vaultType: "PERSONAL", accountId, expectedRevision }); setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== vaultId) } : current); }} />;
 }
 
 export function SharedVaultDetailWorkspace({ personalVaultId, vaultId }: { personalVaultId: string; vaultId: string }) {
+  const t = useTranslations("AuthenticatorAccount.workspace");
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
   const vault = sharedVaultSummaries(workspace).find((entry) => entry.id === vaultId);
-  if (!vault) return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="danger" role="alert">Brankas Bersama tidak ditemukan atau tidak dapat dibuka.</StatusBanner><Button variant="outline" asChild><Link href="/vaults/manage">Lihat semua brankas</Link></Button></div>;
+  if (!vault) return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="danger" role="alert">{t("sharedUnavailable")}</StatusBanner><Button variant="outline" asChild><Link href="/vaults/manage">{t("allVaults")}</Link></Button></div>;
   return <SharedVaultDetails vault={vault} onRenamed={(updatedVaultId, name) => setWorkspace((current) => current ? { ...current, vaults: current.vaults.map((entry) => entry.id === updatedVaultId ? { ...entry, name } : entry), accounts: current.accounts.map((account) => account.vaultId === updatedVaultId ? { ...account, vaultName: name } : account) } : current)} onAccountDeleted={async (updatedVaultId, accountId, expectedRevision) => { await deleteAccount.mutateAsync({ vaultId: updatedVaultId, vaultType: "SHARED", accountId, expectedRevision }); setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== updatedVaultId) } : current); }} />;
 }
 
@@ -53,7 +56,8 @@ export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaul
 }
 
 function ReadOnlyWorkspaceNotice() {
-  return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="offline">Sinkronisasi dan otorisasi belum terkini. Semua pengelolaan brankas diblokir dan tidak diantrikan.</StatusBanner><Button variant="outline" asChild><Link href="/vaults">Kembali ke kode baca-saja</Link></Button></div>;
+  const t = useTranslations("AuthenticatorAccount.workspace");
+  return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="offline">{t("readOnly")}</StatusBanner><Button variant="outline" asChild><Link href="/vaults">{t("backReadOnly")}</Link></Button></div>;
 }
 
 function personalVaultSummary(workspace: NonNullable<ReturnType<typeof useUnlockedVaultWorkspace>["workspace"]>, personalVaultId: string): PersonalVaultSummary | undefined {

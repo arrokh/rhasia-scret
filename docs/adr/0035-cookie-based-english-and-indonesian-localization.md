@@ -1,0 +1,11 @@
+# Cookie-based English and Indonesian localization
+
+The application supports Indonesian (`id`) and English (`en`) through `next-intl`, with Indonesian as the deterministic default. A validated first-party `RHSIA_LOCALE` cookie stores only the selected locale. The locale is not persisted in Prisma, IndexedDB, TanStack Query, Local Vault Snapshots, or encrypted payloads, and the application does not infer it from `Accept-Language`.
+
+Locale selection does not alter paths. Public, authenticated, callback, offline, and Secure Share Link URLs remain unchanged, including secret-bearing URL fragments. This avoids coupling presentation language to authentication redirects, authorization matching, PWA scope, or cryptographic link contracts in an invite-only application where localized SEO paths are not required. Reading the cookie in the root layout makes otherwise static public and preview routes request-rendered; this is accepted so server-rendered content and accessibility metadata use the selected language.
+
+Translation libraries remain in presentation and application-composition code only. Domain, application, infrastructure, API, database, audit-event, archive, and cryptographic contracts expose stable language-independent values or typed error codes. User-facing presentation maps those values to typed message catalogs. The catalogs contain no user-provided Vault or Authenticator Account content, OTPs, secrets, keys, Secure Share Link material, or decrypted data.
+
+The current route, API, PWA scope, encryption, authorization, audit-redaction, and read-only offline boundaries remain unchanged. An online locale change refreshes the public offline shell in the service-worker static cache, but never caches API/auth responses or user data and never queues a mutation. The exact destructive-reset token `HAPUS DATA BRANKAS` required by ADR-0025 remains invariant in both locales; only its surrounding instructions are localized.
+
+This is an ongoing presentation contract: every future production or development-preview surface must ship complete Indonesian and English copy in the same change, preserve catalog parity and lower-layer locale independence, and extend the appropriate automated localization coverage. `AGENTS.md` records these requirements for repository agents.

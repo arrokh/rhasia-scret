@@ -1,4 +1,4 @@
-const CACHE_VERSION = "rhasia-scret-static-v1";
+const CACHE_VERSION = "rhasia-scret-static-v2";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
 const OFFLINE_SHELL = "/offline";
 const PRECACHE = [OFFLINE_SHELL, "/manifest.webmanifest", "/pwa/icon512_rounded.png"];
@@ -10,7 +10,11 @@ self.addEventListener("install", (event) => {
 async function precacheOfflineShell() {
   const cache = await caches.open(CACHE_VERSION);
   await cache.addAll(PRECACHE.slice(1));
-  const response = await fetch(OFFLINE_SHELL, { cache: "reload" });
+  await cacheOfflineShell(cache);
+}
+
+async function cacheOfflineShell(cache) {
+  const response = await fetch(OFFLINE_SHELL, { cache: "reload", credentials: "include" });
   if (!response.ok) throw new Error("Offline shell could not be cached.");
   await cache.put(OFFLINE_SHELL, response.clone());
   const html = await response.text();
@@ -26,6 +30,11 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((names) => Promise.all(names.filter((name) => name.startsWith(OWNED_CACHE_PREFIX) && name !== CACHE_VERSION).map((name) => caches.delete(name)))),
     self.clients.claim()
   ]));
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "RHSIA_REFRESH_OFFLINE_SHELL") return;
+  event.waitUntil(caches.open(CACHE_VERSION).then(cacheOfflineShell));
 });
 
 self.addEventListener("fetch", (event) => {

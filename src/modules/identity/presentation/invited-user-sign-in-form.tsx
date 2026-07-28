@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useTranslations } from "next-intl";
 import { LoaderCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { createBrowserSupabaseClient } from "./browser-supabase-client";
 import { requestInvitedSignInLink } from "./request-invited-sign-in-link";
 
 export function InvitedUserSignInForm() {
+  const t = useTranslations("Identity.signIn");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error" | "rate_limited">("idle");
   const [retrySeconds, setRetrySeconds] = useState(0);
   const form = useForm({
@@ -33,13 +35,13 @@ export function InvitedUserSignInForm() {
 
   return (
     <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-      <form.Field name="email" validators={{ onBlur: ({ value }) => validateEmail(value), onSubmit: ({ value }) => validateEmail(value) }}>
+      <form.Field name="email" validators={{ onBlur: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")), onSubmit: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")) }}>
         {(field) => (
           <div className="grid gap-2">
-            <Label htmlFor="email" className="sr-only">Alamat email yang diundang</Label>
+            <Label htmlFor="email" className="sr-only">{t("emailLabel")}</Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder="nama@keluarga.id" required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : undefined} />
+              <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : undefined} />
             </div>
             <FormFieldError id="email-error" errors={field.state.meta.errors} />
           </div>
@@ -56,18 +58,18 @@ export function InvitedUserSignInForm() {
             onClick={status === "sent" ? () => window.location.reload() : undefined}
           >
             {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {isSubmitting ? "Mengirim…" : status === "sent" ? "Refresh page for retry" : retrySeconds > 0 ? `Coba lagi dalam ${retrySeconds} dtk` : "Kirim tautan masuk"}
+            {isSubmitting ? t("sending") : status === "sent" ? t("retryPage") : retrySeconds > 0 ? t("retryIn", { seconds: retrySeconds }) : t("sendLink")}
           </Button>
         )}
       </form.Subscribe>
-      {status === "sent" && <StatusBanner tone="success">Jika alamat ini diundang, periksa kotak masuknya untuk tautan masuk.</StatusBanner>}
-      {status === "rate_limited" && <StatusBanner tone="warning">Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.</StatusBanner>}
-      {status === "error" && <StatusBanner tone="danger" role="alert">Kami tidak dapat mengirim tautan masuk. Pastikan alamat ini diundang, lalu coba lagi.</StatusBanner>}
+      {status === "sent" && <StatusBanner tone="success">{t("sent")}</StatusBanner>}
+      {status === "rate_limited" && <StatusBanner tone="warning">{t("rateLimited")}</StatusBanner>}
+      {status === "error" && <StatusBanner tone="danger" role="alert">{t("error")}</StatusBanner>}
     </form>
   );
 }
 
-function validateEmail(value: string): string | undefined {
-  if (!value.trim()) return "Alamat email wajib diisi.";
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? undefined : "Masukkan alamat email yang valid.";
+function validateEmail(value: string, requiredMessage: string, invalidMessage: string): string | undefined {
+  if (!value.trim()) return requiredMessage;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? undefined : invalidMessage;
 }

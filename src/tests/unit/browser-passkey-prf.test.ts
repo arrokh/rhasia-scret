@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { evaluatePasskeyPrf } from "@/modules/crypto/infrastructure/browser-passkey-prf";
+import { evaluatePasskeyPrf, PasskeyPrfUnsupportedError } from "@/modules/crypto/infrastructure/browser-passkey-prf";
 
 class FakePublicKeyCredential {
   getClientExtensionResults() {
@@ -36,6 +36,6 @@ describe("WebAuthn PRF evaluation", () => {
     get.mockResolvedValueOnce(null);
     await expect(evaluatePasskeyPrf(Uint8Array.of(1), "localhost", new Uint8Array(32))).rejects.toThrow(/cancelled/);
     get.mockResolvedValueOnce(Object.assign(new FakePublicKeyCredential(), { getClientExtensionResults: () => ({}) }));
-    await expect(evaluatePasskeyPrf(Uint8Array.of(1), "localhost", new Uint8Array(32))).rejects.toThrow(/does not support PRF/);
+    await expect(evaluatePasskeyPrf(Uint8Array.of(1), "localhost", new Uint8Array(32))).rejects.toBeInstanceOf(PasskeyPrfUnsupportedError);
   });
 });

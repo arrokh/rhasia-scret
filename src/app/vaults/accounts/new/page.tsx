@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account";
 import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
@@ -11,6 +12,7 @@ import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 export const dynamic = "force-dynamic";
 
 export default async function NewAuthenticatorAccountPage({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {
+  const t = await getTranslations("VaultManagement.pages");
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
@@ -19,8 +21,8 @@ export default async function NewAuthenticatorAccountPage({ searchParams }: { se
 
   return (
     <AppPage>
-      <PageHeader backHref="/vaults" backLabel="Kembali ke brankas" title="Tambahkan akun autentikator" description="Pindai kode QR atau unggah gambar lalu tinjau tujuan penyimpanannya." action={<LogoutForm email={user.email} />} />
-      <SurfaceCard aria-label="Formulir akun autentikator baru"><AuthenticatorAccountCreator personalVaultId={personalVault.id} preferredVaultId={preferredVaultId} /></SurfaceCard>
+      <PageHeader backHref="/vaults" backLabel={t("backVaults")} title={t("newAccountTitle")} description={t("newAccountDescription")} action={<LogoutForm email={user.email} />} />
+      <SurfaceCard aria-label={t("newAccountLabel")}><AuthenticatorAccountCreator personalVaultId={personalVault.id} preferredVaultId={preferredVaultId} /></SurfaceCard>
     </AppPage>
   );
 }

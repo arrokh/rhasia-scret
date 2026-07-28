@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
+import { useTranslations } from "next-intl";
 import { ArchiveRestore, KeyRound, LoaderCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@/modules/crypto";
 import { createSharedVaultMaterial } from "@/modules/vault-management";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
-import { FormFieldError, requiredText } from "@/shared/presentation/form-field-error";
+import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import {
@@ -28,18 +29,25 @@ import {
   countDuplicateArchiveAccounts,
   encryptVaultArchiveAccounts,
   openAndValidateEncryptedVaultArchive,
+  VaultArchiveWorkflowError,
   type OpenedVaultArchive
 } from "../infrastructure/browser-vault-archive-workflow";
-import { uploadEncryptedVaultImport, type BrowserEncryptedVaultImportRequest } from "../infrastructure/browser-vault-import-client";
+import { uploadEncryptedVaultImport, VaultImportClientError, type BrowserEncryptedVaultImportRequest } from "../infrastructure/browser-vault-import-client";
 
 const NEW_SHARED_DESTINATION = "NEW_SHARED";
 
 type ImportPlan = { selection: string; vaultId: string; accountIds: string[] };
+type ArchiveErrorKey = "offlineOpen" | "chooseArchive" | "archiveTooLarge" | "openError" | "destinationUnavailable" | "destinationKeyUnavailable" | "locked" | "newVaultMaterialUnavailable" | "responseMismatch" | "refreshError" | "partialFailure" | "invalidKeyLength" | "invalidKey" | "clientDestinationUnavailable" | "clientConflict" | "clientInvalidPayload" | "clientServerError";
+
+class VaultArchivePresentationError extends Error {
+  public constructor(public readonly code: ArchiveErrorKey) { super(code); }
+}
 
 export function VaultArchiveImportWorkspace({ personalVaultId }: { personalVaultId: string }) {
+  const t = useTranslations("VaultArchive.importer");
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
-  if (workspace.syncState !== "CURRENT") return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="offline">Import arsip diblokir sampai sinkronisasi dan otorisasi kembali terkini. Import tidak akan diantrikan.</StatusBanner><Button variant="outline" asChild><Link href="/vaults">Kembali ke kode baca-saja</Link></Button></div>;
+  if (workspace.syncState !== "CURRENT") return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="offline">{t("blocked")}</StatusBanner><Button variant="outline" asChild><Link href="/vaults">{t("backReadOnly")}</Link></Button></div>;
   return <VaultArchiveImporter workspace={workspace} replaceWorkspace={setWorkspace} />;
 }
 
@@ -52,11 +60,13 @@ export function VaultArchiveImporter({
   replaceWorkspace: ReturnType<typeof useUnlockedVaultWorkspace>["setWorkspace"];
   refreshAfterImport?: (current: UnlockedVaultWorkspace) => Promise<UnlockedVaultWorkspace>;
 }) {
+  const t = useTranslations("VaultArchive.importer");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const online = useOnlineStatus();
   const [opened, setOpenedState] = useState<OpenedVaultArchive | null>(null);
-  const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState("");
+  const [errorCode, setErrorCode] = useState<ArchiveErrorKey | null>(null);
+  const [success, setSuccess] = useState<{ count: number; newVault: boolean } | null>(null);
   const [duplicateConfirmation, setDuplicateConfirmation] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -70,19 +80,19 @@ export function VaultArchiveImporter({
   const previewForm = useForm({
     defaultValues: { archive: null as File | null, keyMaterial: "" },
     onSubmit: async ({ value }) => {
-      setMessage(""); setSuccess("");
-      if (!online) { setMessage("Import arsip tidak tersedia saat luring."); return; }
-      if (!value.archive) { setMessage("Pilih berkas arsip terenkripsi."); return; }
+      setErrorCode(null); setSuccess(null);
+      if (!online) { setErrorCode("offlineOpen"); return; }
+      if (!value.archive) { setErrorCode("chooseArchive"); return; }
       let archiveBytes: Uint8Array | undefined;
       let archiveKey: Uint8Array | undefined;
       try {
-        if (value.archive.size === 0 || value.archive.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new Error("Arsip terenkripsi terlalu besar atau kosong.");
+        if (value.archive.size === 0 || value.archive.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new VaultArchivePresentationError("archiveTooLarge");
         archiveBytes = new Uint8Array(await value.archive.arrayBuffer());
         archiveKey = parseArchiveKey(value.keyMaterial);
         replaceOpened(await openAndValidateEncryptedVaultArchive(archiveKey, archiveBytes));
         importForm.setFieldValue("destinationId", initialDestination);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Arsip terenkripsi tidak dapat dibuka.");
+        setErrorCode(classifyArchiveError(error, "openError"));
       } finally {
         archiveBytes?.fill(0);
         archiveKey?.fill(0);
@@ -121,8 +131,8 @@ export function VaultArchiveImporter({
 
   function cancelImport() {
     replaceOpened(null);
-    setMessage("");
-    setSuccess("");
+    setErrorCode(null);
+    setSuccess(null);
     previewForm.reset();
     importForm.reset();
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -136,9 +146,9 @@ export function VaultArchiveImporter({
 
   async function submitImport(destinationId: string, allowDuplicates: boolean) {
     if (!opened || !online || uploading) return;
-    setMessage(""); setSuccess("");
+    setErrorCode(null); setSuccess(null);
     const destination = writableVaults.find(({ id }) => id === destinationId);
-    if (!destination && destinationId !== NEW_SHARED_DESTINATION) { setMessage("Brankas tujuan tidak tersedia."); return; }
+    if (!destination && destinationId !== NEW_SHARED_DESTINATION) { setErrorCode("destinationUnavailable"); return; }
     if (duplicateCount > 0 && !allowDuplicates) { setDuplicateConfirmation(true); return; }
     setUploading(true);
     const plan = planRef.current?.selection === destinationId && planRef.current.accountIds.length === opened.accounts.length
@@ -151,15 +161,15 @@ export function VaultArchiveImporter({
     try {
       newVaultMaterial = destination ? undefined : await createSharedVaultMaterial(workspace.userRootKey, opened.vaultName);
       const destinationKey = destination?.key ?? newVaultMaterial?.vaultKey;
-      if (!destinationKey) throw new Error("Kunci Brankas tujuan tidak tersedia.");
+      if (!destinationKey) throw new VaultArchivePresentationError("destinationKeyUnavailable");
       encryptedAccounts = await encryptVaultArchiveAccounts(destinationKey, opened.accounts);
-      if (!activeRef.current) throw new Error("Import dibatalkan karena Brankas dikunci.");
+      if (!activeRef.current) throw new VaultArchivePresentationError("locked");
       let requestDestination: BrowserEncryptedVaultImportRequest["destination"];
       if (destination) {
         requestDestination = { kind: "EXISTING", vaultId: destination.id, vaultType: destination.type };
       } else {
         const material = newVaultMaterial;
-        if (!material) throw new Error("Material Brankas Bersama baru tidak tersedia.");
+        if (!material) throw new VaultArchivePresentationError("newVaultMaterialUnavailable");
         requestDestination = { kind: "NEW_SHARED", vaultId: plan.vaultId, encryptedName: bytesToBase64(material.encryptedName), encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey), encryptionVersion: 1 };
       }
       const request: BrowserEncryptedVaultImportRequest = {
@@ -168,20 +178,20 @@ export function VaultArchiveImporter({
       };
       const result = await uploadEncryptedVaultImport(request);
       if (!activeRef.current) return;
-      if (result.vaultId !== plan.vaultId || result.accountIds.join(",") !== plan.accountIds.join(",")) throw new Error("Respons import arsip tidak sesuai dengan permintaan.");
+      if (result.vaultId !== plan.vaultId || result.accountIds.join(",") !== plan.accountIds.join(",")) throw new VaultArchivePresentationError("responseMismatch");
       uploaded = true;
       const refreshed = await refreshAfterImport(workspace);
       replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
       replaceOpened(null);
-      setSuccess(`${plan.accountIds.length} akun berhasil diimpor${result.vaultCreated ? " ke Brankas Bersama baru" : ""}.`);
+      setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated });
       router.refresh();
     } catch (error) {
       if (!activeRef.current) return;
       if (uploaded) {
         replaceOpened(null);
-        setMessage("Import tersimpan lengkap, tetapi tampilan tidak dapat disegarkan. Muat ulang brankas saat tetap daring.");
+        setErrorCode("refreshError");
       } else {
-        setMessage(error instanceof Error ? error.message : "Import arsip gagal tanpa menyimpan perubahan sebagian.");
+        setErrorCode(classifyArchiveError(error, "partialFailure"));
       }
     } finally {
       for (const payload of encryptedAccounts) payload.fill(0);
@@ -196,38 +206,43 @@ export function VaultArchiveImporter({
   }
 
   if (!opened) return <div className="grid gap-5 p-5 sm:p-6">
-    {!online && <StatusBanner tone="offline">Anda luring. Arsip tidak dapat dibuka atau diimpor, dan tidak akan diantrikan.</StatusBanner>}
+    {!online && <StatusBanner tone="offline">{t("offlinePreview")}</StatusBanner>}
     <form noValidate className="grid gap-5" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void previewForm.handleSubmit(); }}>
-      <SectionHeading icon={ArchiveRestore} title="Buka arsip terenkripsi" description="Pilih arsip versi yang didukung dan masukkan kunci 32-byte berformat Base64. Dekripsi dan validasi hanya berlangsung di browser ini." />
-      <previewForm.Field name="archive" validators={{ onSubmit: ({ value }) => value ? undefined : "Berkas arsip wajib dipilih." }}>{(field) => <Field><Label htmlFor="vault-archive-file">Berkas arsip</Label><Input ref={fileInputRef} id="vault-archive-file" type="file" accept=".rhasia-vault,application/octet-stream" onChange={(event) => field.handleChange(event.target.files?.[0] ?? null)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-archive-file-help vault-archive-file-error" : "vault-archive-file-help"} /><p id="vault-archive-file-help" className="text-xs text-muted-foreground">Hanya arsip terenkripsi versi 1, maksimum 5 MiB.</p><FormFieldError id="vault-archive-file-error" errors={field.state.meta.errors} /></Field>}</previewForm.Field>
-      <previewForm.Field name="keyMaterial" validators={{ onSubmit: requiredText("Kunci arsip") }}>{(field) => <Field><Label htmlFor="vault-archive-key">Kunci arsip Base64</Label><PasswordInput id="vault-archive-key" label="Kunci arsip" visible={keyVisible} onToggleVisibility={() => setKeyVisible((visible) => !visible)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-archive-key-error" : "vault-archive-key-help"} /><p id="vault-archive-key-help" className="text-xs text-muted-foreground">Kunci dihapus dari formulir segera setelah percobaan pratinjau.</p><FormFieldError id="vault-archive-key-error" errors={field.state.meta.errors} /></Field>}</previewForm.Field>
-      <previewForm.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={!online || pending} aria-busy={pending}>{pending && <LoaderCircle className="animate-spin" />}{pending ? "Membuka…" : "Pratinjau arsip"}</Button>}</previewForm.Subscribe>
+      <SectionHeading icon={ArchiveRestore} title={t("openTitle")} description={t("openDescription")} />
+      <previewForm.Field name="archive" validators={{ onSubmit: ({ value }) => value ? undefined : t("archiveRequired") }}>{(field) => <Field><Label htmlFor="vault-archive-file">{t("archiveFile")}</Label><Input ref={fileInputRef} id="vault-archive-file" type="file" accept=".rhasia-vault,application/octet-stream" onChange={(event) => field.handleChange(event.target.files?.[0] ?? null)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-archive-file-help vault-archive-file-error" : "vault-archive-file-help"} /><p id="vault-archive-file-help" className="text-xs text-muted-foreground">{t("archiveHelp")}</p><FormFieldError id="vault-archive-file-error" errors={field.state.meta.errors} /></Field>}</previewForm.Field>
+      <previewForm.Field name="keyMaterial" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("keyRequired") }}>{(field) => <Field><Label htmlFor="vault-archive-key">{t("keyLabel")}</Label><PasswordInput id="vault-archive-key" label={t("key")} visible={keyVisible} onToggleVisibility={() => setKeyVisible((visible) => !visible)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-archive-key-error" : "vault-archive-key-help"} /><p id="vault-archive-key-help" className="text-xs text-muted-foreground">{t("keyHelp")}</p><FormFieldError id="vault-archive-key-error" errors={field.state.meta.errors} /></Field>}</previewForm.Field>
+      <previewForm.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={!online || pending} aria-busy={pending}>{pending && <LoaderCircle className="animate-spin" />}{pending ? t("opening") : t("previewArchive")}</Button>}</previewForm.Subscribe>
     </form>
-    {message && <StatusBanner tone="danger" role="alert">{message}</StatusBanner>}
-    {success && <StatusBanner tone="success" role="status">{success}</StatusBanner>}
+    {errorCode && <StatusBanner tone="danger" role="alert">{t(errorCode)}</StatusBanner>}
+    {success && <StatusBanner tone="success" role="status">{t("success", { count: success.count, newVault: success.newVault ? "yes" : "no" })}</StatusBanner>}
   </div>;
 
   return <div className="grid gap-5 p-5 sm:p-6">
-    {!online && <StatusBanner tone="offline">Anda luring. Import diblokir dan tidak akan diantrikan.</StatusBanner>}
-    <SectionHeading icon={KeyRound} title="Pratinjau arsip" description="Belum ada perubahan server. Nama dan konfigurasi di bawah ini hanya berada dalam memori browser." />
-    <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4"><div><dt className="text-xs font-bold text-muted-foreground uppercase">Nama Brankas</dt><dd className="mt-1 break-words font-bold">{opened.vaultName}</dd></div><div><dt className="text-xs font-bold text-muted-foreground uppercase">Jumlah akun</dt><dd className="mt-1 font-bold">{opened.accounts.length}</dd></div></dl>
+    {!online && <StatusBanner tone="offline">{t("offlineImport")}</StatusBanner>}
+    <SectionHeading icon={KeyRound} title={t("previewTitle")} description={t("previewDescription")} />
+    <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4"><div><dt className="text-xs font-bold text-muted-foreground uppercase">{t("vaultName")}</dt><dd className="mt-1 break-words font-bold">{opened.vaultName}</dd></div><div><dt className="text-xs font-bold text-muted-foreground uppercase">{t("accountCount")}</dt><dd className="mt-1 font-bold">{opened.accounts.length}</dd></div></dl>
     <form noValidate className="grid gap-5" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void importForm.handleSubmit(); }}>
-      <importForm.Field name="destinationId" validators={{ onSubmit: requiredText("Brankas tujuan") }}>{(field) => <Field><Label htmlFor="archive-import-destination">Brankas tujuan</Label><Select value={field.state.value} onValueChange={changeDestination}><SelectTrigger id="archive-import-destination" className="h-12 w-full" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "archive-import-destination-error" : undefined}><SelectValue placeholder="Pilih tujuan" /></SelectTrigger><SelectContent>{writableVaults.map((vault) => <SelectItem key={vault.id} value={vault.id}>{vault.name}</SelectItem>)}<SelectItem value={NEW_SHARED_DESTINATION}>Buat Brankas Bersama “{opened.vaultName}”</SelectItem></SelectContent></Select><FormFieldError id="archive-import-destination-error" errors={field.state.meta.errors} /></Field>}</importForm.Field>
-      {duplicateCount > 0 && <StatusBanner tone="warning" title={`${duplicateCount} akun duplikat terdeteksi`}>Duplikat dibandingkan hanya di browser terhadap Brankas tujuan dan akun lain dalam arsip. Anda harus membatalkan atau memilih tetap menambahkan.</StatusBanner>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={cancelImport} disabled={uploading}>Batal</Button><Button type="submit" disabled={!online || uploading} aria-busy={uploading}>{uploading && <LoaderCircle className="animate-spin" />}{uploading ? "Mengimpor…" : "Konfirmasi dan impor"}</Button></div>
+      <importForm.Field name="destinationId" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("destinationRequired") }}>{(field) => <Field><Label htmlFor="archive-import-destination">{t("destination")}</Label><Select value={field.state.value} onValueChange={changeDestination}><SelectTrigger id="archive-import-destination" className="h-12 w-full" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "archive-import-destination-error" : undefined}><SelectValue placeholder={t("chooseDestination")} /></SelectTrigger><SelectContent>{writableVaults.map((vault) => <SelectItem key={vault.id} value={vault.id}>{vault.name}</SelectItem>)}<SelectItem value={NEW_SHARED_DESTINATION}>{t("newShared", { name: opened.vaultName })}</SelectItem></SelectContent></Select><FormFieldError id="archive-import-destination-error" errors={field.state.meta.errors} /></Field>}</importForm.Field>
+      {duplicateCount > 0 && <StatusBanner tone="warning" title={t("duplicatesTitle", { count: duplicateCount })}>{t("duplicatesDescription")}</StatusBanner>}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={cancelImport} disabled={uploading}>{tCommon("cancel")}</Button><Button type="submit" disabled={!online || uploading} aria-busy={uploading}>{uploading && <LoaderCircle className="animate-spin" />}{uploading ? t("importing") : t("confirmImport")}</Button></div>
     </form>
-    {duplicateConfirmation && <StatusBanner tone="warning" title="Tambahkan akun duplikat?"><span className="grid gap-3"><span>Semua akun akan ditambahkan dalam satu transaksi. Tidak ada akun yang ditimpa.</span><span className="flex gap-2"><Button size="sm" variant="outline" type="button" onClick={cancelImport}>Batal</Button><Button size="sm" type="button" disabled={!online || uploading} onClick={() => void submitImport(selectedDestination, true)}>Tetap tambahkan</Button></span></span></StatusBanner>}
-    {message && <StatusBanner tone="danger" role="alert" title="Import tidak selesai"><span className="flex items-start gap-2"><ShieldAlert className="mt-0.5 size-4 shrink-0" />{message}</span></StatusBanner>}
+    {duplicateConfirmation && <StatusBanner tone="warning" title={t("duplicateConfirmTitle")}><span className="grid gap-3"><span>{t("duplicateConfirmDescription")}</span><span className="flex gap-2"><Button size="sm" variant="outline" type="button" onClick={cancelImport}>{tCommon("cancel")}</Button><Button size="sm" type="button" disabled={!online || uploading} onClick={() => void submitImport(selectedDestination, true)}>{t("addAnyway")}</Button></span></span></StatusBanner>}
+    {errorCode && <StatusBanner tone="danger" role="alert" title={t("notCompleted")}><span className="flex items-start gap-2"><ShieldAlert className="mt-0.5 size-4 shrink-0" />{t(errorCode)}</span></StatusBanner>}
   </div>;
+}
+
+function classifyArchiveError(error: unknown, fallback: ArchiveErrorKey): ArchiveErrorKey {
+  if (error instanceof VaultArchivePresentationError || error instanceof VaultArchiveWorkflowError || error instanceof VaultImportClientError) return error.code;
+  return fallback;
 }
 
 function Field({ children }: { children: React.ReactNode }) { return <div className="grid gap-2">{children}</div>; }
 
 function parseArchiveKey(value: string): Uint8Array {
   const normalized = value.trim();
-  if (!/^(?:[A-Za-z0-9+/]{4}){10}[A-Za-z0-9+/]{3}=$/.test(normalized)) throw new Error("Kunci arsip harus berupa tepat 32 byte dalam Base64.");
+  if (!/^(?:[A-Za-z0-9+/]{4}){10}[A-Za-z0-9+/]{3}=$/.test(normalized)) throw new VaultArchivePresentationError("invalidKeyLength");
   let key: Uint8Array;
-  try { key = base64ToBytes(normalized); } catch { throw new Error("Kunci arsip Base64 tidak valid."); }
-  if (key.length !== 32) { key.fill(0); throw new Error("Kunci arsip harus berupa tepat 32 byte dalam Base64."); }
+  try { key = base64ToBytes(normalized); } catch { throw new VaultArchivePresentationError("invalidKey"); }
+  if (key.length !== 32) { key.fill(0); throw new VaultArchivePresentationError("invalidKeyLength"); }
   return key;
 }

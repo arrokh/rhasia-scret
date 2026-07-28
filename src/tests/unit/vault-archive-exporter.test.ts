@@ -55,8 +55,10 @@ describe("VaultArchiveExporter", () => {
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(VaultArchiveExporter, { workspace })));
     await act(async () => container.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click());
-    await act(async () => findButton(container, "Buat cadangan").click());
-    await vi.waitFor(() => expect(container.textContent).toContain("Audit unavailable"));
+    await act(async () => {
+      findButton(container, "Buat cadangan").click();
+      await vi.waitFor(() => expect(container.textContent).toContain("Cadangan terenkripsi tidak dapat dibuat atau dicatat dalam audit."));
+    });
     expect(container.textContent).not.toContain("Unduh arsip");
     expect(container.querySelector("#generated-archive-key")).toBeNull();
   });

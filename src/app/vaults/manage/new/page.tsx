@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { SharedVaultCreationWorkspace } from "@/modules/authenticator-account";
 import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
@@ -11,9 +12,10 @@ import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 export const dynamic = "force-dynamic";
 
 export default async function NewSharedVaultPage() {
+  const t = await getTranslations("VaultManagement.pages");
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
-  return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke daftar brankas" title="Buat Brankas Bersama" description="Buat ruang kode untuk keluarga atau kelompok tepercaya." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Buat Brankas Bersama"><SharedVaultCreationWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
+  return <AppPage><PageHeader backHref="/vaults/manage" backLabel={t("backDirectory")} title={t("newSharedTitle")} description={t("newSharedDescription")} action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label={t("newSharedLabel")}><SharedVaultCreationWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
 }

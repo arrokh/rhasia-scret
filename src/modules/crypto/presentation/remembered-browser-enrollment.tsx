@@ -2,13 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useLocale, useTranslations } from "next-intl";
 import { Fingerprint, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
+import { formatLocalDateTime } from "@/i18n/format";
 import { enrollRememberedBrowser, forgetRememberedBrowser, rememberedBrowserEnrollment, supportsLocalVerification } from "../infrastructure/browser-local-verification";
+import { PasskeyPrfUnsupportedError } from "../infrastructure/browser-passkey-prf";
 
 export function RememberedBrowserEnrollment({ profileId, userRootKey }: { profileId: string; userRootKey: Uint8Array }) {
+  const t = useTranslations("Crypto.rememberedBrowser");
+  const locale = useLocale();
   const online = useOnlineStatus();
   const [status, setStatus] = useState<"checking" | "idle" | "enrolled" | "removed" | "unsupported" | "cancelled" | "offline" | "error">("checking");
   const [enrolledAt, setEnrolledAt] = useState<string | null>(null);
@@ -63,24 +68,24 @@ export function RememberedBrowserEnrollment({ profileId, userRootKey }: { profil
   }
 
   return <div className="grid gap-3 border-t border-border pt-4">
-    <div><h3 className="font-bold text-foreground">Browser yang Diingat</h3><p className="mt-1 text-sm text-muted-foreground">Lindungi salinan User Root Key lokal dengan Verifikasi Lokal WebAuthn PRF. Ini hanya membuka brankas setelah autentikasi aplikasi; bukan MFA atau Passkey-Assisted Recovery.</p></div>
-    <p className="text-xs leading-5 text-muted-foreground">Berlaku hanya untuk profil browser dan situs ini. Mode privat serta webview tertanam tidak didukung. Passphrase Brankas tetap menjadi jalur cadangan.</p>
-    {enrolledAt && <StatusBanner tone="success">Browser ini diingat sejak {new Date(enrolledAt).toLocaleString("id-ID")}.</StatusBanner>}
+    <div><h3 className="font-bold text-foreground">{t("title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></div>
+    <p className="text-xs leading-5 text-muted-foreground">{t("scope")}</p>
+    {enrolledAt && <StatusBanner tone="success">{t("enrolledAt", { date: formatLocalDateTime(enrolledAt, locale) })}</StatusBanner>}
     <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-      <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <><Button type="submit" variant="outline" disabled={!online || pending || removing || status === "checking"} aria-busy={pending}><Fingerprint />{pending ? "Memverifikasi…" : enrolledAt ? "Perbarui Verifikasi Lokal" : "Ingat browser ini"}</Button>{enrolledAt && <Button type="button" variant="ghost" className="text-destructive" disabled={removing || pending} aria-busy={removing} onClick={() => void remove()}><Trash2 />{removing ? "Menghapus…" : "Lupakan browser ini"}</Button>}</>}</form.Subscribe>
+      <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <><Button type="submit" variant="outline" disabled={!online || pending || removing || status === "checking"} aria-busy={pending}><Fingerprint />{pending ? t("verifying") : enrolledAt ? t("update") : t("remember")}</Button>{enrolledAt && <Button type="button" variant="ghost" className="text-destructive" disabled={removing || pending} aria-busy={removing} onClick={() => void remove()}><Trash2 />{removing ? t("removing") : t("forget")}</Button>}</>}</form.Subscribe>
     </form>
-    {status === "enrolled" && <StatusBanner tone="success">Browser ini dapat memakai Verifikasi Lokal untuk membuka material terenkripsi.</StatusBanner>}
-    {status === "removed" && <StatusBanner tone="success">Paket Browser yang Diingat telah dihapus dari profil ini. Kredensial autentikator mungkin tetap terlihat di pengelola passkey perangkat.</StatusBanner>}
-    {status === "cancelled" && <StatusBanner tone="warning">Enrollment Browser yang Diingat dibatalkan. Tidak ada paket lokal yang disimpan.</StatusBanner>}
-    {status === "offline" && <StatusBanner tone="offline">Hubungkan perangkat sebelum mengingat browser ini. Enrollment luring tidak didukung.</StatusBanner>}
-    {status === "unsupported" && <StatusBanner tone="warning">Browser atau autentikator ini tidak mendukung perlindungan PRF. Gunakan Passphrase Brankas.</StatusBanner>}
-    {status === "error" && <StatusBanner tone="danger" role="alert">Pengaturan Browser yang Diingat gagal. Tidak ada kunci lokal tanpa perlindungan yang disimpan.</StatusBanner>}
+    {status === "enrolled" && <StatusBanner tone="success">{t("enrolled")}</StatusBanner>}
+    {status === "removed" && <StatusBanner tone="success">{t("removed")}</StatusBanner>}
+    {status === "cancelled" && <StatusBanner tone="warning">{t("cancelled")}</StatusBanner>}
+    {status === "offline" && <StatusBanner tone="offline">{t("offline")}</StatusBanner>}
+    {status === "unsupported" && <StatusBanner tone="warning">{t("unsupported")}</StatusBanner>}
+    {status === "error" && <StatusBanner tone="danger" role="alert">{t("error")}</StatusBanner>}
   </div>;
 }
 
 function enrollmentFailureStatus(error: unknown): "cancelled" | "unsupported" | "error" {
-  const message = error instanceof Error ? error.message : "";
-  if (/dibatalkan|cancelled|NotAllowedError/i.test(message)) return "cancelled";
-  if (/PRF|tidak mendukung|does not support/i.test(message)) return "unsupported";
+  if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "AbortError")) return "cancelled";
+  if (error instanceof DOMException && error.name === "NotSupportedError") return "unsupported";
+  if (error instanceof PasskeyPrfUnsupportedError) return "unsupported";
   return "error";
 }

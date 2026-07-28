@@ -88,12 +88,12 @@ test.describe("encrypted Vault archive import", () => {
     await page.goto("/ui-preview/archive-import");
     const archive = await encryptedArchive(sensitive);
     await setArchive(page, archive, Buffer.from(Uint8Array.from({ length: 32 }, () => 3)).toString("base64"));
-    await expect(page.getByRole("alert").filter({ hasText: "authentication failed" })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Arsip terenkripsi tidak dapat dibuka." })).toBeVisible();
 
     const corrupt = archive.slice();
     corrupt[corrupt.length - 1] ^= 1;
     await setArchive(page, corrupt, archiveKeyBase64);
-    await expect(page.getByRole("alert").filter({ hasText: "authentication failed" })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Arsip terenkripsi tidak dapat dibuka." })).toBeVisible();
     expect(requests).toBe(0);
   });
 

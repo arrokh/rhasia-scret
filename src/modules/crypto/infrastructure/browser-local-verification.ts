@@ -5,27 +5,34 @@ import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-ba
 import { evaluatePasskeyPrf } from "./browser-passkey-prf";
 import { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./browser-passkey-recovery-package";
 
+export class RememberedBrowserBindingError extends Error {
+  public constructor() {
+    super("The Remembered Browser package is not valid for this site.");
+    this.name = "RememberedBrowserBindingError";
+  }
+}
+
 export function supportsLocalVerification(): boolean {
   return typeof window !== "undefined" && window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials;
 }
 
 export async function enrollRememberedBrowser(profileId: string, userRootKey: Uint8Array, signal?: AbortSignal): Promise<void> {
-  if (!supportsLocalVerification()) throw new Error("Verifikasi Lokal tidak tersedia di browser ini.");
-  if (userRootKey.length !== 32) throw new Error("User Root Key tidak valid.");
+  if (!supportsLocalVerification()) throw new Error("Local Verification is unavailable in this browser.");
+  if (userRootKey.length !== 32) throw new Error("User Root Key is invalid.");
   const rpId = window.location.hostname;
   throwIfAborted(signal);
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
       rp: { id: rpId, name: "rhasia-scret" },
-      user: { id: randomBytes(32), name: `offline-${profileId}`, displayName: "Browser yang Diingat" },
+      user: { id: randomBytes(32), name: `offline-${profileId}`, displayName: "rhasia-scret" },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
       authenticatorSelection: { userVerification: "required", residentKey: "preferred" },
       timeout: 60_000,
       extensions: { prf: {} } as AuthenticationExtensionsClientInputs
     }
   });
-  if (!(credential instanceof PublicKeyCredential)) throw new Error("Pendaftaran Verifikasi Lokal dibatalkan.");
+  if (!(credential instanceof PublicKeyCredential)) throw new DOMException("Local Verification enrollment was cancelled.", "NotAllowedError");
   throwIfAborted(signal);
   const retainedUserRootKey = userRootKey.slice();
   const prfSalt = randomBytes(32);
@@ -54,9 +61,9 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
 }
 
 export async function recoverUserRootKeyWithRememberedBrowser(profileId: string, signal?: AbortSignal): Promise<Uint8Array> {
-  if (!supportsLocalVerification()) throw new Error("Verifikasi Lokal tidak tersedia di browser ini.");
+  if (!supportsLocalVerification()) throw new Error("Local Verification is unavailable in this browser.");
   const browserPackage = await new BrowserOfflineVaultRepository().readRememberedBrowser(profileId);
-  if (!browserPackage) throw new Error("Browser ini belum diingat.");
+  if (!browserPackage) throw new Error("No Remembered Browser package exists for this profile.");
   assertCurrentSite(browserPackage.origin, browserPackage.rpId);
 
   throwIfAborted(signal);
@@ -108,7 +115,7 @@ export async function forgetRememberedBrowser(profileId: string): Promise<void> 
 }
 
 function assertCurrentSite(origin: string, rpId: string): void {
-  if (origin !== window.location.origin || rpId !== window.location.hostname) throw new Error("Paket Browser yang Diingat tidak berlaku untuk situs ini.");
+  if (origin !== window.location.origin || rpId !== window.location.hostname) throw new RememberedBrowserBindingError();
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

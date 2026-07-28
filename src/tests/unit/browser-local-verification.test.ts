@@ -28,7 +28,7 @@ vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-package", () =
   recoverUserRootKeyFromPasskeyPackage: mocks.recoverPackage
 }));
 
-import { enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, recoverUserRootKeyWithRememberedBrowser } from "@/modules/crypto/infrastructure/browser-local-verification";
+import { enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, recoverUserRootKeyWithRememberedBrowser, RememberedBrowserBindingError } from "@/modules/crypto/infrastructure/browser-local-verification";
 
 class FakePublicKeyCredential {
   rawId = Uint8Array.of(1, 2, 3).buffer;
@@ -64,7 +64,7 @@ describe("Remembered Browser Local Verification", () => {
 
   it("fails closed on unsupported browsers and never stores local key material", async () => {
     Object.defineProperty(window, "isSecureContext", { configurable: true, value: false });
-    await expect(enrollRememberedBrowser("profile_1", Uint8Array.from({ length: 32 }, () => 9))).rejects.toThrow(/tidak tersedia/);
+    await expect(enrollRememberedBrowser("profile_1", Uint8Array.from({ length: 32 }, () => 9))).rejects.toThrow(/unavailable/);
     expect(mocks.saveRemembered).not.toHaveBeenCalled();
   });
 
@@ -92,7 +92,7 @@ describe("Remembered Browser Local Verification", () => {
 
   it("does not persist enrollment when the user cancels credential creation", async () => {
     Object.defineProperty(navigator, "credentials", { configurable: true, value: { create: vi.fn().mockResolvedValue(null) } });
-    await expect(enrollRememberedBrowser("profile_1", Uint8Array.from({ length: 32 }, () => 9))).rejects.toThrow(/dibatalkan/);
+    await expect(enrollRememberedBrowser("profile_1", Uint8Array.from({ length: 32 }, () => 9))).rejects.toMatchObject({ name: "NotAllowedError" });
     expect(mocks.evaluatePrf).not.toHaveBeenCalled();
     expect(mocks.saveRemembered).not.toHaveBeenCalled();
   });
@@ -109,7 +109,7 @@ describe("Remembered Browser Local Verification", () => {
     expect(mocks.evaluatePrf).toHaveBeenCalledWith(Uint8Array.of(1, 2, 3), "localhost", expect.any(Uint8Array));
 
     mocks.readRemembered.mockResolvedValue({ ...rememberedPackage, origin: "https://attacker.example" });
-    await expect(recoverUserRootKeyWithRememberedBrowser("profile_1")).rejects.toThrow(/tidak berlaku/);
+    await expect(recoverUserRootKeyWithRememberedBrowser("profile_1")).rejects.toBeInstanceOf(RememberedBrowserBindingError);
   });
 
   it("cannot recover from a copied credential identifier or record without successful verification", async () => {

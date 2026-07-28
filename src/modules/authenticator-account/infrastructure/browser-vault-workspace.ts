@@ -209,7 +209,7 @@ async function loadWorkspace(
 
 async function loadLocalBundle(profileId: string): Promise<EncryptedOfflineVaultBundle> {
   const bundle = await new BrowserOfflineVaultRepository().read(profileId);
-  if (!bundle) throw new Error("Local Vault Snapshot tidak ditemukan.");
+  if (!bundle) throw new Error("Local Vault Snapshot was not found.");
   return bundle;
 }
 

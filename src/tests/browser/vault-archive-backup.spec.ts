@@ -18,7 +18,7 @@ test.describe("encrypted Vault archive backup", () => {
     await expect(page.getByRole("heading", { name: "Simpan kunci cadangan" })).toBeVisible();
     expect(auditBody ?? null).toBeNull();
 
-    const keyMaterial = await page.getByLabel("Kunci arsip Base64").inputValue();
+    const keyMaterial = await page.getByRole("textbox", { name: "Kunci arsip Base64", exact: true }).inputValue();
     expect(Buffer.from(keyMaterial, "base64")).toHaveLength(32);
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Unduh arsip" }).click();
@@ -30,7 +30,7 @@ test.describe("encrypted Vault archive backup", () => {
     const opened = await openArchive(Buffer.concat(chunks), Buffer.from(keyMaterial, "base64"));
     expect(opened.vaultName).toBe("Brankas Pribadi");
     expect(opened.accounts).toHaveLength(1);
-    expect(Buffer.from(opened.accounts[0], "base64").toString("utf8")).toContain("secret@example.test");
+    expect(Buffer.from(opened.accounts[0], "base64").toString("utf8")).toContain("sample@local.invalid");
     const keyDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Unduh kunci" }).click();
     const keyDownload = await keyDownloadPromise;
@@ -41,9 +41,9 @@ test.describe("encrypted Vault archive backup", () => {
     expect(Buffer.concat(keyChunks).toString("utf8").trim()).toBe(keyMaterial);
 
     await page.getByRole("button", { name: "Selesai dan hapus kunci dari layar" }).click();
-    await expect(page.getByLabel("Kunci arsip Base64")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Kunci arsip Base64", exact: true })).toHaveCount(0);
     const persisted = await page.evaluate(() => JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }));
-    for (const value of [keyMaterial, "Private Issuer", "secret@example.test"]) expect(persisted).not.toContain(value);
+    for (const value of [keyMaterial, "Penerbit contoh", "sample@local.invalid"]) expect(persisted).not.toContain(value);
   });
 
   test("clears prepared archive material when the Vault is locked", async ({ page }) => {
@@ -51,10 +51,10 @@ test.describe("encrypted Vault archive backup", () => {
     await page.goto("/ui-preview/archive-backup");
     await page.getByLabel(/Saya akan menyimpan kunci arsip/).check();
     await page.getByRole("button", { name: "Buat cadangan" }).click();
-    const keyMaterial = await page.getByLabel("Kunci arsip Base64").inputValue();
+    const keyMaterial = await page.getByRole("textbox", { name: "Kunci arsip Base64", exact: true }).inputValue();
     await page.evaluate(() => window.dispatchEvent(new Event("rhasia-scret:lock-local-vault")));
     await expect(page.getByText("Brankas telah dikunci dan materi cadangan telah dihapus.")).toBeVisible();
-    await expect(page.getByLabel("Kunci arsip Base64")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Kunci arsip Base64", exact: true })).toHaveCount(0);
     const persisted = await page.evaluate(() => JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }));
     expect(persisted).not.toContain(keyMaterial);
   });
@@ -64,9 +64,9 @@ test.describe("encrypted Vault archive backup", () => {
     await page.goto("/ui-preview/archive-backup");
     await page.getByLabel(/Saya akan menyimpan kunci arsip/).check();
     await page.getByRole("button", { name: "Buat cadangan" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Request failed." })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Cadangan terenkripsi tidak dapat dibuat atau dicatat dalam audit." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Unduh arsip" })).toHaveCount(0);
-    await expect(page.getByLabel("Kunci arsip Base64")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Kunci arsip Base64", exact: true })).toHaveCount(0);
   });
 
   test("blocks and never queues backup while offline", async ({ page, context }) => {

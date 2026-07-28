@@ -22,7 +22,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
-  await expect(page.locator("footer")).toHaveText(/rhasia-scretbyarrokh/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
   const developerLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(developerLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(developerLink).toHaveAttribute("target", "_blank");
@@ -99,7 +99,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect.poll(() => cancelledInvitation).toBe(true);
   await page.getByRole("tab", { name: "Audit" }).click();
   await expect(page.getByText(/^viewer@local\.invalid ·/)).toBeVisible();
-  await expect(page.locator("footer")).toHaveText(/rhasia-scretbyarrokh/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
   const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(footerDeveloperLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");

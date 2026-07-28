@@ -9,8 +9,8 @@ describe("Remembered Browser production boundaries", () => {
     const unlock = source("src/modules/authenticator-account/presentation/vault-workspace-unlock.tsx");
     const workspace = source("src/modules/authenticator-account/infrastructure/browser-vault-workspace.ts");
     expect(unlock).toContain("loadUnlockedVaultWorkspaceWithRememberedBrowser");
-    expect(unlock).toContain("Buka dengan Verifikasi Lokal");
-    expect(unlock).toContain("Passphrase Brankas");
+    expect(unlock).toContain('t("localVerification")');
+    expect(unlock).toContain('t("passphrase")');
     expect(workspace).toMatch(/fetchAuthorizedOfflineBundle\(\)[\s\S]+recoverUserRootKeyWithRememberedBrowser/);
   });
 
@@ -20,7 +20,8 @@ describe("Remembered Browser production boundaries", () => {
     expect(accounts).toContain("workspace.userRootKey");
     expect(accounts).toContain("RememberedBrowserEnrollment");
     expect(enrollment).toContain("useOnlineStatus");
-    expect(enrollment).toContain("WebAuthn PRF");
+    expect(enrollment).toContain('useTranslations("Crypto.rememberedBrowser")');
+    expect(source("messages/id.json")).toContain("WebAuthn PRF");
     expect(enrollment).not.toMatch(/@tanstack\/react-query|localStorage|sessionStorage/);
   });
 

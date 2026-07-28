@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { InvitationRedemptionWorkspace } from "@/modules/authenticator-account";
 import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
@@ -11,9 +12,10 @@ import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 export const dynamic = "force-dynamic";
 
 export default async function RedeemInvitationPage() {
+  const t = await getTranslations("VaultManagement.pages");
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
-  return <AppPage><PageHeader backHref="/vaults/manage" backLabel="Kembali ke daftar brankas" title="Undangan Brankas Bersama" description="Verifikasi dan terima tautan aman yang dikirim pemilik brankas." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Terima undangan Brankas Bersama"><InvitationRedemptionWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
+  return <AppPage><PageHeader backHref="/vaults/manage" backLabel={t("backDirectory")} title={t("invitationTitle")} description={t("invitationDescription")} action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label={t("invitationLabel")}><InvitationRedemptionWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
 }

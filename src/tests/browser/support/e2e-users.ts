@@ -1,4 +1,4 @@
-export const E2E_BROWSER_SCENARIOS = ["auth", "personal", "accounts", "shared", "passkey"] as const;
+export const E2E_BROWSER_SCENARIOS = ["auth", "personal", "accounts", "shared", "passkey", "english"] as const;
 export const E2E_BROWSER_ROLES = ["owner", "viewer-leave", "viewer-revoke"] as const;
 export const E2E_BROWSER_ENGINES = ["chromium", "firefox", "webkit"] as const;
 

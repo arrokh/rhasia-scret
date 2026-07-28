@@ -2,6 +2,10 @@
 
 A zero-knowledge authenticator application for personal and shared TOTP accounts.
 
+## Product localization
+
+All production and development-preview presentation copy is available in Indonesian (`id`) and English (`en`), with Indonesian as the deterministic default. Locale selection follows ADR-0035: it changes presentation only, never routes, APIs, authorization, encrypted content, cryptographic contracts, or user-provided Vault and Authenticator Account labels. New user-facing copy must update both typed catalogs with exact key parity and preserve the terminology below in each language.
+
 ## Language
 
 **Vault**:
@@ -24,7 +28,7 @@ The secret key that protects the encrypted contents of one Vault.
 _Avoid_: Vault password, master key
 
 **Vault Unlock Secret**:
-An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase but accepts a user-created passphrase whose trimmed value is at least three characters long. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas**.
+An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase but accepts a user-created passphrase whose trimmed value is at least three characters long. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas** and the English product label is **Vault Passphrase**.
 _Avoid_: Rahasia Pembuka Brankas, PIN, Vault password, master key
 
 **Vault Unlock Key**:

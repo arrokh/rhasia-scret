@@ -1,18 +1,22 @@
 import type { MetadataRoute } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formattingLocales } from "@/i18n/config";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const locale = await getLocale();
+  const t = await getTranslations("Metadata");
   return {
     id: "/",
     name: "rhasia-scret",
     short_name: "rhasia-scret",
-    description: "Autentikator bersama tanpa pengetahuan",
+    description: t("manifestDescription"),
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#F8F4ED",
     theme_color: "#E5A72E",
-    lang: "id-ID",
+    lang: formattingLocales[locale],
     dir: "ltr",
     categories: ["security", "utilities"],
     icons: [

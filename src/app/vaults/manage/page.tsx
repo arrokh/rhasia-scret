@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { VaultDirectoryWorkspace } from "@/modules/authenticator-account";
 import { LogoutForm } from "@/modules/identity";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
@@ -11,9 +12,10 @@ import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
 export const dynamic = "force-dynamic";
 
 export default async function VaultDirectoryPage() {
+  const t = await getTranslations("VaultManagement.pages");
   const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
   if (!user || !user.canAccessApplication()) redirect("/sign-in");
   const personalVault = await ensurePersonalVault(user.id, new PrismaPersonalVaultRepository());
   if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
-  return <AppPage><PageHeader backHref="/vaults" backLabel="Kembali ke akun autentikator" title="Brankas" description="Buka Brankas Pribadi atau kelola Brankas Bersama Anda." action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label="Daftar brankas"><VaultDirectoryWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
+  return <AppPage><PageHeader backHref="/vaults" backLabel={t("backAccounts")} title={t("directoryTitle")} description={t("directoryDescription")} action={<LogoutForm email={user.email} />} /><SurfaceCard aria-label={t("directoryLabel")}><VaultDirectoryWorkspace personalVaultId={personalVault.id} /></SurfaceCard></AppPage>;
 }

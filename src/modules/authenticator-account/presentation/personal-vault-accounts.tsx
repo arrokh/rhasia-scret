@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { KeyRound, Lock, Plus, ShieldKeyhole, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/modules/crypto";
 import { TotpAccountButton } from "@/modules/otp-runtime";
 import type { OfflineSyncState } from "@/modules/sync";
+import { formatLocalDateTime } from "@/i18n/format";
 import { recordSharedVaultAccountAccess } from "@/modules/vault-management";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import type { WorkspaceAuthenticatorAccount } from "../infrastructure/browser-vault-workspace";
@@ -16,6 +18,8 @@ import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
+  const t = useTranslations("AuthenticatorAccount.accounts");
+  const locale = useLocale();
   const { workspace, setWorkspace, lockWorkspace } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const [auditError, setAuditError] = useState(false);
@@ -26,23 +30,23 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   return (
     <section className="grid gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
       <div className="flex items-center gap-2">
-        {current && <Button variant="outline" asChild><Link href="/vaults/manage" aria-label="Brankas" title="Brankas"><UsersRound aria-hidden="true" /><span className="hidden sm:inline">Brankas</span></Link></Button>}
+        {current && <Button variant="outline" asChild><Link href="/vaults/manage" aria-label={t("vaults")} title={t("vaults")}><UsersRound aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
         {current && <Sheet>
-          <SheetTrigger asChild><Button variant="outline" size="icon" aria-label="Keamanan brankas"><ShieldKeyhole /></Button></SheetTrigger>
+          <SheetTrigger asChild><Button variant="outline" size="icon" aria-label={t("security")}><ShieldKeyhole /></Button></SheetTrigger>
           <SheetContent side="bottom" className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">
-            <SheetHeader className="p-0 pt-5"><SheetTitle>Keamanan brankas</SheetTitle><SheetDescription>Tambahkan jalur pemulihan yang tetap menjaga kunci di perangkat Anda.</SheetDescription></SheetHeader>
+            <SheetHeader className="p-0 pt-5"><SheetTitle>{t("security")}</SheetTitle><SheetDescription>{t("securityDescription")}</SheetDescription></SheetHeader>
             <div className="grid gap-4"><PasskeyRecoveryEnrollment userRootKey={workspace.userRootKey} /><RememberedBrowserEnrollment profileId={workspace.profileId} userRootKey={workspace.userRootKey} /></div>
           </SheetContent>
         </Sheet>}
-        <Button variant="outline" type="button" onClick={lockWorkspace} className={current ? undefined : "ml-auto"}><Lock />Kunci</Button>
-        {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label="Tambahkan akun autentikator"><Plus /><span className="hidden sm:inline">Tambah akun</span></Link></Button>}
+        <Button variant="outline" type="button" onClick={lockWorkspace} className={current ? undefined : "ml-auto"}><Lock />{t("lock")}</Button>
+        {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")}><Plus /><span className="hidden sm:inline">{t("addAccount")}</span></Link></Button>}
       </div>
-      {!current && <StatusBanner tone="offline" title="Mode baca-saja">Status sinkronisasi: {syncStateLabel(workspace.syncState)}. Snapshot terakhir {new Date(workspace.synchronizedAt).toLocaleString("id-ID")}. Otorisasi dan waktu server tidak dapat diperiksa; OTP memakai waktu perangkat. Perubahan serta audit akses diblokir dan tidak diantrikan.</StatusBanner>}
-      {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger" role="alert">{workspace.unavailableSharedVaults} Brankas Bersama tidak dapat dibuka. Akun dari brankas lain tetap tersedia.</StatusBanner>}
-      {auditError && <StatusBanner tone="warning" role="status">OTP tetap disalin, tetapi riwayat akses Brankas Bersama tidak dapat dicatat.</StatusBanner>}
+      {!current && <StatusBanner tone="offline" title={t("readOnly")}>{t("syncNotice", { state: syncStateLabel(workspace.syncState, t), date: formatLocalDateTime(workspace.synchronizedAt, locale) })}</StatusBanner>}
+      {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger" role="alert">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}
+      {auditError && <StatusBanner tone="warning" role="status">{t("auditError")}</StatusBanner>}
       <div className="flex items-end justify-between gap-4">
-        <div><p className="text-xs font-bold tracking-[0.1em] text-muted-foreground uppercase">Semua brankas</p><h2 id="account-list-heading" className="mt-1 text-lg font-bold text-ink-strong">Akun autentikator</h2></div>
-        <span className="grid min-w-8 place-items-center rounded-full bg-gold-soft px-2 py-1 text-xs font-bold text-ink-strong" aria-label={`${workspace.accounts.length} akun`}>{workspace.accounts.length}</span>
+        <div><p className="text-xs font-bold tracking-[0.1em] text-muted-foreground uppercase">{t("allVaults")}</p><h2 id="account-list-heading" className="mt-1 text-lg font-bold text-ink-strong">{t("title")}</h2></div>
+        <span className="grid min-w-8 place-items-center rounded-full bg-gold-soft px-2 py-1 text-xs font-bold text-ink-strong" aria-label={t("count", { count: workspace.accounts.length })}>{workspace.accounts.length}</span>
       </div>
       {workspace.accounts.length ? (
         <ul className="grid list-none gap-3 p-0">
@@ -53,13 +57,14 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
           })}
         </ul>
       ) : (
-        <div className="grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center"><KeyRound className="size-7 text-taupe" aria-hidden="true" /><p className="font-bold text-foreground">Belum ada akun autentikator</p><p className="text-sm text-muted-foreground">{current ? "Tambahkan akun pertama dengan memindai kode QR." : "Snapshot terenkripsi ini tidak berisi akun."}</p>{current && <Button asChild className="mt-2"><Link href="/vaults/accounts/new"><Plus />Tambah akun</Link></Button>}</div>
+        <div className="grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center"><KeyRound className="size-7 text-taupe" aria-hidden="true" /><p className="font-bold text-foreground">{t("empty")}</p><p className="text-sm text-muted-foreground">{current ? t("emptyCurrent") : t("emptySnapshot")}</p>{current && <Button asChild className="mt-2"><Link href="/vaults/accounts/new"><Plus />{t("addAccount")}</Link></Button>}</div>
       )}
       {managedAccount && (() => { const managedVault = workspace.vaults.find((vault) => vault.id === managedAccount.vaultId); if (!managedVault) return null; return <AuthenticatorAccountManagerDialog account={managedAccount} vaultKey={managedVault.key} onUpdated={(updated) => { setManagedAccount(updated); setWorkspace((current) => current ? { ...current, accounts: current.accounts.map((account) => account.id === updated.id && account.vaultId === updated.vaultId ? updated : account) } : current); }} onDeleted={(deleted) => setWorkspace((current) => current ? { ...current, accounts: current.accounts.filter((account) => account.id !== deleted.id || account.vaultId !== deleted.vaultId) } : current)} onClose={() => setManagedAccount(null)} />; })()}
     </section>
   );
 }
 
-function syncStateLabel(state: OfflineSyncState): string {
-  return ({ OFFLINE: "luring", STALE: "usang", SYNCING: "menyinkronkan", CURRENT: "terkini", AUTH_REQUIRED: "perlu masuk kembali", ERROR: "gagal" } as const)[state];
+function syncStateLabel(state: OfflineSyncState, t: ReturnType<typeof useTranslations<"AuthenticatorAccount.accounts">>): string {
+  const keys = { OFFLINE: "syncOffline", STALE: "syncStale", SYNCING: "syncSyncing", CURRENT: "syncCurrent", AUTH_REQUIRED: "syncAuthRequired", ERROR: "syncError" } as const;
+  return t(keys[state]);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,6 +29,7 @@ export function ConfirmationDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("Common");
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !pending) onCancel(); }}>
       <DialogContent className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet" showCloseButton={!pending}>
@@ -39,9 +41,9 @@ export function ConfirmationDialog({
           <DialogDescription className="text-center leading-5 text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="-mx-5 -mb-5 mt-1 grid grid-cols-2 gap-2 bg-muted/60 p-4 sm:grid-cols-2">
-          <Button variant="outline" type="button" onClick={onCancel} disabled={pending}>Batal</Button>
+          <Button variant="outline" type="button" onClick={onCancel} disabled={pending}>{t("cancel")}</Button>
           <Button variant={danger ? "destructive" : "default"} type="button" onClick={onConfirm} disabled={pending} aria-busy={pending}>
-            {pending ? "Memproses…" : confirmLabel}
+            {pending ? t("processing") : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
