@@ -60,6 +60,15 @@ describe("PrismaOfflineSyncBundleReader", () => {
     });
     expect(JSON.stringify(bundle)).not.toContain("encryptedUserPrivateKey");
     expect(JSON.stringify(bundle)).not.toContain(user.email);
+
+    const unchanged = await new PrismaOfflineSyncBundleReader().readAuthorizedBundle(user.id);
+    expect(unchanged?.synchronizationToken).toBe(bundle?.synchronizationToken);
+
+    const changedPayload = opaque.slice();
+    changedPayload[1] = 9;
+    await prisma.authenticatorAccount.create({ data: { vaultId: personal.id, encryptedPayload: changedPayload, encryptionVersion: 1 } });
+    const changed = await new PrismaOfflineSyncBundleReader().readAuthorizedBundle(user.id);
+    expect(changed?.synchronizationToken).not.toBe(bundle?.synchronizationToken);
   });
 });
 

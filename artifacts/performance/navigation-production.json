@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "label": "implementation-granular-loading",
+  "runtime": "production",
+  "budgets": {
+    "visibleResponseP75Ms": 50,
+    "visibleResponseCoverage": 1,
+    "warmClickToUsableP75Ms": 300,
+    "maximumRscRequests": 1
+  },
+  "summary": {
+    "warmClickToUsableP75Ms": 48.4,
+    "clickToFeedbackP75Ms": 30.4,
+    "feedbackCoverage": 0.8571428571428571,
+    "visibleResponseP75Ms": 30.4,
+    "visibleResponseCoverage": 1,
+    "maximumRscRequests": 1
+  },
+  "unlock": {
+    "name": "unlock",
+    "temperature": "cold",
+    "clickToFeedbackMs": 13.6,
+    "clickToUsableMs": 195.9,
+    "rscRequests": 1,
+    "prefetchedRscRequests": 3,
+    "serverTimingMs": [
+      0.02,
+      0.02,
+      0.01,
+      0.01,
+      0.01
+    ],
+    "longTaskCount": 0,
+    "longTaskDurationMs": 0,
+    "stages": {
+      "kdf": 138,
+      "fetch": 13.6,
+      "persist": 0.9,
+      "decrypt": 0.2
+    }
+  },
+  "interactions": [
+    {
+      "name": "accounts-to-directory",
+      "temperature": "cold",
+      "clickToFeedbackMs": 6.3,
+      "clickToUsableMs": 32.9,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 8,
+      "serverTimingMs": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "directory-to-personal",
+      "temperature": "cold",
+      "clickToFeedbackMs": 34.3,
+      "clickToUsableMs": 52.2,
+      "rscRequests": 1,
+      "prefetchedRscRequests": 2,
+      "serverTimingMs": [
+        0.01,
+        0.01,
+        0.02,
+        0.01,
+        0.01,
+        0.01
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "personal-to-directory",
+      "temperature": "warm",
+      "clickToFeedbackMs": 10.8,
+      "clickToUsableMs": 37.8,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "directory-to-accounts",
+      "temperature": "warm",
+      "clickToFeedbackMs": 30.4,
+      "clickToUsableMs": 48.5,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "accounts-to-add",
+      "temperature": "cold",
+      "clickToFeedbackMs": 37.4,
+      "clickToUsableMs": 50,
+      "rscRequests": 1,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [
+        0.02
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "add-to-accounts",
+      "temperature": "warm",
+      "clickToFeedbackMs": null,
+      "clickToUsableMs": 18.4,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "accounts-to-directory",
+      "temperature": "warm",
+      "clickToFeedbackMs": 6.6,
+      "clickToUsableMs": 66.5,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "directory-to-personal",
+      "temperature": "warm",
+      "clickToFeedbackMs": 31.7,
+      "clickToUsableMs": 48.4,
+      "rscRequests": 1,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [
+        0.02
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "personal-to-directory",
+      "temperature": "warm",
+      "clickToFeedbackMs": 21.3,
+      "clickToUsableMs": 39.3,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "directory-to-shared",
+      "temperature": "warm",
+      "clickToFeedbackMs": 25,
+      "clickToUsableMs": 40.8,
+      "rscRequests": 1,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [
+        0.01
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "shared-to-directory",
+      "temperature": "warm",
+      "clickToFeedbackMs": 22,
+      "clickToUsableMs": 40,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "directory-to-accounts",
+      "temperature": "warm",
+      "clickToFeedbackMs": 22.1,
+      "clickToUsableMs": 42.9,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "accounts-to-add",
+      "temperature": "warm",
+      "clickToFeedbackMs": 30,
+      "clickToUsableMs": 45.2,
+      "rscRequests": 1,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [
+        0.02
+      ],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    },
+    {
+      "name": "add-to-accounts",
+      "temperature": "warm",
+      "clickToFeedbackMs": null,
+      "clickToUsableMs": 22.9,
+      "rscRequests": 0,
+      "prefetchedRscRequests": 0,
+      "serverTimingMs": [],
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0
+    }
+  ]
+}

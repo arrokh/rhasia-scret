@@ -12,6 +12,14 @@ type ApplicationUserRecord = {
 
 export class PrismaApplicationUserRepository implements ApplicationUserRepository {
   public async provision(session: VerifiedSession): Promise<ApplicationUser> {
+    const existing = await prisma.applicationUser.findUnique({ where: { supabaseUserId: session.subject } });
+    if (existing?.email === session.email) return toApplicationUser(existing);
+    if (existing) {
+      return toApplicationUser(await prisma.applicationUser.update({
+        where: { id: existing.id },
+        data: { email: session.email }
+      }));
+    }
     const record = await prisma.applicationUser.upsert({
       where: { supabaseUserId: session.subject },
       create: { supabaseUserId: session.subject, email: session.email },

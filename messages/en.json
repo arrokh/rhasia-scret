@@ -1,4 +1,7 @@
 {
+  "Navigation": {
+    "loadingPage": "Loading page…"
+  },
   "Common": {
     "back": "Back",
     "cancel": "Cancel",
@@ -254,6 +257,7 @@
       "title": "Import QR code",
       "description": "Use an image from your device or scan directly with the camera.",
       "upload": "Upload QR image",
+      "loadingScanner": "Preparing scanner…",
       "stopCamera": "Stop camera",
       "scanCamera": "Scan with camera",
       "manualLabel": "Enter URI manually",
@@ -461,6 +465,7 @@
       "saving": "Saving…",
       "saveMember": "Save member permissions",
       "saved": "Member defaults saved.",
+      "loadingError": "Member permission defaults could not be loaded. Try again.",
       "error": "Permissions could not be saved. Refresh if another owner session changed them.",
       "cancel": "Cancel"
     },

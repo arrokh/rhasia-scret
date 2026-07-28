@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { ArchiveRestore, KeyRound, LoaderCircle, ShieldAlert } from "lucide-react";
@@ -62,7 +61,6 @@ export function VaultArchiveImporter({
 }) {
   const t = useTranslations("VaultArchive.importer");
   const tCommon = useTranslations("Common");
-  const router = useRouter();
   const online = useOnlineStatus();
   const [opened, setOpenedState] = useState<OpenedVaultArchive | null>(null);
   const [errorCode, setErrorCode] = useState<ArchiveErrorKey | null>(null);
@@ -184,7 +182,6 @@ export function VaultArchiveImporter({
       replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
       replaceOpened(null);
       setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated });
-      router.refresh();
     } catch (error) {
       if (!activeRef.current) return;
       if (error instanceof VaultImportClientError && error.code === "clientDestinationUnavailable") {

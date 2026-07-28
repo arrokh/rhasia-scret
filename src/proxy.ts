@@ -16,6 +16,7 @@ export function createAuthProxy(verifySession: VerifySession = verifySupabaseSes
   return async function authProxy(request: NextRequest) {
     let response = NextResponse.next({ request });
     let hasSession = false;
+    const verificationStartedAt = performance.now();
     try {
       hasSession = await verifySession(request, (cookiesToSet) => {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
@@ -26,9 +27,13 @@ export function createAuthProxy(verifySession: VerifySession = verifySupabaseSes
       hasSession = false;
     }
 
+    const serverTiming = `auth_claims;dur=${Math.max(0, performance.now() - verificationStartedAt).toFixed(2)}`;
     if (!hasSession && isProtectedPagePath(request.nextUrl.pathname)) {
-      return redirectToSignIn(request, response);
+      const redirect = redirectToSignIn(request, response);
+      redirect.headers.set("server-timing", serverTiming);
+      return redirect;
     }
+    response.headers.set("server-timing", serverTiming);
     return response;
   };
 }

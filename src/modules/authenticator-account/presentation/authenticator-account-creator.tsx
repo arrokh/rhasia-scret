@@ -83,7 +83,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
       throw error;
     }
     setWorkspace({ ...workspace, accounts: [...workspace.accounts, { ...candidate, id: created.id, revision: created.revision, vaultId: vault.id, vaultName: vault.name, vaultType: vault.type }].sort((left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName)) });
-    setDuplicate(null); router.push("/vaults"); router.refresh();
+    setDuplicate(null); router.push("/vaults");
   }
 
   const renderedMessage = message?.source === "totp" ? tTotpError(message.key) : message?.key === "unavailableVaults" ? t(message.key, { count: message.count }) : message ? t(message.key) : null;

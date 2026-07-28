@@ -54,6 +54,22 @@ export class BrowserOfflineVaultRepository {
     }
   }
 
+  async readByPersonalVaultId(personalVaultId: string): Promise<EncryptedOfflineVaultBundle | null> {
+    const database = await this.openDatabase();
+    try {
+      const values = await request<unknown[]>(database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).getAll());
+      for (const value of values) {
+        try {
+          const bundle = parseEncryptedOfflineVaultBundle(value);
+          if (bundle.personalVault.vaultId === personalVaultId) return bundle;
+        } catch { /* Ignore malformed records while looking for a valid encrypted snapshot. */ }
+      }
+      return null;
+    } finally {
+      database.close();
+    }
+  }
+
   async replace(bundleInput: EncryptedOfflineVaultBundle): Promise<void> {
     const bundle = parseEncryptedOfflineVaultBundle(bundleInput);
     const database = await this.openDatabase();

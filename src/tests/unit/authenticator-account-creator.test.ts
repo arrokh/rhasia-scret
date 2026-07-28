@@ -120,7 +120,7 @@ describe("AuthenticatorAccountCreator", () => {
     expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" });
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/accounts", expect.objectContaining({ method: "POST" }));
     expect(mocks.push).toHaveBeenCalledWith("/vaults");
-    expect(mocks.refresh).toHaveBeenCalledOnce();
+    expect(mocks.refresh).not.toHaveBeenCalled();
   });
 });
 

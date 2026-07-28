@@ -1,9 +1,9 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
+import { renderToReadableStream } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  loadApplicationUser: vi.fn(),
+  loadVaultPageContext: vi.fn(),
   getEligibility: vi.fn(),
   redirect: vi.fn()
 }));
@@ -16,13 +16,7 @@ vi.mock("@/modules/vault-management", () => ({
   DestructivePersonalVaultResetForm: () => createElement("div", { "data-testid": "destructive-reset" }, "Destructive reset form"),
   OwnedSharedVaultResetBlocker: ({ vaultIds }: { vaultIds: string[] }) => createElement("div", { "data-testid": "owned-vault-blocker" }, `${vaultIds.length} owned vaults`)
 }));
-vi.mock("@/modules/identity/application/load-application-user", () => ({ loadApplicationUser: mocks.loadApplicationUser }));
-vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
-  PrismaApplicationUserRepository: class PrismaApplicationUserRepository {}
-}));
-vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
-  SupabaseSessionVerifier: class SupabaseSessionVerifier {}
-}));
+vi.mock("@/app/vaults/load-vault-page-context", () => ({ loadVaultPageContext: mocks.loadVaultPageContext }));
 vi.mock("@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository", () => ({
   PrismaDestructivePersonalVaultResetRepository: class PrismaDestructivePersonalVaultResetRepository {
     public getEligibility(userId: string) { return mocks.getEligibility(userId); }
@@ -34,13 +28,13 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("VaultRecoveryPage", () => {
   beforeEach(() => {
-    mocks.loadApplicationUser.mockResolvedValue({ id: "user-1", email: "person@example.test", canAccessApplication: () => true });
+    mocks.loadVaultPageContext.mockResolvedValue({ user: { id: "user-1", email: "person@example.test", status: "ACTIVE" }, personalVault: { id: "personal-1", lifecycle: "ACTIVE" } });
   });
 
   it("offers destructive reset when passkey recovery was not enrolled", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: false, activeOwnedSharedVaults: 0, activeOwnedSharedVaultIds: [] });
 
-    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"destructive-reset\"");
     expect(markup).not.toContain("data-testid=\"passkey-reset\"");
@@ -49,7 +43,7 @@ describe("VaultRecoveryPage", () => {
   it("renders the non-destructive reset form when passkey recovery is enrolled", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: true, activeOwnedSharedVaults: 0, activeOwnedSharedVaultIds: [] });
 
-    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"passkey-reset\"");
     expect(markup).not.toContain("data-testid=\"destructive-reset\"");
@@ -58,10 +52,16 @@ describe("VaultRecoveryPage", () => {
   it("blocks destructive reset while the user owns an active Shared Vault", async () => {
     mocks.getEligibility.mockResolvedValue({ passkeyRecoveryEnrolled: false, activeOwnedSharedVaults: 2, activeOwnedSharedVaultIds: ["vault-1", "vault-2"] });
 
-    const markup = renderToStaticMarkup(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
 
     expect(markup).toContain("data-testid=\"owned-vault-blocker\"");
     expect(markup).toContain("2 owned vaults");
     expect(markup).not.toContain("data-testid=\"destructive-reset\"");
   });
 });
+
+async function renderFully(element: ReactNode): Promise<string> {
+  const stream = await renderToReadableStream(element);
+  await stream.allReady;
+  return new Response(stream).text();
+}

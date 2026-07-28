@@ -51,6 +51,8 @@ describe("BrowserOfflineVaultRepository", () => {
       permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
       sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" }
     });
+    expect((await repository.readByPersonalVaultId("personal_profile_b"))?.profileId).toBe("profile_b");
+    expect(await repository.readByPersonalVaultId("missing-personal-vault")).toBeNull();
   });
 
   it("rejects malformed, plaintext-shaped, unknown-version, incomplete, and regressing records while preserving the last valid bundle", async () => {

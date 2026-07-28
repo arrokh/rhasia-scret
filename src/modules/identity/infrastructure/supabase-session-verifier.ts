@@ -1,9 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { measureServerOperation } from "@/shared/infrastructure/server-performance";
 import type { SessionVerifier, VerifiedSession } from "../application/session-verifier";
 import { BROWSER_E2E_SESSION_COOKIE, browserE2eTestSession } from "./browser-e2e-test-session";
 
+export type SessionVerificationFreshness = "claims" | "fresh-user";
+
 export class SupabaseSessionVerifier implements SessionVerifier {
+  public constructor(private readonly freshness: SessionVerificationFreshness = "claims") {}
+
   public async verify(): Promise<VerifiedSession | null> {
     const cookieStore = await cookies();
     const testSession = browserE2eTestSession(cookieStore.get(BROWSER_E2E_SESSION_COOKIE)?.value);
@@ -21,9 +26,18 @@ export class SupabaseSessionVerifier implements SessionVerifier {
         }
       }
     });
-    const { data, error } = await client.auth.getUser();
-    if (error && error.name !== "AuthSessionMissingError" && error.status !== 401) throw error;
-    if (!data.user?.email) return null;
-    return { subject: data.user.id, email: data.user.email };
+    if (this.freshness === "fresh-user") {
+      const { data, error } = await measureServerOperation("rhsia:server:session-fresh-user", () => client.auth.getUser());
+      if (error && error.name !== "AuthSessionMissingError" && error.status !== 401) throw error;
+      if (!data.user?.email) return null;
+      return { subject: data.user.id, email: data.user.email };
+    }
+
+    const { data, error } = await measureServerOperation("rhsia:server:session-claims", () => client.auth.getClaims());
+    if (error && error.name !== "AuthSessionMissingError") throw error;
+    const subject = data?.claims.sub;
+    const email = data?.claims.email;
+    if (typeof subject !== "string" || typeof email !== "string") return null;
+    return { subject, email };
   }
 }

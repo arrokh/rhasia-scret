@@ -11,7 +11,7 @@ describe("Remembered Browser production boundaries", () => {
     expect(unlock).toContain("loadUnlockedVaultWorkspaceWithRememberedBrowser");
     expect(unlock).toContain('t("localVerification")');
     expect(unlock).toContain('t("passphrase")');
-    expect(workspace).toMatch(/fetchAuthorizedOfflineBundle\(\)[\s\S]+recoverUserRootKeyWithRememberedBrowser/);
+    expect(workspace).toMatch(/fetchMeasuredAuthorizedOfflineBundle\(\{ personalVaultId \}\)[\s\S]+recoverUserRootKeyWithRememberedBrowser/);
   });
 
   it("offers enrollment only inside an online Unlocked Vault Session security surface", () => {

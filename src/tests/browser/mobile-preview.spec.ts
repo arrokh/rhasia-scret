@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
+
 test("renders the ciphertext-free vault layout at a mobile viewport", async ({ page }) => {
   const pageErrors: Error[] = [];
   page.on("pageerror", (error) => pageErrors.push(error));
@@ -57,8 +59,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/member-permissions", async (route) => {
-    defaultPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 2 }) });
+    const isUpdate = route.request().method() === "PATCH";
+    if (isUpdate) defaultPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ vaultDefaultAccountPermissions: { canAddAccounts: isUpdate, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: isUpdate ? 2 : 1 }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/members/viewer-preview", async (route) => {
     memberPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
@@ -109,7 +112,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByLabel("Email penerima").fill("viewer@example.test");
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman");
-  await expect(secureLink).toHaveText(/^http:\/\/127\.0\.0\.1:3000\/vaults\/invitations\/redeem#[A-Za-z0-9_-]+$/);
+  await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
   expect(invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await page.getByLabel("Lihat audit viewer@local.invalid").click();

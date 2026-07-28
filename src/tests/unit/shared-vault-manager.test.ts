@@ -1,14 +1,18 @@
 /** @vitest-environment jsdom */
 
-import { act, createElement } from "react";
+import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SharedVaultDetails, SharedVaultDirectory } from "@/modules/vault-management/presentation/shared-vault-manager";
+import { SharedVaultDetails as SharedVaultDetailsComponent, SharedVaultDirectory } from "@/modules/vault-management/presentation/shared-vault-manager";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({ createSharedVaultInvitation: vi.fn() }));
 vi.mock("@/modules/vault-membership", async (importOriginal) => ({ ...await importOriginal<typeof import("@/modules/vault-membership")>(), createSharedVaultInvitation: mocks.createSharedVaultInvitation }));
+
+function SharedVaultDetails(props: Omit<ComponentProps<typeof SharedVaultDetailsComponent>, "ownerEmail">) {
+  return createElement(SharedVaultDetailsComponent, { ...props, ownerEmail: "owner@example.test" });
+}
 
 describe("dedicated Vault management", () => {
   let root: Root | undefined;
@@ -27,14 +31,17 @@ describe("dedicated Vault management", () => {
     expect(links[1]?.pathname).toBe("/vaults/manage/shared-1");
   });
 
-  it("manages accounts on a page, shows the owner, and exposes invitation and audit tabs", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null }) }));
+  it("loads owner permission defaults needed on Detail while managing accounts", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
     const onAccountDeleted = vi.fn(async () => undefined);
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted }))));
 
     expect(container.querySelector('input[value="Tim Operasional"]')).not.toBeNull();
     await vi.waitFor(() => expect(container.textContent).toContain("owner@example.test"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/member-permissions", { cache: "no-store", method: "GET" });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/participants"), expect.anything());
     expect(container.querySelector<HTMLAnchorElement>('a[href*="vaultId=shared-1"]')).not.toBeNull();
     expect(findButton(container, "Undangan")).toBeDefined();
     expect(findButton(container, "Audit")).toBeDefined();

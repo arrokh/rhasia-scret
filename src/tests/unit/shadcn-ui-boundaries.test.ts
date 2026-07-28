@@ -52,10 +52,13 @@ describe("shadcn/ui design-system boundaries", () => {
       "app/vaults/manage/[vaultId]/page.tsx",
       "app/vaults/invitations/redeem/page.tsx"
     ];
+    const frame = readFileSync(join(sourceRoot, "app/vaults/vault-page-frame.tsx"), "utf8");
+    expect(frame).toContain("<PageHeader");
+    expect(frame).toContain("<VaultPageLogoutAction");
     for (const page of protectedPages) {
       const source = readFileSync(join(sourceRoot, page), "utf8");
-      expect(source).toContain("<PageHeader");
-      expect(source).toContain("action={<LogoutForm");
+      expect(source).toMatch(/<PageHeader|<VaultPageFrame/);
+      expect(source).toMatch(/VaultPageLogoutAction|VaultPageFrame/);
       expect(source).not.toMatch(/eyebrow=\"rhasia-scret/);
     }
     const backPages = protectedPages.slice(1);

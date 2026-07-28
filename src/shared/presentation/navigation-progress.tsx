@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-const MINIMUM_VISIBLE_MS = 350;
+const MINIMUM_VISIBLE_MS = 150;
 const NAVIGATION_TIMEOUT_MS = 10_000;
 
 export function NavigationProgress() {
@@ -37,8 +37,8 @@ export function NavigationProgress() {
       }, NAVIGATION_TIMEOUT_MS);
     }
 
-    document.addEventListener("click", start);
-    return () => document.removeEventListener("click", start);
+    document.addEventListener("click", start, true);
+    return () => document.removeEventListener("click", start, true);
   }, []);
 
   useEffect(() => {

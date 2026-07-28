@@ -17,7 +17,7 @@ export class BrowserApiClient {
   }
 
   async getJson<T>(url: string, init?: RequestInit): Promise<T> {
-    return this.readJson(await this.request(url, { ...init, method: "GET" }));
+    return this.readJsonResponse(await this.request(url, { ...init, method: "GET" }));
   }
 
   post(url: string, body?: unknown, init?: RequestInit): Promise<Response> {
@@ -25,7 +25,7 @@ export class BrowserApiClient {
   }
 
   async postJson<T>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
-    return this.readJson(await this.post(url, body, init));
+    return this.readJsonResponse(await this.post(url, body, init));
   }
 
   async postEmpty(url: string, body?: unknown, init?: RequestInit): Promise<void> {
@@ -33,7 +33,7 @@ export class BrowserApiClient {
   }
 
   async patchJson<T>(url: string, body: unknown, init?: RequestInit): Promise<T> {
-    return this.readJson(await this.request(url, this.jsonInit("PATCH", body, init)));
+    return this.readJsonResponse(await this.request(url, this.jsonInit("PATCH", body, init)));
   }
 
   async patchEmpty(url: string, body: unknown, init?: RequestInit): Promise<void> {
@@ -59,7 +59,7 @@ export class BrowserApiClient {
     return { ...init, method, headers: Object.fromEntries(headers.entries()), body: JSON.stringify(body) };
   }
 
-  private async readJson<T>(response: Response): Promise<T> {
+  async readJsonResponse<T>(response: Response): Promise<T> {
     await this.requireSuccess(response);
     return response.json() as Promise<T>;
   }

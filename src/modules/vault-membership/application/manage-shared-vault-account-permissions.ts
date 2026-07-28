@@ -20,6 +20,10 @@ export type PermissionUpdateResult<T> =
   | { status: "STALE" }
   | { status: "UNAVAILABLE" };
 
+export interface SharedVaultAccountPermissionDefaultsReader {
+  readVaultDefaults(ownerId: string, vaultId: string): Promise<VaultMemberPermissionDefaults | null>;
+}
+
 export interface SharedVaultAccountPermissionRepository {
   updateVaultDefaults(
     ownerId: string,
@@ -35,6 +39,14 @@ export interface SharedVaultAccountPermissionRepository {
     expectedRevision: number,
     overrides: SharedVaultAccountPermissionOverrides
   ): Promise<PermissionUpdateResult<VaultMemberPermissionState>>;
+}
+
+export function loadSharedVaultMemberPermissionDefaults(
+  ownerId: string,
+  vaultId: string,
+  reader: SharedVaultAccountPermissionDefaultsReader
+): Promise<VaultMemberPermissionDefaults | null> {
+  return reader.readVaultDefaults(ownerId, vaultId);
 }
 
 export function updateSharedVaultMemberPermissionDefaults(

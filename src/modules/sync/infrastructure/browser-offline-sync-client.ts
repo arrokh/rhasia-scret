@@ -3,7 +3,14 @@
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
 
-export async function fetchAuthorizedOfflineBundle(): Promise<EncryptedOfflineVaultBundle> {
-  const response = await browserApiClient.getJson<unknown>("/api/sync/offline-bundle", { cache: "no-store" });
-  return parseEncryptedOfflineVaultBundle(response);
+export async function fetchAuthorizedOfflineBundle(cached: EncryptedOfflineVaultBundle | null = null): Promise<EncryptedOfflineVaultBundle> {
+  const headers = new Headers();
+  if (cached) headers.set("if-none-match", `"${cached.synchronizationToken}"`);
+  const response = await browserApiClient.request("/api/sync/offline-bundle", { method: "GET", cache: "no-store", headers });
+  if (response.status === 304) {
+    if (!cached) throw new Error("The server returned an unchanged synchronization bundle without a Local Vault Snapshot.");
+    const synchronizedAt = response.headers.get("x-synchronized-at");
+    return parseEncryptedOfflineVaultBundle({ ...cached, synchronizedAt: synchronizedAt ?? cached.synchronizedAt });
+  }
+  return parseEncryptedOfflineVaultBundle(await browserApiClient.readJsonResponse<unknown>(response));
 }

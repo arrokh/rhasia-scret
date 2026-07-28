@@ -1,26 +1,15 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
+import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  ensurePersonalVault: vi.fn(),
-  loadApplicationUser: vi.fn(),
+  loadVaultPageContext: vi.fn(),
   redirect: vi.fn()
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/modules/identity", () => ({ LogoutForm: () => null }));
-vi.mock("@/modules/identity/application/load-application-user", () => ({ loadApplicationUser: mocks.loadApplicationUser }));
-vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
-  PrismaApplicationUserRepository: class PrismaApplicationUserRepository {}
-}));
-vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
-  SupabaseSessionVerifier: class SupabaseSessionVerifier {}
-}));
-vi.mock("@/modules/vault-management/application/ensure-personal-vault", () => ({ ensurePersonalVault: mocks.ensurePersonalVault }));
-vi.mock("@/modules/vault-management/infrastructure/prisma-personal-vault-repository", () => ({
-  PrismaPersonalVaultRepository: class PrismaPersonalVaultRepository {}
-}));
+vi.mock("@/app/vaults/load-vault-page-context", () => ({ loadVaultPageContext: mocks.loadVaultPageContext }));
 vi.mock("@/modules/authenticator-account/presentation/vault-workspace-unlock", () => ({
   VaultWorkspaceUnlock: () => createElement("h2", null, "Brankas Anda terkunci")
 }));
@@ -31,12 +20,25 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("VaultDirectoryPage archive navigation", () => {
   beforeEach(() => {
-    mocks.loadApplicationUser.mockResolvedValue({ id: "user-1", email: "person@example.test", canAccessApplication: () => true });
-    mocks.ensurePersonalVault.mockResolvedValue({ id: "personal-1", lifecycle: "ACTIVE" });
+    mocks.loadVaultPageContext.mockResolvedValue({ user: { id: "user-1", email: "person@example.test", status: "ACTIVE" }, personalVault: { id: "personal-1", lifecycle: "ACTIVE" } });
+  });
+
+  it("streams the stable page header while only the protected action and directory are pending", async () => {
+    mocks.loadVaultPageContext.mockReturnValue(new Promise(() => undefined));
+
+    const markup = renderToStaticMarkup(createElement(
+      TestQueryProvider,
+      null,
+      createElement(UnlockedVaultWorkspaceProvider, null, await VaultDirectoryPage())
+    ));
+
+    expect(markup).toContain("Buka Brankas Pribadi atau kelola Brankas Bersama Anda.");
+    expect(markup.match(/role="status"/g)).toHaveLength(1);
+    expect(markup).not.toContain("Brankas Anda terkunci");
   });
 
   it("hides backup and import while the Vault Directory is locked", async () => {
-    const markup = renderToStaticMarkup(createElement(
+    const markup = await renderFully(createElement(
       TestQueryProvider,
       null,
       createElement(UnlockedVaultWorkspaceProvider, null, await VaultDirectoryPage())
@@ -48,7 +50,7 @@ describe("VaultDirectoryPage archive navigation", () => {
   });
 
   it("shows responsive Download and Upload actions in a current Unlocked Vault Session", async () => {
-    const markup = renderToStaticMarkup(createElement(
+    const markup = await renderFully(createElement(
       TestQueryProvider,
       null,
       createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: workspace() }, await VaultDirectoryPage())
@@ -62,6 +64,12 @@ describe("VaultDirectoryPage archive navigation", () => {
     expect(markup).toContain("lucide-upload");
   });
 });
+
+async function renderFully(element: ReactNode): Promise<string> {
+  const stream = await renderToReadableStream(element);
+  await stream.allReady;
+  return new Response(stream).text();
+}
 
 function workspace(): UnlockedVaultWorkspace {
   return {

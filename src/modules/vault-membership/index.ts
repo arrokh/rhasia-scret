@@ -21,6 +21,7 @@ export {
   useDeleteVaultParticipantMutation,
   useUpdateVaultDefaultAccountPermissionsMutation,
   useUpdateVaultMemberAccountPermissionOverridesMutation,
+  useVaultDefaultAccountPermissionsQuery,
   useVaultParticipantsQuery
 } from "./presentation/hooks/use-vault-participants";
 export type { BrowserVaultParticipant } from "./infrastructure/browser-vault-participant-client";

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   decryptPayload: vi.fn(),
   fetchAuthorizedOfflineBundle: vi.fn(),
   read: vi.fn(),
+  readByPersonalVaultId: vi.fn(),
   recoverUserRootKeyWithPasskey: vi.fn(),
   recoverUserRootKeyWithRememberedBrowser: vi.fn(),
   replace: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@/modules/crypto", () => ({
 vi.mock("@/modules/sync", () => ({
   BrowserOfflineVaultRepository: class {
     read = mocks.read;
+    readByPersonalVaultId = mocks.readByPersonalVaultId;
     replace = mocks.replace;
   },
   fetchAuthorizedOfflineBundle: mocks.fetchAuthorizedOfflineBundle
@@ -113,6 +115,27 @@ describe("Vault workspace loading", () => {
     expect(rememberedWorkspace.syncState).toBe("OFFLINE");
     expect(mocks.fetchAuthorizedOfflineBundle).not.toHaveBeenCalled();
     expect(mocks.recoverUserRootKeyWithRememberedBrowser).toHaveBeenCalledWith("profile-1");
+  });
+
+  it("persists ciphertext concurrently and bounds account decryption concurrency", async () => {
+    const largeBundle = bundle({ sharedVaults: [] });
+    largeBundle.personalVault.accounts = Array.from({ length: 25 }, (_, index) => ({ id: `account-${index}`, encryptedPayload: "BQ==", encryptionVersion: 1 as const, revision: 1 }));
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(largeBundle);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
+    let active = 0;
+    let maximumActive = 0;
+    mocks.decryptAccountConfiguration.mockImplementation(() => new Promise((resolve) => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      queueMicrotask(() => { active -= 1; resolve(account("Issuer", "account")); });
+    }));
+
+    const loading = loadUnlockedVaultWorkspace("secret", "personal-1");
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith(largeBundle));
+    const workspace = await loading;
+
+    expect(workspace.accounts).toHaveLength(25);
+    expect(maximumActive).toBe(8);
   });
 
   it("rejects reconciliation for a different authenticated profile and clears the copied key", async () => {

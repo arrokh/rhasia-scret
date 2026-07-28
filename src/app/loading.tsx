@@ -1,5 +1,5 @@
-import { PageProgressBar } from "@/shared/presentation/navigation-progress";
+import { PageLoadingSkeleton } from "@/shared/presentation/page-loading-skeleton";
 
 export default function Loading() {
-  return <PageProgressBar />;
+  return <PageLoadingSkeleton />;
 }

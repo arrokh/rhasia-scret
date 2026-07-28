@@ -34,6 +34,13 @@ export function loadVaultParticipants(vaultId: string, cursor: string | null): P
   return browserApiClient.getJson<BrowserVaultParticipantPage>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`, { cache: "no-store" });
 }
 
+export function loadVaultDefaultAccountPermissions(vaultId: string): Promise<{
+  vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
+  vaultDefaultAccountPermissionsRevision: number;
+}> {
+  return browserApiClient.getJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, { cache: "no-store" });
+}
+
 export function updateVaultDefaultAccountPermissions(
   vaultId: string,
   expectedRevision: number,

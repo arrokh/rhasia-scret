@@ -16,10 +16,15 @@ const protectedPages = [
 ] as const;
 
 describe("sign-in routing inventory", () => {
-  it.each(protectedPages)("sends unauthorized server rendering in %s to sign in", (path) => {
+  it.each(protectedPages)("routes authorization in %s through the protected Vault page context", (path) => {
     const page = readFileSync(resolve(process.cwd(), path), "utf8");
 
-    expect(page).toContain('redirect("/sign-in")');
+    expect(page).toContain("loadVaultPageContext");
     expect(page).not.toContain('redirect("/")');
+  });
+
+  it("redirects missing or inactive protected context to sign in", () => {
+    const loader = readFileSync(resolve(process.cwd(), "src/app/vaults/load-vault-page-context.ts"), "utf8");
+    expect(loader).toContain('redirect("/sign-in")');
   });
 });

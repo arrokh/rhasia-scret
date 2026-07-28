@@ -24,4 +24,17 @@ describe("PrismaApplicationUserRepository", () => {
     expect(second.email).toBe("second@example.test");
     await expect(prisma.applicationUser.count({ where: { supabaseUserId: subject } })).resolves.toBe(1);
   });
+
+  it.skipIf(!process.env.DATABASE_URL)("does not write an unchanged existing user during a normal read path", async () => {
+    const subject = randomUUID();
+    subjects.push(subject);
+    const repository = new PrismaApplicationUserRepository();
+    await repository.provision({ subject, email: "stable@example.test" });
+    const before = await prisma.applicationUser.findUniqueOrThrow({ where: { supabaseUserId: subject }, select: { updatedAt: true } });
+
+    await repository.provision({ subject, email: "stable@example.test" });
+
+    const after = await prisma.applicationUser.findUniqueOrThrow({ where: { supabaseUserId: subject }, select: { updatedAt: true } });
+    expect(after.updatedAt).toEqual(before.updatedAt);
+  });
 });

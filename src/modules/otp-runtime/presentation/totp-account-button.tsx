@@ -9,11 +9,14 @@ import { cn } from "@/lib/utils";
 import type { TotpConfiguration } from "../domain/totp-configuration";
 import { generateTotp } from "../application/generate-totp";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
+import { useTotpClock } from "./use-totp-clock";
 
 export function TotpAccountButton({ configuration, vaultName, onManage, onAccess }: { configuration: TotpConfiguration; vaultName: string; onManage?: () => void; onAccess?: () => void | Promise<void> }) {
   const t = useTranslations("OtpRuntime.account");
+  const now = useTotpClock();
+  const counter = now > 0 ? Math.floor(now / (configuration.period * 1_000)) : null;
+  const seconds = counter === null ? 0 : Math.max(0, Math.ceil((((counter + 1) * configuration.period * 1_000) - now) / 1_000));
   const [code, setCode] = useState("");
-  const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
   const [shaking, setShaking] = useState(false);
 
@@ -24,19 +27,16 @@ export function TotpAccountButton({ configuration, vaultName, onManage, onAccess
   }, [status]);
 
   useEffect(() => {
+    if (counter === null) return;
     let active = true;
-    const update = async () => {
-      try {
-        const next = await generateTotp(configuration, new BrowserHmacGenerator());
+    generateTotp(configuration, new BrowserHmacGenerator(), new Date(counter * configuration.period * 1_000))
+      .then((next) => {
         if (!active) return;
         setCode((current) => { if (current && current !== next.value) setStatus("idle"); return next.value; });
-        setSeconds(Math.max(0, Math.ceil((next.validUntil.getTime() - Date.now()) / 1_000)));
-      } catch { if (active) setStatus("error"); }
-    };
-    void update();
-    const interval = window.setInterval(() => { void update(); }, 1_000);
-    return () => { active = false; window.clearInterval(interval); };
-  }, [configuration]);
+      })
+      .catch(() => { if (active) setStatus("error"); });
+    return () => { active = false; };
+  }, [configuration, counter]);
 
   async function copyOtp() {
     if (!code) return;
