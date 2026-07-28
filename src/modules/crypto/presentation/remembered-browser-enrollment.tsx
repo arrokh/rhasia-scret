@@ -67,7 +67,7 @@ export function RememberedBrowserEnrollment({ profileId, userRootKey }: { profil
     }
   }
 
-  return <div className="grid gap-3 border-t border-border pt-4">
+  return <div className={`grid gap-3 border-t border-border pt-4 ${enrolledAt ? "" : "justify-items-center text-center"}`}>
     <div><h3 className="font-bold text-foreground">{t("title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></div>
     <p className="text-xs leading-5 text-muted-foreground">{t("scope")}</p>
     {enrolledAt && <StatusBanner tone="success">{t("enrolledAt", { date: formatLocalDateTime(enrolledAt, locale) })}</StatusBanner>}

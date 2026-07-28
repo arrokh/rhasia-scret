@@ -15,7 +15,20 @@ describe("Vault archive export audit route", () => {
     expect(audit.recordArchiveExport).toHaveBeenCalledWith("owner-1", "vault-1");
   });
 
-  it("rejects request content without reading or auditing it", async () => {
+  it("accepts a semantically bodyless request represented by an empty stream", async () => {
+    const audit = { recordArchiveExport: vi.fn(async () => true), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };
+    const POST = createVaultArchiveExportAuditHandler({ sessionVerifier: {} as never, applicationUsers: {} as never, audit });
+    const request = new Request("http://localhost/api", {
+      method: "POST",
+      body: new ReadableStream({ start(controller) { controller.close(); } }),
+      duplex: "half"
+    } as RequestInit & { duplex: "half" });
+    const response = await POST(request as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(response.status).toBe(204);
+    expect(audit.recordArchiveExport).toHaveBeenCalledWith("owner-1", "vault-1");
+  });
+
+  it("rejects request content without auditing it", async () => {
     const audit = { recordArchiveExport: vi.fn(async () => true), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };
     const POST = createVaultArchiveExportAuditHandler({ sessionVerifier: {} as never, applicationUsers: {} as never, audit });
     const response = await POST(new Request("http://localhost/api", { method: "POST", body: "sensitive-content-must-not-be-read" }) as never, { params: Promise.resolve({ vaultId: "vault-1" }) });

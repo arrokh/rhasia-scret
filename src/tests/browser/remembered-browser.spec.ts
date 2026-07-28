@@ -20,8 +20,11 @@ test.describe("production Remembered Browser UI", () => {
     page.on("request", (request) => emitted.push(`${request.url()} ${request.postData() ?? ""}`));
     page.on("console", (message) => emitted.push(message.text()));
     await page.goto("/ui-preview/remembered-browser");
+    const enrollment = page.locator("div.border-t").filter({ has: page.getByRole("heading", { name: "Browser yang Diingat", exact: true }) });
+    await expect(enrollment).toHaveClass(/justify-items-center/);
     await page.getByRole("button", { name: "Ingat browser ini" }).click();
     await expect(page.getByText("Browser ini dapat memakai Verifikasi Lokal")).toBeVisible();
+    await expect(enrollment).not.toHaveClass(/justify-items-center/);
 
     const state = await rememberedState(page);
     expect(state.packageText).toContain(profileId);
