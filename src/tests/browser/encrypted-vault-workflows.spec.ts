@@ -298,6 +298,8 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       await openSharedManagement(page, ownerSecret, sharedName);
       await page.getByRole("tab", { name: "Undangan" }).click();
       const revokeEmail = e2eUserEmail(revokeAlias);
+      const revokeParticipant = page.getByRole("listitem").filter({ hasText: revokeEmail });
+      await expect(revokeParticipant.getByText("Anggota aktif")).toBeVisible();
       await page.getByRole("button", { name: `Hapus ${revokeEmail}` }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Cabut akses" }).click();
       await expect(page.getByText(revokeEmail, { exact: true })).toHaveCount(0);
@@ -427,13 +429,21 @@ async function initializeUserContext(page: Page, context: BrowserContext, alias:
 }
 
 async function openSharedManagement(page: Page, secret: string, sharedName: string): Promise<void> {
-  await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-  await unlockVault(page, secret);
-  await page.getByRole("link", { name: "Brankas", exact: true }).click();
+  const invitationsTab = page.getByRole("tab", { name: "Undangan" });
+  if (await invitationsTab.isVisible()) {
+    await page.getByRole("link", { name: "Kembali ke daftar brankas" }).click();
+  } else {
+    const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
+    if (!(await vaultsLink.isVisible())) {
+      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+      await unlockVault(page, secret);
+    }
+    await page.getByRole("link", { name: "Brankas", exact: true }).click();
+  }
   await expect(page).toHaveURL(/\/vaults\/manage\/?$/);
   await page.getByRole("link", { name: sharedName }).click();
   await expect(page).toHaveURL(/\/vaults\/manage\/[^/]+$/);
-  await expect(page.getByRole("tab", { name: "Undangan" })).toBeVisible();
+  await expect(invitationsTab).toBeVisible();
 }
 
 async function createInvitation(page: Page, email: string): Promise<string> {
