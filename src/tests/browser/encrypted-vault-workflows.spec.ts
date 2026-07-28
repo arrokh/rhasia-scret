@@ -246,7 +246,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
         const [participants, audit, accountMutation, invitationMutation, memberMutation, bundleResponse] = await Promise.all([
           fetch(`/api/shared-vaults/${vaultId}/participants`),
           fetch(`/api/shared-vaults/${vaultId}/audit-events`),
-          fetch(`/api/shared-vaults/${vaultId}/accounts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedPayload: "AQEBAQEBAQEBAQEBAQEBAQE=", encryptionVersion: 1 }) }),
+          fetch(`/api/shared-vaults/${vaultId}/accounts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedPayload: btoa(String.fromCharCode(1, ...Array(28).fill(0))), encryptionVersion: 1 }) }),
           fetch(`/api/shared-vaults/${vaultId}/share-links`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recipientEmail: "owner@browser-e2e.test", linkVerifier: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", encryptedPackage: "AQEBAQEBAQEBAQEBAQEBAQE=" }) }),
           fetch(`/api/shared-vaults/${vaultId}/members/00000000-0000-4000-8000-000000000000`, { method: "DELETE" }),
           fetch("/api/sync/offline-bundle")
@@ -265,20 +265,58 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       expect(denied).toEqual({
         participants: 404,
         audit: 404,
-        accountMutation: 404,
+        accountMutation: 403,
         invitationMutation: 404,
         memberMutation: 404,
-        sharedVaultFields: ["accounts", "encryptedName", "encryptedVaultKey", "encryptionVersion", "keyVersion", "lifecycle", "role", "vaultId"]
+        sharedVaultFields: ["accounts", "effectiveAccountPermissions", "encryptedName", "encryptedVaultKey", "encryptionVersion", "keyVersion", "lifecycle", "role", "vaultId"]
       });
 
       const requestCountBeforeViewerManagement = leaveObserved.requests.length;
       await leavePage.getByRole("link", { name: "Brankas", exact: true }).click();
       await leavePage.getByRole("link", { name: sharedName }).click();
-      await expect(leavePage.getByText("Anda dapat melihat dan menyalin OTP")).toBeVisible();
+      await expect(leavePage.getByText("Izin akun Anda")).toBeVisible();
       await expect(leavePage.getByRole("tab", { name: "Undangan" })).toHaveCount(0);
       await expect(leavePage.getByRole("tab", { name: "Audit" })).toHaveCount(0);
       await expect(leavePage.getByRole("link", { name: "Tambah akun" })).toHaveCount(0);
       expect(leaveObserved.requests.slice(requestCountBeforeViewerManagement).some((request) => request.includes("/participants") || request.includes("/audit-events"))).toBe(false);
+    });
+
+    await test.step("Vault defaults and per-member overrides independently authorize Viewer account changes", async () => {
+      await openSharedManagement(page, ownerSecret, sharedName);
+      await page.locator("#vault-default-canAddAccounts").click();
+      const defaultsResponse = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith(`/api/shared-vaults/${sharedVaultId}/member-permissions`));
+      await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
+      expect((await defaultsResponse).status()).toBe(200);
+      await page.getByRole("tab", { name: "Undangan" }).click();
+      await page.getByLabel(`Atur izin akun untuk ${e2eUserEmail(leaveAlias)}`).click();
+      await page.getByLabel("Ubah akun").click();
+      await page.getByRole("option", { name: "Izinkan" }).click();
+      await page.getByLabel("Hapus akun").click();
+      await page.getByRole("option", { name: "Tolak" }).click();
+      await page.getByRole("button", { name: "Simpan izin anggota" }).click();
+
+      await leavePage.goto("/vaults");
+      await unlockVault(leavePage, leaveSecret);
+      await leavePage.getByRole("link", { name: "Brankas", exact: true }).click();
+      await leavePage.getByRole("link", { name: sharedName }).click();
+      await expect(leavePage.getByRole("link", { name: "Tambah akun" })).toBeVisible();
+      await expect(leavePage.getByText("Dapat menambah")).toBeVisible();
+      await expect(leavePage.getByText("Dapat mengubah")).toBeVisible();
+      await expect(leavePage.getByText("Dapat menghapus")).toHaveCount(0);
+
+      await leavePage.getByRole("link", { name: "Tambah akun" }).click();
+      await leavePage.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(imageTotpUri);
+      await leavePage.getByRole("button", { name: "Gunakan URI manual" }).click();
+      await leavePage.getByRole("button", { name: "Simpan akun" }).click();
+      await expect(leavePage.getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" })).toBeVisible();
+
+      const deleteStatus = await leavePage.evaluate(async ({ vaultId }) => {
+        const bundle = await fetch("/api/sync/offline-bundle").then((response) => response.json()) as { sharedVaults: Array<{ vaultId: string; accounts: Array<{ id: string; revision: number }> }> };
+        const account = bundle.sharedVaults.find((vault) => vault.vaultId === vaultId)?.accounts[0];
+        if (!account) return 0;
+        return (await fetch(`/api/shared-vaults/${vaultId}/accounts`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, expectedRevision: account.revision }) })).status;
+      }, { vaultId: sharedVaultId });
+      expect(deleteStatus).toBe(403);
     });
 
     await test.step("Viewer leave removes access on the next authorized reconciliation", async () => {

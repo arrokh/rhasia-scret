@@ -51,7 +51,7 @@ Visual consistency cannot override product requirements:
 
 - Client decryption and OTP generation occur only after unlock; secrets, raw QR/URI data, OTPs, and keys never reach the server.
 - The unlock control represents Vault Unlock Secret entry or Local Verification—not a numeric PIN. There is no automatic lock timer.
-- Only Owners may manage Shared Vault accounts, members, invitations, Secure Share Links, or Vault Audit History. Viewers may read/copy accounts only.
+- Owners always manage Shared Vault accounts and alone manage members, invitations, Secure Share Links, recovery, or Vault Audit History. Viewers may read/copy accounts and may add/edit/soft-delete them only through Effective Shared Vault Account Permissions.
 - Audit rows are redacted and opaque-ID-only. Offline mode is encrypted-snapshot, read-only access with no offline mutation queue.
 
 ## Screen-document rule

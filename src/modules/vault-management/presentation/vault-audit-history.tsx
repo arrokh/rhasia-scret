@@ -11,7 +11,7 @@ import type { ManagedVaultAccountSummary } from "./vault-account-management-list
 
 export type SelectedAuditFilter = { query: VaultAuditFilter; label: string };
 type AuditTranslator = ReturnType<typeof useTranslations<"VaultManagement.audit">>;
-export type VaultAuditEventMessageKey = "accountAccessed" | "archiveExported" | "archiveImported" | "vaultCreated" | "accountAdded" | "memberRevoked" | "vaultDeleted" | "vaultRestored" | "securityActivity";
+export type VaultAuditEventMessageKey = "accountAccessed" | "archiveExported" | "archiveImported" | "vaultCreated" | "accountAdded" | "accountUpdated" | "accountDeleted" | "accountRestored" | "memberRevoked" | "memberPermissionsUpdated" | "vaultMemberDefaultsUpdated" | "vaultDeleted" | "vaultRestored" | "securityActivity";
 
 export function VaultAuditHistory({ audit, accounts, filter = { query: {}, label: "" }, onClearFilter = () => undefined }: {
   audit: ReturnType<typeof useVaultAuditQuery>;
@@ -31,7 +31,7 @@ export function VaultAuditHistory({ audit, accounts, filter = { query: {}, label
 
 function accountAuditLabel(accounts: ManagedVaultAccountSummary[], targetId: string, t: AuditTranslator): string {
   const account = accounts.find((entry) => entry.id === targetId);
-  return account ? `${account.issuer} · ${account.accountName}` : t("unknownAccount", { id: targetId });
+  return account && !account.unavailable ? `${account.issuer} · ${account.accountName}` : t("unknownAccount", { id: targetId });
 }
 
 export function vaultAuditEventMessageKey(eventType: string): VaultAuditEventMessageKey {
@@ -41,7 +41,12 @@ export function vaultAuditEventMessageKey(eventType: string): VaultAuditEventMes
     ARCHIVE_IMPORTED: "archiveImported",
     VAULT_CREATED: "vaultCreated",
     ACCOUNT_ADDED: "accountAdded",
+    ACCOUNT_UPDATED: "accountUpdated",
+    ACCOUNT_DELETED: "accountDeleted",
+    ACCOUNT_RESTORED: "accountRestored",
     MEMBER_REVOKED: "memberRevoked",
+    MEMBER_PERMISSIONS_UPDATED: "memberPermissionsUpdated",
+    VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED: "vaultMemberDefaultsUpdated",
     VAULT_DELETED: "vaultDeleted",
     VAULT_RESTORED: "vaultRestored"
   };

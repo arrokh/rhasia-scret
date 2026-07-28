@@ -28,8 +28,9 @@ function createPreviewWorkspace(personalVaultName: string): UnlockedVaultWorkspa
     synchronizationToken: "preview-token",
     syncState: "CURRENT",
     userRootKey: Uint8Array.from({ length: 32 }, (_, index) => 100 + index),
-    vaults: [{ id: "preview-personal-vault", name: personalVaultName, type: "PERSONAL", role: "OWNER", key: personalKey }],
+    vaults: [{ id: "preview-personal-vault", name: personalVaultName, type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } }, key: personalKey }],
     accounts: [{ id: "preview-account", vaultId: "preview-personal-vault", vaultName: personalVaultName, vaultType: "PERSONAL", revision: 1, issuer: "Example", accountName: "alice@example.test", secret: new Uint8Array([1, 2, 3, 4]), algorithm: "SHA-1", digits: 6, period: 30 }],
+    unavailableAccounts: [],
     unavailableSharedVaults: 0
   };
 }

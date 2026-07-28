@@ -36,7 +36,7 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/vault-management/presentation/destructive-personal-vault-reset-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/personal-vault-setup-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/shared-vault-creator.tsx", count: 1 },
-      { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 2 }
+      { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 4 }
     ]);
     for (const form of forms) {
       expect(form.source, form.path).toContain("@tanstack/react-form");

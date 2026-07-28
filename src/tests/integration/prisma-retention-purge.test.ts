@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaExpiredAccountPurgeRepository } from "@/modules/authenticator-account/infrastructure/prisma-expired-account-purge-repository";
-import { PrismaSharedOwnerAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-shared-owner-account-repository";
+import { PrismaSharedAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
 import { auditPurgeAfter, vaultPurgeAfter } from "@/modules/vault-management";
 import { PrismaExpiredVaultRetentionRepository } from "@/modules/vault-management/infrastructure/prisma-expired-vault-retention-repository";
 import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
@@ -46,11 +46,11 @@ describe("Prisma retention purge", () => {
     const vault = await createSharedVault(owner.id);
     const account = await createAccount(vault.id, null);
     const deletedAt = new Date("2026-07-26T12:00:00.000Z");
-    const repository = new PrismaSharedOwnerAccountRepository(() => deletedAt);
+    const repository = new PrismaSharedAccountRepository(() => deletedAt);
 
-    await expect(repository.delete(owner.id, vault.id, account.id, 1)).resolves.toBe(true);
+    await expect(repository.delete(owner.id, vault.id, account.id, 1)).resolves.toEqual({ status: "SUCCESS", value: undefined });
     expect(await prisma.authenticatorAccount.findUnique({ where: { id: account.id }, select: { deletedAt: true, purgeAfter: true } })).toEqual({ deletedAt, purgeAfter: new Date("2026-08-25T12:00:00.000Z") });
-    await expect(new PrismaSharedOwnerAccountRepository(() => new Date("2026-08-25T11:59:59.999Z")).restore(owner.id, vault.id, account.id)).resolves.toBe(true);
+    await expect(new PrismaSharedAccountRepository(() => new Date("2026-08-25T11:59:59.999Z")).restore(owner.id, vault.id, account.id)).resolves.toEqual({ status: "SUCCESS", value: undefined });
     expect(await prisma.authenticatorAccount.findUnique({ where: { id: account.id }, select: { deletedAt: true, purgeAfter: true, revision: true } })).toEqual({ deletedAt: null, purgeAfter: null, revision: 3 });
   });
 
@@ -117,11 +117,11 @@ describe("Prisma retention purge", () => {
     const deadline = vaultPurgeAfter(deletedAt);
     await prisma.authenticatorAccount.update({ where: { id: account.id }, data: { deletedAt, purgeAfter: deadline } });
     const [restoredAccount, purgedAccounts] = await Promise.all([
-      new PrismaSharedOwnerAccountRepository(() => new Date(deadline.getTime() - 1)).restore(owner.id, vault.id, account.id),
+      new PrismaSharedAccountRepository(() => new Date(deadline.getTime() - 1)).restore(owner.id, vault.id, account.id),
       new PrismaExpiredAccountPurgeRepository().purgeExpired(new Date(deadline.getTime() + 1), 100)
     ]);
     const remainingAccount = await prisma.authenticatorAccount.findUnique({ where: { id: account.id } });
-    if (restoredAccount) {
+    if (restoredAccount.status === "SUCCESS") {
       expect(remainingAccount).toEqual(expect.objectContaining({ deletedAt: null, purgeAfter: null }));
       expect(purgedAccounts.purgedIds).not.toContain(account.id);
     } else {

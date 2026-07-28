@@ -115,13 +115,14 @@ function workspace(): UnlockedVaultWorkspace {
     syncState: "CURRENT",
     userRootKey: Uint8Array.of(1),
     vaults: [
-      { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", key: Uint8Array.of(2) },
-      { id: "shared-1", name: "Tim Operasional", type: "SHARED", role: "VIEWER", key: Uint8Array.of(3) }
+      { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } }, key: Uint8Array.of(2) },
+      { id: "shared-1", name: "Tim Operasional", type: "SHARED", role: "VIEWER", effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" } }, key: Uint8Array.of(3) }
     ],
     accounts: [
       { id: "account-1", vaultId: "personal-1", vaultName: "Brankas Pribadi", vaultType: "PERSONAL", revision: 1, issuer: "Example", accountName: "personal@example.test", secret: Uint8Array.of(4), algorithm: "SHA-1", digits: 6, period: 30 },
       { id: "account-2", vaultId: "shared-1", vaultName: "Tim Operasional", vaultType: "SHARED", revision: 1, issuer: "Work", accountName: "work@example.test", secret: Uint8Array.of(5), algorithm: "SHA-1", digits: 6, period: 30 }
     ],
+    unavailableAccounts: [],
     unavailableSharedVaults: 0
   };
 }

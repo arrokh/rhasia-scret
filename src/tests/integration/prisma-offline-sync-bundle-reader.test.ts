@@ -39,6 +39,8 @@ describe("PrismaOfflineSyncBundleReader", () => {
     await prisma.authenticatorAccount.create({ data: { vaultId: personal.id, encryptedPayload: opaque, encryptionVersion: 1 } });
     const owned = await createVault(user.id, "SHARED", "ACTIVE", user.id, "OWNER");
     const viewed = await createVault(otherOwner.id, "SHARED", "ACTIVE", user.id, "VIEWER");
+    await prisma.vault.update({ where: { id: viewed.id }, data: { membersCanAddAccounts: true } });
+    await prisma.vaultMember.update({ where: { vaultId_userId: { vaultId: viewed.id, userId: user.id } }, data: { canEditAccountsOverride: true, canDeleteAccountsOverride: false } });
     await createVault(otherOwner.id, "SHARED", "ACTIVE", user.id, "VIEWER", "REVOKED");
     await createVault(otherOwner.id, "SHARED", "DELETED", user.id, "VIEWER");
 
@@ -52,6 +54,10 @@ describe("PrismaOfflineSyncBundleReader", () => {
       { vaultId: owned.id, role: "OWNER" },
       { vaultId: viewed.id, role: "VIEWER" }
     ]));
+    expect(bundle?.sharedVaults.find(({ vaultId }) => vaultId === viewed.id)?.effectiveAccountPermissions).toEqual({
+      permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: false },
+      sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" }
+    });
     expect(JSON.stringify(bundle)).not.toContain("encryptedUserPrivateKey");
     expect(JSON.stringify(bundle)).not.toContain(user.email);
   });

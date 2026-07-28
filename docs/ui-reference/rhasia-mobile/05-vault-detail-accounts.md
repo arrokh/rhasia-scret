@@ -11,7 +11,7 @@ The Vault header pairs an identity icon, name, role, member avatars/summary, and
 Maintain the home screen's OTP-card language: issuer mark, labels, large code, countdown ring, copy affordance, and light elevation. Components: Vault header, role label, tab bar, OTP card, countdown, copy action, owner settings action, floating add button.
 
 ## Expected behaviour
-For an Owner, accounts, Members, Activity, add, and configuration routes may be available according to authorization. For a Viewer, show only encrypted-account content after local decryption and OTP copy; do not render member list, invitations, audit history, account mutations, or add controls. Generated codes never traverse the server.
+For an Owner, accounts, Members, Activity, add, and configuration routes are available. For a Viewer, show encrypted-account content after local decryption and OTP copy plus only those add/edit/delete controls allowed by Effective Shared Vault Account Permissions. Never render member list, invitations, or audit history for a Viewer. Generated codes never traverse the server.
 
 ## Flow
-Open Shared Vault → authorize role → client decrypts account payloads → generate/copy OTP; Owner may add/edit accounts or open member/audit views.
+Open Shared Vault → authorize active membership and resolve account capabilities → client decrypts account payloads → generate/copy OTP; authorized users may add/edit/delete accounts, while only the Owner may open member/audit views.

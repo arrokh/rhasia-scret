@@ -1,4 +1,6 @@
-export const OFFLINE_BUNDLE_SCHEMA_VERSION = 1 as const;
+import type { EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+
+export const OFFLINE_BUNDLE_SCHEMA_VERSION = 2 as const;
 export const OFFLINE_ENCRYPTION_VERSION = 1 as const;
 
 export type EncryptedOfflineAccount = {
@@ -20,6 +22,7 @@ export type EncryptedOfflineSharedVault = {
   vaultId: string;
   lifecycle: "ACTIVE";
   role: "OWNER" | "VIEWER";
+  effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
   encryptedName: string;
   encryptionVersion: 1;
   encryptedVaultKey: string;
@@ -28,7 +31,7 @@ export type EncryptedOfflineSharedVault = {
 };
 
 export type EncryptedOfflineVaultBundle = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   profileId: string;
   synchronizedAt: string;
   synchronizationToken: string;
@@ -45,13 +48,14 @@ export type EncryptedOfflineVaultBundle = {
 export function parseEncryptedOfflineVaultBundle(value: unknown): EncryptedOfflineVaultBundle {
   const bundle = object(value, "Local Vault Snapshot");
   exactKeys(bundle, ["schemaVersion", "profileId", "synchronizedAt", "synchronizationToken", "cryptoProfile", "personalVault", "sharedVaults"], "Local Vault Snapshot");
-  if (bundle.schemaVersion !== OFFLINE_BUNDLE_SCHEMA_VERSION) invalid("unsupported schema version");
+  const schemaVersion = bundle.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== OFFLINE_BUNDLE_SCHEMA_VERSION) invalid("unsupported schema version");
   const profileId = opaqueId(bundle.profileId, "profileId");
   const synchronizedAt = timestamp(bundle.synchronizedAt, "synchronizedAt");
   const synchronizationToken = text(bundle.synchronizationToken, "synchronizationToken", 256);
   const cryptoProfile = parseProfile(bundle.cryptoProfile);
   const personalVault = parsePersonalVault(bundle.personalVault);
-  const sharedVaults = array(bundle.sharedVaults, "sharedVaults").map((entry, index) => parseSharedVault(entry, index));
+  const sharedVaults = array(bundle.sharedVaults, "sharedVaults").map((entry, index) => parseSharedVault(entry, index, schemaVersion));
   const vaultIds = new Set([personalVault.vaultId]);
   for (const vault of sharedVaults) {
     if (vaultIds.has(vault.vaultId)) invalid("duplicate Vault identifier");
@@ -86,10 +90,12 @@ function parsePersonalVault(value: unknown): EncryptedOfflinePersonalVault {
   };
 }
 
-function parseSharedVault(value: unknown, index: number): EncryptedOfflineSharedVault {
+function parseSharedVault(value: unknown, index: number, schemaVersion: 1 | 2): EncryptedOfflineSharedVault {
   const label = `sharedVaults[${index}]`;
   const vault = object(value, label);
-  exactKeys(vault, ["vaultId", "lifecycle", "role", "encryptedName", "encryptionVersion", "encryptedVaultKey", "keyVersion", "accounts"], label);
+  exactKeys(vault, schemaVersion === 1
+    ? ["vaultId", "lifecycle", "role", "encryptedName", "encryptionVersion", "encryptedVaultKey", "keyVersion", "accounts"]
+    : ["vaultId", "lifecycle", "role", "effectiveAccountPermissions", "encryptedName", "encryptionVersion", "encryptedVaultKey", "keyVersion", "accounts"], label);
   if (vault.lifecycle !== "ACTIVE") invalid(`${label} is not active`);
   if (vault.role !== "OWNER" && vault.role !== "VIEWER") invalid(`${label}.role is invalid`);
   if (vault.encryptionVersion !== OFFLINE_ENCRYPTION_VERSION) invalid(`unsupported ${label} encryption version`);
@@ -97,11 +103,41 @@ function parseSharedVault(value: unknown, index: number): EncryptedOfflineShared
     vaultId: opaqueId(vault.vaultId, `${label}.vaultId`),
     lifecycle: "ACTIVE",
     role: vault.role,
+    effectiveAccountPermissions: schemaVersion === 1
+      ? legacyEffectivePermissions(vault.role)
+      : parseEffectivePermissions(vault.effectiveAccountPermissions, `${label}.effectiveAccountPermissions`),
     encryptedName: encryptedEnvelope(vault.encryptedName, `${label}.encryptedName`),
     encryptionVersion: OFFLINE_ENCRYPTION_VERSION,
     encryptedVaultKey: encryptedEnvelope(vault.encryptedVaultKey, `${label}.encryptedVaultKey`),
     keyVersion: positiveInteger(vault.keyVersion, `${label}.keyVersion`),
     accounts: parseAccounts(vault.accounts, `${label}.accounts`)
+  };
+}
+
+function parseEffectivePermissions(value: unknown, label: string): EffectiveSharedVaultAccountPermissions {
+  const effective = object(value, label);
+  exactKeys(effective, ["permissions", "sources"], label);
+  const permissions = object(effective.permissions, `${label}.permissions`);
+  const sources = object(effective.sources, `${label}.sources`);
+  const keys = ["canAddAccounts", "canEditAccounts", "canDeleteAccounts"];
+  exactKeys(permissions, keys, `${label}.permissions`);
+  exactKeys(sources, keys, `${label}.sources`);
+  for (const key of keys) {
+    if (typeof permissions[key] !== "boolean") invalid(`${label}.permissions.${key} is invalid`);
+    if (sources[key] !== "OWNER" && sources[key] !== "VAULT" && sources[key] !== "MEMBER") invalid(`${label}.sources.${key} is invalid`);
+  }
+  return {
+    permissions: permissions as EffectiveSharedVaultAccountPermissions["permissions"],
+    sources: sources as EffectiveSharedVaultAccountPermissions["sources"]
+  };
+}
+
+function legacyEffectivePermissions(role: "OWNER" | "VIEWER"): EffectiveSharedVaultAccountPermissions {
+  const owner = role === "OWNER";
+  const source = owner ? "OWNER" as const : "VAULT" as const;
+  return {
+    permissions: { canAddAccounts: owner, canEditAccounts: owner, canDeleteAccounts: owner },
+    sources: { canAddAccounts: source, canEditAccounts: source, canDeleteAccounts: source }
   };
 }
 

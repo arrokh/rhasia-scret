@@ -35,6 +35,8 @@ import { AuthenticatorAccountCreator } from "@/modules/authenticator-account/pre
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
+const ownerPermissions = { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } };
+
 describe("AuthenticatorAccountCreator", () => {
   let root: Root | undefined;
   afterEach(async () => {
@@ -51,10 +53,11 @@ describe("AuthenticatorAccountCreator", () => {
       syncState: "CURRENT" as const,
       userRootKey: new Uint8Array(32),
       vaults: [
-        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL" as const, role: "OWNER" as const, key: new Uint8Array(32) },
-        { id: "shared-1", name: "Tim Operasional", type: "SHARED" as const, role: "OWNER" as const, key: new Uint8Array(32) }
+        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL" as const, role: "OWNER" as const, effectiveAccountPermissions: ownerPermissions, key: new Uint8Array(32) },
+        { id: "shared-1", name: "Tim Operasional", type: "SHARED" as const, role: "OWNER" as const, effectiveAccountPermissions: ownerPermissions, key: new Uint8Array(32) }
       ],
       accounts: [],
+      unavailableAccounts: [],
       unavailableSharedVaults: 0
     };
     const container = document.createElement("div");
@@ -81,10 +84,11 @@ describe("AuthenticatorAccountCreator", () => {
       syncState: "CURRENT",
       userRootKey: Uint8Array.of(7),
       vaults: [
-        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", key: Uint8Array.of(6) },
-        { id: "shared-1", name: "Tim Operasional", type: "SHARED", role: "OWNER", key: sharedKey }
+        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: Uint8Array.of(6) },
+        { id: "shared-1", name: "Tim Operasional", type: "SHARED", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: sharedKey }
       ],
-      accounts: []
+      accounts: [],
+      unavailableAccounts: []
     });
     mocks.parseTotpUri.mockReturnValue(candidate);
     mocks.isDuplicateAccount.mockReturnValue(false);

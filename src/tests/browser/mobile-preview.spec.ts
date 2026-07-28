@@ -41,6 +41,8 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
 test("uses dedicated, consistent Vault navigation and management tabs", async ({ page }) => {
   const pageErrors: Error[] = [];
   let invitationBody: Record<string, unknown> | undefined;
+  let defaultPermissionsBody: Record<string, unknown> | undefined;
+  let memberPermissionsBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
   page.on("pageerror", (error) => pageErrors.push(error));
   await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
@@ -51,8 +53,16 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     const participants = nextPage
       ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:01:00.000Z" }]
-      : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }];
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
+      : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z", permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 2 }];
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
+  });
+  await page.route("**/api/shared-vaults/shared-preview/member-permissions", async (route) => {
+    defaultPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 2 }) });
+  });
+  await page.route("**/api/shared-vaults/shared-preview/members/viewer-preview", async (route) => {
+    memberPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 3 }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
     invitationBody = route.request().postDataJSON() as Record<string, unknown>;
@@ -72,6 +82,10 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(vaultLinks.nth(0)).toHaveAttribute("href", "/vaults/manage/personal");
   await expect(vaultLinks.nth(1)).toContainText("Tim Operasional");
   await expect(page.getByText("owner@local.invalid")).toBeVisible();
+  await expect(page.getByText("Izin akun bawaan anggota")).toBeVisible();
+  await page.locator("#vault-default-canAddAccounts").click();
+  await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
+  await expect.poll(() => defaultPermissionsBody).toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
   await expect(page.getByText("Filter: Layanan contoh · viewer@local.invalid")).toBeVisible();
   await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
@@ -81,6 +95,13 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByText(/viewer@local\.invalid · 26 Jul 2026, 20\.27/)).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();
   await expect(page.getByText("viewer@local.invalid")).toBeVisible();
+  await page.getByLabel("Atur izin akun untuk viewer@local.invalid").click();
+  await expect(page.getByRole("heading", { name: "Izin akun anggota" })).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveCount(3);
+  await page.getByLabel("Hapus akun").click();
+  await page.getByRole("option", { name: "Izinkan" }).click();
+  await page.getByRole("button", { name: "Simpan izin anggota" }).click();
+  await expect.poll(() => memberPermissionsBody).toEqual({ expectedRevision: 2, canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true });
   await expect(page.getByText("pending@local.invalid")).toHaveCount(0);
   await page.getByRole("button", { name: "Muat lebih banyak pengguna" }).click();
   await expect(page.getByText("pending@local.invalid")).toBeVisible();

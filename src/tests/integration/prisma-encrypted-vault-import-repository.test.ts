@@ -48,6 +48,29 @@ describe("PrismaEncryptedVaultImportRepository", () => {
     expect(await prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { eventType: true, targetId: true } })).toEqual([{ eventType: "ARCHIVE_IMPORTED", targetId: null }]);
   });
 
+  it.skipIf(!process.env.DATABASE_URL)("lets an add-authorized member import into an existing Shared Vault and re-authorizes replay", async () => {
+    const owner = await createUser("member-import-owner");
+    const member = await createUser("member-import-viewer");
+    const vault = await createVault(owner.id, "SHARED");
+    await prisma.vaultMember.createMany({ data: [
+      { vaultId: vault.id, userId: owner.id, role: "OWNER" },
+      { vaultId: vault.id, userId: member.id, role: "VIEWER", canAddAccountsOverride: true }
+    ] });
+    const accountId = randomUUID();
+    const request = {
+      destination: { kind: "EXISTING" as const, vaultId: vault.id, vaultType: "SHARED" as const },
+      accounts: [{ id: accountId, encryptedPayload: bytes("member-encrypted-account"), encryptionVersion: 1 as const }]
+    };
+    const repository = new PrismaEncryptedVaultImportRepository();
+
+    await expect(repository.import(member.id, request)).resolves.toEqual({ status: "IMPORTED", vaultId: vault.id, accountIds: [accountId], vaultCreated: false });
+    await expect(prisma.vaultAuditEvent.findFirst({ where: { vaultId: vault.id }, select: { ownerId: true, actorUserId: true, eventType: true } })).resolves.toEqual({ ownerId: owner.id, actorUserId: member.id, eventType: "ARCHIVE_IMPORTED" });
+
+    await prisma.vaultMember.update({ where: { vaultId_userId: { vaultId: vault.id, userId: member.id } }, data: { canAddAccountsOverride: false } });
+    await expect(repository.import(member.id, request)).resolves.toEqual({ status: "DESTINATION_UNAVAILABLE" });
+    expect(await prisma.vaultAuditEvent.count({ where: { vaultId: vault.id } })).toBe(1);
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("creates a Shared Vault, owner key, all accounts, and redacted audit event in one transaction", async () => {
     const owner = await createUser("new-owner");
     const vaultId = randomUUID();

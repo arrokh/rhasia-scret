@@ -70,8 +70,9 @@ function workspace(): UnlockedVaultWorkspace {
     synchronizationToken: "sync-1",
     syncState: "CURRENT",
     userRootKey: Uint8Array.of(1),
-    vaults: [{ id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", key: Uint8Array.of(2) }],
+    vaults: [{ id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" } }, key: Uint8Array.of(2) }],
     accounts: [],
+    unavailableAccounts: [],
     unavailableSharedVaults: 0
   };
 }

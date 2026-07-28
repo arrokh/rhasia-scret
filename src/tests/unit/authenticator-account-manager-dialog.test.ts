@@ -41,6 +41,17 @@ describe("AuthenticatorAccountManagerDialog", () => {
     expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({ accountName: "Alice Mobile", revision: 2 }));
   });
 
+  it("renders edit and delete capabilities independently", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await renderDialog(root, { canEdit: false, canDelete: true });
+
+    expect(document.body.querySelector<HTMLInputElement>("input")?.disabled).toBe(true);
+    expect([...document.body.querySelectorAll("button")].some((button) => button.textContent === "Simpan label")).toBe(false);
+    expect(findButton(document.body, "Hapus akun")).toBeDefined();
+  });
+
   it("requires a second modal confirmation before deleting", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -61,7 +72,7 @@ describe("AuthenticatorAccountManagerDialog", () => {
   });
 });
 
-async function renderDialog(root: Root, callbacks: { onUpdated?: (account: WorkspaceAuthenticatorAccount) => void; onDeleted?: (account: WorkspaceAuthenticatorAccount) => void }) {
+async function renderDialog(root: Root, callbacks: { onUpdated?: (account: WorkspaceAuthenticatorAccount) => void; onDeleted?: (account: WorkspaceAuthenticatorAccount) => void; canEdit?: boolean; canDelete?: boolean }) {
   await act(async () => root.render(createElement(TestQueryProvider, null, createElement(AuthenticatorAccountManagerDialog, {
     account: {
       id: "account-1",
@@ -77,6 +88,8 @@ async function renderDialog(root: Root, callbacks: { onUpdated?: (account: Works
       period: 30
     },
     vaultKey: new Uint8Array(32),
+    canEdit: callbacks.canEdit,
+    canDelete: callbacks.canDelete,
     onUpdated: callbacks.onUpdated ?? vi.fn(),
     onDeleted: callbacks.onDeleted ?? vi.fn(),
     onClose: vi.fn()

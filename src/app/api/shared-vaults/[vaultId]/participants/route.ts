@@ -19,6 +19,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
   if (!page) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   return NextResponse.json({
     owner: page.owner,
+    vaultDefaultAccountPermissions: page.vaultDefaultAccountPermissions,
+    vaultDefaultAccountPermissionsRevision: page.vaultDefaultAccountPermissionsRevision,
     participants: page.items.map((participant) => ({ ...participant, invitedAt: participant.invitedAt.toISOString() })),
     nextCursor: page.nextCursor ? encodeTimestampCursor(page.nextCursor, scope) : null
   });

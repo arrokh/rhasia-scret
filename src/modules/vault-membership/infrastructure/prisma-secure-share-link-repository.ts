@@ -78,7 +78,16 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
         }
         await transaction.vaultMember.update({
           where: { vaultId_userId: { vaultId: invitation.vaultId, userId: recipient.userId } },
-          data: { status: "ACTIVE", encryptedVaultKey: copyBytes(encryptedVaultKey), keyVersion, revokedAt: null }
+          data: {
+            status: "ACTIVE",
+            encryptedVaultKey: copyBytes(encryptedVaultKey),
+            keyVersion,
+            revokedAt: null,
+            canAddAccountsOverride: null,
+            canEditAccountsOverride: null,
+            canDeleteAccountsOverride: null,
+            permissionsRevision: { increment: 1 }
+          }
         });
       } else {
         await transaction.vaultMember.create({ data: { vaultId: invitation.vaultId, userId: recipient.userId, role: "VIEWER", encryptedVaultKey: copyBytes(encryptedVaultKey), keyVersion } });
