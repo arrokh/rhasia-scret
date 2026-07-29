@@ -8,6 +8,7 @@ export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infra
 export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-personal-vault-unlock";
 export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
+export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "./infrastructure/vault-unlock-key-parameters";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
 export { enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, rememberedBrowserEnrollment, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";

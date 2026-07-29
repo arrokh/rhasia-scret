@@ -11,7 +11,7 @@ export default async function LandingPage() {
         <div className="flex flex-col items-center text-center">
           <h1 id="page-title"><Brand /></h1>
           <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground sm:text-lg">{t("description")}</p>
-          <Button asChild className="mt-8 w-full sm:w-auto sm:min-w-40"><Link href="/sign-in">{t("signIn")}</Link></Button>
+          <div className="mt-8 grid gap-3 sm:flex sm:justify-center"><Button asChild className="w-full sm:w-auto sm:min-w-40"><Link href="/sign-in">{t("signIn")}</Link></Button><Button asChild variant="outline" className="w-full sm:w-auto"><Link href="/local">{t("localVault")}</Link></Button></div>
         </div>
       </SurfaceCard>
     </AppPage>

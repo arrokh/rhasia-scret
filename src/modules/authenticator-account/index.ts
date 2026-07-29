@@ -10,6 +10,7 @@ export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
 export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";
 export { UnlockedVaultWorkspaceProvider, useUnlockedVaultWorkspace } from "./presentation/unlocked-vault-workspace-provider";
 export { VaultWorkspaceUnlock } from "./presentation/vault-workspace-unlock";
+export { QrImportInput } from "./presentation/qr-import-input";
 export { clearUnlockedVaultWorkspace, loadOfflineVaultWorkspace, loadOfflineVaultWorkspaceWithRememberedBrowser, loadUnlockedVaultWorkspaceWithRememberedBrowser, refreshUnlockedVaultWorkspace } from "./infrastructure/browser-vault-workspace";
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "./infrastructure/browser-vault-workspace";
 export { VaultDirectoryWorkspace, PersonalVaultDetailWorkspace, SharedVaultDetailWorkspace, SharedVaultCreationWorkspace, InvitationRedemptionWorkspace } from "./presentation/vault-management-workspace";
