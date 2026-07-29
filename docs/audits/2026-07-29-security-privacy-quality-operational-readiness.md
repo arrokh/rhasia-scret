@@ -87,6 +87,21 @@ Before production release, an operator/reviewer must attach dated evidence for:
 4. GitHub repository settings: branch protection, required final-PR checks, action pin policy, secret/dependency/license scanning, Dependabot/security alerts, token permissions, cache isolation, artifact retention, and release approval.
 5. Incident-response exercise evidence for malicious deployment/client compromise, dependency compromise, leaked server credentials, stolen session, Vault/member compromise, rollback/forced update, notification, and recovery.
 
+## Verification addendum: repository quality-suite evidence
+
+This addendum records the complete repository-quality result requested for issue #74. It is separate from the production/operator evidence, which remains Not Verifiable.
+
+- **GitHub Actions run:** `30474672022` (`pull_request`), head `4a44747b6556d68a584f4a7de8844c5b4eb68359` (PR #84, issue #75), 2026-07-29.
+- **Quality and database test suite:** **PASS**. The job completed successfully. `pnpm install --frozen-lockfile`, Prisma client generation, schema validation, migration deployment, lint, typecheck, `pnpm run test`, architecture checks, and production build all completed without a failing step.
+- **Exact test totals:** `Test Files 133 passed (133)` and `Tests 406 passed (406)`.
+- **Prisma evidence:** `The schema at prisma/schema.prisma is valid`; migration deployment completed successfully against the ephemeral PostgreSQL 16 service.
+- **Build evidence:** Next.js 16.2.11 compiled successfully, TypeScript completed, and static page generation completed `30/30`.
+- **Non-failing warnings:** CI reported the repository engine as Node `24.x` while the job used Node `26.5.0`; Prisma also printed its supported-runtime warning. The install lockfile passed supply-chain policy verification for `1093 entries`. These warnings were retained as release follow-up, not counted as passes for runtime compatibility.
+- **Browser smoke test:** **FAIL**. The job completed with `27 failed` and `54 passed` in `5.1m`. Archive backup/import browser fixtures still generated/expected the legacy version-1 raw AES archive while #75 had moved the production archive path to context-bound version 2; Remembered Browser fixtures likewise used context-free version-1 envelopes. These failures are actionable regression evidence, not suppressed test noise. The fixtures were updated in the post-#75 hardening work; a fresh final CI run must prove the browser suite.
+- **Run conclusion:** the workflow conclusion was **failure** because of the browser job, despite the repository quality job passing. No production security control is inferred from either job.
+
+The archived full quality log was inspected, including setup, dependency installation, Prisma, lint, typecheck, test, architecture, build, cleanup, and service-container sections. Vitest emitted expected provider-missing diagnostics from isolated component tests while still reporting all 406 tests passed; they were not GitHub Actions errors.
+
 ## Release decision
 
 Do not treat this audit as a security sign-off. Critical/High findings are release blockers until #75, #76, and #77 (and any linked #70–#73 behavior) are completed, independently reviewed, and verified. Production-only controls remain Not Verifiable until operator evidence is attached. The report itself is complete as a dated repository-visible audit artifact, not as proof that all remediation work is complete.

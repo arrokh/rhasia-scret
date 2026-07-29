@@ -21,6 +21,12 @@ describe("authentication proxy contract", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(response.headers.get("server-timing")).toMatch(/^auth_claims;dur=\d+\.\d{2}$/);
+    expect(response.headers.get("content-security-policy")).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+    expect(response.headers.get("strict-transport-security")).toContain("preload");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("permissions-policy")).toContain("camera=()");
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
     expect(verifySession).toHaveBeenCalledOnce();
   });
 
@@ -52,6 +58,14 @@ describe("authentication proxy contract", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("prevents API and auth responses from being cached", async () => {
+    const api = await createAuthProxy(async () => false)(request("/api/time"));
+    const auth = await createAuthProxy(async () => false)(request("/auth/confirm"));
+
+    expect(api.headers.get("cache-control")).toBe("no-store, private");
+    expect(auth.headers.get("cache-control")).toBe("no-store, private");
   });
 });
 

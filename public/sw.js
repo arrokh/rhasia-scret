@@ -15,7 +15,7 @@ async function precacheOfflineShell() {
 
 async function cacheOfflineShell(cache) {
   const response = await fetch(OFFLINE_SHELL, { cache: "reload", credentials: "include" });
-  if (!response.ok) throw new Error("Offline shell could not be cached.");
+  if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html")) throw new Error("Offline shell could not be cached.");
   await cache.put(OFFLINE_SHELL, response.clone());
   const html = await response.text();
   const resources = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
@@ -44,7 +44,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(async () => (await caches.match(OFFLINE_SHELL)) || Response.error()));
+    event.respondWith(networkFirstNavigation(request));
     return;
   }
 
@@ -58,6 +58,18 @@ self.addEventListener("fetch", (event) => {
   })));
 });
 
+async function networkFirstNavigation(request) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } catch {
+    return (await caches.match(OFFLINE_SHELL)) || Response.error();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function isCacheableStatic(pathname) {
-  return pathname === "/manifest.webmanifest" || pathname.startsWith("/_next/static/") || pathname.startsWith("/pwa/");
+  return !pathname.endsWith(".map") && (pathname === "/manifest.webmanifest" || pathname.startsWith("/_next/static/") || pathname.startsWith("/pwa/"));
 }

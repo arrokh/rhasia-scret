@@ -1,5 +1,5 @@
-import { webcrypto } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { createEncryptedVaultArchive } from "@/modules/crypto/infrastructure/browser-vault-export";
 
 const archiveKey = Uint8Array.from({ length: 32 }, (_, index) => 200 - index);
 const archiveKeyBase64 = Buffer.from(archiveKey).toString("base64");
@@ -14,7 +14,7 @@ test.describe("encrypted Vault archive import", () => {
 
     await expect(page.getByRole("heading", { name: "Pratinjau arsip" })).toBeVisible();
     await expect(page.getByText(sensitive.vaultName, { exact: true })).toBeVisible();
-    await expect(page.getByText("1", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByText("1", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Kunci arsip Base64")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Batal" }).click();
@@ -150,16 +150,12 @@ async function setArchive(page: Page, archive: Uint8Array, key: string) {
 }
 
 async function encryptedArchive(account: typeof sensitive): Promise<Uint8Array> {
-  const normalized = JSON.stringify({ issuer: account.issuer, accountName: account.accountName, secret: Buffer.from(account.secret).toString("base64"), algorithm: "SHA-1", digits: 6, period: 30 });
-  const payload = JSON.stringify({ version: 1, vaultName: account.vaultName, accounts: [Buffer.from(normalized).toString("base64")] });
-  const nonce = webcrypto.getRandomValues(new Uint8Array(12));
-  const key = await webcrypto.subtle.importKey("raw", archiveKey, "AES-GCM", false, ["encrypt"]);
-  const ciphertext = new Uint8Array(await webcrypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, tagLength: 128 }, key, new TextEncoder().encode(payload)));
-  const archive = new Uint8Array(1 + nonce.length + ciphertext.length);
-  archive[0] = 1;
-  archive.set(nonce, 1);
-  archive.set(ciphertext, 13);
-  return archive;
+  const normalized = new TextEncoder().encode(JSON.stringify({ issuer: account.issuer, accountName: account.accountName, secret: Buffer.from(account.secret).toString("base64"), algorithm: "SHA-1", digits: 6, period: 30 }));
+  try {
+    return await createEncryptedVaultArchive(archiveKey, account.vaultName, [normalized]);
+  } finally {
+    normalized.fill(0);
+  }
 }
 
 async function expectNoSensitivePersistence(page: Page, values: string[]) {

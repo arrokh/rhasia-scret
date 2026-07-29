@@ -7,7 +7,12 @@ import { BROWSER_E2E_SESSION_COOKIE, browserE2eTestSession } from "./browser-e2e
 export type SessionVerificationFreshness = "claims" | "fresh-user";
 
 export class SupabaseSessionVerifier implements SessionVerifier {
-  public constructor(private readonly freshness: SessionVerificationFreshness = "claims") {}
+  /**
+   * Server mutations default to an auth-server-backed user check. The proxy uses
+   * getClaims separately for inexpensive page gating; it must not authorize a
+   * sensitive API mutation from a stale local claim alone.
+   */
+  public constructor(private readonly freshness: SessionVerificationFreshness = "fresh-user") {}
 
   public async verify(): Promise<VerifiedSession | null> {
     const cookieStore = await cookies();

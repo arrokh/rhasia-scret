@@ -1,6 +1,6 @@
-import { webcrypto } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { argon2id } from "hash-wasm";
+import { encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
 
 const profileId = "remembered-preview-profile";
 const personalVaultId = "remembered-preview-vault";
@@ -120,20 +120,20 @@ async function encryptedBundle(): Promise<Record<string, unknown>> {
   const derived = await argon2id({ password: vaultUnlockSecret, salt, parallelism: 1, iterations: 3, memorySize: 64 * 1024, hashLength: 32, outputType: "binary" });
   if (typeof derived === "string") throw new Error("Expected binary Argon2 output.");
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     profileId,
     synchronizedAt: "2026-01-01T00:00:00.000Z",
     synchronizationToken: "remembered-browser-sync",
     cryptoProfile: {
       vaultUnlockSalt: base64(salt),
-      wrappedUserRootKey: base64(await envelope(derived, userRootKey, 1)),
-      encryptedPersonalVaultKey: base64(await envelope(userRootKey, personalVaultKey, 2)),
+      wrappedUserRootKey: base64(await envelope(derived, userRootKey, { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 })),
+      encryptedPersonalVaultKey: base64(await envelope(userRootKey, personalVaultKey, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })),
       encryptionVersion: 1
     },
     personalVault: {
       vaultId: personalVaultId,
       lifecycle: "ACTIVE",
-      encryptedName: base64(await envelope(personalVaultKey, new TextEncoder().encode("Remembered Preview Vault"), 3)),
+      encryptedName: base64(await envelope(personalVaultKey, new TextEncoder().encode("Remembered Preview Vault"), { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 })),
       encryptionVersion: 1,
       accounts: []
     },
@@ -141,15 +141,8 @@ async function encryptedBundle(): Promise<Record<string, unknown>> {
   };
 }
 
-async function envelope(keyBytes: Uint8Array, plaintext: Uint8Array, seed: number): Promise<Uint8Array> {
-  const key = await webcrypto.subtle.importKey("raw", Uint8Array.from(keyBytes), "AES-GCM", false, ["encrypt"]);
-  const nonce = Uint8Array.from({ length: 12 }, (_, index) => seed + index);
-  const ciphertext = new Uint8Array(await webcrypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, Uint8Array.from(plaintext)));
-  const result = new Uint8Array(13 + ciphertext.length);
-  result[0] = 1;
-  result.set(nonce, 1);
-  result.set(ciphertext, 13);
-  return result;
+async function envelope(keyBytes: Uint8Array, plaintext: Uint8Array, context: CryptoEnvelopeContext): Promise<Uint8Array> {
+  return serializeEncryptedEnvelope(await encryptPayloadWithContext(keyBytes, plaintext, context));
 }
 
 async function seedSnapshot(page: Page, bundle: Record<string, unknown>) {

@@ -203,7 +203,7 @@ function encryptedEnvelope(value: unknown, label: string): string {
   const blob = base64Blob(value, label, 29);
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const firstByte = (alphabet.indexOf(blob[0] ?? "") << 2) | (alphabet.indexOf(blob[1] ?? "") >> 4);
-  if (firstByte !== OFFLINE_ENCRYPTION_VERSION) invalid(`${label} has an unsupported envelope version`);
+  if (firstByte !== 1 && firstByte !== 2) invalid(`${label} has an unsupported envelope version`);
   return blob;
 }
 

@@ -57,7 +57,7 @@ describe("POST /api/vault-imports contract", () => {
   it("rejects unsupported ciphertext envelope versions", async () => {
     const importArchive = vi.fn<EncryptedVaultImportRepository["import"]>();
     const handler = createHandler(importArchive);
-    const unsupported = Buffer.from(Uint8Array.from({ length: 29 }, (_, index) => index === 0 ? 2 : 7)).toString("base64");
+    const unsupported = Buffer.from(Uint8Array.from({ length: 29 }, (_, index) => index === 0 ? 3 : 7)).toString("base64");
     const response = await handler(request({ destination: { kind: "EXISTING", vaultId: "vault-1", vaultType: "PERSONAL" }, accounts: [{ id: accountId, encryptedPayload: unsupported, encryptionVersion: 1 }] }));
     expect(response.status).toBe(400);
     expect(importArchive).not.toHaveBeenCalled();

@@ -25,20 +25,20 @@ describe("SupabaseSessionVerifier", () => {
     mocks.createServerClient.mockReturnValue({ auth: { getClaims: mocks.getClaims, getUser: mocks.getUser } });
   }
 
-  it("uses verified JWT claims for ordinary protected page reads", async () => {
+  it("supports verified JWT claims for proxy-style protected page reads", async () => {
     configure();
     mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "subject-1", email: "owner@example.test" } }, error: null });
 
-    await expect(new SupabaseSessionVerifier().verify()).resolves.toEqual({ subject: "subject-1", email: "owner@example.test" });
+    await expect(new SupabaseSessionVerifier("claims").verify()).resolves.toEqual({ subject: "subject-1", email: "owner@example.test" });
     expect(mocks.getClaims).toHaveBeenCalledOnce();
     expect(mocks.getUser).not.toHaveBeenCalled();
   });
 
-  it("retains a fresh Auth user lookup for email-bound Secure Share Link flows", async () => {
+  it("uses a fresh Auth user lookup by default for online mutations", async () => {
     configure();
     mocks.getUser.mockResolvedValue({ data: { user: { id: "subject-1", email: "fresh@example.test" } }, error: null });
 
-    await expect(new SupabaseSessionVerifier("fresh-user").verify()).resolves.toEqual({ subject: "subject-1", email: "fresh@example.test" });
+    await expect(new SupabaseSessionVerifier().verify()).resolves.toEqual({ subject: "subject-1", email: "fresh@example.test" });
     expect(mocks.getUser).toHaveBeenCalledOnce();
     expect(mocks.getClaims).not.toHaveBeenCalled();
   });

@@ -1,5 +1,5 @@
-import { webcrypto } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { openEncryptedVaultExport } from "@/modules/crypto/infrastructure/browser-vault-export";
 
 test.describe("encrypted Vault archive backup", () => {
   test("audits before releasing a client-only V1 archive and separate key", async ({ page }) => {
@@ -86,11 +86,13 @@ test.describe("encrypted Vault archive backup", () => {
 });
 
 async function openArchive(archive: Uint8Array, keyBytes: Uint8Array): Promise<{ vaultName: string; accounts: string[] }> {
-  expect(archive[0]).toBe(1);
-  const keyCopy = new Uint8Array(keyBytes.length); keyCopy.set(keyBytes);
-  const nonce = new Uint8Array(12); nonce.set(archive.subarray(1, 13));
-  const ciphertext = new Uint8Array(archive.length - 13); ciphertext.set(archive.subarray(13));
-  const key = await webcrypto.subtle.importKey("raw", keyCopy, "AES-GCM", false, ["decrypt"]);
-  const plaintext = await webcrypto.subtle.decrypt({ name: "AES-GCM", iv: nonce, tagLength: 128 }, key, ciphertext);
-  return JSON.parse(new TextDecoder().decode(plaintext)) as { vaultName: string; accounts: string[] };
+  const opened = await openEncryptedVaultExport(keyBytes, archive);
+  try {
+    return {
+      vaultName: opened.vaultName,
+      accounts: opened.accounts.map((account) => Buffer.from(account).toString("base64"))
+    };
+  } finally {
+    for (const account of opened.accounts) account.fill(0);
+  }
 }

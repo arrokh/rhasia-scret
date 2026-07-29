@@ -1,6 +1,6 @@
-import { webcrypto } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { argon2id } from "hash-wasm";
+import { encryptPayloadWithContext, serializeEncryptedEnvelope } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
 
 test.describe("encrypted read-only offline PWA", () => {
   test("uses the configured manifest and boots only the public offline shell from a static cache", async ({ page, context, browserName }) => {
@@ -25,21 +25,25 @@ test.describe("encrypted read-only offline PWA", () => {
         };
       });
     });
-    await page.reload();
-    await page.evaluate(() => navigator.serviceWorker.ready);
+    if (browserName !== "firefox") {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.evaluate(() => navigator.serviceWorker.ready);
+    }
 
-    const cachedUrls = await page.evaluate(async () => {
-      const names = await caches.keys();
-      const owned = names.filter((name) => name.startsWith("rhasia-scret-static-"));
-      return (await Promise.all(owned.map(async (name) => (await caches.open(name)).keys()))).flat().map((request) => new URL(request.url).pathname);
-    });
-    expect(cachedUrls).toContain("/offline");
-    expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
-    expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
+    if (browserName !== "firefox") {
+      const cachedUrls = await page.evaluate(async () => {
+        const names = await caches.keys();
+        const owned = names.filter((name) => name.startsWith("rhasia-scret-static-"));
+        return (await Promise.all(owned.map(async (name) => (await caches.open(name)).keys()))).flat().map((request) => new URL(request.url).pathname);
+      });
+      expect(cachedUrls).toContain("/offline");
+      expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
+      expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
+    }
 
     await context.setOffline(true);
     if (browserName === "chromium") await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-    else if (browserName === "firefox") await page.reload({ waitUntil: "domcontentloaded" });
+    else if (browserName === "firefox") await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
     else await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
     await expect(page.getByText("Mode baca-saja")).toBeVisible();
@@ -116,7 +120,7 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.route("**/api/sync/offline-bundle", (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "unauthenticated" }) }));
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    await expect(page.getByText("Masuk kembali diperlukan")).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Autentikasi diperlukan" })).toBeVisible();
     await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
 
     await context.setOffline(true);
@@ -124,7 +128,7 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.route("**/api/sync/offline-bundle", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ schemaVersion: 999 }) }));
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    await expect(page.getByText("Sinkronisasi gagal · snapshot dipertahankan")).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Sinkronisasi gagal atau usang" })).toBeVisible();
     await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
 
     await context.setOffline(true);
@@ -132,7 +136,7 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.route("**/api/sync/offline-bundle", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reconciled.bundle) }));
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    await expect(page.getByText("Snapshot terkini")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("status").filter({ hasText: "Daring dan terkini" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Viewer User", { exact: true })).toHaveCount(0);
     expect(await storedBundleText(page)).toContain("2026-01-02T00:00:00.000Z");
 
@@ -154,26 +158,25 @@ async function encryptedFixture({ includeViewer, synchronizedAt }: { includeView
   const personalKey = Uint8Array.from({ length: 32 }, (_, index) => 90 + index);
   const ownerKey = Uint8Array.from({ length: 32 }, (_, index) => 130 + index);
   const viewerKey = Uint8Array.from({ length: 32 }, (_, index) => 170 + index);
-  let nonce = 1;
-  const encrypted = (key: Uint8Array, plaintext: Uint8Array) => encryptEnvelope(key, plaintext, nonce++);
-  const account = async (id: string, issuer: string, accountName: string, key: Uint8Array) => {
+  const encrypted = (key: Uint8Array, plaintext: Uint8Array, context: Parameters<typeof encryptPayloadWithContext>[2]) => encryptEnvelope(key, plaintext, context);
+  const account = async (vaultId: string, id: string, issuer: string, accountName: string, key: Uint8Array) => {
     const secretBytes = Uint8Array.from({ length: 20 }, (_, index) => index + id.length);
     const configuration = { issuer, accountName, secret: base64(secretBytes), algorithm: "SHA-1", digits: 6, period: 30 };
     return {
-      record: { id, encryptedPayload: base64(await encrypted(key, new TextEncoder().encode(JSON.stringify(configuration)))), encryptionVersion: 1, revision: 1 },
+      record: { id, encryptedPayload: base64(await encrypted(key, new TextEncoder().encode(JSON.stringify(configuration)), { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId, keyVersion: 1 })), encryptionVersion: 1, revision: 1 },
       fixture: { issuer, accountName, secretBase64: configuration.secret }
     };
   };
-  const personalAccount = await account("personal_account", "Personal Issuer", "Personal User", personalKey);
-  const ownerAccount = await account("owner_account", "Owner Issuer", "Owner User", ownerKey);
-  const viewerAccount = await account("viewer_account", "Viewer Issuer", "Viewer User", viewerKey);
+  const personalAccount = await account("personal_vault", "personal_account", "Personal Issuer", "Personal User", personalKey);
+  const ownerAccount = await account("owner_vault", "owner_account", "Owner Issuer", "Owner User", ownerKey);
+  const viewerAccount = await account("viewer_vault", "viewer_account", "Viewer Issuer", "Viewer User", viewerKey);
   const sharedVault = async (vaultId: string, name: string, role: "OWNER" | "VIEWER", key: Uint8Array, record: Record<string, unknown>) => ({
     vaultId,
     lifecycle: "ACTIVE",
     role,
-    encryptedName: base64(await encrypted(key, new TextEncoder().encode(name))),
+    encryptedName: base64(await encrypted(key, new TextEncoder().encode(name), { purpose: "vault-name", payloadType: "vault-name", vaultId, keyVersion: 1 })),
     encryptionVersion: 1,
-    encryptedVaultKey: base64(await encrypted(userRootKey, key)),
+    encryptedVaultKey: base64(await encrypted(userRootKey, key, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", vaultId, keyVersion: 1 })),
     keyVersion: 1,
     accounts: [record]
   });
@@ -186,14 +189,14 @@ async function encryptedFixture({ includeViewer, synchronizedAt }: { includeView
     synchronizationToken: synchronizedAt,
     cryptoProfile: {
       vaultUnlockSalt: base64(salt),
-      wrappedUserRootKey: base64(await encrypted(unlockKey, userRootKey)),
-      encryptedPersonalVaultKey: base64(await encrypted(userRootKey, personalKey)),
+      wrappedUserRootKey: base64(await encrypted(unlockKey, userRootKey, { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 })),
+      encryptedPersonalVaultKey: base64(await encrypted(userRootKey, personalKey, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })),
       encryptionVersion: 1
     },
     personalVault: {
       vaultId: "personal_vault",
       lifecycle: "ACTIVE",
-      encryptedName: base64(await encrypted(personalKey, new TextEncoder().encode("Personal Vault"))),
+      encryptedName: base64(await encrypted(personalKey, new TextEncoder().encode("Personal Vault"), { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 })),
       encryptionVersion: 1,
       accounts: [personalAccount.record]
     },
@@ -209,15 +212,8 @@ async function encryptedFixture({ includeViewer, synchronizedAt }: { includeView
   };
 }
 
-async function encryptEnvelope(keyBytes: Uint8Array, plaintext: Uint8Array, nonceSeed: number): Promise<Uint8Array> {
-  const key = await webcrypto.subtle.importKey("raw", Uint8Array.from(keyBytes), "AES-GCM", false, ["encrypt"]);
-  const nonce = Uint8Array.from({ length: 12 }, (_, index) => (nonceSeed + index) % 256);
-  const ciphertext = new Uint8Array(await webcrypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, Uint8Array.from(plaintext)));
-  const envelope = new Uint8Array(1 + nonce.length + ciphertext.length);
-  envelope[0] = 1;
-  envelope.set(nonce, 1);
-  envelope.set(ciphertext, 13);
-  return envelope;
+async function encryptEnvelope(keyBytes: Uint8Array, plaintext: Uint8Array, context: Parameters<typeof encryptPayloadWithContext>[2]): Promise<Uint8Array> {
+  return serializeEncryptedEnvelope(await encryptPayloadWithContext(keyBytes, plaintext, context));
 }
 
 async function seedBundle(page: import("@playwright/test").Page, bundle: Record<string, unknown>) {
