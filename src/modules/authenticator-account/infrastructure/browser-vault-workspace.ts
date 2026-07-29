@@ -44,6 +44,13 @@ export type UnavailableWorkspaceAuthenticatorAccount = {
   revision: number;
 };
 
+export class LocalStorageSyncError extends Error {
+  public constructor(cause?: unknown) {
+    super("Local encrypted snapshot storage failed.", { cause });
+    this.name = "LocalStorageSyncError";
+  }
+}
+
 export type UnlockedVaultWorkspace = {
   profileId: string;
   synchronizedAt: string;
@@ -160,7 +167,7 @@ async function decryptAndPersistOnlineBundle(
   try {
     workspace = await measureBrowserOperation("rhsia:unlock:decrypt", () => loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT"));
     const persisted = await persistence;
-    if (!persisted.ok) throw persisted.error;
+    if (!persisted.ok) throw new LocalStorageSyncError(persisted.error);
     return workspace;
   } catch (error) {
     await persistence;

@@ -712,6 +712,30 @@
     }
   },
   "Sync": {
+    "status": {
+      "DEVICE_ONLY": "Device-only",
+      "CURRENT": "Online and current",
+      "OFFLINE_SNAPSHOT": "Offline snapshot",
+      "RECONNECTING": "Reconnecting",
+      "AUTH_REQUIRED": "Authentication required",
+      "STALE": "Synchronization failed or stale",
+      "ERROR": "Synchronization error",
+      "LOCAL_STORAGE_ERROR": "Local storage error",
+      "origin": {
+        "LOCAL": "Local Vault",
+        "PERSONAL": "Personal Vault",
+        "SHARED": "Shared Vault",
+        "SNAPSHOT": "Local Vault Snapshot"
+      },
+      "capability": {
+        "LOCAL_WRITABLE": "Writable offline on this device. It is not synchronized.",
+        "SERVER_WRITABLE": "Server authorization and a complete synchronization are current.",
+        "READ_ONLY": "Read-only until authentication, validation, decryption, and atomic synchronization succeed. No change is queued."
+      },
+      "lastSynchronized": "Last complete synchronization: {date}",
+      "browserOnlineHint": "Browser connectivity is only a hint; application contact is required.",
+      "browserOfflineHint": "The browser reports offline; server state cannot be confirmed."
+    },
     "offline": {
       "title": "Offline vault access",
       "description": "Unlock an encrypted snapshot on this device without contacting the server.",

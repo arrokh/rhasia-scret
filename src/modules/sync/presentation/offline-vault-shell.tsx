@@ -13,6 +13,7 @@ import {
   loadOfflineVaultWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser,
   refreshUnlockedVaultWorkspace,
+  LocalStorageSyncError,
   type UnlockedVaultWorkspace
 } from "@/modules/authenticator-account";
 import { TotpAccountButton } from "@/modules/otp-runtime";
@@ -24,7 +25,8 @@ import { formatLocalDateTime } from "@/i18n/format";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { BrowserOfflineVaultRepository } from "../infrastructure/browser-offline-vault-repository";
 import { subscribeToLocalVaultLock } from "../infrastructure/browser-vault-lock";
-import { nextOfflineSyncState, type OfflineSyncState } from "../domain/offline-sync-state";
+import { nextOfflineSyncState } from "../domain/offline-sync-state";
+import { VaultStatusIndicator } from "./vault-status-indicator";
 import type { OfflineProfileSummary } from "../infrastructure/browser-offline-vault-repository";
 
 export function OfflineVaultShell() {
@@ -92,7 +94,7 @@ export function OfflineVaultShell() {
         replaceWorkspace({ ...refreshed, syncState: "CURRENT" });
       } catch (error) {
         if (!active) return;
-        const event = error instanceof BrowserApiError && error.status === 401 ? "AUTHENTICATION_FAILED" : "SYNC_FAILED";
+        const event = error instanceof BrowserApiError && error.status === 401 ? "AUTHENTICATION_FAILED" : error instanceof LocalStorageSyncError ? "LOCAL_STORAGE_FAILED" : "SYNC_FAILED";
         setWorkspace((value) => value ? { ...value, syncState: nextOfflineSyncState("SYNCING", event) } : value);
       } finally {
         reconcilingRef.current = false;
@@ -131,6 +133,7 @@ export function OfflineVaultShell() {
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} action={<Brand compact />} />
     <SurfaceCard className="grid gap-5 p-5 sm:p-6">
+      <VaultStatusIndicator origin="SNAPSHOT" syncState="OFFLINE" />
       <StatusBanner tone="offline" title={t("readOnly")}>{t("readOnlyDescription")}</StatusBanner>
       {status === "loading" && <p className="text-sm text-muted-foreground">{t("searching")}</p>}
       {status === "empty" && <StatusBanner tone="warning">{t("empty")}</StatusBanner>}
@@ -155,7 +158,8 @@ function UnlockedOfflineWorkspace({ workspace, onLock, onClear }: { workspace: U
   return <AppPage>
     <PageHeader title={t("accountsTitle")} description={t("snapshotDate", { date: snapshotDate })} action={<Button variant="outline" onClick={onLock}><Lock />{t("lock")}</Button>} />
     <SurfaceCard className="grid gap-5 p-4 sm:p-5">
-      <StatusBanner tone={workspace.syncState === "CURRENT" ? "success" : "offline"} title={syncTitle(workspace.syncState, t)}>{workspace.syncState === "CURRENT" ? <>{t("syncComplete")} <Link href="/vaults" className="font-bold underline">{t("continueOnline")}</Link>.</> : t("staleDescription")}</StatusBanner>
+      <VaultStatusIndicator origin="SNAPSHOT" syncState={workspace.syncState} lastSynchronizedAt={workspace.synchronizedAt} />
+      {workspace.syncState === "CURRENT" ? <p className="text-sm text-muted-foreground">{t("syncComplete")} <Link href="/vaults" className="font-bold underline">{t("continueOnline")}</Link>.</p> : <p className="text-sm text-muted-foreground">{t("staleDescription")}</p>}
       {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}
       <ul className="grid list-none gap-3 p-0">{workspace.accounts.map((account) => <li key={`${account.vaultId}:${account.id}`}><TotpAccountButton configuration={account} vaultName={account.vaultName} /></li>)}</ul>
       {!workspace.accounts.length && <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">{t("emptyAccounts")}</p>}
@@ -164,7 +168,3 @@ function UnlockedOfflineWorkspace({ workspace, onLock, onClear }: { workspace: U
   </AppPage>;
 }
 
-function syncTitle(state: OfflineSyncState, t: ReturnType<typeof useTranslations<"Sync.offline">>): string {
-  const keys = { OFFLINE: "stateOffline", STALE: "stateStale", SYNCING: "stateSyncing", CURRENT: "stateCurrent", AUTH_REQUIRED: "stateAuthRequired", ERROR: "stateError" } as const;
-  return t(keys[state]);
-}

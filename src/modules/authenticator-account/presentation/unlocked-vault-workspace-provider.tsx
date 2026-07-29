@@ -4,7 +4,7 @@ import { createContext, type Dispatch, type ReactNode, type SetStateAction, useC
 import { nextOfflineSyncState, subscribeToLocalVaultLock } from "@/modules/sync";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
-import { clearUnlockedVaultWorkspace, refreshUnlockedVaultWorkspace, type UnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { clearUnlockedVaultWorkspace, LocalStorageSyncError, refreshUnlockedVaultWorkspace, type UnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
 
 type UnlockedVaultWorkspaceSession = {
   workspace: UnlockedVaultWorkspace | null;
@@ -100,7 +100,7 @@ export function UnlockedVaultWorkspaceProvider({
       } catch (error) {
         key.fill(0);
         if (!active) return;
-        const event = error instanceof BrowserApiError && error.status === 401 ? "AUTHENTICATION_FAILED" : "SYNC_FAILED";
+        const event = error instanceof BrowserApiError && error.status === 401 ? "AUTHENTICATION_FAILED" : error instanceof LocalStorageSyncError ? "LOCAL_STORAGE_FAILED" : "SYNC_FAILED";
         setWorkspaceState((value) => value ? { ...value, syncState: nextOfflineSyncState(value.syncState, event) } : value);
       } finally {
         reconcilingRef.current = false;

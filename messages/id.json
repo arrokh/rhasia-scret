@@ -712,6 +712,30 @@
     }
   },
   "Sync": {
+    "status": {
+      "DEVICE_ONLY": "Khusus perangkat",
+      "CURRENT": "Daring dan terkini",
+      "OFFLINE_SNAPSHOT": "Snapshot luring",
+      "RECONNECTING": "Menghubungkan kembali",
+      "AUTH_REQUIRED": "Autentikasi diperlukan",
+      "STALE": "Sinkronisasi gagal atau usang",
+      "ERROR": "Kesalahan sinkronisasi",
+      "LOCAL_STORAGE_ERROR": "Kesalahan penyimpanan lokal",
+      "origin": {
+        "LOCAL": "Brankas Lokal",
+        "PERSONAL": "Brankas Pribadi",
+        "SHARED": "Brankas Bersama",
+        "SNAPSHOT": "Snapshot Brankas Lokal"
+      },
+      "capability": {
+        "LOCAL_WRITABLE": "Dapat diubah luring di perangkat ini. Tidak disinkronkan.",
+        "SERVER_WRITABLE": "Otorisasi server dan sinkronisasi lengkap sudah terkini.",
+        "READ_ONLY": "Baca-saja sampai autentikasi, validasi, dekripsi, dan sinkronisasi atomik berhasil. Tidak ada perubahan yang diantrikan."
+      },
+      "lastSynchronized": "Sinkronisasi lengkap terakhir: {date}",
+      "browserOnlineHint": "Konektivitas browser hanya petunjuk; kontak aplikasi tetap diperlukan.",
+      "browserOfflineHint": "Browser melaporkan luring; status server tidak dapat dikonfirmasi."
+    },
     "offline": {
       "title": "Akses brankas luring",
       "description": "Buka snapshot terenkripsi di perangkat ini tanpa menghubungi server.",
