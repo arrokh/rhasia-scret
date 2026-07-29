@@ -28,7 +28,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       return this.updateExistingIdentity(existingIdentity.applicationUser, principal);
     }
 
-    if (principal.issuer === "supabase") {
+    if (isSupabaseIssuer(principal.issuer)) {
       const legacy = await prisma.applicationUser.findUnique({
         where: { supabaseUserId: principal.subject },
         include: { externalIdentities: true }
@@ -94,6 +94,15 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
   }
 }
 
+function isSupabaseIssuer(issuer: string): boolean {
+  return issuer === "supabase" || issuer === canonicalSupabaseIssuer();
+}
+
+function canonicalSupabaseIssuer(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return url ? `${url.replace(/\/$/, "")}/auth/v1` : "supabase";
+}
+
 function toApplicationUser(record: ApplicationUserWithIdentity): ApplicationUser {
   if (record.status !== "ACTIVE" && record.status !== "INACTIVE") {
     throw new Error("Application user has an invalid status.");
@@ -101,7 +110,7 @@ function toApplicationUser(record: ApplicationUserWithIdentity): ApplicationUser
   const identity = record.externalIdentities[0];
   if (!identity) {
     if (!record.supabaseUserId) throw new Error("Application user has no external identity.");
-    return new ApplicationUser(record.id, "supabase", record.supabaseUserId, record.email, record.status as ApplicationUserStatus);
+    return new ApplicationUser(record.id, canonicalSupabaseIssuer(), record.supabaseUserId, record.email, record.status as ApplicationUserStatus);
   }
   return new ApplicationUser(record.id, identity.issuer, identity.subject, record.email, record.status as ApplicationUserStatus);
 }
