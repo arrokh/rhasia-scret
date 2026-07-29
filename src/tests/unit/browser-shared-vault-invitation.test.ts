@@ -16,7 +16,7 @@ describe("createSharedVaultInvitation", () => {
 
     await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey)).resolves.toEqual({ id: "invitation-1", secret: "client-only-secret", expiresAt: "2026-08-05T12:00:00.000Z" });
 
-    expect(mocks.createSecureShareLinkMaterial).toHaveBeenCalledWith(vaultKey);
+    expect(mocks.createSecureShareLinkMaterial).toHaveBeenCalledWith(vaultKey, "vault-1");
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
     expect(body).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
     expect(JSON.stringify(body)).not.toContain("client-only-secret");

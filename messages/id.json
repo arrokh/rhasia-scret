@@ -626,6 +626,8 @@
     "unlocking": "Membuka Brankas Lokal…",
     "unlock": "Buka Brankas Lokal",
     "unlockError": "Brankas Lokal tidak dapat dibuka. Periksa passphrase atau pulihkan arsip yang valid.",
+    "migrationRequired": "Brankas Lokal ini menggunakan format envelope lama. Migrasikan secara eksplisit setelah memasukkan Passphrase Brankas Lokal.",
+    "migrate": "Migrasikan Brankas Lokal terenkripsi",
     "storageError": "Penyimpanan Brankas Lokal tidak tersedia atau tidak valid. Tidak ada data pengganti yang ditulis.",
     "offline": "Siap luring. Perubahan Brankas Lokal tetap di browser ini.",
     "accountCount": "{count, plural, one {# akun lokal} other {# akun lokal}}",

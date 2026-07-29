@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decryptAccountConfiguration } from "@/modules/authenticator-account";
 import {
   createEncryptedVaultExport,
-  encryptPayload,
+  encryptPayloadWithContext,
   generateSymmetricKey,
   MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES,
   serializeEncryptedEnvelope
@@ -34,7 +34,7 @@ describe("encrypted Vault archive browser workflow", () => {
     await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, corrupt)).rejects.toThrow("authentication");
 
     const unsupportedEnvelope = valid.archive.slice();
-    unsupportedEnvelope[0] = 2;
+    unsupportedEnvelope[0] = 3;
     await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, unsupportedEnvelope)).rejects.toThrow("Unsupported");
     const unsupported = await encryptedRawArchive(valid.archiveKey, { version: 2, vaultName: "Imported Vault", accounts: [] });
     await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, unsupported)).rejects.toThrow("invalid");
@@ -67,13 +67,13 @@ describe("encrypted Vault archive browser workflow", () => {
 async function createArchive(accountPlaintext: Uint8Array) {
   const vaultKey = generateSymmetricKey();
   const archiveKey = generateSymmetricKey();
-  const encryptedName = serializeEncryptedEnvelope(await encryptPayload(vaultKey, new TextEncoder().encode("Imported Vault")));
-  const encryptedAccount = serializeEncryptedEnvelope(await encryptPayload(vaultKey, accountPlaintext));
+  const encryptedName = serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultKey, new TextEncoder().encode("Imported Vault"), { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 }));
+  const encryptedAccount = serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultKey, accountPlaintext, { purpose: "authenticator-account", payloadType: "totp-configuration", keyVersion: 1 }));
   return { archiveKey, archive: await createEncryptedVaultExport(vaultKey, archiveKey, encryptedName, [encryptedAccount]) };
 }
 
 async function encryptedRawArchive(key: Uint8Array, payload: unknown): Promise<Uint8Array> {
-  return serializeEncryptedEnvelope(await encryptPayload(key, new TextEncoder().encode(JSON.stringify(payload))));
+  return serializeEncryptedEnvelope(await encryptPayloadWithContext(key, new TextEncoder().encode(JSON.stringify(payload)), { purpose: "encrypted-archive", payloadType: "vault-archive", archiveVersion: 1 }));
 }
 
 function accountPayload(value: Record<string, unknown>): Uint8Array {

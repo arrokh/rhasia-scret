@@ -117,7 +117,7 @@ describe("AuthenticatorAccountCreator", () => {
     await act(async () => setInputValue(container.querySelector("#account-label"), "Alice Mobile"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" });
+    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" }, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: "shared-1", keyVersion: 1 });
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/accounts", expect.objectContaining({ method: "POST" }));
     expect(mocks.push).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).not.toHaveBeenCalled();

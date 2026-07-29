@@ -1,6 +1,7 @@
 import type { Vault } from "../domain/vault";
 
 export type NewSharedVault = {
+  id?: string;
   encryptedName: Uint8Array;
   encryptionVersion: number;
   encryptedOwnerVaultKey: Uint8Array;

@@ -13,7 +13,7 @@ import type { SharedVaultAccessRepository } from "@/modules/vault-membership/app
 import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
 
 const blob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
-const schema = z.object({ encryptedName: blob, encryptedOwnerVaultKey: blob, encryptionVersion: z.literal(1) });
+const schema = z.object({ vaultId: z.string().regex(/^[A-Za-z0-9_-]{16,128}$/).optional(), encryptedName: blob, encryptedOwnerVaultKey: blob, encryptionVersion: z.literal(1) });
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; sharedVaults: SharedVaultRepository };
 
 export function createSharedVaultHandler({ sessionVerifier, applicationUsers, sharedVaults }: Dependencies) {
@@ -26,6 +26,7 @@ export function createSharedVaultHandler({ sessionVerifier, applicationUsers, sh
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_vault" }, { status: 400 });
     const vault = await sharedVaults.create(user.id, {
+      id: parsed.data.vaultId,
       encryptedName: Buffer.from(parsed.data.encryptedName, "base64"),
       encryptedOwnerVaultKey: Buffer.from(parsed.data.encryptedOwnerVaultKey, "base64"),
       encryptionVersion: parsed.data.encryptionVersion

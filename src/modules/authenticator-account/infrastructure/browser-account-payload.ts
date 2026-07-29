@@ -1,6 +1,6 @@
 "use client";
 
-import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, serializeEncryptedEnvelope } from "@/modules/crypto";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "@/modules/crypto";
 import type { TotpConfiguration } from "@/modules/otp-runtime";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 
@@ -10,10 +10,10 @@ const MAX_ACCOUNT_PAYLOAD_BYTES = 16 * 1024;
 const MAX_ACCOUNT_LABEL_LENGTH = 240;
 const MAX_ACCOUNT_SECRET_BYTES = 512;
 
-export async function encryptAccountConfiguration(vaultKey: Uint8Array, configuration: TotpConfiguration): Promise<Uint8Array> {
+export async function encryptAccountConfiguration(vaultKey: Uint8Array, configuration: TotpConfiguration, context: CryptoEnvelopeContext = accountContext()): Promise<Uint8Array> {
   const plaintext = serializeDecryptedAccountPayload(configuration);
   try {
-    return serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
+    return serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultKey, plaintext, context));
   } finally {
     plaintext.fill(0);
   }
@@ -38,8 +38,8 @@ export function serializeDecryptedAccountPayload(configuration: TotpConfiguratio
   }
 }
 
-export async function decryptAccountConfiguration(vaultKey: Uint8Array, encryptedPayload: Uint8Array): Promise<DecryptedAuthenticatorAccount> {
-  const plaintext = await decryptPayload(vaultKey, deserializeEncryptedEnvelope(encryptedPayload));
+export async function decryptAccountConfiguration(vaultKey: Uint8Array, encryptedPayload: Uint8Array, context: CryptoEnvelopeContext = accountContext()): Promise<DecryptedAuthenticatorAccount> {
+  const plaintext = await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(encryptedPayload), context);
   try {
     return parseDecryptedAccountPayload(plaintext);
   } finally {
@@ -89,6 +89,10 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
 
 function validLabel(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= MAX_ACCOUNT_LABEL_LENGTH;
+}
+
+function accountContext(): CryptoEnvelopeContext {
+  return { purpose: "authenticator-account", payloadType: "totp-configuration", protocolVersion: 1, keyVersion: 1 };
 }
 
 function invalidPayload(): never {

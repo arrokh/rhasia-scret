@@ -11,6 +11,7 @@ export type PersonalVaultInitializationRequest = {
 };
 
 export type SharedVaultCreationRequest = {
+  vaultId?: string;
   encryptedName: string;
   encryptedOwnerVaultKey: string;
   encryptionVersion: number;

@@ -1,7 +1,7 @@
 "use client";
 
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
-import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "./browser-crypto-envelope";
 
 const FORMAT_VERSION = 1;
 export const MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES = 5 * 1024 * 1024;
@@ -24,20 +24,20 @@ export async function createEncryptedVaultArchive(archiveKey: Uint8Array, vaultN
   const plaintext = new TextEncoder().encode(JSON.stringify({ version: FORMAT_VERSION, vaultName: normalizedName, accounts } satisfies VaultExportPayload));
   try {
     if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29) throw new Error("Encrypted vault export is too large.");
-    return serializeEncryptedEnvelope(await encryptPayload(archiveKey, plaintext));
+    return serializeEncryptedEnvelope(await encryptPayloadWithContext(archiveKey, plaintext, { purpose: "encrypted-archive", payloadType: "vault-archive", archiveVersion: FORMAT_VERSION }));
   } finally {
     plaintext.fill(0);
   }
 }
 
 /** Produces the same archive from existing Vault ciphertext without exposing plaintext to callers. */
-export async function createEncryptedVaultExport(vaultKey: Uint8Array, archiveKey: Uint8Array, encryptedName: Uint8Array, encryptedAccounts: Uint8Array[]): Promise<Uint8Array> {
+export async function createEncryptedVaultExport(vaultKey: Uint8Array, archiveKey: Uint8Array, encryptedName: Uint8Array, encryptedAccounts: Uint8Array[], context: Pick<CryptoEnvelopeContext, "vaultId" | "profileId"> = {}, accountIds: string[] = []): Promise<Uint8Array> {
   if (encryptedAccounts.length > MAX_VAULT_ARCHIVE_ACCOUNTS) throw new Error("Encrypted vault export is too large.");
-  const nameBytes = await decryptPayload(vaultKey, deserializeEncryptedEnvelope(encryptedName));
+  const nameBytes = await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(encryptedName), { purpose: "vault-name", payloadType: "vault-name", ...context, keyVersion: 1 });
   const accountPlaintexts: Uint8Array[] = [];
   try {
     const vaultName = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes);
-    for (const account of encryptedAccounts) accountPlaintexts.push(await decryptPayload(vaultKey, deserializeEncryptedEnvelope(account)));
+    for (const [index, account] of encryptedAccounts.entries()) accountPlaintexts.push(await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(account), { purpose: "authenticator-account", payloadType: "totp-configuration", ...context, accountId: accountIds[index], keyVersion: 1 }));
     return await createEncryptedVaultArchive(archiveKey, vaultName, accountPlaintexts);
   } finally {
     nameBytes.fill(0);
@@ -48,7 +48,7 @@ export async function createEncryptedVaultExport(vaultKey: Uint8Array, archiveKe
 /** Opens a supported archive in the browser; callers must validate and immediately re-encrypt every account. */
 export async function openEncryptedVaultExport(archiveKey: Uint8Array, archive: Uint8Array): Promise<{ vaultName: string; accounts: Uint8Array[] }> {
   if (archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new Error("Encrypted vault export is too large.");
-  const plaintext = await decryptPayload(archiveKey, deserializeEncryptedEnvelope(archive));
+  const plaintext = await decryptPayloadWithContext(archiveKey, deserializeEncryptedEnvelope(archive), { purpose: "encrypted-archive", payloadType: "vault-archive", archiveVersion: FORMAT_VERSION });
   try {
     if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29) throw new Error("Encrypted vault export is too large.");
     let decoded: unknown;

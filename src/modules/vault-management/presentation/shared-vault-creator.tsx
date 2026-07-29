@@ -23,8 +23,9 @@ export function SharedVaultCreator({ userRootKey, onCreated }: { userRootKey: Ui
     onSubmit: async ({ value }) => {
       if (!online) { setStatus("offlineError"); return; }
       try {
-        const material = await createSharedVaultMaterial(userRootKey, value.name);
-        const created = await createMutation.mutateAsync({ encryptedName: bytesToBase64(material.encryptedName), encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey), encryptionVersion: material.encryptionVersion });
+        const vaultId = randomOpaqueId();
+        const material = await createSharedVaultMaterial(userRootKey, value.name, vaultId);
+        const created = await createMutation.mutateAsync({ vaultId, encryptedName: bytesToBase64(material.encryptedName), encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey), encryptionVersion: material.encryptionVersion });
         const createdName = value.name.trim(); form.reset(); setStatus("success"); onCreated?.({ id: created.id, name: createdName, key: material.vaultKey });
       } catch { setStatus("error"); }
     }
@@ -36,4 +37,11 @@ export function SharedVaultCreator({ userRootKey, onCreated }: { userRootKey: Ui
     {status && <StatusBanner tone={status === "success" ? "success" : "danger"} role={status === "success" ? "status" : "alert"}>{t(status)}</StatusBanner>}
     <form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button type="submit" disabled={!online || isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t("creating") : t("create")}</Button>}</form.Subscribe>
   </form>;
+}
+
+function randomOpaqueId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  bytes.fill(0);
+  return encoded;
 }

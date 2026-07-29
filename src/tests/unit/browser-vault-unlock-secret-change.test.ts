@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decryptPayload, deserializeEncryptedEnvelope } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
 import { initializePersonalVaultInBrowser } from "@/modules/crypto/infrastructure/browser-personal-vault-initializer";
 import { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "@/modules/crypto/infrastructure/browser-vault-unlock-secret-change";
 import { deriveVaultUnlockKey } from "@/modules/crypto/infrastructure/browser-vault-unlock-key";
@@ -10,14 +10,16 @@ describe("changeVaultUnlockSecret", () => {
     const nextSecret = "golf hotel india juliet kilo lima";
     const material = await initializePersonalVaultInBrowser(currentSecret, "Personal Vault");
     const changed = await changeVaultUnlockSecret(currentSecret, nextSecret, material.vaultUnlockSalt, material.wrappedUserRootKey);
-    const rootKey = await decryptPayload(
+    const rootKey = await decryptPayloadWithContext(
       await deriveVaultUnlockKey(nextSecret, changed.vaultUnlockSalt),
-      deserializeEncryptedEnvelope(changed.wrappedUserRootKey)
+      deserializeEncryptedEnvelope(changed.wrappedUserRootKey),
+      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 }
     );
-    await expect(decryptPayload(rootKey, deserializeEncryptedEnvelope(material.encryptedPersonalVaultKey))).resolves.toHaveLength(32);
-    await expect(decryptPayload(
+    await expect(decryptPayloadWithContext(rootKey, deserializeEncryptedEnvelope(material.encryptedPersonalVaultKey), { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })).resolves.toHaveLength(32);
+    await expect(decryptPayloadWithContext(
       await deriveVaultUnlockKey(currentSecret, material.vaultUnlockSalt),
-      deserializeEncryptedEnvelope(changed.wrappedUserRootKey)
+      deserializeEncryptedEnvelope(changed.wrappedUserRootKey),
+      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 }
     )).rejects.toThrow("authentication failed");
   });
 
@@ -27,9 +29,10 @@ describe("changeVaultUnlockSecret", () => {
 
     const rewrapped = await wrapUserRootKeyWithVaultUnlockSecret(userRootKey, nextSecret);
 
-    await expect(decryptPayload(
+    await expect(decryptPayloadWithContext(
       await deriveVaultUnlockKey(nextSecret, rewrapped.vaultUnlockSalt),
-      deserializeEncryptedEnvelope(rewrapped.wrappedUserRootKey)
+      deserializeEncryptedEnvelope(rewrapped.wrappedUserRootKey),
+      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 }
     )).resolves.toEqual(userRootKey);
   });
 });

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   decryptAccountConfiguration: vi.fn(),
-  decryptPayload: vi.fn(),
+  decryptPayloadWithContext: vi.fn(),
   fetchAuthorizedOfflineBundle: vi.fn(),
   read: vi.fn(),
   readByPersonalVaultId: vi.fn(),
@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/crypto", () => ({
-  decryptPayload: mocks.decryptPayload,
+  decryptPayloadWithContext: mocks.decryptPayloadWithContext,
   deserializeEncryptedEnvelope: vi.fn((value) => value),
   recoverUserRootKeyWithPasskey: mocks.recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser: mocks.recoverUserRootKeyWithRememberedBrowser,
@@ -49,7 +49,7 @@ describe("Vault workspace loading", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.stubGlobal("navigator", { onLine: false });
-    mocks.decryptPayload.mockResolvedValue(new TextEncoder().encode("Brankas Pribadi"));
+    mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Brankas Pribadi"));
   });
 
   it("decrypts, orders, and atomically persists one complete authorized online bundle without implicit enrollment writes", async () => {

@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, generateSymmetricKey, rotateVaultKey, serializeEncryptedEnvelope } from "@/modules/crypto";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, generateSymmetricKey, rotateVaultKey, serializeEncryptedEnvelope } from "@/modules/crypto";
 
 describe("rotateVaultKey", () => {
   it("re-encrypts vault ciphertext under a fresh client-only key", async () => {
     const oldKey = generateSymmetricKey();
-    const name = serializeEncryptedEnvelope(await encryptPayload(oldKey, new TextEncoder().encode("Personal")));
-    const account = serializeEncryptedEnvelope(await encryptPayload(oldKey, new Uint8Array([1, 2, 3])));
+    const nameContext = { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 } as const;
+    const accountContext = { purpose: "authenticator-account", payloadType: "totp-configuration", keyVersion: 1 } as const;
+    const name = serializeEncryptedEnvelope(await encryptPayloadWithContext(oldKey, new TextEncoder().encode("Personal"), nameContext));
+    const account = serializeEncryptedEnvelope(await encryptPayloadWithContext(oldKey, new Uint8Array([1, 2, 3]), accountContext));
     const rotated = await rotateVaultKey(oldKey, { encryptedName: name, encryptedAccounts: [account] });
     expect(rotated.vaultKey).not.toEqual(oldKey);
-    await expect(decryptPayload(oldKey, deserializeEncryptedEnvelope(rotated.encryptedName))).rejects.toThrow("authentication");
-    await expect(decryptPayload(rotated.vaultKey, deserializeEncryptedEnvelope(rotated.encryptedName))).resolves.toEqual(new TextEncoder().encode("Personal"));
-    await expect(decryptPayload(rotated.vaultKey, deserializeEncryptedEnvelope(rotated.encryptedAccounts[0]))).resolves.toEqual(new Uint8Array([1, 2, 3]));
+    await expect(decryptPayloadWithContext(oldKey, deserializeEncryptedEnvelope(rotated.encryptedName), nameContext)).rejects.toThrow("authentication");
+    await expect(decryptPayloadWithContext(rotated.vaultKey, deserializeEncryptedEnvelope(rotated.encryptedName), nameContext)).resolves.toEqual(new TextEncoder().encode("Personal"));
+    await expect(decryptPayloadWithContext(rotated.vaultKey, deserializeEncryptedEnvelope(rotated.encryptedAccounts[0]), accountContext)).resolves.toEqual(new Uint8Array([1, 2, 3]));
   });
 });

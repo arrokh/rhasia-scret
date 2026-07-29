@@ -6,8 +6,8 @@ import { redeemSecureShareLinkMaterial } from "./browser-secure-share-link-redem
 
 export async function redeemSecureShareLink(secret: string, userRootKey: Uint8Array): Promise<void> {
   const verifier = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret)));
-  const link = await browserApiClient.getJson<{ id: string; encryptedPackage: string }>(`/api/secure-share-links?verifier=${encodeURIComponent(bytesToBase64(verifier))}`, { cache: "no-store" });
-  const material = await redeemSecureShareLinkMaterial(secret, base64ToBytes(link.encryptedPackage), userRootKey);
+  const link = await browserApiClient.getJson<{ id: string; vaultId: string; encryptedPackage: string }>(`/api/secure-share-links?verifier=${encodeURIComponent(bytesToBase64(verifier))}`, { cache: "no-store" });
+  const material = await redeemSecureShareLinkMaterial(secret, base64ToBytes(link.encryptedPackage), userRootKey, link.vaultId);
   if (bytesToBase64Url(material.linkVerifier) !== bytesToBase64Url(verifier)) throw new Error("Secure Share Link verifier mismatch.");
   await browserApiClient.postEmpty("/api/secure-share-links", { invitationId: link.id, encryptedVaultKey: bytesToBase64(material.encryptedVaultKey), keyVersion: 1 });
 }

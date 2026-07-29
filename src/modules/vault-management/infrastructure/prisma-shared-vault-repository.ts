@@ -6,6 +6,7 @@ export class PrismaSharedVaultRepository implements SharedVaultRepository {
   public async create(ownerId: string, vault: NewSharedVault): Promise<Vault> {
     const created = await prisma.vault.create({
       data: {
+        ...(vault.id ? { id: vault.id } : {}),
         ownerId,
         type: "SHARED",
         lifecycle: "ACTIVE",
