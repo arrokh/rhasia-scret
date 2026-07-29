@@ -2,13 +2,20 @@ import type { VerifiedSession } from "../application/session-verifier";
 
 export const BROWSER_E2E_SESSION_COOKIE = "rhsia-e2e-session";
 
-type ConfiguredSession = Readonly<{ subject: string; email: string }>;
+type ConfiguredSession = Readonly<{ subject: string; email: string; emailVerified?: boolean }>;
 
 export function browserE2eTestSession(alias: string | undefined): VerifiedSession | null {
   if (!browserE2eTestsEnabled() || !alias) return null;
   const configured = configuredSessions()[alias];
   if (!configured) return null;
-  return { subject: configured.subject, email: configured.email };
+  return {
+    issuer: "e2e",
+    subject: configured.subject,
+    email: configured.email,
+    emailVerified: configured.emailVerified ?? true,
+    assurance: "active-session",
+    sessionId: `e2e:${alias}`
+  };
 }
 
 export function browserE2eTestsEnabled(): boolean {
@@ -27,7 +34,11 @@ function configuredSessions(): Record<string, ConfiguredSession> {
     const candidate = value as Record<string, unknown>;
     if (typeof candidate.subject !== "string" || !/^[a-z0-9:-]{1,128}$/.test(candidate.subject)) continue;
     if (typeof candidate.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.email) || candidate.email.length > 254) continue;
-    sessions[alias] = { subject: candidate.subject, email: candidate.email.toLowerCase() };
+    sessions[alias] = {
+      subject: candidate.subject,
+      email: candidate.email.toLowerCase(),
+      emailVerified: candidate.emailVerified !== false
+    };
   }
   return sessions;
 }

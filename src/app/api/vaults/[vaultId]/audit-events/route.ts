@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createSessionVerifier } from "@/modules/identity/server";
 import { listVaultAuditForOwner } from "@/modules/vault-management/application/manage-vault-audit";
 import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
@@ -10,7 +10,7 @@ import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared
 const auditFilterSchema = z.object({ accountId: z.string().min(1).max(128).optional(), actorUserId: z.string().min(1).max(128).optional() });
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const parsedFilter = auditFilterSchema.safeParse({

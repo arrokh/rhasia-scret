@@ -19,7 +19,7 @@ export type ExistingVaultPageContext = Omit<VaultPageContext, "personalVault"> &
 };
 
 export interface VaultPageContextReader {
-  findBySessionSubject(subject: string): Promise<ExistingVaultPageContext | null>;
+  findByExternalIdentity(issuer: string, subject: string): Promise<ExistingVaultPageContext | null>;
 }
 
 export async function resolveVaultPageContext(
@@ -31,7 +31,7 @@ export async function resolveVaultPageContext(
   const session = await sessionVerifier.verify();
   if (!session) return null;
 
-  const existing = await contexts.findBySessionSubject(session.subject);
+  const existing = await contexts.findByExternalIdentity(session.issuer, session.subject);
   if (existing?.personalVault && existing.user.email === session.email) return existing as VaultPageContext;
 
   const user = await applicationUsers.provision(session);

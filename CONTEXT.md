@@ -79,8 +79,32 @@ _Avoid_: Plaintext AAD, server-readable label, optional context, context-free co
 The limited server-visible information allowed by the zero-knowledge contract: opaque identifiers, ciphertext bytes, protocol/encryption/key versions, revisions, lifecycle/deletion deadlines, authorization relationships, permitted invited-email metadata, redacted audit actor/account identifiers, bounded counts, and operational timing/size metadata. It excludes Vault names, account labels, TOTP configuration, OTPs, raw QR data, secrets, keys, decrypted content, and archive/recovery material.
 _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
+**Authentication Provider**:
+A replaceable server-side adapter that verifies an external identity and exposes a provider-neutral Verified Principal. Supabase Auth is one supported adapter; OIDC is the preferred interoperability standard. Provider SDKs, OAuth/OIDC protocol types, provider cookies, tokens, and callback mechanics never cross the Identity bounded-context boundary.
+_Avoid_: Supabase user in domain code, provider-owned Application User, mandatory Auth.js proxy
+
+**Verified Principal**:
+The normalized result of provider verification: immutable issuer and subject, verified email/contact metadata when available, and provider-independent session assurance. It answers who the provider verified, not whether that principal is admitted to the application.
+_Avoid_: Email as identity, session cookie as principal, provider-specific session type
+
+**External Identity**:
+A durable identity binding unique by `(issuer, subject)` and associated with exactly one Application User. Email is permitted admission/contact metadata but never silently links identities or merges Application Users.
+_Avoid_: `supabaseUserId`, automatic email linking, provider account row as Application User
+
+**Application Admission**:
+The separate policy decision that determines whether a Verified Principal may use the application. The initial policy remains invite-only/pre-registered and must not depend on a provider-specific admin-invitation implementation.
+_Avoid_: Authentication equals admission, public signup by default, email-only access
+
+**Identity Linking**:
+An explicit reauthentication ceremony proving control of an existing and proposed External Identity before associating them with one Application User. It creates a redacted security event and never changes Vault key material or encrypted content.
+_Avoid_: Automatic email linking, silent account merge, key re-encryption during login
+
+**Provider Migration**:
+An auditable, rollback-safe change from one Authentication Provider to another that preserves the Application User identifier, ownership, memberships, audit history, rate limits, recovery enrollment, crypto profiles, and ciphertext. A partial migration leaves the old identity active.
+_Avoid_: Provider account migration by email, new Application User on provider change, key rotation during migration
+
 **Pre-registered User**:
-A person invited through Supabase Auth by the administrator before they can access the application. A verified session from such an invited user is the application’s access gate.
+A person admitted by the configured Application Admission policy before they can access the application. In the initial Supabase deployment this remains an administrator-invited user, but the application contract is provider-neutral.
 _Avoid_: Public signup, self-registered user, separate email allowlist
 
 **Application Mutation Rate Limit**:

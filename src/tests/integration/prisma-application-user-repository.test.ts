@@ -7,34 +7,36 @@ const subjects: string[] = [];
 
 afterEach(async () => {
   if (subjects.length) {
-    await prisma.applicationUser.deleteMany({ where: { supabaseUserId: { in: subjects.splice(0) } } });
+    const identities = await prisma.externalIdentity.findMany({ where: { subject: { in: subjects.splice(0) } }, select: { applicationUserId: true } });
+    await prisma.applicationUser.deleteMany({ where: { id: { in: identities.map(({ applicationUserId }) => applicationUserId) } } });
   }
-  await prisma.$disconnect();
 });
 
 describe("PrismaApplicationUserRepository", () => {
-  it.skipIf(!process.env.DATABASE_URL)("provisions a user idempotently from a verified session", async () => {
+  it.skipIf(!process.env.DATABASE_URL)("provisions a user idempotently from a verified principal", async () => {
     const subject = randomUUID();
     subjects.push(subject);
     const repository = new PrismaApplicationUserRepository();
-    const first = await repository.provision({ subject, email: "first@example.test" });
-    const second = await repository.provision({ subject, email: "second@example.test" });
+    const principal = { issuer: "supabase", subject, email: "first@example.test", emailVerified: true, assurance: "fresh-provider-user" as const };
+    const first = await repository.provision(principal);
+    const second = await repository.provision({ ...principal, email: "second@example.test" });
 
     expect(second.id).toBe(first.id);
     expect(second.email).toBe("second@example.test");
-    await expect(prisma.applicationUser.count({ where: { supabaseUserId: subject } })).resolves.toBe(1);
+    await expect(prisma.externalIdentity.count({ where: { issuer: "supabase", subject } })).resolves.toBe(1);
   });
 
   it.skipIf(!process.env.DATABASE_URL)("does not write an unchanged existing user during a normal read path", async () => {
     const subject = randomUUID();
     subjects.push(subject);
     const repository = new PrismaApplicationUserRepository();
-    await repository.provision({ subject, email: "stable@example.test" });
-    const before = await prisma.applicationUser.findUniqueOrThrow({ where: { supabaseUserId: subject }, select: { updatedAt: true } });
+    const principal = { issuer: "supabase", subject, email: "stable@example.test", emailVerified: true, assurance: "fresh-provider-user" as const };
+    const user = await repository.provision(principal);
+    const before = await prisma.applicationUser.findUniqueOrThrow({ where: { id: user.id }, select: { updatedAt: true } });
 
-    await repository.provision({ subject, email: "stable@example.test" });
+    await repository.provision(principal);
 
-    const after = await prisma.applicationUser.findUniqueOrThrow({ where: { supabaseUserId: subject }, select: { updatedAt: true } });
+    const after = await prisma.applicationUser.findUniqueOrThrow({ where: { id: user.id }, select: { updatedAt: true } });
     expect(after.updatedAt).toEqual(before.updatedAt);
   });
 });

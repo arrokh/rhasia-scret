@@ -15,7 +15,7 @@ describe("POST /api/user-crypto-profile/rewrap contract", () => {
     const rewrapUserRootKey = vi.fn().mockResolvedValue(undefined);
     const handler = createRewrapUserRootKeyHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       cryptoProfiles: { get: async () => null, registerUserEncryptionIdentity: async () => undefined, rewrapUserRootKey }
     });
     const response = await handler(new NextRequest("http://localhost/api/user-crypto-profile/rewrap", { method: "POST", body: JSON.stringify(payload) }));

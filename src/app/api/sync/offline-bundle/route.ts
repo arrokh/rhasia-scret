@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity";
 import type { ApplicationUserRepository, SessionVerifier } from "@/modules/identity";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createSessionVerifier } from "@/modules/identity/server";
 import type { OfflineSyncBundleReader } from "@/modules/sync";
 import { PrismaOfflineSyncBundleReader } from "@/modules/sync/infrastructure/prisma-offline-sync-bundle-reader";
 
@@ -29,7 +29,7 @@ export function createOfflineSyncBundleHandler({
 }
 
 export const GET = createOfflineSyncBundleHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   bundles: new PrismaOfflineSyncBundleReader()
 });

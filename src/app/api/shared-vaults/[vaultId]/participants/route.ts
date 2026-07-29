@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createSessionVerifier } from "@/modules/identity/server";
 import { listVaultParticipantsForOwner } from "@/modules/vault-membership/application/manage-vault-participants";
 import { parseVaultParticipantCursorKey } from "@/modules/vault-membership/application/vault-participant-repository";
 import { PrismaVaultParticipantRepository } from "@/modules/vault-membership/infrastructure/prisma-vault-participant-repository";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 export async function GET(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const { vaultId } = await params;

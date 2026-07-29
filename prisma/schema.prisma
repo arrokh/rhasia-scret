@@ -8,8 +8,8 @@ datasource db {
 
 model ApplicationUser {
   id                        String                       @id @default(cuid())
-  supabaseUserId            String                       @unique @map("supabase_user_id")
-  email                     String                       @unique
+  supabaseUserId            String?                      @unique @map("supabase_user_id")
+  email                     String
   status                    String                       @default("ACTIVE")
   createdAt                 DateTime                     @default(now()) @map("created_at")
   updatedAt                 DateTime                     @updatedAt @map("updated_at")
@@ -21,8 +21,37 @@ model ApplicationUser {
   passkeyRecoveryChallenges PasskeyRecoveryChallenge[]
   auditEvents               VaultAuditEvent[]            @relation("AuditActor")
   rateLimitWindows          ApplicationRateLimitWindow[]
+  externalIdentities        ExternalIdentity[]
+  identitySecurityEvents    IdentitySecurityEvent[]
 
   @@map("application_users")
+}
+
+model ExternalIdentity {
+  id                String          @id @default(cuid())
+  applicationUserId String          @map("application_user_id")
+  issuer            String
+  subject           String
+  email             String?
+  emailVerifiedAt   DateTime?       @map("email_verified_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  applicationUser   ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@index([applicationUserId])
+  @@map("external_identities")
+}
+
+model IdentitySecurityEvent {
+  id                String          @id @default(cuid())
+  applicationUserId String          @map("application_user_id")
+  eventType         String          @map("event_type")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  applicationUser   ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+
+  @@index([applicationUserId, createdAt, id])
+  @@map("identity_security_events")
 }
 
 model ApplicationRateLimitWindow {

@@ -75,6 +75,8 @@ jobs:
         run: pnpm run prisma:validate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
+      - name: Backfill provider-neutral identities
+        run: pnpm run prisma:backfill-external-identities
       - name: Lint
         run: pnpm run lint
       - name: Typecheck
@@ -150,6 +152,8 @@ jobs:
         run: pnpm run prisma:generate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
+      - name: Backfill provider-neutral identities
+        run: pnpm run prisma:backfill-external-identities
       - name: Install Playwright system dependencies
         run: pnpm exec playwright install-deps chromium firefox webkit
       - name: Ensure supported browsers are installed

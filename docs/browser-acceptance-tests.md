@@ -6,7 +6,7 @@ The dedicated Playwright suite in `src/tests/browser/encrypted-vault-workflows.s
 
 1. Install the repository toolchain and dependencies with `mise install && mise run setup`.
 2. Provide the normal local PostgreSQL `DATABASE_URL` and `DIRECT_URL` values.
-3. Apply migrations with `pnpm exec prisma migrate deploy`.
+3. Apply migrations with `pnpm exec prisma migrate deploy` and backfill existing provider identities with `pnpm run prisma:backfill-external-identities`.
 4. Install the Playwright browsers when needed with `pnpm exec playwright install`.
 5. Run all browser suites with `pnpm run test:browser`. To run only the encrypted Vault matrix, use `pnpm exec playwright test --config playwright.e2e.config.ts`.
 
@@ -18,12 +18,12 @@ Chromium and Firefox run every encrypted workflow in CI. WebKit runs the Persona
 
 ## Controlled external seams
 
-Supabase sessions and WebAuthn attestation cannot be exercised deterministically in CI. The suite therefore provides narrowly scoped seams that:
+Supabase/OIDC provider sessions and WebAuthn attestation cannot be exercised against production providers deterministically in CI. The suite therefore provides narrowly scoped deterministic adapter seams that:
 
 - are enabled only when both `NODE_ENV=development` and `E2E_BROWSER_TESTS=1`;
 - accept only identities listed in `E2E_BROWSER_TEST_USERS`;
 - use an HTTP-only same-origin test cookie;
-- replace only external passkey verification while retaining the real encrypted recovery-package workflow;
+- replace only external session and passkey verification while retaining the real encrypted recovery-package and authorization workflows;
 - remain disabled in production even if the E2E environment variables or cookie are present.
 
 The Playwright configuration creates these values automatically. They must not be used for normal development identities.

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { MembershipUnavailableError, revokeVaultMembership } from "@/modules/vault-membership/application/manage-membership-lifecycle";
 import { PrismaMembershipLifecycleRepository } from "@/modules/vault-membership/infrastructure/prisma-membership-lifecycle-repository";
@@ -17,7 +17,7 @@ const overridesSchema = z.object({
 }).strict();
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ vaultId: string; userId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);
@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ vaultId: string; userId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);

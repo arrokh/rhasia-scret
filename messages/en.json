@@ -37,6 +37,9 @@
     "signIn": {
       "tagline": "Store and share authenticator accounts through encrypted vaults",
       "openOffline": "Open offline snapshot",
+      "oidcSignIn": "Continue with your organization",
+      "authenticationDisabled": "Remote authentication is disabled. Use Local Vault.",
+      "localOnly": "This deployment supports Local Vault only.",
       "inviteOnly": "Access is invitation-only. Ask a vault owner or administrator to invite your email address.",
       "notice": {
         "required": "Sign in to continue.",

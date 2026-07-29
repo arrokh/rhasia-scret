@@ -4,10 +4,10 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { createApplicationUserRepository } from "@/modules/identity/server";
 import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
 import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const schema = z.object({
@@ -41,7 +41,7 @@ export function createRewrapUserRootKeyHandler({ sessionVerifier, applicationUse
 }
 
 export const POST = createRewrapUserRootKeyHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   cryptoProfiles: new PrismaUserCryptoProfileRepository()
 });

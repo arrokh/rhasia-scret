@@ -23,7 +23,7 @@ describe("GET /api/shared-vaults contract", () => {
     }]);
     const handler = createListSharedVaultsHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       sharedVaultAccess: { getForMember: vi.fn(), listForMember }
     });
 
@@ -49,7 +49,7 @@ describe("PATCH /api/shared-vaults/:vaultId contract", () => {
     const rename = vi.fn().mockResolvedValue(true);
     const handler = createRenameSharedVaultHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       sharedVaults: { create: vi.fn(), rename }
     });
     const encryptedName = Buffer.from("encrypted-renamed-vault").toString("base64");
@@ -83,7 +83,7 @@ describe("POST /api/shared-vaults contract", () => {
     const create = vi.fn();
     const handler = createSharedVaultHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       sharedVaults: { create, rename: vi.fn() }
     });
 
@@ -99,7 +99,7 @@ describe("POST /api/shared-vaults contract", () => {
     const create = vi.fn().mockResolvedValue(new Vault("vault-1", "SHARED", "user-1"));
     const handler = createSharedVaultHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       sharedVaults: { create, rename: vi.fn() }
     });
     const response = await handler(new NextRequest("http://localhost/api/shared-vaults", { method: "POST", body: JSON.stringify(payload) }));

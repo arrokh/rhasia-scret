@@ -37,6 +37,9 @@
     "signIn": {
       "tagline": "Simpan dan bagikan akun autentikasi melalui brankas terenkripsi",
       "openOffline": "Buka snapshot luring",
+      "oidcSignIn": "Lanjutkan dengan organisasi Anda",
+      "authenticationDisabled": "Autentikasi jarak jauh dinonaktifkan. Gunakan Brankas Lokal.",
+      "localOnly": "Deployment ini hanya mendukung Brankas Lokal.",
       "inviteOnly": "Akses hanya tersedia melalui undangan. Minta pemilik brankas atau administrator mengundang alamat email Anda.",
       "notice": {
         "required": "Silakan masuk untuk melanjutkan.",

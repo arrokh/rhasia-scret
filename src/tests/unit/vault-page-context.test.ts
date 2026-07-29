@@ -3,7 +3,7 @@ import { ApplicationUser } from "@/modules/identity";
 import { Vault } from "@/modules/vault-management/domain/vault";
 import { resolveVaultPageContext, type ExistingVaultPageContext } from "@/modules/vault-management/application/vault-page-context";
 
-const session = { subject: "subject-1", email: "owner@example.test" };
+const session = { issuer: "supabase", subject: "subject-1", email: "owner@example.test", emailVerified: true, assurance: "fresh-provider-user" as const };
 const existing: ExistingVaultPageContext = {
   user: { id: "user-1", email: session.email, status: "ACTIVE" },
   personalVault: { id: "vault-1", lifecycle: "ACTIVE" }
@@ -12,9 +12,9 @@ const existing: ExistingVaultPageContext = {
 function dependencies(context: ExistingVaultPageContext | null = existing) {
   return {
     sessions: { verify: vi.fn<() => Promise<typeof session | null>>(async () => session) },
-    users: { provision: vi.fn(async () => new ApplicationUser("user-1", session.subject, session.email, "ACTIVE")) },
+    users: { provision: vi.fn(async () => new ApplicationUser("user-1", "supabase", session.subject, session.email, "ACTIVE")) },
     vaults: { ensureForOwner: vi.fn(async () => new Vault("vault-1", "PERSONAL", "user-1", "ACTIVE")) },
-    contexts: { findBySessionSubject: vi.fn(async () => context) }
+    contexts: { findByExternalIdentity: vi.fn(async () => context) }
   };
 }
 
@@ -24,7 +24,7 @@ describe("Vault page context", () => {
 
     await expect(resolveVaultPageContext(deps.sessions, deps.users, deps.vaults, deps.contexts)).resolves.toEqual(existing);
 
-    expect(deps.contexts.findBySessionSubject).toHaveBeenCalledWith(session.subject);
+    expect(deps.contexts.findByExternalIdentity).toHaveBeenCalledWith(session.issuer, session.subject);
     expect(deps.users.provision).not.toHaveBeenCalled();
     expect(deps.vaults.ensureForOwner).not.toHaveBeenCalled();
   });
@@ -52,6 +52,6 @@ describe("Vault page context", () => {
     deps.sessions.verify.mockResolvedValue(null);
 
     await expect(resolveVaultPageContext(deps.sessions, deps.users, deps.vaults, deps.contexts)).resolves.toBeNull();
-    expect(deps.contexts.findBySessionSubject).not.toHaveBeenCalled();
+    expect(deps.contexts.findByExternalIdentity).not.toHaveBeenCalled();
   });
 });

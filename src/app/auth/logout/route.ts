@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { signOutCurrentSession, type SessionTerminator } from "@/modules/identity/application/session-terminator";
-import { SupabaseSessionTerminator } from "@/modules/identity/infrastructure/supabase-session-terminator";
+import { createSessionTerminator } from "@/modules/identity/server";
 
 type Dependencies = { sessionTerminator: SessionTerminator };
 
@@ -34,4 +34,4 @@ function redirectToSignIn(request: NextRequest, reason: "signed_out" | "logout_f
   return NextResponse.redirect(new URL(`/sign-in?auth=${reason}`, validatedOrigin ?? request.url), { status: 303 });
 }
 
-export const POST = createLogoutHandler({ sessionTerminator: new SupabaseSessionTerminator() });
+export const POST = createLogoutHandler({ sessionTerminator: createSessionTerminator() });
