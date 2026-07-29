@@ -182,17 +182,24 @@ test("requires explicit confirmation for destructive Personal Vault reset", asyn
     await route.fulfill({ status: 204 });
   });
   await page.goto("/ui-preview/recovery");
-  await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Hapus data terenkripsi dan mulai ulang" })).toBeVisible();
   await expect(page.getByText(/Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus/)).toBeVisible();
-  const confirmation = page.getByLabel(/Ketik HAPUS DATA BRANKAS/);
-  await confirmation.fill("HAPUS DATA BRANKAS");
-  await expect(confirmation).toHaveValue("HAPUS DATA BRANKAS");
-  await confirmation.press("Tab");
-  await page.getByRole("button", { name: "Hapus data dan atur ulang brankas" }).click();
+  const confirmationDialog = page.getByRole("heading", { name: "Atur ulang Brankas Pribadi?" });
+  await expect(async () => {
+    await page.reload({ waitUntil: "load" });
+    const confirmation = page.getByLabel(/Ketik HAPUS DATA BRANKAS/);
+    const submit = page.getByRole("button", { name: "Hapus data dan atur ulang brankas" });
+    await confirmation.fill("belum terhidrasi");
+    await submit.click();
+    await expect(confirmation).toHaveAttribute("aria-invalid", "true", { timeout: 5_000 });
+    await confirmation.fill("HAPUS DATA BRANKAS");
+    await expect(confirmation).toHaveValue("HAPUS DATA BRANKAS");
+    await submit.click();
+    await expect(confirmationDialog).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 30_000 });
 
-  await expect(page.getByRole("heading", { name: "Atur ulang Brankas Pribadi?" })).toBeVisible();
+  await expect(confirmationDialog).toBeVisible();
   expect(submittedBody).toBeUndefined();
   await page.getByRole("button", { name: "Hapus dan atur ulang" }).click();
   await expect.poll(() => submittedBody).toEqual({ confirmation: "HAPUS DATA BRANKAS" });
