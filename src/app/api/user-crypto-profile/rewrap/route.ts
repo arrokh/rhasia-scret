@@ -12,6 +12,7 @@ import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 const schema = z.object({
   vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
   wrappedUserRootKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
+  encryptedPersonalVaultKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13).optional(),
   encryptionVersion: z.literal(1)
 });
 
@@ -33,6 +34,7 @@ export function createRewrapUserRootKeyHandler({ sessionVerifier, applicationUse
     await cryptoProfiles.rewrapUserRootKey(user.id, {
       vaultUnlockSalt: Buffer.from(parsed.data.vaultUnlockSalt, "base64"),
       wrappedUserRootKey: Buffer.from(parsed.data.wrappedUserRootKey, "base64"),
+      encryptedPersonalVaultKey: parsed.data.encryptedPersonalVaultKey ? Buffer.from(parsed.data.encryptedPersonalVaultKey, "base64") : undefined,
       encryptionVersion: parsed.data.encryptionVersion
     });
     return new NextResponse(null, { status: 204 });

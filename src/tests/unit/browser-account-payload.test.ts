@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { generateSymmetricKey } from "@/modules/crypto";
+import { encryptPayload, generateSymmetricKey, serializeEncryptedEnvelope } from "@/modules/crypto";
 import { parseTotpUri } from "@/modules/otp-runtime";
+import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { rfcTotpUri } from "./totp-test-helpers";
 import { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAccount, sortAccounts } from "@/modules/authenticator-account/infrastructure/browser-account-payload";
 
@@ -19,5 +20,26 @@ describe("browser account payload", () => {
     const second = { ...configuration(), issuer: "Another", accountName: "bob" };
     expect(isDuplicateAccount(first, [first])).toBe(true);
     expect(sortAccounts([first, second]).map((account) => account.issuer)).toEqual(["Another", "Example"]);
+  });
+
+  it("reads a legacy context-free account envelope during the explicit unlock migration path", async () => {
+    const vaultKey = generateSymmetricKey();
+    const legacy = {
+      issuer: "Legacy Issuer",
+      accountName: "legacy@example.test",
+      secret: Uint8Array.of(1, 2, 3, 4),
+      algorithm: "SHA-1" as const,
+      digits: 6 as const,
+      period: 30
+    };
+    const plaintext = new TextEncoder().encode(JSON.stringify({ ...legacy, secret: bytesToBase64(legacy.secret) }));
+    try {
+      const encrypted = serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
+      await expect(decryptAccountConfiguration(vaultKey, encrypted)).resolves.toEqual(legacy);
+    } finally {
+      plaintext.fill(0);
+      vaultKey.fill(0);
+      legacy.secret.fill(0);
+    }
   });
 });
