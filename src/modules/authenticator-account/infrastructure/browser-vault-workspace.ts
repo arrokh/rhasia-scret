@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  decryptPayload,
+  decryptPayloadWithContext,
   deserializeEncryptedEnvelope,
   recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser,
@@ -185,7 +185,7 @@ async function loadWorkspace(
 ): Promise<UnlockedVaultWorkspace> {
   const personalVault: UnlockedVault = {
     id: bundle.personalVault.vaultId,
-    name: await decryptName(personalVaultKey, bundle.personalVault.encryptedName),
+    name: await decryptName(personalVaultKey, bundle.personalVault.encryptedName, { purpose: "vault-name", payloadType: "vault-name", keyVersion: bundle.cryptoProfile.encryptionVersion }),
     type: "PERSONAL",
     role: "OWNER",
     effectiveAccountPermissions: {
@@ -199,7 +199,8 @@ async function loadWorkspace(
     const unlocked = await unlockSharedVault(
       userRootKey,
       base64ToBytes(encryptedVault.encryptedVaultKey),
-      base64ToBytes(encryptedVault.encryptedName)
+      base64ToBytes(encryptedVault.encryptedName),
+      encryptedVault.vaultId
     );
     const vault: UnlockedVault = {
       id: encryptedVault.vaultId,
@@ -266,8 +267,8 @@ function profileMaterial(bundle: EncryptedOfflineVaultBundle) {
   };
 }
 
-async function decryptName(key: Uint8Array, encryptedName: string): Promise<string> {
-  const plaintext = await decryptPayload(key, deserializeEncryptedEnvelope(base64ToBytes(encryptedName)));
+async function decryptName(key: Uint8Array, encryptedName: string, context: Parameters<typeof decryptPayloadWithContext>[2]): Promise<string> {
+  const plaintext = await decryptPayloadWithContext(key, deserializeEncryptedEnvelope(base64ToBytes(encryptedName)), context);
   try {
     const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
     if (!name || name.length > 120) throw new Error("Vault name is invalid.");
@@ -296,7 +297,7 @@ async function decryptAccounts(
           vaultName: vault.name,
           vaultType: vault.type,
           revision: encryptedAccount.revision,
-          ...await decryptAccountConfiguration(vault.key, base64ToBytes(encryptedAccount.encryptedPayload))
+          ...await decryptAccountConfiguration(vault.key, base64ToBytes(encryptedAccount.encryptedPayload), { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: vault.id, keyVersion: encryptedAccount.encryptionVersion })
         };
       } catch {
         unavailableAccounts[index] = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
-import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, generateSymmetricKey, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, generateSymmetricKey, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
 
 const VERSION = 1;
 const KEY_LENGTH = 32;
@@ -17,8 +17,8 @@ export async function createPasskeyRecoveryPackage(userRootKey: Uint8Array, prfO
     const packageData = {
       version: VERSION,
       prfSalt: bytesToBase64(prfSalt),
-      encryptedRecoveryWrappingKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayload(prfOutput, recoveryWrappingKey))),
-      encryptedUserRootKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayload(recoveryWrappingKey, userRootKey)))
+      encryptedRecoveryWrappingKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayloadWithContext(prfOutput, recoveryWrappingKey, { purpose: "passkey-recovery-wrap", payloadType: "recovery-wrapping-key", keyVersion: 1 }))),
+      encryptedUserRootKey: bytesToBase64(serializeEncryptedEnvelope(await encryptPayloadWithContext(recoveryWrappingKey, userRootKey, { purpose: "passkey-recovery-root", payloadType: "user-root-key", keyVersion: 1 })))
     };
     const encoded = new TextEncoder().encode(JSON.stringify(packageData));
     if (encoded.length > MAX_PACKAGE_BYTES) { encoded.fill(0); throw new Error("Passkey recovery package is invalid."); }
@@ -41,9 +41,9 @@ export async function recoverUserRootKeyFromPasskeyPackage(prfOutput: Uint8Array
   try {
     encryptedWrappingKey = decodeEnvelope(data.encryptedRecoveryWrappingKey);
     encryptedUserRootKey = decodeEnvelope(data.encryptedUserRootKey);
-    recoveryWrappingKey = await decryptPayload(prfOutput, deserializeEncryptedEnvelope(encryptedWrappingKey));
+    recoveryWrappingKey = await decryptPayloadWithContext(prfOutput, deserializeEncryptedEnvelope(encryptedWrappingKey), { purpose: "passkey-recovery-wrap", payloadType: "recovery-wrapping-key", keyVersion: 1 });
     requireLength(recoveryWrappingKey, "Recovery Wrapping Key");
-    const userRootKey = await decryptPayload(recoveryWrappingKey, deserializeEncryptedEnvelope(encryptedUserRootKey));
+    const userRootKey = await decryptPayloadWithContext(recoveryWrappingKey, deserializeEncryptedEnvelope(encryptedUserRootKey), { purpose: "passkey-recovery-root", payloadType: "user-root-key", keyVersion: 1 });
     if (userRootKey.length !== KEY_LENGTH) { userRootKey.fill(0); throw new Error("Passkey recovery package is invalid."); }
     return { userRootKey, prfSalt: data.prfSalt };
   } catch (error) {
@@ -74,7 +74,7 @@ function parsePackage(packageBytes: Uint8Array): { prfSalt: Uint8Array; encrypte
 function decodeEnvelope(value: string): Uint8Array {
   let bytes: Uint8Array;
   try { bytes = base64ToBytes(value); } catch { throw new Error("Passkey recovery package is invalid."); }
-  if (bytes.length < 29 || bytes.length > MAX_ENVELOPE_BYTES || bytes[0] !== VERSION) { bytes.fill(0); throw new Error("Passkey recovery package is invalid."); }
+  if (bytes.length < 29 || bytes.length > MAX_ENVELOPE_BYTES || bytes[0] !== 2) { bytes.fill(0); throw new Error("Passkey recovery package is invalid."); }
   return bytes;
 }
 

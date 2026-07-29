@@ -24,6 +24,8 @@ import {
   deleteLocalAccount,
   exportLocalVault,
   importLocalVaultArchive,
+  LocalVaultMigrationRequiredError,
+  migrateLegacyLocalVault,
   previewLocalVaultArchive,
   readLocalVaultRecord,
   refreshUnlockedLocalVault,
@@ -42,6 +44,7 @@ export function LocalVaultPage() {
   const [loading, setLoading] = useState(true);
   const [unsupported, setUnsupported] = useState(false);
   const [message, setMessage] = useState<{ tone: "danger" | "success" | "warning"; text: string } | null>(null);
+  const [legacyMigration, setLegacyMigration] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [editing, setEditing] = useState<UnlockedLocalVaultAccount | null>(null);
@@ -101,6 +104,20 @@ export function LocalVaultPage() {
     try {
       const unlocked = await unlockLocalVault(record, passphrase);
       setVault(unlocked);
+    } catch (error) {
+      setLegacyMigration(error instanceof LocalVaultMigrationRequiredError);
+      setMessage({ tone: "danger", text: error instanceof LocalVaultMigrationRequiredError ? t("migrationRequired") : t("unlockError") });
+    }
+  }
+
+  async function migrate(passphrase: string) {
+    setMessage(null);
+    try {
+      const migrated = await migrateLegacyLocalVault(passphrase);
+      const unlocked = await unlockLocalVault(migrated, passphrase);
+      setRecord(migrated);
+      setVault(unlocked);
+      setLegacyMigration(false);
     } catch {
       setMessage({ tone: "danger", text: t("unlockError") });
     }
@@ -130,7 +147,7 @@ export function LocalVaultPage() {
     {message && <div className="mb-5"><StatusBanner tone={message.tone} role={message.tone === "danger" ? "alert" : "status"}>{message.text}</StatusBanner></div>}
     <VaultStatusIndicator origin="LOCAL" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
-    {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} /></SurfaceCard>}
+    {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={legacyMigration ? migrate : undefined} /></SurfaceCard>}
     {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
     {record && <div className="mt-5 grid gap-3 sm:grid-cols-2"><Button variant="outline" onClick={() => setClearOpen(true)}><Trash2 />{t("clear")}</Button><p className="self-center text-xs leading-5 text-muted-foreground">{t("createDescription")}</p></div>}
     {clearOpen && <ConfirmationDialog title={t("clearTitle")} description={t("clearDescription")} confirmLabel={t("clearConfirm")} danger pending={clearing} onCancel={() => setClearOpen(false)} onConfirm={() => void handleClear()} />}
@@ -151,14 +168,14 @@ function CreateLocalVaultForm({ onCreate }: { onCreate: (passphrase: string, nam
   </form>;
 }
 
-function UnlockLocalVaultForm({ onUnlock }: { onUnlock: (passphrase: string) => Promise<void> }) {
+function UnlockLocalVaultForm({ onUnlock, onMigrate }: { onUnlock: (passphrase: string) => Promise<void>; onMigrate?: (passphrase: string) => Promise<void> }) {
   const t = useTranslations("LocalVault");
   const [visible, setVisible] = useState(false);
   const form = useForm({ defaultValues: { passphrase: "" }, onSubmit: async ({ value }) => onUnlock(value.passphrase) });
   return <form noValidate className="grid gap-5" onSubmit={(event) => { event.preventDefault(); void form.handleSubmit(); }}>
     <SectionHeading icon={LockKeyhole} title={t("unlockTitle")} description={t("unlockDescription")} />
     <form.Field name="passphrase" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("passphraseRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="local-vault-unlock">{t("passphrase")}</Label><PasswordInput id="local-vault-unlock" label={t("passphrase")} visible={visible} onToggleVisibility={() => setVisible((current) => !current)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby="local-vault-unlock-error" required /><FormFieldError id="local-vault-unlock-error" errors={field.state.meta.errors} /></div>}</form.Field>
-    <form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t("unlocking") : t("unlock")}</Button>}</form.Subscribe>
+    <form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <><Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t("unlocking") : t("unlock")}</Button>{onMigrate && <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => void onMigrate(form.state.values.passphrase)}>{t("migrate")}</Button>}</>}</form.Subscribe>
   </form>;
 }
 

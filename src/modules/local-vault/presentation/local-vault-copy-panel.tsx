@@ -54,7 +54,7 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
       for (const account of vault.accounts.filter((entry) => selectedLocal.has(entry.id))) {
         const source = { ...account, secret: account.secret.slice() };
         try {
-          const encryptedPayload = await encryptAccountConfiguration(personalVaultKey, source);
+          const encryptedPayload = await encryptAccountConfiguration(personalVaultKey, source, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: personalVaultId, keyVersion: 1 });
           const created = await createMutation.mutateAsync({ vaultId: personalVaultId, vaultType: "PERSONAL", encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
           copied.push({ ...account, id: created.id, vaultId: personalVaultId, vaultName: personalVaultName, vaultType: "PERSONAL", revision: created.revision });
         } finally {

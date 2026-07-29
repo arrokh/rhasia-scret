@@ -1,7 +1,7 @@
 "use client";
 
 import { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey, type EncryptedUserEncryptionIdentity } from "./browser-user-encryption-identity";
-import { deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, wrapKeyForRecipient } from "./browser-crypto-envelope";
+import { deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipientWithContext, wrapKeyForRecipientWithContext } from "./browser-crypto-envelope";
 
 /**
  * Rotates a user's ECDH identity in the browser and re-wraps supplied Vault
@@ -12,8 +12,13 @@ export async function rotateUserEncryptionIdentity(userRootKey: Uint8Array, encr
   const oldPrivateKey = await recoverUserEncryptionPrivateKey(userRootKey, deserializeEncryptedEnvelope(encryptedPrivateKey));
   const identity = await createUserEncryptionIdentity(userRootKey);
   const wrapped = await Promise.all(wrappedVaultKeys.map(async (packageBytes) => {
-    const vaultKey = await unwrapKeyForRecipient(deserializeKeyWrapEnvelope(packageBytes), oldPrivateKey);
-    return serializeKeyWrapEnvelope(await wrapKeyForRecipient(vaultKey, identity.publicKey));
+    const context = { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 } as const;
+    const vaultKey = await unwrapKeyForRecipientWithContext(deserializeKeyWrapEnvelope(packageBytes), oldPrivateKey, context);
+    try {
+      return serializeKeyWrapEnvelope(await wrapKeyForRecipientWithContext(vaultKey, identity.publicKey, context));
+    } finally {
+      vaultKey.fill(0);
+    }
   }));
   return { identity, wrappedVaultKeys: wrapped };
 }

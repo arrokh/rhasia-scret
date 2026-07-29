@@ -32,7 +32,7 @@ export function AuthenticatorAccountManagerDialog({ account, vaultKey, canEdit =
       setStatus(null);
       try {
         const nextAccount = { ...account, accountName: value.label.trim() };
-        const encryptedPayload = await encryptAccountConfiguration(vaultKey, nextAccount);
+        const encryptedPayload = await encryptAccountConfiguration(vaultKey, nextAccount, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: account.vaultId, keyVersion: 1 });
         const updated = await updateMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
         onUpdated({ ...nextAccount, revision: updated.revision });
         setStatus("updated");

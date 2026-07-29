@@ -71,7 +71,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
     if (!workspace) return;
     const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
     if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) throw new AccountCreatorError("destinationUnavailable");
-    const encryptedPayload = await encryptAccountConfiguration(vault.key, candidate);
+    const encryptedPayload = await encryptAccountConfiguration(vault.key, candidate, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: vault.id, keyVersion: 1 });
     let created: { id: string; revision: number };
     try {
       created = await createAccountMutation.mutateAsync({ vaultId: vault.id, vaultType: vault.type, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });

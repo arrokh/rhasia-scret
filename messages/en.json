@@ -626,6 +626,8 @@
     "unlocking": "Unlocking Local Vault…",
     "unlock": "Unlock Local Vault",
     "unlockError": "The Local Vault could not be unlocked. Check the passphrase or restore a valid archive.",
+    "migrationRequired": "This Local Vault uses an older envelope format. Migrate it explicitly after entering the Local Vault Passphrase.",
+    "migrate": "Migrate encrypted Local Vault",
     "storageError": "Local Vault storage is unavailable or invalid. No replacement state was written.",
     "offline": "Offline ready. Local Vault changes stay on this browser.",
     "accountCount": "{count, plural, one {# local account} other {# local accounts}}",

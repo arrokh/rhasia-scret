@@ -1,6 +1,6 @@
 "use client";
 
-import { decryptPayload, deserializeEncryptedEnvelope, encryptPayload, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
 import { deriveVaultUnlockKey } from "./browser-vault-unlock-key";
 
 export type RewrappedUserRootKey = {
@@ -15,7 +15,7 @@ export async function changeVaultUnlockSecret(
   currentWrappedUserRootKey: Uint8Array
 ): Promise<RewrappedUserRootKey> {
   const currentUnlockKey = await deriveVaultUnlockKey(currentSecret, currentSalt);
-  const userRootKey = await decryptPayload(currentUnlockKey, deserializeEncryptedEnvelope(currentWrappedUserRootKey));
+  const userRootKey = await decryptPayloadWithContext(currentUnlockKey, deserializeEncryptedEnvelope(currentWrappedUserRootKey), { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 });
   return wrapUserRootKeyWithVaultUnlockSecret(userRootKey, nextSecret);
 }
 
@@ -27,7 +27,7 @@ export async function wrapUserRootKeyWithVaultUnlockSecret(
   const nextUnlockKey = await deriveVaultUnlockKey(nextSecret, vaultUnlockSalt);
   return {
     vaultUnlockSalt,
-    wrappedUserRootKey: serializeEncryptedEnvelope(await encryptPayload(nextUnlockKey, userRootKey))
+    wrappedUserRootKey: serializeEncryptedEnvelope(await encryptPayloadWithContext(nextUnlockKey, userRootKey, { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 }))
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decryptPayload, deserializeEncryptedEnvelope, generateSymmetricKey } from "@/modules/crypto";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope, generateSymmetricKey } from "@/modules/crypto";
 import { createSecureShareLinkMaterial, redeemSecureShareLinkMaterial } from "@/modules/vault-membership";
 
 describe("redeemSecureShareLinkMaterial", () => {
@@ -8,6 +8,6 @@ describe("redeemSecureShareLinkMaterial", () => {
     const ownerLink = await createSecureShareLinkMaterial(vaultKey);
     const userRootKey = generateSymmetricKey();
     const redeemed = await redeemSecureShareLinkMaterial(ownerLink.secret, ownerLink.encryptedPackage, userRootKey);
-    await expect(decryptPayload(userRootKey, deserializeEncryptedEnvelope(redeemed.encryptedVaultKey))).resolves.toEqual(vaultKey);
+    await expect(decryptPayloadWithContext(userRootKey, deserializeEncryptedEnvelope(redeemed.encryptedVaultKey), { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })).resolves.toEqual(vaultKey);
   });
 });

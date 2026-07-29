@@ -1,6 +1,6 @@
 "use client";
 
-import { decryptPayload, deserializeEncryptedEnvelope } from "./browser-crypto-envelope";
+import { decryptPayloadWithContext, deserializeEncryptedEnvelope } from "./browser-crypto-envelope";
 import { deriveVaultUnlockKey } from "./browser-vault-unlock-key";
 
 export type EncryptedPersonalVaultProfile = {
@@ -15,7 +15,7 @@ export async function unlockPersonalVault(vaultUnlockSecret: string, profile: En
   const unlockKey = await deriveVaultUnlockKey(vaultUnlockSecret, profile.vaultUnlockSalt);
   let userRootKey: Uint8Array | undefined;
   try {
-    userRootKey = await decryptPayload(unlockKey, deserializeEncryptedEnvelope(profile.wrappedUserRootKey));
+    userRootKey = await decryptPayloadWithContext(unlockKey, deserializeEncryptedEnvelope(profile.wrappedUserRootKey), { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 });
     const personalVaultKey = await unlockPersonalVaultWithUserRootKey(userRootKey, profile);
     return { userRootKey, personalVaultKey };
   } catch (error) {
@@ -28,7 +28,7 @@ export async function unlockPersonalVault(vaultUnlockSecret: string, profile: En
 
 export async function unlockPersonalVaultWithUserRootKey(userRootKey: Uint8Array, profile: EncryptedPersonalVaultProfile): Promise<Uint8Array> {
   if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
-  const personalVaultKey = await decryptPayload(userRootKey, deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey));
+  const personalVaultKey = await decryptPayloadWithContext(userRootKey, deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey), { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 });
   if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
   return personalVaultKey;
 }

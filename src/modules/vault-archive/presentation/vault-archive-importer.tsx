@@ -168,10 +168,10 @@ export function VaultArchiveImporter({
     let encryptedAccounts: Uint8Array[] = [];
     let uploaded = false;
     try {
-      newVaultMaterial = destination ? undefined : await createSharedVaultMaterial(workspace.userRootKey, opened.vaultName);
+      newVaultMaterial = destination ? undefined : await createSharedVaultMaterial(workspace.userRootKey, opened.vaultName, plan.vaultId);
       const destinationKey = destination?.key ?? newVaultMaterial?.vaultKey;
       if (!destinationKey) throw new VaultArchivePresentationError("destinationKeyUnavailable");
-      encryptedAccounts = await encryptVaultArchiveAccounts(destinationKey, opened.accounts);
+      encryptedAccounts = await encryptVaultArchiveAccounts(destinationKey, opened.accounts, plan.vaultId);
       if (!activeRef.current) throw new VaultArchivePresentationError("locked");
       let requestDestination: BrowserEncryptedVaultImportRequest["destination"];
       if (destination) {

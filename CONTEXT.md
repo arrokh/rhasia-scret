@@ -68,8 +68,16 @@ A user-specific public and private key pair used to wrap Vault Encryption Keys f
 _Avoid_: Device key pair, vault key
 
 **Honest-but-Curious Server**:
-The assumed server behavior: it correctly serves the application and enforces authorization but cannot be trusted with stored encrypted data or plaintext secrets. An actively malicious application host is outside the MVP security boundary.
+The assumed server behavior: it correctly serves the application and enforces authorization but cannot be trusted with stored encrypted data or plaintext secrets. An actively malicious application host is outside the MVP security boundary. Zero knowledge does not hide permitted ciphertext size/timing or authorization/lifecycle metadata and does not protect secrets after decryption in a client served by an actively malicious host.
 _Avoid_: Malicious-server-resistant, trusted key custodian
+
+**Authenticated Crypto Context**:
+A canonical, secret-free protocol context authenticated as AES-GCM additional authenticated data and, for ECDH key wraps, included in HKDF domain separation. It binds payload purpose/type, protocol and encryption/key versions, and applicable opaque Vault, account, recipient, or profile identifiers. A context mismatch fails before plaintext is parsed; user labels, secrets, QR data, OTPs, and decrypted content never enter it.
+_Avoid_: Plaintext AAD, server-readable label, optional context, context-free compatibility fallback
+
+**Permitted Server Metadata**:
+The limited server-visible information allowed by the zero-knowledge contract: opaque identifiers, ciphertext bytes, protocol/encryption/key versions, revisions, lifecycle/deletion deadlines, authorization relationships, permitted invited-email metadata, redacted audit actor/account identifiers, bounded counts, and operational timing/size metadata. It excludes Vault names, account labels, TOTP configuration, OTPs, raw QR data, secrets, keys, decrypted content, and archive/recovery material.
+_Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
 **Pre-registered User**:
 A person invited through Supabase Auth by the administrator before they can access the application. A verified session from such an invited user is the application’s access gate.

@@ -1,7 +1,7 @@
 export { redactSensitiveData } from "./application/redact-sensitive-data";
 export { UnlockedVaultSession } from "./application/unlocked-vault-session";
-export { decryptPayload, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, generateSymmetricKey, generateUserEncryptionKeyPair, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, wrapKeyForRecipient } from "./infrastructure/browser-crypto-envelope";
-export type { EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
+export { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, encryptPayloadWithContext, generateSymmetricKey, generateUserEncryptionKeyPair, migrateLegacyEncryptedPayload, serializeCryptoEnvelopeContext, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, unwrapKeyForRecipientWithContext, wrapKeyForRecipient, wrapKeyForRecipientWithContext } from "./infrastructure/browser-crypto-envelope";
+export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
 export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infrastructure/browser-personal-vault-unlock";

@@ -53,10 +53,10 @@ export function countDuplicateArchiveAccounts(imported: DecryptedAuthenticatorAc
   return count;
 }
 
-export async function encryptVaultArchiveAccounts(destinationKey: Uint8Array, accounts: DecryptedAuthenticatorAccount[]): Promise<Uint8Array[]> {
+export async function encryptVaultArchiveAccounts(destinationKey: Uint8Array, accounts: DecryptedAuthenticatorAccount[], vaultId?: string): Promise<Uint8Array[]> {
   const encrypted: Uint8Array[] = [];
   try {
-    for (const account of accounts) encrypted.push(await encryptAccountConfiguration(destinationKey, account));
+    for (const account of accounts) encrypted.push(await encryptAccountConfiguration(destinationKey, account, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId, keyVersion: 1 }));
     return encrypted;
   } catch (error) {
     for (const payload of encrypted) payload.fill(0);

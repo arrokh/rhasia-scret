@@ -1,6 +1,6 @@
 "use client";
 
-import { encryptPayload, generateSymmetricKey, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
+import { encryptPayloadWithContext, generateSymmetricKey, serializeEncryptedEnvelope } from "./browser-crypto-envelope";
 import { deriveVaultUnlockKey } from "./browser-vault-unlock-key";
 
 const ENCRYPTION_VERSION = 1;
@@ -25,13 +25,21 @@ export async function initializePersonalVaultInBrowser(
   const vaultUnlockKey = await deriveVaultUnlockKey(vaultUnlockSecret, vaultUnlockSalt);
   const userRootKey = generateSymmetricKey();
   const personalVaultKey = generateSymmetricKey();
-  return {
-    vaultUnlockSalt,
-    wrappedUserRootKey: serializeEncryptedEnvelope(await encryptPayload(vaultUnlockKey, userRootKey)),
-    encryptedPersonalVaultKey: serializeEncryptedEnvelope(await encryptPayload(userRootKey, personalVaultKey)),
-    encryptedVaultName: serializeEncryptedEnvelope(await encryptPayload(personalVaultKey, new TextEncoder().encode(vaultName))),
-    encryptionVersion: ENCRYPTION_VERSION
-  };
+  const nameBytes = new TextEncoder().encode(vaultName);
+  try {
+    return {
+      vaultUnlockSalt,
+      wrappedUserRootKey: serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultUnlockKey, userRootKey, { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 })),
+      encryptedPersonalVaultKey: serializeEncryptedEnvelope(await encryptPayloadWithContext(userRootKey, personalVaultKey, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })),
+      encryptedVaultName: serializeEncryptedEnvelope(await encryptPayloadWithContext(personalVaultKey, nameBytes, { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 })),
+      encryptionVersion: ENCRYPTION_VERSION
+    };
+  } finally {
+    nameBytes.fill(0);
+    vaultUnlockKey.fill(0);
+    userRootKey.fill(0);
+    personalVaultKey.fill(0);
+  }
 }
 
 function randomBytes(length: number): Uint8Array {
