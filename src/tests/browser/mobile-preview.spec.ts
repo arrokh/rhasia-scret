@@ -64,6 +64,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   let memberPermissionsBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
   let createdInvitation = false;
+  let deletedVault = false;
   page.on("pageerror", (error) => pageErrors.push(error));
   await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
@@ -96,6 +97,10 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
     cancelledInvitation = true;
     await route.fulfill({ status: 204 });
   });
+  await page.route("**/api/shared-vaults/shared-preview/lifecycle", async (route) => {
+    deletedVault = route.request().method() === "DELETE";
+    await route.fulfill({ status: 204 });
+  });
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("/ui-preview/vaults");
 
@@ -125,10 +130,14 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
   await expect(page.getByText("Filter: Layanan contoh · viewer@local.invalid")).toBeVisible();
   await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
-  await expect(page.getByText(/viewer@local\.invalid · 26 Jul 2026, 20\.28/)).toBeVisible();
+  const firstAuditEvent = page.locator("li").filter({ hasText: "Akun autentikator disalin" }).first();
+  await expect(firstAuditEvent.getByText("viewer@local.invalid", { exact: true })).toBeVisible();
+  await expect(firstAuditEvent.getByText("26 Jul 2026, 20.28", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Muat lebih banyak aktivitas" }).click();
   await expect(page.getByText("Semua aktivitas telah dimuat.")).toBeVisible();
-  await expect(page.getByText(/viewer@local\.invalid · 26 Jul 2026, 20\.27/)).toBeVisible();
+  const secondAuditEvent = page.locator("li").filter({ hasText: "26 Jul 2026, 20.27" });
+  await expect(secondAuditEvent.getByText("viewer@local.invalid", { exact: true })).toBeVisible();
+  await expect(secondAuditEvent.getByText("26 Jul 2026, 20.27", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();
   await expect(page.getByText("viewer@local.invalid")).toBeVisible();
   await page.getByLabel("Atur izin akun untuk viewer@local.invalid").click();
@@ -170,7 +179,16 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByRole("button", { name: "Hapus undangan" }).click();
   await expect.poll(() => cancelledInvitation).toBe(true);
   await page.getByRole("tab", { name: "Audit" }).click();
-  await expect(page.getByText(/^viewer@local\.invalid ·/)).toBeVisible();
+  await expect(page.getByText("viewer@local.invalid", { exact: true }).first()).toBeVisible();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  const deleteVaultSection = page.locator('[data-slot="collapsible"]').filter({ hasText: "Hapus Brankas Bersama ini" });
+  await expect(deleteVaultSection).toHaveAttribute("data-state", "closed");
+  await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama ini" }).click();
+  await expect(deleteVaultSection).toHaveAttribute("data-state", "open");
+  await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible();
+  await page.getByRole("button", { name: "Hapus brankas" }).click();
+  await expect.poll(() => deletedVault).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/sign-in");
   const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
@@ -188,7 +206,7 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   const settings = page.getByLabel("Pengaturan akun");
   const leadBox = await headerLead.boundingBox();
   const settingsBox = await settings.boundingBox();
-  expect(Math.abs((leadBox?.y ?? 0) + (leadBox?.height ?? 0) / 2 - ((settingsBox?.y ?? 0) + (settingsBox?.height ?? 0) / 2))).toBeLessThan(2);
+  expect(Math.abs((leadBox?.y ?? 0) - (settingsBox?.y ?? 0))).toBeLessThan(2);
   const footerBox = await page.locator("footer").boundingBox();
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
 });

@@ -65,6 +65,32 @@ describe("dedicated Vault management", () => {
     expect(onAccountDeleted).toHaveBeenCalledWith("shared-1", "account-1", 2);
   });
 
+  it("lets an owner soft-delete a user-created Shared Vault after confirmation", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => init?.method === "DELETE"
+      ? { ok: true, status: 204 }
+      : { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const onDeleted = vi.fn();
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn(), onDeleted }))));
+
+    await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
+    const permissionSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find((element) => element.textContent?.includes("Izin akun bawaan anggota"));
+    const deleteSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find((element) => element.textContent?.includes("Hapus Brankas Bersama ini"));
+    expect(deleteSection?.getAttribute("data-state")).toBe("closed");
+    expect(Boolean(permissionSection?.compareDocumentPosition(deleteSection as Node) && permissionSection.compareDocumentPosition(deleteSection as Node) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    await act(async () => findButton(deleteSection as HTMLElement, "Hapus Brankas Bersama ini").click());
+    expect(deleteSection?.getAttribute("data-state")).toBe("open");
+    const deleteButton = findButton(deleteSection as HTMLElement, "Hapus Brankas Bersama");
+    expect(deleteButton.className).toContain("justify-self-end");
+    await act(async () => deleteButton.click());
+    expect(document.body.textContent).toContain("masa pemulihan 30 hari");
+    await act(async () => findButton(document.body, "Hapus brankas").click());
+
+    await vi.waitFor(() => expect(onDeleted).toHaveBeenCalledWith("shared-1"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
+  });
+
   it("opens member defaults initially when at least one permission is enabled", async () => {
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, {
@@ -192,7 +218,9 @@ describe("dedicated Vault management", () => {
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?accountId=account-1"))).toBe(true);
     expect(container.textContent).toContain("Filter: Example · person@example.test");
-    expect(container.textContent).toContain("viewer@example.test · 26 Jul 2026, 20.28");
+    const auditMetadata = [...container.querySelectorAll("li p")].find((element) => element.textContent?.includes("viewer@example.test"));
+    expect([...auditMetadata?.querySelectorAll("span") ?? []].map((element) => element.textContent)).toEqual(["viewer@example.test", "26 Jul 2026, 20.28"]);
+    expect([...auditMetadata?.querySelectorAll("span") ?? []].every((element) => element.className.includes("block"))).toBe(true);
     expect(container.textContent).toContain("Akun autentikator disalin");
     expect(container.textContent).toContain("Example · person@example.test");
   });
