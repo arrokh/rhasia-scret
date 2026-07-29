@@ -18,7 +18,7 @@ import { PrismaEncryptedVaultImportRepository } from "@/modules/vault-archive/in
 
 const encryptedBlob = (maximumBytes: number) => z.base64().refine((value) => {
   const bytes = Buffer.from(value, "base64");
-  return bytes.length >= 29 && bytes.length <= maximumBytes && bytes[0] === 1;
+  return bytes.length >= 29 && bytes.length <= maximumBytes && (bytes[0] === 1 || bytes[0] === 2);
 });
 const accountSchema = z.object({ id: z.uuid(), encryptedPayload: encryptedBlob(MAX_IMPORTED_CIPHERTEXT_BYTES), encryptionVersion: z.literal(1) }).strict();
 const existingDestination = z.object({ kind: z.literal("EXISTING"), vaultId: z.string().min(1).max(128), vaultType: z.enum(["PERSONAL", "SHARED"]) }).strict();

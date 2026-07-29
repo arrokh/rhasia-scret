@@ -61,7 +61,7 @@ describe("BrowserOfflineVaultRepository", () => {
 
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, schemaVersion: 3 })).toThrow(/unsupported schema/);
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: "plaintext secret" } })).toThrow(/base64/);
-    const unknownEnvelope = Buffer.from([2, ...Array<number>(31).fill(7)]).toString("base64");
+    const unknownEnvelope = Buffer.from([3, ...Array<number>(31).fill(7)]).toString("base64");
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: unknownEnvelope } })).toThrow(/envelope version/);
     expect(() => parseEncryptedOfflineVaultBundle({ ...current, personalVault: { vaultId: "missing" } })).toThrow(/unexpected or missing/);
     await expect(repository.replace(bundle("profile_a", "2026-01-01T00:00:00.000Z"))).rejects.toThrow(/cannot regress/);

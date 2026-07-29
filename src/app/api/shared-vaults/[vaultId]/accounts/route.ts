@@ -11,7 +11,7 @@ import { PrismaSharedAccountRepository } from "@/modules/authenticator-account/i
 const MAX_ENCRYPTED_ACCOUNT_BYTES = 16 * 1024 + 29;
 const encryptedAccountPayload = z.base64().refine((value) => {
   const bytes = Buffer.from(value, "base64");
-  return bytes.length >= 29 && bytes.length <= MAX_ENCRYPTED_ACCOUNT_BYTES && bytes[0] === 1;
+  return bytes.length >= 29 && bytes.length <= MAX_ENCRYPTED_ACCOUNT_BYTES && (bytes[0] === 1 || bytes[0] === 2);
 });
 const payload = z.object({ encryptedPayload: encryptedAccountPayload, encryptionVersion: z.literal(1) }).strict();
 const updateSchema = payload.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict();

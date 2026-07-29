@@ -15,15 +15,17 @@ describe("Prisma application rate-limit repository", () => {
   it.skipIf(!process.env.DATABASE_URL)("atomically enforces a shared limit across concurrent repository instances", async () => {
     const user = await createUser("concurrent");
     const repositories = [new PrismaApplicationRateLimitRepository(), new PrismaApplicationRateLimitRepository()];
+    // Keep the concurrency assertion away from a fixed-window boundary on shared CI databases.
+    const policy = { limit: 5, windowSeconds: 3_600 };
     const decisions = await Promise.all(Array.from({ length: 20 }, (_, index) => {
       const repository = repositories[index % repositories.length];
       if (!repository) throw new Error("Expected a repository instance.");
-      return repository.consume(user.id, "destructive_mutation", { limit: 5, windowSeconds: 60 });
+      return repository.consume(user.id, "destructive_mutation", policy);
     }));
 
     expect(decisions.filter((decision) => decision.allowed)).toHaveLength(5);
     expect(decisions.filter((decision) => !decision.allowed)).toHaveLength(15);
-    expect(decisions.every((decision) => decision.retryAfterSeconds >= 1 && decision.retryAfterSeconds <= 60)).toBe(true);
+    expect(decisions.every((decision) => decision.retryAfterSeconds >= 1 && decision.retryAfterSeconds <= policy.windowSeconds)).toBe(true);
     await expect(prisma.applicationRateLimitWindow.findMany({ where: { userId: user.id } })).resolves.toEqual([
       expect.objectContaining({ userId: user.id, operation: "destructive_mutation", requestCount: 6 })
     ]);
