@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { authBackend, createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { InvitedUserSignInForm } from "@/modules/identity/presentation/invited-user-sign-in-form";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +15,8 @@ type AuthNotice = { key: "required" | "signedOut" | "logoutFailed" | "missingCod
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const t = await getTranslations("Home.signIn");
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
+  const backend = authBackend();
   if (user?.canAccessApplication()) redirect("/vaults");
 
   const auth = (await searchParams).auth;
@@ -31,10 +31,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </div>
         <div className="mt-6 grid gap-5">
           {notice && <StatusBanner tone={notice.tone} role={notice.role}>{t(`notice.${notice.key}`)}</StatusBanner>}
-          <InvitedUserSignInForm />
-          <Separator />
+          {backend === "supabase" && <InvitedUserSignInForm />}
+          {backend === "oidc" && <Button asChild><Link href="/auth/oidc">{t("oidcSignIn")}</Link></Button>}
+          {backend === "none" && <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>}
+          {backend !== "none" && <Separator />}
           <Button variant="outline" asChild><Link href="/offline">{t("openOffline")}</Link></Button>
-          <p className="text-center text-xs leading-5 text-muted-foreground">{t("inviteOnly")}</p>
+          <p className="text-center text-xs leading-5 text-muted-foreground">{t(backend === "none" ? "localOnly" : "inviteOnly")}</p>
         </div>
       </SurfaceCard>
     </AppPage>

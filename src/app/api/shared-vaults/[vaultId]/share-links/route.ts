@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { createSecureShareLinkInvitation } from "@/modules/vault-membership/application/manage-secure-share-link";
 import { InvitationConflictError, InvitationRecipientUnavailableError } from "@/modules/vault-membership/application/secure-share-link-repository";
@@ -12,7 +11,7 @@ import { PrismaSecureShareLinkRepository } from "@/modules/vault-membership/infr
 const schema = z.object({ recipientEmail: z.email(), linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32), encryptedPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13) });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);

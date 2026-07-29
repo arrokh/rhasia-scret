@@ -4,8 +4,7 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
 import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
@@ -17,7 +16,7 @@ const renameSchema = z.object({
 });
 
 export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const { vaultId } = await params;
@@ -58,7 +57,7 @@ export function createRenameSharedVaultHandler({
 }
 
 export const PATCH = createRenameSharedVaultHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   sharedVaults: new PrismaSharedVaultRepository()
 });

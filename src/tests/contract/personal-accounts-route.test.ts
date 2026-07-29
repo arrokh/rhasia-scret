@@ -12,7 +12,7 @@ describe("Personal Vault accounts API", () => {
     const create = vi.fn().mockResolvedValue(new EncryptedAuthenticatorAccount("account-1", "vault-1", new Uint8Array([1, 2, 3]), 1, 1));
     const handlers = createPersonalAccountsHandlers({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() }
     });
     const response = await handlers.POST(new NextRequest("http://localhost/api/vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(payload) }), { params: Promise.resolve({ vaultId: "vault-1" }) });
@@ -26,7 +26,7 @@ describe("Personal Vault accounts API", () => {
     const restore = vi.fn().mockResolvedValue(true);
     const handlers = createPersonalAccountsHandlers({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       accounts: { create: vi.fn(), list: vi.fn(), update, delete: remove, restore }
     });
     const context = { params: Promise.resolve({ vaultId: "vault-1" }) };

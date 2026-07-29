@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { findSecureShareLinkForRecipient, redeemSecureShareLinkForRecipient } from "@/modules/vault-membership/application/manage-secure-share-link";
 import { SecureShareLinkUnavailableError } from "@/modules/vault-membership/application/secure-share-link-repository";
@@ -13,7 +12,7 @@ const verifier = z.base64().refine((value) => Buffer.byteLength(value, "base64")
 const redeemSchema = z.object({ invitationId: z.string().min(1), encryptedVaultKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), keyVersion: z.literal(1) });
 
 export async function GET(request: NextRequest) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier("fresh-user"), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier("fresh-provider-user"), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const parsed = verifier.safeParse(request.nextUrl.searchParams.get("verifier"));
@@ -24,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier("fresh-user"), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier("fresh-provider-user"), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);

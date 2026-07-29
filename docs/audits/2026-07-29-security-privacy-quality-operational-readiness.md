@@ -102,6 +102,16 @@ This addendum records the complete repository-quality result requested for issue
 
 The archived full quality log was inspected, including setup, dependency installation, Prisma, lint, typecheck, test, architecture, build, cleanup, and service-container sections. Vitest emitted expected provider-missing diagnostics from isolated component tests while still reporting all 406 tests passed; they were not GitHub Actions errors.
 
+## Post-remediation evidence for #77
+
+The provider-neutral identity implementation is validated separately from the historical #74 run above:
+
+- **Identity contract:** `CONTEXT.md`, ADR-0011 amendment, and ADR-0039 define Verified Principal, External Identity, Application Admission, Identity Linking, Provider Migration, `none`/`supabase`/`oidc` modes, OIDC PKCE/discovery validation, and fail-closed behavior.
+- **Persistence/migration:** Prisma CLI-generated migrations `20260729190054_provider_neutral_external_identities`, `20260729191237_remove_application_email_uniqueness`, and `20260729191540_add_identity_security_events` were applied successfully. The Prisma-backed backfill reported `Backfilled 14 Supabase External Identities.` Application User identifiers and existing foreign keys were preserved; no Vault key or ciphertext operation was part of identity migration.
+- **Deterministic validation:** `pnpm test` — **139 test files / 429 tests passed**; `pnpm run lint`, `pnpm run typecheck`, `pnpm run test:architecture`, `pnpm run prisma:validate`, dependency-license verification, production audit, production build, and build-output secret/source-map verification passed locally.
+- **Provider boundaries:** the provider-import architecture test passed, and all application API routes now use the Identity composition root rather than concrete provider adapters. No automatic email linking is implemented; explicit linking requires active reauthentication of both identities and writes only a redacted identity security event.
+- **Production/provider evidence:** Supabase/OIDC provider configuration, revocation, deployment, database, backup, and release controls remain Not Verifiable until operator evidence is attached.
+
 ## Release decision
 
 Do not treat this audit as a security sign-off. Critical/High findings are release blockers until #75, #76, and #77 (and any linked #70–#73 behavior) are completed, independently reviewed, and verified. Production-only controls remain Not Verifiable until operator evidence is attached. The report itself is complete as a dated repository-visible audit artifact, not as proof that all remediation work is complete.

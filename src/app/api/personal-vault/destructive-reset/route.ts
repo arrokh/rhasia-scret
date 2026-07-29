@@ -3,8 +3,7 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
@@ -52,7 +51,7 @@ export function createDestructivePersonalVaultResetHandler({ sessionVerifier, ap
 }
 
 export const POST = createDestructivePersonalVaultResetHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   resets: new PrismaDestructivePersonalVaultResetRepository()
 });

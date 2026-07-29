@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { recordVaultArchiveExport, type VaultAuditRepository } from "@/modules/vault-management/application/manage-vault-audit";
 import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
@@ -33,7 +32,7 @@ function requestDeclaresContent(request: Request): boolean {
 }
 
 export const POST = createVaultArchiveExportAuditHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   audit: new PrismaVaultAuditRepository()
 });

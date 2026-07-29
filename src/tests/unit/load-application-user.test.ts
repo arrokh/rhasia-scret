@@ -12,7 +12,7 @@ describe("loadApplicationUser", () => {
   it("provisions an application user from the verified Supabase identity", async () => {
     const session = { subject: "subject-1", email: "person@example.test" };
     const applicationUsers = {
-      provision: async (received: typeof session) => new ApplicationUser("user-1", received.subject, received.email, "ACTIVE")
+      provision: async (received: typeof session) => new ApplicationUser("user-1", "supabase", received.subject, received.email, "ACTIVE")
     };
     await expect(loadApplicationUser(new FakeSessionVerifier(session), applicationUsers)).resolves.toMatchObject({
       id: "user-1",

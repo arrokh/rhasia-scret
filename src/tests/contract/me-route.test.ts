@@ -18,7 +18,7 @@ describe("GET /api/me contract", () => {
     const handler = createGetMeHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
       applicationUsers: {
-        provision: async () => new ApplicationUser("application-1", "supabase-1", "person@example.test", "ACTIVE")
+        provision: async () => new ApplicationUser("application-1", "supabase", "supabase-1", "person@example.test", "ACTIVE")
       }
     });
     const response = await handler();
@@ -30,7 +30,7 @@ describe("GET /api/me contract", () => {
     const handler = createGetMeHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
       applicationUsers: {
-        provision: async () => new ApplicationUser("application-1", "supabase-1", "person@example.test", "INACTIVE")
+        provision: async () => new ApplicationUser("application-1", "supabase", "supabase-1", "person@example.test", "INACTIVE")
       }
     });
     const response = await handler();

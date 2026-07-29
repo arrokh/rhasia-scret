@@ -67,7 +67,7 @@ describe("POST /api/vault-imports contract", () => {
 function createHandler(importArchive: EncryptedVaultImportRepository["import"]) {
   return createEncryptedVaultImportHandler({
     sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "owner@example.test" }),
-    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "owner@example.test", "ACTIVE") },
+    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "owner@example.test", "ACTIVE") },
     imports: { import: importArchive }
   });
 }

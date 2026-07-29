@@ -23,7 +23,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       bundles: { readAuthorizedBundle }
     });
 
@@ -44,7 +44,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       bundles: { readAuthorizedBundle }
     });
 
@@ -71,7 +71,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
   it("reports an initialized-profile miss without returning a partial response", async () => {
     const handler = createOfflineSyncBundleHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       bundles: { readAuthorizedBundle: async () => null }
     });
 

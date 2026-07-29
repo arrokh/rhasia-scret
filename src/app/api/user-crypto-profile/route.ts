@@ -4,9 +4,8 @@ import { loadApplicationUser } from "@/modules/identity/application/load-applica
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; cryptoProfiles: UserCryptoProfileRepository };
 
@@ -29,7 +28,7 @@ export function createGetUserCryptoProfileHandler({ sessionVerifier, application
 }
 
 export const GET = createGetUserCryptoProfileHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   cryptoProfiles: new PrismaUserCryptoProfileRepository()
 });

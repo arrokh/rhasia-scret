@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { PrismaVaultKeyRotationRepository } from "@/modules/vault-management/infrastructure/prisma-vault-key-rotation-repository";
 
@@ -11,7 +10,7 @@ const ciphertext = z.base64().refine((value) => Buffer.byteLength(value, "base64
 const rotationSchema = z.object({ encryptedName: ciphertext, encryptionVersion: z.literal(1), keyVersion: z.number().int().positive(), accounts: z.array(z.object({ id: z.string().min(1), encryptedPayload: ciphertext })), memberPackages: z.array(z.object({ userId: z.string().min(1), encryptedVaultKey: ciphertext })) });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const rateLimited = await rateLimitApplicationUser("key_material_mutation", user.id);

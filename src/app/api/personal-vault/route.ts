@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { ensurePersonalVault } from "@/modules/vault-management/application/ensure-personal-vault";
 import type { PersonalVaultRepository } from "@/modules/vault-management/application/personal-vault-repository";
 import { PrismaPersonalVaultRepository } from "@/modules/vault-management/infrastructure/prisma-personal-vault-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 
 type Dependencies = {
   sessionVerifier: SessionVerifier;
@@ -25,7 +24,7 @@ export function createGetPersonalVaultHandler({ sessionVerifier, applicationUser
 }
 
 export const GET = createGetPersonalVaultHandler({
-  sessionVerifier: new SupabaseSessionVerifier(),
-  applicationUsers: new PrismaApplicationUserRepository(),
+  sessionVerifier: createSessionVerifier(),
+  applicationUsers: createApplicationUserRepository(),
   personalVaults: new PrismaPersonalVaultRepository()
 });

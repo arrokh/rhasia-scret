@@ -12,7 +12,7 @@ import {
 function handler(reset: () => Promise<void>) {
   return createDestructivePersonalVaultResetHandler({
     sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
     resets: { getEligibility: vi.fn(), reset }
   });
 }

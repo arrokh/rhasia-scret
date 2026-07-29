@@ -11,7 +11,7 @@ describe("PUT /api/user-encryption-identity contract", () => {
     const registerUserEncryptionIdentity = vi.fn().mockResolvedValue(undefined);
     const handler = createUserEncryptionIdentityHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       cryptoProfiles: { get: async () => null, registerUserEncryptionIdentity, rewrapUserRootKey: async () => undefined }
     });
     const response = await handler(new NextRequest("http://localhost/api/user-encryption-identity", { method: "PUT", body: JSON.stringify(payload) }));
@@ -22,7 +22,7 @@ describe("PUT /api/user-encryption-identity contract", () => {
   it("rejects a private JWK", async () => {
     const handler = createUserEncryptionIdentityHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       cryptoProfiles: { get: async () => null, registerUserEncryptionIdentity: async () => undefined, rewrapUserRootKey: async () => undefined }
     });
     const response = await handler(new NextRequest("http://localhost/api/user-encryption-identity", { method: "PUT", body: JSON.stringify({ ...payload, publicKey: { ...payload.publicKey, d: "private" } }) }));

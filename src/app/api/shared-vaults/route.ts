@@ -4,10 +4,9 @@ import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
 import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import type { SharedVaultAccessRepository } from "@/modules/vault-membership/application/shared-vault-access-repository";
 import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
@@ -67,8 +66,8 @@ export function createListSharedVaultsHandler({
   };
 }
 
-const sessionVerifier = new SupabaseSessionVerifier();
-const applicationUsers = new PrismaApplicationUserRepository();
+const sessionVerifier = createSessionVerifier();
+const applicationUsers = createApplicationUserRepository();
 
 export const GET = createListSharedVaultsHandler({
   sessionVerifier,

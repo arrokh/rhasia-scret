@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
-import { SupabaseSessionVerifier } from "@/modules/identity/infrastructure/supabase-session-verifier";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import type { SharedAccountMutationResult } from "@/modules/authenticator-account/application/shared-account-repository";
 import { PrismaSharedAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
@@ -19,7 +18,7 @@ const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: 
 const restoreSchema = z.object({ accountId: z.string().min(1) }).strict();
 
 async function actor() {
-  const user = await loadApplicationUser(new SupabaseSessionVerifier(), new PrismaApplicationUserRepository());
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   if (!user) return null;
   if (!user.canAccessApplication()) throw new InactiveUserError();
   return user;

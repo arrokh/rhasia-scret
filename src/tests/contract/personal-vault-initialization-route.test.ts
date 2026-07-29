@@ -17,7 +17,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
     const initialize = vi.fn().mockResolvedValue(undefined);
     const handler = createInitializePersonalVaultHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       personalVaults: { initialize }
     });
     const response = await handler(new NextRequest("http://localhost/api/personal-vault/initialize", {
@@ -31,7 +31,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
   it("rejects malformed opaque material", async () => {
     const handler = createInitializePersonalVaultHandler({
       sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase-1", "person@example.test", "ACTIVE") },
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
       personalVaults: { initialize: vi.fn() }
     });
     const response = await handler(new NextRequest("http://localhost/api/personal-vault/initialize", {
