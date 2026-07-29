@@ -84,11 +84,15 @@ A versioned encrypted package that allows one User Encryption Key Pair to recove
 _Avoid_: Plaintext vault key, shared password
 
 **Invitation**:
-A no-acceptance request by a Shared Vault owner to give a pre-registered user access. It includes a one-time Secure Share Link so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User.
+A no-acceptance request by a Shared Vault owner to give a pre-registered user access. It includes a one-time Secure Share Link that expires exactly seven days after creation so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User. An expired Invitation creates no Membership Grant and may be replaced through owner-initiated Re-invitation.
 _Avoid_: Pending membership
 
+**Re-invitation**:
+The owner-only replacement of an expired Invitation for the same intended recipient. The client creates a fresh Secure Share Link secret, verifier, and encrypted key-handoff package; the server atomically removes matching expired pending Invitations and stores the replacement without receiving the secret or a usable Vault Encryption Key. An unexpired pending Invitation or active Membership Grant still blocks replacement.
+_Avoid_: Link recovery, link extension, verifier reuse
+
 **Secure Share Link**:
-A one-time secret link delivered by the owner through a secure out-of-band channel. It is bound to the intended invited user and lets them obtain an encrypted Vault Encryption Key package without giving that key to the server. The owner may cancel a pending Invitation, which permanently invalidates its Secure Share Link; the MVP has no expiry or reissue flow.
+A one-time secret link delivered by the owner through a secure out-of-band channel. It is bound to the intended invited user, expires exactly seven days after its Invitation is created, and lets them obtain an encrypted Vault Encryption Key package without giving that key to the server. The owner may cancel a pending Invitation, which permanently invalidates its Secure Share Link, or create a Re-invitation after expiry; the original link is never recovered or reused.
 _Avoid_: Server-visible key link, reusable sharing URL
 
 **Membership Grant**:

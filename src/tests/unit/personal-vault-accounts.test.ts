@@ -53,7 +53,8 @@ describe("PersonalVaultAccounts", () => {
 
     expect(container.querySelector("#vault-unlock-secret")).toBeNull();
     expect(container.textContent).toContain("personal@example.test");
-    expect(container.querySelector('a[href="/vaults/manage"] .lucide-lock-keyhole')).not.toBeNull();
+    expect(container.querySelector('a[href="/vaults/manage"] .lucide-vault')).not.toBeNull();
+    expect(container.querySelector('a[href="/vaults/manage"] .lucide-lock-keyhole')).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Keamanan"]')?.textContent).toContain("Keamanan");
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
   });

@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
     owner: page.owner,
     vaultDefaultAccountPermissions: page.vaultDefaultAccountPermissions,
     vaultDefaultAccountPermissionsRevision: page.vaultDefaultAccountPermissionsRevision,
-    participants: page.items.map((participant) => ({ ...participant, invitedAt: participant.invitedAt.toISOString() })),
+    participants: page.items.map((participant) => ({ ...participant, invitedAt: participant.invitedAt.toISOString(), expiresAt: participant.expiresAt?.toISOString() ?? null })),
     nextCursor: page.nextCursor ? encodeTimestampCursor(page.nextCursor, scope) : null
   });
 }

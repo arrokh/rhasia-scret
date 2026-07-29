@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Check, ChevronDown, ChevronRight, Clipboard, ClipboardX, Download, KeyRound, MailPlus, Plus, ScrollText, Settings2, Trash2, Upload, UsersRound } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clipboard, ClipboardX, DatabaseBackup, Import, KeyRound, MailPlus, Plus, RefreshCw, ScrollText, Settings2, Trash2, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,12 +50,12 @@ export type SharedVaultSummary = {
 export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] }) {
   const t = useTranslations("VaultManagement.directory");
   return <div className="grid gap-5 p-5 sm:p-6">
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <div className="min-w-0"><h2 className="text-lg font-bold text-ink-strong">{t("title")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></div>
-      <nav aria-label={t("archiveActions")} className="flex shrink-0 items-center gap-2">
-        <Button variant="outline" size="icon" asChild><Link href="/vaults/backup" aria-label={t("backup")} title={t("backup")}><Download aria-hidden="true" /></Link></Button>
-        <Button variant="outline" size="icon" asChild><Link href="/vaults/import" aria-label={t("importArchive")} title={t("importArchive")}><Upload aria-hidden="true" /></Link></Button>
-        <Button size="sm" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button>
+      <nav aria-label={t("archiveActions")} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0">
+        <Button variant="outline" size="icon" asChild><Link href="/vaults/backup" aria-label={t("backup")} title={t("backup")}><DatabaseBackup aria-hidden="true" /></Link></Button>
+        <Button variant="outline" size="icon" asChild><Link href="/vaults/import" aria-label={t("importArchive")} title={t("importArchive")}><Import aria-hidden="true" /></Link></Button>
+        <Button size="sm" className="h-11 min-w-0 sm:h-10" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button>
       </nav>
     </div>
     <ul className="grid list-none gap-2 p-0">
@@ -221,13 +221,18 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
   const [participantToDelete, setParticipantToDelete] = useState<BrowserVaultParticipant | null>(null);
   const [participantToConfigure, setParticipantToConfigure] = useState<BrowserVaultParticipant | null>(null);
   const [pendingLinks, setPendingLinks] = useState<Record<string, string>>({});
-  const [createdInvitations, setCreatedInvitations] = useState<Array<{ id: string; email: string }>>([]);
+  const [createdInvitations, setCreatedInvitations] = useState<Array<{ id: string; email: string; expiresAt: string }>>([]);
+  const [replacedInvitationIds, setReplacedInvitationIds] = useState<string[]>([]);
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"failed" | "unavailable" | null>(null);
+  const [reinvitingInvitationId, setReinvitingInvitationId] = useState<string | null>(null);
+  const [latestInvitationLink, setLatestInvitationLink] = useState<string | null>(null);
+  const [reinvitationFailed, setReinvitationFailed] = useState(false);
   const deleteMutation = useDeleteVaultParticipantMutation(vault.id);
+  const visibleParticipants = participants.filter(({ invitationId }) => !invitationId || !replacedInvitationIds.includes(invitationId));
   const invited = [
-    ...participants,
-    ...createdInvitations.filter(({ id }) => !participants.some((participant) => participant.invitationId === id)).map(({ id, email }) => ({ key: `invitation:${id}`, email, kind: "INVITATION" as const, userId: null, invitationId: id, invitedAt: new Date().toISOString(), permissionOverrides: null, effectiveAccountPermissions: null, permissionsRevision: null }))
+    ...visibleParticipants,
+    ...createdInvitations.filter(({ id }) => !participants.some((participant) => participant.invitationId === id)).map(({ id, email, expiresAt }) => ({ key: `invitation:${id}`, email, kind: "INVITATION" as const, userId: null, invitationId: id, invitationState: "PENDING" as const, invitedAt: new Date().toISOString(), expiresAt, permissionOverrides: null, effectiveAccountPermissions: null, permissionsRevision: null }))
   ];
   async function removeParticipant() {
     if (!participantToDelete) return;
@@ -253,8 +258,27 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
       setCopyStatus("failed");
     }
   }
+  function rememberInvitation(invitation: { id: string; email: string; expiresAt: string; link: string }, replacedInvitationId?: string) {
+    setPendingLinks((current) => { const next = { ...current, [invitation.id]: invitation.link }; if (replacedInvitationId) delete next[replacedInvitationId]; return next; });
+    setCreatedInvitations((current) => [...current.filter(({ id }) => id !== invitation.id && id !== replacedInvitationId), { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt }]);
+    if (replacedInvitationId) setReplacedInvitationIds((current) => [...current, replacedInvitationId]);
+    setLatestInvitationLink(invitation.link);
+    onCreated();
+  }
+  async function reinvite(participant: BrowserVaultParticipant) {
+    if (!participant.invitationId || participant.invitationState !== "EXPIRED") return;
+    setReinvitingInvitationId(participant.invitationId);
+    setReinvitationFailed(false);
+    try {
+      const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key);
+      const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`;
+      rememberInvitation({ id: invitation.id, email: participant.email, expiresAt: invitation.expiresAt, link }, participant.invitationId);
+    } catch { setReinvitationFailed(true); }
+    finally { setReinvitingInvitationId(null); }
+  }
   return <div className="grid gap-5">
-    <InvitationForm vault={vault} onCreated={({ id, email, link }) => { setPendingLinks((current) => ({ ...current, [id]: link })); setCreatedInvitations((current) => [...current.filter((invitation) => invitation.id !== id), { id, email }]); onCreated(); }} />
+    <InvitationForm vault={vault} onCreated={(invitation) => rememberInvitation(invitation)} />
+    {latestInvitationLink && <SecureInvitationLink link={latestInvitationLink} />}
     <section className="grid gap-3" aria-labelledby="invited-users-title">
       <div><h3 id="invited-users-title" className="font-bold text-ink-strong">{t("usersTitle")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("usersDescription")}</p></div>
       {loading && <SectionLoadingPlaceholder rows={2} label={t("loading")} />}
@@ -262,9 +286,11 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
       {!loading && !failed && !invited.length && <p className="rounded-md border border-dashed bg-muted/30 p-5 text-center text-sm text-muted-foreground">{t("empty")}</p>}
       {!!invited.length && <ul className="grid list-none gap-2 p-0">{invited.map((participant) => {
         const invitationId = participant.kind === "INVITATION" ? participant.invitationId : null;
+        const expired = participant.invitationState === "EXPIRED";
         const linkAvailable = invitationId ? Boolean(pendingLinks[invitationId]) : false;
-        return <li key={participant.key} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border bg-card p-3"><span className="grid min-w-0 gap-1"><strong className="truncate text-sm">{participant.email}</strong><span className="flex flex-wrap items-center gap-2"><Badge className="w-fit bg-muted text-muted-foreground">{participant.kind === "MEMBER" ? t("active") : t("pending")}</Badge>{participant.effectiveAccountPermissions && <span className="text-xs text-muted-foreground"><PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} /></span>}</span></span><span className="flex items-center">{invitationId && <Button variant="ghost" size="icon-sm" type="button" aria-label={t(linkAvailable ? "copyPending" : "copyUnavailableLabel", { email: participant.email })} title={linkAvailable ? copiedInvitationId === invitationId ? t("pendingCopied") : t("copy") : t("copyUnavailableTitle")} onClick={() => void copyPendingInvitation(invitationId)}>{linkAvailable ? copiedInvitationId === invitationId ? <Check /> : <Clipboard /> : <ClipboardX />}</Button>}{participant.kind === "MEMBER" && <Button variant="ghost" size="icon-sm" type="button" aria-label={t("configurePermissions", { email: participant.email })} onClick={() => setParticipantToConfigure(participant)}><Settings2 /></Button>}<Button variant="ghost" size="icon-sm" type="button" aria-label={t("viewAudit", { email: participant.email })} title={participant.userId ? t("viewAuditTitle") : t("auditUnavailable")} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={t("deleteLabel", { email: participant.email })} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>;
+        return <li key={participant.key} className="grid items-center gap-3 rounded-md border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto]"><span className="grid min-w-0 gap-1"><strong className="break-all text-sm sm:truncate">{participant.email}</strong><span className="flex flex-wrap items-center gap-2"><Badge className={expired ? "w-fit bg-danger-surface text-destructive" : "w-fit bg-muted text-muted-foreground"}>{participant.kind === "MEMBER" ? t("active") : expired ? t("expired") : t("pending")}</Badge>{participant.effectiveAccountPermissions && <span className="text-xs text-muted-foreground"><PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} /></span>}</span></span><span className="flex flex-wrap items-center justify-end gap-1">{expired && <Button variant="outline" className="min-h-11 flex-1 sm:flex-none" type="button" disabled={reinvitingInvitationId === invitationId} aria-busy={reinvitingInvitationId === invitationId} onClick={() => void reinvite(participant)}><RefreshCw className={reinvitingInvitationId === invitationId ? "animate-spin" : undefined} />{reinvitingInvitationId === invitationId ? t("reinviting") : t("reinvite")}</Button>}{invitationId && !expired && <Button variant="ghost" size="icon" type="button" aria-label={t(linkAvailable ? "copyPending" : "copyUnavailableLabel", { email: participant.email })} title={linkAvailable ? copiedInvitationId === invitationId ? t("pendingCopied") : t("copy") : t("copyUnavailableTitle")} onClick={() => void copyPendingInvitation(invitationId)}>{linkAvailable ? copiedInvitationId === invitationId ? <Check /> : <Clipboard /> : <ClipboardX />}</Button>}{participant.kind === "MEMBER" && <Button variant="ghost" size="icon" type="button" aria-label={t("configurePermissions", { email: participant.email })} onClick={() => setParticipantToConfigure(participant)}><Settings2 /></Button>}<Button variant="ghost" size="icon" type="button" aria-label={t("viewAudit", { email: participant.email })} title={participant.userId ? t("viewAuditTitle") : t("auditUnavailable")} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={t("deleteLabel", { email: participant.email })} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>;
       })}</ul>}
+      {reinvitationFailed && <StatusBanner tone="danger" role="alert">{t("reinviteError")}</StatusBanner>}
       {copyStatus && <StatusBanner tone={copyStatus === "failed" ? "danger" : "warning"} role={copyStatus === "failed" ? "alert" : "status"}>{t(copyStatus === "failed" ? "copyError" : "copyUnavailable")}</StatusBanner>}
       {hasMore && <Button variant="outline" type="button" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? t("loading") : t("loadMore")}</Button>}
       {!!invited.length && !hasMore && <p className="text-center text-xs text-muted-foreground" aria-live="polite">{t("allLoaded")}</p>}
@@ -274,17 +300,22 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
   </div>;
 }
 
-function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCreated: (invitation: { id: string; email: string; link: string }) => void }) {
+function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCreated: (invitation: { id: string; email: string; expiresAt: string; link: string }) => void }) {
   const t = useTranslations("VaultManagement.invitations");
-  const [result, setResult] = useState<{ link: string; copied: boolean } | null>(null);
-  const [error, setError] = useState<"createError" | "copyError" | null>(null);
-  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(null); setResult(null); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; setResult({ link, copied: false }); form.reset(); onCreated({ id: invitation.id, email, link }); } catch { setError("createError"); } } });
-  async function copyLink() { if (!result) return; try { await navigator.clipboard.writeText(result.link); setResult({ ...result, copied: true }); } catch { setError("copyError"); } }
+  const [error, setError] = useState(false);
+  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(false); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; form.reset(); onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link }); } catch { setError(true); } } });
   return <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
     <div><h3 className="flex items-center gap-2 font-bold text-ink-strong"><MailPlus className="size-5" />{t("formTitle")}</h3><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p></div>
     <form.Field name="email" validators={{ onSubmit: ({ value }) => /^\S+@\S+\.\S+$/.test(value.trim()) ? undefined : t("invalidEmail") }}>{(field) => <div className="grid gap-2"><Label htmlFor="invitation-email">{t("recipientEmail")}</Label><Input id="invitation-email" type="email" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="email" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "invitation-email-error" : undefined} required /><FormFieldError id="invitation-email-error" errors={field.state.meta.errors} /></div>}</form.Field>
-    <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={pending}>{pending ? t("creating") : t("create")}</Button>}</form.Subscribe>
-    {result && <div className="grid gap-2 rounded-md border border-success/20 bg-success-surface p-3"><p className="text-sm font-bold text-success">{t("ready")}</p><output className="break-all rounded-sm bg-card p-2 font-mono text-xs" aria-label={t("secureLink")}>{result.link}</output><Button variant="outline" type="button" onClick={() => void copyLink()}>{result.copied ? <Check /> : <Clipboard />}{result.copied ? t("copied") : t("copy")}</Button></div>}
-    {error && <StatusBanner tone="danger" role="alert">{t(error)}</StatusBanner>}
+    <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button className="w-full sm:w-auto sm:justify-self-end" type="submit" disabled={pending}>{pending ? t("creating") : t("create")}</Button>}</form.Subscribe>
+    {error && <StatusBanner tone="danger" role="alert">{t("createError")}</StatusBanner>}
   </form>;
+}
+
+function SecureInvitationLink({ link }: { link: string }) {
+  const t = useTranslations("VaultManagement.invitations");
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  async function copyLink() { try { await navigator.clipboard.writeText(link); setCopied(true); setCopyFailed(false); } catch { setCopyFailed(true); } }
+  return <div className="grid min-w-0 gap-2 rounded-md border border-success/20 bg-success-surface p-3"><p className="text-sm font-bold text-success">{t("ready")}</p><output className="min-w-0 break-all rounded-sm bg-card p-2 font-mono text-xs" aria-label={t("secureLink")}>{link}</output><Button className="w-full sm:w-auto sm:justify-self-end" variant="outline" type="button" onClick={() => void copyLink()}>{copied ? <Check /> : <Clipboard />}{copied ? t("copied") : t("copy")}</Button>{copyFailed && <StatusBanner tone="danger" role="alert">{t("copyError")}</StatusBanner>}</div>;
 }

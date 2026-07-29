@@ -13,10 +13,10 @@ describe("POST Shared Vault invitation", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("binds encrypted one-time link material to an invited email", async () => {
-    mocks.createForEmail.mockResolvedValue({ id: "invitation-1" });
+    mocks.createForEmail.mockResolvedValue({ id: "invitation-1", expiresAt: new Date("2026-08-05T12:00:00.000Z") });
     const response = await POST(validRequest(), { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toEqual({ id: "invitation-1" });
+    await expect(response.json()).resolves.toEqual({ id: "invitation-1", expiresAt: "2026-08-05T12:00:00.000Z" });
     expect(mocks.createForEmail).toHaveBeenCalledWith("owner-1", "vault-1", "viewer@example.test", expect.objectContaining({ linkVerifier: expect.any(Uint8Array), encryptedPackage: expect.any(Uint8Array) }));
   });
 

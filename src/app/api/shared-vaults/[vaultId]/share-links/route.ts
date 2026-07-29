@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { vaultId } = await params;
     const link = await createSecureShareLinkInvitation(user.id, vaultId, parsed.data.recipientEmail, { linkVerifier: Buffer.from(parsed.data.linkVerifier, "base64"), encryptedPackage: Buffer.from(parsed.data.encryptedPackage, "base64") }, new PrismaSecureShareLinkRepository());
-    return NextResponse.json({ id: link.id }, { status: 201 });
+    return NextResponse.json({ id: link.id, expiresAt: link.expiresAt.toISOString() }, { status: 201 });
   } catch (error) {
     if (error instanceof InvitationRecipientUnavailableError) return NextResponse.json({ error: "shared_vault_or_recipient_unavailable" }, { status: 404 });
     if (error instanceof InvitationConflictError) return NextResponse.json({ error: "invitation_conflict" }, { status: 409 });

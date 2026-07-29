@@ -23,7 +23,8 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(signOutAction).toBeVisible();
   expect(await lockAction.evaluate((lock, signOut) => Boolean(lock.compareDocumentPosition(signOut as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await signOutAction.elementHandle())).toBe(true);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
@@ -58,6 +59,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
 test("uses dedicated, consistent Vault navigation and management tabs", async ({ page }) => {
   const pageErrors: Error[] = [];
   let invitationBody: Record<string, unknown> | undefined;
+  let reinvitationBody: Record<string, unknown> | undefined;
   let defaultPermissionsBody: Record<string, unknown> | undefined;
   let memberPermissionsBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
@@ -70,7 +72,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.route("**/api/shared-vaults/shared-preview/participants**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     const participants = nextPage
-      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:01:00.000Z" }, ...(createdInvitation ? [{ key: "invitation:invitation-preview", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "invitation-preview", invitedAt: "2026-07-26T12:02:00.000Z" }] : [])]
+      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitationState: "PENDING", invitedAt: "2026-07-26T12:01:00.000Z", expiresAt: "2026-08-02T12:01:00.000Z" }, { key: "invitation:expired-preview", email: "expired-with-a-long-address@local.invalid", kind: "INVITATION", userId: null, invitationId: "expired-preview", invitationState: "EXPIRED", invitedAt: "2026-07-19T12:01:00.000Z", expiresAt: "2026-07-26T12:01:00.000Z" }, ...(createdInvitation ? [{ key: "invitation:invitation-preview", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "invitation-preview", invitationState: "PENDING", invitedAt: "2026-07-26T12:02:00.000Z", expiresAt: "2026-08-02T12:02:00.000Z" }] : [])]
       : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z", permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 2 }];
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
   });
@@ -84,15 +86,17 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 3 }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
-    invitationBody = route.request().postDataJSON() as Record<string, unknown>;
-    createdInvitation = true;
-    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "invitation-preview" }) });
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    const reinviting = body.recipientEmail === "expired-with-a-long-address@local.invalid";
+    if (reinviting) reinvitationBody = body;
+    else { invitationBody = body; createdInvitation = true; }
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: reinviting ? "replacement-preview" : "invitation-preview", expiresAt: "2026-08-05T12:00:00.000Z" }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links/pending-preview", async (route) => {
     cancelledInvitation = true;
     await route.fulfill({ status: 204 });
   });
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("/ui-preview/vaults");
 
   await expect(page.getByRole("heading", { level: 1, name: "Brankas" })).toBeVisible();
@@ -101,7 +105,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   const importAction = page.getByRole("link", { name: "Import arsip" });
   const createSharedAction = page.getByRole("link", { name: /Brankas Bersama/ });
   await expect(backupAction).toHaveText("");
+  await expect(backupAction.locator(".lucide-database-backup")).toBeVisible();
   await expect(importAction).toHaveText("");
+  await expect(importAction.locator(".lucide-import")).toBeVisible();
   expect(await backupAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
   expect(await importAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
   const vaultLinks = page.locator('[aria-label="Daftar brankas"] li > a');
@@ -135,12 +141,24 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByText("pending@local.invalid")).toHaveCount(0);
   await page.getByRole("button", { name: "Muat lebih banyak pengguna" }).click();
   await expect(page.getByText("pending@local.invalid")).toBeVisible();
+  await expect(page.getByText("expired-with-a-long-address@local.invalid")).toBeVisible();
+  await expect(page.getByText("Kedaluwarsa", { exact: true })).toBeVisible();
   await expect(page.getByText("Semua pengguna telah dimuat.")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const participantActions = page.locator('[aria-labelledby="invited-users-title"] li button');
+  for (let index = 0; index < await participantActions.count(); index += 1) {
+    const box = await participantActions.nth(index).boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole("button", { name: "Undang kembali" }).click();
+  await expect.poll(() => reinvitationBody).toEqual({ recipientEmail: "expired-with-a-long-address@local.invalid", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
+  await expect(page.getByLabel("Tautan undangan aman")).toBeVisible();
   await page.getByLabel("Tautan undangan tidak tersedia untuk pending@local.invalid").click();
   await expect(page.getByText(/Tautan aman asli hanya tersedia saat undangan dibuat/)).toBeVisible();
   await page.getByLabel("Email penerima").fill("viewer@example.test");
   await page.getByRole("button", { name: "Buat undangan" }).click();
-  const secureLink = page.getByLabel("Tautan undangan aman");
+  const secureLink = page.getByLabel("Tautan undangan aman").last();
   await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
   expect(invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);

@@ -14,11 +14,10 @@ export async function decodeQrImage(file: File): Promise<string> {
   }
 }
 
-export async function scanQrCamera(video: HTMLVideoElement, onValue: (value: string) => void, onError: (error: Error) => void): Promise<IScannerControls> {
+export async function scanQrCamera(video: HTMLVideoElement, onValue: (value: string) => void): Promise<IScannerControls> {
   const { BrowserQRCodeReader } = await import("@zxing/browser");
   const reader = new BrowserQRCodeReader();
-  return reader.decodeFromVideoDevice(undefined, video, (result, error) => {
+  return reader.decodeFromVideoDevice(undefined, video, (result) => {
     if (result) onValue(result.getText());
-    if (error && error.name !== "NotFoundException") onError(error);
   });
 }

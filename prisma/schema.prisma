@@ -71,6 +71,7 @@ model VaultInvitation {
   linkVerifier     Bytes            @unique @map("link_verifier")
   encryptedPackage Bytes            @map("encrypted_package")
   status           String           @default("PENDING")
+  expiresAt        DateTime         @default(dbgenerated("(CURRENT_TIMESTAMP + INTERVAL '7 days')")) @map("expires_at")
   redeemedAt       DateTime?        @map("redeemed_at")
   createdAt        DateTime         @default(now()) @map("created_at")
   vault            Vault            @relation(fields: [vaultId], references: [id])
@@ -79,6 +80,7 @@ model VaultInvitation {
   @@index([vaultId, status, createdAt, id])
   @@index([recipientEmail, status])
   @@index([recipientUserId, status])
+  @@index([status, expiresAt])
   @@map("vault_invitations")
 }
 

@@ -34,6 +34,26 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
     await expect(repository.findForRecipient({ userId: recipient.id, email: recipientEmail }, verifier)).resolves.toBeNull();
   });
 
+  it.skipIf(!process.env.DATABASE_URL)("atomically replaces an expired Invitation with fresh link material", async () => {
+    const owner = await user("owner");
+    const recipient = await user("recipient");
+    const vault = await prisma.vault.create({ data: { ownerId: owner.id, type: "SHARED", lifecycle: "ACTIVE", encryptedName: bytes("name"), encryptionVersion: 1, members: { create: { userId: owner.id, role: "OWNER" } } } });
+    vaultIds.push(vault.id);
+    const now = new Date("2026-07-29T12:00:00.000Z");
+    const oldVerifier = new Uint8Array(32).fill(5);
+    const replacementVerifier = new Uint8Array(32).fill(6);
+    const expired = await prisma.vaultInvitation.create({ data: { vaultId: vault.id, recipientEmail: recipient.email, recipientUserId: recipient.id, linkVerifier: oldVerifier, encryptedPackage: bytes("old-package"), expiresAt: now } });
+    const repository = new PrismaSecureShareLinkRepository(() => now);
+
+    await expect(repository.redeem({ userId: recipient.id, email: recipient.email }, expired.id, bytes("wrapped-vault-key"), 1)).rejects.toThrow("unavailable");
+    const replacement = await repository.createForEmail(owner.id, vault.id, recipient.email, { linkVerifier: replacementVerifier, encryptedPackage: bytes("replacement-package") });
+
+    expect(replacement.expiresAt).toEqual(new Date("2026-08-05T12:00:00.000Z"));
+    await expect(prisma.vaultInvitation.findUnique({ where: { id: expired.id } })).resolves.toBeNull();
+    await expect(repository.findForRecipient({ userId: recipient.id, email: recipient.email }, oldVerifier)).resolves.toBeNull();
+    await expect(repository.findForRecipient({ userId: recipient.id, email: recipient.email }, replacementVerifier)).resolves.toEqual(expect.objectContaining({ id: replacement.id }));
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("binds one pending invitation to a provisioned application user email", async () => {
     const owner = await user("owner");
     const recipient = await user("recipient");
