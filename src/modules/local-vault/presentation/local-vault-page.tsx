@@ -13,6 +13,7 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { parseTotpUri, type TotpConfiguration } from "@/modules/otp-runtime";
 import { TotpAccountButton } from "@/modules/otp-runtime";
+import { VaultStatusIndicator } from "@/modules/sync";
 import { QrImportInput } from "@/modules/authenticator-account";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import {
@@ -127,6 +128,7 @@ export function LocalVaultPage() {
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} backHref="/" />
     {message && <div className="mb-5"><StatusBanner tone={message.tone} role={message.tone === "danger" ? "alert" : "status"}>{message.text}</StatusBanner></div>}
+    <VaultStatusIndicator origin="LOCAL" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
     {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} /></SurfaceCard>}
     {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}

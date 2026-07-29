@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { ArrowLeftRight, KeyRound, Plus, ShieldKeyhole, Vault } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/modules/crypto";
 import { TotpAccountButton } from "@/modules/otp-runtime";
-import type { OfflineSyncState } from "@/modules/sync";
-import { formatLocalDateTime } from "@/i18n/format";
+import { VaultStatusIndicator } from "@/modules/sync";
 import { recordSharedVaultAccountAccess } from "@/modules/vault-management";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { LocalVaultCopyPanel } from "@/modules/local-vault";
@@ -20,7 +19,6 @@ import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
-  const locale = useLocale();
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const [auditError, setAuditError] = useState(false);
@@ -50,7 +48,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         </Sheet>}
         {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")}><Plus /><span className="hidden sm:inline">{t("addAccount")}</span></Link></Button>}
       </div>
-      {!current && <StatusBanner tone="offline" title={t("readOnly")}>{t("syncNotice", { state: syncStateLabel(workspace.syncState, t), date: formatLocalDateTime(workspace.synchronizedAt, locale) })}</StatusBanner>}
+      <VaultStatusIndicator origin="PERSONAL" syncState={workspace.syncState} lastSynchronizedAt={workspace.synchronizedAt} />
       {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger" role="alert">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}
       {auditError && <StatusBanner tone="warning" role="status">{t("auditError")}</StatusBanner>}
       <div className="flex items-end justify-between gap-4">
@@ -74,7 +72,3 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   );
 }
 
-function syncStateLabel(state: OfflineSyncState, t: ReturnType<typeof useTranslations<"AuthenticatorAccount.accounts">>): string {
-  const keys = { OFFLINE: "syncOffline", STALE: "syncStale", SYNCING: "syncSyncing", CURRENT: "syncCurrent", AUTH_REQUIRED: "syncAuthRequired", ERROR: "syncError" } as const;
-  return t(keys[state]);
-}
