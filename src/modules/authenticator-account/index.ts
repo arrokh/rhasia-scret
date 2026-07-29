@@ -11,6 +11,7 @@ export { AuthenticatorAccountCreator } from "./presentation/authenticator-accoun
 export { UnlockedVaultWorkspaceProvider, useUnlockedVaultWorkspace } from "./presentation/unlocked-vault-workspace-provider";
 export { VaultWorkspaceUnlock } from "./presentation/vault-workspace-unlock";
 export { QrImportInput } from "./presentation/qr-import-input";
+export { useCreateEncryptedAuthenticatorAccountMutation } from "./presentation/hooks/use-authenticator-account-mutations";
 export { clearUnlockedVaultWorkspace, loadOfflineVaultWorkspace, loadOfflineVaultWorkspaceWithRememberedBrowser, loadUnlockedVaultWorkspaceWithRememberedBrowser, refreshUnlockedVaultWorkspace } from "./infrastructure/browser-vault-workspace";
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "./infrastructure/browser-vault-workspace";
 export { VaultDirectoryWorkspace, PersonalVaultDetailWorkspace, SharedVaultDetailWorkspace, SharedVaultCreationWorkspace, InvitationRedemptionWorkspace } from "./presentation/vault-management-workspace";
