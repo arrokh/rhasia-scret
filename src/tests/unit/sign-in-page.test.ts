@@ -53,5 +53,6 @@ describe("SignInPage", () => {
     expect(markup).toContain('aria-label="Formulir masuk"');
     expect(markup).toContain('href="/offline"');
     expect(markup).toContain("Akses hanya tersedia melalui undangan");
+    expect(markup.indexOf('data-slot="separator"')).toBeLessThan(markup.indexOf('href="/offline"'));
   });
 });

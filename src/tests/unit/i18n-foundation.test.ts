@@ -24,6 +24,7 @@ afterEach(async () => {
   document.cookie = `${localeCookieName}=; Path=/; Max-Age=0`;
   document.documentElement.lang = "id";
   window.history.replaceState(null, "", "/");
+  document.body.innerHTML = "";
 });
 
 describe("i18n foundation", () => {
@@ -72,25 +73,34 @@ describe("i18n foundation", () => {
 
   it("renders a representative client surface from the English catalog", async () => {
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
     await act(async () => root?.render(createElement(TestIntlProvider, { locale: "en", messages: enMessages }, createElement(LocaleSwitcher))));
 
-    const buttons = [...container.querySelectorAll<HTMLButtonElement>("button")];
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Bahasa Indonesia", "English"]);
-    expect(buttons[1]?.getAttribute("aria-pressed")).toBe("true");
-    expect(buttons[1]?.title).toBe("Current language: English");
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Choose language"]');
+    expect(trigger?.textContent).toContain("English");
+    expect(trigger?.title).toBe("Current language: English");
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const options = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    expect(options.map((option) => option.textContent)).toEqual(["Bahasa Indonesia", "English"]);
+    expect(options[1]?.getAttribute("aria-checked")).toBe("true");
   });
 
   it("writes the locale cookie, updates document language, and refreshes without changing routes", async () => {
     const container = document.createElement("div");
+    document.body.append(container);
     root = createRoot(container);
     await act(async () => root?.render(createElement(TestIntlProvider, { locale: "id", messages: idMessages }, createElement(LocaleSwitcher))));
 
-    const buttons = [...container.querySelectorAll<HTMLButtonElement>("button")];
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Bahasa Indonesia", "English"]);
-    expect(buttons[0]?.getAttribute("aria-pressed")).toBe("true");
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Pilih bahasa"]');
+    expect(trigger?.textContent).toContain("Bahasa Indonesia");
     window.history.replaceState(null, "", "/vaults/invitations/redeem#secure-share-secret");
-    await act(async () => buttons[1]?.click());
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const englishOption = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find((option) => option.textContent === "English");
+    await act(async () => englishOption?.click());
+    expect(document.body.textContent).toContain("Ganti bahasa aplikasi?");
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Ganti bahasa");
+    await act(async () => confirm?.click());
 
     expect(window.location.pathname).toBe("/vaults/invitations/redeem");
     expect(window.location.hash).toBe("#secure-share-secret");

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "rhasia-scret-static-v2";
+const CACHE_VERSION = "rhasia-scret-static-v3";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
 const OFFLINE_SHELL = "/offline";
 const PRECACHE = [OFFLINE_SHELL, "/manifest.webmanifest", "/pwa/icon512_rounded.png"];

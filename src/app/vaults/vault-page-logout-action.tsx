@@ -1,7 +1,7 @@
-import { LogoutForm } from "@/modules/identity";
 import { loadVaultPageContext } from "./load-vault-page-context";
+import { VaultPageAccountMenu } from "./vault-page-account-menu";
 
 export async function VaultPageLogoutAction() {
   const { user } = await loadVaultPageContext();
-  return <LogoutForm email={user.email} />;
+  return <VaultPageAccountMenu email={user.email} />;
 }

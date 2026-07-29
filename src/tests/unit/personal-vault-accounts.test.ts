@@ -23,10 +23,11 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace"
 }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null, RememberedBrowserEnrollment: () => null, hasRememberedBrowserForPersonalVault: vi.fn().mockResolvedValue(false) }));
-vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
+vi.mock("@/modules/identity", async (importOriginal) => ({ ...await importOriginal<typeof import("@/modules/identity")>(), usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
 vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));
 
 import type { UnlockedVaultWorkspace } from "@/modules/authenticator-account/infrastructure/browser-vault-workspace";
+import { VaultPageAccountMenu } from "@/app/vaults/vault-page-account-menu";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account/presentation/personal-vault-accounts";
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
 import { requestLocalVaultLock } from "@/modules/sync";
@@ -40,7 +41,7 @@ describe("PersonalVaultAccounts", () => {
     mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
     mocks.passkeyEnrolled = true;
   });
-  afterEach(async () => act(async () => root?.unmount()));
+  afterEach(async () => { await act(async () => root?.unmount()); document.body.innerHTML = ""; });
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
     const container = document.createElement("div");
@@ -52,7 +53,31 @@ describe("PersonalVaultAccounts", () => {
 
     expect(container.querySelector("#vault-unlock-secret")).toBeNull();
     expect(container.textContent).toContain("personal@example.test");
+    expect(container.querySelector('a[href="/vaults/manage"] .lucide-lock-keyhole')).not.toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Keamanan"]')?.textContent).toContain("Keamanan");
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("moves Lock into Account settings above Sign out", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => root?.render(
+      createElement(TestQueryProvider, null, createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: workspace() },
+        createElement(VaultPageAccountMenu, { email: "owner@example.test" }),
+        createElement(PersonalVaultAccounts, { vaultId: "personal-1" })
+      ))
+    ));
+
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Pengaturan akun"]')?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const lock = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Kunci");
+    const signOut = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Keluar");
+    expect(lock).toBeDefined();
+    expect(signOut).toBeDefined();
+    expect(lock && signOut && Boolean(lock.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    await act(async () => lock?.click());
+    expect(container.querySelector("#vault-unlock-secret")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("owner@example.test");
   });
 
   it("clears the in-memory workspace when logout or local cleanup requests a global lock", async () => {

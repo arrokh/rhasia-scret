@@ -17,19 +17,34 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await page.keyboard.press("Escape");
   await expect(page.getByText("preview@local.invalid")).toBeHidden();
   await accountMenuTrigger.click();
-  await expect(page.getByRole("button", { name: "Keluar" })).toBeVisible();
+  const lockAction = page.getByRole("button", { name: "Kunci" });
+  const signOutAction = page.getByRole("button", { name: "Keluar" });
+  await expect(lockAction).toBeVisible();
+  await expect(signOutAction).toBeVisible();
+  expect(await lockAction.evaluate((lock, signOut) => Boolean(lock.compareDocumentPosition(signOut as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await signOutAction.elementHandle())).toBe(true);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("link", { name: "Brankas" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
+  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/sign-in");
   const developerLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(developerLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(developerLink).toHaveAttribute("target", "_blank");
   await expect(developerLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
+  await page.getByRole("button", { name: "Pilih bahasa" }).click();
+  const languageMenu = page.locator('[data-slot="dropdown-menu-content"]');
+  const languageMenuWidth = (await languageMenu.boundingBox())?.width;
+  expect(languageMenuWidth).toBeGreaterThanOrEqual(210);
+  expect(languageMenuWidth).toBeLessThanOrEqual(224);
+  await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toHaveCSS("white-space", "nowrap");
+  await expect(page.getByRole("menuitemradio", { name: "English" })).toHaveCSS("white-space", "nowrap");
+  expect(await languageMenu.evaluate((menu) => [...menu.querySelectorAll('[role="menuitemradio"]')].every((item) => item.scrollWidth <= item.clientWidth))).toBe(true);
+  await page.keyboard.press("Escape");
   expect(pageErrors).toEqual([]);
 
   const touchTargets = page.locator("main button, main a");
@@ -46,6 +61,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   let defaultPermissionsBody: Record<string, unknown> | undefined;
   let memberPermissionsBody: Record<string, unknown> | undefined;
   let cancelledInvitation = false;
+  let createdInvitation = false;
   page.on("pageerror", (error) => pageErrors.push(error));
   await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
@@ -54,7 +70,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.route("**/api/shared-vaults/shared-preview/participants**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     const participants = nextPage
-      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:01:00.000Z" }]
+      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitedAt: "2026-07-26T12:01:00.000Z" }, ...(createdInvitation ? [{ key: "invitation:invitation-preview", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "invitation-preview", invitedAt: "2026-07-26T12:02:00.000Z" }] : [])]
       : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z", permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 2 }];
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
   });
@@ -69,6 +85,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
     invitationBody = route.request().postDataJSON() as Record<string, unknown>;
+    createdInvitation = true;
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "invitation-preview" }) });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links/pending-preview", async (route) => {
@@ -80,12 +97,22 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
 
   await expect(page.getByRole("heading", { level: 1, name: "Brankas" })).toBeVisible();
   await expect(page.getByLabel("Kembali ke pratinjau akun")).toBeVisible();
+  const backupAction = page.getByRole("link", { name: "Buat cadangan" });
+  const importAction = page.getByRole("link", { name: "Import arsip" });
+  const createSharedAction = page.getByRole("link", { name: /Brankas Bersama/ });
+  await expect(backupAction).toHaveText("");
+  await expect(importAction).toHaveText("");
+  expect(await backupAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
+  expect(await importAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
   const vaultLinks = page.locator('[aria-label="Daftar brankas"] li > a');
   await expect(vaultLinks.nth(0)).toContainText("Brankas Pribadi");
   await expect(vaultLinks.nth(0)).toHaveAttribute("href", "/vaults/manage/personal");
   await expect(vaultLinks.nth(1)).toContainText("Tim Operasional");
   await expect(page.getByText("owner@local.invalid")).toBeVisible();
-  await expect(page.getByText("Izin akun bawaan anggota")).toBeVisible();
+  const defaultPermissions = page.locator('[data-slot="collapsible"]').filter({ hasText: "Izin akun bawaan anggota" });
+  await expect(defaultPermissions).toHaveAttribute("data-state", "closed");
+  await defaultPermissions.locator('[data-slot="collapsible-trigger"]').click();
+  await expect(defaultPermissions).toHaveAttribute("data-state", "open");
   await page.locator("#vault-default-canAddAccounts").click();
   await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
   await expect.poll(() => defaultPermissionsBody).toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
@@ -109,12 +136,15 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByRole("button", { name: "Muat lebih banyak pengguna" }).click();
   await expect(page.getByText("pending@local.invalid")).toBeVisible();
   await expect(page.getByText("Semua pengguna telah dimuat.")).toBeVisible();
+  await page.getByLabel("Tautan undangan tidak tersedia untuk pending@local.invalid").click();
+  await expect(page.getByText(/Tautan aman asli hanya tersedia saat undangan dibuat/)).toBeVisible();
   await page.getByLabel("Email penerima").fill("viewer@example.test");
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman");
   await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
   expect(invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
+  await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();
   await page.getByLabel("Lihat audit viewer@local.invalid").click();
   await expect(page.getByText("Filter: viewer@local.invalid")).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();
@@ -124,6 +154,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByRole("tab", { name: "Audit" }).click();
   await expect(page.getByText(/^viewer@local\.invalid ·/)).toBeVisible();
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
+  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/sign-in");
   const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(footerDeveloperLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
@@ -151,11 +182,12 @@ test("requires explicit confirmation for destructive Personal Vault reset", asyn
     await route.fulfill({ status: 204 });
   });
   await page.goto("/ui-preview/recovery");
+  await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Hapus data terenkripsi dan mulai ulang" })).toBeVisible();
   await expect(page.getByText(/Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus/)).toBeVisible();
   const confirmation = page.getByLabel(/Ketik HAPUS DATA BRANKAS/);
-  await confirmation.pressSequentially("HAPUS DATA BRANKAS", { delay: 5 });
+  await confirmation.fill("HAPUS DATA BRANKAS");
   await expect(confirmation).toHaveValue("HAPUS DATA BRANKAS");
   await confirmation.press("Tab");
   await page.getByRole("button", { name: "Hapus data dan atur ulang brankas" }).click();

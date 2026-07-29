@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { PrismaApplicationUserRepository } from "@/modules/identity/infrastructure/prisma-application-user-repository";
@@ -31,6 +32,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <div className="mt-6 grid gap-5">
           {notice && <StatusBanner tone={notice.tone} role={notice.role}>{t(`notice.${notice.key}`)}</StatusBanner>}
           <InvitedUserSignInForm />
+          <Separator />
           <Button variant="outline" asChild><Link href="/offline">{t("openOffline")}</Link></Button>
           <p className="text-center text-xs leading-5 text-muted-foreground">{t("inviteOnly")}</p>
         </div>

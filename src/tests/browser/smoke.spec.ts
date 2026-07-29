@@ -28,10 +28,9 @@ test("renders invite-only authentication at sign in", async ({ page }) => {
 
 test("switches to English without changing routes and persists through redirects and reloads", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "English" }).click();
+  await switchLanguage(page, "English", "en");
 
-  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("button", { name: "Choose language" })).toContainText("English");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   await page.reload();
@@ -50,17 +49,15 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.getByText("Sign in to continue.")).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
-  await page.getByRole("button", { name: "Bahasa Indonesia" }).click();
-  await expect(page.getByRole("button", { name: "Bahasa Indonesia" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  await switchLanguage(page, "Bahasa Indonesia", "id");
+  await expect(page.getByRole("button", { name: "Pilih bahasa" })).toContainText("Bahasa Indonesia");
   await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();
 });
 
 test("renders representative English OTP, Shared Vault, validation, and recovery previews", async ({ page }) => {
   await page.goto("/ui-preview");
-  await page.getByRole("button", { name: "English" }).click();
-  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await switchLanguage(page, "English", "en");
+  await expect(page.getByRole("button", { name: "Choose language" })).toContainText("English");
   await expect(page.getByRole("heading", { level: 1, name: "Authenticator accounts" })).toBeVisible();
   await expect(page.getByText("Sample service", { exact: true })).toBeVisible();
   await expect(page.getByText("Work account", { exact: true })).toBeVisible();
@@ -93,6 +90,13 @@ test("redirects unauthenticated users away from protected pages", async ({ page 
     await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();
   }
 });
+
+async function switchLanguage(page: import("@playwright/test").Page, language: "Bahasa Indonesia" | "English", locale: "id" | "en") {
+  await page.getByRole("button", { name: /Pilih bahasa|Choose language/ }).click();
+  await page.getByRole("menuitemradio", { name: language }).click();
+  await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", locale);
+}
 
 test("logs out a stale session idempotently", async ({ page }) => {
   await page.goto("/sign-in");

@@ -41,13 +41,18 @@ describe("offline PWA architecture boundaries", () => {
     expect(source).not.toMatch(/BackgroundSync|SyncManager|periodicSync|mutationQueue|replayMutation/);
   });
 
-  it("allows the service worker to cache only the public shell and static assets", () => {
+  it("allows the service worker to cache only the public shell and content-hashed static assets", () => {
     const worker = readFileSync(join(root, "public/sw.js"), "utf8");
+    const registration = readFileSync(join(sourceRoot, "modules/sync/presentation/service-worker-registration.tsx"), "utf8");
     expect(worker).toContain('const OFFLINE_SHELL = "/offline"');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
+    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v3"');
     expect(worker).toContain('/_next/static/');
+    expect(worker).toContain("caches.match(request)");
+    expect(registration).toContain("removeDevelopmentServiceWorkers().catch");
+    expect(registration).toContain('name.startsWith("rhasia-scret-static-")');
     expect(worker).not.toMatch(/indexedDB|localStorage|sessionStorage|Background Sync|periodic/i);
   });
 });
