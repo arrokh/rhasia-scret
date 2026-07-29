@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The no-expiry/no-reissue limitation is superseded by ADR-0036; owner cancellation rules remain active.
 
 ## Context
 

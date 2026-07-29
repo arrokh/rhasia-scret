@@ -1,4 +1,5 @@
 import { prisma } from "@/shared/infrastructure/prisma-client";
+import { invitationExpiresAt, invitationIsExpired } from "../domain/invitation-expiry";
 import {
   InvitationConflictError,
   InvitationRecipientUnavailableError,
@@ -10,14 +11,18 @@ import {
 } from "../application/secure-share-link-repository";
 
 export class PrismaSecureShareLinkRepository implements SecureShareLinkRepository {
-  public async create(ownerId: string, vaultId: string, link: NewSecureShareLink): Promise<{ id: string }> {
+  public constructor(private readonly now: () => Date = () => new Date()) {}
+
+  public async create(ownerId: string, vaultId: string, link: NewSecureShareLink): ReturnType<SecureShareLinkRepository["create"]> {
     const recipient = await prisma.applicationUser.findUnique({ where: { id: link.recipientUserId }, select: { email: true } });
     if (!recipient) throw new InvitationRecipientUnavailableError("Invitation recipient is unavailable.");
     return this.createForEmail(ownerId, vaultId, recipient.email, link);
   }
 
-  public async createForEmail(ownerId: string, vaultId: string, recipientEmail: string, link: Omit<NewSecureShareLink, "recipientUserId">): Promise<{ id: string }> {
+  public async createForEmail(ownerId: string, vaultId: string, recipientEmail: string, link: Omit<NewSecureShareLink, "recipientUserId">): ReturnType<SecureShareLinkRepository["createForEmail"]> {
     const normalizedEmail = normalizeEmail(recipientEmail);
+    const now = this.now();
+    const expiresAt = invitationExpiresAt(now);
     return prisma.$transaction(async (transaction) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${vaultId}:${normalizedEmail}`}))`;
       const [vault, recipient] = await Promise.all([
@@ -32,21 +37,27 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
       ]);
       if (!vault || normalizeEmail(vault.owner.email) === normalizedEmail) throw new InvitationRecipientUnavailableError("Invitation recipient is unavailable.");
       const recipientBindings = [{ recipientEmail: normalizedEmail }, ...(recipient ? [{ recipientUserId: recipient.id }] : [])];
-      const [membership, pendingInvitation] = await Promise.all([
+      const [membership, pendingInvitations] = await Promise.all([
         recipient ? transaction.vaultMember.findUnique({ where: { vaultId_userId: { vaultId, userId: recipient.id } }, select: { status: true } }) : null,
-        transaction.vaultInvitation.findFirst({ where: { vaultId, status: "PENDING", OR: recipientBindings }, select: { id: true } })
+        transaction.vaultInvitation.findMany({ where: { vaultId, status: "PENDING", OR: recipientBindings }, select: { id: true, expiresAt: true } })
       ]);
-      if (membership?.status === "ACTIVE" || pendingInvitation) throw new InvitationConflictError("Invitation recipient already has access or a pending invitation.");
+      if (membership?.status === "ACTIVE" || pendingInvitations.some((invitation) => !invitationIsExpired(invitation.expiresAt, now))) {
+        throw new InvitationConflictError("Invitation recipient already has access or an unexpired pending invitation.");
+      }
+      const expiredIds = pendingInvitations.map(({ id }) => id);
+      if (expiredIds.length) await transaction.vaultInvitation.deleteMany({ where: { id: { in: expiredIds }, status: "PENDING" } });
       const invitation = await transaction.vaultInvitation.create({
         data: {
           vaultId,
           recipientEmail: normalizedEmail,
           recipientUserId: recipient?.id,
           linkVerifier: copyBytes(link.linkVerifier),
-          encryptedPackage: copyBytes(link.encryptedPackage)
-        }
+          encryptedPackage: copyBytes(link.encryptedPackage),
+          expiresAt
+        },
+        select: { id: true, expiresAt: true }
       });
-      return { id: invitation.id };
+      return invitation;
     });
   }
 
@@ -55,6 +66,7 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
       where: {
         linkVerifier: copyBytes(linkVerifier),
         status: "PENDING",
+        expiresAt: { gt: this.now() },
         OR: recipientBindings(recipient),
         vault: { type: "SHARED", lifecycle: "ACTIVE", deletedAt: null }
       }
@@ -66,7 +78,7 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
     await prisma.$transaction(async (transaction) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${invitationId}))`;
       const invitation = await transaction.vaultInvitation.findFirst({
-        where: { id: invitationId, status: "PENDING", OR: recipientBindings(recipient), vault: { type: "SHARED", lifecycle: "ACTIVE", deletedAt: null } }
+        where: { id: invitationId, status: "PENDING", expiresAt: { gt: this.now() }, OR: recipientBindings(recipient), vault: { type: "SHARED", lifecycle: "ACTIVE", deletedAt: null } }
       });
       if (!invitation) throw new SecureShareLinkUnavailableError("Secure Share Link is unavailable.");
       const existingMembership = await transaction.vaultMember.findUnique({

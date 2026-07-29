@@ -2,12 +2,15 @@ import { buildCursorPage, type CursorPageRequest } from "@/shared/application/cu
 import { timestampKeysetWhere } from "@/shared/infrastructure/prisma-cursor-pagination";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { parseVaultParticipantCursorKey, type VaultParticipant, type VaultParticipantPage, type VaultParticipantRepository } from "../application/vault-participant-repository";
+import { invitationIsExpired } from "../domain/invitation-expiry";
 import { effectiveSharedVaultAccountPermissions, type SharedVaultAccountPermissions } from "../domain/shared-vault-account-permissions";
 
 const memberKey = (userId: string) => `member:${userId}`;
 const invitationKey = (id: string) => `invitation:${id}`;
 
 export class PrismaVaultParticipantRepository implements VaultParticipantRepository {
+  public constructor(private readonly now: () => Date = () => new Date()) {}
+
   public async listForOwner(ownerId: string, vaultId: string, request: CursorPageRequest): Promise<VaultParticipantPage | null> {
     const vault = await prisma.vault.findFirst({
       where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
@@ -21,6 +24,7 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
     });
     if (!vault) return null;
     const defaults = vaultPermissions(vault);
+    const now = this.now();
 
     const participants: VaultParticipant[] = [];
     const cursorKey = request.cursor ? parseVaultParticipantCursorKey(request.cursor.key) : null;
@@ -66,7 +70,9 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
           kind: "MEMBER" as const,
           userId: member.userId,
           invitationId: null,
+          invitationState: null,
           invitedAt: member.createdAt,
+          expiresAt: null,
           permissionOverrides,
           effectiveAccountPermissions: effectiveSharedVaultAccountPermissions("VIEWER", defaults, permissionOverrides),
           permissionsRevision: member.permissionsRevision
@@ -87,7 +93,7 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
             ...(request.cursor && cursorInvitationId ? [timestampKeysetWhere({ createdAt: request.cursor.createdAt, key: cursorInvitationId }, "id", "ascending")] : [])
           ]
         },
-        select: { id: true, recipientEmail: true, recipientUserId: true, createdAt: true, recipient: { select: { email: true } } },
+        select: { id: true, recipientEmail: true, recipientUserId: true, createdAt: true, expiresAt: true, recipient: { select: { email: true } } },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         take: remaining
       });
@@ -99,7 +105,9 @@ export class PrismaVaultParticipantRepository implements VaultParticipantReposit
           kind: "INVITATION" as const,
           userId: invitation.recipientUserId,
           invitationId: invitation.id,
+          invitationState: invitationIsExpired(invitation.expiresAt, now) ? "EXPIRED" as const : "PENDING" as const,
           invitedAt: invitation.createdAt,
+          expiresAt: invitation.expiresAt,
           permissionOverrides: null,
           effectiveAccountPermissions: null,
           permissionsRevision: null

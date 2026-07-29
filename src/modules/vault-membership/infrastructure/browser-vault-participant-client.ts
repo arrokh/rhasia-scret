@@ -13,7 +13,9 @@ export type BrowserVaultParticipant = {
   kind: "OWNER" | "MEMBER" | "INVITATION";
   userId: string | null;
   invitationId: string | null;
+  invitationState: "PENDING" | "EXPIRED" | null;
   invitedAt: string;
+  expiresAt: string | null;
   permissionOverrides: SharedVaultAccountPermissionOverrides | null;
   effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions | null;
   permissionsRevision: number | null;

@@ -11,7 +11,9 @@ export type VaultParticipant = {
   kind: "OWNER" | "MEMBER" | "INVITATION";
   userId: string | null;
   invitationId: string | null;
+  invitationState: "PENDING" | "EXPIRED" | null;
   invitedAt: Date;
+  expiresAt: Date | null;
   permissionOverrides: SharedVaultAccountPermissionOverrides | null;
   effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions | null;
   permissionsRevision: number | null;

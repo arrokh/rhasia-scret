@@ -34,10 +34,14 @@ describe("dedicated Vault management", () => {
     const createShared = container.querySelector<HTMLAnchorElement>('a[href="/vaults/manage/new"]');
     expect(backup?.textContent).toBe("");
     expect(backup?.getAttribute("aria-label")).toBe("Buat cadangan");
+    expect(backup?.querySelector(".lucide-database-backup")).not.toBeNull();
     expect(archiveImport?.textContent).toBe("");
     expect(archiveImport?.getAttribute("aria-label")).toBe("Import arsip");
+    expect(archiveImport?.querySelector(".lucide-import")).not.toBeNull();
     expect(backup?.parentElement).toBe(createShared?.parentElement);
     expect(archiveImport?.parentElement).toBe(createShared?.parentElement);
+    expect(backup?.parentElement?.className).toContain("grid-cols-[auto_auto_minmax(0,1fr)]");
+    expect(backup?.parentElement?.parentElement?.className).toContain("flex-col");
   });
 
   it("loads owner permission defaults needed on Detail while managing accounts", async () => {
@@ -139,7 +143,7 @@ describe("dedicated Vault management", () => {
   });
 
   it("creates a complete client-only invitation URL from the Undangan tab", async () => {
-    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "pending-1", secret: "client-only-secret" });
+    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "pending-1", secret: "client-only-secret", expiresAt: "2026-08-05T12:00:00.000Z" });
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "invitation:pending-1", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "pending-1", invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: null }) }));
@@ -161,6 +165,22 @@ describe("dedicated Vault management", () => {
     expect(writeText).toHaveBeenCalledWith("http://localhost:3000/vaults/invitations/redeem#client-only-secret");
     expect(copyPending.title).toBe("Undangan disalin");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+  });
+
+  it("re-invites an expired Invitation with fresh client-only link material", async () => {
+    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "replacement-1", secret: "replacement-client-secret", expiresAt: "2026-08-05T12:00:00.000Z" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "invitation:expired-1", email: "expired@example.test", kind: "INVITATION", userId: null, invitationId: "expired-1", invitationState: "EXPIRED", invitedAt: "2026-07-20T12:00:00.000Z", expiresAt: "2026-07-27T12:00:00.000Z", permissionOverrides: null, effectiveAccountPermissions: null, permissionsRevision: null }], nextCursor: null }) }));
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    await act(async () => clickTab(container, "Undangan"));
+    await vi.waitFor(() => expect(container.textContent).toContain("Kedaluwarsa"));
+
+    await act(async () => findButton(container, "Undang kembali").click());
+
+    await vi.waitFor(() => expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe("http://localhost:3000/vaults/invitations/redeem#replacement-client-secret"));
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "expired@example.test", vaults()[0]!.key);
+    expect(container.textContent).toContain("Menunggu");
+    expect(container.textContent).not.toContain("Kedaluwarsa");
   });
 
   it("opens Audit with an exact account filter and renders the Jakarta event layout", async () => {

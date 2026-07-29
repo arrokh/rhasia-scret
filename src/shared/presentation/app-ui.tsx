@@ -47,8 +47,8 @@ export function AppFooter() {
   const t = useTranslations("Common");
   return (
     <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
-      <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between gap-3 text-center">
-        <p className="flex items-baseline gap-1.5 text-sm text-muted-foreground"><Link href="/sign-in" className="text-base font-bold tracking-tight underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="text-foreground">rhasia-</span><span className="text-primary">scret</span></Link><span>{t("by")}</span><a href="https://github.com/arrokh" target="_blank" rel="noopener noreferrer" className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">arrokh</a></p>
+      <div className="mx-auto flex min-h-14 max-w-3xl flex-col items-center justify-center gap-1 py-2 text-center min-[360px]:flex-row min-[360px]:justify-between min-[360px]:gap-3 min-[360px]:py-0">
+        <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground"><Link href="/sign-in" className="text-base font-bold tracking-tight underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="text-foreground">rhasia-</span><span className="text-primary">scret</span></Link><span>{t("by")}</span><a href="https://github.com/arrokh" target="_blank" rel="noopener noreferrer" className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">arrokh</a></p>
         <LocaleSwitcher />
       </div>
     </footer>

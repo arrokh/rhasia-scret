@@ -57,12 +57,14 @@ describe("VaultDirectoryPage archive navigation", () => {
     ));
 
     expect(markup).toContain('aria-label="Aksi arsip Brankas"');
-    expect(markup).toContain("flex shrink-0 items-center gap-2");
+    expect(markup).toContain("grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0");
     expect(markup).toContain('aria-label="Buat cadangan" title="Buat cadangan" data-slot="button" data-variant="outline" data-size="icon"');
     expect(markup).toContain('aria-label="Import arsip" title="Import arsip" data-slot="button" data-variant="outline" data-size="icon"');
     expect(markup).toContain('href="/vaults/manage/new"');
-    expect(markup).toContain("lucide-download");
-    expect(markup).toContain("lucide-upload");
+    expect(markup).toContain("lucide-database-backup");
+    expect(markup).toContain("lucide-import");
+    expect(markup).not.toContain("lucide-download");
+    expect(markup).not.toContain("lucide-upload");
   });
 });
 

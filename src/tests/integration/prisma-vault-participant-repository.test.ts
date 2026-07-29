@@ -26,8 +26,8 @@ describe("PrismaVaultParticipantRepository", () => {
     const tiedAt = new Date("2026-07-26T12:00:00.000Z");
     await prisma.vaultMember.update({ where: { vaultId_userId: { vaultId: vault.id, userId: viewer.id } }, data: { createdAt: tiedAt } });
     await prisma.vaultMember.create({ data: { vaultId: vault.id, userId: secondViewer.id, role: "VIEWER", createdAt: tiedAt } });
-    const invitation = await prisma.vaultInvitation.create({ data: { vaultId: vault.id, recipientEmail: "pending@example.test", linkVerifier: bytes(randomUUID()), encryptedPackage: bytes("package") } });
-    const repository = new PrismaVaultParticipantRepository();
+    const invitation = await prisma.vaultInvitation.create({ data: { vaultId: vault.id, recipientEmail: "pending@example.test", linkVerifier: bytes(randomUUID()), encryptedPackage: bytes("package"), expiresAt: new Date("2026-07-27T12:00:00.000Z") } });
+    const repository = new PrismaVaultParticipantRepository(() => new Date("2026-07-29T12:00:00.000Z"));
 
     await expect(repository.listForOwner(outsider.id, vault.id, { cursor: null, limit: 1 })).resolves.toBeNull();
     const orderedViewerIds = [viewer.id, secondViewer.id].sort();
@@ -44,7 +44,7 @@ describe("PrismaVaultParticipantRepository", () => {
     }));
     const thirdPage = await repository.listForOwner(owner.id, vault.id, { cursor: secondPage!.nextCursor, limit: 1 });
     expect(thirdPage).toEqual(expect.objectContaining({
-      items: [expect.objectContaining({ kind: "INVITATION", invitationId: invitation.id, userId: null, email: "pending@example.test" })],
+      items: [expect.objectContaining({ kind: "INVITATION", invitationId: invitation.id, invitationState: "EXPIRED", expiresAt: new Date("2026-07-27T12:00:00.000Z"), userId: null, email: "pending@example.test" })],
       nextCursor: null
     }));
 

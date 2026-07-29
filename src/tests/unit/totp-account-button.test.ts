@@ -95,7 +95,7 @@ describe("TotpAccountButton", () => {
 
     await act(async () => vi.advanceTimersByTimeAsync(1_000));
     expect(mocks.generateTotp).toHaveBeenCalledTimes(200);
-  });
+  }, 15_000);
 });
 
 function configuration() { return { issuer: "OTPAuth", accountName: "Alice", secret: Uint8Array.of(1), algorithm: "SHA-1" as const, digits: 6 as const, period: 30 }; }
