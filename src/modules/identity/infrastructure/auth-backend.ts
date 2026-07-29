@@ -45,7 +45,7 @@ function readRequired(value: string | undefined, name: string): string {
 
 function readUrl(value: string | undefined, name: string, nodeEnv: string | undefined): URL {
   const parsed = new URL(readRequired(value, name));
-  if (parsed.protocol !== "https:" && !(nodeEnv !== "production" && parsed.hostname === "localhost")) {
+  if (parsed.protocol !== "https:" && !(nodeEnv !== "production" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"))) {
     throw new Error(`${name} must use HTTPS.`);
   }
   return parsed;
