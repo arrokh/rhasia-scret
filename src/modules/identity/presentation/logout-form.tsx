@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { LogOut, Settings, UserRound } from "lucide-react";
+import { Lock, LogOut, Settings, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,10 +16,11 @@ import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { useTerminateSessionMutation } from "./hooks/use-session-mutations";
 
-export function LogoutForm({ email }: { email?: string }) {
+export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockLabel?: string; onLock?: () => void }) {
   const t = useTranslations("Identity.logout");
   const [error, setError] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const terminateMutation = useTerminateSessionMutation();
   const form = useForm({ defaultValues: {}, onSubmit: () => { setError(false); setConfirming(true); } });
 
@@ -35,7 +36,7 @@ export function LogoutForm({ email }: { email?: string }) {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon" type="button" aria-label={t("settings")} title={t("settings")}>
             <Settings aria-hidden="true" />
@@ -50,6 +51,7 @@ export function LogoutForm({ email }: { email?: string }) {
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {lockLabel && onLock && <Button variant="ghost" className="w-full justify-start" type="button" onClick={() => { setMenuOpen(false); onLock(); }}><Lock aria-hidden="true" />{lockLabel}</Button>}
           <form onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (

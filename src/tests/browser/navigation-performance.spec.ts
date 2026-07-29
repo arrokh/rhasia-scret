@@ -42,7 +42,7 @@ test("measures protected navigation and interaction performance without recordin
   await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 60_000 });
 
   await page.getByRole("textbox", { name: "Passphrase Brankas", exact: true }).fill(personalSecret);
-  const unlock = await measureInteraction(page, "unlock", "cold", () => page.getByRole("button", { name: "Buka Brankas" }).click(), page.getByRole("button", { name: "Kunci" }));
+  const unlock = await measureInteraction(page, "unlock", "cold", () => page.getByRole("button", { name: "Buka Brankas" }).click(), page.getByRole("link", { name: "Brankas", exact: true }));
   const unlockStages = await page.evaluate(() => Object.fromEntries(
     performance.getEntriesByType("measure")
       .filter((entry) => entry.name.startsWith("rhsia:unlock:"))

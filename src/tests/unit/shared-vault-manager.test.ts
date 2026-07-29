@@ -29,6 +29,15 @@ describe("dedicated Vault management", () => {
     ]);
     expect(links[0]?.pathname).toBe("/vaults/manage/personal");
     expect(links[1]?.pathname).toBe("/vaults/manage/shared-1");
+    const backup = container.querySelector<HTMLAnchorElement>('a[href="/vaults/backup"]');
+    const archiveImport = container.querySelector<HTMLAnchorElement>('a[href="/vaults/import"]');
+    const createShared = container.querySelector<HTMLAnchorElement>('a[href="/vaults/manage/new"]');
+    expect(backup?.textContent).toBe("");
+    expect(backup?.getAttribute("aria-label")).toBe("Buat cadangan");
+    expect(archiveImport?.textContent).toBe("");
+    expect(archiveImport?.getAttribute("aria-label")).toBe("Import arsip");
+    expect(backup?.parentElement).toBe(createShared?.parentElement);
+    expect(archiveImport?.parentElement).toBe(createShared?.parentElement);
   });
 
   it("loads owner permission defaults needed on Detail while managing accounts", async () => {
@@ -50,6 +59,20 @@ describe("dedicated Vault management", () => {
     expect(document.body.textContent).toContain("Hapus akun autentikator?");
     await act(async () => findButton(document.body, "Hapus akun").click());
     expect(onAccountDeleted).toHaveBeenCalledWith("shared-1", "account-1", 2);
+  });
+
+  it("opens member defaults initially when at least one permission is enabled", async () => {
+    const container = mount(); root = createRoot(container);
+    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, {
+      vault: vaults()[0]!,
+      initialDefaultAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, revision: 1 },
+      onRenamed: vi.fn(),
+      onAccountDeleted: vi.fn()
+    }))));
+
+    expect(container.querySelector<HTMLElement>('[data-slot="collapsible"]')?.getAttribute("data-state")).toBe("open");
+    const save = findButton(container, "Simpan bawaan anggota");
+    expect(save.className).toContain("justify-self-end");
   });
 
   it("hides the tab navigation when a Viewer can only see Detail", async () => {
@@ -89,6 +112,7 @@ describe("dedicated Vault management", () => {
     };
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "PATCH") return { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 2 }) };
+      if (url.includes("/member-permissions")) return { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) };
       if (url.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants: [participant], nextCursor: null }) };
       return { ok: true, json: async () => ({ events: [], nextCursor: null }) };
     });
@@ -97,6 +121,10 @@ describe("dedicated Vault management", () => {
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
 
     await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
+    const defaults = container.querySelector<HTMLElement>('[data-slot="collapsible"]');
+    expect(defaults?.getAttribute("data-state")).toBe("closed");
+    await act(async () => defaults?.querySelector<HTMLButtonElement>('[data-slot="collapsible-trigger"]')?.click());
+    expect(defaults?.getAttribute("data-state")).toBe("open");
     await act(async () => container.querySelector<HTMLButtonElement>("#vault-default-canAddAccounts")?.click());
     await act(async () => findButton(container, "Simpan bawaan anggota").click());
     await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/member-permissions") && init?.method === "PATCH" && String(init.body).includes('"canAddAccounts":true'))).toBe(true));
@@ -111,7 +139,10 @@ describe("dedicated Vault management", () => {
   });
 
   it("creates a complete client-only invitation URL from the Undangan tab", async () => {
-    mocks.createSharedVaultInvitation.mockResolvedValue({ secret: "client-only-secret" });
+    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "pending-1", secret: "client-only-secret" });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "invitation:pending-1", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "pending-1", invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: null }) }));
     const container = mount(); root = createRoot(container);
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
     await act(async () => {
@@ -125,6 +156,11 @@ describe("dedicated Vault management", () => {
 
     await vi.waitFor(() => expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe("http://localhost:3000/vaults/invitations/redeem#client-only-secret"));
     expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
+    const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
+    await act(async () => copyPending.click());
+    expect(writeText).toHaveBeenCalledWith("http://localhost:3000/vaults/invitations/redeem#client-only-secret");
+    expect(copyPending.title).toBe("Undangan disalin");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
   });
 
   it("opens Audit with an exact account filter and renders the Jakarta event layout", async () => {
@@ -246,6 +282,9 @@ describe("dedicated Vault management", () => {
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
     expect(container.textContent).toContain("pending@example.test");
+    const copyExistingInvitation = findButton(container, "Tautan undangan tidak tersedia untuk pending@example.test");
+    await act(async () => copyExistingInvitation.click());
+    expect(container.textContent).toContain("Tautan aman asli hanya tersedia saat undangan dibuat");
 
     await act(async () => findButton(container, "Lihat audit viewer@example.test").click());
     await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?actorUserId=viewer-1"))).toBe(true));

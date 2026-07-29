@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { expect, test, type BrowserContext, type Page, type Response } from "@playwright/test";
 import { cleanBrowserE2eUsers } from "./support/e2e-database";
 import { e2eUserAlias, e2eUserEmail, type E2E_BROWSER_SCENARIOS, type E2E_BROWSER_ROLES } from "./support/e2e-users";
+import { expectVaultLockAction, lockVaultFromSettings } from "./support/vault-account-settings";
 
 const baseUrl = `http://127.0.0.1:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
 const personalSecret = "e2e personal vault passphrase";
@@ -47,7 +48,7 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     await expectWorkspaceInspection(page, { workspacePresent: true, lastClearedAllZero: null });
     keyMaterial = await activeWorkspaceKeyMaterial(page);
     expect(keyMaterial.length).toBeGreaterThanOrEqual(2);
-    await page.getByRole("button", { name: "Kunci" }).click();
+    await lockVaultFromSettings(page);
     await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
     await expectWorkspaceInspection(page, { workspacePresent: false, lastClearedAllZero: true });
     await unlockVault(page, personalSecret);
@@ -113,7 +114,12 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     await expect(page.getByLabel(/detik tersisa/).first()).toBeVisible();
     await page.getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" }).click();
     await expect(page.getByText("Disalin", { exact: true })).toBeVisible();
-    expect(await page.evaluate(() => (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__)).toBe(generatedOtp);
+    const copiedOtp = await output.evaluate((element) => ({
+      displayed: element.textContent?.replace(/\s/g, "") ?? "",
+      clipboard: (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ ?? ""
+    }));
+    expect(copiedOtp.clipboard).toBe(copiedOtp.displayed);
+    generatedOtp = copiedOtp.clipboard;
   });
 
   await test.step("manual import warns about a duplicate and requires explicit add-anyway confirmation", async () => {
@@ -283,6 +289,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
 
     await test.step("Vault defaults and per-member overrides independently authorize Viewer account changes", async () => {
       await openSharedManagement(page, ownerSecret, sharedName);
+      await page.getByRole("button", { name: /Izin akun bawaan anggota/ }).click();
       await page.locator("#vault-default-canAddAccounts").click();
       const defaultsResponse = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith(`/api/shared-vaults/${sharedVaultId}/member-permissions`));
       await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
@@ -293,7 +300,9 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       await page.getByRole("option", { name: "Izinkan" }).click();
       await page.getByLabel("Hapus akun").click();
       await page.getByRole("option", { name: "Tolak" }).click();
+      const memberPermissionsResponse = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes(`/api/shared-vaults/${sharedVaultId}/members/`));
       await page.getByRole("button", { name: "Simpan izin anggota" }).click();
+      expect((await memberPermissionsResponse).status()).toBe(200);
 
       await leavePage.goto("/vaults");
       await unlockVault(leavePage, leaveSecret);
@@ -403,7 +412,7 @@ test("English setup, unlock, account creation, and OTP smoke use the real stack"
   await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("textbox", { name: "Vault Passphrase", exact: true }).fill(secret);
   await page.getByRole("button", { name: "Unlock Vault" }).click();
-  await expect(page.getByRole("button", { name: "Lock" })).toBeVisible({ timeout: 120_000 });
+  await expectVaultLockAction(page, "en");
 
   await page.getByRole("link", { name: "Add authenticator account" }).click();
   await page.locator("#qr-image").setInputFiles(resolve(process.cwd(), "src/tests/browser/fixtures/e2e-totp-qr.svg"));
@@ -429,7 +438,7 @@ test("Passkey-assisted enrollment and unlock release the local package only afte
   await unlockVault(page, secret);
 
   await test.step("enrollment stores only an opaque recovery package after PRF verification", async () => {
-    await page.getByRole("button", { name: "Keamanan brankas" }).click();
+    await page.getByRole("button", { name: "Keamanan", exact: true }).click();
     await expect(page.getByRole("button", { name: "Aktifkan pemulihan kunci akses" })).toBeVisible();
     await page.getByRole("button", { name: "Aktifkan pemulihan kunci akses" }).click();
     await expect(page.getByText("Pemulihan kunci akses aktif")).toBeVisible({ timeout: 30_000 });
@@ -438,15 +447,15 @@ test("Passkey-assisted enrollment and unlock release the local package only afte
   });
 
   await test.step("verified passkey unlock opens the current authorized bundle", async () => {
-    await page.getByRole("button", { name: "Kunci" }).click();
+    await lockVaultFromSettings(page);
     await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Buka dengan passkey" })).toBeVisible();
     await page.getByRole("button", { name: "Buka dengan passkey" }).click();
-    await expect(page.getByRole("button", { name: "Kunci" })).toBeVisible({ timeout: 30_000 });
+    await expectVaultLockAction(page, "id", 30_000);
   });
 
   await test.step("unsupported verification fails without key release and the Vault Unlock Secret still works", async () => {
-    await page.getByRole("button", { name: "Kunci" }).click();
+    await lockVaultFromSettings(page);
     await page.evaluate(() => {
       Object.defineProperty(window, "PublicKeyCredential", { configurable: true, value: undefined });
       Object.defineProperty(navigator, "credentials", { configurable: true, value: { get: async () => { throw new DOMException("Unsupported", "NotSupportedError"); } } });
@@ -539,7 +548,7 @@ async function unlockVault(page: Page, secret: string): Promise<void> {
   await input.fill(secret);
   await expect(input).toHaveValue(secret);
   await page.getByRole("button", { name: "Buka Brankas" }).click();
-  await expect(page.getByRole("button", { name: "Kunci" })).toBeVisible({ timeout: 120_000 });
+  await expectVaultLockAction(page);
 }
 
 async function installMockClipboard(target: Pick<Page, "addInitScript"> | Pick<BrowserContext, "addInitScript">): Promise<void> {

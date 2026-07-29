@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Check, ChevronRight, Clipboard, Download, KeyRound, MailPlus, Plus, ScrollText, Settings2, Trash2, Upload, UsersRound } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clipboard, ClipboardX, Download, KeyRound, MailPlus, Plus, ScrollText, Settings2, Trash2, Upload, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,11 +50,14 @@ export type SharedVaultSummary = {
 export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] }) {
   const t = useTranslations("VaultManagement.directory");
   return <div className="grid gap-5 p-5 sm:p-6">
-    <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-ink-strong">{t("title")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></div><Button size="sm" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button></div>
-    <nav aria-label={t("archiveActions")} className="grid grid-cols-2 gap-2 sm:ml-auto sm:w-fit">
-      <Button variant="outline" size="sm" className="w-full sm:min-w-40" asChild><Link href="/vaults/backup"><Download />{t("backup")}</Link></Button>
-      <Button variant="outline" size="sm" className="w-full sm:min-w-40" asChild><Link href="/vaults/import"><Upload />{t("importArchive")}</Link></Button>
-    </nav>
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0"><h2 className="text-lg font-bold text-ink-strong">{t("title")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></div>
+      <nav aria-label={t("archiveActions")} className="flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="icon" asChild><Link href="/vaults/backup" aria-label={t("backup")} title={t("backup")}><Download aria-hidden="true" /></Link></Button>
+        <Button variant="outline" size="icon" asChild><Link href="/vaults/import" aria-label={t("importArchive")} title={t("importArchive")}><Upload aria-hidden="true" /></Link></Button>
+        <Button size="sm" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button>
+      </nav>
+    </div>
     <ul className="grid list-none gap-2 p-0">
       <li><VaultDirectoryLink href="/vaults/manage/personal" icon={KeyRound} name={t("personalVault")} detail={t("personalOwner")} badge={t("personal")} /></li>
       {vaults.map((vault) => { const memberCanChangeAccounts = Object.values(vault.effectiveAccountPermissions.permissions).some(Boolean); const role = vault.role === "OWNER" ? t("owner") : memberCanChangeAccounts ? t("memberWithPermissions") : t("canView"); return <li key={vault.id}><VaultDirectoryLink href={`/vaults/manage/${encodeURIComponent(vault.id)}`} icon={UsersRound} name={vault.name} detail={t("detail", { count: vault.accounts.length, role })} badge={vault.role === "OWNER" ? t("owner") : t("viewer")} /></li>; })}
@@ -77,7 +81,7 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
   const participantItems = participants.data?.pages.flatMap((page) => page.participants) ?? [];
   const audit = useVaultAuditQuery(vault.id, auditFilter.query, vault.role === "OWNER" && activeTab === "audit");
   const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); setStatus("renamed"); } catch { setStatus("renameError"); } } });
-  const defaultPermissionState = initialDefaultAccountPermissions ?? (defaults.data ? { permissions: defaults.data.vaultDefaultAccountPermissions, revision: defaults.data.vaultDefaultAccountPermissionsRevision } : undefined);
+  const defaultPermissionState = initialDefaultAccountPermissions ?? (defaults.data?.vaultDefaultAccountPermissions ? { permissions: defaults.data.vaultDefaultAccountPermissions, revision: defaults.data.vaultDefaultAccountPermissionsRevision } : undefined);
 
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
 
@@ -118,6 +122,7 @@ function VaultDefaultPermissionsForm({ vaultId, permissions, revision }: { vault
   const t = useTranslations("VaultManagement.permissions");
   const mutation = useUpdateVaultDefaultAccountPermissionsMutation(vaultId);
   const [status, setStatus] = useState<"saved" | "error" | null>(null);
+  const [expanded, setExpanded] = useState(() => Object.values(permissions).some(Boolean));
   const form = useForm({
     defaultValues: { ...permissions },
     onSubmit: async ({ value }) => {
@@ -130,11 +135,18 @@ function VaultDefaultPermissionsForm({ vaultId, permissions, revision }: { vault
       }
     }
   });
-  return <form noValidate className="grid gap-3 rounded-md border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-    <div><h3 className="font-bold text-foreground">{t("defaultsTitle")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("defaultsDescription")}</p></div>
-    <div className="grid gap-3 sm:grid-cols-3">{permissionFields.map(({ name, label, description }) => <form.Field key={name} name={name}>{(field) => <label className="grid grid-cols-[auto_1fr] items-start gap-2 rounded-md bg-card p-3" htmlFor={`vault-default-${name}`}><Checkbox id={`vault-default-${name}`} checked={field.state.value} onCheckedChange={(checked) => field.handleChange(checked === true)} aria-describedby={`vault-default-${name}-description`} /><span><span className="block text-sm font-bold">{t(label)}</span><span id={`vault-default-${name}-description`} className="mt-1 block text-xs leading-4 text-muted-foreground">{t(description)}</span></span></label>}</form.Field>)}</div>
-    <Button className="justify-self-start" type="submit" disabled={mutation.isPending} aria-busy={mutation.isPending}>{mutation.isPending ? t("saving") : t("saveDefaults")}</Button>
-    {status && <StatusBanner tone={status === "saved" ? "success" : "danger"} role={status === "saved" ? "status" : "alert"}>{t(status)}</StatusBanner>}
+  return <form noValidate className="rounded-md border bg-muted/30" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto min-h-11 w-full justify-between gap-3 rounded-b-none p-4 text-left whitespace-normal" type="button">
+        <span><span className="block font-bold text-foreground">{t("defaultsTitle")}</span><span className="mt-1 block text-sm font-normal text-muted-foreground">{t("defaultsDescription")}</span></span>
+        <ChevronDown className={`size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+      </Button></CollapsibleTrigger>
+      <CollapsibleContent><div className="grid gap-3 border-t p-4">
+        <div className="grid gap-3 sm:grid-cols-3">{permissionFields.map(({ name, label, description }) => <form.Field key={name} name={name}>{(field) => <label className="grid grid-cols-[auto_1fr] items-start gap-2 rounded-md bg-card p-3" htmlFor={`vault-default-${name}`}><Checkbox id={`vault-default-${name}`} checked={field.state.value} onCheckedChange={(checked) => field.handleChange(checked === true)} aria-describedby={`vault-default-${name}-description`} /><span><span className="block text-sm font-bold">{t(label)}</span><span id={`vault-default-${name}-description`} className="mt-1 block text-xs leading-4 text-muted-foreground">{t(description)}</span></span></label>}</form.Field>)}</div>
+        <Button className="justify-self-end" type="submit" disabled={mutation.isPending} aria-busy={mutation.isPending}>{mutation.isPending ? t("saving") : t("saveDefaults")}</Button>
+        {status && <StatusBanner tone={status === "saved" ? "success" : "danger"} role={status === "saved" ? "status" : "alert"}>{t(status)}</StatusBanner>}
+      </div></CollapsibleContent>
+    </Collapsible>
   </form>;
 }
 
@@ -208,17 +220,52 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
   const t = useTranslations("VaultManagement.invitations");
   const [participantToDelete, setParticipantToDelete] = useState<BrowserVaultParticipant | null>(null);
   const [participantToConfigure, setParticipantToConfigure] = useState<BrowserVaultParticipant | null>(null);
+  const [pendingLinks, setPendingLinks] = useState<Record<string, string>>({});
+  const [createdInvitations, setCreatedInvitations] = useState<Array<{ id: string; email: string }>>([]);
+  const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"failed" | "unavailable" | null>(null);
   const deleteMutation = useDeleteVaultParticipantMutation(vault.id);
-  const invited = participants;
-  async function removeParticipant() { if (!participantToDelete) return; await deleteMutation.mutateAsync(participantToDelete); setParticipantToDelete(null); }
+  const invited = [
+    ...participants,
+    ...createdInvitations.filter(({ id }) => !participants.some((participant) => participant.invitationId === id)).map(({ id, email }) => ({ key: `invitation:${id}`, email, kind: "INVITATION" as const, userId: null, invitationId: id, invitedAt: new Date().toISOString(), permissionOverrides: null, effectiveAccountPermissions: null, permissionsRevision: null }))
+  ];
+  async function removeParticipant() {
+    if (!participantToDelete) return;
+    await deleteMutation.mutateAsync(participantToDelete);
+    const invitationId = participantToDelete.invitationId;
+    if (invitationId) {
+      setCreatedInvitations((current) => current.filter(({ id }) => id !== invitationId));
+      setPendingLinks((current) => { const next = { ...current }; delete next[invitationId]; return next; });
+    }
+    setParticipantToDelete(null);
+  }
+  async function copyPendingInvitation(invitationId: string) {
+    const link = pendingLinks[invitationId];
+    if (!link) {
+      setCopyStatus("unavailable");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyStatus(null);
+      setCopiedInvitationId(invitationId);
+    } catch {
+      setCopyStatus("failed");
+    }
+  }
   return <div className="grid gap-5">
-    <InvitationForm vault={vault} onCreated={onCreated} />
+    <InvitationForm vault={vault} onCreated={({ id, email, link }) => { setPendingLinks((current) => ({ ...current, [id]: link })); setCreatedInvitations((current) => [...current.filter((invitation) => invitation.id !== id), { id, email }]); onCreated(); }} />
     <section className="grid gap-3" aria-labelledby="invited-users-title">
       <div><h3 id="invited-users-title" className="font-bold text-ink-strong">{t("usersTitle")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("usersDescription")}</p></div>
       {loading && <SectionLoadingPlaceholder rows={2} label={t("loading")} />}
       {failed && <StatusBanner tone="danger" role="alert">{t(invited.length ? "nextError" : "listError")}</StatusBanner>}
       {!loading && !failed && !invited.length && <p className="rounded-md border border-dashed bg-muted/30 p-5 text-center text-sm text-muted-foreground">{t("empty")}</p>}
-      {!!invited.length && <ul className="grid list-none gap-2 p-0">{invited.map((participant) => <li key={participant.key} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border bg-card p-3"><span className="grid min-w-0 gap-1"><strong className="truncate text-sm">{participant.email}</strong><span className="flex flex-wrap items-center gap-2"><Badge className="w-fit bg-muted text-muted-foreground">{participant.kind === "MEMBER" ? t("active") : t("pending")}</Badge>{participant.effectiveAccountPermissions && <span className="text-xs text-muted-foreground"><PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} /></span>}</span></span><span className="flex items-center">{participant.kind === "MEMBER" && <Button variant="ghost" size="icon-sm" type="button" aria-label={t("configurePermissions", { email: participant.email })} onClick={() => setParticipantToConfigure(participant)}><Settings2 /></Button>}<Button variant="ghost" size="icon-sm" type="button" aria-label={t("viewAudit", { email: participant.email })} title={participant.userId ? t("viewAuditTitle") : t("auditUnavailable")} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={t("deleteLabel", { email: participant.email })} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>)}</ul>}
+      {!!invited.length && <ul className="grid list-none gap-2 p-0">{invited.map((participant) => {
+        const invitationId = participant.kind === "INVITATION" ? participant.invitationId : null;
+        const linkAvailable = invitationId ? Boolean(pendingLinks[invitationId]) : false;
+        return <li key={participant.key} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border bg-card p-3"><span className="grid min-w-0 gap-1"><strong className="truncate text-sm">{participant.email}</strong><span className="flex flex-wrap items-center gap-2"><Badge className="w-fit bg-muted text-muted-foreground">{participant.kind === "MEMBER" ? t("active") : t("pending")}</Badge>{participant.effectiveAccountPermissions && <span className="text-xs text-muted-foreground"><PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} /></span>}</span></span><span className="flex items-center">{invitationId && <Button variant="ghost" size="icon-sm" type="button" aria-label={t(linkAvailable ? "copyPending" : "copyUnavailableLabel", { email: participant.email })} title={linkAvailable ? copiedInvitationId === invitationId ? t("pendingCopied") : t("copy") : t("copyUnavailableTitle")} onClick={() => void copyPendingInvitation(invitationId)}>{linkAvailable ? copiedInvitationId === invitationId ? <Check /> : <Clipboard /> : <ClipboardX />}</Button>}{participant.kind === "MEMBER" && <Button variant="ghost" size="icon-sm" type="button" aria-label={t("configurePermissions", { email: participant.email })} onClick={() => setParticipantToConfigure(participant)}><Settings2 /></Button>}<Button variant="ghost" size="icon-sm" type="button" aria-label={t("viewAudit", { email: participant.email })} title={participant.userId ? t("viewAuditTitle") : t("auditUnavailable")} disabled={!participant.userId} onClick={() => onAudit(participant)}><ScrollText /></Button><Button variant="ghost" size="icon-sm" className="text-destructive hover:bg-danger-surface hover:text-destructive" type="button" aria-label={t("deleteLabel", { email: participant.email })} onClick={() => setParticipantToDelete(participant)}><Trash2 /></Button></span></li>;
+      })}</ul>}
+      {copyStatus && <StatusBanner tone={copyStatus === "failed" ? "danger" : "warning"} role={copyStatus === "failed" ? "alert" : "status"}>{t(copyStatus === "failed" ? "copyError" : "copyUnavailable")}</StatusBanner>}
       {hasMore && <Button variant="outline" type="button" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? t("loading") : t("loadMore")}</Button>}
       {!!invited.length && !hasMore && <p className="text-center text-xs text-muted-foreground" aria-live="polite">{t("allLoaded")}</p>}
     </section>
@@ -227,11 +274,11 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
   </div>;
 }
 
-function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCreated: () => void }) {
+function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCreated: (invitation: { id: string; email: string; link: string }) => void }) {
   const t = useTranslations("VaultManagement.invitations");
   const [result, setResult] = useState<{ link: string; copied: boolean } | null>(null);
   const [error, setError] = useState<"createError" | "copyError" | null>(null);
-  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(null); setResult(null); try { const invitation = await createSharedVaultInvitation(vault.id, value.email, vault.key); setResult({ link: `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`, copied: false }); form.reset(); onCreated(); } catch { setError("createError"); } } });
+  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(null); setResult(null); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; setResult({ link, copied: false }); form.reset(); onCreated({ id: invitation.id, email, link }); } catch { setError("createError"); } } });
   async function copyLink() { if (!result) return; try { await navigator.clipboard.writeText(result.link); setResult({ ...result, copied: true }); } catch { setError("copyError"); } }
   return <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
     <div><h3 className="flex items-center gap-2 font-bold text-ink-strong"><MailPlus className="size-5" />{t("formTitle")}</h3><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p></div>

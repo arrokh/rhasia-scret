@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { KeyRound, Lock, Plus, ShieldKeyhole, UsersRound } from "lucide-react";
+import { KeyRound, LockKeyhole, Plus, ShieldKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/modules/crypto";
@@ -20,7 +20,7 @@ import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
   const locale = useLocale();
-  const { workspace, setWorkspace, lockWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
+  const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const [auditError, setAuditError] = useState(false);
 
@@ -30,15 +30,14 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   return (
     <section className="grid gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
       <div className="flex items-center gap-2">
-        {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><UsersRound aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
+        {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><LockKeyhole aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
         {current && <Sheet>
-          <SheetTrigger asChild><Button variant="outline" size="icon" aria-label={t("security")}><ShieldKeyhole /></Button></SheetTrigger>
+          <SheetTrigger asChild><Button variant="outline" aria-label={t("securityAction")}><ShieldKeyhole aria-hidden="true" /><span>{t("securityAction")}</span></Button></SheetTrigger>
           <SheetContent side="bottom" className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">
             <SheetHeader className="p-0 pt-5"><SheetTitle>{t("security")}</SheetTitle><SheetDescription>{t("securityDescription")}</SheetDescription></SheetHeader>
             <div className="grid gap-4"><PasskeyRecoveryEnrollment userRootKey={workspace.userRootKey} /><RememberedBrowserEnrollment profileId={workspace.profileId} userRootKey={workspace.userRootKey} /></div>
           </SheetContent>
         </Sheet>}
-        <Button variant="outline" type="button" onClick={lockWorkspace} className={current ? undefined : "ml-auto"}><Lock />{t("lock")}</Button>
         {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")}><Plus /><span className="hidden sm:inline">{t("addAccount")}</span></Link></Button>}
       </div>
       {!current && <StatusBanner tone="offline" title={t("readOnly")}>{t("syncNotice", { state: syncStateLabel(workspace.syncState, t), date: formatLocalDateTime(workspace.synchronizedAt, locale) })}</StatusBanner>}

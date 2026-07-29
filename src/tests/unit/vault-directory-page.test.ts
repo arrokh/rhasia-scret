@@ -49,7 +49,7 @@ describe("VaultDirectoryPage archive navigation", () => {
     expect(markup).not.toContain('href="/vaults/import"');
   });
 
-  it("shows responsive Download and Upload actions in a current Unlocked Vault Session", async () => {
+  it("shows icon-only archive actions beside Shared Vault in a current Unlocked Vault Session", async () => {
     const markup = await renderFully(createElement(
       TestQueryProvider,
       null,
@@ -57,9 +57,10 @@ describe("VaultDirectoryPage archive navigation", () => {
     ));
 
     expect(markup).toContain('aria-label="Aksi arsip Brankas"');
-    expect(markup).toContain("grid-cols-2");
-    expect(markup).toContain('href="/vaults/backup"');
-    expect(markup).toContain('href="/vaults/import"');
+    expect(markup).toContain("flex shrink-0 items-center gap-2");
+    expect(markup).toContain('aria-label="Buat cadangan" title="Buat cadangan" data-slot="button" data-variant="outline" data-size="icon"');
+    expect(markup).toContain('aria-label="Import arsip" title="Import arsip" data-slot="button" data-variant="outline" data-size="icon"');
+    expect(markup).toContain('href="/vaults/manage/new"');
     expect(markup).toContain("lucide-download");
     expect(markup).toContain("lucide-upload");
   });

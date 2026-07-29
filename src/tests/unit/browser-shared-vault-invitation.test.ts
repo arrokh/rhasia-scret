@@ -11,10 +11,10 @@ describe("createSharedVaultInvitation", () => {
   it("sends only recipient identity and encrypted one-time material to the server", async () => {
     const vaultKey = new Uint8Array(32).fill(9);
     mocks.createSecureShareLinkMaterial.mockResolvedValue({ secret: "client-only-secret", linkVerifier: new Uint8Array(32).fill(1), encryptedPackage: new Uint8Array(13).fill(2) });
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ id: "invitation-1" }) });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey)).resolves.toEqual({ secret: "client-only-secret" });
+    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey)).resolves.toEqual({ id: "invitation-1", secret: "client-only-secret" });
 
     expect(mocks.createSecureShareLinkMaterial).toHaveBeenCalledWith(vaultKey);
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
