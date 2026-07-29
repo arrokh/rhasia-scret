@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository } from "@/modules/identity/server";
-import { createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 
 type Dependencies = {
   sessionVerifier: SessionVerifier;

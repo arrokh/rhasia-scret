@@ -4,9 +4,8 @@ import { loadApplicationUser } from "@/modules/identity/application/load-applica
 import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
 import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
-import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
-import { createSessionVerifier } from "@/modules/identity/server";
 
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; cryptoProfiles: UserCryptoProfileRepository };
 

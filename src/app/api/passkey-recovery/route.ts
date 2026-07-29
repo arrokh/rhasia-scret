@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
-import { createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 export async function DELETE() {

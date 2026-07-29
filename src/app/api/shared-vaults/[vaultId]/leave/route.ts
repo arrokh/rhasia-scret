@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository } from "@/modules/identity/server";
-import { createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { leaveVaultMembership, MembershipUnavailableError } from "@/modules/vault-membership/application/manage-membership-lifecycle";
 import { PrismaMembershipLifecycleRepository } from "@/modules/vault-membership/infrastructure/prisma-membership-lifecycle-repository";

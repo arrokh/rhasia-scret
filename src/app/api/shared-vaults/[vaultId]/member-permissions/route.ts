@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository } from "@/modules/identity/server";
-import { createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { loadSharedVaultMemberPermissionDefaults, updateSharedVaultMemberPermissionDefaults } from "@/modules/vault-membership/application/manage-shared-vault-account-permissions";
 import { PrismaSharedVaultAccountPermissionRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository";

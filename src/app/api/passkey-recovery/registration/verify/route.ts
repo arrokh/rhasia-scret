@@ -3,11 +3,10 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
 import { browserE2eRegistrationCredential } from "@/modules/identity/infrastructure/browser-e2e-passkey-verification";
 import { passkeyRecoveryConfiguration } from "@/modules/identity/infrastructure/passkey-recovery-configuration";
-import { createSessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const bodySchema = z.object({ response: z.unknown(), encryptedRecoveryPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13) });
