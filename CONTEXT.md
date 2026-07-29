@@ -163,9 +163,21 @@ _Avoid_: Silent time correction
 The current or previous major release of Chrome, Edge, Firefox, or Safari with Web Crypto, IndexedDB, service workers, Clipboard API, and WebAuthn user verification. Private browsing and embedded webviews are unsupported for Remembered Browser or offline behavior. PWA installation is optional.
 _Avoid_: Best-effort webview support, private-mode persistence
 
+**Local Profile**:
+A device/browser-installation-scoped client-owned container that exists without a Supabase session or Application User and owns exactly one writable Local Vault. It is not identified by email, server user ID, or provider identity. A browser installation may have at most one Local Profile, and creating another requires explicitly clearing the existing one.
+_Avoid_: Device account, browser user, server profile, Personal Vault
+
+**Local Vault**:
+The one writable encrypted Vault owned by a Local Profile. It exists only in application-owned browser storage, remains independent from server Personal and Shared Vaults, and supports explicit offline account management without automatic synchronization, account linking, background upload, merge, or deletion propagation. Its labels and account content are decrypted only in client memory.
+_Avoid_: Personal Vault, Shared Vault, Local Vault Snapshot, offline cache
+
+**Local Vault Passphrase**:
+The client-only passphrase that derives the Local Unlock Key for a Local Vault. It is separate from the server-backed Vault Unlock Secret and authentication credential, never reaches a server, and is not recoverable by logout, sign-in, or an identity provider. The Indonesian product label is **Passphrase Brankas Lokal** and the English product label is **Local Vault Passphrase**.
+_Avoid_: PIN, authentication password, Vault Unlock Secret, recovery secret
+
 **Local Vault Snapshot**:
-An encrypted browser-stored copy of a previously synchronized Vault used for read-only offline OTP generation. On a later successful contact, it is deleted if the server reports the user no longer has access.
-_Avoid_: Plaintext offline cache, offline write queue
+An encrypted browser-stored copy of a previously synchronized server Vault used for read-only offline OTP generation. It is not a Local Vault, cannot queue or replay mutations, and on a later successful contact is deleted if the server reports the user no longer has access.
+_Avoid_: Plaintext offline cache, writable local vault, offline write queue
 
 **Encrypted Vault Archive**:
 A portable, explicitly user-created versioned archive whose authenticated ciphertext contains one plaintext Vault Name and normalized TOTP configurations only while opened in client memory. Its owner-only export generates a separate random 32-byte archive key in the browser and releases the archive and key only after the server records a redacted Archive Exported event. Import requires user-supplied 32-byte archive key material, validates and previews all content locally, then atomically stores newly encrypted account ciphertext and one redacted Archive Imported event in an owned destination Vault or a newly created Shared Vault. Personal and Shared Vault owners can view these events in Vault Audit History. Export-audit requests contain only opaque Vault/user identifiers and reveal no archive bytes, keys, names, account counts, or TOTP content. Import requests contain opaque destination/account identifiers, envelope versions, and re-encrypted account ciphertext, so the server can observe the imported record count but cannot read archive or TOTP content.
