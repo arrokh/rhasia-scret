@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { ApplicationUser, type ApplicationUserStatus } from "../domain/application-user";
 import type { ApplicationUserRepository } from "../application/application-user-repository";
 import type { VerifiedPrincipal } from "../application/session-verifier";
@@ -13,6 +14,12 @@ type ApplicationUserWithIdentity = {
   externalIdentities: Array<{ issuer: string; subject: string; email: string | null }>;
 };
 
+type ExistingExternalIdentity = {
+  email: string | null;
+  emailVerifiedAt: Date | null;
+  applicationUser: ApplicationUserWithIdentity;
+};
+
 export class PrismaApplicationUserRepository implements ApplicationUserRepository {
   public constructor(private readonly isAdmitted: ApplicationAdmission = async () => true) {}
 
@@ -21,12 +28,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
       include: { applicationUser: { include: { externalIdentities: true } } }
     });
-    if (existingIdentity) {
-      if (existingIdentity.email === principal.email && (existingIdentity.emailVerifiedAt !== null || !principal.emailVerified)) {
-        return toApplicationUser(existingIdentity.applicationUser);
-      }
-      return this.updateExistingIdentity(existingIdentity.applicationUser, principal);
-    }
+    if (existingIdentity) return this.resolveExistingIdentity(existingIdentity, principal);
 
     if (isSupabaseIssuer(principal.issuer)) {
       const legacy = await prisma.applicationUser.findUnique({
@@ -51,21 +53,38 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       throw new Error("Application admission denied.");
     }
 
-    const created = await prisma.applicationUser.create({
-      data: {
-        email: principal.email,
-        externalIdentities: {
-          create: {
-            issuer: principal.issuer,
-            subject: principal.subject,
-            email: principal.email,
-            emailVerifiedAt: new Date()
+    try {
+      const created = await prisma.applicationUser.create({
+        data: {
+          email: principal.email,
+          externalIdentities: {
+            create: {
+              issuer: principal.issuer,
+              subject: principal.subject,
+              email: principal.email,
+              emailVerifiedAt: new Date()
+            }
           }
-        }
-      },
-      include: { externalIdentities: true }
-    });
-    return toApplicationUser(created);
+        },
+        include: { externalIdentities: true }
+      });
+      return toApplicationUser(created);
+    } catch (error) {
+      if (!isUniqueConstraintViolation(error)) throw error;
+      const racedIdentity = await prisma.externalIdentity.findUnique({
+        where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
+        include: { applicationUser: { include: { externalIdentities: true } } }
+      });
+      if (!racedIdentity) throw error;
+      return this.resolveExistingIdentity(racedIdentity, principal);
+    }
+  }
+
+  private async resolveExistingIdentity(identity: ExistingExternalIdentity, principal: VerifiedPrincipal): Promise<ApplicationUser> {
+    if (identity.email === principal.email && (identity.emailVerifiedAt !== null || !principal.emailVerified)) {
+      return toApplicationUser(identity.applicationUser);
+    }
+    return this.updateExistingIdentity(identity.applicationUser, principal);
   }
 
   private async updateExistingIdentity(record: ApplicationUserWithIdentity, principal: VerifiedPrincipal): Promise<ApplicationUser> {
@@ -92,6 +111,10 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
     });
     return toApplicationUser(updated);
   }
+}
+
+function isUniqueConstraintViolation(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 function isSupabaseIssuer(issuer: string): boolean {

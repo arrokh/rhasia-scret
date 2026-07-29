@@ -26,6 +26,18 @@ describe("PrismaApplicationUserRepository", () => {
     await expect(prisma.externalIdentity.count({ where: { issuer: "supabase", subject } })).resolves.toBe(1);
   });
 
+  it.skipIf(!process.env.DATABASE_URL)("provisions one Application User when concurrent requests race on the same external identity", async () => {
+    const subject = randomUUID();
+    subjects.push(subject);
+    const repository = new PrismaApplicationUserRepository();
+    const principal = { issuer: "oidc", subject, email: "concurrent@example.test", emailVerified: true, assurance: "active-session" as const };
+
+    const [first, second] = await Promise.all([repository.provision(principal), repository.provision(principal)]);
+
+    expect(second.id).toBe(first.id);
+    await expect(prisma.externalIdentity.count({ where: { issuer: "oidc", subject } })).resolves.toBe(1);
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("does not write an unchanged existing user during a normal read path", async () => {
     const subject = randomUUID();
     subjects.push(subject);
