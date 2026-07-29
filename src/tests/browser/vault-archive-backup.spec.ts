@@ -12,6 +12,10 @@ test.describe("encrypted Vault archive backup", () => {
     await page.getByLabel("Brankas").click();
     await expect(page.getByRole("option", { name: /Brankas Tim/ })).toBeVisible();
     await expect(page.getByRole("option", { name: /Brankas Viewer/ })).toHaveCount(0);
+    const selectedOption = page.getByRole("option", { name: /Brankas Pribadi/ });
+    expect((await selectedOption.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expect(selectedOption).toHaveCSS("font-weight", "700");
+    await expect(page.locator('[data-slot="select-content"]')).toHaveCSS("border-style", "solid");
     await page.keyboard.press("Escape");
     await page.getByLabel(/Saya akan menyimpan kunci arsip/).check();
     await page.getByRole("button", { name: "Buat cadangan" }).click();

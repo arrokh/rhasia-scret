@@ -37,13 +37,24 @@ test.describe("encrypted Vault archive import", () => {
       const accounts = requestBody.accounts as Array<{ id: string }>;
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ vaultId: destination.vaultId, accountIds: accounts.map(({ id }) => id), vaultCreated: true, replayed: false }) });
     });
+    await page.setViewportSize({ width: 982, height: 752 });
     await page.goto("/ui-preview/archive-import");
     await openArchive(page, await encryptedArchive(sensitive));
     await page.getByLabel("Brankas tujuan").click();
     await page.getByRole("option", { name: new RegExp(`Buat Brankas Bersama.*${sensitive.vaultName}`) }).click();
     await page.getByRole("button", { name: "Konfirmasi dan impor" }).click();
 
-    await expect(page.getByText("1 akun berhasil diimpor ke Brankas Bersama baru.")).toBeVisible();
+    const successDialog = page.getByRole("dialog", { name: "Import selesai" });
+    await expect(successDialog).toBeVisible();
+    await expect(successDialog.getByText("1 akun berhasil diimpor ke Brankas Bersama baru.")).toBeVisible();
+    const importAnother = successDialog.getByRole("button", { name: "Impor arsip lain" });
+    const openImportedVault = successDialog.getByRole("link", { name: "Buka Brankas hasil import" });
+    await expect(openImportedVault).toHaveAttribute("href", /^\/vaults\/manage\/[0-9a-f-]+$/);
+    expect(await openImportedVault.evaluate((link) => link.scrollWidth <= link.clientWidth && link.scrollHeight <= link.clientHeight)).toBe(true);
+    expect(await importAnother.evaluate((button) => button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight)).toBe(true);
+    await importAnother.click();
+    await expect(successDialog).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Buka arsip terenkripsi" })).toBeVisible();
     expect(requestBody).toBeDefined();
     expect((requestBody?.destination as { kind: string }).kind).toBe("NEW_SHARED");
     const serialized = JSON.stringify(requestBody);
@@ -70,6 +81,23 @@ test.describe("encrypted Vault archive import", () => {
     await page.getByRole("button", { name: "Tetap tambahkan" }).click();
     await expect(page.getByText("1 akun berhasil diimpor.")).toBeVisible();
     expect(requests).toBe(1);
+  });
+
+  test("reports when encrypted import data is waiting for the server", async ({ page }) => {
+    let releaseResponse: (() => void) | undefined;
+    const responseGate = new Promise<void>((resolve) => { releaseResponse = resolve; });
+    await page.route("**/api/vault-imports", async (route) => {
+      const body = route.request().postDataJSON() as { destination: { vaultId: string }; accounts: Array<{ id: string }> };
+      await responseGate;
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ vaultId: body.destination.vaultId, accountIds: body.accounts.map(({ id }) => id), vaultCreated: false, replayed: false }) });
+    });
+    await page.goto("/ui-preview/archive-import");
+    await openArchive(page, await encryptedArchive(sensitive));
+    await page.getByRole("button", { name: "Konfirmasi dan impor" }).click();
+
+    await expect(page.getByRole("status").filter({ hasText: "Menunggu respons server" })).toBeVisible();
+    releaseResponse?.();
+    await expect(page.getByText("1 akun berhasil diimpor.")).toBeVisible();
   });
 
   test("keeps the preview and exposes an atomic server failure instead of claiming partial success", async ({ page }) => {

@@ -34,7 +34,7 @@ export function PageHeader({ eyebrow, title, description, action, backHref, back
           {description && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-2">{description}</p>}
         </div>
       </div>
-      {action && <div className="shrink-0 self-center">{action}</div>}
+      {action && <div className="shrink-0 self-start">{action}</div>}
     </header>
   );
 }

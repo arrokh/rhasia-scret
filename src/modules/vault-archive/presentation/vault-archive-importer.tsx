@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { ArchiveRestore, KeyRound, LoaderCircle, ShieldAlert } from "lucide-react";
+import { ArchiveRestore, CheckCircle2, KeyRound, LoaderCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   clearUnlockedVaultWorkspace,
   refreshUnlockedVaultWorkspace,
@@ -36,7 +37,8 @@ import { uploadEncryptedVaultImport, VaultImportClientError, type BrowserEncrypt
 const NEW_SHARED_DESTINATION = "NEW_SHARED";
 
 type ImportPlan = { selection: string; vaultId: string; accountIds: string[] };
-type ArchiveErrorKey = "offlineOpen" | "chooseArchive" | "archiveTooLarge" | "openError" | "destinationUnavailable" | "destinationKeyUnavailable" | "locked" | "newVaultMaterialUnavailable" | "responseMismatch" | "refreshError" | "partialFailure" | "invalidKeyLength" | "invalidKey" | "clientDestinationUnavailable" | "clientConflict" | "clientInvalidPayload" | "clientServerError";
+type ImportPhase = "preparing" | "uploading" | "refreshing";
+type ArchiveErrorKey = "offlineOpen" | "chooseArchive" | "archiveTooLarge" | "openError" | "destinationUnavailable" | "destinationKeyUnavailable" | "locked" | "newVaultMaterialUnavailable" | "responseMismatch" | "refreshError" | "partialFailure" | "invalidKeyLength" | "invalidKey" | "clientDestinationUnavailable" | "clientConflict" | "clientInvalidPayload" | "clientTimeout" | "clientServerError";
 
 class VaultArchivePresentationError extends Error {
   public constructor(public readonly code: ArchiveErrorKey) { super(code); }
@@ -64,15 +66,21 @@ export function VaultArchiveImporter({
   const online = useOnlineStatus();
   const [opened, setOpenedState] = useState<OpenedVaultArchive | null>(null);
   const [errorCode, setErrorCode] = useState<ArchiveErrorKey | null>(null);
-  const [success, setSuccess] = useState<{ count: number; newVault: boolean } | null>(null);
+  const [success, setSuccess] = useState<{ count: number; newVault: boolean; vaultId: string; vaultType: "PERSONAL" | "SHARED" } | null>(null);
   const [duplicateConfirmation, setDuplicateConfirmation] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [importPhase, setImportPhase] = useState<ImportPhase | null>(null);
   const openedRef = useRef<OpenedVaultArchive | null>(null);
   const activeRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const planRef = useRef<ImportPlan | null>(null);
 
+  const uploading = importPhase !== null;
+  const importProgress = importPhase ? {
+    preparing: { title: t("preparingTitle"), description: t("preparingDescription") },
+    uploading: { title: t("uploadingTitle"), description: t("uploadingDescription") },
+    refreshing: { title: t("refreshingTitle"), description: t("refreshingDescription") }
+  }[importPhase] : null;
   const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
   const initialDestination = writableVaults[0]?.id ?? NEW_SHARED_DESTINATION;
   const previewForm = useForm({
@@ -114,10 +122,13 @@ export function VaultArchiveImporter({
   }, [existingDestination, opened, workspace.accounts]);
 
   useEffect(() => { openedRef.current = opened; }, [opened]);
-  useEffect(() => () => {
-    activeRef.current = false;
-    clearOpenedVaultArchive(openedRef.current);
-    openedRef.current = null;
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      clearOpenedVaultArchive(openedRef.current);
+      openedRef.current = null;
+    };
   }, []);
 
   function replaceOpened(next: OpenedVaultArchive | null) {
@@ -148,7 +159,7 @@ export function VaultArchiveImporter({
     const destination = writableVaults.find(({ id }) => id === destinationId);
     if (!destination && destinationId !== NEW_SHARED_DESTINATION) { setErrorCode("destinationUnavailable"); return; }
     if (duplicateCount > 0 && !allowDuplicates) { setDuplicateConfirmation(true); return; }
-    setUploading(true);
+    setImportPhase("preparing");
     const plan = planRef.current?.selection === destinationId && planRef.current.accountIds.length === opened.accounts.length
       ? planRef.current
       : { selection: destinationId, vaultId: destination ? destination.id : crypto.randomUUID(), accountIds: opened.accounts.map(() => crypto.randomUUID()) };
@@ -174,14 +185,16 @@ export function VaultArchiveImporter({
         destination: requestDestination,
         accounts: encryptedAccounts.map((encryptedPayload, index) => ({ id: plan.accountIds[index], encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 }))
       };
+      setImportPhase("uploading");
       const result = await uploadEncryptedVaultImport(request);
       if (!activeRef.current) return;
       if (result.vaultId !== plan.vaultId || result.accountIds.join(",") !== plan.accountIds.join(",")) throw new VaultArchivePresentationError("responseMismatch");
       uploaded = true;
+      setImportPhase("refreshing");
       const refreshed = await refreshAfterImport(workspace);
       replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
       replaceOpened(null);
-      setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated });
+      setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated, vaultId: result.vaultId, vaultType: destination?.type ?? "SHARED" });
     } catch (error) {
       if (!activeRef.current) return;
       if (error instanceof VaultImportClientError && error.code === "clientDestinationUnavailable") {
@@ -205,7 +218,7 @@ export function VaultArchiveImporter({
       newVaultMaterial?.encryptedOwnerVaultKey.fill(0);
       if (activeRef.current) {
         setDuplicateConfirmation(false);
-        setUploading(false);
+        setImportPhase(null);
       }
     }
   }
@@ -218,8 +231,9 @@ export function VaultArchiveImporter({
       <previewForm.Field name="keyMaterial" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("keyRequired") }}>{(field) => <Field><Label htmlFor="vault-archive-key">{t("keyLabel")}</Label><PasswordInput id="vault-archive-key" label={t("key")} visible={keyVisible} onToggleVisibility={() => setKeyVisible((visible) => !visible)} value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "vault-archive-key-error" : "vault-archive-key-help"} /><p id="vault-archive-key-help" className="text-xs text-muted-foreground">{t("keyHelp")}</p><FormFieldError id="vault-archive-key-error" errors={field.state.meta.errors} /></Field>}</previewForm.Field>
       <previewForm.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button type="submit" disabled={!online || pending} aria-busy={pending}>{pending && <LoaderCircle className="animate-spin" />}{pending ? t("opening") : t("previewArchive")}</Button>}</previewForm.Subscribe>
     </form>
+    <previewForm.Subscribe selector={(state) => state.isSubmitting}>{(pending) => pending && <StatusBanner tone="info" role="status" title={t("openingStatusTitle")}>{t("openingStatusDescription")}</StatusBanner>}</previewForm.Subscribe>
     {errorCode && <StatusBanner tone="danger" role="alert">{t(errorCode)}</StatusBanner>}
-    {success && <StatusBanner tone="success" role="status">{t("success", { count: success.count, newVault: success.newVault ? "yes" : "no" })}</StatusBanner>}
+    {success && <ImportSuccessDialog success={success} onImportAnother={cancelImport} />}
   </div>;
 
   return <div className="grid gap-5 p-5 sm:p-6">
@@ -231,9 +245,39 @@ export function VaultArchiveImporter({
       {duplicateCount > 0 && <StatusBanner tone="warning" title={t("duplicatesTitle", { count: duplicateCount })}>{t("duplicatesDescription")}</StatusBanner>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={cancelImport} disabled={uploading}>{tCommon("cancel")}</Button><Button type="submit" disabled={!online || uploading} aria-busy={uploading}>{uploading && <LoaderCircle className="animate-spin" />}{uploading ? t("importing") : t("confirmImport")}</Button></div>
     </form>
+    {importProgress && <StatusBanner tone="info" role="status" title={importProgress.title}>{importProgress.description}</StatusBanner>}
     {duplicateConfirmation && <StatusBanner tone="warning" title={t("duplicateConfirmTitle")}><span className="grid gap-3"><span>{t("duplicateConfirmDescription")}</span><span className="flex gap-2"><Button size="sm" variant="outline" type="button" onClick={cancelImport}>{tCommon("cancel")}</Button><Button size="sm" type="button" disabled={!online || uploading} onClick={() => void submitImport(selectedDestination, true)}>{t("addAnyway")}</Button></span></span></StatusBanner>}
     {errorCode && <StatusBanner tone="danger" role="alert" title={t("notCompleted")}><span className="flex items-start gap-2"><ShieldAlert className="mt-0.5 size-4 shrink-0" />{t(errorCode)}</span></StatusBanner>}
   </div>;
+}
+
+function ImportSuccessDialog({
+  success,
+  onImportAnother
+}: {
+  success: { count: number; newVault: boolean; vaultId: string; vaultType: "PERSONAL" | "SHARED" };
+  onImportAnother: () => void;
+}) {
+  const t = useTranslations("VaultArchive.importer");
+  const destinationHref = success.vaultType === "PERSONAL" ? "/vaults/manage/personal" : `/vaults/manage/${encodeURIComponent(success.vaultId)}`;
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onImportAnother(); }}>
+      <DialogContent className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet">
+        <DialogHeader className="items-center text-center sm:items-center sm:text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-success-surface text-success" aria-hidden="true"><CheckCircle2 className="size-6" /></span>
+          <DialogTitle className="text-xl leading-7 font-bold text-ink-strong">{t("successTitle")}</DialogTitle>
+          <DialogDescription className="grid gap-2 text-center leading-5 text-muted-foreground">
+            <span>{t("success", { count: success.count, newVault: success.newVault ? "yes" : "no" })}</span>
+            <span>{t("successQuestion")}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="-mx-5 -mb-5 mt-1 grid gap-2 bg-muted/60 p-4 sm:grid-cols-2">
+          <Button variant="outline" className="h-auto min-h-12 py-3 text-center leading-5 whitespace-normal" type="button" onClick={onImportAnother}>{t("importAnother")}</Button>
+          <Button className="h-auto min-h-12 py-3 text-center leading-5 whitespace-normal" asChild><Link href={destinationHref}>{t("goToImportedVault")}</Link></Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function classifyArchiveError(error: unknown, fallback: ArchiveErrorKey): ArchiveErrorKey {

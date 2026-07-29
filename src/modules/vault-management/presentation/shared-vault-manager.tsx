@@ -32,7 +32,7 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { FormLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
 import { encryptSharedVaultName } from "../infrastructure/browser-shared-vault-creator";
 import type { VaultAuditFilter } from "../infrastructure/browser-vault-management-client";
-import { useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
+import { useDeleteSharedVaultMutation, useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 import { useVaultAuditQuery } from "./hooks/use-vault-audit-query";
 import { VaultAccountManagementList, type ManagedVaultAccountSummary } from "./vault-account-management-list";
 import { VaultAuditHistory, type SelectedAuditFilter } from "./vault-audit-history";
@@ -69,13 +69,15 @@ function VaultDirectoryLink({ href, icon: Icon, name, detail, badge }: { href: s
   return <Button variant="outline" className="h-auto min-h-16 w-full justify-start gap-3 p-3 text-left" asChild><Link href={href}><span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-foreground"><Icon /></span><span className="grid min-w-0 flex-1 gap-1"><strong className="truncate text-sm text-foreground">{name}</strong><span className="text-xs font-normal text-muted-foreground">{detail}</span></span><Badge className="bg-muted text-muted-foreground">{badge}</Badge><ChevronRight className="text-muted-foreground" /></Link></Button>;
 }
 
-export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPermissions, onRenamed, onAccountDeleted }: { vault: SharedVaultSummary; ownerEmail: string; initialDefaultAccountPermissions?: { permissions: SharedVaultAccountPermissions; revision: number }; onRenamed: (vaultId: string, name: string) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
+export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPermissions, onRenamed, onAccountDeleted, onDeleted }: { vault: SharedVaultSummary; ownerEmail: string; initialDefaultAccountPermissions?: { permissions: SharedVaultAccountPermissions; revision: number }; onRenamed: (vaultId: string, name: string) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void>; onDeleted?: (vaultId: string) => void }) {
   const t = useTranslations("VaultManagement.details");
   const permissionsT = useTranslations("VaultManagement.permissions");
   const [activeTab, setActiveTab] = useState("details");
-  const [status, setStatus] = useState<"renamed" | "renameError" | null>(null);
+  const [status, setStatus] = useState<"renamed" | "renameError" | "deleteError" | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [auditFilter, setAuditFilter] = useState<SelectedAuditFilter>({ query: {}, label: "" });
   const renameMutation = useRenameSharedVaultMutation();
+  const deleteMutation = useDeleteSharedVaultMutation();
   const defaults = useVaultDefaultAccountPermissionsQuery(vault.id, vault.role === "OWNER" && !initialDefaultAccountPermissions);
   const participants = useVaultParticipantsQuery(vault.id, vault.role === "OWNER" && activeTab === "invitations");
   const participantItems = participants.data?.pages.flatMap((page) => page.participants) ?? [];
@@ -84,6 +86,17 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
   const defaultPermissionState = initialDefaultAccountPermissions ?? (defaults.data?.vaultDefaultAccountPermissions ? { permissions: defaults.data.vaultDefaultAccountPermissions, revision: defaults.data.vaultDefaultAccountPermissionsRevision } : undefined);
 
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
+  async function deleteVault() {
+    setStatus(null);
+    try {
+      await deleteMutation.mutateAsync(vault.id);
+      setConfirmingDelete(false);
+      onDeleted?.(vault.id);
+    } catch {
+      setConfirmingDelete(false);
+      setStatus("deleteError");
+    }
+  }
 
   return <div className="p-5 sm:p-6">
     <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -99,6 +112,7 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
           {defaults.isPending && !initialDefaultAccountPermissions && <FormLoadingPlaceholder />}
           {defaults.isError && !initialDefaultAccountPermissions && <StatusBanner tone="danger" role="alert">{permissionsT("loadingError")}</StatusBanner>}
           {defaultPermissionState && <VaultDefaultPermissionsForm key={defaultPermissionState.revision} vaultId={vault.id} permissions={defaultPermissionState.permissions} revision={defaultPermissionState.revision} />}
+          <DeleteSharedVaultSection vaultId={vault.id} onDelete={() => setConfirmingDelete(true)} />
         </> : <MemberPermissionNotice effective={vault.effectiveAccountPermissions} />}
         {vault.accounts.some((account) => account.unavailable) && <StatusBanner tone="warning" role="status">{t("unavailableAccountWarning")}</StatusBanner>}
         <VaultAccountManagementList
@@ -110,12 +124,22 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
           onAudit={vault.role === "OWNER" ? (account) => openAudit({ accountId: account.id }, account.unavailable ? account.id : `${account.issuer} · ${account.accountName}`) : undefined}
           onAccountDeleted={onAccountDeleted}
         />
-        {status && <StatusBanner tone={status === "renamed" ? "success" : "danger"}>{t(status)}</StatusBanner>}
+        {status && <StatusBanner tone={status === "renamed" ? "success" : "danger"} role={status === "renamed" ? "status" : "alert"}>{t(status)}</StatusBanner>}
       </TabsContent>
       {vault.role === "OWNER" && <TabsContent value="invitations"><InvitationPanel vault={vault} participants={participantItems} loading={participants.isPending} loadingMore={participants.isFetchingNextPage} failed={participants.isError} hasMore={participants.hasNextPage} onLoadMore={() => void participants.fetchNextPage()} onCreated={() => void participants.refetch()} onAudit={(participant) => participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)} /></TabsContent>}
       {vault.role === "OWNER" && <TabsContent value="audit"><VaultAuditHistory audit={audit} accounts={vault.accounts} filter={auditFilter} onClearFilter={() => setAuditFilter({ query: {}, label: "" })} /></TabsContent>}
     </Tabs>
+    {confirmingDelete && <ConfirmationDialog title={t("deleteConfirmTitle")} description={t("deleteConfirmDescription")} confirmLabel={t("deleteConfirmAction")} danger pending={deleteMutation.isPending} onCancel={() => setConfirmingDelete(false)} onConfirm={() => void deleteVault()} />}
   </div>;
+}
+
+function DeleteSharedVaultSection({ vaultId, onDelete }: { vaultId: string; onDelete: () => void }) {
+  const t = useTranslations("VaultManagement.details");
+  const [expanded, setExpanded] = useState(false);
+  return <Collapsible open={expanded} onOpenChange={setExpanded} className="rounded-md border border-destructive/20 bg-danger-surface/50">
+    <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto min-h-11 w-full justify-between gap-3 rounded-b-none p-4 text-left text-destructive whitespace-normal hover:bg-danger-surface hover:text-destructive" type="button" aria-controls={`delete-shared-vault-${vaultId}`}><span className="font-bold">{t("deleteSectionTitle")}</span><ChevronDown className={`size-5 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" /></Button></CollapsibleTrigger>
+    <CollapsibleContent id={`delete-shared-vault-${vaultId}`}><div className="grid gap-3 border-t border-destructive/20 p-4"><p className="text-sm text-muted-foreground">{t("deleteSectionDescription")}</p><Button variant="destructive" className="justify-self-end" type="button" onClick={onDelete}><Trash2 />{t("deleteVault")}</Button></div></CollapsibleContent>
+  </Collapsible>;
 }
 
 function VaultDefaultPermissionsForm({ vaultId, permissions, revision }: { vaultId: string; permissions: SharedVaultAccountPermissions; revision: number }) {
