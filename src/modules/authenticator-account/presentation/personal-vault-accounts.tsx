@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { KeyRound, Plus, ShieldKeyhole, Vault } from "lucide-react";
+import { ArrowLeftRight, KeyRound, Plus, ShieldKeyhole, Vault } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/modules/crypto";
@@ -12,6 +12,7 @@ import type { OfflineSyncState } from "@/modules/sync";
 import { formatLocalDateTime } from "@/i18n/format";
 import { recordSharedVaultAccountAccess } from "@/modules/vault-management";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { LocalVaultCopyPanel } from "@/modules/local-vault";
 import type { WorkspaceAuthenticatorAccount } from "../infrastructure/browser-vault-workspace";
 import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
@@ -26,11 +27,20 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
 
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={vaultId} onUnlocked={setWorkspace} />;
   const current = workspace.syncState === "CURRENT";
+  const personalVault = workspace.vaults.find((vault) => vault.id === vaultId && vault.type === "PERSONAL");
+  const personalAccounts = workspace.accounts.filter((account) => account.vaultId === vaultId && account.vaultType === "PERSONAL");
 
   return (
     <section className="grid gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
       <div className="flex items-center gap-2">
         {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><Vault aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
+        {current && personalVault && <Sheet>
+          <SheetTrigger asChild><Button variant="outline" aria-label={t("localAction")}><ArrowLeftRight aria-hidden="true" /><span>{t("localAction")}</span></Button></SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[85dvh] gap-5 overflow-y-auto rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">
+            <SheetHeader className="p-0 pt-5"><SheetTitle>{t("localTitle")}</SheetTitle><SheetDescription>{t("localDescription")}</SheetDescription></SheetHeader>
+            <LocalVaultCopyPanel personalVaultId={personalVault.id} personalVaultName={personalVault.name} personalVaultKey={personalVault.key} personalAccounts={personalAccounts} onPersonalAccountsCopied={(accounts) => setWorkspace((value) => value ? { ...value, accounts: [...value.accounts, ...accounts] } : value)} />
+          </SheetContent>
+        </Sheet>}
         {current && <Sheet>
           <SheetTrigger asChild><Button variant="outline" aria-label={t("securityAction")}><ShieldKeyhole aria-hidden="true" /><span>{t("securityAction")}</span></Button></SheetTrigger>
           <SheetContent side="bottom" className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">

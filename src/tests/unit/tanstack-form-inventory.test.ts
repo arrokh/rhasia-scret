@@ -29,6 +29,7 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/crypto/presentation/remembered-browser-enrollment.tsx", count: 1 },
       { path: "src/modules/identity/presentation/invited-user-sign-in-form.tsx", count: 1 },
       { path: "src/modules/identity/presentation/logout-form.tsx", count: 1 },
+      { path: "src/modules/local-vault/presentation/local-vault-copy-panel.tsx", count: 1 },
       { path: "src/modules/local-vault/presentation/local-vault-page.tsx", count: 4 },
       { path: "src/modules/otp-runtime/presentation/local-totp-screen.tsx", count: 1 },
       { path: "src/modules/sync/presentation/offline-vault-shell.tsx", count: 1 },
