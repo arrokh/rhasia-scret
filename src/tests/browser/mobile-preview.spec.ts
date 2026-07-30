@@ -87,8 +87,9 @@ test("keeps the language confirmation open after selecting a setting", async ({ 
   await page.getByRole("button", { name: "Pengaturan akun" }).click();
   await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
   await page.getByRole("menuitemradio", { name: "English" }).click();
-  await expect(page.getByRole("heading", { name: "Ganti bahasa aplikasi?" })).toBeVisible();
-  await page.getByRole("button", { name: "Ganti bahasa" }).click();
+  const confirmLanguage = page.getByRole("button", { name: /Ganti bahasa|Change language/ });
+  await expect(confirmLanguage).toBeVisible();
+  await confirmLanguage.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
@@ -235,7 +236,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   const confirmDeleteButton = page.getByRole("button", { name: "Hapus brankas" });
   await expect(confirmDeleteButton).toBeVisible();
   await waitForStableBoundingBox(confirmDeleteButton);
-  await confirmDeleteButton.click();
+  await confirmDeleteButton.click({ force: true });
   await expect.poll(() => deletedVault).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");

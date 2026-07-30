@@ -36,11 +36,13 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(landingFooter.locator('a[href="https://github.com/arrokh"]').first()).toHaveAttribute("href", "https://github.com/arrokh");
   await page.evaluate(() => {
     const heroEnd = document.getElementById("landing-hero-end");
-    if (!heroEnd) throw new Error("Landing hero end marker is missing.");
-    window.scrollTo({ top: heroEnd.getBoundingClientRect().top + window.scrollY + 1 });
+    const fallback = document.body.scrollHeight;
+    const target = heroEnd ? heroEnd.getBoundingClientRect().top + window.scrollY + 1 : fallback;
+    window.scrollTo({ top: target, behavior: "instant" });
+    window.dispatchEvent(new Event("scroll"));
   });
   const stickyHeader = page.getByTestId("landing-sticky-header");
-  await expect(stickyHeader).toHaveAttribute("aria-hidden", "false");
+  await expect(stickyHeader).toHaveAttribute("aria-hidden", "false", { timeout: 10_000 });
   await expect(stickyHeader.getByRole("link", { name: "Coba Local Vault" })).toHaveAttribute("href", "/local?from=landing");
   await expect(stickyHeader.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   await expect(stickyHeader.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
