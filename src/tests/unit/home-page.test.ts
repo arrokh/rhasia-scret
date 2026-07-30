@@ -1,6 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
+
 import LandingPage from "@/app/page";
 
 describe("LandingPage", () => {
@@ -10,9 +13,14 @@ describe("LandingPage", () => {
 
     expect(markup).toContain("rhasia-");
     expect(markup).toContain("scret");
-    expect(markup).toContain("Autentikator TOTP terenkripsi");
+    expect(markup).toContain("Autentikator Anda, sesuai ketentuan Anda");
+    expect(markup).toContain("Jalur yang disengaja");
+    expect(markup).toContain("Browser Anda");
     expect(markup).toContain('href="/sign-in"');
-    expect(markup).toContain(">Masuk<");
+    expect(markup).toContain('href="/local"');
+    expect(markup).toContain('href="https://rhasia-scret.vercel.app/sign-in"');
+    expect(markup).toContain('href="https://github.com/arrokh"');
+    expect(markup).toContain(">Coba Local Vault<");
     expect(markup).not.toContain("Alamat email yang diundang");
   });
 });
