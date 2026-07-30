@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 
@@ -185,7 +185,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(deleteVaultSection).toHaveAttribute("data-state", "closed");
   await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama ini" }).click();
   await expect(deleteVaultSection).toHaveAttribute("data-state", "open");
-  await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true }).click();
+  const deleteVaultButton = deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true });
+  await waitForStableBoundingBox(deleteVaultButton);
+  await deleteVaultButton.click();
   await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible();
   await page.getByRole("button", { name: "Hapus brankas" }).click();
   await expect.poll(() => deletedVault).toBe(true);
@@ -198,6 +200,21 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.locator("footer img")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });
+
+async function waitForStableBoundingBox(locator: Locator): Promise<void> {
+  let previous: string | undefined;
+  await expect.poll(async () => {
+    const box = await locator.boundingBox();
+    if (!box) {
+      previous = undefined;
+      return false;
+    }
+    const current = [box.x, box.y, box.width, box.height].map((value) => value.toFixed(2)).join(":");
+    const stable = current === previous;
+    previous = current;
+    return stable;
+  }, { intervals: [50, 100, 150], timeout: 3_000 }).toBe(true);
+}
 
 test("aligns the shared header action and sticky footer on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
