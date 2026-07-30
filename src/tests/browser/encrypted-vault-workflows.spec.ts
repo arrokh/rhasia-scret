@@ -1,8 +1,23 @@
 import { resolve } from "node:path";
-import { expect, test, type BrowserContext, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Response,
+} from "@playwright/test";
 import { cleanBrowserE2eUsers } from "./support/e2e-database";
-import { e2eUserAlias, e2eUserEmail, type E2E_BROWSER_SCENARIOS, type E2E_BROWSER_ROLES } from "./support/e2e-users";
-import { expectVaultLockAction, lockVaultFromSettings } from "./support/vault-account-settings";
+import {
+  e2eUserAlias,
+  e2eUserEmail,
+  type E2E_BROWSER_SCENARIOS,
+  type E2E_BROWSER_ROLES,
+} from "./support/e2e-users";
+import {
+  expectVaultLockAction,
+  lockVaultFromSettings,
+} from "./support/vault-account-settings";
 
 const baseUrl = `http://127.0.0.1:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
 const personalSecret = "e2e personal vault passphrase";
@@ -14,7 +29,11 @@ const manualTotpUri = `otpauth://totp/E2E%20Manual:manual-user?secret=${manualTo
 
 test.beforeEach(async ({ page }) => installMockClipboard(page));
 
-test("administrator-invited session, Personal Vault initialization, lock, unlock, and logout stay client-safe", async ({ page, context, browserName }) => {
+test("administrator-invited session, Personal Vault initialization, lock, unlock, and logout stay client-safe", async ({
+  page,
+  context,
+  browserName,
+}) => {
   const alias = scenarioAlias(browserName, "personal");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   const observed = observeSensitiveSurfaces(page);
@@ -28,15 +47,27 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
   await test.step("a configured administrator-invited test session reaches first-login setup", async () => {
     await authenticate(context, alias);
     await page.goto("/vaults");
-    await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Siapkan Brankas Pribadi" }),
+    ).toBeVisible();
     await initializePersonalVault(page, personalName, personalSecret);
-    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+    ).toBeVisible({ timeout: 30_000 });
     const lockedDirectoryPage = await context.newPage();
     try {
       await lockedDirectoryPage.goto("/vaults/manage");
-      await expect(lockedDirectoryPage.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
-      await expect(lockedDirectoryPage.locator('a[href="/vaults/backup"]')).toHaveCount(0);
-      await expect(lockedDirectoryPage.locator('a[href="/vaults/import"]')).toHaveCount(0);
+      await expect(
+        lockedDirectoryPage.getByRole("heading", {
+          name: "Brankas Anda terkunci",
+        }),
+      ).toBeVisible();
+      await expect(
+        lockedDirectoryPage.locator('a[href="/vaults/backup"]'),
+      ).toHaveCount(0);
+      await expect(
+        lockedDirectoryPage.locator('a[href="/vaults/import"]'),
+      ).toHaveCount(0);
     } finally {
       await lockedDirectoryPage.close();
     }
@@ -44,24 +75,45 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
 
   await test.step("unlock creates only an in-memory workspace and explicit lock clears key buffers", async () => {
     await unlockVault(page, personalSecret);
-    await expect(page.getByRole("heading", { name: "Akun autentikator" }).last()).toBeVisible();
-    await expectWorkspaceInspection(page, { workspacePresent: true, lastClearedAllZero: null });
+    await expect(
+      page.getByRole("heading", { name: "Akun autentikator" }).last(),
+    ).toBeVisible();
+    await expectWorkspaceInspection(page, {
+      workspacePresent: true,
+      lastClearedAllZero: null,
+    });
     keyMaterial = await activeWorkspaceKeyMaterial(page);
     expect(keyMaterial.length).toBeGreaterThanOrEqual(2);
     await lockVaultFromSettings(page);
-    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
-    await expectWorkspaceInspection(page, { workspacePresent: false, lastClearedAllZero: true });
+    await expect(
+      page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+    ).toBeVisible();
+    await expectWorkspaceInspection(page, {
+      workspacePresent: false,
+      lastClearedAllZero: true,
+    });
     await unlockVault(page, personalSecret);
   });
 
   await test.step("logout clears local encrypted state and destroys the browser session", async () => {
     let releaseLogout = () => {};
-    const logoutHeld = new Promise<void>((resolveLogout) => { releaseLogout = resolveLogout; });
-    await page.route("**/auth/logout", async (route) => { await logoutHeld; await route.continue(); });
+    const logoutHeld = new Promise<void>((resolveLogout) => {
+      releaseLogout = resolveLogout;
+    });
+    await page.route("**/auth/logout", async (route) => {
+      await logoutHeld;
+      await route.continue();
+    });
     await page.getByRole("button", { name: "Pengaturan akun" }).click();
     await page.getByRole("button", { name: "Keluar", exact: true }).click();
-    const logout = page.getByRole("dialog").getByRole("button", { name: "Keluar", exact: true }).click();
-    await expectWorkspaceInspection(page, { workspacePresent: false, lastClearedAllZero: true });
+    const logout = page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Keluar", exact: true })
+      .click();
+    await expectWorkspaceInspection(page, {
+      workspacePresent: false,
+      lastClearedAllZero: true,
+    });
     releaseLogout();
     await logout;
     await page.unroute("**/auth/logout");
@@ -71,10 +123,18 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     expect(await persistedApplicationRecordCount(page)).toBe(0);
   });
 
-  await assertNoSensitiveLeak(page, observed, [personalSecret, personalName, ...keyMaterial]);
+  await assertNoSensitiveLeak(page, observed, [
+    personalSecret,
+    personalName,
+    ...keyMaterial,
+  ]);
 });
 
-test("QR image and manual TOTP workflows preserve encryption, revisions, recovery, generation, and copy", async ({ page, context, browserName }) => {
+test("QR image and manual TOTP workflows preserve encryption, revisions, recovery, generation, and copy", async ({
+  page,
+  context,
+  browserName,
+}) => {
   skipDataHeavyWebKitCi(browserName);
   const alias = scenarioAlias(browserName, "accounts");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
@@ -82,7 +142,9 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   const observed = observeSensitiveSurfaces(page);
   await page.goto("/vaults");
   await initializePersonalVault(page, personalName, personalSecret);
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeVisible({ timeout: 30_000 });
   await unlockVault(page, personalSecret);
 
   let accountId = "";
@@ -91,15 +153,25 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   let generatedOtp = "";
 
   await test.step("upload and preview a QR image before encrypted persistence", async () => {
-    await page.getByRole("link", { name: "Tambahkan akun autentikator" }).click();
-    await page.locator("#qr-image").setInputFiles(resolve(process.cwd(), "src/tests/browser/fixtures/e2e-totp-qr.svg"));
-    await expect(page.getByRole("heading", { name: "Metadata autentikator" })).toBeVisible();
+    await page
+      .getByRole("link", { name: "Tambahkan akun autentikator" })
+      .click();
+    await attachQrImportImage(page);
+    await expect(
+      page.getByRole("heading", { name: "Metadata autentikator" }),
+    ).toBeVisible();
     await expect(page.getByText("E2E Image", { exact: true })).toBeVisible();
-    const responsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/api\/vaults\/[^/]+\/accounts$/.test(new URL(response.url()).pathname));
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/api\/vaults\/[^/]+\/accounts$/.test(
+          new URL(response.url()).pathname,
+        ),
+    );
     await page.getByRole("button", { name: "Simpan akun" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(201);
-    const created = await response.json() as { id: string; revision: number };
+    const created = (await response.json()) as { id: string; revision: number };
     accountId = created.id;
     expect(created.revision).toBe(1);
     vaultId = new URL(response.url()).pathname.split("/")[3] ?? "";
@@ -109,25 +181,35 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   await test.step("local OTP generation exposes a countdown and copies only on explicit action", async () => {
     const output = page.getByLabel("OTP saat ini").first();
     await expect(output).toHaveText(/\d{3} \d{3}/);
-    generatedOtp = (await output.textContent() ?? "").replace(/\s/g, "");
+    generatedOtp = ((await output.textContent()) ?? "").replace(/\s/g, "");
     expect(generatedOtp).toMatch(/^\d{6}$/);
     await expect(page.getByLabel(/detik tersisa/).first()).toBeVisible();
-    await page.getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" }).click();
+    await page
+      .getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" })
+      .click();
     await expect(page.getByText("Disalin", { exact: true })).toBeVisible();
     const copiedOtp = await output.evaluate((element) => ({
       displayed: element.textContent?.replace(/\s/g, "") ?? "",
-      clipboard: (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ ?? ""
+      clipboard:
+        (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string })
+          .__RHSIA_E2E_CLIPBOARD__ ?? "",
     }));
     expect(copiedOtp.clipboard).toBe(copiedOtp.displayed);
     generatedOtp = copiedOtp.clipboard;
   });
 
   await test.step("manual import warns about a duplicate and requires explicit add-anyway confirmation", async () => {
-    await page.getByRole("link", { name: "Tambahkan akun autentikator" }).click();
+    await page
+      .getByRole("link", { name: "Tambahkan akun autentikator" })
+      .click();
     await page.getByRole("button", { name: "Opsi lanjutan" }).click();
-    await page.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(imageTotpUri);
+    await page
+      .getByRole("textbox", { name: "Masukkan URI secara manual" })
+      .fill(imageTotpUri);
     await page.getByRole("button", { name: "Gunakan URI manual" }).click();
-    await expect(page.getByRole("heading", { name: "Metadata autentikator" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Metadata autentikator" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Simpan akun" }).click();
     await expect(page.getByText("Akun serupa sudah ada")).toBeVisible();
     await page.getByRole("button", { name: "Tetap tambahkan" }).click();
@@ -136,54 +218,131 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   });
 
   await test.step("edit increments revision and a stale overwrite remains a distinct conflict", async () => {
-    await page.getByRole("button", { name: "Kelola image-user" }).first().click();
+    await page
+      .getByRole("button", { name: "Kelola image-user" })
+      .first()
+      .click();
     const label = page.getByRole("dialog").getByLabel("Label akun");
     await label.fill("image-user-edited");
-    const responsePromise = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes(`/api/vaults/${vaultId}/accounts`));
-    await page.getByRole("dialog").getByRole("button", { name: "Simpan label" }).click();
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().includes(`/api/vaults/${vaultId}/accounts`),
+    );
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Simpan label" })
+      .click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ id: accountId, revision: 2 });
-    const requestBody = JSON.parse(response.request().postData() ?? "{}") as { encryptedPayload: string };
+    const requestBody = JSON.parse(response.request().postData() ?? "{}") as {
+      encryptedPayload: string;
+    };
     latestEncryptedPayload = requestBody.encryptedPayload;
     await expect(page.getByText("Label akun diperbarui.")).toBeVisible();
 
-    const stale = await page.evaluate(async ({ id, targetVaultId, encryptedPayload }) => {
-      const response = await fetch(`/api/vaults/${targetVaultId}/accounts`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: id, expectedRevision: 1, encryptedPayload, encryptionVersion: 1 }) });
-      return { status: response.status, body: await response.json() };
-    }, { id: accountId, targetVaultId: vaultId, encryptedPayload: latestEncryptedPayload });
+    const stale = await page.evaluate(
+      async ({ id, targetVaultId, encryptedPayload }) => {
+        const response = await fetch(`/api/vaults/${targetVaultId}/accounts`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            accountId: id,
+            expectedRevision: 1,
+            encryptedPayload,
+            encryptionVersion: 1,
+          }),
+        });
+        return { status: response.status, body: await response.json() };
+      },
+      {
+        id: accountId,
+        targetVaultId: vaultId,
+        encryptedPayload: latestEncryptedPayload,
+      },
+    );
     expect(stale).toEqual({ status: 409, body: { error: "stale_revision" } });
   });
 
   await test.step("delete and restore preserve edited ciphertext while advancing revision", async () => {
     await page.getByRole("button", { name: "Tutup" }).click();
-    await page.getByRole("button", { name: "Kelola image-user-edited" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Hapus akun" }).click();
-    const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes(`/api/vaults/${vaultId}/accounts`));
-    await page.getByRole("dialog").getByRole("button", { name: "Hapus akun", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Kelola image-user-edited" })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Hapus akun" })
+      .click();
+    const deleteResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes(`/api/vaults/${vaultId}/accounts`),
+    );
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Hapus akun", exact: true })
+      .click();
     expect((await deleteResponse).status()).toBe(204);
     await expect(page.getByLabel("1 akun")).toBeVisible();
 
-    const restored = await page.evaluate(async ({ id, targetVaultId }) => {
-      const response = await fetch(`/api/vaults/${targetVaultId}/accounts`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: id }) });
-      return response.status;
-    }, { id: accountId, targetVaultId: vaultId });
+    const restored = await page.evaluate(
+      async ({ id, targetVaultId }) => {
+        const response = await fetch(`/api/vaults/${targetVaultId}/accounts`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: id }),
+        });
+        return response.status;
+      },
+      { id: accountId, targetVaultId: vaultId },
+    );
     expect(restored).toBe(204);
-    const restoredRecord = await page.evaluate(async ({ id, targetVaultId }) => {
-      const accounts = await fetch(`/api/vaults/${targetVaultId}/accounts`).then((response) => response.json()) as Array<{ id: string; encryptedPayload: string; encryptionVersion: number; revision: number }>;
-      return accounts.find((account) => account.id === id);
-    }, { id: accountId, targetVaultId: vaultId });
-    expect(restoredRecord).toEqual({ id: accountId, encryptedPayload: latestEncryptedPayload, encryptionVersion: 1, revision: 4 });
+    const restoredRecord = await page.evaluate(
+      async ({ id, targetVaultId }) => {
+        const accounts = (await fetch(
+          `/api/vaults/${targetVaultId}/accounts`,
+        ).then((response) => response.json())) as Array<{
+          id: string;
+          encryptedPayload: string;
+          encryptionVersion: number;
+          revision: number;
+        }>;
+        return accounts.find((account) => account.id === id);
+      },
+      { id: accountId, targetVaultId: vaultId },
+    );
+    expect(restoredRecord).toEqual({
+      id: accountId,
+      encryptedPayload: latestEncryptedPayload,
+      encryptionVersion: 1,
+      revision: 4,
+    });
     await page.reload();
     await unlockVault(page, personalSecret);
-    await expect(page.getByRole("button", { name: "Kelola image-user-edited" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Kelola image-user-edited" }),
+    ).toBeVisible();
     await expect(page.getByLabel("2 akun")).toBeVisible();
   });
 
-  await assertNoSensitiveLeak(page, observed, [personalSecret, personalName, imageTotpUri, imageTotpSecret, "image-user", "image-user-edited", generatedOtp]);
+  await assertNoSensitiveLeak(page, observed, [
+    personalSecret,
+    personalName,
+    imageTotpUri,
+    imageTotpSecret,
+    "image-user",
+    "image-user-edited",
+    generatedOtp,
+  ]);
 });
 
-test("Shared Vault invitations, Viewer boundaries, audit, membership loss, deletion, and restoration use the real stack", async ({ page, context, browser, browserName }) => {
+test("Shared Vault invitations, Viewer boundaries, audit, membership loss, deletion, and restoration use the real stack", async ({
+  page,
+  context,
+  browser,
+  browserName,
+}) => {
   skipDataHeavyWebKitCi(browserName);
   const ownerAlias = scenarioAlias(browserName, "shared", "owner");
   const leaveAlias = scenarioAlias(browserName, "shared", "viewer-leave");
@@ -198,7 +357,9 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   await authenticate(context, ownerAlias);
   await page.goto("/vaults");
   await initializePersonalVault(page, "Owner Personal Vault", ownerSecret);
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeVisible({ timeout: 30_000 });
   await unlockVault(page, ownerSecret);
 
   const leaveContext = await browser.newContext({ baseURL: baseUrl });
@@ -210,158 +371,339 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   const leaveObserved = observeSensitiveSurfaces(leavePage);
   const revokeObserved = observeSensitiveSurfaces(revokePage);
   try {
-    await initializeUserContext(leavePage, leaveContext, leaveAlias, "Leave Personal Vault", leaveSecret);
-    await initializeUserContext(revokePage, revokeContext, revokeAlias, "Revoke Personal Vault", revokeSecret);
+    await initializeUserContext(
+      leavePage,
+      leaveContext,
+      leaveAlias,
+      "Leave Personal Vault",
+      leaveSecret,
+    );
+    await initializeUserContext(
+      revokePage,
+      revokeContext,
+      revokeAlias,
+      "Revoke Personal Vault",
+      revokeSecret,
+    );
 
     let sharedVaultId = "";
     await test.step("owner creates an encrypted Shared Vault and account", async () => {
       await page.getByRole("link", { name: "Brankas", exact: true }).click();
       await page.getByRole("link", { name: "Brankas Bersama" }).click();
       await page.getByLabel("Nama Brankas Bersama").fill(sharedName);
-      const creationResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/shared-vaults");
+      const creationResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === "/api/shared-vaults",
+      );
       await page.getByRole("button", { name: "Buat Brankas" }).click();
-      const created = await (await creationResponse).json() as { id: string };
+      const created = (await (await creationResponse).json()) as { id: string };
       sharedVaultId = created.id;
-      await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));
+      await expect(page).toHaveURL(
+        new RegExp(`/vaults/manage/${sharedVaultId}$`),
+      );
       await page.getByRole("link", { name: "Tambah akun" }).click();
       await page.getByRole("button", { name: "Opsi lanjutan" }).click();
-      await page.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(manualTotpUri);
+      await page
+        .getByRole("textbox", { name: "Masukkan URI secara manual" })
+        .fill(manualTotpUri);
       await page.getByRole("button", { name: "Gunakan URI manual" }).click();
       await page.getByRole("button", { name: "Simpan akun" }).click();
       await expect(page).toHaveURL(/\/vaults$/);
-      await expect(page.getByRole("button", { name: "Salin OTP untuk manual-user, E2E Manual" })).toBeVisible();
+      await expect(
+        page.getByRole("button", {
+          name: "Salin OTP untuk manual-user, E2E Manual",
+        }),
+      ).toBeVisible();
     });
 
     let leaveInvitation = "";
     await test.step("owner creates encrypted one-time invitation material", async () => {
-      await openSharedManagement(page, ownerSecret, sharedName);
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
       leaveInvitation = await createInvitation(page, e2eUserEmail(leaveAlias));
       expect(leaveInvitation).toContain("#");
-      expect(observed.requests.join("\n")).not.toContain(leaveInvitation.split("#")[1] ?? "missing-secret");
+      expect(observed.requests.join("\n")).not.toContain(
+        leaveInvitation.split("#")[1] ?? "missing-secret",
+      );
     });
 
     let viewerOtp = "";
     await test.step("recipient redeems in-browser, sees generic locked labels, and cannot enumerate owner surfaces", async () => {
-      await redeemInvitation(leavePage, leaveInvitation, leaveSecret, [sharedName, "E2E Manual", "manual-user"]);
-      const copyResponse = leavePage.waitForResponse((response) => response.request().method() === "POST" && response.url().includes(`/api/shared-vaults/${sharedVaultId}/audit-events`));
+      await redeemInvitation(leavePage, leaveInvitation, leaveSecret, [
+        sharedName,
+        "E2E Manual",
+        "manual-user",
+      ]);
+      const copyResponse = leavePage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          response
+            .url()
+            .includes(`/api/shared-vaults/${sharedVaultId}/audit-events`),
+      );
       const otp = leavePage.getByLabel("OTP saat ini").first();
       await expect(otp).toHaveText(/\d{4} \d{4}/);
-      viewerOtp = (await otp.textContent() ?? "").replace(/\s/g, "");
-      await leavePage.getByRole("button", { name: "Salin OTP untuk manual-user, E2E Manual" }).click();
+      viewerOtp = ((await otp.textContent()) ?? "").replace(/\s/g, "");
+      await leavePage
+        .getByRole("button", {
+          name: "Salin OTP untuk manual-user, E2E Manual",
+        })
+        .click();
       expect((await copyResponse).status()).toBe(204);
 
-      const denied = await leavePage.evaluate(async ({ vaultId }) => {
-        const [participants, audit, accountMutation, invitationMutation, memberMutation, bundleResponse] = await Promise.all([
-          fetch(`/api/shared-vaults/${vaultId}/participants`),
-          fetch(`/api/shared-vaults/${vaultId}/audit-events`),
-          fetch(`/api/shared-vaults/${vaultId}/accounts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ encryptedPayload: btoa(String.fromCharCode(1, ...Array(28).fill(0))), encryptionVersion: 1 }) }),
-          fetch(`/api/shared-vaults/${vaultId}/share-links`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recipientEmail: "owner@browser-e2e.test", linkVerifier: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", encryptedPackage: "AQEBAQEBAQEBAQEBAQEBAQE=" }) }),
-          fetch(`/api/shared-vaults/${vaultId}/members/00000000-0000-4000-8000-000000000000`, { method: "DELETE" }),
-          fetch("/api/sync/offline-bundle")
-        ]);
-        const bundle = await bundleResponse.json() as { sharedVaults: Array<Record<string, unknown>> };
-        const sharedVault = bundle.sharedVaults.find((vault) => vault.vaultId === vaultId);
-        return {
-          participants: participants.status,
-          audit: audit.status,
-          accountMutation: accountMutation.status,
-          invitationMutation: invitationMutation.status,
-          memberMutation: memberMutation.status,
-          sharedVaultFields: sharedVault ? Object.keys(sharedVault).sort() : []
-        };
-      }, { vaultId: sharedVaultId });
+      const denied = await leavePage.evaluate(
+        async ({ vaultId }) => {
+          const [
+            participants,
+            audit,
+            accountMutation,
+            invitationMutation,
+            memberMutation,
+            bundleResponse,
+          ] = await Promise.all([
+            fetch(`/api/shared-vaults/${vaultId}/participants`),
+            fetch(`/api/shared-vaults/${vaultId}/audit-events`),
+            fetch(`/api/shared-vaults/${vaultId}/accounts`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                encryptedPayload: btoa(
+                  String.fromCharCode(1, ...Array(28).fill(0)),
+                ),
+                encryptionVersion: 1,
+              }),
+            }),
+            fetch(`/api/shared-vaults/${vaultId}/share-links`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                recipientEmail: "owner@browser-e2e.test",
+                linkVerifier: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                encryptedPackage: "AQEBAQEBAQEBAQEBAQEBAQE=",
+              }),
+            }),
+            fetch(
+              `/api/shared-vaults/${vaultId}/members/00000000-0000-4000-8000-000000000000`,
+              { method: "DELETE" },
+            ),
+            fetch("/api/sync/offline-bundle"),
+          ]);
+          const bundle = (await bundleResponse.json()) as {
+            sharedVaults: Array<Record<string, unknown>>;
+          };
+          const sharedVault = bundle.sharedVaults.find(
+            (vault) => vault.vaultId === vaultId,
+          );
+          return {
+            participants: participants.status,
+            audit: audit.status,
+            accountMutation: accountMutation.status,
+            invitationMutation: invitationMutation.status,
+            memberMutation: memberMutation.status,
+            sharedVaultFields: sharedVault
+              ? Object.keys(sharedVault).sort()
+              : [],
+          };
+        },
+        { vaultId: sharedVaultId },
+      );
       expect(denied).toEqual({
         participants: 404,
         audit: 404,
         accountMutation: 403,
         invitationMutation: 404,
         memberMutation: 404,
-        sharedVaultFields: ["accounts", "effectiveAccountPermissions", "encryptedName", "encryptedVaultKey", "encryptionVersion", "keyVersion", "lifecycle", "role", "vaultId"]
+        sharedVaultFields: [
+          "accounts",
+          "effectiveAccountPermissions",
+          "encryptedName",
+          "encryptedVaultKey",
+          "encryptionVersion",
+          "keyVersion",
+          "lifecycle",
+          "role",
+          "vaultId",
+        ],
       });
 
       const requestCountBeforeViewerManagement = leaveObserved.requests.length;
-      await leavePage.getByRole("link", { name: "Brankas", exact: true }).click();
+      await leavePage
+        .getByRole("link", { name: "Brankas", exact: true })
+        .click();
       await leavePage.getByRole("link", { name: sharedName }).click();
       await expect(leavePage.getByText("Izin akun Anda")).toBeVisible();
-      await expect(leavePage.getByRole("tab", { name: "Undangan" })).toHaveCount(0);
-      await expect(leavePage.getByRole("tab", { name: "Audit" })).toHaveCount(0);
-      await expect(leavePage.getByRole("link", { name: "Tambah akun" })).toHaveCount(0);
-      expect(leaveObserved.requests.slice(requestCountBeforeViewerManagement).some((request) => request.includes("/participants") || request.includes("/audit-events"))).toBe(false);
+      await expect(
+        getManagementTab(leavePage, /(Undangan|Invitations)/i),
+      ).toHaveCount(0);
+      await expect(getManagementTab(leavePage, /Audit/i)).toHaveCount(0);
+      await expect(
+        leavePage.getByRole("link", { name: "Tambah akun" }),
+      ).toHaveCount(0);
+      expect(
+        leaveObserved.requests
+          .slice(requestCountBeforeViewerManagement)
+          .some(
+            (request) =>
+              request.includes("/participants") ||
+              request.includes("/audit-events"),
+          ),
+      ).toBe(false);
     });
 
     await test.step("Vault defaults and per-member overrides independently authorize Viewer account changes", async () => {
-      await openSharedManagement(page, ownerSecret, sharedName);
-      await page.getByRole("button", { name: /Izin akun bawaan anggota/ }).click();
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      await page
+        .getByRole("button", { name: /Izin akun bawaan anggota/ })
+        .click();
       await page.locator("#vault-default-canAddAccounts").click();
-      const defaultsResponse = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().endsWith(`/api/shared-vaults/${sharedVaultId}/member-permissions`));
+      const defaultsResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          response
+            .url()
+            .endsWith(`/api/shared-vaults/${sharedVaultId}/member-permissions`),
+      );
       await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
       expect((await defaultsResponse).status()).toBe(200);
-      await page.getByRole("tab", { name: "Undangan" }).click();
-      await page.getByLabel(`Atur izin akun untuk ${e2eUserEmail(leaveAlias)}`).click();
+      await getManagementTab(page, /(Undangan|Invitations)/i).first().click();
+      await page
+        .getByLabel(`Atur izin akun untuk ${e2eUserEmail(leaveAlias)}`)
+        .click();
       await page.getByLabel("Ubah akun").click();
       await page.getByRole("option", { name: "Izinkan" }).click();
       await page.getByLabel("Hapus akun").click();
       await page.getByRole("option", { name: "Tolak" }).click();
-      const memberPermissionsResponse = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes(`/api/shared-vaults/${sharedVaultId}/members/`));
+      const memberPermissionsResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          response
+            .url()
+            .includes(`/api/shared-vaults/${sharedVaultId}/members/`),
+      );
       await page.getByRole("button", { name: "Simpan izin anggota" }).click();
       expect((await memberPermissionsResponse).status()).toBe(200);
 
       await leavePage.goto("/vaults");
       await unlockVault(leavePage, leaveSecret);
-      await leavePage.getByRole("link", { name: "Brankas", exact: true }).click();
+      await leavePage
+        .getByRole("link", { name: "Brankas", exact: true })
+        .click();
       await leavePage.getByRole("link", { name: sharedName }).click();
-      await expect(leavePage.getByRole("link", { name: "Tambah akun" })).toBeVisible();
+      await expect(
+        leavePage.getByRole("link", { name: "Tambah akun" }),
+      ).toBeVisible();
       await expect(leavePage.getByText("Dapat menambah")).toBeVisible();
       await expect(leavePage.getByText("Dapat mengubah")).toBeVisible();
       await expect(leavePage.getByText("Dapat menghapus")).toHaveCount(0);
 
       await leavePage.getByRole("link", { name: "Tambah akun" }).click();
       await leavePage.getByRole("button", { name: "Opsi lanjutan" }).click();
-      await leavePage.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(imageTotpUri);
-      await leavePage.getByRole("button", { name: "Gunakan URI manual" }).click();
+      await leavePage
+        .getByRole("textbox", { name: "Masukkan URI secara manual" })
+        .fill(imageTotpUri);
+      await leavePage
+        .getByRole("button", { name: "Gunakan URI manual" })
+        .click();
       await leavePage.getByRole("button", { name: "Simpan akun" }).click();
-      await expect(leavePage.getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" })).toBeVisible();
+      await expect(
+        leavePage.getByRole("button", {
+          name: "Salin OTP untuk image-user, E2E Image",
+        }),
+      ).toBeVisible();
 
-      const deleteStatus = await leavePage.evaluate(async ({ vaultId }) => {
-        const bundle = await fetch("/api/sync/offline-bundle").then((response) => response.json()) as { sharedVaults: Array<{ vaultId: string; accounts: Array<{ id: string; revision: number }> }> };
-        const account = bundle.sharedVaults.find((vault) => vault.vaultId === vaultId)?.accounts[0];
-        if (!account) return 0;
-        return (await fetch(`/api/shared-vaults/${vaultId}/accounts`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: account.id, expectedRevision: account.revision }) })).status;
-      }, { vaultId: sharedVaultId });
+      const deleteStatus = await leavePage.evaluate(
+        async ({ vaultId }) => {
+          const bundle = (await fetch("/api/sync/offline-bundle").then(
+            (response) => response.json(),
+          )) as {
+            sharedVaults: Array<{
+              vaultId: string;
+              accounts: Array<{ id: string; revision: number }>;
+            }>;
+          };
+          const account = bundle.sharedVaults.find(
+            (vault) => vault.vaultId === vaultId,
+          )?.accounts[0];
+          if (!account) return 0;
+          return (
+            await fetch(`/api/shared-vaults/${vaultId}/accounts`, {
+              method: "DELETE",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                accountId: account.id,
+                expectedRevision: account.revision,
+              }),
+            })
+          ).status;
+        },
+        { vaultId: sharedVaultId },
+      );
       expect(deleteStatus).toBe(403);
     });
 
     await test.step("Viewer leave removes access on the next authorized reconciliation", async () => {
-      const status = await leavePage.evaluate(async ({ vaultId }) => (await fetch(`/api/shared-vaults/${vaultId}/leave`, { method: "POST" })).status, { vaultId: sharedVaultId });
+      const status = await leavePage.evaluate(
+        async ({ vaultId }) =>
+          (
+            await fetch(`/api/shared-vaults/${vaultId}/leave`, {
+              method: "POST",
+            })
+          ).status,
+        { vaultId: sharedVaultId },
+      );
       expect(status).toBe(204);
       await leavePage.goto("/vaults");
       await unlockVault(leavePage, leaveSecret);
-      await expect(leavePage.getByText(sharedName, { exact: true })).toHaveCount(0);
-      await expect(leavePage.getByRole("button", { name: "Salin OTP untuk manual-user, E2E Manual" })).toHaveCount(0);
+      await expect(
+        leavePage.getByText(sharedName, { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        leavePage.getByRole("button", {
+          name: "Salin OTP untuk manual-user, E2E Manual",
+        }),
+      ).toHaveCount(0);
     });
 
     let revokeInvitation = "";
     await test.step("a second recipient can be revoked by the owner", async () => {
-      await openSharedManagement(page, ownerSecret, sharedName);
-      revokeInvitation = await createInvitation(page, e2eUserEmail(revokeAlias));
-      await redeemInvitation(revokePage, revokeInvitation, revokeSecret, [sharedName, "E2E Manual", "manual-user"]);
-      await openSharedManagement(page, ownerSecret, sharedName);
-      await page.getByRole("tab", { name: "Undangan" }).click();
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      revokeInvitation = await createInvitation(
+        page,
+        e2eUserEmail(revokeAlias),
+      );
+      await redeemInvitation(revokePage, revokeInvitation, revokeSecret, [
+        sharedName,
+        "E2E Manual",
+        "manual-user",
+      ]);
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      await getManagementTab(page, /(Undangan|Invitations)/i).first().click();
       const revokeEmail = e2eUserEmail(revokeAlias);
-      const revokeParticipant = page.getByRole("listitem").filter({ hasText: revokeEmail });
+      const revokeParticipant = page
+        .getByRole("listitem")
+        .filter({ hasText: revokeEmail });
       await expect(revokeParticipant.getByText("Anggota aktif")).toBeVisible();
       await page.getByRole("button", { name: `Hapus ${revokeEmail}` }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Cabut akses" }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Cabut akses" })
+        .click();
       await expect(page.getByText(revokeEmail, { exact: true })).toHaveCount(0);
       await revokePage.goto("/vaults");
       await unlockVault(revokePage, revokeSecret);
-      await expect(revokePage.getByText(sharedName, { exact: true })).toHaveCount(0);
+      await expect(
+        revokePage.getByText(sharedName, { exact: true }),
+      ).toHaveCount(0);
     });
 
     await test.step("owner sees redacted audit transport without plaintext labels or OTPs", async () => {
-      await openSharedManagement(page, ownerSecret, sharedName);
-      const auditResponse = page.waitForResponse((response) => response.request().method() === "GET" && response.url().includes(`/api/vaults/${sharedVaultId}/audit-events`));
-      await page.getByRole("tab", { name: "Audit" }).click();
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      const auditResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes(`/api/vaults/${sharedVaultId}/audit-events`),
+      );
+      await getManagementTab(page, /Audit/i).first().click();
       await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
       const auditBody = await (await auditResponse).text();
       expect(auditBody).not.toContain("E2E Manual");
@@ -370,34 +712,90 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
     });
 
     await test.step("Shared Vault deletion restores, while Personal Vault deletion is impossible", async () => {
-      const outcomes = await page.evaluate(async ({ vaultId }) => {
-        const personal = await fetch("/api/personal-vault").then((response) => response.json()) as { id: string };
-        const personalDelete = await fetch(`/api/shared-vaults/${personal.id}/lifecycle`, { method: "DELETE" });
-        const deleted = await fetch(`/api/shared-vaults/${vaultId}/lifecycle`, { method: "DELETE" });
-        const restored = await fetch(`/api/shared-vaults/${vaultId}/lifecycle`, { method: "POST" });
-        return { personalDelete: personalDelete.status, deleted: deleted.status, restored: restored.status };
-      }, { vaultId: sharedVaultId });
-      expect(outcomes).toEqual({ personalDelete: 404, deleted: 204, restored: 204 });
+      const outcomes = await page.evaluate(
+        async ({ vaultId }) => {
+          const personal = (await fetch("/api/personal-vault").then(
+            (response) => response.json(),
+          )) as { id: string };
+          const personalDelete = await fetch(
+            `/api/shared-vaults/${personal.id}/lifecycle`,
+            { method: "DELETE" },
+          );
+          const deleted = await fetch(
+            `/api/shared-vaults/${vaultId}/lifecycle`,
+            { method: "DELETE" },
+          );
+          const restored = await fetch(
+            `/api/shared-vaults/${vaultId}/lifecycle`,
+            { method: "POST" },
+          );
+          return {
+            personalDelete: personalDelete.status,
+            deleted: deleted.status,
+            restored: restored.status,
+          };
+        },
+        { vaultId: sharedVaultId },
+      );
+      expect(outcomes).toEqual({
+        personalDelete: 404,
+        deleted: 204,
+        restored: 204,
+      });
       await page.goto("/vaults");
       await unlockVault(page, ownerSecret);
-      await expect(page.getByRole("button", { name: "Salin OTP untuk manual-user, E2E Manual" })).toBeVisible();
+      await expect(
+        page.getByRole("button", {
+          name: "Salin OTP untuk manual-user, E2E Manual",
+        }),
+      ).toBeVisible();
     });
 
-    await assertNoSensitiveLeak(page, observed, [ownerSecret, sharedName, manualTotpUri, manualTotpSecret, "manual-user", viewerOtp, leaveInvitation.split("#")[1] ?? ""]);
-    await assertNoSensitiveLeak(leavePage, leaveObserved, [leaveSecret, sharedName, manualTotpUri, manualTotpSecret, "manual-user", viewerOtp]);
-    await assertNoSensitiveLeak(revokePage, revokeObserved, [revokeSecret, sharedName, manualTotpUri, manualTotpSecret, "manual-user"]);
+    await assertNoSensitiveLeak(page, observed, [
+      ownerSecret,
+      sharedName,
+      manualTotpUri,
+      manualTotpSecret,
+      "manual-user",
+      viewerOtp,
+      leaveInvitation.split("#")[1] ?? "",
+    ]);
+    await assertNoSensitiveLeak(leavePage, leaveObserved, [
+      leaveSecret,
+      sharedName,
+      manualTotpUri,
+      manualTotpSecret,
+      "manual-user",
+      viewerOtp,
+    ]);
+    await assertNoSensitiveLeak(revokePage, revokeObserved, [
+      revokeSecret,
+      sharedName,
+      manualTotpUri,
+      manualTotpSecret,
+      "manual-user",
+    ]);
   } finally {
     await leaveContext.close();
     await revokeContext.close();
   }
 });
 
-test("English setup, unlock, account creation, and OTP smoke use the real stack", async ({ page, context, browserName }) => {
-  test.skip(browserName !== "chromium", "One Chromium scenario provides the English real-stack smoke while every browser keeps the Indonesian security baseline.");
+test("English setup, unlock, account creation, and OTP smoke use the real stack", async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "One Chromium scenario provides the English real-stack smoke while every browser keeps the Indonesian security baseline.",
+  );
   const alias = scenarioAlias(browserName, "english");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias);
-  await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseUrl, sameSite: "Lax" }]);
+  await context.addCookies([
+    { name: "RHSIA_LOCALE", value: "en", url: baseUrl, sameSite: "Lax" },
+  ]);
 
   const secret = "e2e english vault passphrase";
   await page.goto("/vaults");
@@ -407,27 +805,45 @@ test("English setup, unlock, account creation, and OTP smoke use the real stack"
   await expect(page.getByText("Vault name is required.")).toBeVisible();
   await page.getByLabel("Vault name").fill("E2E English Personal Vault");
   await page.getByLabel("Create your own").click();
-  await page.getByRole("textbox", { name: "Your Vault Passphrase", exact: true }).fill(secret);
-  await page.getByRole("textbox", { name: "Re-enter your Vault Passphrase" }).fill(secret);
-  await page.getByLabel(/I understand that without an access-recovery key/).click();
+  await page
+    .getByRole("textbox", { name: "Your Vault Passphrase", exact: true })
+    .fill(secret);
+  await page
+    .getByRole("textbox", { name: "Re-enter your Vault Passphrase" })
+    .fill(secret);
+  await page
+    .getByLabel(/I understand that without an access-recovery key/)
+    .click();
   await page.getByRole("button", { name: "Secure Personal Vault" }).click();
 
-  await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("textbox", { name: "Vault Passphrase", exact: true }).fill(secret);
+  await expect(
+    page.getByRole("heading", { name: "Your vault is locked" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page
+    .getByRole("textbox", { name: "Vault Passphrase", exact: true })
+    .fill(secret);
   await page.getByRole("button", { name: "Unlock Vault" }).click();
   await expectVaultLockAction(page, "en");
 
   await page.getByRole("link", { name: "Add authenticator account" }).click();
-  await page.locator("#qr-image").setInputFiles(resolve(process.cwd(), "src/tests/browser/fixtures/e2e-totp-qr.svg"));
-  await expect(page.getByRole("heading", { name: "Authenticator metadata" })).toBeVisible();
+  await attachQrImportImage(page);
+  await expect(
+    page.getByRole("heading", { name: "Authenticator metadata" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Save account" }).click();
   await expect(page).toHaveURL(/\/vaults$/);
   await expect(page.getByLabel("Current OTP")).toHaveText(/\d{3} \d{3}/);
-  await page.getByRole("button", { name: "Copy OTP for image-user, E2E Image" }).click();
+  await page
+    .getByRole("button", { name: "Copy OTP for image-user, E2E Image" })
+    .click();
   await expect(page.getByText("Copied", { exact: true })).toBeVisible();
 });
 
-test("Passkey-assisted enrollment and unlock release the local package only after verification with fallback", async ({ page, context, browserName }) => {
+test("Passkey-assisted enrollment and unlock release the local package only after verification with fallback", async ({
+  page,
+  context,
+  browserName,
+}) => {
   const alias = scenarioAlias(browserName, "passkey");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await installMockPasskey(page, browserName);
@@ -437,22 +853,38 @@ test("Passkey-assisted enrollment and unlock release the local package only afte
   const vaultName = "E2E Passkey Personal Vault";
   await page.goto("/vaults");
   await initializePersonalVault(page, vaultName, secret);
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeVisible({ timeout: 30_000 });
   await unlockVault(page, secret);
 
   await test.step("enrollment stores only an opaque recovery package after PRF verification", async () => {
     await page.getByRole("button", { name: "Keamanan", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Aktifkan pemulihan kunci akses" })).toBeVisible();
-    await page.getByRole("button", { name: "Aktifkan pemulihan kunci akses" }).click();
-    await expect(page.getByText("Pemulihan kunci akses aktif")).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("dialog", { name: "Keamanan brankas" }).press("Escape");
-    await expect(page.getByRole("dialog", { name: "Keamanan brankas" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Aktifkan pemulihan kunci akses" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Aktifkan pemulihan kunci akses" })
+      .click();
+    await expect(page.getByText("Pemulihan kunci akses aktif")).toBeVisible({
+      timeout: 30_000,
+    });
+    await page
+      .getByRole("dialog", { name: "Keamanan brankas" })
+      .press("Escape");
+    await expect(
+      page.getByRole("dialog", { name: "Keamanan brankas" }),
+    ).toHaveCount(0);
   });
 
   await test.step("verified passkey unlock opens the current authorized bundle", async () => {
     await lockVaultFromSettings(page);
-    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Buka dengan passkey" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Buka dengan passkey" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Buka dengan passkey" }).click();
     await expectVaultLockAction(page, "id", 30_000);
   });
@@ -460,93 +892,325 @@ test("Passkey-assisted enrollment and unlock release the local package only afte
   await test.step("unsupported verification fails without key release and the Vault Unlock Secret still works", async () => {
     await lockVaultFromSettings(page);
     await page.evaluate(() => {
-      Object.defineProperty(window, "PublicKeyCredential", { configurable: true, value: undefined });
-      Object.defineProperty(navigator, "credentials", { configurable: true, value: { get: async () => { throw new DOMException("Unsupported", "NotSupportedError"); } } });
+      Object.defineProperty(window, "PublicKeyCredential", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, "credentials", {
+        configurable: true,
+        value: {
+          get: async () => {
+            throw new DOMException("Unsupported", "NotSupportedError");
+          },
+        },
+      });
     });
     await page.getByRole("button", { name: "Buka dengan passkey" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Passkey tidak dapat membuka brankas" })).toBeVisible();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Passkey tidak dapat membuka brankas" }),
+    ).toBeVisible();
     await unlockVault(page, secret);
   });
 
   await assertNoSensitiveLeak(page, observed, [secret, vaultName]);
 });
 
-async function initializeUserContext(page: Page, context: BrowserContext, alias: string, name: string, secret: string): Promise<void> {
+async function initializeUserContext(
+  page: Page,
+  context: BrowserContext,
+  alias: string,
+  name: string,
+  secret: string,
+): Promise<void> {
   await authenticate(context, alias);
   await page.goto("/vaults");
   await initializePersonalVault(page, name, secret);
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
-async function openSharedManagement(page: Page, secret: string, sharedName: string): Promise<void> {
-  const invitationsTab = page.getByRole("tab", { name: "Undangan" });
-  if (await invitationsTab.isVisible()) {
-    await page.getByRole("link", { name: "Kembali ke daftar brankas" }).click();
-  } else {
-    const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
-    if (!(await vaultsLink.isVisible())) {
-      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-      await unlockVault(page, secret);
-    }
-    await page.getByRole("link", { name: "Brankas", exact: true }).click();
+async function attachQrImportImage(page: Page): Promise<void> {
+  const qrInput = page.locator("#qr-image");
+  const advancedOptions = page.getByRole("button", {
+    name: /(Opsi lanjutan|Advanced options)/i,
+  });
+  const qrFixture = resolve(
+    process.cwd(),
+    "src/tests/browser/fixtures/e2e-totp-qr.svg",
+  );
+
+  if ((await qrInput.count()) === 0) {
+    await advancedOptions.click();
+    await qrInput.waitFor({ state: "attached", timeout: 30_000 });
   }
-  await expect(page).toHaveURL(/\/vaults\/manage\/?$/);
-  await page.getByRole("link", { name: sharedName }).click();
+
+  await qrInput.setInputFiles(qrFixture).catch(async () => {
+    await advancedOptions.click();
+    await qrInput.waitFor({ state: "attached", timeout: 30_000 });
+    await qrInput.setInputFiles(qrFixture);
+  });
+}
+
+async function openSharedManagement(
+  page: Page,
+  secret: string,
+  sharedName: string,
+  sharedVaultId?: string,
+): Promise<void> {
+  const tabBar = page.locator(
+    '[data-slot="tabs-list"] [data-slot="tabs-trigger"]',
+  );
+  const sharedVaultLink = page.getByRole("link", { name: sharedName });
+  const lockHeading = page.getByRole("heading", {
+    name: "Brankas Anda terkunci",
+  });
+  const sharedVaultTab = page.getByRole("link", {
+    name: /(Brankas Bersama|Shared Vaults|Shared vaults)/i,
+  });
+  const passphraseInput = page.getByRole("textbox", {
+    name: "Passphrase Brankas",
+    exact: true,
+  });
+
+  const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
+  await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  if (await lockHeading.isVisible()) {
+    await unlockVault(page, secret);
+  }
+  if (sharedVaultId) {
+    await page.goto(`/vaults/manage/${sharedVaultId}`, {
+      waitUntil: "networkidle",
+    });
+    await page.waitForLoadState("networkidle");
+    const initialState = await sharedManagementState(
+      page,
+      tabBar,
+      passphraseInput,
+      30_000,
+    );
+    if (initialState === "locked") {
+      await unlockVault(page, secret);
+      await page.goto(`/vaults/manage/${sharedVaultId}`, {
+        waitUntil: "networkidle",
+      });
+    }
+    await expect(page).toHaveURL(
+      new RegExp(`/vaults/manage/${sharedVaultId}$`),
+    );
+    await expectSharedManagementUnlocked(
+      page,
+      tabBar,
+      passphraseInput,
+      secret,
+      60_000,
+    );
+    await tabBar.first().scrollIntoViewIfNeeded();
+    await expect(tabBar.first()).toBeVisible({ timeout: 30_000 });
+    return;
+  }
+  if (await vaultsLink.isVisible()) {
+    await vaultsLink.click();
+    if (!/\/vaults\/manage\/?$/.test(new URL(page.url()).pathname)) {
+      await page.goto("/vaults/manage", { waitUntil: "domcontentloaded" });
+    }
+  } else {
+    await page.goto("/vaults/manage", { waitUntil: "domcontentloaded" });
+  }
+  if (
+    !(await sharedVaultLink.isVisible()) &&
+    (await sharedVaultTab.isVisible())
+  ) {
+    await sharedVaultTab.click();
+  }
+
+  await expect(sharedVaultLink).toBeVisible({ timeout: 30_000 });
+  await sharedVaultLink.click();
   await expect(page).toHaveURL(/\/vaults\/manage\/[^/]+$/);
-  await expect(invitationsTab).toBeVisible();
+  await expectSharedManagementUnlocked(
+    page,
+    tabBar,
+    passphraseInput,
+    secret,
+    60_000,
+  );
+  await tabBar.first().scrollIntoViewIfNeeded();
+  await expect(tabBar.first()).toBeVisible({ timeout: 30_000 });
+}
+
+async function sharedManagementState(
+  page: Page,
+  tabBar: ReturnType<Page["locator"]>,
+  passphraseInput: ReturnType<Page["getByRole"]>,
+  timeout = 60_000,
+): Promise<"locked" | "unlocked" | "unknown"> {
+  const state = await Promise.race([
+    passphraseInput
+      .waitFor({ state: "visible", timeout })
+      .then(() => "locked" as const)
+      .catch(() => null),
+    tabBar
+      .first()
+      .waitFor({ state: "visible", timeout })
+      .then(() => "unlocked" as const)
+      .catch(() => null),
+  ]);
+  return state ?? "unknown";
+}
+
+async function expectSharedManagementUnlocked(
+  page: Page,
+  tabBar: ReturnType<Page["locator"]>,
+  passphraseInput: ReturnType<Page["getByRole"]>,
+  secret: string,
+  timeout = 60_000,
+): Promise<void> {
+  let state = await sharedManagementState(
+    page,
+    tabBar,
+    passphraseInput,
+    timeout,
+  );
+  if (state === "locked") {
+    await unlockVault(page, secret);
+    state = await sharedManagementState(page, tabBar, passphraseInput, timeout);
+  }
+  if (state === "locked") {
+    const status = await page
+      .getByRole("alert")
+      .first()
+      .textContent()
+      .catch(() => null);
+    throw new Error(
+      `Shared Vault management page is still locked after navigation${status ? `: ${status}` : ""}.`,
+    );
+  }
+  if (state === "unknown") {
+    throw new Error(
+      "Shared Vault management page did not reach a stable unlocked state.",
+    );
+  }
+  expect(state).toBe("unlocked");
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeHidden({ timeout });
+}
+
+function getManagementTab(page: Page, name: string | RegExp): Locator {
+  const byDataSlot = page
+    .locator('[data-slot="tabs-trigger"]')
+    .filter({ hasText: name });
+  const byRole = page.getByRole("tab", { name });
+  const byButton = page.getByRole("button", { name });
+  return byDataSlot.or(byRole).or(byButton);
 }
 
 async function createInvitation(page: Page, email: string): Promise<string> {
-  await page.getByRole("tab", { name: "Undangan" }).click();
+  const invitationsTab = page
+    .locator('[data-slot="tabs-list"] [data-slot="tabs-trigger"]')
+    .filter({ hasText: /(Undangan|Invitations)/i })
+    .or(page.getByRole("button", { name: /(Undangan|Invitations)/i }));
+  await invitationsTab.first().waitFor({ state: "visible", timeout: 15_000 });
+  await invitationsTab.first().click();
   await page.getByLabel("Email penerima").fill(email);
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const output = page.getByLabel("Tautan undangan aman");
   await expect(output).toBeVisible();
-  return (await output.textContent() ?? "").trim();
+  return ((await output.textContent()) ?? "").trim();
 }
 
-async function redeemInvitation(page: Page, invitation: string, secret: string, lockedPlaintext: string[]): Promise<void> {
+async function redeemInvitation(
+  page: Page,
+  invitation: string,
+  secret: string,
+  lockedPlaintext: string[],
+): Promise<void> {
   await page.goto(invitation);
-  for (const value of lockedPlaintext) await expect(page.getByText(value, { exact: true })).toHaveCount(0);
-  await page.getByRole("textbox", { name: "Passphrase Brankas", exact: true }).fill(secret);
+  for (const value of lockedPlaintext)
+    await expect(page.getByText(value, { exact: true })).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Passphrase Brankas", exact: true })
+    .fill(secret);
   await page.getByRole("button", { name: "Buka Brankas" }).click();
-  await expect(page.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
-  const redemptionResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/secure-share-links");
+  await expect(
+    page.getByRole("button", { name: "Terima undangan" }),
+  ).toBeVisible({ timeout: 30_000 });
+  const redemptionResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/secure-share-links",
+  );
   await page.getByRole("button", { name: "Terima undangan" }).click();
   expect((await redemptionResponse).status()).toBe(204);
   await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
-  for (const value of lockedPlaintext) await expect(page.getByText(value, { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Brankas Anda terkunci" }),
+  ).toBeVisible({ timeout: 30_000 });
+  for (const value of lockedPlaintext)
+    await expect(page.getByText(value, { exact: true })).toHaveCount(0);
   await unlockVault(page, secret);
-  await expect(page.getByRole("button", { name: "Salin OTP untuk manual-user, E2E Manual" })).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Salin OTP untuk manual-user, E2E Manual",
+    }),
+  ).toBeVisible();
 }
 
-function scenarioAlias(browserName: string, scenario: typeof E2E_BROWSER_SCENARIOS[number], role: typeof E2E_BROWSER_ROLES[number] = "owner"): string {
+function scenarioAlias(
+  browserName: string,
+  scenario: (typeof E2E_BROWSER_SCENARIOS)[number],
+  role: (typeof E2E_BROWSER_ROLES)[number] = "owner",
+): string {
   return e2eUserAlias(browserName, scenario, role);
 }
 
 function skipDataHeavyWebKitCi(browserName: string): void {
   test.skip(
     process.env.CI === "true" && browserName === "webkit",
-    "Linux WebKit on constrained CI cannot reliably repeat the production-strength Argon2 workflow after data-heavy browser operations; Chromium and Firefox retain complete scenario coverage, while WebKit retains Personal Vault and passkey coverage."
+    "Linux WebKit on constrained CI cannot reliably repeat the production-strength Argon2 workflow after data-heavy browser operations; Chromium and Firefox retain complete scenario coverage, while WebKit retains Personal Vault and passkey coverage.",
   );
 }
 
-async function authenticate(context: BrowserContext, alias: string): Promise<void> {
-  await context.addCookies([{ name: "rhsia-e2e-session", value: alias, url: baseUrl, httpOnly: true, sameSite: "Lax" }]);
+async function authenticate(
+  context: BrowserContext,
+  alias: string,
+): Promise<void> {
+  await context.addCookies([
+    {
+      name: "rhsia-e2e-session",
+      value: alias,
+      url: baseUrl,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
 }
 
-async function initializePersonalVault(page: Page, name: string, secret: string): Promise<void> {
+async function initializePersonalVault(
+  page: Page,
+  name: string,
+  secret: string,
+): Promise<void> {
   await page.getByLabel("Nama Brankas").fill(name);
   await page.getByLabel("Buat sendiri").click();
-  await page.getByRole("textbox", { name: "Passphrase Brankas Anda" }).fill(secret);
-  await page.getByRole("textbox", { name: "Masukkan kembali Passphrase Brankas" }).fill(secret);
+  await page
+    .getByRole("textbox", { name: "Passphrase Brankas Anda" })
+    .fill(secret);
+  await page
+    .getByRole("textbox", { name: "Masukkan kembali Passphrase Brankas" })
+    .fill(secret);
   await page.getByLabel(/Saya memahami/).click();
   await page.getByRole("button", { name: "Amankan Brankas Pribadi" }).click();
 }
 
 async function unlockVault(page: Page, secret: string): Promise<void> {
-  const input = page.getByRole("textbox", { name: "Passphrase Brankas", exact: true });
+  const input = page.getByRole("textbox", {
+    name: "Passphrase Brankas",
+    exact: true,
+  });
   await expect(input).toBeVisible();
   await input.fill(secret);
   await expect(input).toHaveValue(secret);
@@ -554,65 +1218,141 @@ async function unlockVault(page: Page, secret: string): Promise<void> {
   await expectVaultLockAction(page);
 }
 
-async function installMockClipboard(target: Pick<Page, "addInitScript"> | Pick<BrowserContext, "addInitScript">): Promise<void> {
+async function installMockClipboard(
+  target: Pick<Page, "addInitScript"> | Pick<BrowserContext, "addInitScript">,
+): Promise<void> {
   await target.addInitScript(() => {
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
-      writeText: async (value: string) => { (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ = value; },
-      readText: async () => (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ ?? ""
-    } });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          (
+            window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }
+          ).__RHSIA_E2E_CLIPBOARD__ = value;
+        },
+        readText: async () =>
+          (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string })
+            .__RHSIA_E2E_CLIPBOARD__ ?? "",
+      },
+    });
   });
 }
 
-async function installMockPasskey(page: Page, browserName: string): Promise<void> {
+async function installMockPasskey(
+  page: Page,
+  browserName: string,
+): Promise<void> {
   const credentialBytes = [...new TextEncoder().encode(browserName)];
-  await page.addInitScript(({ credentialBytes: configuredCredentialBytes }) => {
-    const rawCredentialId = Uint8Array.from(configuredCredentialBytes);
-    const credentialId = btoa(String.fromCharCode(...rawCredentialId)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-    const prfOutput = Uint8Array.from({ length: 32 }, (_, index) => index + 101);
-    class FakeAttestationResponse {
-      attestationObject = Uint8Array.of(1, 2, 3).buffer;
-      clientDataJSON = Uint8Array.of(4, 5, 6).buffer;
-      getTransports() { return ["internal"] as AuthenticatorTransport[]; }
-    }
-    class FakeAssertionResponse {
-      authenticatorData = Uint8Array.of(7, 8, 9).buffer;
-      clientDataJSON = Uint8Array.of(10, 11, 12).buffer;
-      signature = Uint8Array.of(13, 14, 15).buffer;
-      userHandle = null;
-    }
-    class FakePublicKeyCredential {
-      id = credentialId;
-      rawId = rawCredentialId.slice().buffer;
-      type = "public-key";
-      constructor(readonly response: FakeAttestationResponse | FakeAssertionResponse) {}
-      getClientExtensionResults() { return { browserE2eTest: true, prf: { enabled: true, results: { first: prfOutput.slice().buffer } } }; }
-    }
-    Object.defineProperty(window, "AuthenticatorAttestationResponse", { configurable: true, value: FakeAttestationResponse });
-    Object.defineProperty(window, "AuthenticatorAssertionResponse", { configurable: true, value: FakeAssertionResponse });
-    Object.defineProperty(window, "PublicKeyCredential", { configurable: true, value: FakePublicKeyCredential });
-    Object.defineProperty(navigator, "credentials", { configurable: true, value: {
-      create: async () => new FakePublicKeyCredential(new FakeAttestationResponse()),
-      get: async () => new FakePublicKeyCredential(new FakeAssertionResponse())
-    } });
-  }, { credentialBytes });
+  await page.addInitScript(
+    ({ credentialBytes: configuredCredentialBytes }) => {
+      const rawCredentialId = Uint8Array.from(configuredCredentialBytes);
+      const credentialId = btoa(String.fromCharCode(...rawCredentialId))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+      const prfOutput = Uint8Array.from(
+        { length: 32 },
+        (_, index) => index + 101,
+      );
+      class FakeAttestationResponse {
+        attestationObject = Uint8Array.of(1, 2, 3).buffer;
+        clientDataJSON = Uint8Array.of(4, 5, 6).buffer;
+        getTransports() {
+          return ["internal"] as AuthenticatorTransport[];
+        }
+      }
+      class FakeAssertionResponse {
+        authenticatorData = Uint8Array.of(7, 8, 9).buffer;
+        clientDataJSON = Uint8Array.of(10, 11, 12).buffer;
+        signature = Uint8Array.of(13, 14, 15).buffer;
+        userHandle = null;
+      }
+      class FakePublicKeyCredential {
+        id = credentialId;
+        rawId = rawCredentialId.slice().buffer;
+        type = "public-key";
+        constructor(
+          readonly response: FakeAttestationResponse | FakeAssertionResponse,
+        ) {}
+        getClientExtensionResults() {
+          return {
+            browserE2eTest: true,
+            prf: {
+              enabled: true,
+              results: { first: prfOutput.slice().buffer },
+            },
+          };
+        }
+      }
+      Object.defineProperty(window, "AuthenticatorAttestationResponse", {
+        configurable: true,
+        value: FakeAttestationResponse,
+      });
+      Object.defineProperty(window, "AuthenticatorAssertionResponse", {
+        configurable: true,
+        value: FakeAssertionResponse,
+      });
+      Object.defineProperty(window, "PublicKeyCredential", {
+        configurable: true,
+        value: FakePublicKeyCredential,
+      });
+      Object.defineProperty(navigator, "credentials", {
+        configurable: true,
+        value: {
+          create: async () =>
+            new FakePublicKeyCredential(new FakeAttestationResponse()),
+          get: async () =>
+            new FakePublicKeyCredential(new FakeAssertionResponse()),
+        },
+      });
+    },
+    { credentialBytes },
+  );
 }
 
-function observeSensitiveSurfaces(page: Page): { requests: string[]; responses: string[]; logs: string[] } {
-  const result = { requests: [] as string[], responses: [] as string[], logs: [] as string[] };
+function observeSensitiveSurfaces(page: Page): {
+  requests: string[];
+  responses: string[];
+  logs: string[];
+} {
+  const result = {
+    requests: [] as string[],
+    responses: [] as string[],
+    logs: [] as string[],
+  };
   page.on("request", (request) => {
-    if (request.url().includes("/api/")) result.requests.push(`${request.method()} ${request.url()} ${request.postData() ?? ""}`);
+    if (request.url().includes("/api/"))
+      result.requests.push(
+        `${request.method()} ${request.url()} ${request.postData() ?? ""}`,
+      );
   });
   page.on("response", async (response: Response) => {
     if (!response.url().includes("/api/")) return;
-    try { result.responses.push(`${response.status()} ${response.url()} ${await response.text()}`); } catch { /* Navigation may dispose a response body. */ }
+    try {
+      result.responses.push(
+        `${response.status()} ${response.url()} ${await response.text()}`,
+      );
+    } catch {
+      /* Navigation may dispose a response body. */
+    }
   });
   page.on("console", (message) => result.logs.push(message.text()));
   page.on("pageerror", (error) => result.logs.push(error.message));
   return result;
 }
 
-async function assertNoSensitiveLeak(page: Page, observed: { requests: string[]; responses: string[]; logs: string[] }, sensitive: string[]): Promise<void> {
-  const surfaces = [observed.requests.join("\n"), observed.responses.join("\n"), observed.logs.join("\n"), await persistentBrowserText(page), await queryStateText(page)];
+async function assertNoSensitiveLeak(
+  page: Page,
+  observed: { requests: string[]; responses: string[]; logs: string[] },
+  sensitive: string[],
+): Promise<void> {
+  const surfaces = [
+    observed.requests.join("\n"),
+    observed.responses.join("\n"),
+    observed.logs.join("\n"),
+    await persistentBrowserText(page),
+    await queryStateText(page),
+  ];
   for (const value of sensitive) {
     expect(value.length).toBeGreaterThan(0);
     for (const surface of surfaces) expect(surface).not.toContain(value);
@@ -622,8 +1362,14 @@ async function assertNoSensitiveLeak(page: Page, observed: { requests: string[];
 async function persistentBrowserText(page: Page): Promise<string> {
   return page.evaluate(async () => {
     const values: unknown[] = [
-      ...Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]),
-      ...Object.keys(sessionStorage).map((key) => [key, sessionStorage.getItem(key)])
+      ...Object.keys(localStorage).map((key) => [
+        key,
+        localStorage.getItem(key),
+      ]),
+      ...Object.keys(sessionStorage).map((key) => [
+        key,
+        sessionStorage.getItem(key),
+      ]),
     ];
     if ("databases" in indexedDB) {
       for (const database of await indexedDB.databases()) {
@@ -633,7 +1379,8 @@ async function persistentBrowserText(page: Page): Promise<string> {
     }
     for (const name of await caches.keys()) {
       const cache = await caches.open(name);
-      for (const request of await cache.keys()) values.push([request.url, await (await cache.match(request))?.text()]);
+      for (const request of await cache.keys())
+        values.push([request.url, await (await cache.match(request))?.text()]);
     }
     return JSON.stringify(values);
 
@@ -644,15 +1391,25 @@ async function persistentBrowserText(page: Page): Promise<string> {
         request.onsuccess = () => {
           const database = request.result;
           const stores = [...database.objectStoreNames];
-          if (!stores.length) { database.close(); resolveDatabase([name, []]); return; }
+          if (!stores.length) {
+            database.close();
+            resolveDatabase([name, []]);
+            return;
+          }
           const transaction = database.transaction(stores, "readonly");
           const result: unknown[] = [];
           for (const storeName of stores) {
             const all = transaction.objectStore(storeName).getAll();
             all.onsuccess = () => result.push([storeName, all.result]);
           }
-          transaction.oncomplete = () => { database.close(); resolveDatabase([name, result]); };
-          transaction.onerror = () => { database.close(); rejectDatabase(transaction.error); };
+          transaction.oncomplete = () => {
+            database.close();
+            resolveDatabase([name, result]);
+          };
+          transaction.onerror = () => {
+            database.close();
+            rejectDatabase(transaction.error);
+          };
         };
       });
     }
@@ -671,15 +1428,27 @@ async function persistedApplicationRecordCount(page: Page): Promise<number> {
         request.onsuccess = () => {
           const database = request.result;
           const stores = [...database.objectStoreNames];
-          if (!stores.length) { database.close(); resolveCount(0); return; }
+          if (!stores.length) {
+            database.close();
+            resolveCount(0);
+            return;
+          }
           const transaction = database.transaction(stores, "readonly");
           let records = 0;
           for (const store of stores) {
             const counter = transaction.objectStore(store).count();
-            counter.onsuccess = () => { records += counter.result; };
+            counter.onsuccess = () => {
+              records += counter.result;
+            };
           }
-          transaction.oncomplete = () => { database.close(); resolveCount(records); };
-          transaction.onerror = () => { database.close(); rejectCount(transaction.error); };
+          transaction.oncomplete = () => {
+            database.close();
+            resolveCount(records);
+          };
+          transaction.onerror = () => {
+            database.close();
+            rejectCount(transaction.error);
+          };
         };
       });
     }
@@ -689,22 +1458,43 @@ async function persistedApplicationRecordCount(page: Page): Promise<number> {
 
 async function queryStateText(page: Page): Promise<string> {
   return page.evaluate(() => {
-    const inspect = (window as typeof window & { __RHSIA_E2E_QUERY_STATE__?: () => unknown }).__RHSIA_E2E_QUERY_STATE__;
+    const inspect = (
+      window as typeof window & { __RHSIA_E2E_QUERY_STATE__?: () => unknown }
+    ).__RHSIA_E2E_QUERY_STATE__;
     return inspect ? JSON.stringify(inspect()) : "";
   });
 }
 
-async function expectWorkspaceInspection(page: Page, expected: { workspacePresent: boolean; lastClearedAllZero: boolean | null }): Promise<void> {
-  await expect.poll(() => page.evaluate(() => {
-    const inspect = (window as typeof window & { __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown }).__RHSIA_E2E_WORKSPACE_STATE__;
-    return inspect?.();
-  })).toMatchObject(expected);
+async function expectWorkspaceInspection(
+  page: Page,
+  expected: { workspacePresent: boolean; lastClearedAllZero: boolean | null },
+): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const inspect = (
+          window as typeof window & {
+            __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown;
+          }
+        ).__RHSIA_E2E_WORKSPACE_STATE__;
+        return inspect?.();
+      }),
+    )
+    .toMatchObject(expected);
 }
 
 async function activeWorkspaceKeyMaterial(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const inspect = (window as typeof window & { __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown }).__RHSIA_E2E_WORKSPACE_STATE__;
+    const inspect = (
+      window as typeof window & {
+        __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown;
+      }
+    ).__RHSIA_E2E_WORKSPACE_STATE__;
     const state = inspect?.() as { activeKeyMaterial?: unknown } | undefined;
-    return Array.isArray(state?.activeKeyMaterial) ? state.activeKeyMaterial.filter((value): value is string => typeof value === "string") : [];
+    return Array.isArray(state?.activeKeyMaterial)
+      ? state.activeKeyMaterial.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
   });
 }
