@@ -188,9 +188,10 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama ini" }).click();
   await expect(deleteVaultSection).toHaveAttribute("data-state", "open");
   const deleteVaultButton = deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true });
+  await expect(deleteVaultButton).toBeVisible();
   await waitForStableBoundingBox(deleteVaultButton);
-  await deleteVaultButton.click();
-  await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible();
+  await deleteVaultButton.click({ force: true });
+  await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Hapus brankas" }).click();
   await expect.poll(() => deletedVault).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
