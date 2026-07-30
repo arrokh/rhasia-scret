@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { LocaleChangeConfirmation, LocaleSwitcher } from "@/i18n/locale-switcher";
+import type { AppLocale } from "@/i18n/config";
 import { useTerminateSessionMutation } from "./hooks/use-session-mutations";
 
 export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockLabel?: string; onLock?: () => void }) {
@@ -21,6 +23,7 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
   const [error, setError] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [localeToConfirm, setLocaleToConfirm] = useState<AppLocale | null>(null);
   const terminateMutation = useTerminateSessionMutation();
   const form = useForm({ defaultValues: {}, onSubmit: () => { setError(false); setConfirming(true); } });
 
@@ -51,6 +54,8 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <LocaleSwitcher embedded onLocaleRequested={(locale) => { setMenuOpen(false); setLocaleToConfirm(locale); }} />
+          <DropdownMenuSeparator />
           {lockLabel && onLock && <Button variant="ghost" className="w-full justify-start" type="button" onClick={() => { setMenuOpen(false); onLock(); }}><Lock aria-hidden="true" />{lockLabel}</Button>}
           <form onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
             <form.Subscribe selector={(state) => state.isSubmitting}>
@@ -67,6 +72,7 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
       {confirming && (
         <ConfirmationDialog title={t("confirmTitle")} description={t("confirmDescription")} confirmLabel={t("leave")} danger pending={terminateMutation.isPending} onCancel={() => setConfirming(false)} onConfirm={() => void confirmLogout()} />
       )}
+      {localeToConfirm && <LocaleChangeConfirmation nextLocale={localeToConfirm} onCancel={() => setLocaleToConfirm(null)} />}
     </>
   );
 }

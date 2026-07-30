@@ -14,6 +14,7 @@ import {
   importLocalVaultArchive,
   parseLocalVaultRecord,
   previewLocalVaultArchive,
+  renameLocalVault,
   unlockLocalVault,
   updateLocalAccount
 } from "@/modules/local-vault";
@@ -67,6 +68,23 @@ describe("device-local Local Vault", () => {
     clearUnlockedLocalVault(unlocked);
     expect(unlocked.rootKey.every((byte) => byte === 0)).toBe(true);
     expect(unlocked.vaultKey.every((byte) => byte === 0)).toBe(true);
+  });
+
+  it("renames the Local Vault through its encrypted name envelope", async () => {
+    const record = await createLocalVault("local-passphrase", "Device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(record);
+    const unlocked = await unlockLocalVault(record, "local-passphrase");
+
+    await renameLocalVault(unlocked, "Renamed device vault");
+    expect(unlocked.name).toBe("Renamed device vault");
+    const persisted = await repository.read();
+    expect(persisted?.encryptedVaultName).not.toBe(record.encryptedVaultName);
+
+    const reopened = await unlockLocalVault(persisted!, "local-passphrase");
+    expect(reopened.name).toBe("Renamed device vault");
+    clearUnlockedLocalVault(reopened);
+    clearUnlockedLocalVault(unlocked);
   });
 
   it("round-trips an encrypted archive and imports only new accounts", async () => {

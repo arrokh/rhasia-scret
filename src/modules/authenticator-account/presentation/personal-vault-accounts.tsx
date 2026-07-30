@@ -48,7 +48,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         </Sheet>}
         {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")}><Plus /><span className="hidden sm:inline">{t("addAccount")}</span></Link></Button>}
       </div>
-      <VaultStatusIndicator origin="PERSONAL" syncState={workspace.syncState} lastSynchronizedAt={workspace.synchronizedAt} />
+      <VaultStatusIndicator origin="PERSONAL" syncState={workspace.syncState} lastSynchronizedAt={workspace.synchronizedAt} collapsible />
       {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger" role="alert">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}
       {auditError && <StatusBanner tone="warning" role="status">{t("auditError")}</StatusBanner>}
       <div className="flex items-end justify-between gap-4">
@@ -71,4 +71,3 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
     </section>
   );
 }
-

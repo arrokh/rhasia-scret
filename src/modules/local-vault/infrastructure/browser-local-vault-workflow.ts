@@ -192,6 +192,19 @@ export async function updateLocalAccount(vault: UnlockedLocalVault, accountId: s
   }
 }
 
+export async function renameLocalVault(vault: UnlockedLocalVault, name: string): Promise<void> {
+  const normalizedName = name.trim();
+  if (!normalizedName || normalizedName.length > 120) throw new Error("A Local Vault name is required.");
+  const nameBytes = new TextEncoder().encode(normalizedName);
+  try {
+    const encryptedVaultName = bytesToBase64(serializeEncryptedEnvelope(await encryptPayloadWithContext(vault.vaultKey, nameBytes, { purpose: "vault-name", payloadType: "vault-name", profileId: vault.profileId, keyVersion: 1 })));
+    await updateRecord(vault, (record) => ({ ...record, encryptedVaultName }));
+    vault.name = normalizedName;
+  } finally {
+    nameBytes.fill(0);
+  }
+}
+
 export async function deleteLocalAccount(vault: UnlockedLocalVault, accountId: string): Promise<void> {
   const account = vault.accounts.find((entry) => entry.id === accountId);
   if (!account) throw new Error("The Local Vault account was not found.");

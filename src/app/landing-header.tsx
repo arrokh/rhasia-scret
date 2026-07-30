@@ -4,34 +4,50 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FaGithub } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/shared/presentation/app-ui";
 
 type LandingHeaderProps = {
-  signInLabel: string;
+  localVaultLabel: string;
+  hostedVaultLabel: string;
   githubLabel: string;
+  githubDialogTitle: string;
+  githubDialogDescription: string;
+  githubDialogClose: string;
 };
 
-export function LandingHeader({ signInLabel, githubLabel }: LandingHeaderProps) {
+export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel, githubDialogTitle, githubDialogDescription, githubDialogClose }: LandingHeaderProps) {
   const [hasPassedHero, setHasPassedHero] = useState(false);
+  const [githubDialogOpen, setGithubDialogOpen] = useState(false);
 
   useEffect(() => {
     const heroEnd = document.getElementById("landing-hero-end");
     if (!heroEnd) return;
+    let animationFrame: number | undefined;
 
     const updateHeader = () => {
       const heroEndPosition = heroEnd.getBoundingClientRect().top + window.scrollY;
       setHasPassedHero(window.scrollY >= heroEndPosition);
     };
 
+    const scheduleHeaderUpdate = () => {
+      if (animationFrame !== undefined) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        updateHeader();
+      });
+    };
+
     updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
-    window.addEventListener("resize", updateHeader);
+    window.addEventListener("scroll", scheduleHeaderUpdate, { passive: true });
+    window.addEventListener("resize", scheduleHeaderUpdate);
 
     return () => {
-      window.removeEventListener("scroll", updateHeader);
-      window.removeEventListener("resize", updateHeader);
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", scheduleHeaderUpdate);
+      window.removeEventListener("resize", scheduleHeaderUpdate);
     };
   }, []);
 
@@ -40,7 +56,7 @@ export function LandingHeader({ signInLabel, githubLabel }: LandingHeaderProps) 
       <header className="landing-shell flex items-center justify-between gap-3 py-5 sm:py-7">
         <BrandLink />
         <div className="flex items-center gap-1 sm:gap-2">
-          <GitHubLink label={githubLabel} />
+          <GitHubButton label={githubLabel} onClick={() => setGithubDialogOpen(true)} />
           <LocaleSwitcher />
         </div>
       </header>
@@ -57,28 +73,40 @@ export function LandingHeader({ signInLabel, githubLabel }: LandingHeaderProps) 
         <div className="landing-shell flex min-h-16 items-center justify-between gap-3">
           <BrandLink />
           <div className="flex items-center gap-1 sm:gap-2">
-            <Button asChild size="sm"><Link href="/sign-in">{signInLabel}</Link></Button>
-            <GitHubLink label={githubLabel} />
+            <Button asChild size="sm" className="px-2.5"><Link href="/local?from=landing">{localVaultLabel}</Link></Button>
+            <Button asChild size="sm" className="bg-[#1b252c] px-2.5 text-card hover:bg-[#2b3a44] active:bg-[#11181d]"><Link href="/sign-in">{hostedVaultLabel}</Link></Button>
+            <GitHubButton label={githubLabel} onClick={() => setGithubDialogOpen(true)} />
             <LocaleSwitcher />
           </div>
         </div>
       </header>
+      <Dialog open={githubDialogOpen} onOpenChange={setGithubDialogOpen}>
+        <DialogContent showCloseButton={false} className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet">
+          <DialogHeader className="gap-3">
+            <DialogTitle className="text-xl leading-7 font-bold text-ink-strong">{githubDialogTitle}</DialogTitle>
+            <DialogDescription className="leading-6">{githubDialogDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <DialogClose asChild><Button type="button">{githubDialogClose}</Button></DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
 
 function BrandLink() {
   return (
-    <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href="/" className="shrink-0 whitespace-nowrap rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <Brand compact />
     </Link>
   );
 }
 
-function GitHubLink({ label }: { label: string }) {
+function GitHubButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <a href="https://github.com/arrokh" target="_blank" rel="noopener noreferrer" aria-label={label} title={label} className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Button variant="ghost" size="icon-sm" type="button" aria-label={label} title={label} onClick={onClick}>
       <FaGithub className="size-5" aria-hidden="true" />
-    </a>
+    </Button>
   );
 }

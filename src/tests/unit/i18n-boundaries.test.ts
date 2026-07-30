@@ -38,6 +38,8 @@ describe("i18n architecture boundaries", () => {
       .filter((path) => path.endsWith(".tsx") && !path.includes("/app/api/"));
     const literals = candidates.flatMap(userFacingJsxLiterals);
     expect(literals).toEqual([
+      { path: "src/app/page.tsx", kind: "alt", value: "" },
+      { path: "src/app/page.tsx", kind: "alt", value: "" },
       { path: "src/modules/authenticator-account/presentation/qr-import-input.tsx", kind: "placeholder", value: "otpauth://totp/…" },
       { path: "src/shared/presentation/app-ui.tsx", kind: "alt", value: "" }
     ]);

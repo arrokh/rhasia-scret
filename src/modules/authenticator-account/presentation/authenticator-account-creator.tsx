@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { parseTotpUri, TotpConfigurationError, type TotpConfigurationErrorCode } from "@/modules/otp-runtime";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
@@ -57,7 +56,24 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
     }
   });
 
-  function updateAuthenticatorUri(uri: string) { accountForm.setFieldValue("uri", uri); accountForm.setFieldValue("accountLabel", parseAuthenticatorMetadata(uri)?.accountName ?? ""); }
+  function updateAuthenticatorUri(uri: string) {
+    try {
+      const configuration = parseTotpUri(uri);
+      accountForm.setFieldValue("uri", uri);
+      accountForm.setFieldValue("accountLabel", configuration.accountName);
+      configuration.secret.fill(0);
+      setMessage(null);
+    } catch (reason) {
+      setMessage(classifyCreatorError(reason));
+    }
+  }
+
+  function clearImportedAuthenticator() {
+    accountForm.setFieldValue("uri", "");
+    accountForm.setFieldValue("accountLabel", "");
+    setDuplicate(null);
+    setMessage(null);
+  }
   function openWorkspace(unlocked: UnlockedVaultWorkspace) {
     setWorkspace(unlocked);
     accountForm.setFieldValue("selectedVaultId", selectWritableVaultId(unlocked, preferredVaultId));
@@ -100,15 +116,13 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
   return <>
     {!online && <div className="m-5 mb-0"><StatusBanner tone="offline">{t("offline")}</StatusBanner></div>}
-    <QrImportInput onUri={updateAuthenticatorUri} />
-    <Separator />
-    <form noValidate className="grid gap-5 bg-muted/30 p-5 sm:p-6" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void accountForm.handleSubmit(); }}>
-      <SectionHeading icon={ShieldCheck} title={t("reviewTitle")} description={t("reviewDescription")} />
+    <accountForm.Subscribe selector={(state) => state.values.uri}>{(uri) => uri ? <form noValidate className="grid gap-5 bg-muted/30 p-5 sm:p-6" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void accountForm.handleSubmit(); }}>
+      <SectionHeading icon={ShieldCheck} title={t("reviewTitle")} description={t("reviewDescription")} action={<Button type="button" variant="ghost" size="sm" onClick={clearImportedAuthenticator}>{t("importAnother")}</Button>} />
       <accountForm.Field name="selectedVaultId" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("destinationRequired") }}>{(field) => <Field><Label htmlFor="account-target-vault">{t("saveTo")}</Label><Select value={field.state.value} onValueChange={field.handleChange}><SelectTrigger id="account-target-vault" className="h-12 w-full bg-card" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-target-vault-error" : undefined}><SelectValue placeholder={t("selectVault")} /></SelectTrigger><SelectContent>{writableVaults.map((vault) => <SelectItem key={vault.id} value={vault.id}>{vault.name}</SelectItem>)}</SelectContent></Select><FormFieldError id="account-target-vault-error" errors={field.state.meta.errors} /></Field>}</accountForm.Field>
       <accountForm.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("uriRequired") }}>{(field) => <Field><Label htmlFor="account-uri">{t("uri")}</Label><Input id="account-uri" value={field.state.value} placeholder={t("uriPlaceholder")} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-uri-error" : "account-uri-help"} required readOnly /><p id="account-uri-help" className="text-xs text-muted-foreground">{t("uriHelp")}</p><FormFieldError id="account-uri-error" errors={field.state.meta.errors} /></Field>}</accountForm.Field>
-      <accountForm.Subscribe selector={(state) => state.values.uri}>{(uri) => { const metadata = parseAuthenticatorMetadata(uri); if (!metadata) return null; const details: Array<[string, string | number]> = [[t("issuer"), metadata.issuer], [t("algorithm"), metadata.algorithm], [t("digits"), metadata.digits], [t("period"), t("periodSeconds", { seconds: metadata.period })]]; return <section className="grid gap-4 rounded-lg border border-warning/25 bg-warning-surface p-4" aria-labelledby="authenticator-metadata-title"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-wider text-warning uppercase">{t("preview")}</p><h3 id="authenticator-metadata-title" className="mt-1 font-bold text-ink-strong">{t("metadata")}</h3></div><Badge className="bg-success-surface text-success">{t("secretDetected")}</Badge></div><accountForm.Field name="accountLabel" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("accountLabelRequired") }}>{(field) => <Field><Label htmlFor="account-label">{t("accountLabel")}</Label><Input id="account-label" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-label-help account-label-error" : "account-label-help"} required /><p id="account-label-help" className="text-xs leading-5 text-muted-foreground">{t("accountLabelHelp")}</p><FormFieldError id="account-label-error" errors={field.state.meta.errors} /></Field>}</accountForm.Field><dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">{details.map(([term, value]) => <div key={term} className="rounded-md bg-card p-3"><dt className="text-[0.68rem] font-bold text-muted-foreground uppercase">{term}</dt><dd className="mt-1 truncate text-sm font-bold text-foreground">{value}</dd></div>)}</dl></section>; }}</accountForm.Subscribe>
+      <accountForm.Subscribe selector={(state) => state.values.uri}>{(reviewUri) => { const metadata = parseAuthenticatorMetadata(reviewUri); if (!metadata) return null; const details: Array<[string, string | number]> = [[t("issuer"), metadata.issuer], [t("algorithm"), metadata.algorithm], [t("digits"), metadata.digits], [t("period"), t("periodSeconds", { seconds: metadata.period })]]; return <section className="grid gap-4 rounded-lg border border-warning/25 bg-warning-surface p-4" aria-labelledby="authenticator-metadata-title"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-wider text-warning uppercase">{t("preview")}</p><h3 id="authenticator-metadata-title" className="mt-1 font-bold text-ink-strong">{t("metadata")}</h3></div><Badge className="bg-success-surface text-success">{t("secretDetected")}</Badge></div><accountForm.Field name="accountLabel" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("accountLabelRequired") }}>{(field) => <Field><Label htmlFor="account-label">{t("accountLabel")}</Label><Input id="account-label" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "account-label-help account-label-error" : "account-label-help"} required /><p id="account-label-help" className="text-xs leading-5 text-muted-foreground">{t("accountLabelHelp")}</p><FormFieldError id="account-label-error" errors={field.state.meta.errors} /></Field>}</accountForm.Field><dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">{details.map(([term, value]) => <div key={term} className="rounded-md bg-card p-3"><dt className="text-[0.68rem] font-bold text-muted-foreground uppercase">{term}</dt><dd className="mt-1 truncate text-sm font-bold text-foreground">{value}</dd></div>)}</dl></section>; }}</accountForm.Subscribe>
       <accountForm.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button type="submit" disabled={!online || isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t("saving") : t("save")}</Button>}</accountForm.Subscribe>
-    </form>
+    </form> : <QrImportInput onUri={updateAuthenticatorUri} />}</accountForm.Subscribe>
     {duplicate && <div className="m-5 mt-0"><StatusBanner tone="warning" title={t("duplicateTitle")}><span>{t("duplicate")}</span><span className="mt-3 flex gap-2"><Button size="sm" variant="outline" type="button" onClick={() => setDuplicate(null)}>{tCommon("cancel")}</Button><Button size="sm" type="button" onClick={() => void saveDuplicate()} disabled={!online}>{t("addAnyway")}</Button></span></StatusBanner></div>}
     {renderedMessage && <div className="m-5 mt-0"><StatusBanner tone="danger" role="alert">{renderedMessage}</StatusBanner></div>}
   </>;
@@ -121,5 +135,5 @@ function classifyCreatorError(reason: unknown): CreatorMessage {
 }
 
 function Field({ children }: { children: React.ReactNode }) { return <div className="grid gap-2">{children}</div>; }
-function parseAuthenticatorMetadata(uri: string): ReturnType<typeof parseTotpUri> | null { if (!uri.trim()) return null; try { return parseTotpUri(uri); } catch { return null; } }
+function parseAuthenticatorMetadata(uri: string): { issuer: string; accountName: string; algorithm: string; digits: number; period: number } | null { if (!uri.trim()) return null; try { const configuration = parseTotpUri(uri); const metadata = { issuer: configuration.issuer, accountName: configuration.accountName, algorithm: configuration.algorithm, digits: configuration.digits, period: configuration.period }; configuration.secret.fill(0); return metadata; } catch { return null; } }
 function selectWritableVaultId(workspace: UnlockedVaultWorkspace, preferredVaultId?: string): string { const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts); return writableVaults.find((vault) => vault.id === preferredVaultId)?.id ?? writableVaults[0]?.id ?? ""; }

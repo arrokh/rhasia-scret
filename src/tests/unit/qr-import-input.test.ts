@@ -41,6 +41,8 @@ describe("QrImportInput camera scanning", () => {
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
+    expect(container.querySelector('[data-slot="collapsible"]')?.getAttribute("data-state")).toBe("closed");
+    expect(container.querySelector('#manual-authenticator-uri')).toBeNull();
     await act(async () => findButton(container, "Pindai dengan kamera").click());
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
@@ -72,6 +74,7 @@ describe("QrImportInput camera scanning", () => {
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
+    await openAdvancedOptions(container);
     const input = container.querySelector<HTMLInputElement>('#qr-image');
     const file = new File(["qr"], "account.png", { type: "image/png" });
     Object.defineProperty(input, "files", { configurable: true, value: [file] });
@@ -89,6 +92,7 @@ describe("QrImportInput camera scanning", () => {
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
+    await openAdvancedOptions(container);
     const input = container.querySelector<HTMLInputElement>('#manual-authenticator-uri');
     await act(async () => {
       if (!input) return;
@@ -108,6 +112,7 @@ describe("QrImportInput camera scanning", () => {
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri: vi.fn() })));
     await act(async () => findButton(container, "Pindai dengan kamera").click());
+    await openAdvancedOptions(container);
 
     expect(container.querySelector('label[for="qr-image"]')?.textContent).toContain("Unggah gambar QR");
     expect(container.querySelector('label[for="qr-image"]')?.textContent).not.toContain("Menyiapkan pemindai");
@@ -179,4 +184,8 @@ function findButton(container: ParentNode, name: string): HTMLButtonElement {
   const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.includes(name));
   if (!button) throw new Error(`Expected button: ${name}`);
   return button;
+}
+
+async function openAdvancedOptions(container: ParentNode): Promise<void> {
+  await act(async () => findButton(container, "Opsi lanjutan").click());
 }

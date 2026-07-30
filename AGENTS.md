@@ -41,6 +41,7 @@
 - Generate Prisma migrations only with the Prisma CLI (`prisma migrate dev`); never author migration SQL by hand. Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for Prisma migrations, introspection, and administrative tooling.
 - Store domain enum values as database strings. Use TypeScript unions or enums for strictness in code; do not create native PostgreSQL enums.
 - Use mise-managed Node.js 26.5.0 and pnpm 11.17.0. Run `mise install && mise run setup` for a new checkout, then use pnpm for dependency and script commands. Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, `pnpm run test:architecture`, and `pnpm run build` before declaring work complete.
+- Run `pnpm run test:full` as the final verification before merge/PR handoff (this includes all local verification surfaces and browser suites). `test:full` is equivalent to `pnpm run ci:local` and covers lint, typecheck, unit/integration/contract tests, architecture checks, build, performance bundle checks, and browser tests.
 - Add unit tests for domain rules and architecture tests for import boundaries. Add integration, contract, and browser tests with each vertical slice.
 - Preserve strict TypeScript. Avoid `any`, TODO placeholders, dead code, and compatibility shims.
 - Update `CONTEXT.md` immediately when domain language is resolved. Add an ADR only for hard-to-reverse, surprising trade-offs.
