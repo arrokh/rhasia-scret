@@ -30,9 +30,48 @@
   },
   "Home": {
     "landing": {
-      "description": "An encrypted TOTP authenticator for storing your accounts and sharing them securely through Shared Vaults.",
+      "eyebrow": "Open source · Local first · Zero knowledge",
+      "title": "Your authenticator, on your terms.",
+      "description": "Start with a fully local TOTP Vault. Move to encrypted personal or governed shared Vaults only when you choose.",
+      "heroImageAlt": "An illustration of sealed envelopes and the rhasia-scret owl mascot.",
       "signIn": "Sign in",
-      "localVault": "Use Local Vault"
+      "localVault": "Try Local Vault",
+      "hostedVault": "Use Hosted Vault",
+      "github": "GitHub profile",
+      "footerProductPrefix": "rhasia-",
+      "footerProductSuffix": "scret",
+      "footerAuthor": "arrokh",
+      "inviteOnly": "Local Vault needs no sign-in. Hosted Vaults are available by invitation.",
+      "flow": {
+        "eyebrow": "A deliberate path",
+        "title": "Stay local. Move only when it helps.",
+        "description": "The same product supports private ownership, optional encrypted hosting, and persistent team access—without a silent sync in between.",
+        "client": { "title": "Start on your device", "description": "Create, edit, import, export, and generate OTPs offline in a writable Local Vault." },
+        "encrypted": { "title": "Choose a cloud transition", "description": "Copy accounts into a hosted Vault only when you ask. Nothing uploads or stays linked automatically." },
+        "authorized": { "title": "Share with governance", "description": "Shared Vaults support lasting membership, permissions, revocation, and focused access audit history." }
+      },
+      "boundary": {
+        "eyebrow": "A boundary you can verify",
+        "title": "Readable authenticator data stays in your hands.",
+        "description": "The service can govern access without holding the names, secrets, or OTPs inside your Vault.",
+        "browser": {
+          "title": "Your browser",
+          "authenticatorMaterial": { "title": "Your local control", "description": "A Local Vault works without sign-in or a server connection." },
+          "decryptedContent": { "title": "Readable Vault content", "description": "Vault names, account labels, TOTP settings, and OTPs remain client-only." }
+        },
+        "service": {
+          "title": "Optional service",
+          "encryptedContent": { "title": "Encrypted content only", "description": "Hosted Vault content is encrypted before it reaches the service." },
+          "accessMetadata": { "title": "Governed sharing", "description": "Authorization and limited lifecycle metadata enable secure team access." }
+        },
+        "note": "There is no silent upload, automatic synchronization, or deletion propagation between Local and hosted Vaults."
+      },
+      "principles": {
+        "label": "Why rhasia-scret",
+        "control": { "title": "Local is a real product", "description": "Keep a writable, offline Vault on your device—not a reduced trial of the hosted service." },
+        "privacy": { "title": "Cloud is always explicit", "description": "You decide when an account is copied to a Personal or Shared Vault, with no hidden connection afterward." },
+        "collaboration": { "title": "Teams stay portable", "description": "Use provider-neutral sign-in, encrypted archives, and optional hosted sharing without putting OTPs beside passwords." }
+      }
     },
     "signIn": {
       "tagline": "Store and share authenticator accounts through encrypted vaults",
