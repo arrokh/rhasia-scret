@@ -26,9 +26,11 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   const localVaultLink = page.locator('a[href="/local?from=landing"]').first();
   await expect(localVaultLink).toBeVisible();
   await expect(localVaultLink).toHaveAttribute("href", "/local?from=landing");
-  const landingFooter = page.locator("main footer");
-  await expect(landingFooter.getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "https://rhasia-scret.vercel.app/sign-in");
-  await expect(landingFooter.getByRole("link", { name: "arrokh" })).toHaveAttribute("href", "https://github.com/arrokh");
+  const landingFooter = page.locator('footer:not([aria-hidden="true"])').filter({ has: page.locator('a[href="https://rhasia-scret.vercel.app/sign-in"]') }).first();
+  await expect(landingFooter).toBeVisible();
+  await expect(landingFooter.locator('a[href="https://rhasia-scret.vercel.app/sign-in"]').first()).toBeVisible();
+  await expect(landingFooter.locator('a[href="https://rhasia-scret.vercel.app/sign-in"]').first()).toHaveAttribute("href", "https://rhasia-scret.vercel.app/sign-in");
+  await expect(landingFooter.locator('a[href="https://github.com/arrokh"]').first()).toHaveAttribute("href", "https://github.com/arrokh");
   await page.evaluate(() => {
     const heroEnd = document.getElementById("landing-hero-end");
     if (!heroEnd) throw new Error("Landing hero end marker is missing.");

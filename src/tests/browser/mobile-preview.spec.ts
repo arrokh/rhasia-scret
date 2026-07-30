@@ -29,8 +29,8 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   }
   await expect(lockAction).toBeVisible();
   await expect(signOutAction).toBeVisible();
-  const lockBox = await lockAction.boundingBox();
-  const signOutBox = await signOutAction.boundingBox();
+  const lockBox = await lockAction.evaluate((element) => element.getBoundingClientRect().toJSON());
+  const signOutBox = await signOutAction.evaluate((element) => element.getBoundingClientRect().toJSON());
   expect(lockBox?.y).toBeLessThan(signOutBox?.y ?? Number.POSITIVE_INFINITY);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
