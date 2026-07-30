@@ -1,6 +1,7 @@
 export type UserRootKeyRewrap = {
   vaultUnlockSalt: Uint8Array;
   wrappedUserRootKey: Uint8Array;
+  encryptedPersonalVaultKey?: Uint8Array;
   encryptionVersion: number;
 };
 

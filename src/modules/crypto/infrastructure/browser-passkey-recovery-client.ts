@@ -21,10 +21,19 @@ export function verifyPasskeyAuthentication(response: unknown): Promise<{ encryp
   return browserApiClient.postJson("/api/passkey-recovery/authentication/verify", { response });
 }
 
+export function rewrapUserCryptoProfile(request: {
+  vaultUnlockSalt: string;
+  wrappedUserRootKey: string;
+  encryptedPersonalVaultKey?: string;
+  encryptionVersion: number;
+}): Promise<void> {
+  return browserApiClient.postEmpty("/api/user-crypto-profile/rewrap", request);
+}
+
 export function rewrapUserRootKey(request: {
   vaultUnlockSalt: string;
   wrappedUserRootKey: string;
   encryptionVersion: number;
 }): Promise<void> {
-  return browserApiClient.postEmpty("/api/user-crypto-profile/rewrap", request);
+  return rewrapUserCryptoProfile(request);
 }

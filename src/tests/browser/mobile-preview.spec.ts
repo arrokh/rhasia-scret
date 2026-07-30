@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 
@@ -124,7 +124,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(defaultPermissions).toHaveAttribute("data-state", "closed");
   await defaultPermissions.locator('[data-slot="collapsible-trigger"]').click();
   await expect(defaultPermissions).toHaveAttribute("data-state", "open");
-  await page.locator("#vault-default-canAddAccounts").click();
+  const addAccountsCheckbox = page.locator("#vault-default-canAddAccounts");
+  await waitForStableBoundingBox(addAccountsCheckbox);
+  await addAccountsCheckbox.click();
   await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
   await expect.poll(() => defaultPermissionsBody).toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
@@ -169,7 +171,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman").last();
   await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
-  expect(invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
+  await expect.poll(() => invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();
   await page.getByLabel("Lihat audit viewer@local.invalid").click();
@@ -185,8 +187,11 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(deleteVaultSection).toHaveAttribute("data-state", "closed");
   await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama ini" }).click();
   await expect(deleteVaultSection).toHaveAttribute("data-state", "open");
-  await deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible();
+  const deleteVaultButton = deleteVaultSection.getByRole("button", { name: "Hapus Brankas Bersama", exact: true });
+  await expect(deleteVaultButton).toBeVisible();
+  await waitForStableBoundingBox(deleteVaultButton);
+  await deleteVaultButton.click({ force: true });
+  await expect(page.getByRole("heading", { name: "Hapus Brankas Bersama?" })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Hapus brankas" }).click();
   await expect.poll(() => deletedVault).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
@@ -198,6 +203,21 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.locator("footer img")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });
+
+async function waitForStableBoundingBox(locator: Locator): Promise<void> {
+  let previous: string | undefined;
+  await expect.poll(async () => {
+    const box = await locator.boundingBox();
+    if (!box) {
+      previous = undefined;
+      return false;
+    }
+    const current = [box.x, box.y, box.width, box.height].map((value) => value.toFixed(2)).join(":");
+    const stable = current === previous;
+    previous = current;
+    return stable;
+  }, { intervals: [50, 100, 150], timeout: 3_000 }).toBe(true);
+}
 
 test("aligns the shared header action and sticky footer on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

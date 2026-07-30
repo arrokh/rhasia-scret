@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  decryptPayload,
   decryptPayloadWithContext,
   deserializeEncryptedEnvelope,
   recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser,
+  rewrapUserCryptoProfile,
   unlockPersonalVault,
+  type EncryptedPersonalVaultProfile,
   unlockPersonalVaultWithUserRootKey
 } from "@/modules/crypto";
 import {
@@ -15,7 +18,7 @@ import {
   type OfflineSyncState
 } from "@/modules/sync";
 import { unlockSharedVault, type EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
-import { base64ToBytes } from "@/shared/infrastructure/browser-base64";
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { measureBrowserOperation } from "@/shared/infrastructure/browser-performance";
 import { decryptAccountConfiguration, type DecryptedAuthenticatorAccount } from "./browser-account-payload";
 
@@ -70,7 +73,7 @@ export async function loadUnlockedVaultWorkspace(
   const bundle = await fetchMeasuredAuthorizedOfflineBundle({ personalVaultId });
   assertPersonalVault(bundle, personalVaultId);
   const unlocked = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
-  return decryptAndPersistOnlineBundle(bundle, unlocked.userRootKey, unlocked.personalVaultKey);
+  return decryptAndPersistOnlineBundle(bundle, unlocked.userRootKey, unlocked.personalVaultKey, unlocked.migratedProfile);
 }
 
 export async function loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVaultId: string, signal?: AbortSignal): Promise<UnlockedVaultWorkspace> {
@@ -113,7 +116,9 @@ export async function loadOfflineVaultWorkspace(
   const bundle = await loadLocalBundle(profileId);
   const unlocked = await unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
   try {
-    return await loadWorkspace(bundle, unlocked.userRootKey, unlocked.personalVaultKey, navigator.onLine ? "STALE" : "OFFLINE");
+    const migratedBundle = unlocked.migratedProfile ? withMigratedProfile(bundle, unlocked.migratedProfile) : bundle;
+    if (unlocked.migratedProfile) await new BrowserOfflineVaultRepository().replace(migratedBundle);
+    return await loadWorkspace(migratedBundle, unlocked.userRootKey, unlocked.personalVaultKey, navigator.onLine ? "STALE" : "OFFLINE");
   } catch (error) {
     unlocked.userRootKey.fill(0);
     unlocked.personalVaultKey.fill(0);
@@ -159,18 +164,29 @@ export function clearUnlockedVaultWorkspace(workspace: UnlockedVaultWorkspace | 
 async function decryptAndPersistOnlineBundle(
   bundle: EncryptedOfflineVaultBundle,
   userRootKey: Uint8Array,
-  personalVaultKey: Uint8Array
+  personalVaultKey: Uint8Array,
+  migratedProfile?: EncryptedPersonalVaultProfile
 ): Promise<UnlockedVaultWorkspace> {
   let workspace: UnlockedVaultWorkspace | undefined;
-  const persistence = measureBrowserOperation("rhsia:unlock:persist", () => new BrowserOfflineVaultRepository().replace(bundle))
+  const persistedBundle = migratedProfile ? withMigratedProfile(bundle, migratedProfile) : bundle;
+  const migration = migratedProfile
+    ? rewrapUserCryptoProfile({
+      vaultUnlockSalt: bytesToBase64(migratedProfile.vaultUnlockSalt),
+      wrappedUserRootKey: bytesToBase64(migratedProfile.wrappedUserRootKey),
+      encryptedPersonalVaultKey: bytesToBase64(migratedProfile.encryptedPersonalVaultKey),
+      encryptionVersion: migratedProfile.encryptionVersion
+    })
+    : Promise.resolve();
+  const persistence = measureBrowserOperation("rhsia:unlock:persist", () => new BrowserOfflineVaultRepository().replace(persistedBundle))
     .then(() => ({ ok: true as const }), (error: unknown) => ({ ok: false as const, error }));
   try {
     workspace = await measureBrowserOperation("rhsia:unlock:decrypt", () => loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT"));
+    await migration;
     const persisted = await persistence;
     if (!persisted.ok) throw new LocalStorageSyncError(persisted.error);
     return workspace;
   } catch (error) {
-    await persistence;
+    await Promise.allSettled([migration, persistence]);
     if (workspace) clearUnlockedVaultWorkspace(workspace);
     else { userRootKey.fill(0); personalVaultKey.fill(0); }
     throw error;
@@ -267,8 +283,23 @@ function profileMaterial(bundle: EncryptedOfflineVaultBundle) {
   };
 }
 
+function withMigratedProfile(bundle: EncryptedOfflineVaultBundle, profile: EncryptedPersonalVaultProfile): EncryptedOfflineVaultBundle {
+  return {
+    ...bundle,
+    cryptoProfile: {
+      vaultUnlockSalt: bytesToBase64(profile.vaultUnlockSalt),
+      wrappedUserRootKey: bytesToBase64(profile.wrappedUserRootKey),
+      encryptedPersonalVaultKey: bytesToBase64(profile.encryptedPersonalVaultKey),
+      encryptionVersion: profile.encryptionVersion as 1
+    }
+  };
+}
+
 async function decryptName(key: Uint8Array, encryptedName: string, context: Parameters<typeof decryptPayloadWithContext>[2]): Promise<string> {
-  const plaintext = await decryptPayloadWithContext(key, deserializeEncryptedEnvelope(base64ToBytes(encryptedName)), context);
+  const envelope = deserializeEncryptedEnvelope(base64ToBytes(encryptedName));
+  const plaintext = envelope.version === 1
+    ? await decryptPayload(key, envelope)
+    : await decryptPayloadWithContext(key, envelope, context);
   try {
     const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
     if (!name || name.length > 120) throw new Error("Vault name is invalid.");

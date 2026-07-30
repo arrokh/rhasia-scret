@@ -5,7 +5,7 @@ export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
 export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infrastructure/browser-personal-vault-unlock";
-export type { EncryptedPersonalVaultProfile } from "./infrastructure/browser-personal-vault-unlock";
+export type { EncryptedPersonalVaultProfile, PersonalVaultUnlockResult } from "./infrastructure/browser-personal-vault-unlock";
 export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "./infrastructure/vault-unlock-key-parameters";
@@ -22,3 +22,4 @@ export { createEncryptedVaultArchive, createEncryptedVaultExport, MAX_ENCRYPTED_
 export { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./infrastructure/browser-passkey-recovery-package";
 export { authenticatePasskey, createPasskeyCredential, evaluatePasskeyPrf } from "./infrastructure/browser-passkey-prf";
 export { recoverUserRootKeyWithPasskey } from "./infrastructure/browser-passkey-recovery-workflow";
+export { rewrapUserCryptoProfile } from "./infrastructure/browser-passkey-recovery-client";

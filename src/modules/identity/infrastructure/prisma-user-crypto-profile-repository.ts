@@ -34,7 +34,11 @@ export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepos
       data: {
         vaultUnlockSalt: copyBytes(rewrap.vaultUnlockSalt),
         wrappedUserRootKey: copyBytes(rewrap.wrappedUserRootKey),
-        rootKeyWrappingVersion: rewrap.encryptionVersion
+        rootKeyWrappingVersion: rewrap.encryptionVersion,
+        ...(rewrap.encryptedPersonalVaultKey ? {
+          encryptedPersonalVaultKey: copyBytes(rewrap.encryptedPersonalVaultKey),
+          personalVaultKeyEncryptionVersion: rewrap.encryptionVersion
+        } : {})
       }
     });
     if (updated.count !== 1) throw new Error("User crypto profile does not exist.");

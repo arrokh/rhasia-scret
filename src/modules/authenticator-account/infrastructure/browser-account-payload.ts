@@ -1,6 +1,6 @@
 "use client";
 
-import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "@/modules/crypto";
+import { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "@/modules/crypto";
 import type { TotpConfiguration } from "@/modules/otp-runtime";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 
@@ -39,7 +39,10 @@ export function serializeDecryptedAccountPayload(configuration: TotpConfiguratio
 }
 
 export async function decryptAccountConfiguration(vaultKey: Uint8Array, encryptedPayload: Uint8Array, context: CryptoEnvelopeContext = accountContext()): Promise<DecryptedAuthenticatorAccount> {
-  const plaintext = await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(encryptedPayload), context);
+  const envelope = deserializeEncryptedEnvelope(encryptedPayload);
+  const plaintext = envelope.version === 1
+    ? await decryptPayload(vaultKey, envelope)
+    : await decryptPayloadWithContext(vaultKey, envelope, context);
   try {
     return parseDecryptedAccountPayload(plaintext);
   } finally {

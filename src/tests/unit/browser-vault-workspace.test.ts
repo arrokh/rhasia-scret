@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   readByPersonalVaultId: vi.fn(),
   recoverUserRootKeyWithPasskey: vi.fn(),
   recoverUserRootKeyWithRememberedBrowser: vi.fn(),
+  rewrapUserCryptoProfile: vi.fn(),
   replace: vi.fn(),
   unlockPersonalVault: vi.fn(),
   unlockPersonalVaultWithUserRootKey: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("@/modules/crypto", () => ({
   deserializeEncryptedEnvelope: vi.fn((value) => value),
   recoverUserRootKeyWithPasskey: mocks.recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser: mocks.recoverUserRootKeyWithRememberedBrowser,
+  rewrapUserCryptoProfile: mocks.rewrapUserCryptoProfile,
   unlockPersonalVault: mocks.unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey
 }));
@@ -85,6 +87,37 @@ describe("Vault workspace loading", () => {
     expect(mocks.recoverUserRootKeyWithPasskey).toHaveBeenCalledOnce();
     expect(workspace.syncState).toBe("CURRENT");
     expect(mocks.replace).toHaveBeenCalledOnce();
+  });
+
+  it("persists and server-rewraps a legacy profile after a successful passphrase unlock", async () => {
+    const original = bundle({ sharedVaults: [] });
+    const migratedProfile = {
+      vaultUnlockSalt: Uint8Array.of(10, 11),
+      wrappedUserRootKey: Uint8Array.of(12, 13),
+      encryptedPersonalVaultKey: Uint8Array.of(14, 15),
+      encryptionVersion: 1
+    };
+    const userRootKey = Uint8Array.of(1);
+    const personalVaultKey = Uint8Array.of(2);
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(original);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey, migratedProfile });
+
+    await loadUnlockedVaultWorkspace("legacy secret", "personal-1");
+
+    expect(mocks.rewrapUserCryptoProfile).toHaveBeenCalledWith({
+      vaultUnlockSalt: "Cgs=",
+      wrappedUserRootKey: "DA0=",
+      encryptedPersonalVaultKey: "Dg8=",
+      encryptionVersion: 1
+    });
+    expect(mocks.replace).toHaveBeenCalledWith(expect.objectContaining({
+      cryptoProfile: {
+        vaultUnlockSalt: "Cgs=",
+        wrappedUserRootKey: "DA0=",
+        encryptedPersonalVaultKey: "Dg8=",
+        encryptionVersion: 1
+      }
+    }));
   });
 
   it("loads a fresh authorized online bundle through PRF-bound Remembered Browser unlock", async () => {
