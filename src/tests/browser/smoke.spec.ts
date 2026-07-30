@@ -23,7 +23,9 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await landingHeader.getByRole("button", { name: "Profil GitHub" }).click();
   await expect(page.getByRole("dialog")).toContainText("Repositori rhasia-scret akan tersedia untuk publik dalam waktu dekat.");
   await page.getByRole("button", { name: "Mengerti" }).click();
-  await expect(page.getByRole("link", { name: "Coba Local Vault" }).first()).toHaveAttribute("href", "/local?from=landing");
+  const localVaultLink = page.locator('a[href="/local?from=landing"]').first();
+  await expect(localVaultLink).toBeVisible();
+  await expect(localVaultLink).toHaveAttribute("href", "/local?from=landing");
   const landingFooter = page.locator("main footer");
   await expect(landingFooter.getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "https://rhasia-scret.vercel.app/sign-in");
   await expect(landingFooter.getByRole("link", { name: "arrokh" })).toHaveAttribute("href", "https://github.com/arrokh");

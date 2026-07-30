@@ -179,6 +179,7 @@
     container-type: inline-size;
     --comparison-flow-center-track: 5rem;
     --comparison-flow-grid-gap: 0.5rem;
+    --comparison-flow-overlap: 0.25rem;
   }
 
   .comparison-flow-device,
@@ -240,10 +241,12 @@
 
   .comparison-flow-device::after {
     right: calc(-1 * var(--comparison-flow-connector));
+    width: calc(var(--comparison-flow-connector) + var(--comparison-flow-overlap));
   }
 
   .comparison-flow-service::before {
     left: calc(-1 * var(--comparison-flow-connector));
+    width: calc(var(--comparison-flow-connector) + var(--comparison-flow-overlap));
   }
 
   .comparison-flow-branch-dot {
@@ -338,7 +341,7 @@
 
     .comparison-flow-device::after {
       right: calc(-1 * var(--comparison-flow-direct-length));
-      width: var(--comparison-flow-direct-length);
+      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap));
       transform: rotate(var(--comparison-flow-direct-angle));
       transform-origin: left center;
     }
@@ -373,9 +376,9 @@
     }
 
     .comparison-flow-service::before {
-      right: 100%;
+      right: calc(100% - var(--comparison-flow-overlap));
       left: auto;
-      width: var(--comparison-flow-direct-length);
+      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap));
       transform: rotate(var(--comparison-flow-direct-angle));
       transform-origin: right center;
     }

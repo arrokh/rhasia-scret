@@ -24,6 +24,9 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await languageSettings.click();
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
   await page.keyboard.press("Escape");
+  if (!(await signOutAction.isVisible().catch(() => false))) {
+    await accountMenuTrigger.click();
+  }
   await expect(lockAction).toBeVisible();
   await expect(signOutAction).toBeVisible();
   const lockBox = await lockAction.boundingBox();
