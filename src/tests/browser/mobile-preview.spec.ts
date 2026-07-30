@@ -18,20 +18,35 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("preview@local.invalid")).toBeHidden();
   await accountMenuTrigger.click();
   const lockAction = page.getByRole("button", { name: "Kunci" });
-  const signOutAction = page.getByRole("button", { name: "Keluar" });
   const languageSettings = page.locator('[data-slot="dropdown-menu-sub-trigger"]');
   await expect(languageSettings).toBeVisible();
   await languageSettings.click();
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
   await page.keyboard.press("Escape");
-  if (!(await signOutAction.isVisible().catch(() => false))) {
-    await accountMenuTrigger.click();
-  }
+  await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeHidden();
+  await page.keyboard.press("Escape");
+  const accountMenu = page.locator('[data-slot="dropdown-menu-content"]');
+  if (!(await accountMenu.isVisible().catch(() => false))) await accountMenuTrigger.click();
+  await expect(accountMenu).toBeVisible();
+  const accountActions = accountMenu.locator("button, [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='menuitemsubmenu']");
+  const signOutActionInMenu = accountActions.filter({ hasText: /Keluar/ }).first();
   await expect(lockAction).toBeVisible();
-  await expect(signOutAction).toBeVisible();
-  const lockBox = await lockAction.evaluate((element) => element.getBoundingClientRect().toJSON());
-  const signOutBox = await signOutAction.evaluate((element) => element.getBoundingClientRect().toJSON());
-  expect(lockBox?.y).toBeLessThan(signOutBox?.y ?? Number.POSITIVE_INFINITY);
+  await expect(signOutActionInMenu).toBeVisible();
+  const actionPositions = await accountActions.evaluateAll((items) => {
+    const toTopItems = [...items]
+      .map((item) => item as unknown as HTMLElement)
+      .filter((item) => {
+        const text = item.textContent?.trim();
+        return text === "Kunci" || text === "Keluar" || text?.startsWith("Kunci") || text?.startsWith("Keluar");
+      })
+      .map((item) => ({ text: item.textContent?.trim(), top: item.getBoundingClientRect().top }));
+    const lockY = toTopItems.find((item) => item.text === "Kunci")?.top;
+    const signOutY = toTopItems.find((item) => item.text === "Keluar")?.top;
+    return { lockY, signOutY };
+  });
+  expect(actionPositions.lockY).not.toBeUndefined();
+  expect(actionPositions.signOutY).not.toBeUndefined();
+  expect(actionPositions.lockY).toBeLessThan(actionPositions.signOutY ?? Number.POSITIVE_INFINITY);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toHaveCount(0);
