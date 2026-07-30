@@ -124,7 +124,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(defaultPermissions).toHaveAttribute("data-state", "closed");
   await defaultPermissions.locator('[data-slot="collapsible-trigger"]').click();
   await expect(defaultPermissions).toHaveAttribute("data-state", "open");
-  await page.locator("#vault-default-canAddAccounts").click();
+  const addAccountsCheckbox = page.locator("#vault-default-canAddAccounts");
+  await waitForStableBoundingBox(addAccountsCheckbox);
+  await addAccountsCheckbox.click();
   await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
   await expect.poll(() => defaultPermissionsBody).toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
