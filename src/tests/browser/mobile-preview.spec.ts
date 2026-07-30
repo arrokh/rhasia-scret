@@ -171,7 +171,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman").last();
   await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
-  expect(invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
+  await expect.poll(() => invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();
   await page.getByLabel("Lihat audit viewer@local.invalid").click();
