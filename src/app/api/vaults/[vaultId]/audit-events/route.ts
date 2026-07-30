@@ -2,11 +2,32 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { listVaultAuditForOwner } from "@/modules/vault-management/application/manage-vault-audit";
+import { listVaultAuditForOwner, recordPersonalVaultAccountCopiesToLocal } from "@/modules/vault-management/application/manage-vault-audit";
 import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
+import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 const auditFilterSchema = z.object({ accountId: z.string().min(1).max(128).optional(), actorUserId: z.string().min(1).max(128).optional() });
+const localCopyAuditSchema = z.object({
+  eventType: z.literal("ACCOUNT_COPIED_TO_LOCAL"),
+  accountIds: z.array(z.string().min(1).max(128)).min(1).max(500).refine((ids) => new Set(ids).size === ids.length)
+});
+
+export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
+  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
+  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
+  if (rateLimited) return rateLimited;
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "invalid_copy_audit" }, { status: 400 }); }
+  const parsed = localCopyAuditSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "invalid_copy_audit" }, { status: 400 });
+  const { vaultId } = await params;
+  const recorded = await recordPersonalVaultAccountCopiesToLocal(user.id, vaultId, parsed.data.accountIds, new PrismaVaultAuditRepository());
+  return recorded ? new NextResponse(null, { status: 204 }) : NextResponse.json({ error: "owner_access_required" }, { status: 404 });
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());

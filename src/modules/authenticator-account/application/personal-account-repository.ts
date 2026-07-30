@@ -3,6 +3,7 @@ import type { EncryptedAuthenticatorAccount } from "../domain/encrypted-account"
 export type NewEncryptedAccount = {
   encryptedPayload: Uint8Array;
   encryptionVersion: number;
+  source?: "LOCAL_VAULT_COPY";
 };
 
 export interface PersonalAccountRepository {

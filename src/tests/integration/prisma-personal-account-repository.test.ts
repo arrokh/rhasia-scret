@@ -7,6 +7,7 @@ const userIds: string[] = [];
 const vaultIds: string[] = [];
 
 afterEach(async () => {
+  await prisma.vaultAuditEvent.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.authenticatorAccount.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.vault.deleteMany({ where: { id: { in: vaultIds.splice(0) } } });
   await prisma.applicationUser.deleteMany({ where: { id: { in: userIds.splice(0) } } });
@@ -14,6 +15,19 @@ afterEach(async () => {
 });
 
 describe("PrismaPersonalAccountRepository recovery", () => {
+  it.skipIf(!process.env.DATABASE_URL)("atomically audits accounts copied from Local Vault without local identifiers", async () => {
+    const user = await prisma.applicationUser.create({ data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` } });
+    userIds.push(user.id);
+    const vault = await prisma.vault.create({ data: { ownerId: user.id, type: "PERSONAL", lifecycle: "ACTIVE", encryptedName: Uint8Array.of(1), encryptionVersion: 1 } });
+    vaultIds.push(vault.id);
+
+    const account = await new PrismaPersonalAccountRepository().create(user.id, vault.id, { encryptedPayload: Uint8Array.of(1, 2, 3), encryptionVersion: 1, source: "LOCAL_VAULT_COPY" });
+
+    await expect(prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { eventType: true, targetId: true, actorUserId: true } })).resolves.toEqual([
+      { eventType: "ACCOUNT_COPIED_FROM_LOCAL", targetId: account.id, actorUserId: user.id }
+    ]);
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("restores before the 30-day deadline, advances revision, and rejects expiry", async () => {
     const user = await prisma.applicationUser.create({ data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` } });
     userIds.push(user.id);

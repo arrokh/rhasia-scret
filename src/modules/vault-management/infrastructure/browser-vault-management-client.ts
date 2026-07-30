@@ -64,6 +64,10 @@ export function recordVaultArchiveExport(vaultId: string): Promise<void> {
   return browserApiClient.postEmpty(`/api/vaults/${encodeURIComponent(vaultId)}/archive-exports`);
 }
 
+export function recordPersonalVaultAccountCopiesToLocal(vaultId: string, accountIds: string[]): Promise<void> {
+  return browserApiClient.postEmpty(`/api/vaults/${encodeURIComponent(vaultId)}/audit-events`, { eventType: "ACCOUNT_COPIED_TO_LOCAL", accountIds });
+}
+
 export async function destructivelyResetPersonalVault(confirmation: string): Promise<DestructiveResetResult> {
   const response = await browserApiClient.post("/api/personal-vault/destructive-reset", { confirmation });
   if (response.ok) return { status: "reset" };

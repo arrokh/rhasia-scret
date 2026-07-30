@@ -6,12 +6,13 @@ import { useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { AppPage, PageHeader, SectionHeading, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
-import { parseTotpUri, type TotpConfiguration } from "@/modules/otp-runtime";
+import { parseTotpUri, TotpConfigurationError, type TotpConfiguration, type TotpConfigurationErrorCode } from "@/modules/otp-runtime";
 import { TotpAccountButton } from "@/modules/otp-runtime";
 import { VaultStatusIndicator } from "@/modules/sync";
 import { QrImportInput } from "@/modules/authenticator-account";
@@ -145,7 +146,7 @@ export function LocalVaultPage() {
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} backHref="/" />
     {message && <div className="mb-5"><StatusBanner tone={message.tone} role={message.tone === "danger" ? "alert" : "status"}>{message.text}</StatusBanner></div>}
-    <VaultStatusIndicator origin="LOCAL" />
+    <VaultStatusIndicator origin="LOCAL" className="mb-5" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
     {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={legacyMigration ? migrate : undefined} /></SurfaceCard>}
     {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
@@ -183,11 +184,20 @@ function UnlockedLocalVaultView({ vault, onLock, onChanged, onEdit, onError }: {
   const t = useTranslations("LocalVault");
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [activeTab, setActiveTab] = useState("vault");
   const [deleteTarget, setDeleteTarget] = useState<UnlockedLocalVaultAccount | null>(null);
   const [deleting, setDeleting] = useState(false);
-  async function add(configuration: TotpConfiguration) {
-    try { await addLocalAccount(vault, configuration); onChanged({ ...vault, accounts: [...vault.accounts] }); }
-    catch { configuration.secret.fill(0); onError(t("duplicate")); }
+  async function add(configuration: TotpConfiguration): Promise<boolean> {
+    try {
+      await addLocalAccount(vault, configuration);
+      onChanged({ ...vault, accounts: [...vault.accounts] });
+      setActiveTab("vault");
+      return true;
+    } catch {
+      configuration.secret.fill(0);
+      onError(t("duplicate"));
+      return false;
+    }
   }
   async function remove() {
     if (!deleteTarget) return;
@@ -200,29 +210,61 @@ function UnlockedLocalVaultView({ vault, onLock, onChanged, onEdit, onError }: {
     setExporting(true);
     try {
       const result = await exportLocalVault(vault);
-      download(result.archive, "local-vault.rhasia");
+      download(result.archive, "local-vault.rhasia-vault");
       download(new TextEncoder().encode(bytesToBase64(result.key)), "local-vault.key.txt", "text/plain");
       result.key.fill(0);
     } catch { onError(t("backupError")); }
     finally { setExporting(false); }
   }
-  return <div className="grid gap-5">
-    <SurfaceCard className="grid gap-4 p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-[0.1em] text-muted-foreground uppercase">{t("deviceOnly")}</p><h2 className="mt-1 text-xl font-bold text-ink-strong">{vault.name}</h2><p className="mt-1 text-sm text-muted-foreground">{t("offline")}</p></div><Button variant="outline" onClick={onLock}><LockKeyhole />{t("lock")}</Button></div>
-      <p className="text-sm font-semibold text-muted-foreground">{t("accountCount", { count: vault.accounts.length })}</p>
-      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void backup()} disabled={exporting}><Download />{exporting ? t("exporting") : t("export")}</Button><LocalArchiveImporter vault={vault} onImported={() => void reloadLocalVault(vault, onChanged)} onError={onError} importing={importing} setImporting={setImporting} /></div>
-    </SurfaceCard>
-    <SurfaceCard className="grid gap-5 p-0"><div className="p-5 pb-0 sm:p-6 sm:pb-0"><AddLocalAccountForm onAdd={add} /></div><div className="h-px bg-border" />{vault.accounts.length ? <ul className="grid list-none gap-3 p-5 sm:p-6">{vault.accounts.map((account) => <li key={account.id} className="grid gap-2"><TotpAccountButton configuration={account} vaultName={vault.name} onManage={() => onEdit(account)} /><Button variant="ghost" className="justify-self-end text-destructive" onClick={() => setDeleteTarget(account)}><Trash2 />{t("delete")}</Button></li>)}</ul> : <p className="p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>}</SurfaceCard>
+  return <SurfaceCard className="p-0">
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <TabsList className="mx-5 mt-5 grid-cols-3 sm:mx-6 sm:mt-6">
+        <TabsTrigger value="vault">{vault.name}</TabsTrigger>
+        <TabsTrigger value="add">{t("addTab")}</TabsTrigger>
+        <TabsTrigger value="backup">{t("backupTab")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="vault" className="mt-0">
+        <div className="grid gap-5 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-[0.1em] text-muted-foreground uppercase">{t("deviceOnly")}</p><h2 className="mt-1 text-xl font-bold text-ink-strong">{vault.name}</h2><p className="mt-1 text-sm text-muted-foreground">{t("offline")}</p></div><Button variant="outline" onClick={onLock}><LockKeyhole />{t("lock")}</Button></div>
+          <div className="rounded-lg border border-border bg-muted/30 p-4"><p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{t("accountsTitle")}</p><p className="mt-1 text-lg font-bold text-ink-strong">{t("accountCount", { count: vault.accounts.length })}</p></div>
+        </div>
+        <div className="border-t border-border">{vault.accounts.length ? <ul className="grid list-none gap-3 p-5 sm:p-6">{vault.accounts.map((account) => <li key={account.id} className="grid gap-2"><TotpAccountButton configuration={account} vaultName={vault.name} onManage={() => onEdit(account)} /><Button variant="ghost" className="justify-self-end text-destructive" onClick={() => setDeleteTarget(account)}><Trash2 />{t("delete")}</Button></li>)}</ul> : <div className="grid justify-items-center gap-3 p-6 text-center"><p className="text-sm text-muted-foreground">{t("empty")}</p><Button type="button" onClick={() => setActiveTab("add")}>{t("addTitle")}</Button></div>}</div>
+      </TabsContent>
+      <TabsContent value="add" className="mt-0"><AddLocalAccountForm onAdd={add} /></TabsContent>
+      <TabsContent value="backup" className="mt-0 p-5 sm:p-6">
+        <div className="mb-4"><h2 className="font-bold text-ink-strong">{t("backupTitle")}</h2><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("backupDescription")}</p></div>
+        <div className="grid items-start gap-3 sm:grid-cols-2"><Button variant="outline" className="w-full" onClick={() => void backup()} disabled={exporting}><Download />{exporting ? t("exporting") : t("export")}</Button><LocalArchiveImporter vault={vault} onImported={() => void reloadLocalVault(vault, onChanged)} onError={onError} importing={importing} setImporting={setImporting} /></div>
+      </TabsContent>
+    </Tabs>
     {deleteTarget && <ConfirmationDialog title={t("deleteTitle")} description={t("deleteDescription")} confirmLabel={t("deleteConfirm")} danger pending={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void remove()} />}
-  </div>;
+  </SurfaceCard>;
 }
 
-function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConfiguration) => Promise<void> }) {
+export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConfiguration) => Promise<boolean> }) {
   const t = useTranslations("LocalVault");
+  const tError = useTranslations("OtpRuntime.errors");
   const [configuration, setConfiguration] = useState<TotpConfiguration | null>(null);
-  const form = useForm({ defaultValues: { uri: "", label: "" }, onSubmit: async ({ value }) => { if (!configuration) return; await onAdd({ ...configuration, accountName: value.label.trim() }); setConfiguration(null); form.reset(); } });
-  function importUri(uri: string) { try { const parsed = parseTotpUri(uri); setConfiguration(parsed); form.setFieldValue("uri", uri); form.setFieldValue("label", parsed.accountName); } catch { setConfiguration(null); } }
-  return <div className="grid gap-4"><SectionHeading icon={KeyRound} title={t("addTitle")} description={t("addDescription")} /><QrImportInput onUri={importUri} />{configuration && <form noValidate className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); void form.handleSubmit(); }}><form.Field name="label" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("labelRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="local-account-label">{t("label")}</Label><Input id="local-account-label" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby="local-account-label-error" required /><FormFieldError id="local-account-label-error" errors={field.state.meta.errors} /></div>}</form.Field><form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button type="submit" disabled={isSubmitting}>{isSubmitting ? t("saving") : t("save")}</Button>}</form.Subscribe></form>}</div>;
+  const [parseError, setParseError] = useState<TotpConfigurationErrorCode | null>(null);
+  const form = useForm({ defaultValues: { uri: "", label: "" }, onSubmit: async ({ value }) => {
+    if (!configuration) return;
+    await onAdd({ ...configuration, accountName: value.label.trim() });
+    configuration.secret.fill(0);
+    setConfiguration(null);
+    form.reset();
+  } });
+  function importUri(uri: string) {
+    try {
+      const parsed = parseTotpUri(uri);
+      setConfiguration((current) => { current?.secret.fill(0); return parsed; });
+      setParseError(null);
+      form.setFieldValue("uri", uri);
+      form.setFieldValue("label", parsed.accountName);
+    } catch (reason) {
+      setConfiguration((current) => { current?.secret.fill(0); return null; });
+      setParseError(reason instanceof TotpConfigurationError ? reason.code : "invalidUri");
+    }
+  }
+  return <div className="grid gap-5 p-5 sm:p-6"><SectionHeading icon={KeyRound} title={t("addTitle")} description={t("addDescription")} /><QrImportInput onUri={importUri} className="p-0 sm:p-0" />{parseError && <StatusBanner tone="danger" role="alert">{tError(parseError)}</StatusBanner>}{configuration && <form noValidate className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); void form.handleSubmit(); }}><div><h3 className="font-bold text-ink-strong">{t("reviewTitle")}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{t("reviewDescription")}</p></div><form.Field name="label" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("labelRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="local-account-label">{t("label")}</Label><Input id="local-account-label" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby="local-account-label-error" required /><FormFieldError id="local-account-label-error" errors={field.state.meta.errors} /></div>}</form.Field><form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button type="submit" disabled={isSubmitting}>{isSubmitting ? t("saving") : t("save")}</Button>}</form.Subscribe></form>}</div>;
 }
 
 function LocalAccountEditor({ account, onCancel, onSave, onError }: { account: UnlockedLocalVaultAccount; onCancel: () => void; onSave: (configuration: TotpConfiguration) => Promise<void>; onError: (message: string) => void }) {
@@ -256,7 +298,7 @@ function LocalArchiveImporter({ vault, onImported, onError, importing, setImport
       setImporting(false);
     }
   }
-  return <div className="grid gap-3 rounded-md border border-border p-3"><p className="text-sm font-bold">{t("import")}</p><p className="text-xs leading-5 text-muted-foreground">{t("importDescription")}</p><Label className="text-xs">{t("archiveFile")}<Input type="file" accept=".rhasia,application/octet-stream" onChange={(event) => setArchive(event.target.files?.[0] ?? null)} /></Label><Label className="text-xs">{t("keyFile")}<Input type="file" accept=".txt,text/plain" onChange={(event) => setKey(event.target.files?.[0] ?? null)} /></Label><Button variant="outline" onClick={() => void restore()} disabled={!archive || !key || importing}>{importing ? t("importing") : t("import")}</Button></div>;
+  return <div className="grid gap-3 rounded-md border border-border p-3"><p className="text-sm font-bold">{t("import")}</p><p className="text-xs leading-5 text-muted-foreground">{t("importDescription")}</p><Label className="text-xs">{t("archiveFile")}<Input type="file" accept=".rhasia-vault,.rhasia,application/octet-stream" onChange={(event) => setArchive(event.target.files?.[0] ?? null)} /></Label><Label className="text-xs">{t("keyFile")}<Input type="file" accept=".txt,text/plain" onChange={(event) => setKey(event.target.files?.[0] ?? null)} /></Label><Button variant="outline" onClick={() => void restore()} disabled={!archive || !key || importing}>{importing ? t("importing") : t("import")}</Button></div>;
 }
 
 async function reloadLocalVault(current: UnlockedLocalVault, onChanged: (vault: UnlockedLocalVault) => void): Promise<void> {

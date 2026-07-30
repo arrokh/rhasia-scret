@@ -9,7 +9,7 @@ import type { PersonalAccountRepository } from "@/modules/authenticator-account/
 import { PrismaPersonalAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-personal-account-repository";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
-const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1) });
+const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1), source: z.literal("LOCAL_VAULT_COPY").optional() });
 const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const restoreSchema = z.object({ accountId: z.string().min(1) });
@@ -44,7 +44,7 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
         const parsed = payloadSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
-        const account = await accounts.create(current.id, vaultId, { encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"), encryptionVersion: parsed.data.encryptionVersion });
+        const account = await accounts.create(current.id, vaultId, { encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"), encryptionVersion: parsed.data.encryptionVersion, source: parsed.data.source });
         return NextResponse.json({ id: account.id, revision: account.revision }, { status: 201 });
       } catch (error) {
         return NextResponse.json({ error: error instanceof Error && error.message === "inactive_user" ? "inactive_user" : "vault_unavailable" }, { status: error instanceof Error && error.message === "inactive_user" ? 403 : 404 });

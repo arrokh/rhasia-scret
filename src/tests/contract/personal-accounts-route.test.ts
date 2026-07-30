@@ -17,7 +17,23 @@ describe("Personal Vault accounts API", () => {
     });
     const response = await handlers.POST(new NextRequest("http://localhost/api/vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(payload) }), { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(201);
-    expect(create).toHaveBeenCalledWith("user-1", "vault-1", expect.objectContaining({ encryptionVersion: 1 }));
+    expect(create).toHaveBeenCalledWith("user-1", "vault-1", expect.objectContaining({ encryptionVersion: 1, source: undefined }));
+  });
+
+  it("accepts only the redacted Local Vault copy source marker", async () => {
+    const create = vi.fn().mockResolvedValue(new EncryptedAuthenticatorAccount("account-1", "vault-1", new Uint8Array([1, 2, 3]), 1, 1));
+    const handlers = createPersonalAccountsHandlers({
+      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
+      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() }
+    });
+    const context = { params: Promise.resolve({ vaultId: "vault-1" }) };
+    const accepted = await handlers.POST(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ ...payload, source: "LOCAL_VAULT_COPY" }) }), context);
+    const rejected = await handlers.POST(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ ...payload, source: "local-profile-secret" }) }), context);
+
+    expect(accepted.status).toBe(201);
+    expect(create).toHaveBeenCalledWith("user-1", "vault-1", expect.objectContaining({ source: "LOCAL_VAULT_COPY" }));
+    expect(rejected.status).toBe(400);
   });
 
   it("updates, deletes, and restores opaque content with Account Revision protection", async () => {

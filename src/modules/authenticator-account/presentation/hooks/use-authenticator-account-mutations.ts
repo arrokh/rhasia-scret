@@ -28,11 +28,12 @@ export function useUpdateEncryptedAuthenticatorAccountMutation() {
 export function useCreateEncryptedAuthenticatorAccountMutation() {
   return useMutation({
     mutationKey: ["authenticator-account", "create"],
-    mutationFn: ({ vaultId, vaultType, encryptedPayload, encryptionVersion }: {
+    mutationFn: ({ vaultId, vaultType, encryptedPayload, encryptionVersion, source }: {
       vaultId: string;
       vaultType: "PERSONAL" | "SHARED";
       encryptedPayload: string;
       encryptionVersion: number;
-    }) => createEncryptedAuthenticatorAccount({ vaultId, vaultType }, { encryptedPayload, encryptionVersion })
+      source?: "LOCAL_VAULT_COPY";
+    }) => createEncryptedAuthenticatorAccount({ vaultId, vaultType }, { encryptedPayload, encryptionVersion, source })
   });
 }
