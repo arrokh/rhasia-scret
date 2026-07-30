@@ -55,7 +55,7 @@ export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] 
       <nav aria-label={t("archiveActions")} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0">
         <Button variant="outline" size="icon" asChild><Link href="/vaults/backup" aria-label={t("backup")} title={t("backup")}><DatabaseBackup aria-hidden="true" /></Link></Button>
         <Button variant="outline" size="icon" asChild><Link href="/vaults/import" aria-label={t("importArchive")} title={t("importArchive")}><Import aria-hidden="true" /></Link></Button>
-        <Button size="sm" className="h-11 min-w-0 sm:h-10" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button>
+        <Button className="min-w-0" asChild><Link href="/vaults/manage/new"><Plus />{t("shared")}</Link></Button>
       </nav>
     </div>
     <ul className="grid list-none gap-2 p-0">
@@ -330,8 +330,10 @@ function InvitationForm({ vault, onCreated }: { vault: SharedVaultSummary; onCre
   const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(false); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; form.reset(); onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link }); } catch { setError(true); } } });
   return <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
     <div><h3 className="flex items-center gap-2 font-bold text-ink-strong"><MailPlus className="size-5" />{t("formTitle")}</h3><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p></div>
-    <form.Field name="email" validators={{ onSubmit: ({ value }) => /^\S+@\S+\.\S+$/.test(value.trim()) ? undefined : t("invalidEmail") }}>{(field) => <div className="grid gap-2"><Label htmlFor="invitation-email">{t("recipientEmail")}</Label><Input id="invitation-email" type="email" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="email" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "invitation-email-error" : undefined} required /><FormFieldError id="invitation-email-error" errors={field.state.meta.errors} /></div>}</form.Field>
-    <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button className="w-full sm:w-auto sm:justify-self-end" type="submit" disabled={pending}>{pending ? t("creating") : t("create")}</Button>}</form.Subscribe>
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <form.Field name="email" validators={{ onSubmit: ({ value }) => /^\S+@\S+\.\S+$/.test(value.trim()) ? undefined : t("invalidEmail") }}>{(field) => <div className="grid gap-2"><Label htmlFor="invitation-email">{t("recipientEmail")}</Label><Input id="invitation-email" type="email" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="email" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "invitation-email-error" : undefined} required /><FormFieldError id="invitation-email-error" errors={field.state.meta.errors} /></div>}</form.Field>
+      <form.Subscribe selector={(state) => state.isSubmitting}>{(pending) => <Button className="w-full sm:w-auto" type="submit" disabled={pending}>{pending ? t("creating") : t("create")}</Button>}</form.Subscribe>
+    </div>
     {error && <StatusBanner tone="danger" role="alert">{t("createError")}</StatusBanner>}
   </form>;
 }

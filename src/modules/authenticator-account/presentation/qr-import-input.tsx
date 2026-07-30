@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { IScannerControls } from "@zxing/browser";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Camera, CameraOff, ImageUp, LoaderCircle, ScanLine } from "lucide-react";
+import { Camera, CameraOff, ChevronDown, ImageUp, LoaderCircle, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,11 +82,24 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
   return (
     <section className={cn("grid gap-5 p-5 sm:p-6", className)} aria-labelledby="qr-import-title">
       <SectionHeading icon={ScanLine} title={t("title")} description={t("description")} />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button variant="outline" asChild className="w-full" aria-disabled={uploadLoading}><label htmlFor="qr-image">{uploadLoading ? <LoaderCircle className="animate-spin" /> : <ImageUp />}<span className="max-w-[15rem] truncate">{uploadLoading ? t("loadingScanner") : fileName || t("upload")}</span></label></Button>
-        <input className="sr-only" id="qr-image" type="file" accept="image/*" disabled={uploadLoading} onChange={(event) => void upload(event.target.files?.[0])} />
-        <Button variant="outline" type="button" disabled={uploadLoading || cameraLoading} aria-busy={cameraLoading} onClick={openCamera}>{cameraLoading ? <LoaderCircle className="animate-spin" /> : <Camera />}<span>{cameraLoading ? t("loadingScanner") : t("scanCamera")}</span></Button>
-      </div>
+      <Button type="button" className="w-full" disabled={uploadLoading || cameraLoading} aria-busy={cameraLoading} onClick={openCamera}>{cameraLoading ? <LoaderCircle className="animate-spin" /> : <Camera />}<span>{cameraLoading ? t("loadingScanner") : t("scanCamera")}</span></Button>
+      <Collapsible className="rounded-lg border border-border bg-muted/30">
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" type="button" className="w-full justify-between px-4"><span>{t("advancedOptions")}</span><ChevronDown className="transition-transform [[data-state=open]_&]:rotate-180" aria-hidden="true" /></Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid gap-4 border-t border-border p-4">
+          <div className="grid gap-2">
+            <Button variant="outline" asChild className="w-full" aria-disabled={uploadLoading}><label htmlFor="qr-image">{uploadLoading ? <LoaderCircle className="animate-spin" /> : <ImageUp />}<span className="max-w-[15rem] truncate">{uploadLoading ? t("loadingScanner") : fileName || t("upload")}</span></label></Button>
+            <input className="sr-only" id="qr-image" type="file" accept="image/*" disabled={uploadLoading} onChange={(event) => void upload(event.target.files?.[0])} />
+          </div>
+          <form noValidate className="grid gap-3" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void manualForm.handleSubmit(); }}>
+            <manualForm.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("uriRequired") }}>
+              {(field) => <div className="grid gap-2"><Label htmlFor="manual-authenticator-uri">{t("manualLabel")}</Label><Input id="manual-authenticator-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} placeholder="otpauth://totp/…" autoComplete="off" spellCheck={false} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "manual-authenticator-uri-error" : "manual-authenticator-uri-help"} required /><p id="manual-authenticator-uri-help" className="text-xs leading-5 text-muted-foreground">{t("manualHelp")}</p><FormFieldError id="manual-authenticator-uri-error" errors={field.state.meta.errors} /></div>}
+            </manualForm.Field>
+            <manualForm.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button variant="outline" type="submit" disabled={isSubmitting}>{t("useManual")}</Button>}</manualForm.Subscribe>
+          </form>
+        </CollapsibleContent>
+      </Collapsible>
       <Dialog open={cameraOpen} onOpenChange={() => undefined}>
         <DialogContent className="max-w-lg overflow-hidden bg-card p-4" showCloseButton={false} onEscapeKeyDown={(event) => event.preventDefault()} onPointerDownOutside={(event) => event.preventDefault()}>
           <DialogHeader>
@@ -102,12 +116,6 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
           <DialogFooter className="justify-center sm:justify-center"><Button variant="outline" type="button" onClick={stopCamera}><CameraOff />{t("stopCamera")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <form noValidate className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void manualForm.handleSubmit(); }}>
-        <manualForm.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("uriRequired") }}>
-          {(field) => <div className="grid gap-2"><Label htmlFor="manual-authenticator-uri">{t("manualLabel")}</Label><Input id="manual-authenticator-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} placeholder="otpauth://totp/…" autoComplete="off" spellCheck={false} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "manual-authenticator-uri-error" : "manual-authenticator-uri-help"} required /><p id="manual-authenticator-uri-help" className="text-xs leading-5 text-muted-foreground">{t("manualHelp")}</p><FormFieldError id="manual-authenticator-uri-error" errors={field.state.meta.errors} /></div>}
-        </manualForm.Field>
-        <manualForm.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <Button variant="outline" type="submit" disabled={isSubmitting}>{t("useManual")}</Button>}</manualForm.Subscribe>
-      </form>
       {error && <StatusBanner tone="danger" role="alert">{t(error)}</StatusBanner>}
     </section>
   );

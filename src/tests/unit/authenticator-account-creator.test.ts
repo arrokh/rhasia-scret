@@ -70,6 +70,9 @@ describe("AuthenticatorAccountCreator", () => {
       )
     )));
 
+    mocks.parseTotpUri.mockReturnValue({ issuer: "Example", accountName: "person@example.test", secret: Uint8Array.of(1), algorithm: "SHA-1", digits: 6, period: 30 });
+    expect(container.querySelector("#account-target-vault")).toBeNull();
+    await act(async () => mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
     expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
     expect(container.querySelector("#account-vault-unlock-secret")).toBeNull();
   });
@@ -107,8 +110,9 @@ describe("AuthenticatorAccountCreator", () => {
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
+    expect(container.querySelector("#account-target-vault")).toBeNull();
     await act(async () => mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+    expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
     expect(container.querySelector<HTMLInputElement>("#account-uri")?.readOnly).toBe(true);
     expect(container.textContent).toContain("Metadata autentikator");
     expect(container.textContent).toContain("SHA-1");

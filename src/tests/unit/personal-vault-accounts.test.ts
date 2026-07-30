@@ -22,6 +22,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-vault-workspace"
   refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace
 }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
+vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
 vi.mock("@/modules/crypto", () => ({ PasskeyRecoveryEnrollment: () => null, RememberedBrowserEnrollment: () => null, hasRememberedBrowserForPersonalVault: vi.fn().mockResolvedValue(false) }));
 vi.mock("@/modules/identity", async (importOriginal) => ({ ...await importOriginal<typeof import("@/modules/identity")>(), usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }) }));
 vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));

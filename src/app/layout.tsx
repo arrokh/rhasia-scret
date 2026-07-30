@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Roboto_Mono } from "next/font/google";
+import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Suspense, type ReactNode } from "react";
@@ -13,6 +14,7 @@ import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
+const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
@@ -28,6 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: [
+        { url: "/favicon.ico", sizes: "any", type: "image/x-icon" },
         { url: "/pwa/android/launchericon-48x48.png", sizes: "48x48", type: "image/png" },
         { url: "/pwa/android/launchericon-96x96.png", sizes: "96x96", type: "image/png" },
         { url: "/pwa/android/launchericon-192x192.png", sizes: "192x192", type: "image/png" },
@@ -86,6 +89,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <div className="min-h-dvh">{children}<AppFooter /></div>
           </QueryProvider>
         </NextIntlClientProvider>
+        {cloudflareAnalyticsToken ? (
+          <Script
+            id="cloudflare-web-analytics"
+            type="module"
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            strategy="afterInteractive"
+            data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
+          />
+        ) : null}
       </body>
     </html>
   );

@@ -15,12 +15,15 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(brandIcon).toHaveAttribute("src", /icon512_rounded\.png/);
   expect(await brandIcon.locator("..").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
   await expect(page.getByRole("heading", { name: /Autentikator Anda, sesuai ketentuan Anda/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Apa itu rhasia-scret?" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tetap lokal. Pindah hanya saat bermanfaat." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   const landingHeader = page.locator("main > header");
   await expect(landingHeader.getByRole("link", { name: "Masuk" })).toHaveCount(0);
-  await expect(landingHeader.getByRole("link", { name: "Profil GitHub" })).toHaveAttribute("href", "https://github.com/arrokh");
-  await expect(page.getByRole("link", { name: "Coba Local Vault" }).first()).toHaveAttribute("href", "/local");
+  await landingHeader.getByRole("button", { name: "Profil GitHub" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Repositori rhasia-scret akan tersedia untuk publik dalam waktu dekat.");
+  await page.getByRole("button", { name: "Mengerti" }).click();
+  await expect(page.getByRole("link", { name: "Coba Local Vault" }).first()).toHaveAttribute("href", "/local?from=landing");
   const landingFooter = page.locator("main footer");
   await expect(landingFooter.getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "https://rhasia-scret.vercel.app/sign-in");
   await expect(landingFooter.getByRole("link", { name: "arrokh" })).toHaveAttribute("href", "https://github.com/arrokh");
@@ -31,7 +34,8 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   });
   const stickyHeader = page.getByTestId("landing-sticky-header");
   await expect(stickyHeader).toHaveAttribute("aria-hidden", "false");
-  await expect(stickyHeader.getByRole("link", { name: "Masuk" })).toHaveAttribute("href", "/sign-in");
+  await expect(stickyHeader.getByRole("link", { name: "Coba Local Vault" })).toHaveAttribute("href", "/local?from=landing");
+  await expect(stickyHeader.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   await expect(stickyHeader.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
 });

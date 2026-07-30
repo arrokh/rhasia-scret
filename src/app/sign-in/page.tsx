@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { authBackend, createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
@@ -35,8 +36,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           {backend === "oidc" && <Button asChild><Link href="/auth/oidc">{t("oidcSignIn")}</Link></Button>}
           {backend === "none" && <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>}
           {backend !== "none" && <Separator />}
+          <Button variant="outline" asChild><Link href="/local"><Laptop aria-hidden="true" />{t("openLocalVault")}</Link></Button>
           <Button variant="outline" asChild><Link href="/offline">{t("openOffline")}</Link></Button>
           <p className="text-center text-xs leading-5 text-muted-foreground">{t(backend === "none" ? "localOnly" : "inviteOnly")}</p>
+          <Separator />
+          <Button variant="ghost" asChild><Link href="/">{t("backHome")}</Link></Button>
         </div>
       </SurfaceCard>
     </AppPage>

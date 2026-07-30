@@ -46,6 +46,7 @@ describe("Local Vault account import", () => {
 });
 
 async function enterManualUri(container: HTMLElement, uri: string): Promise<void> {
+  await act(async () => findButton(container, "Opsi lanjutan").click());
   const input = container.querySelector<HTMLInputElement>("#manual-authenticator-uri");
   await act(async () => {
     if (!input) return;

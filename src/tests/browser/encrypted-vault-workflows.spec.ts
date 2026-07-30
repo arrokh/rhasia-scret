@@ -124,6 +124,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
 
   await test.step("manual import warns about a duplicate and requires explicit add-anyway confirmation", async () => {
     await page.getByRole("link", { name: "Tambahkan akun autentikator" }).click();
+    await page.getByRole("button", { name: "Opsi lanjutan" }).click();
     await page.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(imageTotpUri);
     await page.getByRole("button", { name: "Gunakan URI manual" }).click();
     await expect(page.getByRole("heading", { name: "Metadata autentikator" })).toBeVisible();
@@ -223,6 +224,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       sharedVaultId = created.id;
       await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));
       await page.getByRole("link", { name: "Tambah akun" }).click();
+      await page.getByRole("button", { name: "Opsi lanjutan" }).click();
       await page.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(manualTotpUri);
       await page.getByRole("button", { name: "Gunakan URI manual" }).click();
       await page.getByRole("button", { name: "Simpan akun" }).click();
@@ -314,6 +316,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       await expect(leavePage.getByText("Dapat menghapus")).toHaveCount(0);
 
       await leavePage.getByRole("link", { name: "Tambah akun" }).click();
+      await leavePage.getByRole("button", { name: "Opsi lanjutan" }).click();
       await leavePage.getByRole("textbox", { name: "Masukkan URI secara manual" }).fill(imageTotpUri);
       await leavePage.getByRole("button", { name: "Gunakan URI manual" }).click();
       await leavePage.getByRole("button", { name: "Simpan akun" }).click();

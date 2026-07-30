@@ -36,8 +36,8 @@ export function LandingMobileCta({ localVaultLabel, hostedVaultLabel }: LandingM
       )}
     >
       <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
-        <Button asChild className="min-h-12 min-w-0 px-3 text-sm"><Link href="/local"><Laptop aria-hidden="true" />{localVaultLabel}</Link></Button>
-        <Button asChild className="min-h-12 min-w-0 px-3 text-sm"><Link href="/sign-in"><Cloud aria-hidden="true" />{hostedVaultLabel}</Link></Button>
+        <Button asChild className="min-h-12 min-w-0 px-3 text-sm"><Link href="/local?from=landing"><Laptop aria-hidden="true" />{localVaultLabel}</Link></Button>
+        <Button asChild className="min-h-12 min-w-0 bg-[#1b252c] px-3 text-sm text-card hover:bg-[#2b3a44] active:bg-[#11181d]"><Link href="/sign-in"><Cloud aria-hidden="true" />{hostedVaultLabel}</Link></Button>
       </div>
     </div>
   );

@@ -19,9 +19,16 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await accountMenuTrigger.click();
   const lockAction = page.getByRole("button", { name: "Kunci" });
   const signOutAction = page.getByRole("button", { name: "Keluar" });
+  const languageSettings = page.locator('[data-slot="dropdown-menu-sub-trigger"]');
+  await expect(languageSettings).toBeVisible();
+  await languageSettings.click();
+  await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(lockAction).toBeVisible();
   await expect(signOutAction).toBeVisible();
-  expect(await lockAction.evaluate((lock, signOut) => Boolean(lock.compareDocumentPosition(signOut as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await signOutAction.elementHandle())).toBe(true);
+  const lockBox = await lockAction.boundingBox();
+  const signOutBox = await signOutAction.boundingBox();
+  expect(lockBox?.y).toBeLessThan(signOutBox?.y ?? Number.POSITIVE_INFINITY);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toHaveCount(0);
@@ -31,7 +38,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
-  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/sign-in");
+  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
   const developerLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(developerLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(developerLink).toHaveAttribute("target", "_blank");
@@ -54,6 +61,17 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test("keeps the language confirmation open after selecting a setting", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/ui-preview");
+  await page.getByRole("button", { name: "Pengaturan akun" }).click();
+  await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
+  await page.getByRole("menuitemradio", { name: "English" }).click();
+  await expect(page.getByRole("heading", { name: "Ganti bahasa aplikasi?" })).toBeVisible();
+  await page.getByRole("button", { name: "Ganti bahasa" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
 test("uses dedicated, consistent Vault navigation and management tabs", async ({ page }) => {
@@ -115,6 +133,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(importAction.locator(".lucide-import")).toBeVisible();
   expect(await backupAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
   expect(await importAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
+  await expect(createSharedAction).toHaveAttribute("data-size", "default");
   const vaultLinks = page.locator('[aria-label="Daftar brankas"] li > a');
   await expect(vaultLinks.nth(0)).toContainText("Brankas Pribadi");
   await expect(vaultLinks.nth(0)).toHaveAttribute("href", "/vaults/manage/personal");
@@ -201,7 +220,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await confirmDeleteButton.click();
   await expect.poll(() => deletedVault).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
-  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/sign-in");
+  await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
   const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
   await expect(footerDeveloperLink).toHaveAttribute("href", "https://github.com/arrokh");
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
