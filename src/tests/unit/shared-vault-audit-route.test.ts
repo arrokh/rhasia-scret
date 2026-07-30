@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ listForOwner: vi.fn(), recordAccountAccess: vi.fn() }));
+const mocks = vi.hoisted(() => ({ listForOwner: vi.fn(), recordAccountAccess: vi.fn(), recordPersonalAccountCopiesToLocal: vi.fn() }));
 vi.mock("@/modules/identity/application/load-application-user", () => ({ loadApplicationUser: async () => ({ id: "user-1", canAccessApplication: () => true }) }));
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({ PrismaApplicationUserRepository: class {} }));
 vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
-vi.mock("@/modules/vault-management/infrastructure/prisma-vault-audit-repository", () => ({ PrismaVaultAuditRepository: class { listForOwner = mocks.listForOwner; recordAccountAccess = mocks.recordAccountAccess; } }));
+vi.mock("@/modules/vault-management/infrastructure/prisma-vault-audit-repository", () => ({ PrismaVaultAuditRepository: class { listForOwner = mocks.listForOwner; recordAccountAccess = mocks.recordAccountAccess; recordPersonalAccountCopiesToLocal = mocks.recordPersonalAccountCopiesToLocal; } }));
 
-import { GET } from "@/app/api/vaults/[vaultId]/audit-events/route";
+import { GET, POST as POST_PERSONAL_COPY } from "@/app/api/vaults/[vaultId]/audit-events/route";
 import { POST } from "@/app/api/shared-vaults/[vaultId]/audit-events/route";
 
 describe("Shared Vault audit route", () => {
@@ -21,6 +21,17 @@ describe("Shared Vault audit route", () => {
 
     const malformed = await POST(new Request("http://localhost/api", { method: "POST", body: "{" }) as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(malformed.status).toBe(400);
+  });
+
+  it("records only bounded opaque Personal Vault account targets copied to Local Vault", async () => {
+    mocks.recordPersonalAccountCopiesToLocal.mockResolvedValue(true);
+    const response = await POST_PERSONAL_COPY(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ eventType: "ACCOUNT_COPIED_TO_LOCAL", accountIds: ["account-1", "account-2"] }) }), { params: Promise.resolve({ vaultId: "personal-1" }) });
+    expect(response.status).toBe(204);
+    expect(mocks.recordPersonalAccountCopiesToLocal).toHaveBeenCalledWith("user-1", "personal-1", ["account-1", "account-2"]);
+
+    const duplicateTargets = await POST_PERSONAL_COPY(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ eventType: "ACCOUNT_COPIED_TO_LOCAL", accountIds: ["account-1", "account-1"] }) }), { params: Promise.resolve({ vaultId: "personal-1" }) });
+    expect(duplicateTargets.status).toBe(400);
+    expect(mocks.recordPersonalAccountCopiesToLocal).toHaveBeenCalledOnce();
   });
 
   it("applies exact account and actor filters before returning redacted owner-only events", async () => {

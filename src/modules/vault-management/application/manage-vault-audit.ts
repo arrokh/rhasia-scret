@@ -25,6 +25,14 @@ export function recordVaultArchiveExport(ownerId: string, vaultId: string, repos
   return repository.recordArchiveExport(ownerId, vaultId);
 }
 
+export interface PersonalVaultCopyAuditRepository {
+  recordPersonalAccountCopiesToLocal(ownerId: string, vaultId: string, accountIds: string[]): Promise<boolean>;
+}
+
+export function recordPersonalVaultAccountCopiesToLocal(ownerId: string, vaultId: string, accountIds: string[], repository: PersonalVaultCopyAuditRepository) {
+  return repository.recordPersonalAccountCopiesToLocal(ownerId, vaultId, accountIds);
+}
+
 export function listVaultAuditForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter, request: CursorPageRequest, repository: VaultAuditRepository) {
   return repository.listForOwner(ownerId, vaultId, filter, request);
 }

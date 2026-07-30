@@ -1,5 +1,8 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
+import { serializeDecryptedAccountPayload } from "@/modules/authenticator-account";
+import { createEncryptedVaultArchive, generateSymmetricKey } from "@/modules/crypto";
+import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive/infrastructure/browser-vault-archive-workflow";
 import {
   BrowserLocalVaultRepository,
   addLocalAccount,
@@ -81,5 +84,40 @@ describe("device-local Local Vault", () => {
     expect(await importLocalVaultArchive(unlocked, exported.key, exported.archive)).toBe(0);
     exported.key.fill(0);
     clearUnlockedLocalVault(unlocked);
+  });
+
+  it("keeps Local and hosted encrypted archives interoperable", async () => {
+    const record = await createLocalVault("local-passphrase", "Device vault");
+    await new BrowserLocalVaultRepository().create(record);
+    const unlocked = await unlockLocalVault(record, "local-passphrase");
+    await addLocalAccount(unlocked, account());
+
+    const localExport = await exportLocalVault(unlocked);
+    const hostedPreview = await openAndValidateEncryptedVaultArchive(localExport.key, localExport.archive);
+    expect(hostedPreview.vaultName).toBe("Device vault");
+    expect(hostedPreview.accounts).toHaveLength(1);
+    for (const value of hostedPreview.accounts) value.secret.fill(0);
+    localExport.key.fill(0);
+
+    await clearLocalVault();
+    clearUnlockedLocalVault(unlocked);
+    const emptyRecord = await createLocalVault("local-passphrase", "Empty device vault");
+    await new BrowserLocalVaultRepository().create(emptyRecord);
+    const emptyVault = await unlockLocalVault(emptyRecord, "local-passphrase");
+    const hostedKey = generateSymmetricKey();
+    const plaintext = serializeDecryptedAccountPayload(account());
+    try {
+      const hostedArchive = await createEncryptedVaultArchive(hostedKey, "Hosted vault", [plaintext]);
+      expect(await importLocalVaultArchive(emptyVault, hostedKey, hostedArchive)).toBe(1);
+      expect(emptyVault.accounts).toHaveLength(0);
+      const refreshed = await unlockLocalVault((await new BrowserLocalVaultRepository().read())!, "local-passphrase");
+      expect(refreshed.accounts).toHaveLength(1);
+      expect(refreshed.accounts[0]).toMatchObject({ issuer: "Example", accountName: "alice@example.com" });
+      clearUnlockedLocalVault(refreshed);
+    } finally {
+      plaintext.fill(0);
+      hostedKey.fill(0);
+      clearUnlockedLocalVault(emptyVault);
+    }
   });
 });

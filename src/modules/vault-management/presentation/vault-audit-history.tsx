@@ -12,7 +12,7 @@ import type { ManagedVaultAccountSummary } from "./vault-account-management-list
 
 export type SelectedAuditFilter = { query: VaultAuditFilter; label: string };
 type AuditTranslator = ReturnType<typeof useTranslations<"VaultManagement.audit">>;
-export type VaultAuditEventMessageKey = "accountAccessed" | "archiveExported" | "archiveImported" | "vaultCreated" | "accountAdded" | "accountUpdated" | "accountDeleted" | "accountRestored" | "memberRevoked" | "memberPermissionsUpdated" | "vaultMemberDefaultsUpdated" | "vaultDeleted" | "vaultRestored" | "securityActivity";
+export type VaultAuditEventMessageKey = "accountAccessed" | "accountCopiedFromLocal" | "accountCopiedToLocal" | "archiveExported" | "archiveImported" | "vaultCreated" | "accountAdded" | "accountUpdated" | "accountDeleted" | "accountRestored" | "memberRevoked" | "memberPermissionsUpdated" | "vaultMemberDefaultsUpdated" | "vaultDeleted" | "vaultRestored" | "securityActivity";
 
 export function VaultAuditHistory({ audit, accounts, filter = { query: {}, label: "" }, onClearFilter = () => undefined }: {
   audit: ReturnType<typeof useVaultAuditQuery>;
@@ -38,6 +38,8 @@ function accountAuditLabel(accounts: ManagedVaultAccountSummary[], targetId: str
 export function vaultAuditEventMessageKey(eventType: string): VaultAuditEventMessageKey {
   const keys: Record<string, Exclude<VaultAuditEventMessageKey, "securityActivity">> = {
     ACCOUNT_ACCESSED: "accountAccessed",
+    ACCOUNT_COPIED_FROM_LOCAL: "accountCopiedFromLocal",
+    ACCOUNT_COPIED_TO_LOCAL: "accountCopiedToLocal",
     ARCHIVE_EXPORTED: "archiveExported",
     ARCHIVE_IMPORTED: "archiveImported",
     VAULT_CREATED: "vaultCreated",

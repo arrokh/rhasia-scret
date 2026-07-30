@@ -64,6 +64,43 @@ describe("QrImportInput camera scanning", () => {
     expect(findButton(container, "Pindai dengan kamera")).toBeDefined();
   });
 
+  it("decodes an uploaded QR image and forwards its URI", async () => {
+    const uri = "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example";
+    mocks.decodeQrImage.mockResolvedValue(uri);
+    const onUri = vi.fn();
+    const container = mount();
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(QrImportInput, { onUri })));
+    const input = container.querySelector<HTMLInputElement>('#qr-image');
+    const file = new File(["qr"], "account.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => input?.dispatchEvent(new Event("change", { bubbles: true })));
+
+    expect(mocks.decodeQrImage).toHaveBeenCalledWith(file);
+    expect(onUri).toHaveBeenCalledWith(uri);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("forwards a manually entered URI", async () => {
+    const uri = "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example";
+    const onUri = vi.fn();
+    const container = mount();
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(QrImportInput, { onUri })));
+    const input = container.querySelector<HTMLInputElement>('#manual-authenticator-uri');
+    await act(async () => {
+      if (!input) return;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, uri);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => findButton(container, "Gunakan URI manual").click());
+
+    expect(onUri).toHaveBeenCalledWith(uri);
+  });
+
   it("does not show camera loading state on the QR image upload action", async () => {
     mocks.scanQrCamera.mockReturnValue(new Promise(() => undefined));
     const container = mount();
@@ -104,7 +141,7 @@ describe("QrImportInput camera scanning", () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it("reports a camera access failure when scanner startup rejects", async () => {
+  it("reports a generic camera startup failure", async () => {
     vi.useFakeTimers();
     mocks.scanQrCamera.mockRejectedValue(new Error("Camera unavailable"));
     const container = mount();
@@ -114,7 +151,21 @@ describe("QrImportInput camera scanning", () => {
     await act(async () => findButton(container, "Pindai dengan kamera").click());
     await act(async () => vi.advanceTimersByTimeAsync(500));
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Akses kamera tidak tersedia");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Kamera tidak dapat dimulai");
+  });
+
+  it("explains how to recover when browser camera permission is blocked", async () => {
+    vi.useFakeTimers();
+    mocks.scanQrCamera.mockRejectedValue(new DOMException("Permission denied", "NotAllowedError"));
+    const container = mount();
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(QrImportInput, { onUri: vi.fn() })));
+    await act(async () => findButton(container, "Pindai dengan kamera").click());
+    await act(async () => vi.advanceTimersByTimeAsync(500));
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Izin kamera diblokir");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("pengaturan browser");
   });
 });
 

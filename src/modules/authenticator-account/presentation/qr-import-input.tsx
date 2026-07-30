@@ -9,15 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { StatusBanner, SectionHeading } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { decodeQrImage, scanQrCamera } from "../infrastructure/browser-qr-importer";
 
-type QrError = "imageError" | "cameraError";
+type QrError = "imageError" | "cameraError" | "cameraPermissionError" | "cameraNotFoundError" | "cameraBusyError" | "cameraSecureContextError";
 
 const CAMERA_MODAL_READY_DELAY_MS = 500;
 
-export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
+export function QrImportInput({ onUri, className }: { onUri: (uri: string) => void; className?: string }) {
   const t = useTranslations("AuthenticatorAccount.qr");
   const controls = useRef<IScannerControls | null>(null);
   const onUriRef = useRef(onUri);
@@ -60,8 +61,8 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
     }).then((scannerControls) => {
       if (cancelled) scannerControls.stop();
       else { controls.current = scannerControls; setCameraLoading(false); }
-    }).catch(() => {
-      if (!cancelled) { setCameraOpen(false); setCameraReady(false); setCameraLoading(false); setError("cameraError"); }
+    }).catch((reason: unknown) => {
+      if (!cancelled) { setCameraOpen(false); setCameraReady(false); setCameraLoading(false); setError(classifyCameraError(reason)); }
     });
     return () => { cancelled = true; controls.current?.stop(); controls.current = null; };
   }, [cameraOpen, cameraReady, videoElement]);
@@ -78,7 +79,7 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
   function stopCamera() { controls.current?.stop(); controls.current = null; setCameraOpen(false); setCameraReady(false); setCameraLoading(false); }
 
   return (
-    <section className="grid gap-5 p-5 sm:p-6" aria-labelledby="qr-import-title">
+    <section className={cn("grid gap-5 p-5 sm:p-6", className)} aria-labelledby="qr-import-title">
       <SectionHeading icon={ScanLine} title={t("title")} description={t("description")} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Button variant="outline" asChild className="w-full" aria-disabled={uploadLoading}><label htmlFor="qr-image">{uploadLoading ? <LoaderCircle className="animate-spin" /> : <ImageUp />}<span className="max-w-[15rem] truncate">{uploadLoading ? t("loadingScanner") : fileName || t("upload")}</span></label></Button>
@@ -110,4 +111,13 @@ export function QrImportInput({ onUri }: { onUri: (uri: string) => void }) {
       {error && <StatusBanner tone="danger" role="alert">{t(error)}</StatusBanner>}
     </section>
   );
+}
+
+function classifyCameraError(reason: unknown): QrError {
+  if (window.isSecureContext === false) return "cameraSecureContextError";
+  const name = reason instanceof DOMException || reason instanceof Error ? reason.name : "";
+  if (name === "NotAllowedError" || name === "SecurityError") return "cameraPermissionError";
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "cameraNotFoundError";
+  if (name === "NotReadableError" || name === "AbortError") return "cameraBusyError";
+  return "cameraError";
 }

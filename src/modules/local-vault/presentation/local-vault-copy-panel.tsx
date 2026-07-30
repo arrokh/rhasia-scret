@@ -14,6 +14,7 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { addLocalAccount, clearUnlockedLocalVault, readLocalVaultRecord, refreshUnlockedLocalVault, unlockLocalVault, type UnlockedLocalVault } from "@/modules/local-vault";
+import { recordPersonalVaultAccountCopiesToLocal } from "@/modules/vault-management";
 
 export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, personalVaultKey, personalAccounts, onPersonalAccountsCopied }: { personalVaultId: string; personalVaultName: string; personalVaultKey: Uint8Array; personalAccounts: WorkspaceAuthenticatorAccount[]; onPersonalAccountsCopied: (accounts: WorkspaceAuthenticatorAccount[]) => void }) {
   const t = useTranslations("LocalVaultCopy");
@@ -55,7 +56,7 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
         const source = { ...account, secret: account.secret.slice() };
         try {
           const encryptedPayload = await encryptAccountConfiguration(personalVaultKey, source, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: personalVaultId, keyVersion: 1 });
-          const created = await createMutation.mutateAsync({ vaultId: personalVaultId, vaultType: "PERSONAL", encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
+          const created = await createMutation.mutateAsync({ vaultId: personalVaultId, vaultType: "PERSONAL", encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1, source: "LOCAL_VAULT_COPY" });
           copied.push({ ...account, id: created.id, vaultId: personalVaultId, vaultName: personalVaultName, vaultType: "PERSONAL", revision: created.revision });
         } finally {
           source.secret.fill(0);
@@ -75,22 +76,36 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
     if (!vault || !selectedPersonal.size) return;
     setBusy("personal");
     setStatus(null);
-    let copied = 0;
-    try {
-      for (const account of personalAccounts.filter((entry) => selectedPersonal.has(entry.id))) {
+    const copiedAccountIds: string[] = [];
+    let copyFailed = false;
+    for (const account of personalAccounts.filter((entry) => selectedPersonal.has(entry.id))) {
+      try {
         const source = { issuer: account.issuer, accountName: account.accountName, secret: account.secret.slice(), algorithm: account.algorithm, digits: account.digits, period: account.period };
         await addLocalAccount(vault, source);
-        copied += 1;
+        copiedAccountIds.push(account.id);
+      } catch {
+        copyFailed = true;
+        break;
       }
-      const refreshed = await refreshUnlockedLocalVault(vault);
-      setVault(refreshed);
-      setSelectedPersonal(new Set());
-      setStatus({ tone: "success", text: t("personalToLocalSuccess", { count: copied }) });
-    } catch {
-      setStatus({ tone: "danger", text: copied ? t("partialLocalFailure", { count: copied }) : t("duplicateOrFailure") });
-    } finally {
-      setBusy(null);
     }
+    if (copiedAccountIds.length) {
+      try { setVault(await refreshUnlockedLocalVault(vault)); }
+      catch { copyFailed = true; }
+    }
+    let auditFailed = false;
+    if (copiedAccountIds.length) {
+      try { await recordPersonalVaultAccountCopiesToLocal(personalVaultId, copiedAccountIds); }
+      catch { auditFailed = true; }
+    }
+    if (!copyFailed) setSelectedPersonal(new Set());
+    if (!copiedAccountIds.length) {
+      setStatus({ tone: "danger", text: t("duplicateOrFailure") });
+    } else if (copyFailed) {
+      setStatus({ tone: auditFailed ? "warning" : "danger", text: auditFailed ? t("partialLocalFailureAuditWarning", { count: copiedAccountIds.length }) : t("partialLocalFailure", { count: copiedAccountIds.length }) });
+    } else {
+      setStatus({ tone: auditFailed ? "warning" : "success", text: auditFailed ? t("personalToLocalSuccessAuditWarning", { count: copiedAccountIds.length }) : t("personalToLocalSuccess", { count: copiedAccountIds.length }) });
+    }
+    setBusy(null);
   }
 
   if (recordAvailable === null) return <p role="status">{t("checking")}</p>;

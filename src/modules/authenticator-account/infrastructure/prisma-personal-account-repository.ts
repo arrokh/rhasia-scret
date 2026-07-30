@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
 import { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "../domain/account-retention-policy";
@@ -14,11 +15,16 @@ type AccountRecord = {
 export class PrismaPersonalAccountRepository implements PersonalAccountRepository {
   constructor(private readonly now: () => Date = () => new Date()) {}
   public async create(ownerId: string, vaultId: string, account: NewEncryptedAccount): Promise<EncryptedAuthenticatorAccount> {
-    await assertActivePersonalVault(ownerId, vaultId);
-    const created = await prisma.authenticatorAccount.create({
-      data: { vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion }
+    return prisma.$transaction(async (transaction) => {
+      await assertActivePersonalVault(ownerId, vaultId, transaction);
+      const created = await transaction.authenticatorAccount.create({
+        data: { vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion }
+      });
+      if (account.source === "LOCAL_VAULT_COPY") {
+        await transaction.vaultAuditEvent.create({ data: { vaultId, ownerId, actorUserId: ownerId, eventType: "ACCOUNT_COPIED_FROM_LOCAL", targetId: created.id } });
+      }
+      return toAccount(created);
     });
-    return toAccount(created);
   }
 
   public async list(ownerId: string, vaultId: string): Promise<EncryptedAuthenticatorAccount[]> {
@@ -69,8 +75,8 @@ export class PrismaPersonalAccountRepository implements PersonalAccountRepositor
   }
 }
 
-async function assertActivePersonalVault(ownerId: string, vaultId: string): Promise<void> {
-  const vault = await prisma.vault.findFirst({ where: { id: vaultId, ownerId, type: "PERSONAL", lifecycle: "ACTIVE", deletedAt: null } });
+async function assertActivePersonalVault(ownerId: string, vaultId: string, client: Prisma.TransactionClient | typeof prisma = prisma): Promise<void> {
+  const vault = await client.vault.findFirst({ where: { id: vaultId, ownerId, type: "PERSONAL", lifecycle: "ACTIVE", deletedAt: null } });
   if (!vault) throw new Error("Personal Vault is unavailable.");
 }
 

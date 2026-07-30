@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Fingerprint, KeyRound, LoaderCircle } from "lucide-react";
+import { Fingerprint, KeyRound, LoaderCircle, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { hasRememberedBrowserForPersonalVault } from "@/modules/crypto";
@@ -80,6 +80,10 @@ export function VaultWorkspaceUnlock({ personalVaultId, onUnlocked }: { personal
     {rememberedAvailable && <><div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">{t("or")}</div><Button variant="outline" type="button" onClick={() => void unlockRememberedBrowser()} disabled={rememberedUnlocking || passkeyUnlocking} aria-busy={rememberedUnlocking}>{rememberedUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}{rememberedUnlocking ? t("verifyingDevice") : t("localVerification")}</Button><p className="text-center text-xs leading-5 text-muted-foreground">{t("rememberedHelp")}</p></>}
     {recoveryStatus.data?.enrolled && <><div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">{t("or")}</div><Button variant="outline" type="button" onClick={() => void unlockWithPasskey()} disabled={passkeyUnlocking || rememberedUnlocking} aria-busy={passkeyUnlocking}>{passkeyUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}{passkeyUnlocking ? t("verifyingPasskey") : t("passkey")}</Button></>}
     <Button variant="link" asChild><Link href="/vaults/recovery">{t("forgot")}</Link></Button>
+    <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="flex items-start gap-3"><span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-foreground" aria-hidden="true"><Smartphone className="size-4" /></span><div><p className="text-sm font-bold text-ink-strong">{t("localVaultTitle")}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{t("localVaultDescription")}</p></div></div>
+      <Button variant="outline" type="button" asChild className="w-full sm:w-auto"><Link href="/local">{t("openLocalVault")}</Link></Button>
+    </div>
     {status === "secret_error" && <StatusBanner tone="danger" role="alert">{t("secretError")}</StatusBanner>}
     {status === "passkey_error" && <StatusBanner tone="danger" role="alert">{t("passkeyError")}</StatusBanner>}
     {status === "remembered_error" && <StatusBanner tone="warning" role="alert">{t("rememberedError")}</StatusBanner>}

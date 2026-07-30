@@ -21,7 +21,7 @@ export function updateEncryptedAuthenticatorAccount(
 
 export function createEncryptedAuthenticatorAccount(
   destination: AuthenticatorAccountDestination,
-  request: { encryptedPayload: string; encryptionVersion: number }
+  request: { encryptedPayload: string; encryptionVersion: number; source?: "LOCAL_VAULT_COPY" }
 ): Promise<{ id: string; revision: number }> {
   return browserApiClient.postJson(accountEndpoint(destination), request);
 }

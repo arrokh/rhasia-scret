@@ -41,9 +41,16 @@ describe("PrismaVaultAuditRepository", () => {
 
     const personalVault = await prisma.vault.create({ data: { ownerId: owner.id, type: "PERSONAL", lifecycle: "ACTIVE", encryptedName: bytes("personal-name"), encryptionVersion: 1 } });
     vaultIds.push(personalVault.id);
+    const personalAccounts = await Promise.all(["one", "two"].map((value) => prisma.authenticatorAccount.create({ data: { vaultId: personalVault.id, encryptedPayload: bytes(value), encryptionVersion: 1 } })));
+    await expect(repository.recordPersonalAccountCopiesToLocal(owner.id, personalVault.id, personalAccounts.map(({ id }) => id))).resolves.toBe(true);
+    await expect(repository.recordPersonalAccountCopiesToLocal(viewer.id, personalVault.id, [personalAccounts[0]!.id])).resolves.toBe(false);
+    await expect(repository.recordPersonalAccountCopiesToLocal(owner.id, personalVault.id, [account.id])).resolves.toBe(false);
     await expect(repository.recordArchiveExport(owner.id, personalVault.id)).resolves.toBe(true);
     await expect(repository.recordArchiveExport(viewer.id, personalVault.id)).resolves.toBe(false);
-    await expect(repository.listForOwner(owner.id, personalVault.id)).resolves.toEqual({ items: [expect.objectContaining({ eventType: "ARCHIVE_EXPORTED", targetId: null, actorUserId: owner.id })], nextCursor: null });
+    await expect(repository.listForOwner(owner.id, personalVault.id)).resolves.toEqual({ items: expect.arrayContaining([
+      expect.objectContaining({ eventType: "ARCHIVE_EXPORTED", targetId: null, actorUserId: owner.id }),
+      ...personalAccounts.map(({ id }) => expect.objectContaining({ eventType: "ACCOUNT_COPIED_TO_LOCAL", targetId: id, actorUserId: owner.id }))
+    ]), nextCursor: null });
     await expect(repository.listForOwner(viewer.id, personalVault.id)).resolves.toBeNull();
     await expect(repository.recordArchiveExport(owner.id, vault.id)).resolves.toBe(true);
     await expect(repository.recordArchiveExport(viewer.id, vault.id)).resolves.toBe(false);
