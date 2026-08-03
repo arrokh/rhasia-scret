@@ -50,8 +50,12 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Brankas Perangkat" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
+  const vaultAccountActions = page.locator('[data-slot="vault-account-actions"]');
+  expect(await vaultAccountActions.evaluate((actions) => actions.scrollWidth <= actions.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
