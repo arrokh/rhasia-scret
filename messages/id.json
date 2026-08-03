@@ -1008,6 +1008,7 @@
       "description": "Tidak ada materi akun, passphrase, OTP, atau kunci yang digunakan dalam data contoh ini.",
       "listLabel": "Daftar akun autentikator",
       "vaults": "Brankas",
+      "localAction": "Brankas Perangkat",
       "security": "Keamanan brankas",
       "securityAction": "Keamanan",
       "addLabel": "Tambahkan akun autentikator",

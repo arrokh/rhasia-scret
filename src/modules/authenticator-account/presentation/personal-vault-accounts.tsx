@@ -29,24 +29,24 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const personalAccounts = workspace.accounts.filter((account) => account.vaultId === vaultId && account.vaultType === "PERSONAL");
 
   return (
-    <section className="grid gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
-      <div className="flex items-center gap-2">
-        {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><Vault aria-hidden="true" /><span className="hidden sm:inline">{t("vaults")}</span></Link></Button>}
+    <section className="grid min-w-0 gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
+      <div className="flex min-w-0 items-center gap-2" data-slot="vault-account-actions">
+        {current && <Button variant="outline" asChild><Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}><Vault aria-hidden="true" /><span className="hidden md:inline">{t("vaults")}</span></Link></Button>}
         {current && personalVault && <Sheet>
-          <SheetTrigger asChild><Button variant="outline" aria-label={t("localAction")}><ArrowLeftRight aria-hidden="true" /><span>{t("localAction")}</span></Button></SheetTrigger>
+          <SheetTrigger asChild><Button variant="outline" aria-label={t("localAction")} title={t("localAction")}><ArrowLeftRight aria-hidden="true" /><span className="hidden md:inline">{t("localAction")}</span></Button></SheetTrigger>
           <SheetContent side="bottom" className="max-h-[85dvh] gap-5 overflow-y-auto rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">
             <SheetHeader className="p-0 pt-5"><SheetTitle>{t("localTitle")}</SheetTitle><SheetDescription>{t("localDescription")}</SheetDescription></SheetHeader>
             <LocalVaultCopyPanel personalVaultId={personalVault.id} personalVaultName={personalVault.name} personalVaultKey={personalVault.key} personalAccounts={personalAccounts} onPersonalAccountsCopied={(accounts) => setWorkspace((value) => value ? { ...value, accounts: [...value.accounts, ...accounts] } : value)} />
           </SheetContent>
         </Sheet>}
         {current && <Sheet>
-          <SheetTrigger asChild><Button variant="outline" aria-label={t("securityAction")}><ShieldKeyhole aria-hidden="true" /><span>{t("securityAction")}</span></Button></SheetTrigger>
+          <SheetTrigger asChild><Button variant="outline" aria-label={t("securityAction")} title={t("securityAction")}><ShieldKeyhole aria-hidden="true" /><span className="hidden md:inline">{t("securityAction")}</span></Button></SheetTrigger>
           <SheetContent side="bottom" className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg">
             <SheetHeader className="p-0 pt-5"><SheetTitle>{t("security")}</SheetTitle><SheetDescription>{t("securityDescription")}</SheetDescription></SheetHeader>
             <div className="grid gap-4"><PasskeyRecoveryEnrollment userRootKey={workspace.userRootKey} /><RememberedBrowserEnrollment profileId={workspace.profileId} userRootKey={workspace.userRootKey} /></div>
           </SheetContent>
         </Sheet>}
-        {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")}><Plus /><span className="hidden sm:inline">{t("addAccount")}</span></Link></Button>}
+        {current && <Button asChild className="ml-auto"><Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")} title={t("addAccount")}><Plus /><span className="hidden md:inline">{t("addAccount")}</span></Link></Button>}
       </div>
       <VaultStatusIndicator origin="PERSONAL" syncState={workspace.syncState} lastSynchronizedAt={workspace.synchronizedAt} collapsible />
       {workspace.unavailableSharedVaults > 0 && <StatusBanner tone="danger" role="alert">{t("unavailableVaults", { count: workspace.unavailableSharedVaults })}</StatusBanner>}

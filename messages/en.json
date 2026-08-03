@@ -1008,6 +1008,7 @@
       "description": "No account material, passphrase, OTP, or key is used in this sample data.",
       "listLabel": "Authenticator account list",
       "vaults": "Vaults",
+      "localAction": "Device Vault",
       "security": "Vault security",
       "securityAction": "Security",
       "addLabel": "Add authenticator account",
