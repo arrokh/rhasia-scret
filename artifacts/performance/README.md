@@ -33,4 +33,4 @@ pnpm run performance:bundles
 
 ## Rendered UI inspection
 
-The PNG files are synthetic desktop/mobile inspection captures. They demonstrate the unlocked Vault Directory, locked state, archive-action visibility boundary, responsive layout, and fixed footer. They contain no real user data or generated OTPs.
+Rendered desktop/mobile inspection captures are generated as temporary local evidence and are not checked into the repository. The `artifacts/**/*.png` ignore rule prevents one-off visual-debugging output from accumulating in source control.

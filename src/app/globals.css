@@ -320,75 +320,10 @@
       isolation: isolate;
     }
 
-    .comparison-flow-device {
-      --comparison-flow-direct-x: 3.5rem;
-      --comparison-flow-direct-dot-y: 0rem;
-      --comparison-flow-direct-angle: 0deg;
-      --comparison-flow-direct-length: 2.6rem;
-    }
-
-    .comparison-flow-device:nth-child(1) {
-      --comparison-flow-direct-dot-y: 4.625rem;
-      --comparison-flow-direct-angle: 42deg;
-      --comparison-flow-direct-length: 5.3rem;
-    }
-
-    .comparison-flow-device:nth-child(3) {
-      --comparison-flow-direct-dot-y: -4.625rem;
-      --comparison-flow-direct-angle: -42deg;
-      --comparison-flow-direct-length: 5.3rem;
-    }
-
-    .comparison-flow-device-connector {
-      right: calc(-1 * var(--comparison-flow-direct-length));
-      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap) + var(--comparison-flow-card-underlap));
-      transform: rotate(var(--comparison-flow-direct-angle));
-      transform-origin: left center;
-    }
-
-    .comparison-flow-device .comparison-flow-branch-dot {
-      animation-name: comparison-flow-device-direct;
-    }
-
-    .comparison-flow-service {
-      --comparison-flow-direct-x: 3.5rem;
-      --comparison-flow-direct-y: 0rem;
-      --comparison-flow-direct-angle: 0deg;
-      --comparison-flow-direct-length: 2.6rem;
-    }
-
-    .comparison-flow-service:nth-child(1) {
-      --comparison-flow-direct-y: 3.35rem;
-      --comparison-flow-direct-dot-y: -3.35rem;
-      --comparison-flow-direct-angle: -43deg;
-      --comparison-flow-direct-length: 4.25rem;
-    }
-
-    .comparison-flow-service:nth-child(2) {
-      --comparison-flow-direct-dot-y: 0rem;
-    }
-
-    .comparison-flow-service:nth-child(3) {
-      --comparison-flow-direct-y: -3.35rem;
-      --comparison-flow-direct-dot-y: 3.35rem;
-      --comparison-flow-direct-angle: 43deg;
-      --comparison-flow-direct-length: 4.25rem;
-    }
-
+    .comparison-flow-device-connector,
     .comparison-flow-service-connector {
-      right: calc(100% - var(--comparison-flow-overlap));
-      left: auto;
-      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap) + var(--comparison-flow-card-underlap));
-      transform: rotate(var(--comparison-flow-direct-angle));
-      transform-origin: right center;
+      width: calc(var(--comparison-flow-connector) + var(--comparison-flow-overlap) + var(--comparison-flow-card-underlap));
     }
-
-    .comparison-flow-service .comparison-flow-branch-dot {
-      top: calc(50% + var(--comparison-flow-direct-y) - 0.15rem);
-      left: calc(-1 * var(--comparison-flow-direct-x));
-      animation-name: comparison-flow-service-direct;
-    }
-
   }
 
   .landing-flow-step {
@@ -412,32 +347,6 @@
   10% { opacity: 1; }
   82% { opacity: 1; }
   100% { opacity: 0; transform: translateX(calc(var(--comparison-flow-connector) - 0.3rem)); }
-}
-
-@keyframes comparison-flow-service-direct {
-  0% { opacity: 0; transform: translate(0, 0); }
-  10% { opacity: 1; }
-  82% { opacity: 1; }
-  100% {
-    opacity: 0;
-    transform: translate(
-      calc(var(--comparison-flow-direct-x) - 0.3rem),
-      var(--comparison-flow-direct-dot-y)
-    );
-  }
-}
-
-@keyframes comparison-flow-device-direct {
-  0% { opacity: 0; transform: translate(0, 0); }
-  10% { opacity: 1; }
-  82% { opacity: 1; }
-  100% {
-    opacity: 0;
-    transform: translate(
-      calc(var(--comparison-flow-direct-x) - 0.3rem),
-      var(--comparison-flow-direct-dot-y)
-    );
-  }
 }
 
 @keyframes landing-copy-toast {

@@ -49,6 +49,27 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
 });
 
+test("keeps every Vault flow connector straight at mobile and desktop widths", async ({ page }) => {
+  for (const viewport of [{ width: 430, height: 932 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const connectorGeometry = await page.locator(".comparison-flow-device, .comparison-flow-service").evaluateAll((cards) => cards.map((card) => {
+      const connector = card.querySelector<HTMLElement>(".comparison-flow-device-connector, .comparison-flow-service-connector");
+      const cardBox = card.getBoundingClientRect();
+      const connectorBox = connector?.getBoundingClientRect();
+      return {
+        connectorHeight: connectorBox?.height ?? Number.POSITIVE_INFINITY,
+        centerDelta: Math.abs((connectorBox?.top ?? 0) + (connectorBox?.height ?? 0) / 2 - (cardBox.top + cardBox.height / 2)),
+      };
+    }));
+
+    expect(connectorGeometry).toHaveLength(6);
+    expect(connectorGeometry.every(({ connectorHeight, centerDelta }) => connectorHeight <= 1.5 && centerDelta <= 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 test("renders invite-only authentication at sign in", async ({ page }) => {
   await page.goto("/sign-in");
   await expect(page.getByLabel("Alamat email yang diundang")).toBeVisible();
