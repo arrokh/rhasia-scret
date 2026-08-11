@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "label": "implementation",
-  "commit": "db33eb22cdc8bd5124661d4f28722ef024ee8d1e",
+  "commit": "f6f723157392867831ac1bbca3a8ba41ae9e10c4",
   "dirty": true,
   "budgets": {
     "rawBytes": 750000,

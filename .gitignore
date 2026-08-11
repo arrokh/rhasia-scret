@@ -4,6 +4,13 @@ coverage/
 playwright-report/
 test-results/
 artifacts/ui-audit/
+artifacts/**/*.png
+/design-qa.md
+/hero-responsive-comparison.png
+/implementation-*.png
+/qa-*.jpg
+/qa-*.png
+/source-*.png
 *.tsbuildinfo
 next-env.d.ts
 .env
