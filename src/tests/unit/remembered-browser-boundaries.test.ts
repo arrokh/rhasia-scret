@@ -7,11 +7,11 @@ const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8")
 describe("Remembered Browser production boundaries", () => {
   it("wires online unlock through fresh authorization while preserving the passphrase fallback", () => {
     const unlock = source("src/modules/authenticator-account/presentation/vault-workspace-unlock.tsx");
-    const workspace = source("src/modules/authenticator-account/infrastructure/browser-vault-workspace.ts");
+    const workspace = source("src/modules/authenticator-account/application/vault-workspace.ts");
     expect(unlock).toContain("loadUnlockedVaultWorkspaceWithRememberedBrowser");
     expect(unlock).toContain('t("localVerification")');
     expect(unlock).toContain('t("passphrase")');
-    expect(workspace).toMatch(/fetchMeasuredAuthorizedOfflineBundle\(\{ personalVaultId \}\)[\s\S]+recoverUserRootKeyWithRememberedBrowser/);
+    expect(workspace).toMatch(/fetchMeasuredAuthorizedOfflineBundle\(\{ personalVaultId \}, ports\)[\s\S]+ports\.crypto\.recoverUserRootKeyWithRememberedBrowser/);
   });
 
   it("offers enrollment only inside an online Unlocked Vault Session security surface", () => {

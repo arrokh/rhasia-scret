@@ -1,7 +1,11 @@
 export { redactSensitiveData } from "./application/redact-sensitive-data";
+export type { Argon2idParameters, ClientCryptoPort, CryptoPrimitivePort, DeviceBoundCapability, DeviceBoundEnrollment, DeviceBoundEnrollmentRequest, DeviceBoundRecoveryRequest, DeviceBoundVerificationPort, KeyDerivationPort, PortableEcdhKeyPair, PortableJsonWebKey } from "./application/crypto-ports";
 export { UnlockedVaultSession } from "./application/unlocked-vault-session";
 export { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, encryptPayloadWithContext, generateSymmetricKey, generateUserEncryptionKeyPair, migrateLegacyEncryptedPayload, serializeCryptoEnvelopeContext, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, unwrapKeyForRecipientWithContext, wrapKeyForRecipient, wrapKeyForRecipientWithContext } from "./infrastructure/browser-crypto-envelope";
 export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
+export { browserClientCryptoPort } from "./infrastructure/browser-client-crypto-port";
+export { browserCryptoPrimitives } from "./infrastructure/browser-crypto-primitives";
+export { browserArgon2idPort } from "./infrastructure/browser-vault-unlock-key";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
 export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infrastructure/browser-personal-vault-unlock";
@@ -11,7 +15,7 @@ export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructur
 export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "./infrastructure/vault-unlock-key-parameters";
 export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
-export { enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, rememberedBrowserEnrollment, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
+export { BrowserDeviceBoundVerificationPort, browserDeviceBoundVerificationPort, enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, rememberedBrowserEnrollment, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { PasskeyRecoveryEnrollment } from "./presentation/passkey-recovery-enrollment";
 export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";

@@ -44,6 +44,20 @@ describe("BrowserApiClient", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("disposes platform cancellation listeners after the request settles", async () => {
+    let disposed = false;
+    const cancellation = {
+      aborted: false,
+      subscribe: () => () => { disposed = true; }
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, ok: true, headers: new Headers() }));
+    const client = new BrowserApiClient();
+
+    await client.requestPlatform({ url: "/api/time", method: "GET", signal: cancellation });
+
+    expect(disposed).toBe(true);
+  });
+
   it("preserves structured API error codes for context-specific messages", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "passkey_prf_required" }) }));
     const client = new BrowserApiClient();

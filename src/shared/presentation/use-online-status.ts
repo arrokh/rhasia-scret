@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { browserNetworkStatus } from "../infrastructure/browser-platform-ports";
 
 export function useOnlineStatus(): boolean {
   const [online, setOnline] = useState(true);
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
+    const update = () => setOnline(browserNetworkStatus.isOnline());
+    const dispose = browserNetworkStatus.subscribe(setOnline);
     update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
+    return dispose;
   }, []);
   return online;
 }

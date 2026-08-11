@@ -1,5 +1,6 @@
 "use client";
 
+import type { DeviceBoundVerificationPort, DeviceBoundCapability, DeviceBoundEnrollmentRequest, DeviceBoundRecoveryRequest } from "../application/crypto-ports";
 import { BrowserOfflineVaultRepository } from "@/modules/sync";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { evaluatePasskeyPrf } from "./browser-passkey-prf";
@@ -113,6 +114,33 @@ export async function hasRememberedBrowserForPersonalVault(personalVaultId: stri
 export async function forgetRememberedBrowser(profileId: string): Promise<void> {
   await new BrowserOfflineVaultRepository().removeRememberedBrowser(profileId);
 }
+
+export class BrowserDeviceBoundVerificationPort implements DeviceBoundVerificationPort {
+  async capability(): Promise<DeviceBoundCapability> {
+    if (typeof window === "undefined" || !window.isSecureContext) return { supported: false, kind: "unsupported", reason: "secure-context-required" };
+    if (!window.PublicKeyCredential || !navigator.credentials) return { supported: false, kind: "unsupported", reason: "user-verification-unavailable" };
+    try {
+      const capabilities = await window.PublicKeyCredential.getClientCapabilities();
+      if (capabilities.prf !== true) return { supported: false, kind: "unsupported", reason: "prf-unavailable" };
+    } catch {
+      return { supported: false, kind: "unsupported", reason: "prf-unavailable" };
+    }
+    return { supported: true, kind: "browser-webauthn-prf" };
+  }
+
+  async enroll(request: DeviceBoundEnrollmentRequest): Promise<{ enrolledAt: string }> {
+    await enrollRememberedBrowser(request.profileId, request.userRootKey, request.signal as AbortSignal | undefined);
+    const enrollment = await rememberedBrowserEnrollment(request.profileId);
+    if (!enrollment) throw new Error("Remembered Browser enrollment was not persisted.");
+    return enrollment;
+  }
+
+  recover(request: DeviceBoundRecoveryRequest): Promise<Uint8Array> {
+    return recoverUserRootKeyWithRememberedBrowser(request.profileId, request.signal as AbortSignal | undefined);
+  }
+}
+
+export const browserDeviceBoundVerificationPort = new BrowserDeviceBoundVerificationPort();
 
 function assertCurrentSite(origin: string, rpId: string): void {
   if (origin !== window.location.origin || rpId !== window.location.hostname) throw new RememberedBrowserBindingError();

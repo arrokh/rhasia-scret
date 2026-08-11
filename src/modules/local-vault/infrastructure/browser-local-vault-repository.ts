@@ -1,5 +1,7 @@
 "use client";
 
+import type { LocalVaultCapabilityPort } from "../application/local-vault-capabilities";
+import type { LocalVaultRepository } from "../application/local-vault-repository";
 import { parseLocalVaultRecord, type LocalVaultRecord } from "../domain/local-vault-record";
 
 const DATABASE_NAME = "rhasia-scret-local-vault";
@@ -7,7 +9,7 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = "local-vault";
 const STORAGE_KEY = "singleton";
 
-export class BrowserLocalVaultRepository {
+export class BrowserLocalVaultRepository implements LocalVaultRepository {
   constructor(private readonly openDatabase: () => Promise<IDBDatabase> = openLocalVaultDatabase) {}
 
   async read(): Promise<LocalVaultRecord | null> {
@@ -72,6 +74,14 @@ export class BrowserLocalVaultRepository {
     }
   }
 }
+
+export class BrowserLocalVaultCapabilities implements LocalVaultCapabilityPort {
+  isAvailable(): boolean {
+    return typeof indexedDB !== "undefined" && !!globalThis.crypto?.subtle;
+  }
+}
+
+export const browserLocalVaultCapabilities = new BrowserLocalVaultCapabilities();
 
 export async function readLocalVaultRecord(): Promise<LocalVaultRecord | null> {
   return new BrowserLocalVaultRepository().read();

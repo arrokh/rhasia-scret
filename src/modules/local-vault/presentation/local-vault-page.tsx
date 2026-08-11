@@ -37,7 +37,8 @@ import {
   type UnlockedLocalVault,
   type UnlockedLocalVaultAccount
 } from "@/modules/local-vault";
-import { BrowserLocalVaultRepository } from "../infrastructure/browser-local-vault-repository";
+import { BrowserLocalVaultRepository, browserLocalVaultCapabilities } from "../infrastructure/browser-local-vault-repository";
+import { browserDownload } from "@/shared/infrastructure/browser-platform-ports";
 import type { LocalVaultRecord } from "../domain/local-vault-record";
 
 export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } = {}) {
@@ -57,7 +58,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   useEffect(() => {
     let active = true;
     const load = async () => {
-      if (typeof indexedDB === "undefined" || !globalThis.crypto?.subtle) {
+      if (!browserLocalVaultCapabilities.isAvailable()) {
         if (active) {
           setUnsupported(true);
           setLoading(false);
@@ -325,13 +326,5 @@ async function reloadLocalVault(current: UnlockedLocalVault, onChanged: (vault: 
 }
 
 function download(bytes: Uint8Array, filename: string, type = "application/octet-stream"): void {
-  const copy = new Uint8Array(bytes.length);
-  copy.set(bytes);
-  const blob = new Blob([copy.buffer], { type });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  browserDownload.download({ bytes, filename, mediaType: type });
 }

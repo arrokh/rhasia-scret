@@ -6,7 +6,8 @@ export type { OfflineSyncEvent, OfflineSyncState } from "./domain/offline-sync-s
 export { canMutateVault, resolveVaultStatus } from "./domain/vault-status";
 export type { VaultCapability, VaultOrigin, VaultStatus, VaultStatusInput, VaultStatusKind } from "./domain/vault-status";
 export { BrowserOfflineVaultRepository, clearAllOfflineVaultData } from "./infrastructure/browser-offline-vault-repository";
-export type { OfflineProfileSummary, RememberedBrowserPackage } from "./infrastructure/browser-offline-vault-repository";
+export type { OfflineProfileSummary } from "./infrastructure/browser-offline-vault-repository";
+export type { ClientStoragePort, OfflineVaultSnapshotStore, RememberedBrowserPackage, RememberedBrowserStore, VaultLockPort } from "./application/client-storage-ports";
 export { fetchAuthorizedOfflineBundle } from "./infrastructure/browser-offline-sync-client";
-export { requestLocalVaultLock, subscribeToLocalVaultLock } from "./infrastructure/browser-vault-lock";
+export { browserVaultLockPort, requestLocalVaultLock, subscribeToLocalVaultLock } from "./infrastructure/browser-vault-lock";
 export { VaultStatusIndicator } from "./presentation/vault-status-indicator";

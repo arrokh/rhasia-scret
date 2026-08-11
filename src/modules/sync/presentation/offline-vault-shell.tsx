@@ -24,7 +24,8 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { formatLocalDateTime } from "@/i18n/format";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { BrowserOfflineVaultRepository } from "../infrastructure/browser-offline-vault-repository";
-import { subscribeToLocalVaultLock } from "../infrastructure/browser-vault-lock";
+import { browserVaultLockPort } from "../infrastructure/browser-vault-lock";
+import { browserApplicationLifecycle, browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
 import { nextOfflineSyncState } from "../domain/offline-sync-state";
 import { VaultStatusIndicator } from "./vault-status-indicator";
 import type { OfflineProfileSummary } from "../infrastructure/browser-offline-vault-repository";
@@ -60,7 +61,7 @@ export function OfflineVaultShell() {
   }
 
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
-  useEffect(() => subscribeToLocalVaultLock(() => setWorkspace((current) => {
+  useEffect(() => browserVaultLockPort.subscribe(() => setWorkspace((current) => {
     clearUnlockedVaultWorkspace(current);
     return null;
   })), []);
@@ -85,7 +86,7 @@ export function OfflineVaultShell() {
     const offline = () => setWorkspace((current) => current ? { ...current, syncState: nextOfflineSyncState(current.syncState, "NETWORK_LOST") } : current);
     const reconcile = async () => {
       const current = workspaceRef.current;
-      if (!active || reconcilingRef.current || !navigator.onLine || !current || current.syncState === "CURRENT" || current.syncState === "SYNCING") return;
+      if (!active || reconcilingRef.current || !browserNetworkStatus.isOnline() || !current || current.syncState === "CURRENT" || current.syncState === "SYNCING") return;
       reconcilingRef.current = true;
       setWorkspace((value) => value ? { ...value, syncState: nextOfflineSyncState(value.syncState, "RECONNECT_STARTED") } : value);
       try {
@@ -101,17 +102,15 @@ export function OfflineVaultShell() {
       }
     };
     reconcileRef.current = reconcile;
-    const visible = () => { if (document.visibilityState === "visible") void reconcile(); };
-    window.addEventListener("offline", offline);
-    window.addEventListener("online", reconcile);
-    document.addEventListener("visibilitychange", visible);
-    return () => { active = false; window.removeEventListener("offline", offline); window.removeEventListener("online", reconcile); document.removeEventListener("visibilitychange", visible); };
+    const disposeNetwork = browserNetworkStatus.subscribe((online) => { if (online) void reconcile(); else offline(); });
+    const disposeVisibility = browserApplicationLifecycle.subscribeVisibility((visible) => { if (visible) void reconcile(); });
+    return () => { active = false; disposeNetwork(); disposeVisibility(); };
   }, []);
 
   useEffect(() => {
     const newlyUnlocked = workspace !== null && !hadWorkspaceRef.current;
     hadWorkspaceRef.current = workspace !== null;
-    if (newlyUnlocked && navigator.onLine) void reconcileRef.current();
+    if (newlyUnlocked && browserNetworkStatus.isOnline()) void reconcileRef.current();
   }, [workspace]);
 
   async function unlockRemembered() {

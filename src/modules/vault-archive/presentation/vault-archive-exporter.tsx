@@ -15,6 +15,7 @@ import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
+import { browserClipboard, browserDownload } from "@/shared/infrastructure/browser-platform-ports";
 import {
   clearPreparedVaultArchive,
   downloadPreparedVaultArchive,
@@ -90,20 +91,13 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
 
   async function copyKey() {
     if (!prepared) return;
-    try { await navigator.clipboard.writeText(prepared.keyMaterial); setCopied(true); }
+    try { await browserClipboard.writeText(prepared.keyMaterial); setCopied(true); }
     catch { setMessage("copyError"); }
   }
 
   function downloadKey() {
     if (!prepared) return;
-    const url = URL.createObjectURL(new Blob([`${prepared.keyMaterial}\n`], { type: "text/plain" }));
-    try {
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = prepared.filename.replace(/\.rhasia-vault$/, ".key.txt");
-      anchor.rel = "noopener";
-      anchor.click();
-    } finally { URL.revokeObjectURL(url); }
+    browserDownload.download({ bytes: new TextEncoder().encode(`${prepared.keyMaterial}\n`), filename: prepared.filename.replace(/\.rhasia-vault$/, ".key.txt"), mediaType: "text/plain" });
   }
 
   if (prepared) return <div className="grid gap-5 p-5 sm:p-6">

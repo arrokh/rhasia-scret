@@ -26,6 +26,7 @@ import {
   type SharedVaultAccountPermissions
 } from "@/modules/vault-membership";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -275,7 +276,7 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
       return;
     }
     try {
-      await navigator.clipboard.writeText(link);
+      await browserClipboard.writeText(link);
       setCopyStatus(null);
       setCopiedInvitationId(invitationId);
     } catch {
@@ -342,6 +343,6 @@ function SecureInvitationLink({ link }: { link: string }) {
   const t = useTranslations("VaultManagement.invitations");
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  async function copyLink() { try { await navigator.clipboard.writeText(link); setCopied(true); setCopyFailed(false); } catch { setCopyFailed(true); } }
+  async function copyLink() { try { await browserClipboard.writeText(link); setCopied(true); setCopyFailed(false); } catch { setCopyFailed(true); } }
   return <div className="grid min-w-0 gap-2 rounded-md border border-success/20 bg-success-surface p-3"><p className="text-sm font-bold text-success">{t("ready")}</p><output className="min-w-0 break-all rounded-sm bg-card p-2 font-mono text-xs" aria-label={t("secureLink")}>{link}</output><Button className="w-full sm:w-auto sm:justify-self-end" variant="outline" type="button" onClick={() => void copyLink()}>{copied ? <Check /> : <Clipboard />}{copied ? t("copied") : t("copy")}</Button>{copyFailed && <StatusBanner tone="danger" role="alert">{t("copyError")}</StatusBanner>}</div>;
 }

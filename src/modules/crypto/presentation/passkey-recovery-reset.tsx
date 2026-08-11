@@ -15,6 +15,7 @@ import { PasswordInput } from "@/shared/presentation/password-input";
 import { validateVaultUnlockSecret } from "../infrastructure/browser-vault-unlock-key";
 import { resetVaultUnlockSecretWithPasskey } from "../infrastructure/browser-passkey-recovery-workflow";
 import { generateVaultUnlockSecret } from "./generate-vault-unlock-secret";
+import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 
 type Status = "idle" | "recovering" | "recovery_error" | "success";
 type SecretMode = "generated" | "custom";
@@ -58,7 +59,7 @@ export function PasskeyRecoveryReset() {
 
   async function copyGeneratedSecret() {
     if (!secret) return;
-    try { await navigator.clipboard.writeText(secret); setCopyStatus("copied"); }
+    try { await browserClipboard.writeText(secret); setCopyStatus("copied"); }
     catch { setCopyStatus("error"); }
   }
 
