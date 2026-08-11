@@ -7,5 +7,10 @@ export {
   VAULT_ARCHIVE_ENCRYPTION_VERSION
 } from "./domain/encrypted-vault-import";
 export type { EncryptedVaultImport, EncryptedVaultImportResult } from "./domain/encrypted-vault-import";
+export type { ArchiveDownloadPort, EncryptedArchivePayload, VaultArchiveCryptoPort, VaultArchiveImportPort } from "./application/archive-ports";
+export { clearPreparedVaultArchive, prepareEncryptedVaultArchive, VaultArchiveExportError } from "./application/prepare-encrypted-vault-archive";
+export { clearOpenedVaultArchive, countDuplicateArchiveAccounts, encryptVaultArchiveAccounts, openAndValidateEncryptedVaultArchive, VaultArchiveWorkflowError } from "./application/open-and-validate-encrypted-vault-archive";
+export type { PreparedVaultArchive, VaultArchiveExportErrorCode } from "./application/prepare-encrypted-vault-archive";
+export type { OpenedVaultArchive, VaultArchiveWorkflowErrorCode } from "./application/open-and-validate-encrypted-vault-archive";
 export { VaultArchiveExportWorkspace } from "./presentation/vault-archive-exporter";
 export { VaultArchiveImportWorkspace } from "./presentation/vault-archive-importer";

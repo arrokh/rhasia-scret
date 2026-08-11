@@ -1,5 +1,6 @@
 "use client";
 
+import type { ClientStoragePort, RememberedBrowserPackage } from "../application/client-storage-ports";
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
 
 const DATABASE_NAME = "rhasia-scret-offline-vault";
@@ -14,17 +15,7 @@ export type OfflineProfileSummary = {
   sharedVaultCount: number;
 };
 
-export type RememberedBrowserPackage = {
-  version: 1;
-  profileId: string;
-  rpId: string;
-  origin: string;
-  credentialId: string;
-  encryptedUserRootKeyPackage: string;
-  enrolledAt: string;
-};
-
-export class BrowserOfflineVaultRepository {
+export class BrowserOfflineVaultRepository implements ClientStoragePort {
   constructor(private readonly openDatabase: () => Promise<IDBDatabase> = openOfflineDatabase) {}
 
   async listProfiles(): Promise<OfflineProfileSummary[]> {

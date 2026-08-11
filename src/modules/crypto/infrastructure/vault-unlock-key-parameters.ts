@@ -1,4 +1,1 @@
-export const ARGON2_MEMORY_KIB = 64 * 1024;
-export const ARGON2_ITERATIONS = 3;
-export const ARGON2_PARALLELISM = 1;
-export const VAULT_UNLOCK_KEY_BYTES = 32;
+export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, VAULT_UNLOCK_KEY_BYTES } from "../application/vault-unlock-key-parameters";

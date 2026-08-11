@@ -1,11 +1,11 @@
 "use client";
 
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { loadServerTime } from "../../infrastructure/browser-time-client";
+import { browserServerTimePort } from "../../infrastructure/browser-time-client";
 
 export const serverTimeQueryOptions = queryOptions({
   queryKey: ["otp-runtime", "server-time"],
-  queryFn: loadServerTime,
+  queryFn: () => browserServerTimePort.now(),
   staleTime: 30_000
 });
 

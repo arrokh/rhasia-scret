@@ -13,6 +13,7 @@ import { generateTotp } from "../application/generate-totp";
 import { hasClockDrift } from "../domain/clock-drift";
 import { parseTotpUri, TotpConfigurationError, type TotpConfiguration, type TotpConfigurationErrorCode } from "../domain/totp-configuration";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
+import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 import { useServerTimeQuery } from "./hooks/use-server-time-query";
 import { useTotpClock } from "./use-totp-clock";
 
@@ -39,7 +40,7 @@ export function LocalTotpScreen() {
     return () => { cancelled = true; };
   }, [configuration, counter]);
 
-  async function copyCode() { if (!code) return; try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setError("copy"); } }
+  async function copyCode() { if (!code) return; try { await browserClipboard.writeText(code); setCopied(true); } catch { setError("copy"); } }
 
   return <AppPage><PageHeader title={t("title")} description={t("description")} /><SurfaceCard className="grid gap-6 p-5 sm:p-7">
     <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}><form.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("uriRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="totp-uri">{t("uri")}</Label><Input id="totp-uri" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} autoComplete="off" aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "totp-uri-error" : undefined} required /><FormFieldError id="totp-uri-error" errors={field.state.meta.errors} /></div>}</form.Field><Button type="submit">{t("generate")}</Button></form>

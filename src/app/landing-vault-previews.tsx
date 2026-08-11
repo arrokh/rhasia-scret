@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, LockKeyhole, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 
 type VaultPreview = { vault: string; account: string; detail: string; access: string; copyValue: string; copiedLabel: string };
 
@@ -27,7 +28,7 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
   async function copyPreview(entry: VaultPreview) {
     setShakingVault(entry.vault);
     try {
-      await navigator.clipboard.writeText(entry.copyValue);
+      await browserClipboard.writeText(entry.copyValue);
       setCopiedVault(entry.vault);
     } catch {
       setCopiedVault(null);

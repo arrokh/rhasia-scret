@@ -1,5 +1,6 @@
 "use client";
 
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse, PlatformHttpHeaders, PortDisposer } from "../application/platform-ports";
 import { assertBrowserMutationAllowed } from "./browser-write-policy";
 
 export class BrowserApiError extends Error {
@@ -14,6 +15,23 @@ export class BrowserApiClient {
     const method = (init?.method ?? "GET").toUpperCase();
     if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") assertBrowserMutationAllowed();
     return fetch(url, init);
+  }
+
+  async requestPlatform(request: PlatformHttpRequest): Promise<PlatformHttpResponse> {
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") assertBrowserMutationAllowed();
+    const adaptedSignal = request.signal ? toAbortSignal(request.signal) : undefined;
+    try {
+      const response = await fetch(request.url, {
+        method: request.method,
+        headers: request.headers,
+        body: typeof request.body === "string" ? request.body : request.body ? request.body.slice() : undefined,
+        cache: request.cache,
+        signal: adaptedSignal?.signal
+      });
+      return new BrowserPlatformResponse(response);
+    } finally {
+      adaptedSignal?.dispose();
+    }
   }
 
   async getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -79,4 +97,46 @@ export class BrowserApiClient {
   }
 }
 
+class BrowserPlatformHeaders implements PlatformHttpHeaders {
+  public constructor(private readonly headers: Headers) {}
+
+  get(name: string): string | null {
+    return this.headers.get(name);
+  }
+}
+
+class BrowserPlatformResponse implements PlatformHttpResponse {
+  public readonly status: number;
+  public readonly ok: boolean;
+  public readonly headers: PlatformHttpHeaders;
+
+  public constructor(private readonly response: Response) {
+    this.status = response.status;
+    this.ok = response.ok;
+    this.headers = new BrowserPlatformHeaders(response.headers);
+  }
+
+  json<T>(): Promise<T> {
+    return this.response.json() as Promise<T>;
+  }
+
+  async bytes(): Promise<Uint8Array> {
+    return new Uint8Array(await this.response.arrayBuffer());
+  }
+
+  text(): Promise<string> {
+    return this.response.text();
+  }
+}
+
+function toAbortSignal(signal: { readonly aborted: boolean; subscribe(listener: () => void): PortDisposer }): { signal: AbortSignal; dispose: PortDisposer } {
+  const controller = new AbortController();
+  const dispose = signal.aborted ? () => undefined : signal.subscribe(() => controller.abort());
+  if (signal.aborted) controller.abort();
+  return { signal: controller.signal, dispose };
+}
+
 export const browserApiClient = new BrowserApiClient();
+export const browserAuthenticatedTransport: AuthenticatedTransport = {
+  request: (request) => browserApiClient.requestPlatform(request)
+};

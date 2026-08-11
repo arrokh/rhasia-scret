@@ -1,6 +1,8 @@
 "use client";
 
 import { argon2id } from "hash-wasm";
+import type { CancellationPort } from "@/shared/application/platform-ports";
+import type { Argon2idParameters, KeyDerivationPort } from "../application/crypto-ports";
 import { measureBrowserOperation } from "@/shared/infrastructure/browser-performance";
 import {
   ARGON2_ITERATIONS,
@@ -17,14 +19,31 @@ export function validateVaultUnlockSecret(secret: string) {
   }
 }
 
+export class BrowserArgon2idPort implements KeyDerivationPort {
+  deriveArgon2id(secret: string, salt: Uint8Array, parameters: Argon2idParameters, signal?: CancellationPort): Promise<Uint8Array> {
+    throwIfCancelled(signal);
+    return measureBrowserOperation("rhsia:unlock:kdf", () => deriveVaultUnlockKeyMeasured(secret, salt, parameters, signal));
+  }
+}
+
+export const browserArgon2idPort = new BrowserArgon2idPort();
+
 export async function deriveVaultUnlockKey(secret: string, salt: Uint8Array): Promise<Uint8Array> {
   validateVaultUnlockSecret(secret);
   if (salt.length !== 16) throw new Error("A 16-byte Vault Unlock salt is required.");
-  return measureBrowserOperation("rhsia:unlock:kdf", () => deriveVaultUnlockKeyMeasured(secret, salt));
+  return browserArgon2idPort.deriveArgon2id(secret, salt, {
+    memoryKiB: ARGON2_MEMORY_KIB,
+    iterations: ARGON2_ITERATIONS,
+    parallelism: ARGON2_PARALLELISM,
+    outputBytes: VAULT_UNLOCK_KEY_BYTES
+  });
 }
 
-async function deriveVaultUnlockKeyMeasured(secret: string, salt: Uint8Array): Promise<Uint8Array> {
-  if (typeof Worker === "undefined") return deriveVaultUnlockKeyInline(secret, salt);
+async function deriveVaultUnlockKeyMeasured(secret: string, salt: Uint8Array, parameters: Argon2idParameters, signal?: CancellationPort): Promise<Uint8Array> {
+  validateVaultUnlockSecret(secret);
+  if (salt.length !== 16) throw new Error("A 16-byte Vault Unlock salt is required.");
+  throwIfCancelled(signal);
+  if (typeof Worker === "undefined" || !usesDefaultParameters(parameters)) return deriveVaultUnlockKeyInline(secret, salt, parameters);
 
   const password = new TextEncoder().encode(secret.normalize("NFKC"));
   const copiedSalt = copyBytes(salt);
@@ -47,7 +66,7 @@ async function deriveVaultUnlockKeyMeasured(secret: string, salt: Uint8Array): P
       });
     } catch {
       // Module Workers may be unavailable offline or under a restrictive policy.
-      return await deriveVaultUnlockKeyInline(secret, salt);
+      return await deriveVaultUnlockKeyInline(secret, salt, parameters);
     }
   } finally {
     worker.terminate();
@@ -56,18 +75,26 @@ async function deriveVaultUnlockKeyMeasured(secret: string, salt: Uint8Array): P
   }
 }
 
-async function deriveVaultUnlockKeyInline(secret: string, salt: Uint8Array): Promise<Uint8Array> {
+async function deriveVaultUnlockKeyInline(secret: string, salt: Uint8Array, parameters: Argon2idParameters): Promise<Uint8Array> {
   const key = await argon2id({
     password: secret.normalize("NFKC"),
     salt,
-    parallelism: ARGON2_PARALLELISM,
-    iterations: ARGON2_ITERATIONS,
-    memorySize: ARGON2_MEMORY_KIB,
-    hashLength: VAULT_UNLOCK_KEY_BYTES,
+    parallelism: parameters.parallelism,
+    iterations: parameters.iterations,
+    memorySize: parameters.memoryKiB,
+    hashLength: parameters.outputBytes,
     outputType: "binary"
   });
   if (typeof key === "string") throw new Error("Argon2id did not return binary key material.");
   return key;
+}
+
+function usesDefaultParameters(parameters: Argon2idParameters): boolean {
+  return parameters.memoryKiB === ARGON2_MEMORY_KIB && parameters.iterations === ARGON2_ITERATIONS && parameters.parallelism === ARGON2_PARALLELISM && parameters.outputBytes === VAULT_UNLOCK_KEY_BYTES;
+}
+
+function throwIfCancelled(signal?: CancellationPort): void {
+  if (signal?.aborted) throw new Error("Vault Unlock Key derivation was cancelled.");
 }
 
 function copyBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {

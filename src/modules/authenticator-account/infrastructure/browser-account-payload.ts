@@ -2,9 +2,10 @@
 
 import { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "@/modules/crypto";
 import type { TotpConfiguration } from "@/modules/otp-runtime";
+import type { AuthenticatorAccountPayloadPort, DecryptedAuthenticatorAccount } from "../application/account-payload-ports";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 
-export type DecryptedAuthenticatorAccount = Omit<TotpConfiguration, "secret"> & { secret: Uint8Array };
+export type { DecryptedAuthenticatorAccount } from "../application/account-payload-ports";
 
 const MAX_ACCOUNT_PAYLOAD_BYTES = 16 * 1024;
 const MAX_ACCOUNT_LABEL_LENGTH = 240;
@@ -101,3 +102,11 @@ function accountContext(): CryptoEnvelopeContext {
 function invalidPayload(): never {
   throw new Error("Encrypted account payload is invalid.");
 }
+
+export const browserAccountPayloadPort: AuthenticatorAccountPayloadPort = {
+  encryptAccountConfiguration,
+  decryptAccountConfiguration,
+  serializeDecryptedAccountPayload,
+  parseDecryptedAccountPayload,
+  isDuplicateAccount: (candidate, accounts) => isDuplicateAccount(candidate, accounts)
+};

@@ -14,6 +14,8 @@ export type {
 export { createSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
 export type { SecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
 export { redeemSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link-redemption";
+export type { SecureShareLinkCryptoPort, SecureShareLinkLookup, SecureShareLinkTransportPort, SecureShareLinkWorkflowPorts } from "./application/secure-share-link-workflow-ports";
+export { redeemSecureShareLink } from "./application/redeem-secure-share-link";
 export { unlockSharedVault } from "./infrastructure/browser-shared-vault-unlock";
 export { createSharedVaultInvitation } from "./infrastructure/browser-shared-vault-invitation";
 export { SecureShareLinkRedemption } from "./presentation/secure-share-link-redemption";

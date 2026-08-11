@@ -1,6 +1,8 @@
 "use client";
 
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "../application/encrypted-envelope-types";
+export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "../application/encrypted-envelope-types";
 
 const LEGACY_VERSION = 1;
 const VERSION = 2;
@@ -8,28 +10,6 @@ const NONCE_LENGTH = 12;
 const KEY_LENGTH = 32;
 const AUTHENTICATION_TAG_LENGTH = 16;
 const MAX_CONTEXT_BYTES = 1024;
-
-export type CryptoEnvelopeContext = {
-  purpose: string;
-  payloadType?: string;
-  protocolVersion?: 1;
-  vaultId?: string;
-  accountId?: string;
-  recipientId?: string;
-  profileId?: string;
-  keyVersion?: number;
-  archiveVersion?: number;
-};
-
-export type EncryptedEnvelope = {
-  version: 1 | 2;
-  nonce: Uint8Array;
-  ciphertext: Uint8Array;
-};
-
-export type KeyWrapEnvelope = EncryptedEnvelope & {
-  ephemeralPublicKey: JsonWebKey;
-};
 
 export function generateSymmetricKey(): Uint8Array {
   return randomBytes(KEY_LENGTH);
@@ -120,7 +100,7 @@ export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
   const nonce = base64ToBytes(record.nonce);
   const ciphertext = base64ToBytes(record.ciphertext);
   if (nonce.length !== NONCE_LENGTH || ciphertext.length < AUTHENTICATION_TAG_LENGTH) throw new Error("Encrypted key package is invalid.");
-  return { version: record.version, nonce, ciphertext, ephemeralPublicKey: record.ephemeralPublicKey as JsonWebKey };
+  return { version: record.version, nonce, ciphertext, ephemeralPublicKey: record.ephemeralPublicKey as Record<string, unknown> };
 }
 
 export async function unwrapKeyForRecipient(envelope: KeyWrapEnvelope, recipientPrivateKey: JsonWebKey): Promise<Uint8Array> {
@@ -146,7 +126,7 @@ async function wrapKey(vaultKey: Uint8Array, recipientPublicKey: JsonWebKey, con
   const sharedKey = await deriveSharedKey(ephemeral.privateKey, recipient, context);
   try {
     const encrypted = context ? await encryptPayloadWithContext(sharedKey, vaultKey, context) : await encryptPayload(sharedKey, vaultKey);
-    return { ...encrypted, ephemeralPublicKey: await crypto.subtle.exportKey("jwk", ephemeral.publicKey) };
+    return { ...encrypted, ephemeralPublicKey: await crypto.subtle.exportKey("jwk", ephemeral.publicKey) as unknown as Record<string, unknown> };
   } finally {
     sharedKey.fill(0);
   }
@@ -154,7 +134,7 @@ async function wrapKey(vaultKey: Uint8Array, recipientPublicKey: JsonWebKey, con
 
 async function unwrapKey(envelope: KeyWrapEnvelope, recipientPrivateKey: JsonWebKey, context?: CryptoEnvelopeContext): Promise<Uint8Array> {
   const privateKey = await crypto.subtle.importKey("jwk", recipientPrivateKey, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
-  const ephemeralPublicKey = await crypto.subtle.importKey("jwk", envelope.ephemeralPublicKey, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const ephemeralPublicKey = await crypto.subtle.importKey("jwk", envelope.ephemeralPublicKey as JsonWebKey, { name: "ECDH", namedCurve: "P-256" }, false, []);
   const sharedKey = await deriveSharedKey(privateKey, ephemeralPublicKey, context);
   try {
     return context ? await decryptPayloadWithContext(sharedKey, envelope, context) : await decryptPayload(sharedKey, envelope);

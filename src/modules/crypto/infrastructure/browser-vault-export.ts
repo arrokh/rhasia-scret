@@ -3,9 +3,10 @@
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { decryptPayloadWithContext, deserializeEncryptedEnvelope, encryptPayloadWithContext, serializeEncryptedEnvelope, type CryptoEnvelopeContext } from "./browser-crypto-envelope";
 
+import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS } from "@/shared/application/archive-parameters";
+
 const FORMAT_VERSION = 1;
-export const MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES = 5 * 1024 * 1024;
-export const MAX_VAULT_ARCHIVE_ACCOUNTS = 500;
+export { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS };
 const MAX_VAULT_NAME_LENGTH = 120;
 const MAX_ARCHIVED_ACCOUNT_BYTES = 16 * 1024;
 

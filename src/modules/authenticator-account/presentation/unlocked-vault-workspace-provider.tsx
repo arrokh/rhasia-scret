@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, type Dispatch, type ReactNode, type SetStateAction, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { nextOfflineSyncState, subscribeToLocalVaultLock } from "@/modules/sync";
+import { browserVaultLockPort, nextOfflineSyncState } from "@/modules/sync";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
 import { clearUnlockedVaultWorkspace, LocalStorageSyncError, refreshUnlockedVaultWorkspace, type UnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { browserApplicationLifecycle, browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
 
 type UnlockedVaultWorkspaceSession = {
   workspace: UnlockedVaultWorkspace | null;
@@ -58,7 +59,7 @@ export function UnlockedVaultWorkspaceProvider({
       key.fill(0);
     }
   }, []);
-  useEffect(() => subscribeToLocalVaultLock(lockWorkspace), [lockWorkspace]);
+  useEffect(() => browserVaultLockPort.subscribe(lockWorkspace), [lockWorkspace]);
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
     const target = window as typeof window & { __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown };
@@ -85,7 +86,7 @@ export function UnlockedVaultWorkspaceProvider({
 
     const reconcile = async () => {
       const current = workspaceRef.current;
-      if (!active || reconcilingRef.current || !navigator.onLine || !current || current.syncState === "CURRENT" || current.syncState === "SYNCING") return;
+      if (!active || reconcilingRef.current || !browserNetworkStatus.isOnline() || !current || current.syncState === "CURRENT" || current.syncState === "SYNCING") return;
       reconcilingRef.current = true;
       const key = current.userRootKey.slice();
       setWorkspaceState((value) => value ? { ...value, syncState: nextOfflineSyncState(value.syncState, "RECONNECT_STARTED") } : value);
@@ -107,16 +108,13 @@ export function UnlockedVaultWorkspaceProvider({
       }
     };
 
-    const visible = () => { if (document.visibilityState === "visible") void reconcile(); };
-    window.addEventListener("offline", networkLost);
-    window.addEventListener("online", reconcile);
-    document.addEventListener("visibilitychange", visible);
-    if (!navigator.onLine) networkLost();
+    const disposeNetwork = browserNetworkStatus.subscribe((online) => { if (online) void reconcile(); else networkLost(); });
+    const disposeVisibility = browserApplicationLifecycle.subscribeVisibility((visible) => { if (visible) void reconcile(); });
+    if (!browserNetworkStatus.isOnline()) networkLost();
     return () => {
       active = false;
-      window.removeEventListener("offline", networkLost);
-      window.removeEventListener("online", reconcile);
-      document.removeEventListener("visibilitychange", visible);
+      disposeNetwork();
+      disposeVisibility();
     };
   }, []);
 

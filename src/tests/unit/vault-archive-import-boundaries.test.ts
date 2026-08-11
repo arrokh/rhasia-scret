@@ -38,9 +38,9 @@ describe("Encrypted Vault Archive boundaries", () => {
 
   it("clears archive keys, decrypted account secrets, and temporary Vault material", () => {
     const exporter = read("src/modules/vault-archive/presentation/vault-archive-exporter.tsx");
-    const exportWorkflow = read("src/modules/vault-archive/infrastructure/browser-vault-archive-export-workflow.ts");
+    const exportWorkflow = read("src/modules/vault-archive/application/prepare-encrypted-vault-archive.ts");
     const importer = read("src/modules/vault-archive/presentation/vault-archive-importer.tsx");
-    const workflow = read("src/modules/vault-archive/infrastructure/browser-vault-archive-workflow.ts");
+    const workflow = read("src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive.ts");
     expect(exporter).toContain("clearPreparedVaultArchive(preparedRef.current)");
     expect(exportWorkflow).toContain("prepared.archive.fill(0)");
     expect(exportWorkflow).toContain("prepared.key.fill(0)");
