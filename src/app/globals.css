@@ -220,14 +220,13 @@
     }
   }
 
-  .comparison-flow-device::after,
-  .comparison-flow-service::before {
+  .comparison-flow-device-connector,
+  .comparison-flow-service-connector {
     position: absolute;
     top: 50%;
     z-index: 0;
     width: var(--comparison-flow-connector);
     height: 1px;
-    content: "";
     background: rgb(229 167 46 / 45%);
     pointer-events: none;
   }
@@ -239,12 +238,12 @@
     overflow: visible;
   }
 
-  .comparison-flow-device::after {
+  .comparison-flow-device-connector {
     right: calc(-1 * var(--comparison-flow-connector));
     width: calc(var(--comparison-flow-connector) + var(--comparison-flow-overlap));
   }
 
-  .comparison-flow-service::before {
+  .comparison-flow-service-connector {
     left: calc(-1 * var(--comparison-flow-connector));
     width: calc(var(--comparison-flow-connector) + var(--comparison-flow-overlap));
   }
@@ -311,6 +310,7 @@
   @media (min-width: 64rem) {
     .comparison-flow-device,
     .comparison-flow-service {
+      --comparison-flow-card-underlap: 1.75rem;
       --comparison-flow-connector: 2.6rem;
     }
 
@@ -321,7 +321,7 @@
     }
 
     .comparison-flow-device {
-      --comparison-flow-direct-x: 2.6rem;
+      --comparison-flow-direct-x: 3.5rem;
       --comparison-flow-direct-dot-y: 0rem;
       --comparison-flow-direct-angle: 0deg;
       --comparison-flow-direct-length: 2.6rem;
@@ -329,19 +329,19 @@
 
     .comparison-flow-device:nth-child(1) {
       --comparison-flow-direct-dot-y: 4.625rem;
-      --comparison-flow-direct-angle: 60.7deg;
+      --comparison-flow-direct-angle: 42deg;
       --comparison-flow-direct-length: 5.3rem;
     }
 
     .comparison-flow-device:nth-child(3) {
       --comparison-flow-direct-dot-y: -4.625rem;
-      --comparison-flow-direct-angle: -60.7deg;
+      --comparison-flow-direct-angle: -42deg;
       --comparison-flow-direct-length: 5.3rem;
     }
 
-    .comparison-flow-device::after {
+    .comparison-flow-device-connector {
       right: calc(-1 * var(--comparison-flow-direct-length));
-      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap));
+      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap) + var(--comparison-flow-card-underlap));
       transform: rotate(var(--comparison-flow-direct-angle));
       transform-origin: left center;
     }
@@ -351,7 +351,7 @@
     }
 
     .comparison-flow-service {
-      --comparison-flow-direct-x: 2.6rem;
+      --comparison-flow-direct-x: 3.5rem;
       --comparison-flow-direct-y: 0rem;
       --comparison-flow-direct-angle: 0deg;
       --comparison-flow-direct-length: 2.6rem;
@@ -360,7 +360,7 @@
     .comparison-flow-service:nth-child(1) {
       --comparison-flow-direct-y: 3.35rem;
       --comparison-flow-direct-dot-y: -3.35rem;
-      --comparison-flow-direct-angle: -52deg;
+      --comparison-flow-direct-angle: -43deg;
       --comparison-flow-direct-length: 4.25rem;
     }
 
@@ -371,14 +371,14 @@
     .comparison-flow-service:nth-child(3) {
       --comparison-flow-direct-y: -3.35rem;
       --comparison-flow-direct-dot-y: 3.35rem;
-      --comparison-flow-direct-angle: 52deg;
+      --comparison-flow-direct-angle: 43deg;
       --comparison-flow-direct-length: 4.25rem;
     }
 
-    .comparison-flow-service::before {
+    .comparison-flow-service-connector {
       right: calc(100% - var(--comparison-flow-overlap));
       left: auto;
-      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap));
+      width: calc(var(--comparison-flow-direct-length) + var(--comparison-flow-overlap) + var(--comparison-flow-card-underlap));
       transform: rotate(var(--comparison-flow-direct-angle));
       transform-origin: right center;
     }

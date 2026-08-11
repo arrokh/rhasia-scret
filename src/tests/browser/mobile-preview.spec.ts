@@ -22,6 +22,13 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(languageSettings).toBeVisible();
   await languageSettings.click();
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
+  const languageMenu = page.locator('[data-slot="dropdown-menu-sub-content"]');
+  const languageMenuWidth = (await languageMenu.boundingBox())?.width;
+  expect(languageMenuWidth).toBeGreaterThanOrEqual(210);
+  expect(languageMenuWidth).toBeLessThanOrEqual(224);
+  await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toHaveCSS("white-space", "nowrap");
+  await expect(page.getByRole("menuitemradio", { name: "English" })).toHaveCSS("white-space", "nowrap");
+  expect(await languageMenu.evaluate((menu) => [...menu.querySelectorAll('[role="menuitemradio"]')].every((item) => item.scrollWidth <= item.clientWidth))).toBe(true);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeHidden();
   await page.keyboard.press("Escape");
@@ -66,15 +73,10 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(developerLink).toHaveAttribute("target", "_blank");
   await expect(developerLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
-  await page.getByRole("button", { name: "Pilih bahasa" }).click();
-  const languageMenu = page.locator('[data-slot="dropdown-menu-content"]');
-  const languageMenuWidth = (await languageMenu.boundingBox())?.width;
-  expect(languageMenuWidth).toBeGreaterThanOrEqual(210);
-  expect(languageMenuWidth).toBeLessThanOrEqual(224);
-  await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toHaveCSS("white-space", "nowrap");
-  await expect(page.getByRole("menuitemradio", { name: "English" })).toHaveCSS("white-space", "nowrap");
-  expect(await languageMenu.evaluate((menu) => [...menu.querySelectorAll('[role="menuitemradio"]')].every((item) => item.scrollWidth <= item.clientWidth))).toBe(true);
-  await page.keyboard.press("Escape");
+  const footer = page.locator("footer");
+  await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
+  const [footerBox, footerBrandBox] = await Promise.all([footer.boundingBox(), footer.locator("p").boundingBox()]);
+  expect(Math.abs((footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2))).toBeLessThan(2);
   expect(pageErrors).toEqual([]);
 
   const touchTargets = page.locator("main button, main a");
@@ -275,8 +277,12 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   const leadBox = await headerLead.boundingBox();
   const settingsBox = await settings.boundingBox();
   expect(Math.abs((leadBox?.y ?? 0) - (settingsBox?.y ?? 0))).toBeLessThan(2);
-  const footerBox = await page.locator("footer").boundingBox();
+  const footer = page.locator("footer");
+  const footerBox = await footer.boundingBox();
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
+  await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
+  const footerBrandBox = await footer.locator("p").boundingBox();
+  expect(Math.abs((footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2))).toBeLessThan(2);
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {
