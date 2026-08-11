@@ -87,7 +87,7 @@ test("switches to English without changing routes and persists through redirects
 test("renders representative English OTP, Shared Vault, validation, and recovery previews", async ({ page }) => {
   await page.goto("/ui-preview");
   await switchLanguage(page, "English", "en");
-  await expect(page.getByRole("button", { name: "Choose language" })).toContainText("English");
+  await expect(page.getByLabel("Account settings")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Authenticator accounts" })).toBeVisible();
   await expect(page.getByText("Sample service", { exact: true })).toBeVisible();
   await expect(page.getByText("Work account", { exact: true })).toBeVisible();
@@ -122,10 +122,21 @@ test("redirects unauthenticated users away from protected pages", async ({ page 
 });
 
 async function switchLanguage(page: import("@playwright/test").Page, language: "Bahasa Indonesia" | "English", locale: "id" | "en") {
-  await page.getByRole("button", { name: /Pilih bahasa|Choose language/ }).click();
+  const isPreview = new URL(page.url()).pathname === "/ui-preview";
+  if (isPreview) {
+    await page.getByLabel(/Pengaturan akun|Account settings/).click();
+    await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
+  } else {
+    await page.getByRole("button", { name: /Pilih bahasa|Choose language/ }).click();
+  }
   await page.getByRole("menuitemradio", { name: language }).click();
   await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  if (isPreview) {
+    const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });
+    await expect(cancelLanguageDialog).toBeEnabled();
+    await cancelLanguageDialog.click();
+  }
 }
 
 test("logs out a stale session idempotently", async ({ page }) => {
