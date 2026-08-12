@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { Share } from "react-native";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
-import { base64ToBytes, bytesToBase64 } from "../../../../src/shared/application/base64";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
+import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { createMobileSecureShareLink, redeemMobileSecureShareLink } from "./mobile-secure-share-link";
 import { nativeClientCrypto } from "./native-client-crypto";
 

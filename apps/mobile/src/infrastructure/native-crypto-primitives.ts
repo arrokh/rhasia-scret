@@ -8,8 +8,8 @@ import type {
   CryptoPrimitivePort,
   PortableEcdhKeyPair,
   PortableJsonWebKey,
-} from "../../../../src/modules/crypto/application/crypto-ports";
-import { base64UrlToBytes, bytesToBase64Url } from "../../../../src/shared/application/base64";
+} from "@rhasia-scret/client-vault-core";
+import { base64UrlToBytes, bytesToBase64Url } from "@rhasia-scret/client-vault-core";
 
 const aesKeyBytes = 32;
 const aesNonceBytes = 12;

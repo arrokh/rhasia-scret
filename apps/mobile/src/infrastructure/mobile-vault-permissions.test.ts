@@ -1,4 +1,4 @@
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { loadMobileVaultPermissionDefaults, updateMobileVaultPermissionDefaults } from "./mobile-vault-permissions";
 
 describe("mobile Shared Vault permission defaults", () => {

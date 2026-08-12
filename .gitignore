@@ -1,8 +1,12 @@
 node_modules/
 .next/
+apps/web/.next/
 coverage/
 playwright-report/
 test-results/
+apps/web/test-results/
+apps/web/playwright-report/
+
 artifacts/ui-audit/
 artifacts/**/*.png
 /design-qa.md

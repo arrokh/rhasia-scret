@@ -1,13 +1,13 @@
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { createAuthenticatorAccountPayloadPort } from "../../../../src/modules/authenticator-account/application/account-payload";
-import type { UnlockedVault, UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import { createVaultArchiveProtocol } from "../../../../src/modules/crypto/application/vault-archive-protocol";
-import { openAndValidateEncryptedVaultArchive, type OpenedVaultArchive } from "../../../../src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive";
-import { clearPreparedVaultArchive, prepareEncryptedVaultArchive, type PreparedVaultArchive } from "../../../../src/modules/vault-archive/application/prepare-encrypted-vault-archive";
-import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "../../../../src/shared/application/archive-parameters";
-import { base64ToBytes, bytesToBase64 } from "../../../../src/shared/application/base64";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+import type { UnlockedVault, UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import { createVaultArchiveProtocol } from "@rhasia-scret/client-vault-core";
+import { openAndValidateEncryptedVaultArchive, type OpenedVaultArchive } from "@rhasia-scret/client-vault-core";
+import { clearPreparedVaultArchive, prepareEncryptedVaultArchive, type PreparedVaultArchive } from "@rhasia-scret/client-vault-core";
+import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@rhasia-scret/client-vault-core";
+import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 
 const accountPayloads = createAuthenticatorAccountPayloadPort(nativeClientCrypto);

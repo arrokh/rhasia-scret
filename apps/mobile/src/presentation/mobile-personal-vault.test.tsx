@@ -1,7 +1,7 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { AppState } from "react-native";
-import type { UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
+import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { translate } from "../localization";
 import { MobilePersonalVaultRepository } from "../infrastructure/mobile-personal-vault-repository";
 import * as workspaceModule from "../infrastructure/mobile-vault-workspace";

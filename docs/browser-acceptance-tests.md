@@ -1,6 +1,6 @@
 # Encrypted Vault browser acceptance tests
 
-The dedicated Playwright suite in `src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows.
+The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows.
 
 ## Local setup
 

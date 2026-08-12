@@ -1,6 +1,6 @@
-import type { EncryptedOfflineVaultBundle } from "../../../../src/modules/sync/domain/offline-vault-bundle";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
-import { bytesToBase64 } from "../../../../src/shared/application/base64";
+import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
+import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { createMobileVaultWorkspacePorts } from "./mobile-vault-workspace";
 
 jest.mock("@react-native-community/netinfo", () => ({

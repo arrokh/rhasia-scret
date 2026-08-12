@@ -1,4 +1,4 @@
-import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { loadMobileApplicationUser } from "./load-mobile-application-user";
 
 function transport(status: number, body: unknown): AuthenticatedTransport {

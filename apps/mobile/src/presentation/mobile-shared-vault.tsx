@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { createMobileSecureShareLink } from "../infrastructure/mobile-secure-share-link";
 import { loadMobileVaultAuditEvents, type MobileVaultAuditEvent } from "../infrastructure/mobile-vault-audit";
 import { loadMobileVaultPermissionDefaults, updateMobileVaultPermissionDefaults, type MobileVaultPermissionDefaults } from "../infrastructure/mobile-vault-permissions";

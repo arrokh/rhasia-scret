@@ -1,5 +1,5 @@
-import { generateTotp } from "../../../../src/modules/otp-runtime/application/generate-totp";
-import { RFC6238_SHA1_VECTOR } from "../../../../src/modules/crypto/application/protocol-test-vectors";
+import { generateTotp } from "@rhasia-scret/client-vault-core";
+import { RFC6238_SHA1_VECTOR } from "@rhasia-scret/client-vault-core";
 import { NativeCryptoPrimitives } from "./native-crypto-primitives";
 
 describe("NativeCryptoPrimitives", () => {

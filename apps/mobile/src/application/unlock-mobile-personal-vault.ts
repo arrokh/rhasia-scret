@@ -3,7 +3,7 @@ import {
   unlockPersonalVaultWithUserRootKey,
   type EncryptedPersonalVaultProfile,
   type PersonalVaultUnlockResult,
-} from "../../../../src/modules/crypto/application/unlock-personal-vault";
+} from "@rhasia-scret/client-vault-core";
 import { nativeArgon2idPort } from "../infrastructure/native-argon2id";
 import { nativeClientCrypto } from "../infrastructure/native-client-crypto";
 

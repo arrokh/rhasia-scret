@@ -12,7 +12,7 @@ The audit covers the Next.js App Router application, browser cryptography and TO
 
 The server is reviewed as honest-but-curious. Plaintext TOTP secrets, QR data, OTPs, Vault Unlock Secrets, User Root Keys, Vault Encryption Keys, private encryption keys, and decrypted Vault content must remain client-only. Production Supabase, PostgreSQL, Vercel, DNS, deployment, backup, alerting, and organization settings were not available to this repository audit; absence of repository evidence is not a Pass.
 
-Fixtures are deterministic or synthetic. No production Vault, account, session, archive, key, or secret was used. The audited checkout uses the repository's mise Node 24 configuration and pnpm 11.17.0; CI declares Node 26.5.0, so CI/runtime compatibility remains an operator release check.
+Fixtures are deterministic or synthetic. No production Vault, account, session, archive, key, or secret was used. The audited checkout uses the repository's historical mise Node 24 configuration and pnpm 11.17.0; CI declares Node 26.7.0, so CI/runtime compatibility remains an operator release check.
 
 ## Method and evidence
 
@@ -96,7 +96,7 @@ This addendum records the complete repository-quality result requested for issue
 - **Exact test totals:** `Test Files 133 passed (133)` and `Tests 406 passed (406)`.
 - **Prisma evidence:** `The schema at prisma/schema.prisma is valid`; migration deployment completed successfully against the ephemeral PostgreSQL 16 service.
 - **Build evidence:** Next.js 16.2.11 compiled successfully, TypeScript completed, and static page generation completed `30/30`.
-- **Non-failing warnings:** CI reported the repository engine as Node `24.x` while the job used Node `26.5.0`; Prisma also printed its supported-runtime warning. The install lockfile passed supply-chain policy verification for `1093 entries`. These warnings were retained as release follow-up, not counted as passes for runtime compatibility.
+- **Non-failing warnings:** The audited run used the historical Node `24.x` runtime while CI now declares Node `26.7.0`; Prisma also printed its supported-runtime warning. The install lockfile passed supply-chain policy verification for `1093 entries`. These warnings were retained as release follow-up, not counted as passes for runtime compatibility.
 - **Browser smoke test:** **FAIL**. The job completed with `27 failed` and `54 passed` in `5.1m`. Archive backup/import browser fixtures still generated/expected the legacy version-1 raw AES archive while #75 had moved the production archive path to context-bound version 2; Remembered Browser fixtures likewise used context-free version-1 envelopes. These failures are actionable regression evidence, not suppressed test noise. The fixtures were updated in the post-#75 hardening work; a fresh final CI run must prove the browser suite.
 - **Run conclusion:** the workflow conclusion was **failure** because of the browser job, despite the repository quality job passing. No production security control is inferred from either job.
 

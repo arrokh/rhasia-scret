@@ -2,7 +2,7 @@
 
 ## Scope
 
-Every state-changing route under `src/app/api/` has an explicit operation-class assignment in `authenticated-mutation-rate-limit-inventory.ts`; the corresponding budgets live in `application-rate-limit-policy.ts`. The only exclusions are the machine-authenticated retention cron and Supabase-owned authentication session lifecycle (callback exchange and idempotent logout), none of which has an authenticated Application User. Supabase email OTP and magic-link authentication remains governed by Supabase Auth and is intentionally not duplicated by the application limiter.
+Every state-changing route under `apps/web/src/app/api/` has an explicit operation-class assignment in `authenticated-mutation-rate-limit-inventory.ts`; the corresponding budgets live in `application-rate-limit-policy.ts`. The only exclusions are the machine-authenticated retention cron and Supabase-owned authentication session lifecycle (callback exchange and idempotent logout), none of which has an authenticated Application User. Supabase email OTP and magic-link authentication remains governed by Supabase Auth and is intentionally not duplicated by the application limiter.
 
 Budgets are shared by authenticated Application User and operation class, so alternate routes for the same use case cannot multiply a budget:
 
