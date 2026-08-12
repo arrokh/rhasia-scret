@@ -1,0 +1,10 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["ExpoCryptoArgon2Module"],
+    "podspecPath": "ExpoCryptoArgon2.podspec"
+  },
+  "android": {
+    "modules": ["expo.modules.cryptoargon2.ExpoCryptoArgon2Module"]
+  }
+}

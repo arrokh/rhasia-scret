@@ -1,7 +1,8 @@
 import type { CancellationPort } from "@/shared/application/platform-ports";
 import { base64ToBytes, bytesToBase64 } from "@/shared/application/base64";
-import type { EncryptedOfflineVaultBundle, OfflineSyncState } from "@/modules/sync";
-import type { EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+import type { EncryptedOfflineVaultBundle } from "@/modules/sync/domain/offline-vault-bundle";
+import type { OfflineSyncState } from "@/modules/sync/domain/offline-sync-state";
+import type { EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership/domain/shared-vault-account-permissions";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
 import type { VaultWorkspacePlatformPorts, WorkspacePersonalVaultProfile } from "./vault-workspace-ports";
 

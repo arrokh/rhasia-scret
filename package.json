@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": "24.x",
+    "node": ">=26.5.0 <27",
     "pnpm": ">=11.17.0"
   },
   "scripts": {
@@ -15,8 +15,12 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --project unit --project integration --project contract",
+    "typecheck:web": "tsc --noEmit",
+    "typecheck:mobile": "pnpm --dir apps/mobile run typecheck",
+    "typecheck": "pnpm run typecheck:web && pnpm run typecheck:mobile",
+    "test:web": "vitest run --project unit --project integration --project contract",
+    "test:mobile": "pnpm --dir apps/mobile run test",
+    "test": "pnpm run test:web && pnpm run test:mobile",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:contract": "vitest run --project contract",
@@ -26,7 +30,8 @@
     "test:browser:pwa": "playwright test --config playwright.pwa.config.ts --max-failures=1",
     "test:browser:oidc": "E2E_AUTH_BACKEND=oidc playwright test --config playwright.e2e.config.ts",
     "clean:next-dev": "tsx scripts/clear-next-dev-cache.ts",
-    "test:full": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build && pnpm run performance:bundles && pnpm run test:browser",
+    "mobile:verify": "pnpm --dir apps/mobile run verify",
+    "test:full": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run mobile:verify && pnpm run build && pnpm run performance:bundles && pnpm run test:browser",
     "ci:local": "pnpm run test:full",
     "test:performance": "playwright test --config playwright.performance.config.ts",
     "performance:bundles": "tsx scripts/report-route-bundles.ts --build-dir .next --output artifacts/performance/route-bundles.json --enforce",
@@ -41,7 +46,7 @@
     "verify:supabase-auth": "tsx scripts/verify-supabase-auth.ts",
     "verify:build-output": "tsx scripts/verify-build-output.ts",
     "verify:dependency-licenses": "tsx scripts/verify-dependency-licenses.ts",
-    "ci": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build && pnpm run performance:bundles"
+    "ci": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run mobile:verify && pnpm run build && pnpm run performance:bundles"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

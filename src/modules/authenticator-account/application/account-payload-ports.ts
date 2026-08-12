@@ -1,5 +1,5 @@
-import type { CryptoEnvelopeContext } from "@/modules/crypto";
-import type { TotpConfiguration } from "@/modules/otp-runtime";
+import type { CryptoEnvelopeContext } from "@/modules/crypto/application/encrypted-envelope-types";
+import type { TotpConfiguration } from "@/modules/otp-runtime/domain/totp-configuration";
 
 export type DecryptedAuthenticatorAccount = Omit<TotpConfiguration, "secret"> & { secret: Uint8Array };
 

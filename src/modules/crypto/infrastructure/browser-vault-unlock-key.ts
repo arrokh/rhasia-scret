@@ -3,6 +3,7 @@
 import { argon2id } from "hash-wasm";
 import type { CancellationPort } from "@/shared/application/platform-ports";
 import type { Argon2idParameters, KeyDerivationPort } from "../application/crypto-ports";
+import { validateVaultUnlockSecret } from "../application/create-personal-vault-initialization";
 import { measureBrowserOperation } from "@/shared/infrastructure/browser-performance";
 import {
   ARGON2_ITERATIONS,
@@ -13,11 +14,7 @@ import {
 
 type DerivationResponse = { ok: true; key: ArrayBuffer } | { ok: false };
 
-export function validateVaultUnlockSecret(secret: string) {
-  if (secret.trim().length < 3) {
-    throw new Error("A Vault Unlock Secret must contain at least three characters.");
-  }
-}
+export { validateVaultUnlockSecret } from "../application/create-personal-vault-initialization";
 
 export class BrowserArgon2idPort implements KeyDerivationPort {
   deriveArgon2id(secret: string, salt: Uint8Array, parameters: Argon2idParameters, signal?: CancellationPort): Promise<Uint8Array> {

@@ -1,5 +1,6 @@
 import type { DownloadPort } from "@/shared/application/platform-ports";
-import type { DecryptedAuthenticatorAccount, WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account";
+import type { DecryptedAuthenticatorAccount } from "@/modules/authenticator-account/application/account-payload-ports";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account/application/vault-workspace";
 
 export type EncryptedArchivePayload = {
   archive: Uint8Array;

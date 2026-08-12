@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { measureServerOperation } from "@/shared/infrastructure/server-performance";
 import type { SessionAssurance, SessionVerifier, VerifiedPrincipal } from "../application/session-verifier";
 import { assuranceSatisfies } from "../application/session-verifier";
@@ -11,9 +11,13 @@ export class SupabaseSessionVerifier implements SessionVerifier {
   public constructor(private readonly freshness: SessionVerificationFreshness = "fresh-user") {}
 
   public async verify(minimumAssurance: SessionAssurance = this.freshness === "claims" ? "verified-claims" : "fresh-provider-user"): Promise<VerifiedPrincipal | null> {
-    const cookieStore = await cookies();
-    const testSession = browserE2eTestSession(cookieStore.get(BROWSER_E2E_SESSION_COOKIE)?.value);
+    const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+    const bearerToken = readBearerToken(headerStore.get("authorization"));
+    const testSession = bearerToken === undefined
+      ? browserE2eTestSession(cookieStore.get(BROWSER_E2E_SESSION_COOKIE)?.value)
+      : null;
     if (testSession && assuranceSatisfies(testSession.assurance, minimumAssurance)) return testSession;
+    if (bearerToken === "") return null;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     if (!url || !key) throw new Error("Supabase environment is not configured.");
@@ -26,7 +30,7 @@ export class SupabaseSessionVerifier implements SessionVerifier {
       }
     });
     if (this.freshness === "fresh-user") {
-      const { data, error } = await measureServerOperation("rhsia:server:session-fresh-user", () => client.auth.getUser());
+      const { data, error } = await measureServerOperation("rhsia:server:session-fresh-user", () => client.auth.getUser(bearerToken));
       if (error && error.name !== "AuthSessionMissingError" && error.status !== 401) throw error;
       if (!data.user?.email || data.user.email_confirmed_at === null) return null;
       const session = {
@@ -39,7 +43,7 @@ export class SupabaseSessionVerifier implements SessionVerifier {
       return assuranceSatisfies(session.assurance, minimumAssurance) ? session : null;
     }
 
-    const { data, error } = await measureServerOperation("rhsia:server:session-claims", () => client.auth.getClaims());
+    const { data, error } = await measureServerOperation("rhsia:server:session-claims", () => client.auth.getClaims(bearerToken));
     if (error && error.name !== "AuthSessionMissingError") throw error;
     const claims = data?.claims;
     const subject = claims?.sub;
@@ -57,6 +61,12 @@ export class SupabaseSessionVerifier implements SessionVerifier {
     };
     return assuranceSatisfies(session.assurance, minimumAssurance) ? session : null;
   }
+}
+
+export function readBearerToken(authorization: string | null): string | undefined {
+  if (authorization === null) return undefined;
+  const match = /^Bearer ([^\s]{1,8192})$/.exec(authorization);
+  return match?.[1] ?? "";
 }
 
 export function supabaseIssuer(url = process.env.NEXT_PUBLIC_SUPABASE_URL): string {

@@ -1,4 +1,4 @@
-import type { WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account/application/vault-workspace";
 import { MAX_VAULT_ARCHIVE_ACCOUNTS } from "@/shared/application/archive-parameters";
 import { bytesToBase64 } from "@/shared/application/base64";
 import type { VaultArchiveCryptoPort, VaultArchiveExportInput } from "./archive-ports";
