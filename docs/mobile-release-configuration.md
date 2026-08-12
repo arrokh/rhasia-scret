@@ -1,0 +1,33 @@
+# Mobile release configuration
+
+The React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android and the production host `rhasia-scret.vercel.app`.
+
+## Verified links
+
+Configure these server environment values before validating a signed release:
+
+- `MOBILE_APPLE_TEAM_ID`: the 10-character Apple Developer Team ID used to sign the iOS app.
+- `MOBILE_ANDROID_CERT_SHA256`: one or more uppercase colon-delimited SHA-256 fingerprints for the Android App Signing certificates, comma-separated during certificate rotation.
+
+The server then publishes:
+
+- `/.well-known/apple-app-site-association`
+- `/.well-known/assetlinks.json`
+
+Both endpoints fail with `503 mobile_app_links_not_configured` rather than publishing placeholder trust data. Client intent filters are limited to `/auth/mobile` and `/vaults/invitations/redeem`.
+
+Add `https://rhasia-scret.vercel.app/auth/mobile` to the Supabase Auth redirect allowlist. Development builds may additionally allow `rhasia-scret://auth/callback`; do not use the custom scheme as production proof of verified links. Mobile sign-in requests surface a localized failure after 15 seconds rather than leaving the form indefinitely busy when native connectivity or TLS is stalled.
+
+## Native cryptography validation build
+
+Set `EXPO_PUBLIC_NATIVE_CRYPTO_VALIDATION=1` only for a locally installed validation build. That build replaces product presentation with a bilingual diagnostic that executes the shared synthetic 64 MiB Argon2id vector and platform secure-random check through the real Expo native module. It contains no production secret and performs no API request. Omit the value or set it to `0` for every distributed product build. Record a passing screen on iOS. On Android, `pnpm --dir apps/mobile run test:android-native` executes the same shared vector directly through JNI on a connected emulator/device and verifies platform secure randomness. Rebuild the normal product artifacts after validation.
+
+## Required release evidence
+
+1. Install an iOS build signed by the configured Apple team and an Android build signed through the configured Play App Signing certificate.
+2. Verify each association endpoint over HTTPS without redirects and with the matching application identifier/certificate.
+3. Open a real authentication link and Secure Share Link on each device from outside the application; verify the OS opens rhasia-scret directly without a chooser or browser fallback.
+4. Confirm a malformed host, HTTP URL, unapproved path, and wrong signing certificate do not open the app.
+5. Record no token, code, Secure Share Link fragment, Vault material, OTP, or decrypted content in device or server logs.
+
+Apple Team ID, production Android certificate fingerprint, Supabase redirect-allowlist access, and signed-device validation are release credentials/evidence and are not committed to the repository.

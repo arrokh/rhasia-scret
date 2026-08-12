@@ -1,0 +1,15 @@
+  "CFBundleURLTypes" => [
+    0 => {
+      "CFBundleURLSchemes" => [
+        0 => "rhasia-scret"
+        1 => "com.arrokh.rhasiascret"
+      ]
+    }
+  ]
+  "CFBundleVersion" => "1"
+  "DTCompiler" => "com.apple.compilers.llvm.clang.1_0"
+  "DTPlatformBuild" => "23C57"
+  "DTPlatformName" => "iphonesimulator"
+  "DTPlatformVersion" => "26.2"
+  "DTSDKBuild" => "23C57"
+  "DTSDKName" => "iphonesimulator26.2"

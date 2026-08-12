@@ -1,6 +1,7 @@
 import type { CancellationPort, NetworkStatusPort } from "@/shared/application/platform-ports";
-import type { OfflineVaultSnapshotStore, EncryptedOfflineVaultBundle } from "@/modules/sync";
-import type { CryptoEnvelopeContext, EncryptedEnvelope } from "@/modules/crypto";
+import type { OfflineVaultSnapshotStore } from "@/modules/sync/application/client-storage-ports";
+import type { EncryptedOfflineVaultBundle } from "@/modules/sync/domain/offline-vault-bundle";
+import type { CryptoEnvelopeContext, EncryptedEnvelope } from "@/modules/crypto/application/encrypted-envelope-types";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
 
 export type WorkspacePersonalVaultProfile = {

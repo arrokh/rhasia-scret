@@ -1,4 +1,4 @@
-import type { EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+import type { EffectiveSharedVaultAccountPermissions } from "@/modules/vault-membership/domain/shared-vault-account-permissions";
 
 export const OFFLINE_BUNDLE_SCHEMA_VERSION = 2 as const;
 export const OFFLINE_ENCRYPTION_VERSION = 1 as const;

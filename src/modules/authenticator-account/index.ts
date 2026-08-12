@@ -2,6 +2,7 @@ export { AccountRevision } from "./domain/account-revision";
 export { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "./domain/account-retention-policy";
 export { purgeExpiredAuthenticatorAccounts } from "./application/purge-expired-accounts";
 export type { AuthenticatorAccountPayloadPort } from "./application/account-payload-ports";
+export { createAuthenticatorAccountPayloadPort } from "./application/account-payload";
 export type { VaultWorkspaceCryptoPort, VaultWorkspaceDataPort, VaultWorkspacePlatformPorts } from "./application/vault-workspace-ports";
 export type { QrImportPort } from "./application/qr-import-ports";
 export type { AccountPurgeBatch, ExpiredAccountPurgeRepository } from "./application/purge-expired-accounts";

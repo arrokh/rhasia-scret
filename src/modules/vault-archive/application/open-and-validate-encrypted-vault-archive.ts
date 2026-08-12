@@ -1,5 +1,5 @@
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@/shared/application/archive-parameters";
-import type { DecryptedAuthenticatorAccount } from "@/modules/authenticator-account";
+import type { DecryptedAuthenticatorAccount } from "@/modules/authenticator-account/application/account-payload-ports";
 import type { VaultArchiveImportPort } from "./archive-ports";
 
 export type VaultArchiveWorkflowErrorCode = "invalidKeyLength" | "archiveTooLarge";

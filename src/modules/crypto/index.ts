@@ -1,5 +1,7 @@
 export { redactSensitiveData } from "./application/redact-sensitive-data";
 export type { Argon2idParameters, ClientCryptoPort, CryptoPrimitivePort, DeviceBoundCapability, DeviceBoundEnrollment, DeviceBoundEnrollmentRequest, DeviceBoundRecoveryRequest, DeviceBoundVerificationPort, KeyDerivationPort, PortableEcdhKeyPair, PortableJsonWebKey } from "./application/crypto-ports";
+export { createClientCryptoPort } from "./application/client-crypto-protocol";
+export { createVaultArchiveProtocol } from "./application/vault-archive-protocol";
 export { UnlockedVaultSession } from "./application/unlocked-vault-session";
 export { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, encryptPayloadWithContext, generateSymmetricKey, generateUserEncryptionKeyPair, migrateLegacyEncryptedPayload, serializeCryptoEnvelopeContext, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, unwrapKeyForRecipientWithContext, wrapKeyForRecipient, wrapKeyForRecipientWithContext } from "./infrastructure/browser-crypto-envelope";
 export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
