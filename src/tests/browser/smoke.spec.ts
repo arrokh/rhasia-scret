@@ -93,7 +93,7 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.getByText(/Access is invitation-only/)).toBeVisible();
 
   const manifest = await page.evaluate(async () => fetch("/manifest.webmanifest").then((response) => response.json()));
-  expect(manifest).toMatchObject({ lang: "en-US", description: "Zero-knowledge shared authenticator", start_url: "/", scope: "/" });
+  expect(manifest).toMatchObject({ lang: "en-US", description: "Zero-knowledge shared authenticator", id: "/vaults", start_url: "/vaults", scope: "/" });
 
   await page.goto("/vaults");
   await expect(page).toHaveURL(/\/sign-in\?auth=required$/);
