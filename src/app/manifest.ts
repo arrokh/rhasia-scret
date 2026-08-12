@@ -6,11 +6,11 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const locale = await getLocale();
   const t = await getTranslations("Metadata");
   return {
-    id: "/",
+    id: "/vaults",
     name: "rhasia-scret",
     short_name: "rhasia-scret",
     description: t("manifestDescription"),
-    start_url: "/",
+    start_url: "/vaults",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
