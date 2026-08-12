@@ -28,6 +28,15 @@ export type EncryptedVaultImport = {
   accounts: EncryptedImportedAccount[];
 };
 
+export function hasDuplicateImportedAccountIds(accounts: readonly EncryptedImportedAccount[]): boolean {
+  const identifiers = new Set<string>();
+  for (const account of accounts) {
+    if (identifiers.has(account.id)) return true;
+    identifiers.add(account.id);
+  }
+  return false;
+}
+
 export type EncryptedVaultImportResult =
   | { status: "IMPORTED" | "REPLAYED"; vaultId: string; accountIds: string[]; vaultCreated: boolean }
   | { status: "DESTINATION_UNAVAILABLE" }

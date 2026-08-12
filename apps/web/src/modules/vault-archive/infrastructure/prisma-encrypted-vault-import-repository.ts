@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { effectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
 import type { EncryptedVaultImportRepository } from "../application/import-encrypted-vault-archive";
-import type { EncryptedVaultImport, EncryptedVaultImportResult } from "../domain/encrypted-vault-import";
+import { hasDuplicateImportedAccountIds, type EncryptedVaultImport, type EncryptedVaultImportResult } from "../domain/encrypted-vault-import";
 
 type LockedDestination = {
   id: string;
@@ -22,6 +22,7 @@ type ImportMembership = {
 
 export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImportRepository {
   public async import(actorUserId: string, request: EncryptedVaultImport): Promise<EncryptedVaultImportResult> {
+    if (hasDuplicateImportedAccountIds(request.accounts)) return { status: "CONFLICT" };
     try {
       return await prisma.$transaction(async (transaction) => {
         const destination = await lockAuthorizedDestination(transaction, actorUserId, request);

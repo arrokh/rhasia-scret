@@ -20,6 +20,16 @@ async function cleanup() {
 afterEach(cleanup);
 
 describe("PrismaEncryptedVaultImportRepository", () => {
+  it.skipIf(!process.env.DATABASE_URL)("rejects duplicate account identifiers before opening a database transaction", async () => {
+    const accountId = randomUUID();
+    const request = {
+      destination: { kind: "EXISTING" as const, vaultId: randomUUID(), vaultType: "PERSONAL" as const },
+      accounts: [0, 1].map(() => ({ id: accountId, encryptedPayload: bytes("encrypted-account"), encryptionVersion: 1 as const }))
+    };
+
+    await expect(new PrismaEncryptedVaultImportRepository().import(randomUUID(), request)).resolves.toEqual({ status: "CONFLICT" });
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("atomically imports all ciphertext accounts into an owned existing destination and replays safely", async () => {
     const owner = await createUser("existing-owner");
     const vault = await createVault(owner.id, "PERSONAL");
