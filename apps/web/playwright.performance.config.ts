@@ -1,5 +1,9 @@
-import "dotenv/config";
+import { config as loadEnvironment } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
+
+loadEnvironment({ path: "../../.env" });
+loadEnvironment({ path: ".env" });
+loadEnvironment({ path: ".env.local" });
 import { configuredE2eBrowserUsers } from "./src/tests/browser/support/e2e-users";
 
 const externalServer = process.env.PERFORMANCE_EXTERNAL_SERVER === "1";

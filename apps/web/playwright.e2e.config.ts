@@ -4,6 +4,7 @@ import { defineConfig } from "@playwright/test";
 loadEnvironment({ path: "../../.env" });
 import { supportedBrowserProjects } from "./playwright.config";
 import { configuredE2eBrowserUsers } from "./src/tests/browser/support/e2e-users";
+import { configuredPlaywrightFullyParallel, configuredPlaywrightWorkers } from "./src/tests/browser/support/playwright-concurrency";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 const browserTestBaseUrl = `http://127.0.0.1:${browserTestPort}`;
@@ -13,8 +14,8 @@ const e2eAuthBackend = process.env.E2E_AUTH_BACKEND ?? "supabase";
 export default defineConfig({
   testDir: "src/tests/browser",
   testMatch: "encrypted-vault-workflows.spec.ts",
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: configuredPlaywrightFullyParallel(true),
+  workers: configuredPlaywrightWorkers(3),
   timeout: 600_000,
   expect: { timeout: 15_000 },
   globalSetup: "./src/tests/browser/support/global-setup.ts",

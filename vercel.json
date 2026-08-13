@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --filter @rhasia-scret/web... --frozen-lockfile",
   "buildCommand": "pnpm build",
   "crons": [
     {

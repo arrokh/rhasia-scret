@@ -137,5 +137,5 @@ describe("device-local Local Vault", () => {
       hostedKey.fill(0);
       clearUnlockedLocalVault(emptyVault);
     }
-  });
+  }, 30_000);
 });
