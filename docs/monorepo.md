@@ -31,4 +31,4 @@ pnpm run test:full
 
 `test:full` runs the shared package, web, and mobile full verification paths in that order. The service-specific commands remain available for focused validation.
 
-Web deployment keeps the repository root as the Vercel project root so pnpm can resolve the shared lockfile and workspace packages; the build command filters `@rhasia-scret/web`.
+Web deployment keeps the repository root as the Vercel project root so pnpm can resolve the shared lockfile and workspace packages; the build command filters `@rhasia-scret/web`. Configure the Vercel project to use Node.js 24.x. Workspace engine ranges accept Vercel's supported Node 24 runtime while local development and CI remain pinned to mise-managed Node.js 26.7.0. Keep the root install/build commands from `vercel.json` and leave Output Directory unset.
