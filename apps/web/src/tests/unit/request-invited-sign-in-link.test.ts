@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { requestInvitedSignInLink } from "@/modules/identity/presentation/request-invited-sign-in-link";
+import { authConfirmationRedirectUrl, requestInvitedSignInLink } from "@/modules/identity/presentation/request-invited-sign-in-link";
 
 describe("requestInvitedSignInLink", () => {
+  it("builds callback URLs from the active browser origin", () => {
+    expect(authConfirmationRedirectUrl("http://localhost:3000")).toBe("http://localhost:3000/auth/confirm");
+    expect(authConfirmationRedirectUrl("https://rhasia-scret.vercel.app")).toBe("https://rhasia-scret.vercel.app/auth/confirm");
+  });
+
   it("uses passwordless sign-in without allowing public user creation", async () => {
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
     const result = await requestInvitedSignInLink(

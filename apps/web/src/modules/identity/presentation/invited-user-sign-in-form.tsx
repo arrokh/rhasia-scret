@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { createBrowserSupabaseClient } from "./browser-supabase-client";
-import { requestInvitedSignInLink } from "./request-invited-sign-in-link";
+import { authConfirmationRedirectUrl, requestInvitedSignInLink } from "./request-invited-sign-in-link";
 
 export function InvitedUserSignInForm() {
   const t = useTranslations("Identity.signIn");
@@ -21,7 +21,7 @@ export function InvitedUserSignInForm() {
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
       setStatus("sending");
-      const result = await requestInvitedSignInLink(createBrowserSupabaseClient(), value.email, `${window.location.origin}/auth/confirm`);
+      const result = await requestInvitedSignInLink(createBrowserSupabaseClient(), value.email, authConfirmationRedirectUrl(window.location.origin));
       if (result === "rate_limited") setRetrySeconds(60);
       setStatus(result);
     }

@@ -9,6 +9,10 @@ export type PasswordlessSignInClient = {
 
 export type InvitedSignInRequestResult = "sent" | "rate_limited" | "error";
 
+export function authConfirmationRedirectUrl(origin: string): string {
+  return new URL("/auth/confirm", origin).toString();
+}
+
 export async function requestInvitedSignInLink(
   client: PasswordlessSignInClient,
   email: string,
