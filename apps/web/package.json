@@ -4,15 +4,14 @@
   "private": true,
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=24.0.0 <27.0.0",
-    "pnpm": ">=11.17.0"
+    "node": "26.7.0",
+    "pnpm": "11.17.0"
   },
   "scripts": {
     "dev": "next dev",
     "prebuild": "prisma generate",
-    "build": "dotenv -e ../../.env -- next build",
-    "postbuild": "tsx scripts/remove-client-source-maps.ts",
-    "postinstall": "prisma generate",
+    "build": "next build",
+    "postbuild": "tsx scripts/remove-client-source-maps.ts && pnpm run verify:build-output",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -89,7 +88,6 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
-    "dotenv-cli": "^10.0.0"
+    "vitest": "^4.0.18"
   }
 }

@@ -153,6 +153,9 @@ async function switchLanguage(page: import("@playwright/test").Page, language: "
   await page.getByRole("menuitemradio", { name: language }).click();
   await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  if (!isPreview) {
+    await expect(page.getByRole("button", { name: locale === "en" ? "Choose language" : "Pilih bahasa" })).toContainText(language, { timeout: 15_000 });
+  }
   if (isPreview) {
     const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });
     await expect(cancelLanguageDialog).toBeEnabled();

@@ -26,7 +26,7 @@ Review the current provider documentation and changelog before each release. For
 ## Supply chain and CI
 
 - [ ] `pnpm install --frozen-lockfile` succeeds and the lockfile is reviewed as the source of exact resolution.
-- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, and generated Prisma/schema validation pass; exceptions are documented with expiry and owner.
+- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, and generated Prisma/schema validation pass; exceptions are documented with expiry and owner in `docs/security/dependency-audit-exceptions.md`.
 - [ ] Security-critical GitHub Actions are pinned to commit SHAs and repository/workflow permissions remain least privilege.
 - [ ] Dependency update cadence, emergency patch path, artifact provenance, cache isolation, retention, and rollback are recorded for the release.
 - [ ] CI fixtures contain no real Vault data, keys, OTPs, QR data, cookies, or provider tokens.

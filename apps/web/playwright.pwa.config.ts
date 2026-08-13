@@ -3,6 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 loadEnvironment({ path: "../../.env" });
 import { supportedBrowserProjects } from "./playwright.config";
+import { configuredPlaywrightWorkers } from "./src/tests/browser/support/playwright-concurrency";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 const browserTestBaseUrl = `http://127.0.0.1:${browserTestPort}`;
@@ -11,6 +12,7 @@ export default defineConfig({
   testDir: "src/tests/browser",
   testMatch: "offline-pwa.spec.ts",
   fullyParallel: true,
+  workers: configuredPlaywrightWorkers(undefined),
   timeout: 60_000,
   projects: supportedBrowserProjects,
   use: { baseURL: browserTestBaseUrl },

@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=24.0.0 <27.0.0",
-    "pnpm": ">=11.17.0"
+    "node": "26.7.0",
+    "pnpm": "11.17.0"
   },
   "scripts": {
     "dev": "pnpm --filter @rhasia-scret/web dev",
@@ -20,6 +20,7 @@
     "test:mobile": "pnpm --dir apps/mobile run test",
     "test:core": "pnpm --filter @rhasia-scret/client-vault-core test",
     "test": "pnpm run test:core && pnpm run test:web && pnpm run test:mobile",
+    "test:parallel": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/web --filter @rhasia-scret/mobile run test",
     "test:unit": "pnpm --filter @rhasia-scret/web test:unit",
     "test:integration": "pnpm --filter @rhasia-scret/web test:integration",
     "test:contract": "pnpm --filter @rhasia-scret/web test:contract",
@@ -34,7 +35,7 @@
     "test:full:core": "pnpm --filter @rhasia-scret/client-vault-core test:full",
     "test:full:web": "pnpm --filter @rhasia-scret/web test:full",
     "test:full:mobile": "pnpm --dir apps/mobile run test:full",
-    "test:full:direct": "pnpm run test:full:core && pnpm run test:full:web && pnpm run test:full:mobile",
+    "test:full:direct": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/web --filter @rhasia-scret/mobile run test:full",
     "test:full": "pnpm run test:full:direct",
     "ci:local": "pnpm run test:full",
     "test:performance": "pnpm --filter @rhasia-scret/web performance",

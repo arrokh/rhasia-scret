@@ -16,6 +16,12 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("Cache-Control");
   });
 
+  it("keeps generated test artifacts outside the lint boundary", () => {
+    const config = read("eslint.config.mjs");
+    expect(config).toContain('"test-results/**"');
+    expect(config).toContain('"artifacts/**"');
+  });
+
   it("pins CI actions and runs dependency and client-artifact checks", () => {
     const workflow = read("../../.github/workflows/ci.yml");
     expect(workflow).not.toMatch(/uses:\s+[^\s]+@v\d/);
@@ -23,6 +29,12 @@ describe("browser-delivery security boundaries", () => {
     expect(workflow).toContain("pnpm run verify:dependency-licenses");
     expect(workflow).toContain("verify:build-output");
     expect(workflow).toContain("permissions:\n  contents: read");
+  });
+
+  it("does not expose the browser smoke fixture in production", () => {
+    const smokePage = read("src/app/smoke/page.tsx");
+    expect(smokePage).toContain('process.env.NODE_ENV === "production"');
+    expect(smokePage).toContain("notFound()");
   });
 
   it("keeps the service worker out of sensitive and source-map cache paths", () => {
@@ -39,5 +51,7 @@ describe("browser-delivery security boundaries", () => {
     expect(read("scripts/verify-dependency-licenses.ts")).toContain("Prohibited dependency licenses");
     expect(read("../../docs/security/incident-response.md")).toContain("Stolen session");
     expect(read("../../docs/security/deployment-hardening-checklist.md")).toContain("Not Verifiable");
+    expect(read("../../docs/security/dependency-audit-exceptions.md")).toContain("GHSA-w3rx-r6r6-pgpr");
+    expect(read("../../pnpm-workspace.yaml")).toContain("ignoreGhsas");
   });
 });

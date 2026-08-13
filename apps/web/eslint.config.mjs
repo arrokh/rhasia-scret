@@ -5,7 +5,7 @@ import nextTs from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([".next/**", "node_modules/**", "coverage/**", "playwright-report/**", "apps/mobile/android/**", "apps/mobile/ios/**", "apps/mobile/dist/**"]),
+  globalIgnores([".next/**", "node_modules/**", "coverage/**", "playwright-report/**", "test-results/**", "artifacts/**", "apps/mobile/android/**", "apps/mobile/ios/**", "apps/mobile/dist/**"]),
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",

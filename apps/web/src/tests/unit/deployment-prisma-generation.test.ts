@@ -5,5 +5,8 @@ describe("deployment Prisma Client generation", () => {
   it("regenerates Prisma Client immediately before every production build", async () => {
     const packageJson = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8")) as { scripts?: Record<string, string> };
     expect(packageJson.scripts?.prebuild).toBe("prisma generate");
+    expect(packageJson.scripts?.postinstall).toBeUndefined();
+    expect(packageJson.scripts?.postbuild).toContain("remove-client-source-maps.ts");
+    expect(packageJson.scripts?.postbuild).toContain("verify:build-output");
   });
 });
