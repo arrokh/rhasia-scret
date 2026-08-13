@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import { effectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core";
 import type { EncryptedVaultImportRepository } from "../application/import-encrypted-vault-archive";
 import { hasDuplicateImportedAccountIds, type EncryptedVaultImport, type EncryptedVaultImportResult } from "../domain/encrypted-vault-import";
 

@@ -1,5 +1,5 @@
-import { purgeExpiredAuthenticatorAccounts, type ExpiredAccountPurgeRepository } from "@/modules/authenticator-account";
-import { purgeExpiredSharedVaults, purgeExpiredVaultAuditEvents, type ExpiredVaultRetentionRepository } from "@/modules/vault-management";
+import { purgeExpiredAuthenticatorAccounts, type ExpiredAccountPurgeRepository } from "@/modules/authenticator-account/server";
+import { purgeExpiredSharedVaults, purgeExpiredVaultAuditEvents, type ExpiredVaultRetentionRepository } from "@/modules/vault-management/server";
 
 export type RetentionPurgeReport = {
   accountIds: string[];

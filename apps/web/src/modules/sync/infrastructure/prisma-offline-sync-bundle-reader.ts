@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import { effectiveSharedVaultAccountPermissions } from "@/modules/vault-membership";
+import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core";
 import { measureServerOperation } from "@/shared/infrastructure/server-performance";
 import type { OfflineSyncBundleReader } from "../application/offline-sync-bundle-reader";
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";

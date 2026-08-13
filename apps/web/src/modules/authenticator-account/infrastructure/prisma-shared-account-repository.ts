@@ -4,7 +4,7 @@ import {
   canPerformSharedVaultAccountOperation,
   effectiveSharedVaultAccountPermissions,
   type SharedVaultAccountPermission
-} from "@/modules/vault-membership";
+} from "@rhasia-scret/client-vault-core";
 import type { SharedAccountMutationResult, SharedAccountRepository } from "../application/shared-account-repository";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
 import { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "../domain/account-retention-policy";

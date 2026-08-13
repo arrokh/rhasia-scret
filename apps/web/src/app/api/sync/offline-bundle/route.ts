@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity";
-import type { ApplicationUserRepository, SessionVerifier } from "@/modules/identity";
+import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
+import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
 import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import type { OfflineSyncBundleReader } from "@/modules/sync";
+import type { OfflineSyncBundleReader } from "@/modules/sync/server";
 import { PrismaOfflineSyncBundleReader } from "@/modules/sync/infrastructure/prisma-offline-sync-bundle-reader";
 
 export function createOfflineSyncBundleHandler({

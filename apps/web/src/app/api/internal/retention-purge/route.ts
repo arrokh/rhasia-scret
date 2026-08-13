@@ -1,7 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { PrismaExpiredAccountPurgeRepository } from "@/modules/authenticator-account/infrastructure/prisma-expired-account-purge-repository";
-import { runRetentionPurge, type RetentionPurgeReport } from "@/modules/retention";
+import { runRetentionPurge, type RetentionPurgeReport } from "@/modules/retention/server";
 import { PrismaExpiredVaultRetentionRepository } from "@/modules/vault-management/infrastructure/prisma-expired-vault-retention-repository";
 
 export const dynamic = "force-dynamic";

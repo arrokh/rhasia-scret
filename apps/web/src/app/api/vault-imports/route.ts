@@ -12,7 +12,7 @@ import {
   MAX_VAULT_ARCHIVE_IMPORT_ACCOUNTS,
   MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES,
   type EncryptedVaultImportRepository
-} from "@/modules/vault-archive";
+} from "@/modules/vault-archive/server";
 import { PrismaEncryptedVaultImportRepository } from "@/modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository";
 
 const encryptedBlob = (maximumBytes: number) => z.base64().refine((value) => {

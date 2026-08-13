@@ -10,6 +10,8 @@ The repository uses pnpm workspaces as its monorepo boundary. The root `pnpm-loc
 
 Applications may depend on the shared package through `workspace:*`. They must not import the other application or reach into shared-package internals. Browser and native capabilities remain injected ports implemented by the owning app.
 
+Server-owned web code may import only the encrypted offline-bundle parser/contracts and deterministic Shared Vault permission policy/types from `client-vault-core`. An architecture test rejects all other package symbols—including crypto, decryption, unlock, archive-opening, Secure Share, and OTP workflows—as well as default, namespace, wildcard, inline, and dynamic package imports at server boundaries.
+
 ## Commands
 
 ```bash
@@ -21,7 +23,12 @@ pnpm run typecheck
 pnpm test
 pnpm run test:architecture
 pnpm run build
+pnpm run test:full:core
+pnpm run test:full:web
+pnpm run test:full:mobile
 pnpm run test:full
 ```
+
+`test:full` runs the shared package, web, and mobile full verification paths in that order. The service-specific commands remain available for focused validation.
 
 Web deployment keeps the repository root as the Vercel project root so pnpm can resolve the shared lockfile and workspace packages; the build command filters `@rhasia-scret/web`.

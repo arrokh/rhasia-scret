@@ -1,6 +1,12 @@
 {
   "name": "@rhasia-scret/mobile",
   "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=26.7.0 <27",
+    "pnpm": ">=11.17.0"
+  },
   "main": "index.ts",
   "dependencies": {
     "@noble/ciphers": "2.3.0",
@@ -72,9 +78,5 @@
       "/node_modules/react-native-reanimated/plugin/",
       "/node_modules/@react-native/babel-preset/"
     ]
-  },
-  "private": true,
-  "engines": {
-    "node": ">=26.7.0 <27"
   }
 }
