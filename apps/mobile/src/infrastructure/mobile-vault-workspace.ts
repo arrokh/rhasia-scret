@@ -1,20 +1,20 @@
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { createAuthenticatorAccountPayloadPort } from "../../../../src/modules/authenticator-account/application/account-payload";
+import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
 import {
   clearUnlockedVaultWorkspace,
   loadOfflineVaultWorkspace as loadOfflineWorkspace,
   loadUnlockedVaultWorkspace as loadOnlineWorkspace,
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   type UnlockedVaultWorkspace,
-} from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { VaultWorkspacePlatformPorts } from "../../../../src/modules/authenticator-account/application/vault-workspace-ports";
-import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../../../../src/modules/sync/domain/offline-vault-bundle";
-import { unlockSharedVaultWithCrypto } from "../../../../src/modules/vault-membership/application/unlock-shared-vault";
-import type { NetworkStatusPort, PortDisposer } from "../../../../src/shared/application/platform-ports";
+} from "@rhasia-scret/client-vault-core";
+import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
+import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import { unlockSharedVaultWithCrypto } from "@rhasia-scret/client-vault-core";
+import type { NetworkStatusPort, PortDisposer } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { EncryptedOfflineVaultStore } from "./encrypted-offline-vault-store";
 import { nativeOfflineVaultPersistence, nativeOfflineVaultSecureKeys } from "./native-offline-vault-persistence";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { unlockMobilePersonalVault, unlockMobilePersonalVaultWithUserRootKey } from "../application/unlock-mobile-personal-vault";
 
 const accountPayloads = createAuthenticatorAccountPayloadPort(nativeClientCrypto);

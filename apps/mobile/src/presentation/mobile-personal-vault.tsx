@@ -3,7 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { MobileMessages } from "../localization";
 import { createMobilePersonalVaultInitialization } from "../application/create-mobile-personal-vault";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { MobilePersonalVaultRepository } from "../infrastructure/mobile-personal-vault-repository";
 import {
   clearUnlockedVaultWorkspace,
@@ -185,8 +185,8 @@ function PersonalVaultUnlock({
       <form.Field name="passphrase" validators={{ onSubmit: ({ value }) => value.trim().length >= 3 ? undefined : copy.passphraseInvalid }}>
         {(field) => <MobileTextField field={field} label={copy.vaultPassphrase} errorId="unlock-vault-passphrase-error" secureTextEntry />}
       </form.Field>
-      <form.Subscribe selector={(formState) => [formState.canSubmit, formState.isSubmitting]}>
-        {([canSubmit, isSubmitting]) => (
+      <form.Subscribe<[boolean, boolean]> selector={(formState) => [formState.canSubmit, formState.isSubmitting]}>
+        {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSubmit || isSubmitting, busy: isSubmitting }}
@@ -260,8 +260,8 @@ function PersonalVaultSetup({
         )}
       </form.Field>
       <Text style={styles.warning}>{copy.passphraseRecoveryWarning}</Text>
-      <form.Subscribe selector={(formState) => [formState.canSubmit, formState.isSubmitting]}>
-        {([canSubmit, isSubmitting]) => (
+      <form.Subscribe<[boolean, boolean]> selector={(formState) => [formState.canSubmit, formState.isSubmitting]}>
+        {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSubmit || isSubmitting, busy: isSubmitting }}

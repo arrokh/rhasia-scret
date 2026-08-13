@@ -111,8 +111,8 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                         value={field.state.value}
                       />
                       {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{String(error)}</Text> : null}
-                      <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
-                        {([canSubmit, isSubmitting]) => (
+                      <form.Subscribe<[boolean, boolean]> selector={(state) => [state.canSubmit, state.isSubmitting]}>
+                        {([canSubmit, isSubmitting]: [boolean, boolean]) => (
                           <Pressable
                             accessibilityRole="button"
                             disabled={!canSubmit || isSubmitting || status === "sending"}

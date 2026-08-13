@@ -1,7 +1,7 @@
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
-import { base64ToBytes, bytesToBase64 } from "../../../../src/shared/application/base64";
-import type { PersonalVaultInitializationMaterial } from "../../../../src/modules/crypto/application/create-personal-vault-initialization";
-import type { EncryptedPersonalVaultProfile } from "../../../../src/modules/crypto/application/unlock-personal-vault";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
+import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import type { PersonalVaultInitializationMaterial } from "@rhasia-scret/client-vault-core";
+import type { EncryptedPersonalVaultProfile } from "@rhasia-scret/client-vault-core";
 
 export type MobilePersonalVault = {
   id: string;

@@ -1,11 +1,11 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { Share } from "react-native";
-import { createSecureShareLinkMaterialWithCrypto } from "../../../../src/modules/vault-membership/application/create-secure-share-link-material";
-import { redeemSecureShareLink } from "../../../../src/modules/vault-membership/application/redeem-secure-share-link";
-import { redeemSecureShareLinkMaterialWithCrypto } from "../../../../src/modules/vault-membership/application/redeem-secure-share-link-material";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import { createSecureShareLinkMaterialWithCrypto } from "@rhasia-scret/client-vault-core";
+import { redeemSecureShareLink } from "@rhasia-scret/client-vault-core";
+import { redeemSecureShareLinkMaterialWithCrypto } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
-import { bytesToBase64 } from "../../../../src/shared/application/base64";
+import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 
 export async function createMobileSecureShareLink(
   vault: { id: string; key: Uint8Array },

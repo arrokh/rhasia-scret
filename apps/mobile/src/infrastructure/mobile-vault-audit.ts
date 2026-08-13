@@ -1,4 +1,4 @@
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 
 export type MobileVaultAuditEvent = {
   id: string;

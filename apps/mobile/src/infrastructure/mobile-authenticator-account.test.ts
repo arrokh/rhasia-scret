@@ -1,6 +1,6 @@
-import { createAuthenticatorAccountPayloadPort } from "../../../../src/modules/authenticator-account/application/account-payload";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
-import { base64ToBytes } from "../../../../src/shared/application/base64";
+import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
+import { base64ToBytes } from "@rhasia-scret/client-vault-core";
 import { generateMobileTotp, MobileAuthenticatorAccountRepository } from "./mobile-authenticator-account";
 import { nativeClientCrypto } from "./native-client-crypto";
 

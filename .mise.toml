@@ -1,6 +1,6 @@
 [tools]
 java = "21.0.2"
-node = "26.5.0"
+node = "26.7.0"
 
 [tasks.setup]
 description = "Install the pinned pnpm version through the mise-managed Node runtime"

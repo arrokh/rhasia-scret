@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import type { UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { translate } from "../localization";
 import { MobileAuthenticatorAccounts } from "./mobile-authenticator-accounts";
 

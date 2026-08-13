@@ -1,7 +1,9 @@
-import { useRef } from "react";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useRef, type ComponentType } from "react";
+import { CameraView, type BarcodeScanningResult, type CameraViewProps, useCameraPermissions } from "expo-camera";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { MobileMessages } from "../localization";
+
+const CameraPreview = CameraView as unknown as ComponentType<CameraViewProps>;
 
 export function MobileQrScanner({
   copy,
@@ -34,10 +36,10 @@ export function MobileQrScanner({
     <View style={styles.panel}>
       <Text accessibilityRole="header" style={styles.heading}>{copy.scanAuthenticatorQr}</Text>
       <Text style={styles.guidance}>{copy.qrScanClientOnly}</Text>
-      <CameraView
+      <CameraPreview
         accessibilityLabel={copy.cameraPreview}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={({ data }) => {
+        onBarcodeScanned={({ data }: BarcodeScanningResult) => {
           if (accepted.current || !data.startsWith("otpauth://")) return;
           accepted.current = true;
           onScan(data);

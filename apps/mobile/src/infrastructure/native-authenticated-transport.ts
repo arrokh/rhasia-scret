@@ -4,8 +4,8 @@ import type {
   BearerTokenProvider,
   PlatformHttpRequest,
   PlatformHttpResponse,
-} from "../../../../src/shared/application/platform-ports";
-import { BearerTokenTransport } from "../../../../src/shared/infrastructure/bearer-token-transport";
+} from "@rhasia-scret/client-vault-core";
+import { BearerTokenTransport } from "@rhasia-scret/client-vault-core";
 
 export class NativeHttpTransport implements AuthenticatedTransport {
   public constructor(private readonly apiUrl: string) {}

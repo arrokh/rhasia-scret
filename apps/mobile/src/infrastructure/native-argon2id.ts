@@ -2,8 +2,8 @@ import { argon2id } from "../../modules/native-argon2id";
 import type {
   Argon2idParameters,
   KeyDerivationPort,
-} from "../../../../src/modules/crypto/application/crypto-ports";
-import type { CancellationPort } from "../../../../src/shared/application/platform-ports";
+} from "@rhasia-scret/client-vault-core";
+import type { CancellationPort } from "@rhasia-scret/client-vault-core";
 
 const maximumMemoryKiB = 256 * 1_024;
 const maximumOutputBytes = 64;

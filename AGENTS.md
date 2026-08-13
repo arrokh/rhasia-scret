@@ -10,12 +10,12 @@
 
 ## Architecture
 
-- Use bounded contexts under `src/modules/<context>/{domain,application,infrastructure,presentation}`.
-- Domain code must not import Next.js, React, Prisma, Supabase, browser APIs, or HTTP types.
-- Cross-context access goes through each module's public API; do not reach into another module's internals.
+- Use bounded contexts under `apps/web/src/modules/<context>/{domain,application,infrastructure,presentation}`. Cross-platform client workflows belong in a named `packages/*` capability package with a public entry point.
+- Web domain code under `apps/web/src` must not import Next.js, React, Prisma, Supabase, browser APIs, or HTTP types. Platform-neutral packages must not import either application or platform APIs.
+- Cross-context access goes through each module's public API; do not reach into another module's internals. `apps/web` and `apps/mobile` may consume named shared packages but shared packages may not depend on either app.
 - Keep route handlers thin: validate input, invoke an application use case, and map errors to HTTP.
 - Server code must not import client crypto/decryption or OTP runtime modules.
-- Use server-side Prisma for application data access. Supabase Data API/RLS hardening is deferred; do not add browser or Supabase REST database access until that work is explicitly approved.
+- Use server-side Prisma for application data access owned by `apps/web`. Supabase Data API/RLS hardening is deferred; do not add browser or Supabase REST database access until that work is explicitly approved.
 
 ### Client forms and server state
 
@@ -40,8 +40,8 @@
 
 - Generate Prisma migrations only with the Prisma CLI (`prisma migrate dev`); never author migration SQL by hand. Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for Prisma migrations, introspection, and administrative tooling.
 - Store domain enum values as database strings. Use TypeScript unions or enums for strictness in code; do not create native PostgreSQL enums.
-- Use mise-managed Node.js 26.5.0 and pnpm 11.17.0. Run `mise install && mise run setup` for a new checkout, then use pnpm for dependency and script commands. Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, `pnpm run test:architecture`, and `pnpm run build` before declaring work complete.
-- Run `pnpm run test:full` as the final verification before merge/PR handoff (this includes all local verification surfaces and browser suites). `test:full` is equivalent to `pnpm run ci:local` and covers lint, typecheck, unit/integration/contract tests, architecture checks, build, performance bundle checks, and browser tests.
+- Use mise-managed Node.js 26.7.0 and pnpm 11.17.0. Run `mise install && mise run setup` for a new checkout, then use pnpm for dependency and script commands. Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, `pnpm run test:architecture`, and `pnpm run build` before declaring work complete.
+- Use pnpm workspaces as the monorepo boundary and the root `pnpm-lock.yaml` as the sole JavaScript dependency lockfile. Web-only code belongs under `apps/web`, mobile/native code under `apps/mobile`, and platform-neutral client workflows belong in a named `packages/*` package with a public entry point. Run `pnpm run test:full` as the final verification before merge/PR handoff; it covers lint, typecheck, unit/integration/contract tests, architecture checks, build, performance bundle checks, and browser tests.
 - Add unit tests for domain rules and architecture tests for import boundaries. Add integration, contract, and browser tests with each vertical slice.
 - Preserve strict TypeScript. Avoid `any`, TODO placeholders, dead code, and compatibility shims.
 - Update `CONTEXT.md` immediately when domain language is resolved. Add an ADR only for hard-to-reverse, surprising trade-offs.

@@ -1,8 +1,8 @@
-import type { ClientCryptoPort } from "../../../../src/modules/crypto/application/crypto-ports";
-import type { CryptoEnvelopeContext } from "../../../../src/modules/crypto/application/encrypted-envelope-types";
-import type { OfflineVaultSnapshotStore } from "../../../../src/modules/sync/application/client-storage-ports";
-import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../../../../src/modules/sync/domain/offline-vault-bundle";
-import { base64ToBytes, bytesToBase64 } from "../../../../src/shared/application/base64";
+import type { ClientCryptoPort } from "@rhasia-scret/client-vault-core";
+import type { CryptoEnvelopeContext } from "@rhasia-scret/client-vault-core";
+import type { OfflineVaultSnapshotStore } from "@rhasia-scret/client-vault-core";
+import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
 
 const STORAGE_KEY = "rhasia.mobile.offline-vault.encryption-key.v1";
 const CONTEXT: CryptoEnvelopeContext = {

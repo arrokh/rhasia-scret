@@ -1,5 +1,5 @@
-import type { SharedVaultAccountPermissions } from "../../../../src/modules/vault-membership/domain/shared-vault-account-permissions";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { SharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 
 export type MobileVaultPermissionDefaults = { permissions: SharedVaultAccountPermissions; revision: number };
 

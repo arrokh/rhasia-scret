@@ -1,4 +1,4 @@
-import { ARGON2ID_PROTOCOL_VECTOR } from "../../../../src/modules/crypto/application/protocol-test-vectors";
+import { ARGON2ID_PROTOCOL_VECTOR } from "@rhasia-scret/client-vault-core";
 import {
   NativeArgon2idPort,
   type NativeArgon2idDriver,

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import type { MobileMessages } from "../localization";
 import {
   generateMobileTotp,
@@ -117,8 +117,8 @@ export function MobileAuthenticatorAccounts({
           <Pressable accessibilityRole="button" onPress={() => setScanning(true)} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>{copy.scanQrCode}</Text>
           </Pressable>
-          <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
-            {([canSubmit, isSubmitting]) => (
+          <form.Subscribe<[boolean, boolean]> selector={(state) => [state.canSubmit, state.isSubmitting]}>
+            {([canSubmit, isSubmitting]: [boolean, boolean]) => (
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canSubmit || isSubmitting }}

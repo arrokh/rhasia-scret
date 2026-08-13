@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react-native";
-import { ARGON2ID_PROTOCOL_VECTOR } from "../../../../src/modules/crypto/application/protocol-test-vectors";
+import { ARGON2ID_PROTOCOL_VECTOR } from "@rhasia-scret/client-vault-core";
 import { nativeArgon2idPort } from "../infrastructure/native-argon2id";
 import { NativeCryptoValidation } from "./native-crypto-validation";
 

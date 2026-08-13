@@ -1,7 +1,7 @@
 import {
   createPersonalVaultInitialization,
   type PersonalVaultInitializationMaterial,
-} from "../../../../src/modules/crypto/application/create-personal-vault-initialization";
+} from "@rhasia-scret/client-vault-core";
 import { nativeArgon2idPort } from "../infrastructure/native-argon2id";
 import { nativeClientCrypto } from "../infrastructure/native-client-crypto";
 

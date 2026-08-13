@@ -2,8 +2,8 @@ import type {
   AuthenticatedTransport,
   PlatformHttpRequest,
   PlatformHttpResponse,
-} from "../../../../src/shared/application/platform-ports";
-import { bytesToBase64 } from "../../../../src/shared/application/base64";
+} from "@rhasia-scret/client-vault-core";
+import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { MobilePersonalVaultRepository } from "./mobile-personal-vault-repository";
 
 class StubTransport implements AuthenticatedTransport {

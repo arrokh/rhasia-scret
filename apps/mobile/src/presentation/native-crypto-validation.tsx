@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ARGON2ID_PROTOCOL_VECTOR } from "../../../../src/modules/crypto/application/protocol-test-vectors";
+import { ARGON2ID_PROTOCOL_VECTOR } from "@rhasia-scret/client-vault-core";
 import { nativeArgon2idPort } from "../infrastructure/native-argon2id";
 import { nativeCryptoPrimitives } from "../infrastructure/native-crypto-primitives";
 import { translate } from "../localization";

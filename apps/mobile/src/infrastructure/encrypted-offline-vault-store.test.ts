@@ -1,5 +1,5 @@
-import type { EncryptedOfflineVaultBundle } from "../../../../src/modules/sync/domain/offline-vault-bundle";
-import { bytesToBase64 } from "../../../../src/shared/application/base64";
+import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import {
   EncryptedOfflineVaultStore,

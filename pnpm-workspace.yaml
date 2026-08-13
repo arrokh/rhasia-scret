@@ -1,5 +1,7 @@
 packages:
   - "apps/*"
+  - "packages/*"
+
 
 overrides:
   '@hono/node-server': 2.0.12

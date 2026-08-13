@@ -1,4 +1,4 @@
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { loadMobileVaultAuditEvents } from "./mobile-vault-audit";
 
 describe("mobile Shared Vault audit history", () => {

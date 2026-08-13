@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking } from "react-native";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { classifyIncomingLink, completeAuthCallback, extractSecureShareLinkSecret } from "../application/incoming-link";
 import { loadMobileApplicationUser } from "../application/load-mobile-application-user";
 

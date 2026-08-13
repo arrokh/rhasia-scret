@@ -1,6 +1,6 @@
-import type { UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import { createVaultArchiveProtocol } from "../../../../src/modules/crypto/application/vault-archive-protocol";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "../../../../src/shared/application/platform-ports";
+import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import { createVaultArchiveProtocol } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { importOpenedArchiveIntoVault, prepareMobileVaultArchive } from "./mobile-vault-archive";
 import { nativeClientCrypto } from "./native-client-crypto";
 

@@ -1,10 +1,10 @@
 import * as Clipboard from "expo-clipboard";
-import { createAuthenticatorAccountPayloadPort } from "../../../../src/modules/authenticator-account/application/account-payload";
-import type { WorkspaceAuthenticatorAccount } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import { generateTotp, type TotpCode } from "../../../../src/modules/otp-runtime/application/generate-totp";
-import { parseTotpUri } from "../../../../src/modules/otp-runtime/domain/totp-configuration";
-import { bytesToBase64 } from "../../../../src/shared/application/base64";
-import type { AuthenticatedTransport, ClipboardPort } from "../../../../src/shared/application/platform-ports";
+import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+import type { WorkspaceAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
+import { generateTotp, type TotpCode } from "@rhasia-scret/client-vault-core";
+import { parseTotpUri } from "@rhasia-scret/client-vault-core";
+import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport, ClipboardPort } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { nativeCryptoPrimitives } from "./native-crypto-primitives";
 

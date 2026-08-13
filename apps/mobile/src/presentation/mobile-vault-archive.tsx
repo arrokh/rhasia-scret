@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { clearOpenedVaultArchive, type OpenedVaultArchive } from "../../../../src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive";
-import { clearPreparedVaultArchive, type PreparedVaultArchive } from "../../../../src/modules/vault-archive/application/prepare-encrypted-vault-archive";
-import type { UnlockedVaultWorkspace } from "../../../../src/modules/authenticator-account/application/vault-workspace";
-import type { AuthenticatedTransport } from "../../../../src/shared/application/platform-ports";
+import { clearOpenedVaultArchive, type OpenedVaultArchive } from "@rhasia-scret/client-vault-core";
+import { clearPreparedVaultArchive, type PreparedVaultArchive } from "@rhasia-scret/client-vault-core";
+import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
+import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import type { MobileMessages } from "../localization";
 import { nativeClipboard } from "../infrastructure/mobile-authenticator-account";
 import {
