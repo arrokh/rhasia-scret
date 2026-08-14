@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Build an installable, web-based, zero-knowledge shared authenticator. An administrator invites application users through Supabase Auth. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite pre-registered users with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
+Build an installable, web-based, zero-knowledge shared authenticator. Users create or access hosted Application Users through verified Supabase email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
 
 This plan is implemented as vertical slices. A slice is complete only with its domain behavior, application use case, persistence/adapter, API contract, usable UI, forbidden-path test, sensitive-data review, and boundary checks.
 
@@ -11,14 +11,14 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 `CONTEXT.md` is the glossary. `docs/adr/` records hard-to-reverse decisions. The most important commitments are:
 
 - The server is **honest-but-curious**. It protects encrypted data at rest and in normal server access, but an actively malicious web host that changes delivered JavaScript is outside the MVP threat model.
-- Supabase Auth administrator invitations are the only application pre-registration mechanism. Public signup is disabled. There is no `allowed_emails` table, application admin UI, or application invite API in the MVP.
+- Supabase Auth public passwordless email signup with Confirm email is the hosted registration mechanism. There is no `allowed_emails` table, application admin UI, or application registration API in the MVP; Shared Vault invitations remain separate authorization grants.
 - Authentication and encryption are separate. A user creates a Vault Unlock Secret: at least four randomly generated words, never a PIN, never recoverable, and distinct from Supabase credentials.
 - Argon2id derives a Vault Unlock Key. That key wraps a random User Root Key. The User Root Key protects the Personal Vault Encryption Key and encrypted user private key, allowing passphrase changes without re-encrypting accounts.
 - A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. The vault stays unlocked until explicit lock or logout; there is no automatic timeout. Browsers without Local Verification require the Vault Unlock Secret.
 - AES-256-GCM encrypts payloads. P-256 ECDH, HKDF-SHA-256, and AES-256-GCM create versioned Key-Wrap Envelopes.
 - Vault names, account issuer/name, and normalized TOTP configuration are encrypted vault content. Before unlock, the UI uses generic locked labels.
 - A Shared Vault has exactly one Owner and zero or more Viewers. Owners always manage accounts, membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
-- Owners may invite an exact pre-registered user before that user has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs in, completes enrollment, redeems the link, and receives access without the owner returning. Secure Share Link expiry/cancel/reissue is deferred.
+- Owners may invite an exact email recipient before that person has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs up or signs in, completes enrollment, redeems the link, and receives Shared Vault access without the owner returning. Secure Share Link expiry/cancel/reissue is deferred.
 - Membership revocation immediately denies future online access and removes the local snapshot on next successful contact. It cannot erase copied secrets or offline caches; owners must reset the original service's 2FA for full credential revocation.
 - Shared Vaults and accounts soft-delete for 30 days and only owners may restore them. Personal Vaults cannot be deleted. Vault audit history is owner-only, opaque-ID-only, and retained one year after vault deletion.
 - The PWA permits read-only offline use from encrypted Local Vault Snapshots. It blocks and never queues offline writes. Installation is optional.
@@ -92,9 +92,9 @@ Create the production-shaped foundation before behavior is implemented.
 
 CI and local commands run lint, typecheck, tests, architecture checks, Prisma validation/migration checks, and build. A sample framework-free domain test, repository integration test, route contract test, and browser smoke test pass. Architecture tests prove forbidden imports fail. Supabase session verification is substitutable with a fake. Missing external Supabase/database credentials must produce explicit configuration errors rather than a bypass.
 
-## Slice 1 — invited authentication and application user
+## Slice 1 — passwordless email authentication and application user
 
-A Supabase administrator-invited user signs in by email OTP/magic link. A verified session provisions or loads an application user idempotently. No public registration, `allowed_emails` table, or in-app user-management exists. Protected routes verify a server session.
+A user signs up or signs in by Supabase email OTP/magic link with Confirm email enabled. A verified session provisions or loads an Application User idempotently. No password registration, `allowed_emails` table, or in-app user-management exists. Protected routes verify a server session.
 
 ## Slice 2 — default Personal Vault and secure initialization
 
@@ -126,7 +126,7 @@ Create/register public keys; encrypt private key backups under the User Root Key
 
 ## Slice 9 — share links and membership grants
 
-Owners create recipient-bound one-time Secure Share Links for exact pre-registered users. The link's secret travels through a secure out-of-band channel and is not exposed to the server. After recipient enrollment and redemption, a Viewer Membership Grant with their envelope becomes active. Owner-only UI lists members/invitations; viewers cannot.
+Owners create recipient-bound one-time Secure Share Links for exact email recipients. The link's secret travels through a secure out-of-band channel and is not exposed to the server. After recipient signup/sign-in, enrollment, and redemption, a Viewer Membership Grant with their envelope becomes active. Owner-only UI lists members/invitations; viewers cannot.
 
 ## Slice 10 — Shared Vault OTP access
 

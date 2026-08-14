@@ -86,7 +86,7 @@ export function useMobileSession(supabase: SupabaseClient, authRedirectUrl: stri
       const result = await withTimeout(
         supabase.auth.signInWithOtp({
           email: email.trim().toLowerCase(),
-          options: { emailRedirectTo: authRedirectUrl, shouldCreateUser: false },
+          options: { emailRedirectTo: authRedirectUrl, shouldCreateUser: true },
         }),
         MOBILE_AUTH_REQUEST_TIMEOUT_MS,
       );

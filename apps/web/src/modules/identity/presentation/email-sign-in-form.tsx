@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { createBrowserSupabaseClient } from "./browser-supabase-client";
-import { authConfirmationRedirectUrl, requestInvitedSignInLink } from "./request-invited-sign-in-link";
+import { authConfirmationRedirectUrl, requestEmailSignInLink } from "./request-email-sign-in-link";
 
-export function InvitedUserSignInForm() {
+export function EmailSignInForm() {
   const t = useTranslations("Identity.signIn");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error" | "rate_limited">("idle");
   const [retrySeconds, setRetrySeconds] = useState(0);
@@ -21,7 +21,7 @@ export function InvitedUserSignInForm() {
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
       setStatus("sending");
-      const result = await requestInvitedSignInLink(createBrowserSupabaseClient(), value.email, authConfirmationRedirectUrl(window.location.origin));
+      const result = await requestEmailSignInLink(createBrowserSupabaseClient(), value.email, authConfirmationRedirectUrl(window.location.origin));
       if (result === "rate_limited") setRetrySeconds(60);
       setStatus(result);
     }
@@ -41,9 +41,10 @@ export function InvitedUserSignInForm() {
             <Label htmlFor="email" className="sr-only">{t("emailLabel")}</Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : undefined} />
+              <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : "email-description"} />
             </div>
             <FormFieldError id="email-error" errors={field.state.meta.errors} />
+            <p id="email-description" className="text-xs leading-5 text-muted-foreground">{t("emailDescription")}</p>
           </div>
         )}
       </form.Field>

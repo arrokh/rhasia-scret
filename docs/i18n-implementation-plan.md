@@ -25,7 +25,7 @@ These decisions should be recorded in a new ADR before implementation because ro
 | Library | Use `next-intl` with ICU messages and strict message-key typing. | It supports Next.js App Router server/client components, plurals, dates, rich text, and typed catalogs. |
 | Locale identifiers | Use application locales `id` and `en`; map formatting to `id-ID` and `en-US`. | Short stable identifiers keep the preference contract simple while formatting remains deterministic. |
 | Default | Default to `id`; do not silently negotiate from `Accept-Language` in the first release. | This preserves current behavior and keeps public, test, and offline rendering deterministic. |
-| Routing | Keep locale out of URLs. Continue using `/`, `/vaults`, `/offline`, and `/vaults/invitations/redeem#…`. | The app is invite-only rather than SEO-led. This avoids migrations and regressions in auth callbacks, protected-route checks, PWA scope, and secret-bearing share-link fragments. |
+| Routing | Keep locale out of URLs. Continue using `/`, `/vaults`, `/offline`, and `/vaults/invitations/redeem#…`. | The app uses passwordless email auth rather than SEO-led localized routes. This avoids migrations and regressions in auth callbacks, protected-route checks, PWA scope, and secret-bearing share-link fragments. |
 | Persistence | Store only `id` or `en` in a first-party `RHSIA_LOCALE` cookie (`Path=/`, `SameSite=Lax`, one-year maximum age). Do not store it in Prisma, IndexedDB, or TanStack Query. | The preference is non-sensitive, works for server rendering, and does not alter server data or cached encrypted content. |
 | Switching | Put an accessible language switcher on every page through the shared footer. A switch writes the cookie, refreshes the current route, and refreshes the cached offline shell when online. | Public, authenticated, and offline entry points all remain reachable without duplicating controls per context. |
 | Catalog ownership | Keep two top-level catalogs, `messages/id.json` and `messages/en.json`, whose namespaces mirror bounded contexts. | Translators get conventional files while keys still preserve domain ownership (`Identity`, `VaultManagement`, `OtpRuntime`, and so on). Catalogs contain copy only, never behavior. |
@@ -37,7 +37,7 @@ These decisions should be recorded in a new ADR before implementation because ro
 
 ### Deliberate trade-off
 
-Reading the locale cookie in the root layout makes otherwise static public/preview routes request-rendered. This is acceptable for the invite-only application and is the cost of localized server-rendered accessibility text without changing URLs. Record this explicitly in the ADR.
+Reading the locale cookie in the root layout makes otherwise static public/preview routes request-rendered. This is acceptable for the email-authenticated application and is the cost of localized server-rendered accessibility text without changing URLs. Record this explicitly in the ADR.
 
 ## Target structure
 

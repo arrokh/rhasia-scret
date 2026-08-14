@@ -2,25 +2,25 @@ export type PasswordlessSignInClient = {
   auth: {
     signInWithOtp(input: {
       email: string;
-      options: { shouldCreateUser: false; emailRedirectTo: string };
+      options: { shouldCreateUser: true; emailRedirectTo: string };
     }): Promise<{ error: unknown }>;
   };
 };
 
-export type InvitedSignInRequestResult = "sent" | "rate_limited" | "error";
+export type EmailSignInRequestResult = "sent" | "rate_limited" | "error";
 
 export function authConfirmationRedirectUrl(origin: string): string {
   return new URL("/auth/confirm", origin).toString();
 }
 
-export async function requestInvitedSignInLink(
+export async function requestEmailSignInLink(
   client: PasswordlessSignInClient,
   email: string,
   redirectTo: string
-): Promise<InvitedSignInRequestResult> {
+): Promise<EmailSignInRequestResult> {
   const { error } = await client.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false, emailRedirectTo: redirectTo }
+    options: { shouldCreateUser: true, emailRedirectTo: redirectTo }
   });
   if (error === null) return "sent";
   return isRateLimited(error) ? "rate_limited" : "error";

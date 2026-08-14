@@ -7,7 +7,7 @@ import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
 import { authBackend, createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { InvitedUserSignInForm } from "@/modules/identity/presentation/invited-user-sign-in-form";
+import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +32,13 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </div>
         <div className="mt-6 grid gap-5">
           {notice && <StatusBanner tone={notice.tone} role={notice.role}>{t(`notice.${notice.key}`)}</StatusBanner>}
-          {backend === "supabase" && <InvitedUserSignInForm />}
+          {backend === "supabase" && <EmailSignInForm />}
           {backend === "oidc" && <Button asChild><Link href="/auth/oidc">{t("oidcSignIn")}</Link></Button>}
           {backend === "none" && <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>}
           {backend !== "none" && <Separator />}
           <Button variant="outline" asChild><Link href="/local"><Laptop aria-hidden="true" />{t("openLocalVault")}</Link></Button>
           <Button variant="outline" asChild><Link href="/offline">{t("openOffline")}</Link></Button>
-          <p className="text-center text-xs leading-5 text-muted-foreground">{t(backend === "none" ? "localOnly" : "inviteOnly")}</p>
+          <p className="text-center text-xs leading-5 text-muted-foreground">{t(backend === "none" ? "localOnly" : backend === "supabase" ? "emailAccess" : "organizationAccess")}</p>
           <Separator />
           <Button variant="ghost" asChild><Link href="/">{t("backHome")}</Link></Button>
         </div>

@@ -70,10 +70,10 @@ test("keeps every Vault flow connector straight at mobile and desktop widths", a
   }
 });
 
-test("renders invite-only authentication at sign in", async ({ page }) => {
+test("renders email authentication and signup at sign in", async ({ page }) => {
   await page.goto("/sign-in");
-  await expect(page.getByLabel("Alamat email yang diundang")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Kirim tautan masuk" })).toBeVisible();
+  await expect(page.getByLabel("Alamat email")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lanjutkan dengan email" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Buka snapshot luring" })).toHaveAttribute("href", "/offline");
 });
 
@@ -88,9 +88,9 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.getByRole("link", { name: "Use Hosted Vault" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
-  await expect(page.getByLabel("Invited email address")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send sign-in link" })).toBeVisible();
-  await expect(page.getByText(/Access is invitation-only/)).toBeVisible();
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(page.getByText("Sign in or create an account with a verified email address.")).toBeVisible();
 
   const manifest = await page.evaluate(async () => fetch("/manifest.webmanifest").then((response) => response.json()));
   expect(manifest).toMatchObject({ lang: "en-US", description: "Zero-knowledge shared authenticator", id: "/vaults", start_url: "/vaults", scope: "/" });

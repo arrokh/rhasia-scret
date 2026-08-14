@@ -92,8 +92,8 @@ A durable identity binding unique by `(issuer, subject)` and associated with exa
 _Avoid_: `supabaseUserId`, automatic email linking, provider account row as Application User
 
 **Application Admission**:
-The separate policy decision that determines whether a Verified Principal may use the application. The initial policy remains invite-only/pre-registered and must not depend on a provider-specific admin-invitation implementation.
-_Avoid_: Authentication equals admission, public signup by default, email-only access
+The separate policy decision that determines whether a Verified Principal may use the application. In the Supabase deployment, a verified email principal is admitted to the hosted application; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
+_Avoid_: Authentication equals admission, unverified-email access, automatic Shared Vault membership
 
 **Identity Linking**:
 An explicit reauthentication ceremony proving control of an existing and proposed External Identity before associating them with one Application User. It creates a redacted security event and never changes Vault key material or encrypted content.
@@ -103,9 +103,9 @@ _Avoid_: Automatic email linking, silent account merge, key re-encryption during
 An auditable, rollback-safe change from one Authentication Provider to another that preserves the Application User identifier, ownership, memberships, audit history, rate limits, recovery enrollment, crypto profiles, and ciphertext. A partial migration leaves the old identity active.
 _Avoid_: Provider account migration by email, new Application User on provider change, key rotation during migration
 
-**Pre-registered User**:
-A person admitted by the configured Application Admission policy before they can access the application. In the initial Supabase deployment this remains an administrator-invited user, but the application contract is provider-neutral.
-_Avoid_: Public signup, self-registered user, separate email allowlist
+**Admitted User**:
+A person admitted by the configured Application Admission policy before they can access the application. In the Supabase deployment, verified-email signup admits a person to the hosted application; an Invitation separately grants access to a Shared Vault after one-time client-side key delivery.
+_Avoid_: Authentication equals Shared Vault membership, unverified signup, separate email allowlist
 
 **Application Mutation Rate Limit**:
 A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or Supabase Auth limits.
@@ -116,7 +116,7 @@ A versioned encrypted package that allows one User Encryption Key Pair to recove
 _Avoid_: Plaintext vault key, shared password
 
 **Invitation**:
-A no-acceptance request by a Shared Vault owner to give a pre-registered user access. It includes a one-time Secure Share Link that expires exactly seven days after creation so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User. An expired Invitation creates no Membership Grant and may be replaced through owner-initiated Re-invitation.
+A no-acceptance request by a Shared Vault owner to give one exact recipient access. It includes a one-time Secure Share Link that expires exactly seven days after creation so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User. An expired Invitation creates no Membership Grant and may be replaced through owner-initiated Re-invitation.
 _Avoid_: Pending membership
 
 **Re-invitation**:

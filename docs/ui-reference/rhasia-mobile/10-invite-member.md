@@ -11,7 +11,7 @@ A focused modal/page has a close control, centered title, email field, role sele
 The form uses the reference's soft bordered input and dropdown, large gaps, and indigo primary/secondary actions. Components: dismiss action, email input, Viewer-role selector/readout, permission help text, submit button, Secure Share Link copy action, inline validation/status.
 
 ## Expected behaviour
-Owners invite one exact pre-registered user. The only assignable role is Viewer. The owner client creates the recipient-bound one-time Secure Share Link; the server must not receive its secret. Explain and support secure out-of-band delivery. The invitation does not require recipient acceptance: enrollment plus link redemption creates the active Membership Grant.
+Owners invite one exact email recipient. The only assignable role is Viewer. The owner client creates the recipient-bound one-time Secure Share Link; the server must not receive its secret. Explain and support secure out-of-band delivery. The invitation does not require recipient acceptance: signup/sign-in, enrollment, and link redemption create the active Membership Grant.
 
 ## Flow
-Owner enters invited email → authorize/pre-register validation → client creates recipient-bound share material → persist permitted invitation metadata → owner securely delivers one-time link → recipient enrolls/redeems → Viewer grant activates.
+Owner enters recipient email → authorize exact-email invitation → client creates recipient-bound share material → persist permitted invitation metadata → owner securely delivers one-time link → recipient signs up/signs in, enrolls, and redeems → Viewer grant activates.

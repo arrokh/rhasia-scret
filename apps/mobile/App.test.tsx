@@ -25,21 +25,21 @@ describe("mobile foundation presentation", () => {
   it("renders complete Indonesian copy and switches to English", async () => {
     const screen = await render(<App />);
     expect(screen.getByRole("header", { name: "Autentikator tanpa pengetahuan" })).toBeVisible();
-    expect(screen.getByLabelText("Alamat email yang diundang")).toBeVisible();
+    expect(screen.getByLabelText("Alamat email")).toBeVisible();
 
     await fireEvent.press(screen.getByRole("button", { name: "Gunakan English" }));
     expect(screen.getByRole("header", { name: "Zero-knowledge authenticator" })).toBeVisible();
-    expect(screen.getByLabelText("Invited email address")).toBeVisible();
+    expect(screen.getByLabelText("Email address")).toBeVisible();
   });
 
   it("keeps validation in the form model before requesting a sign-in link", async () => {
     const screen = await render(<App />);
-    await fireEvent.press(screen.getByRole("button", { name: "Kirim tautan masuk" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Lanjutkan dengan email" }));
     expect(await screen.findByText("Masukkan alamat email.")).toBeVisible();
     expect(mockRequestSignInLink).not.toHaveBeenCalled();
 
-    await fireEvent.changeText(screen.getByLabelText("Alamat email yang diundang"), "owner@example.test");
-    await fireEvent.press(screen.getByRole("button", { name: "Kirim tautan masuk" }));
+    await fireEvent.changeText(screen.getByLabelText("Alamat email"), "owner@example.test");
+    await fireEvent.press(screen.getByRole("button", { name: "Lanjutkan dengan email" }));
     await waitFor(() => expect(mockRequestSignInLink).toHaveBeenCalledWith("owner@example.test"));
   });
 });

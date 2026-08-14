@@ -45,7 +45,7 @@
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
       "footerAuthor": "arrokh",
-      "inviteOnly": "Local Vault needs no sign-in. Hosted Vaults are available by invitation.",
+      "hostedAccess": "Local Vault needs no sign-in. Hosted Vaults are available with a verified email address.",
       "comparison": {
         "eyebrow": "A simple explanation",
         "title": "What is rhasia-scret?",
@@ -122,7 +122,8 @@
       "oidcSignIn": "Continue with your organization",
       "authenticationDisabled": "Remote authentication is disabled. Use Local Vault.",
       "localOnly": "This deployment supports Local Vault only.",
-      "inviteOnly": "Access is invitation-only. Ask a vault owner or administrator to invite your email address.",
+      "emailAccess": "Sign in or create an account with a verified email address.",
+      "organizationAccess": "Use your organization’s sign-in to access the hosted Vault.",
       "notice": {
         "required": "Sign in to continue.",
         "signedOut": "You have signed out.",
@@ -135,17 +136,18 @@
   },
   "Identity": {
     "signIn": {
-      "emailLabel": "Invited email address",
+      "emailLabel": "Email address",
       "emailPlaceholder": "name@example.com",
       "emailRequired": "Email address is required.",
       "emailInvalid": "Enter a valid email address.",
+      "emailDescription": "Enter your email to sign in or create a new account.",
       "sending": "Sending…",
       "retryPage": "Reload the page to try again",
       "retryIn": "Try again in {seconds, plural, one {# second} other {# seconds}}",
-      "sendLink": "Send sign-in link",
-      "sent": "If this address was invited, check its inbox for a sign-in link.",
+      "sendLink": "Continue with email",
+      "sent": "Check your inbox for a sign-in link. A new hosted account becomes available after email verification.",
       "rateLimited": "Too many sign-in requests. Wait one minute, then check your inbox or try again.",
-      "error": "We could not send a sign-in link. Make sure this address was invited, then try again."
+      "error": "We could not send the email link. Try again."
     },
     "logout": {
       "settings": "Account settings",
@@ -652,7 +654,7 @@
       "deleteDescription": "The invitation link for {email} will no longer work.",
       "revoke": "Revoke access",
       "delete": "Delete invitation",
-      "createError": "The invitation could not be created. Make sure the administrator invited this email and that it has no access or unexpired active invitation.",
+      "createError": "The invitation could not be created. Make sure this email has no access or unexpired active invitation.",
       "copyError": "The link could not be copied. Copy it manually.",
       "copyPending": "Copy invitation for {email}",
       "pendingCopied": "Invitation copied",
@@ -660,7 +662,7 @@
       "copyUnavailableLabel": "Invitation link unavailable for {email}",
       "copyUnavailableTitle": "Original link cannot be recovered",
       "formTitle": "Invite by email",
-      "formDescription": "Create a one-time link for a pre-registered user, then send it through a secure channel.",
+      "formDescription": "Create a one-time link for this email address, then send it through a secure channel.",
       "invalidEmail": "Enter a valid email address.",
       "recipientEmail": "Recipient email",
       "creating": "Creating invitation…",

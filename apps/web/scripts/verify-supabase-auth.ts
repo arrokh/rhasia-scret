@@ -1,4 +1,15 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+loadDotenv({ path: resolve(scriptDirectory, "../.env") });
+loadDotenv({ path: resolve(scriptDirectory, "../../../.env") });
+
+type SupabaseAuthSettings = {
+  disable_signup?: boolean;
+  mailer_autoconfirm?: boolean;
+};
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,12 +23,18 @@ async function main() {
     throw new Error(`Supabase Auth settings request failed with HTTP ${response.status}.`);
   }
 
-  const settings: { external?: { email?: { enabled?: boolean } } } = await response.json();
+  const settings: SupabaseAuthSettings = await response.json();
+  const publicEmailSignupEnabled = settings.disable_signup === false;
+  const confirmEmailEnabled = settings.mailer_autoconfirm === false;
   console.log(JSON.stringify({
     authReachable: true,
     httpStatus: response.status,
-    externalEmailEnabled: Boolean(settings.external?.email?.enabled),
+    publicEmailSignupEnabled,
+    confirmEmailEnabled,
   }));
+  if (!publicEmailSignupEnabled || !confirmEmailEnabled) {
+    throw new Error("Supabase Auth must allow public signup and require email confirmation.");
+  }
 }
 
 void main();

@@ -44,7 +44,7 @@ export default async function LandingPage() {
                 <span className="text-center text-sm font-bold text-muted-foreground sm:px-1 md:px-0 lg:px-1" aria-hidden="true">{t("choiceSeparator")}</span>
                 <Button asChild size="lg" className="min-h-12 bg-[#1b252c] px-7 text-base text-card hover:bg-[#2b3a44] active:bg-[#11181d]"><Link href="/sign-in"><Cloud aria-hidden="true" />{t("hostedVault")}</Link></Button>
               </div>
-              <p className="max-w-sm self-start text-left text-xs leading-5 text-muted-foreground italic">{t("inviteOnly")}</p>
+              <p className="max-w-sm self-start text-left text-xs leading-5 text-muted-foreground italic">{t("hostedAccess")}</p>
             </div>
           </div>
         </div>

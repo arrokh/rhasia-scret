@@ -8,15 +8,15 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({
   client: {},
-  requestInvitedSignInLink: vi.fn()
+  requestEmailSignInLink: vi.fn()
 }));
 
 vi.mock("@/modules/identity/presentation/browser-supabase-client", () => ({ createBrowserSupabaseClient: () => mocks.client }));
-vi.mock("@/modules/identity/presentation/request-invited-sign-in-link", () => ({ requestInvitedSignInLink: mocks.requestInvitedSignInLink }));
+vi.mock("@/modules/identity/presentation/request-email-sign-in-link", () => ({ requestEmailSignInLink: mocks.requestEmailSignInLink }));
 
-import { InvitedUserSignInForm } from "@/modules/identity/presentation/invited-user-sign-in-form";
+import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 
-describe("InvitedUserSignInForm", () => {
+describe("EmailSignInForm", () => {
   let root: Root | undefined;
 
   afterEach(async () => {
@@ -27,7 +27,7 @@ describe("InvitedUserSignInForm", () => {
   it("renders accessible TanStack validation warnings and blocks invalid submissions", async () => {
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(InvitedUserSignInForm)));
+    await act(async () => root?.render(createElement(EmailSignInForm)));
 
     const form = container.querySelector<HTMLFormElement>("form");
     await act(async () => form?.requestSubmit());
@@ -38,13 +38,13 @@ describe("InvitedUserSignInForm", () => {
     expect(input?.getAttribute("aria-invalid")).toBe("true");
     expect(input?.getAttribute("aria-describedby")).toBe("email-error");
     expect(alert?.textContent).toBe("Alamat email wajib diisi.");
-    expect(mocks.requestInvitedSignInLink).not.toHaveBeenCalled();
+    expect(mocks.requestEmailSignInLink).not.toHaveBeenCalled();
 
     await act(async () => setInputValue(input, "not-an-email"));
     await act(async () => form?.requestSubmit());
 
     expect(container.querySelector<HTMLElement>('[role="alert"]')?.textContent).toBe("Masukkan alamat email yang valid.");
-    expect(mocks.requestInvitedSignInLink).not.toHaveBeenCalled();
+    expect(mocks.requestEmailSignInLink).not.toHaveBeenCalled();
   });
 });
 

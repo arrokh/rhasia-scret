@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-07-29
 - Deciders: rhasia-scret maintainers
-- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0035, issues #74, #76, #77
+- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0035, ADR-0043, issues #74, #76, #77
 
 ## Decision
 
@@ -12,12 +12,12 @@ Identity is a provider-neutral application boundary. The Identity bounded contex
 Supported deployment modes are selected by validated server-only `AUTH_BACKEND` configuration:
 
 - `none`: Local Profile and Local Vault only. Remote authentication, synchronization, membership, server recovery, audit, and Vault APIs fail closed.
-- `supabase`: the existing invited email-link behavior through the Supabase adapter.
+- `supabase`: public passwordless email sign-in/signup through the Supabase adapter, with Confirm email enforced; Shared Vault membership remains invitation-based.
 - `oidc`: Authorization Code with PKCE against one configured OIDC issuer, using discovery metadata and maintained protocol libraries; tokens and client secrets remain server-only.
 
 OIDC is the preferred interoperability contract because it standardizes issuer/subject identity, discovery, authorization-code PKCE, state, nonce, redirect, audience, and expiry validation across maintained providers. Auth.js/NextAuth is not installed as a mandatory transparent proxy: it creates its own persistence/linking/session model and would become a second identity authority. A future managed-auth framework may be added only as an adapter behind this boundary after separate release/security review.
 
-Authentication and Application Admission are separate. A valid principal does not silently create access unless the configured admission policy permits it. The initial policy remains invite-only/pre-registered. Verified email can satisfy an invitation match but never links two identities or merges Application Users.
+Authentication and Application Admission are separate. A valid principal does not silently create access unless the configured admission policy permits it. In Supabase mode, a verified email principal is admitted to the hosted application and provisions an Application User idempotently; OIDC remains governed by configured admission. Verified email can satisfy a Shared Vault invitation match but never links two identities or merges Application Users.
 
 An External Identity is unique by `(issuer, subject)` and belongs to exactly one Application User. Email is contact/admission metadata only. The Application User identifier, Vault ownership/membership, audit history, rate-limit identity, crypto profile, passkey-recovery enrollment, and all encrypted content survive provider migration unchanged.
 
