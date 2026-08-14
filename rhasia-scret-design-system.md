@@ -345,7 +345,7 @@ Visual direction:
 - simple email or magic-link form
 - dark ink text
 - gold primary button
-- friendly invite-only explanation
+- friendly verified-email access explanation
 
 Suggested copy:
 

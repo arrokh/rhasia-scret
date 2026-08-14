@@ -8,7 +8,7 @@ describe("mobile localization", () => {
   });
 
   it("uses Indonesian as the deterministic initial locale", () => {
-    expect(translate("id").emailLabel).toBe("Alamat email yang diundang");
-    expect(translate("en").emailLabel).toBe("Invited email address");
+    expect(translate("id").emailLabel).toBe("Alamat email");
+    expect(translate("en").emailLabel).toBe("Email address");
   });
 });

@@ -17,8 +17,8 @@ vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", 
 vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
   SupabaseSessionVerifier: class SupabaseSessionVerifier {}
 }));
-vi.mock("@/modules/identity/presentation/invited-user-sign-in-form", () => ({
-  InvitedUserSignInForm: () => createElement("form", { "aria-label": "Formulir masuk" })
+vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
+  EmailSignInForm: () => createElement("form", { "aria-label": "Formulir masuk" })
 }));
 
 import SignInPage from "@/app/sign-in/page";
@@ -43,7 +43,7 @@ describe("SignInPage", () => {
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  it("preserves logout notices, invite-only sign in, and offline access", async () => {
+  it("preserves logout notices, email sign in, and offline access", async () => {
     mocks.loadApplicationUser.mockResolvedValue(null);
 
     const page = await SignInPage({ searchParams: Promise.resolve({ auth: ["signed_out", "ignored"] }) });
@@ -52,7 +52,7 @@ describe("SignInPage", () => {
     expect(markup).toContain("Anda telah keluar.");
     expect(markup).toContain('aria-label="Formulir masuk"');
     expect(markup).toContain('href="/offline"');
-    expect(markup).toContain("Akses hanya tersedia melalui undangan");
+    expect(markup).toContain("Masuk atau buat akun dengan alamat email terverifikasi.");
     expect(markup.indexOf('data-slot="separator"')).toBeLessThan(markup.indexOf('href="/offline"'));
   });
 });

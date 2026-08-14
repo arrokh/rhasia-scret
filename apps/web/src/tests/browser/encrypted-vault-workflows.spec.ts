@@ -29,7 +29,7 @@ const manualTotpUri = `otpauth://totp/E2E%20Manual:manual-user?secret=${manualTo
 
 test.beforeEach(async ({ page }) => installMockClipboard(page));
 
-test("administrator-invited session, Personal Vault initialization, lock, unlock, and logout stay client-safe", async ({
+test("verified email session, Personal Vault initialization, lock, unlock, and logout stay client-safe", async ({
   page,
   context,
   browserName,
@@ -44,7 +44,7 @@ test("administrator-invited session, Personal Vault initialization, lock, unlock
     await expect(page).toHaveURL(/\/sign-in\?auth=required$/);
   });
 
-  await test.step("a configured administrator-invited test session reaches first-login setup", async () => {
+  await test.step("a configured verified-email test session reaches first-login setup", async () => {
     await authenticate(context, alias);
     await page.goto("/vaults");
     await expect(

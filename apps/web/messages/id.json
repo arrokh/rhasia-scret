@@ -45,7 +45,7 @@
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
       "footerAuthor": "arrokh",
-      "inviteOnly": "Local Vault tidak memerlukan masuk. Hosted Vault tersedia melalui undangan.",
+      "hostedAccess": "Brankas Lokal tidak memerlukan masuk. Hosted Vault tersedia dengan alamat email terverifikasi.",
       "comparison": {
         "eyebrow": "Penjelasan sederhana",
         "title": "Apa itu rhasia-scret?",
@@ -122,7 +122,8 @@
       "oidcSignIn": "Lanjutkan dengan organisasi Anda",
       "authenticationDisabled": "Autentikasi jarak jauh dinonaktifkan. Gunakan Brankas Lokal.",
       "localOnly": "Deployment ini hanya mendukung Brankas Lokal.",
-      "inviteOnly": "Akses hanya tersedia melalui undangan. Minta pemilik brankas atau administrator mengundang alamat email Anda.",
+      "emailAccess": "Masuk atau buat akun dengan alamat email terverifikasi.",
+      "organizationAccess": "Gunakan masuk organisasi Anda untuk mengakses Hosted Vault.",
       "notice": {
         "required": "Silakan masuk untuk melanjutkan.",
         "signedOut": "Anda telah keluar.",
@@ -135,17 +136,18 @@
   },
   "Identity": {
     "signIn": {
-      "emailLabel": "Alamat email yang diundang",
+      "emailLabel": "Alamat email",
       "emailPlaceholder": "nama@keluarga.id",
       "emailRequired": "Alamat email wajib diisi.",
       "emailInvalid": "Masukkan alamat email yang valid.",
+      "emailDescription": "Masukkan email untuk masuk atau membuat akun baru.",
       "sending": "Mengirim…",
       "retryPage": "Muat ulang halaman untuk mencoba lagi",
       "retryIn": "Coba lagi dalam {seconds, plural, one {# detik} other {# detik}}",
-      "sendLink": "Kirim tautan masuk",
-      "sent": "Jika alamat ini diundang, periksa kotak masuknya untuk tautan masuk.",
+      "sendLink": "Lanjutkan dengan email",
+      "sent": "Periksa kotak masuk untuk tautan masuk. Akun hosted baru tersedia setelah email diverifikasi.",
       "rateLimited": "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.",
-      "error": "Kami tidak dapat mengirim tautan masuk. Pastikan alamat ini diundang, lalu coba lagi."
+      "error": "Kami tidak dapat mengirim tautan email. Coba lagi."
     },
     "logout": {
       "settings": "Pengaturan akun",
@@ -652,7 +654,7 @@
       "deleteDescription": "Tautan undangan untuk {email} tidak akan dapat digunakan.",
       "revoke": "Cabut akses",
       "delete": "Hapus undangan",
-      "createError": "Undangan tidak dapat dibuat. Pastikan email telah diundang administrator dan belum memiliki akses atau undangan aktif yang belum kedaluwarsa.",
+      "createError": "Undangan tidak dapat dibuat. Pastikan email belum memiliki akses atau undangan aktif yang belum kedaluwarsa.",
       "copyError": "Tautan tidak dapat disalin. Salin secara manual.",
       "copyPending": "Salin undangan untuk {email}",
       "pendingCopied": "Undangan disalin",
@@ -660,7 +662,7 @@
       "copyUnavailableLabel": "Tautan undangan tidak tersedia untuk {email}",
       "copyUnavailableTitle": "Tautan asli tidak dapat dipulihkan",
       "formTitle": "Undang melalui email",
-      "formDescription": "Buat tautan satu kali untuk pengguna yang telah terdaftar, lalu kirim melalui kanal aman.",
+      "formDescription": "Buat tautan satu kali untuk alamat email ini, lalu kirim melalui kanal aman.",
       "invalidEmail": "Masukkan alamat email yang valid.",
       "recipientEmail": "Email penerima",
       "creating": "Membuat undangan…",
