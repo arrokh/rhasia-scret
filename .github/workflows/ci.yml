@@ -120,6 +120,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
       PLAYWRIGHT_WORKERS: 2
+      # Keep concurrent suites from starving the crypto-heavy E2E server.
+      PLAYWRIGHT_SMOKE_WORKERS: 1
+      PLAYWRIGHT_E2E_WORKERS: 1
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
