@@ -23,10 +23,12 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await languageSettings.click();
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
   const languageMenu = page.locator('[data-slot="dropdown-menu-sub-content"]');
-  const languageMenuBox = await languageMenu.boundingBox();
   const viewportWidth = await page.evaluate(() => window.innerWidth);
-  expect(languageMenuBox?.x).toBeGreaterThanOrEqual(0);
-  expect((languageMenuBox?.x ?? 0) + (languageMenuBox?.width ?? 0)).toBeLessThanOrEqual(viewportWidth);
+  await expect.poll(async () => {
+    const box = await languageMenu.boundingBox();
+    return box ? box.x >= 0 && box.x + box.width <= viewportWidth : false;
+  }, { intervals: [50, 100, 150], timeout: 3_000 }).toBe(true);
+  const languageMenuBox = await languageMenu.boundingBox();
   const languageMenuWidth = languageMenuBox?.width;
   expect(languageMenuWidth).toBeGreaterThanOrEqual(210);
   expect(languageMenuWidth).toBeLessThanOrEqual(224);
