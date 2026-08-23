@@ -94,7 +94,7 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
     {embedded ? (
       <DropdownMenuSub>
         <DropdownMenuSubTrigger aria-label={t("switcher")} className="min-h-11 px-2"><Languages aria-hidden="true" /><span>{activeLanguage}</span></DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
+        <DropdownMenuSubContent collisionPadding={8} className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
       </DropdownMenuSub>
     ) : (
       <DropdownMenu modal={false}>
