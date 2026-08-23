@@ -39,6 +39,7 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
     if (!embedded || !document.body) return;
     let positionedWrapper: HTMLElement | null = null;
     let positionObserver: MutationObserver | null = null;
+    const positionObserverOptions: MutationObserverInit = { attributes: true, attributeFilter: ["style"] };
     const fitWithinViewport = () => {
       const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
       const wrapper = content?.parentElement;
@@ -47,7 +48,12 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
       const minimum = 8;
       const maximum = window.innerWidth - minimum - box.width;
       const shift = Math.min(Math.max(minimum - box.left, 0), maximum - box.left);
-      wrapper.style.translate = Math.abs(shift) > 0.5 ? `${shift}px 0` : "";
+      const nextShift = Math.abs(shift) > 0.5 ? shift : 0;
+      const currentShift = Number.parseFloat(wrapper.style.translate) || 0;
+      if (Math.abs(currentShift - nextShift) <= 0.1) return;
+      positionObserver?.disconnect();
+      wrapper.style.translate = nextShift ? `${nextShift}px` : "";
+      positionObserver?.observe(wrapper, positionObserverOptions);
     };
     const observePosition = () => {
       const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
@@ -56,10 +62,8 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
       positionObserver?.disconnect();
       positionedWrapper = wrapper;
       if (!wrapper) return;
-      positionObserver = new MutationObserver(() => {
-        if (!wrapper.style.translate) fitWithinViewport();
-      });
-      positionObserver.observe(wrapper, { attributes: true, attributeFilter: ["style"] });
+      positionObserver = new MutationObserver(fitWithinViewport);
+      positionObserver.observe(wrapper, positionObserverOptions);
       fitWithinViewport();
     };
 
