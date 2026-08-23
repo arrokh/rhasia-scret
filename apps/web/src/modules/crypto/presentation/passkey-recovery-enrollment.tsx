@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { CheckCircle2, Fingerprint, LoaderCircle, RefreshCw, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePasskeyRecoveryStatusQuery, useRemovePasskeyRecoveryMutation } from "@/modules/identity";
@@ -27,6 +28,7 @@ export function PasskeyRecoveryEnrollment({ userRootKey }: { userRootKey: Uint8A
     setErrorCode("unknown");
     try {
       await enrollPasskeyRecovery(userRootKey);
+      captureAnalyticsEvent("passkey_recovery_enabled");
       setStatus("success");
       await recoveryStatus.refetch();
     } catch (reason) {

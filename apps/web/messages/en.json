@@ -10,7 +10,12 @@
     "hideField": "Hide {label}",
     "openingPage": "Opening page",
     "loading": "Loading",
-    "by": "by"
+    "by": "by",
+    "globalError": {
+      "title": "Something went wrong",
+      "description": "Please try again.",
+      "retry": "Try again"
+    }
   },
   "Locale": {
     "switcher": "Choose language",

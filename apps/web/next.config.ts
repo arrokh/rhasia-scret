@@ -6,14 +6,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 loadEnvironment({ path: resolve(process.cwd(), "../../.env") });
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
 
 const staticContentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'wasm-unsafe-eval'",
+  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost].filter(Boolean).join(" "),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost].filter(Boolean).join(" "),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
@@ -26,7 +28,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },

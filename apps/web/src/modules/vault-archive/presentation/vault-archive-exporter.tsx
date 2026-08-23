@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { Archive, Check, Clipboard, Download, KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -59,6 +60,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
         await recordVaultArchiveExport(vault.id);
         if (!activeRef.current) { clearPreparedVaultArchive(next); next = null; return; }
         replacePrepared(next);
+        captureAnalyticsEvent("vault_archive_export_prepared", { vault_type: vault.type });
         next = null;
       } catch (error) {
         clearPreparedVaultArchive(next);

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
@@ -35,13 +36,14 @@ export function AuthenticatorAccountManagerDialog({ account, vaultKey, canEdit =
         const encryptedPayload = await encryptAccountConfiguration(vaultKey, nextAccount, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: account.vaultId, keyVersion: 1 });
         const updated = await updateMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
         onUpdated({ ...nextAccount, revision: updated.revision });
+        captureAnalyticsEvent("authenticator_account_updated", { vault_type: account.vaultType });
         setStatus("updated");
       } catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setStatus("updateError"); }
     }
   });
 
   async function deleteAccount() {
-    try { await deleteMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision }); onDeleted(account); onClose(); }
+    try { await deleteMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision }); onDeleted(account); captureAnalyticsEvent("authenticator_account_deleted", { vault_type: account.vaultType }); onClose(); }
     catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setConfirmingDelete(false); setStatus("deleteError"); }
   }
 

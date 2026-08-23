@@ -20,6 +20,7 @@ import {
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@/modules/crypto";
 import { createSharedVaultMaterial } from "@/modules/vault-management";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
@@ -194,6 +195,7 @@ export function VaultArchiveImporter({
       const refreshed = await refreshAfterImport(workspace);
       replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
       replaceOpened(null);
+      captureAnalyticsEvent("vault_archive_import_completed", { account_count: plan.accountIds.length, destination_type: destination?.type ?? "SHARED", created_new_vault: result.vaultCreated });
       setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated, vaultId: result.vaultId, vaultType: destination?.type ?? "SHARED" });
     } catch (error) {
       if (!activeRef.current) return;

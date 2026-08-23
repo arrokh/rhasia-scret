@@ -19,6 +19,7 @@ import { PasswordInput } from "@/shared/presentation/password-input";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import { encryptAccountConfiguration, isDuplicateAccount, type DecryptedAuthenticatorAccount } from "../infrastructure/browser-account-payload";
 import { loadUnlockedVaultWorkspace, type UnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { QrImportInput } from "./qr-import-input";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { useCreateEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
@@ -99,6 +100,7 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
       throw error;
     }
     setWorkspace({ ...workspace, accounts: [...workspace.accounts, { ...candidate, id: created.id, revision: created.revision, vaultId: vault.id, vaultName: vault.name, vaultType: vault.type }].sort((left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName)) });
+    captureAnalyticsEvent("authenticator_account_created", { vault_type: vault.type });
     setDuplicate(null); router.push("/vaults");
   }
 

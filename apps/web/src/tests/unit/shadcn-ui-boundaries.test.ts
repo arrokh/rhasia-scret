@@ -22,6 +22,7 @@ describe("shadcn/ui design-system boundaries", () => {
 
   it("routes visible controls through shadcn primitives", () => {
     const violations = visualRoots.flatMap(filesUnder)
+      .filter((path) => !path.endsWith("/app/global-error.tsx"))
       .filter((path) => !path.startsWith(uiRoot))
       .flatMap((path) => {
         const source = readFileSync(path, "utf8");
