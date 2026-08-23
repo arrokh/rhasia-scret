@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useLayoutEffect, useState, useTransition } from "react";
 import { Languages } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,46 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
   const [nextLocale, setNextLocale] = useState<AppLocale | null>(null);
   const activeLanguage = languageName(locale, t);
 
+  useLayoutEffect(() => {
+    // Radix submenus open sideways; shift the embedded language menu when the settings menu leaves no horizontal room.
+    if (!embedded || !document.body) return;
+    let positionedWrapper: HTMLElement | null = null;
+    let positionObserver: MutationObserver | null = null;
+    const fitWithinViewport = () => {
+      const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
+      const wrapper = content?.parentElement;
+      if (!content || !wrapper) return;
+      const box = content.getBoundingClientRect();
+      const minimum = 8;
+      const maximum = window.innerWidth - minimum - box.width;
+      const shift = Math.min(Math.max(minimum - box.left, 0), maximum - box.left);
+      wrapper.style.translate = Math.abs(shift) > 0.5 ? `${shift}px 0` : "";
+    };
+    const observePosition = () => {
+      const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
+      const wrapper = content?.parentElement ?? null;
+      if (wrapper === positionedWrapper) return;
+      positionObserver?.disconnect();
+      positionedWrapper = wrapper;
+      if (!wrapper) return;
+      positionObserver = new MutationObserver(() => {
+        if (!wrapper.style.translate) fitWithinViewport();
+      });
+      positionObserver.observe(wrapper, { attributes: true, attributeFilter: ["style"] });
+      fitWithinViewport();
+    };
+
+    const observer = new MutationObserver(observePosition);
+    observer.observe(document.body, { childList: true, subtree: true });
+    observePosition();
+    window.addEventListener("resize", fitWithinViewport);
+    return () => {
+      observer.disconnect();
+      positionObserver?.disconnect();
+      window.removeEventListener("resize", fitWithinViewport);
+    };
+  }, [embedded]);
+
   function requestLocaleChange(value: string) {
     if ((value !== "id" && value !== "en") || value === locale) return;
     if (onLocaleRequested) onLocaleRequested(value);
@@ -54,7 +94,7 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
     {embedded ? (
       <DropdownMenuSub>
         <DropdownMenuSubTrigger aria-label={t("switcher")} className="min-h-11 px-2"><Languages aria-hidden="true" /><span>{activeLanguage}</span></DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="w-56 rounded-md border-border bg-popover p-2 shadow-card" aria-label={t("options")}>{options}</DropdownMenuSubContent>
+        <DropdownMenuSubContent className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
       </DropdownMenuSub>
     ) : (
       <DropdownMenu modal={false}>

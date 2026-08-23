@@ -10,7 +10,12 @@
     "hideField": "Sembunyikan {label}",
     "openingPage": "Membuka halaman",
     "loading": "Sedang memuat",
-    "by": "oleh"
+    "by": "oleh",
+    "globalError": {
+      "title": "Terjadi kesalahan",
+      "description": "Coba lagi.",
+      "retry": "Coba lagi"
+    }
   },
   "Locale": {
     "switcher": "Pilih bahasa",

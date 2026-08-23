@@ -3,11 +3,13 @@ import { createIdentityProxyVerifier, type SetAuthCookies } from "@/modules/iden
 type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
 const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Resource-Policy": "same-origin",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
@@ -18,11 +20,11 @@ function createCsp(nonce: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`,
+    [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`, posthogAssetsHost].filter(Boolean).join(" "),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost].filter(Boolean).join(" "),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
