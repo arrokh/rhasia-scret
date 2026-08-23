@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState, useTransition } from "react";
+import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { Languages } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
   const t = useTranslations("Locale");
   const online = useOnlineStatus();
   const [nextLocale, setNextLocale] = useState<AppLocale | null>(null);
+  const fitEmbeddedMenuRef = useRef<() => void>(() => {});
   const activeLanguage = languageName(locale, t);
 
   useLayoutEffect(() => {
@@ -39,42 +40,79 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
     if (!embedded || !document.body) return;
     let positionedWrapper: HTMLElement | null = null;
     let positionObserver: MutationObserver | null = null;
+    let settleFrame: number | null = null;
+    let settleFramesRemaining = 0;
     const positionObserverOptions: MutationObserverInit = { attributes: true, attributeFilter: ["style"] };
+    const cancelSettle = () => {
+      if (settleFrame !== null) cancelAnimationFrame(settleFrame);
+      settleFrame = null;
+      settleFramesRemaining = 0;
+    };
     const fitWithinViewport = () => {
       const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
       const wrapper = content?.parentElement;
       if (!content || !wrapper) return;
+      const [currentShiftX = 0, currentShiftY = 0] = wrapper.style.translate.split(/\s+/).map((value) => Number.parseFloat(value) || 0);
+      if (Math.abs(currentShiftX) > 0.1 || Math.abs(currentShiftY) > 0.1) {
+        positionObserver?.disconnect();
+        wrapper.style.translate = "";
+      }
       const box = content.getBoundingClientRect();
       const minimum = 8;
       const maximum = window.innerWidth - minimum - box.width;
-      const shift = Math.min(Math.max(minimum - box.left, 0), maximum - box.left);
-      const nextShift = Math.abs(shift) > 0.5 ? shift : 0;
-      const currentShift = Number.parseFloat(wrapper.style.translate) || 0;
-      if (Math.abs(currentShift - nextShift) <= 0.1) return;
+      const horizontalShift = Math.min(Math.max(minimum - box.left, 0), maximum - box.left);
+      const nextShiftX = Math.abs(horizontalShift) > 0.5 ? horizontalShift : 0;
+      const trigger = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-trigger"]');
+      const triggerBox = trigger?.getBoundingClientRect();
+      const overlapsTrigger = triggerBox && box.top < triggerBox.bottom && box.bottom > triggerBox.top;
+      const verticalShift = nextShiftX !== 0 && overlapsTrigger ? triggerBox.bottom + minimum - box.top : 0;
+      const nextShiftY = Math.abs(verticalShift) > 0.5 ? verticalShift : 0;
+      if (Math.abs(currentShiftX - nextShiftX) <= 0.1 && Math.abs(currentShiftY - nextShiftY) <= 0.1 && Math.abs(currentShiftX) <= 0.1 && Math.abs(currentShiftY) <= 0.1) return;
       positionObserver?.disconnect();
-      wrapper.style.translate = nextShift ? `${nextShift}px` : "";
+      wrapper.style.translate = nextShiftX || nextShiftY ? `${nextShiftX}px ${nextShiftY}px` : "";
       positionObserver?.observe(wrapper, positionObserverOptions);
+    };
+    fitEmbeddedMenuRef.current = fitWithinViewport;
+    const settlePosition = () => {
+      settleFrame = null;
+      if (!positionedWrapper) return;
+      fitWithinViewport();
+      settleFramesRemaining -= 1;
+      if (settleFramesRemaining > 0) settleFrame = requestAnimationFrame(settlePosition);
+    };
+    const scheduleSettle = () => {
+      cancelSettle();
+      settleFramesRemaining = 8;
+      settleFrame = requestAnimationFrame(settlePosition);
     };
     const observePosition = () => {
       const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
       const wrapper = content?.parentElement ?? null;
       if (wrapper === positionedWrapper) return;
+      cancelSettle();
       positionObserver?.disconnect();
       positionedWrapper = wrapper;
       if (!wrapper) return;
       positionObserver = new MutationObserver(fitWithinViewport);
       positionObserver.observe(wrapper, positionObserverOptions);
       fitWithinViewport();
+      scheduleSettle();
+    };
+    const handleResize = () => {
+      fitWithinViewport();
+      scheduleSettle();
     };
 
     const observer = new MutationObserver(observePosition);
     observer.observe(document.body, { childList: true, subtree: true });
     observePosition();
-    window.addEventListener("resize", fitWithinViewport);
+    window.addEventListener("resize", handleResize);
     return () => {
       observer.disconnect();
+      cancelSettle();
       positionObserver?.disconnect();
-      window.removeEventListener("resize", fitWithinViewport);
+      window.removeEventListener("resize", handleResize);
+      fitEmbeddedMenuRef.current = () => {};
     };
   }, [embedded]);
 
@@ -98,7 +136,7 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
     {embedded ? (
       <DropdownMenuSub>
         <DropdownMenuSubTrigger aria-label={t("switcher")} className="min-h-11 px-2"><Languages aria-hidden="true" /><span>{activeLanguage}</span></DropdownMenuSubTrigger>
-        <DropdownMenuSubContent collisionPadding={8} className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
+        <DropdownMenuSubContent collisionPadding={8} onAnimationEnd={() => fitEmbeddedMenuRef.current()} className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
       </DropdownMenuSub>
     ) : (
       <DropdownMenu modal={false}>
