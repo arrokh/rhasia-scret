@@ -36,7 +36,10 @@ const securityHeaders = [
   { key: "Content-Security-Policy", value: staticContentSecurityPolicy }
 ];
 
+const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
+
 const nextConfig: NextConfig = {
+  distDir: nextDistDir,
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
