@@ -41,12 +41,13 @@ async function main(): Promise<void> {
   if (pwa.exitCode !== 0) process.exitCode = 1;
 }
 
-async function runStage(name: StageResult["name"], args: string[]): Promise<StageResult> {
+async function runStage(name: StageResult["name"], args: string[], env: NodeJS.ProcessEnv = process.env): Promise<StageResult> {
   const stageStartedAt = performance.now();
   const child = spawn(command, args, {
     cwd: process.cwd(),
-    env: process.env,
-    stdio: "inherit"
+    env,
+    stdio: "inherit",
+    detached: process.platform !== "win32"
   });
   children.add(child);
 
@@ -82,7 +83,17 @@ function writeReport(status: "passed" | "failed", completedStages: StageResult[]
 function terminateChildren(): void {
   if (stopping) return;
   stopping = true;
-  for (const child of children) child.kill("SIGTERM");
+  for (const child of children) {
+    if (process.platform !== "win32" && child.pid) {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+        continue;
+      } catch {
+        // The child may have already exited while its process group is being cleaned.
+      }
+    }
+    child.kill("SIGTERM");
+  }
 }
 
 function elapsed(start: number): number {

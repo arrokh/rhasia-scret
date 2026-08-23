@@ -19,7 +19,9 @@ const port = basePort + suite.portOffset;
 const distDir = suite.distDir;
 const absoluteDistDir = resolve(process.cwd(), distDir);
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const suiteWorkers = suiteName === "smoke" ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim() : undefined;
+const suiteWorkers = suiteName === "smoke"
+  ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim()
+  : process.env.PLAYWRIGHT_E2E_WORKERS?.trim();
 rmSync(absoluteDistDir, { recursive: true, force: true });
 const child = spawn(command, ["exec", "playwright", "test", "--config", suite.config, "--max-failures=1"], {
   cwd: process.cwd(),
@@ -29,7 +31,8 @@ const child = spawn(command, ["exec", "playwright", "test", "--config", suite.co
     NEXT_DIST_DIR: distDir,
     ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {})
   },
-  stdio: "inherit"
+  stdio: "inherit",
+  detached: process.platform !== "win32"
 });
 
 let cleaned = false;
@@ -40,7 +43,7 @@ function cleanDistDir(): void {
 }
 
 function stopOnSignal(signal: NodeJS.Signals): void {
-  child.kill(signal);
+  signalChild(signal);
   cleanDistDir();
   process.exit(128 + signalNumber(signal));
 }
@@ -64,6 +67,18 @@ function parsePort(value: string): number {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1024 || port > 65534) throw new Error("BROWSER_TEST_PORT must be between 1024 and 65534.");
   return port;
+}
+
+function signalChild(signal: NodeJS.Signals): void {
+  if (process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // The child may have already exited while its process group is being cleaned.
+    }
+  }
+  child.kill(signal);
 }
 
 function signalNumber(signal: NodeJS.Signals): number {
