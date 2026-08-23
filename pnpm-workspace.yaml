@@ -14,12 +14,14 @@ allowBuilds:
   '@parcel/watcher': false
   '@prisma/engines': true
   '@swc/core': false
+  core-js: true
   esbuild: true
   prisma: true
   sharp: true
   unrs-resolver: true
 onlyBuiltDependencies:
   - "@prisma/engines"
+  - core-js
   - esbuild
   - prisma
   - sharp
