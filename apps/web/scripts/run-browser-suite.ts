@@ -19,10 +19,16 @@ const port = basePort + suite.portOffset;
 const distDir = suite.distDir;
 const absoluteDistDir = resolve(process.cwd(), distDir);
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const suiteWorkers = suiteName === "smoke" ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim() : undefined;
 rmSync(absoluteDistDir, { recursive: true, force: true });
 const child = spawn(command, ["exec", "playwright", "test", "--config", suite.config, "--max-failures=1"], {
   cwd: process.cwd(),
-  env: { ...process.env, BROWSER_TEST_PORT: String(port), NEXT_DIST_DIR: distDir },
+  env: {
+    ...process.env,
+    BROWSER_TEST_PORT: String(port),
+    NEXT_DIST_DIR: distDir,
+    ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {})
+  },
   stdio: "inherit"
 });
 

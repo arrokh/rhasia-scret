@@ -35,6 +35,7 @@ describe("browser test gate inventory", () => {
     expect(runner).toContain('distDir: ".next/browser-smoke"');
     expect(runner).toContain('distDir: ".next/browser-e2e"');
     expect(runner).toContain("portOffset: 1");
+    expect(runner).toContain("PLAYWRIGHT_SMOKE_WORKERS");
     expect(gate).toContain('runStage("smoke"');
     expect(gate).toContain('runStage("e2e"');
     expect(gate).toContain('runStage("pwa"');
