@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { loadSharedVaultMemberPermissionDefaults, updateSharedVaultMemberPermissionDefaults } from "@/modules/vault-membership/application/manage-shared-vault-account-permissions";
-import { PrismaSharedVaultAccountPermissionRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository";
+import { createSharedVaultAccountPermissionRepository, loadSharedVaultMemberPermissionDefaults, updateSharedVaultMemberPermissionDefaults } from "@/modules/vault-membership/server";
 
 const defaultsSchema = z.object({
   expectedRevision: z.number().int().positive(),
@@ -18,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ vau
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const { vaultId } = await params;
-  const defaults = await loadSharedVaultMemberPermissionDefaults(user.id, vaultId, new PrismaSharedVaultAccountPermissionRepository());
+  const defaults = await loadSharedVaultMemberPermissionDefaults(user.id, vaultId, createSharedVaultAccountPermissionRepository());
   if (!defaults) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   return NextResponse.json({
     vaultDefaultAccountPermissions: defaults.permissions,
@@ -44,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
       canEditAccounts: parsed.data.canEditAccounts,
       canDeleteAccounts: parsed.data.canDeleteAccounts
     },
-    new PrismaSharedVaultAccountPermissionRepository()
+    createSharedVaultAccountPermissionRepository()
   );
   if (result.status === "UNAVAILABLE") return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   if (result.status === "STALE") return NextResponse.json({ error: "stale_permissions_revision" }, { status: 409 });

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { listVaultParticipantsForOwner } from "@/modules/vault-membership/application/manage-vault-participants";
-import { parseVaultParticipantCursorKey } from "@/modules/vault-membership/application/vault-participant-repository";
-import { PrismaVaultParticipantRepository } from "@/modules/vault-membership/infrastructure/prisma-vault-participant-repository";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
+import { createVaultParticipantRepository, listVaultParticipantsForOwner, parseVaultParticipantCursorKey } from "@/modules/vault-membership/server";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 export async function GET(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
@@ -14,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
   const scope = `vault-participants:${vaultId}`;
   const pagination = parseTimestampCursorPageRequest(new URL(request.url).searchParams, scope, (key) => parseVaultParticipantCursorKey(key) !== null);
   if (!pagination.valid) return NextResponse.json({ error: pagination.error }, { status: 400 });
-  const page = await listVaultParticipantsForOwner(user.id, vaultId, pagination.request, new PrismaVaultParticipantRepository());
+  const page = await listVaultParticipantsForOwner(user.id, vaultId, pagination.request, createVaultParticipantRepository());
   if (!page) return NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   return NextResponse.json({
     owner: page.owner,

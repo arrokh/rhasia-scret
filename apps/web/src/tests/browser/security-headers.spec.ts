@@ -11,12 +11,30 @@ test.describe("browser security delivery headers", () => {
       page.request.get("/offline"),
       page.request.get("/manifest.webmanifest"),
       page.request.get("/sw.js"),
-      page.request.get("/pwa/icon512_rounded.png")
+      page.request.get("/assets/icon.png")
     ]);
     for (const response of responses) expectSecurityHeaders(response, response.url().endsWith("/offline"));
     expect(responses[0].headers()["cache-control"]).toBe("no-store, private");
     expect(responses[2].headers()["content-type"]).toContain("manifest");
     expect(responses[3].headers()["content-type"]).toContain("javascript");
+  });
+
+  test("allows same-origin Next.js chunks across client-side navigation", async ({ page }) => {
+    const response = await page.goto("/");
+    expect(response?.headers()["content-security-policy"]).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
+    await page.evaluate(() => {
+      const state = window as typeof window & { __cspNavigationMarker?: boolean; __cspChunkViolations?: string[] };
+      state.__cspNavigationMarker = true;
+      state.__cspChunkViolations = [];
+      document.addEventListener("securitypolicyviolation", (event) => {
+        if (event.blockedURI.includes("/_next/static/chunks/")) state.__cspChunkViolations?.push(event.blockedURI);
+      });
+    });
+
+    await page.locator('a[href="/sign-in"]').first().evaluate((link) => (link as HTMLElement).click());
+    await expect(page).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
+    expect(await page.evaluate(() => (window as typeof window & { __cspNavigationMarker?: boolean }).__cspNavigationMarker)).toBe(true);
+    expect(await page.evaluate(() => (window as typeof window & { __cspChunkViolations?: string[] }).__cspChunkViolations)).toEqual([]);
   });
 });
 

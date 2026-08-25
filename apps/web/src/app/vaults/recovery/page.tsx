@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { PasskeyRecoveryReset } from "@/modules/crypto";
-import { loadVaultPageContext } from "@/app/vaults/load-vault-page-context";
-import { VaultPageFrame } from "@/app/vaults/vault-page-frame";
+import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
 import { DestructivePersonalVaultResetForm, OwnedSharedVaultResetBlocker } from "@/modules/vault-management";
 import { PrismaDestructivePersonalVaultResetRepository } from "@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository";
 

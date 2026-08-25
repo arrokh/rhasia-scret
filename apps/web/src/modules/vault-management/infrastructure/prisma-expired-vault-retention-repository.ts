@@ -1,6 +1,7 @@
+import { auditPurgeAfter, setVaultAuditRetention } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import type { AuditPurgeBatch, ExpiredVaultRetentionRepository, VaultPurgeBatch } from "../application/purge-expired-vault-retention";
-import { VAULT_RECOVERY_DAYS, auditPurgeAfter } from "../domain/vault-retention-policy";
+import type { ExpiredVaultRetentionRepository, VaultPurgeBatch } from "../application/purge-expired-vault-retention";
+import { VAULT_RECOVERY_DAYS } from "../domain/vault-retention-policy";
 
 type ExpiredVaultRow = { id: string; ownerId: string; deletedAt: Date };
 
@@ -21,10 +22,7 @@ export class PrismaExpiredVaultRetentionRepository implements ExpiredVaultRetent
       if (!rows.length) return { purgedIds: [] };
 
       for (const row of rows) {
-        await transaction.vaultAuditEvent.updateMany({
-          where: { vaultId: row.id },
-          data: { ownerId: row.ownerId, retentionPurgeAfter: auditPurgeAfter(row.deletedAt) }
-        });
+        await setVaultAuditRetention(transaction, row.id, row.ownerId, auditPurgeAfter(row.deletedAt));
       }
       const vaultIds = rows.map(({ id }) => id);
       await transaction.authenticatorAccount.deleteMany({ where: { vaultId: { in: vaultIds } } });
@@ -44,20 +42,4 @@ export class PrismaExpiredVaultRetentionRepository implements ExpiredVaultRetent
     }, { isolationLevel: "ReadCommitted", maxWait: 5_000, timeout: 30_000 });
   }
 
-  async purgeExpiredAuditEvents(now: Date, batchSize: number): Promise<AuditPurgeBatch> {
-    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-      DELETE FROM "vault_audit_events"
-      WHERE "id" IN (
-        SELECT "id"
-        FROM "vault_audit_events"
-        WHERE "retention_purge_after" IS NOT NULL
-          AND "retention_purge_after" <= ${now}
-        ORDER BY "retention_purge_after", "id"
-        FOR UPDATE SKIP LOCKED
-        LIMIT ${batchSize}
-      )
-      RETURNING "id"
-    `;
-    return { purgedIds: rows.map(({ id }) => id) };
-  }
 }

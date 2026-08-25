@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
-import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
+import { PrismaVaultAuditRepository } from "@/modules/audit/infrastructure/prisma-vault-audit-repository";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 
 const userIds: string[] = [];

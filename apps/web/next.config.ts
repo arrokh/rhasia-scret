@@ -12,6 +12,7 @@ const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-
 const staticContentSecurityPolicy = [
   "default-src 'self'",
   ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost].filter(Boolean).join(" "),
+  ["script-src-elem 'self'", posthogAssetsHost].filter(Boolean).join(" "),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",

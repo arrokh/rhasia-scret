@@ -1,19 +1,16 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
+  createEncryptedVaultImportRepository,
   importEncryptedVaultArchive,
   MAX_IMPORTED_CIPHERTEXT_BYTES,
   MAX_VAULT_ARCHIVE_IMPORT_ACCOUNTS,
   MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES,
   type EncryptedVaultImportRepository
 } from "@/modules/vault-archive/server";
-import { PrismaEncryptedVaultImportRepository } from "@/modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository";
 
 const encryptedBlob = (maximumBytes: number) => z.base64().refine((value) => {
   const bytes = Buffer.from(value, "base64");
@@ -104,5 +101,5 @@ function json(body: Record<string, unknown>, status: number): NextResponse {
 export const POST = createEncryptedVaultImportHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  imports: new PrismaEncryptedVaultImportRepository()
+  imports: createEncryptedVaultImportRepository()
 });

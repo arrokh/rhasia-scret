@@ -37,7 +37,11 @@
     ".next/browser-smoke/types/**/*.ts",
     ".next/browser-smoke/dev/types/**/*.ts",
     ".next/browser-e2e/types/**/*.ts",
-    ".next/browser-e2e/dev/types/**/*.ts"
+    ".next/browser-e2e/dev/types/**/*.ts",
+    ".next/locale-repro/types/**/*.ts",
+    ".next/locale-repro/dev/types/**/*.ts",
+    ".next/analytics-debug/types/**/*.ts",
+    ".next/analytics-debug/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

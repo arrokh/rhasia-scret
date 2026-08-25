@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
@@ -35,7 +36,7 @@ export function DestructivePersonalVaultResetForm() {
       if (result.status === "owned_shared_vaults_exist") { setBlockedVaults(result.count); setStatus("blocked"); return; }
       if (result.status === "passkey_recovery_available") { router.refresh(); return; }
       resetCompleted = true;
-      captureAnalyticsEvent("personal_vault_reset_completed");
+      captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultResetCompleted);
       requestLocalVaultLock();
       await clearAllOfflineVaultData();
       router.replace("/vaults"); router.refresh();

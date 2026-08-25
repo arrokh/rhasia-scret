@@ -1,8 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { PrismaExpiredAccountPurgeRepository } from "@/modules/authenticator-account/infrastructure/prisma-expired-account-purge-repository";
-import { runRetentionPurge, type RetentionPurgeReport } from "@/modules/retention/server";
-import { PrismaExpiredVaultRetentionRepository } from "@/modules/vault-management/infrastructure/prisma-expired-vault-retention-repository";
+import { createRetentionPurgeService, type RetentionPurgeReport } from "@/modules/retention/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -69,12 +67,11 @@ function digest(value: string): Buffer {
   return createHash("sha256").update(value).digest();
 }
 
-const accounts = new PrismaExpiredAccountPurgeRepository();
-const vaults = new PrismaExpiredVaultRetentionRepository();
+const purgeRetention = createRetentionPurgeService();
 
 export const GET = createRetentionPurgeHandler({
   secret: process.env.CRON_SECRET,
-  purge: () => runRetentionPurge({ accounts, vaults, now: new Date() }),
+  purge: () => purgeRetention(new Date()),
   logger: { info: (event) => console.info(JSON.stringify(event)), error: (event) => console.error(JSON.stringify(event)) },
   createJobId: randomUUID
 });

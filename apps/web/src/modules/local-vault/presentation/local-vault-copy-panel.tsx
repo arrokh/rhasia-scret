@@ -7,14 +7,15 @@ import { Copy, LoaderCircle, LockKeyhole, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useCreateEncryptedAuthenticatorAccountMutation, encryptAccountConfiguration, type WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account";
+import { useCreateEncryptedAuthenticatorAccountMutation, encryptAccountConfiguration } from "@/modules/authenticator-account";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { addLocalAccount, clearUnlockedLocalVault, readLocalVaultRecord, refreshUnlockedLocalVault, unlockLocalVault, type UnlockedLocalVault } from "@/modules/local-vault";
-import { recordPersonalVaultAccountCopiesToLocal } from "@/modules/vault-management";
+import { recordPersonalVaultAccountCopiesToLocal } from "@/modules/audit";
 
 export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, personalVaultKey, personalAccounts, onPersonalAccountsCopied }: { personalVaultId: string; personalVaultName: string; personalVaultKey: Uint8Array; personalAccounts: WorkspaceAuthenticatorAccount[]; onPersonalAccountsCopied: (accounts: WorkspaceAuthenticatorAccount[]) => void }) {
   const t = useTranslations("LocalVaultCopy");

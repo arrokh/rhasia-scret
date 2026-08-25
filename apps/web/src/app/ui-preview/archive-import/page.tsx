@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ArchiveImportPreviewClient } from "./preview-client";
+import { ArchiveImportPreviewClient } from "@/modules/vault-archive/preview";
 
 export const dynamic = "force-dynamic";
 

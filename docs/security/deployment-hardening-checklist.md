@@ -5,7 +5,7 @@ Use this checklist for every production release. A checked repository item is no
 ## Browser delivery
 
 - [ ] HTTPS is forced and HSTS is present with the production preload policy.
-- [ ] Dynamic HTML/API responses contain a nonce-based CSP; static assets contain the restrictive fallback policy. Confirm `script-src` has no production `unsafe-inline` or `unsafe-eval`; the only WebAssembly exception is the narrow `wasm-unsafe-eval` needed by the Argon2id browser implementation.
+- [ ] Dynamic HTML/API responses contain a nonce-based CSP; static assets contain the restrictive fallback policy. Confirm `script-src` has no production `unsafe-inline` or `unsafe-eval`; `script-src-elem` permits only same-origin immutable Next.js chunks and the configured PostHog asset host while inline scripts still require the response nonce. The only WebAssembly exception is the narrow `wasm-unsafe-eval` needed by the Argon2id browser implementation.
 - [ ] `frame-ancestors`, `X-Frame-Options`, `base-uri`, `form-action`, `object-src`, `Permissions-Policy`, `Referrer-Policy`, COOP, CORP, and `nosniff` are present on pages, APIs, manifest, service worker, and static assets.
 - [ ] `Cache-Control: no-store, private` is present on API/auth responses. No user-specific HTML, source maps, API responses, cookies, or auth responses are in Cache Storage.
 - [ ] The service worker only caches the public offline shell, manifest, same-origin static assets, and approved PWA assets; `.map`, cross-origin, `/api`, and `/auth` paths are excluded.

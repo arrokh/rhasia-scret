@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
+import { createSharedVaultRecoveryRepository } from "@/modules/vault-management/server";
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   return changeLifecycle(params, "delete");
@@ -19,7 +18,7 @@ async function changeLifecycle(params: Promise<{ vaultId: string }>, action: "de
   const rateLimited = await rateLimitApplicationUser("destructive_mutation", user.id);
   if (rateLimited) return rateLimited;
   const { vaultId } = await params;
-  const repository = new PrismaSharedVaultRecoveryRepository();
+  const repository = createSharedVaultRecoveryRepository();
   const changed = action === "delete" ? await repository.delete(user.id, vaultId) : await repository.restore(user.id, vaultId);
   if (!changed) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
   return new NextResponse(null, { status: 204 });

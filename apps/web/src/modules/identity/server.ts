@@ -1,14 +1,24 @@
+import type { ApplicationUserRepository } from "./application/application-user-repository";
+import { loadApplicationUser } from "./application/load-application-user";
 import type { SessionAssurance, SessionVerifier } from "./application/session-verifier";
 import type { SessionTerminator } from "./application/session-terminator";
+import type { UserCryptoProfileRepository } from "./application/user-crypto-profile-repository";
 import { readAuthConfiguration, type AuthBackend } from "./infrastructure/auth-backend";
 import { NoneSessionVerifier } from "./infrastructure/none-session-verifier";
 import { OidcSessionVerifier } from "./infrastructure/oidc-session-verifier";
 import { OidcSessionTerminator } from "./infrastructure/oidc-session-terminator";
 import { PrismaApplicationUserRepository } from "./infrastructure/prisma-application-user-repository";
+import { PrismaPasskeyRecoveryRepository } from "./infrastructure/prisma-passkey-recovery-repository";
+import { PrismaUserCryptoProfileRepository } from "./infrastructure/prisma-user-crypto-profile-repository";
 import { isOidcPrincipalAdmitted } from "./infrastructure/prisma-application-admission";
 import { completeSupabaseCallback as completeSupabaseCallbackWithAdapter, readSupabaseCallbackConfiguration, type SupabaseCallbackCookieStore } from "./infrastructure/supabase-auth-callback";
 import { SupabaseSessionTerminator } from "./infrastructure/supabase-session-terminator";
 import { SupabaseSessionVerifier } from "./infrastructure/supabase-session-verifier";
+
+export { loadApplicationUser };
+export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
+export { browserE2eAuthenticationVerified, browserE2eRegistrationCredential } from "./infrastructure/browser-e2e-passkey-verification";
+export { passkeyRecoveryConfiguration } from "./infrastructure/passkey-recovery-configuration";
 
 export type SupabaseCallbackResult = "success" | "configuration_error" | "verification_failed";
 
@@ -49,6 +59,14 @@ export function createSessionTerminator(): SessionTerminator {
   } catch {
     return new OidcSessionTerminator();
   }
+}
+
+export function createPasskeyRecoveryRepository(): PrismaPasskeyRecoveryRepository {
+  return new PrismaPasskeyRecoveryRepository();
+}
+
+export function createUserCryptoProfileRepository(): UserCryptoProfileRepository {
+  return new PrismaUserCryptoProfileRepository();
 }
 
 export function createApplicationUserRepository(): PrismaApplicationUserRepository {

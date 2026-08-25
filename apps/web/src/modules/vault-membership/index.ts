@@ -19,6 +19,7 @@ export { redeemSecureShareLink } from "@rhasia-scret/client-vault-core";
 export { unlockSharedVault } from "./infrastructure/browser-shared-vault-unlock";
 export { createSharedVaultInvitation } from "./infrastructure/browser-shared-vault-invitation";
 export { SecureShareLinkRedemption } from "./presentation/secure-share-link-redemption";
+export { VaultMemberPermissionNotice, VaultMembershipDefaults, VaultMembershipOwnerPanel } from "./presentation/vault-membership-owner-panel";
 export {
   useDeleteVaultParticipantMutation,
   useUpdateVaultDefaultAccountPermissionsMutation,

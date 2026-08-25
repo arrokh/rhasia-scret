@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { InvitationRedemptionWorkspace } from "@/modules/authenticator-account";
-import { loadVaultPageContext } from "@/app/vaults/load-vault-page-context";
-import { VaultPageFrame } from "@/app/vaults/vault-page-frame";
+import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
 
 export const dynamic = "force-dynamic";
 

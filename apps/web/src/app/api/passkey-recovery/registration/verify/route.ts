@@ -2,11 +2,7 @@ import { verifyRegistrationResponse, type RegistrationResponseJSON } from "@simp
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
-import { browserE2eRegistrationCredential } from "@/modules/identity/infrastructure/browser-e2e-passkey-verification";
-import { passkeyRecoveryConfiguration } from "@/modules/identity/infrastructure/passkey-recovery-configuration";
+import { browserE2eRegistrationCredential, createApplicationUserRepository, createPasskeyRecoveryRepository, createSessionVerifier, loadApplicationUser, passkeyRecoveryConfiguration } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const bodySchema = z.object({ response: z.unknown(), encryptedRecoveryPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13) });
@@ -20,7 +16,7 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
-    const repository = new PrismaPasskeyRecoveryRepository();
+    const repository = createPasskeyRecoveryRepository();
     const challenge = await repository.consumeChallenge(user.id, "REGISTRATION");
     if (!challenge) return NextResponse.json({ error: "passkey_challenge_expired" }, { status: 400 });
     const registrationResponse = parsed.data.response as RegistrationResponseJSON;

@@ -1,12 +1,7 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
+import { createApplicationUserRepository, createSessionVerifier, createUserCryptoProfileRepository, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier, type UserCryptoProfileRepository } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const publicKeySchema = z.object({ kty: z.literal("EC"), crv: z.literal("P-256"), x: z.string(), y: z.string() }).passthrough().refine((key) => !("d" in key));
@@ -34,5 +29,5 @@ export function createUserEncryptionIdentityHandler({ sessionVerifier, applicati
 export const PUT = createUserEncryptionIdentityHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  cryptoProfiles: new PrismaUserCryptoProfileRepository()
+  cryptoProfiles: createUserCryptoProfileRepository()
 });

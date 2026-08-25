@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { appendVaultAuditEvent } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
 import { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "../domain/account-retention-policy";
@@ -21,7 +22,7 @@ export class PrismaPersonalAccountRepository implements PersonalAccountRepositor
         data: { vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion }
       });
       if (account.source === "LOCAL_VAULT_COPY") {
-        await transaction.vaultAuditEvent.create({ data: { vaultId, ownerId, actorUserId: ownerId, eventType: "ACCOUNT_COPIED_FROM_LOCAL", targetId: created.id } });
+        await appendVaultAuditEvent(transaction, { vaultId, ownerId, actorUserId: ownerId, action: "ACCOUNT_COPIED_FROM_LOCAL", targetId: created.id });
       }
       return toAccount(created);
     });

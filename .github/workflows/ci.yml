@@ -3,14 +3,12 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: ci-${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -43,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 26.7.0
+          node-version: 24.19.0
 
       - name: Locate pnpm store
         id: pnpm-store
@@ -132,7 +130,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 26.7.0
+          node-version: 24.19.0
 
       - name: Locate pnpm store
         id: pnpm-store

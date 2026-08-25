@@ -1,1 +1,12 @@
-export type AuditAction = "VAULT_CREATED" | "ACCOUNT_ADDED" | "ACCOUNT_UPDATED" | "ACCOUNT_DELETED" | "ACCOUNT_RESTORED" | "MEMBER_REVOKED" | "MEMBER_PERMISSIONS_UPDATED" | "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED" | "ACCOUNT_ACCESSED" | "ACCOUNT_COPIED_FROM_LOCAL" | "ACCOUNT_COPIED_TO_LOCAL" | "ARCHIVE_EXPORTED" | "ARCHIVE_IMPORTED" | "VAULT_DELETED" | "VAULT_RESTORED";
+export { VAULT_AUDIT_ACTIONS, isAuditAction, redactedAuditAction } from "./domain/vault-audit-event";
+export type { AuditAction, RedactedAuditAction } from "./domain/vault-audit-event";
+export {
+  loadVaultAuditEvents,
+  recordPersonalVaultAccountCopiesToLocal,
+  recordSharedVaultAccountAccess,
+  recordVaultArchiveExport
+} from "./infrastructure/browser-vault-audit-client";
+export type { VaultAuditEvent, VaultAuditFilter, VaultAuditPage } from "./infrastructure/browser-vault-audit-client";
+export { useVaultAuditQuery } from "./presentation/hooks/use-vault-audit-query";
+export { VaultAuditHistory, vaultAuditEventMessageKey } from "./presentation/vault-audit-history";
+export type { SelectedAuditFilter, VaultAuditEventMessageKey } from "./presentation/vault-audit-history";

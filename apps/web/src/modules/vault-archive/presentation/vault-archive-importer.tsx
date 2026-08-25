@@ -10,17 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  clearUnlockedVaultWorkspace,
-  refreshUnlockedVaultWorkspace,
-  useUnlockedVaultWorkspace,
-  VaultWorkspaceUnlock,
-  type UnlockedVaultWorkspace
-} from "@/modules/authenticator-account";
+import { useUnlockedVaultWorkspace, VaultWorkspaceUnlock } from "@/modules/authenticator-account";
+import type { UnlockedVaultWorkspace } from "@/modules/sync";
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@/modules/crypto";
 import { createSharedVaultMaterial } from "@/modules/vault-management";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
@@ -47,20 +43,20 @@ class VaultArchivePresentationError extends Error {
 
 export function VaultArchiveImportWorkspace({ personalVaultId }: { personalVaultId: string }) {
   const t = useTranslations("VaultArchive.importer");
-  const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
+  const { workspace, setWorkspace, replaceWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <div className="grid gap-4 p-5 sm:p-6"><StatusBanner tone="offline">{t("blocked")}</StatusBanner><Button variant="outline" asChild><Link href="/vaults">{t("backReadOnly")}</Link></Button></div>;
-  return <VaultArchiveImporter workspace={workspace} replaceWorkspace={setWorkspace} />;
+  return <VaultArchiveImporter workspace={workspace} replaceWorkspace={replaceWorkspace} refreshAfterImport={async () => { await refreshWorkspaceAuthorization(); return null; }} />;
 }
 
 export function VaultArchiveImporter({
   workspace,
   replaceWorkspace,
-  refreshAfterImport = (current) => refreshUnlockedVaultWorkspace(current.userRootKey, current.profileId)
+  refreshAfterImport
 }: {
   workspace: UnlockedVaultWorkspace;
-  replaceWorkspace: ReturnType<typeof useUnlockedVaultWorkspace>["setWorkspace"];
-  refreshAfterImport?: (current: UnlockedVaultWorkspace) => Promise<UnlockedVaultWorkspace>;
+  replaceWorkspace: (workspace: UnlockedVaultWorkspace | null) => void;
+  refreshAfterImport: (current: UnlockedVaultWorkspace) => Promise<UnlockedVaultWorkspace | null>;
 }) {
   const t = useTranslations("VaultArchive.importer");
   const tCommon = useTranslations("Common");
@@ -193,16 +189,16 @@ export function VaultArchiveImporter({
       uploaded = true;
       setImportPhase("refreshing");
       const refreshed = await refreshAfterImport(workspace);
-      replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
+      if (refreshed) replaceWorkspace(refreshed);
       replaceOpened(null);
-      captureAnalyticsEvent("vault_archive_import_completed", { account_count: plan.accountIds.length, destination_type: destination?.type ?? "SHARED", created_new_vault: result.vaultCreated });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.vaultArchiveImportCompleted, { account_count: plan.accountIds.length, destination_type: destination?.type ?? "SHARED", created_new_vault: result.vaultCreated });
       setSuccess({ count: plan.accountIds.length, newVault: result.vaultCreated, vaultId: result.vaultId, vaultType: destination?.type ?? "SHARED" });
     } catch (error) {
       if (!activeRef.current) return;
       if (error instanceof VaultImportClientError && error.code === "clientDestinationUnavailable") {
         try {
           const refreshed = await refreshAfterImport(workspace);
-          replaceWorkspace((current) => { if (current) clearUnlockedVaultWorkspace(current); return refreshed; });
+          if (refreshed) replaceWorkspace(refreshed);
         } catch {
           // Preserve the current unlocked workspace when authorization refresh also fails.
         }

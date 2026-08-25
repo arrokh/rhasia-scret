@@ -18,9 +18,12 @@ const SECURITY_HEADERS: Record<string, string> = {
 
 function createCsp(nonce: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+  // Next.js can omit a nonce from dynamically inserted chunk elements; keep inline scripts nonced while allowing immutable same-origin chunks.
+  const scriptElementPolicy = [`script-src-elem 'self' 'nonce-${nonce}'`, posthogAssetsHost].filter(Boolean).join(" ");
   return [
     "default-src 'self'",
     [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`, posthogAssetsHost].filter(Boolean).join(" "),
+    scriptElementPolicy,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
@@ -86,5 +89,5 @@ function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse)
 export const proxy = createAuthProxy();
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"]
+  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"]
 };

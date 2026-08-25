@@ -5,9 +5,7 @@ import { ArrowRight, Bot, CheckCircle2, Cloud, Ellipsis, EyeOff, FileLock2, Lapt
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FaDiscord, FaFacebook, FaGithub, FaGoogle, FaInstagram, FaLinkedin, FaMicrosoft, FaReddit, FaSlack, FaSpotify, FaTiktok, FaXTwitter } from "react-icons/fa6";
-import { LandingHeader } from "@/app/landing-header";
-import { LandingMobileCta } from "@/app/landing-mobile-cta";
-import { LandingVaultPreviews } from "@/app/landing-vault-previews";
+import { LandingHeader, LandingMobileCta, LandingVaultPreviews } from "@/modules/landing";
 
 const flowIcons = [Laptop, FileLock2, UserRoundCheck, Smartphone] as const;
 const browserIcons = [LockKeyhole, EyeOff] as const;

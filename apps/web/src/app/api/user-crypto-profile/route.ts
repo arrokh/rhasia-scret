@@ -1,11 +1,6 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
+import { createApplicationUserRepository, createSessionVerifier, createUserCryptoProfileRepository, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier, type UserCryptoProfileRepository } from "@/modules/identity/server";
 
 type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; cryptoProfiles: UserCryptoProfileRepository };
 
@@ -30,5 +25,5 @@ export function createGetUserCryptoProfileHandler({ sessionVerifier, application
 export const GET = createGetUserCryptoProfileHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  cryptoProfiles: new PrismaUserCryptoProfileRepository()
+  cryptoProfiles: createUserCryptoProfileRepository()
 });

@@ -9,7 +9,8 @@ import {
   type PreparedVaultArchive,
   type VaultArchiveExportErrorCode
 } from "@rhasia-scret/client-vault-core";
-import { serializeDecryptedAccountPayload, type WorkspaceAuthenticatorAccount } from "@/modules/authenticator-account";
+import { serializeDecryptedAccountPayload } from "@/modules/authenticator-account";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
 
 export { VaultArchiveExportError, clearPreparedVaultArchive };
 export type { PreparedVaultArchive, VaultArchiveExportErrorCode };

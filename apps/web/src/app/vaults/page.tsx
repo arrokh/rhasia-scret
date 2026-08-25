@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { LockKeyhole } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { loadVaultPageContext } from "@/app/vaults/load-vault-page-context";
-import { VaultPageLogoutAction } from "@/app/vaults/vault-page-logout-action";
+import { loadVaultPageContext, VaultPageLogoutAction } from "@/modules/vault-management/page";
 import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account";
 import { AppPage, PageHeader, SectionHeading, SurfaceCard } from "@/shared/presentation/app-ui";

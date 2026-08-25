@@ -1,14 +1,10 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
-import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
-import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
+import { createSharedVaultAccessRepository } from "@/modules/vault-membership/server";
+import { createSharedVaultRepository, type SharedVaultRepository } from "@/modules/vault-management/server";
 
 const renameSchema = z.object({
   encryptedName: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
@@ -20,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ vau
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   const { vaultId } = await params;
-  const access = await new PrismaSharedVaultAccessRepository().getForMember(user.id, vaultId);
+  const access = await createSharedVaultAccessRepository().getForMember(user.id, vaultId);
   if (!access) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
   return NextResponse.json({
     vaultId: access.vaultId,
@@ -59,5 +55,5 @@ export function createRenameSharedVaultHandler({
 export const PATCH = createRenameSharedVaultHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  sharedVaults: new PrismaSharedVaultRepository()
+  sharedVaults: createSharedVaultRepository()
 });

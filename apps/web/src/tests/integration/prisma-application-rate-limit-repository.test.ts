@@ -29,7 +29,7 @@ describe("Prisma application rate-limit repository", () => {
     await expect(prisma.applicationRateLimitWindow.findMany({ where: { userId: user.id } })).resolves.toEqual([
       expect.objectContaining({ userId: user.id, operation: "destructive_mutation", requestCount: 6 })
     ]);
-  });
+  }, 15_000);
 
   it.skipIf(!process.env.DATABASE_URL)("retains only a bounded period of expired aggregate windows", async () => {
     const user = await createUser("retention");

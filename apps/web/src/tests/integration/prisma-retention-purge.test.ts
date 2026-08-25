@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaExpiredAccountPurgeRepository } from "@/modules/authenticator-account/infrastructure/prisma-expired-account-purge-repository";
 import { PrismaSharedAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
-import { auditPurgeAfter, vaultPurgeAfter } from "@/modules/vault-management";
+import { auditPurgeAfter } from "@/modules/audit/server";
+import { PrismaExpiredVaultAuditRepository } from "@/modules/audit/infrastructure/prisma-expired-vault-audit-repository";
+import { vaultPurgeAfter } from "@/modules/vault-management";
 import { PrismaExpiredVaultRetentionRepository } from "@/modules/vault-management/infrastructure/prisma-expired-vault-retention-repository";
 import { PrismaSharedVaultRecoveryRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-recovery-repository";
-import { PrismaVaultAuditRepository } from "@/modules/vault-management/infrastructure/prisma-vault-audit-repository";
+import { PrismaVaultAuditRepository } from "@/modules/audit/infrastructure/prisma-vault-audit-repository";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 
 const userIds: string[] = [];
@@ -100,11 +102,12 @@ describe("Prisma retention purge", () => {
     await expect(new PrismaVaultAuditRepository().listForOwner(viewer.id, vault.id)).resolves.toBeNull();
 
     const ownAuditIds = (await prisma.vaultAuditEvent.findMany({ where: { vaultId: vault.id }, select: { id: true } })).map(({ id }) => id);
-    const auditBeforeDeadline = await retention.purgeExpiredAuditEvents(new Date("2027-07-26T11:59:59.999Z"), 100);
+    const auditRetention = new PrismaExpiredVaultAuditRepository();
+    const auditBeforeDeadline = await auditRetention.purgeExpiredAuditEvents(new Date("2027-07-26T11:59:59.999Z"), 100);
     expect(ownAuditIds.every((id) => !auditBeforeDeadline.purgedIds.includes(id))).toBe(true);
-    const purgedAudit = await retention.purgeExpiredAuditEvents(new Date("2027-07-26T12:00:00.000Z"), 100);
+    const purgedAudit = await auditRetention.purgeExpiredAuditEvents(new Date("2027-07-26T12:00:00.000Z"), 100);
     expect(purgedAudit.purgedIds).toEqual(expect.arrayContaining(ownAuditIds));
-    const repeatedAuditPurge = await retention.purgeExpiredAuditEvents(new Date("2027-07-26T12:00:00.000Z"), 100);
+    const repeatedAuditPurge = await auditRetention.purgeExpiredAuditEvents(new Date("2027-07-26T12:00:00.000Z"), 100);
     expect(ownAuditIds.every((id) => !repeatedAuditPurge.purgedIds.includes(id))).toBe(true);
     await expect(new PrismaVaultAuditRepository(() => new Date("2027-07-26T12:00:00.000Z")).listForOwner(owner.id, vault.id)).resolves.toBeNull();
   });

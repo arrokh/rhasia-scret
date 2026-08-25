@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useVaultAuditQuery } from "./hooks/use-vault-audit-query";
+import { useVaultAuditQuery, VaultAuditHistory } from "@/modules/audit";
 import { VaultAccountManagementList, type ManagedVaultAccountSummary } from "./vault-account-management-list";
-import { VaultAuditHistory } from "./vault-audit-history";
 
 export type PersonalVaultSummary = { id: string; name: string; accounts: ManagedVaultAccountSummary[] };
 

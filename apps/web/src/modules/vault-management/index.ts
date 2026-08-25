@@ -1,14 +1,13 @@
 export { Vault } from "./domain/vault";
-export { VAULT_RECOVERY_DAYS, auditPurgeAfter, vaultPurgeAfter } from "./domain/vault-retention-policy";
-export { purgeExpiredSharedVaults, purgeExpiredVaultAuditEvents } from "./application/purge-expired-vault-retention";
-export type { AuditPurgeBatch, ExpiredVaultRetentionRepository, VaultPurgeBatch } from "./application/purge-expired-vault-retention";
+export { VAULT_RECOVERY_DAYS, vaultPurgeAfter } from "./domain/vault-retention-policy";
+export { purgeExpiredSharedVaults } from "./application/purge-expired-vault-retention";
+export type { ExpiredVaultRetentionRepository, VaultPurgeBatch } from "./application/purge-expired-vault-retention";
 export type { VaultLifecycle, VaultType } from "./domain/vault";
 export { SharedVaultCreator } from "./presentation/shared-vault-creator";
 export { PersonalVaultDetails } from "./presentation/personal-vault-manager";
 export type { PersonalVaultSummary } from "./presentation/personal-vault-manager";
 export { SharedVaultDirectory, SharedVaultDetails } from "./presentation/shared-vault-manager";
 export type { SharedVaultSummary } from "./presentation/shared-vault-manager";
-export { recordPersonalVaultAccountCopiesToLocal, recordSharedVaultAccountAccess, recordVaultArchiveExport } from "./infrastructure/browser-vault-management-client";
 export { createSharedVaultMaterial } from "./infrastructure/browser-shared-vault-creator";
 export { DestructivePersonalVaultResetForm } from "./presentation/destructive-personal-vault-reset-form";
 export { OwnedSharedVaultResetBlocker } from "./presentation/owned-shared-vault-reset-blocker";

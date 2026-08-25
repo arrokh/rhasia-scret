@@ -1,10 +1,7 @@
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
-import { passkeyRecoveryConfiguration } from "@/modules/identity/infrastructure/passkey-recovery-configuration";
+import { createApplicationUserRepository, createPasskeyRecoveryRepository, createSessionVerifier, loadApplicationUser, passkeyRecoveryConfiguration } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 export async function POST() {
@@ -14,7 +11,7 @@ export async function POST() {
   const rateLimited = await rateLimitApplicationUser("recovery_authentication", user.id);
   if (rateLimited) return rateLimited;
   try {
-    const repository = new PrismaPasskeyRecoveryRepository();
+    const repository = createPasskeyRecoveryRepository();
     const credential = await repository.getCredential(user.id);
     if (!credential) return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 404 });
     const configuration = passkeyRecoveryConfiguration();

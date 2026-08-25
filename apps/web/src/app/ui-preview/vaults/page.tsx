@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { LogoutForm } from "@/modules/identity";
 import { AppPage, PageHeader } from "@/shared/presentation/app-ui";
-import { VaultManagementPreview } from "./vault-management-preview";
+import { VaultManagementPreview } from "@/modules/vault-management/preview";
 
 export const dynamic = "force-dynamic";
 

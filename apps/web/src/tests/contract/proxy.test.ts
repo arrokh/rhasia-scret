@@ -20,8 +20,10 @@ describe("authentication proxy contract", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("x-middleware-request-x-nonce")).toBeTruthy();
     expect(response.headers.get("server-timing")).toMatch(/^auth_claims;dur=\d+\.\d{2}$/);
     expect(response.headers.get("content-security-policy")).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+    expect(response.headers.get("content-security-policy")).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
     expect(response.headers.get("strict-transport-security")).toContain("preload");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-frame-options")).toBe("DENY");

@@ -1,13 +1,9 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { initializePersonalVault, type PersonalVaultInitializer } from "@/modules/vault-management/application/initialize-personal-vault";
-import { PrismaPersonalVaultRepository } from "@/modules/vault-management/infrastructure/prisma-personal-vault-repository";
+import { createPersonalVaultRepository, initializePersonalVault, type PersonalVaultInitializer } from "@/modules/vault-management/server";
 
 const opaqueBlob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
 const initializationSchema = z.object({
@@ -47,5 +43,5 @@ export function createInitializePersonalVaultHandler({ sessionVerifier, applicat
 export const POST = createInitializePersonalVaultHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  personalVaults: new PrismaPersonalVaultRepository()
+  personalVaults: createPersonalVaultRepository()
 });

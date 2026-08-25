@@ -1,12 +1,9 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { createSecureShareLinkInvitation } from "@/modules/vault-membership/application/manage-secure-share-link";
-import { InvitationConflictError, InvitationRecipientUnavailableError } from "@/modules/vault-membership/application/secure-share-link-repository";
-import { PrismaSecureShareLinkRepository } from "@/modules/vault-membership/infrastructure/prisma-secure-share-link-repository";
+import { createSecureShareLinkInvitation, createSecureShareLinkRepository, InvitationConflictError, InvitationRecipientUnavailableError } from "@/modules/vault-membership/server";
 
 const schema = z.object({ recipientEmail: z.email(), linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32), encryptedPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13) });
 
@@ -20,7 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return NextResponse.json({ error: "invalid_share_link" }, { status: 400 });
   try {
     const { vaultId } = await params;
-    const link = await createSecureShareLinkInvitation(user.id, vaultId, parsed.data.recipientEmail, { linkVerifier: Buffer.from(parsed.data.linkVerifier, "base64"), encryptedPackage: Buffer.from(parsed.data.encryptedPackage, "base64") }, new PrismaSecureShareLinkRepository());
+    const link = await createSecureShareLinkInvitation(user.id, vaultId, parsed.data.recipientEmail, { linkVerifier: Buffer.from(parsed.data.linkVerifier, "base64"), encryptedPackage: Buffer.from(parsed.data.encryptedPackage, "base64") }, createSecureShareLinkRepository());
     return NextResponse.json({ id: link.id, expiresAt: link.expiresAt.toISOString() }, { status: 201 });
   } catch (error) {
     if (error instanceof InvitationRecipientUnavailableError) return NextResponse.json({ error: "shared_vault_or_recipient_unavailable" }, { status: 404 });

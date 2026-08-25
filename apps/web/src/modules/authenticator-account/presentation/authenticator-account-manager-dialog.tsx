@@ -10,13 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import { encryptAccountConfiguration } from "../infrastructure/browser-account-payload";
-import type { WorkspaceAuthenticatorAccount } from "../infrastructure/browser-vault-workspace";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { useDeleteEncryptedAuthenticatorAccountMutation, useUpdateEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
 
 export function AuthenticatorAccountManagerDialog({ account, vaultKey, canEdit = true, canDelete = true, onUpdated, onDeleted, onPermissionChanged, onClose }: { account: WorkspaceAuthenticatorAccount; vaultKey: Uint8Array; canEdit?: boolean; canDelete?: boolean; onUpdated: (account: WorkspaceAuthenticatorAccount) => void; onDeleted: (account: WorkspaceAuthenticatorAccount) => void; onPermissionChanged?: () => Promise<void>; onClose: () => void }) {
@@ -36,14 +37,14 @@ export function AuthenticatorAccountManagerDialog({ account, vaultKey, canEdit =
         const encryptedPayload = await encryptAccountConfiguration(vaultKey, nextAccount, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: account.vaultId, keyVersion: 1 });
         const updated = await updateMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision, encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 });
         onUpdated({ ...nextAccount, revision: updated.revision });
-        captureAnalyticsEvent("authenticator_account_updated", { vault_type: account.vaultType });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountUpdated, { vault_type: account.vaultType });
         setStatus("updated");
       } catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setStatus("updateError"); }
     }
   });
 
   async function deleteAccount() {
-    try { await deleteMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision }); onDeleted(account); captureAnalyticsEvent("authenticator_account_deleted", { vault_type: account.vaultType }); onClose(); }
+    try { await deleteMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision }); onDeleted(account); captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountDeleted, { vault_type: account.vaultType }); onClose(); }
     catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setConfirmingDelete(false); setStatus("deleteError"); }
   }
 

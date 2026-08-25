@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { RememberedBrowserPreviewClient } from "./preview-client";
+import { RememberedBrowserPreviewClient } from "@/modules/crypto/preview";
 
 export const dynamic = "force-dynamic";
 
