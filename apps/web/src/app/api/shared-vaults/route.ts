@@ -1,15 +1,10 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import type { SharedVaultRepository } from "@/modules/vault-management/application/shared-vault-repository";
-import { PrismaSharedVaultRepository } from "@/modules/vault-management/infrastructure/prisma-shared-vault-repository";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
+import { createSharedVaultRepository, type SharedVaultRepository } from "@/modules/vault-management/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import type { SharedVaultAccessRepository } from "@/modules/vault-membership/application/shared-vault-access-repository";
-import { PrismaSharedVaultAccessRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-access-repository";
+import { createSharedVaultAccessRepository, type SharedVaultAccessRepository } from "@/modules/vault-membership/server";
 
 const blob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
 const schema = z.object({ vaultId: z.string().regex(/^[A-Za-z0-9_-]{16,128}$/).optional(), encryptedName: blob, encryptedOwnerVaultKey: blob, encryptionVersion: z.literal(1) });
@@ -72,10 +67,10 @@ const applicationUsers = createApplicationUserRepository();
 export const GET = createListSharedVaultsHandler({
   sessionVerifier,
   applicationUsers,
-  sharedVaultAccess: new PrismaSharedVaultAccessRepository()
+  sharedVaultAccess: createSharedVaultAccessRepository()
 });
 export const POST = createSharedVaultHandler({
   sessionVerifier,
   applicationUsers,
-  sharedVaults: new PrismaSharedVaultRepository()
+  sharedVaults: createSharedVaultRepository()
 });

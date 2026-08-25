@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import { PrismaPasskeyRecoveryRepository } from "@/modules/identity/infrastructure/prisma-passkey-recovery-repository";
+import { createApplicationUserRepository, createPasskeyRecoveryRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 export async function DELETE() {
@@ -11,6 +9,6 @@ export async function DELETE() {
   const rateLimited = await rateLimitApplicationUser("recovery_mutation", user.id);
   if (rateLimited) return rateLimited;
 
-  await new PrismaPasskeyRecoveryRepository().removeCredential(user.id);
+  await createPasskeyRecoveryRepository().removeCredential(user.id);
   return new Response(null, { status: 204 });
 }

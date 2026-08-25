@@ -12,7 +12,7 @@ import { usePasskeyRecoveryStatusQuery } from "@/modules/identity";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
-import { clearUnlockedVaultWorkspace, loadUnlockedVaultWorkspace, loadUnlockedVaultWorkspaceWithPasskey, loadUnlockedVaultWorkspaceWithRememberedBrowser, type UnlockedVaultWorkspace } from "../infrastructure/browser-vault-workspace";
+import { clearUnlockedVaultWorkspace, loadUnlockedVaultWorkspace, loadUnlockedVaultWorkspaceWithPasskey, loadUnlockedVaultWorkspaceWithRememberedBrowser, type UnlockedVaultWorkspace } from "@/modules/sync";
 
 export function VaultWorkspaceUnlock({ personalVaultId, onUnlocked }: { personalVaultId: string; onUnlocked: (workspace: UnlockedVaultWorkspace) => void }) {
   const t = useTranslations("AuthenticatorAccount.unlock");

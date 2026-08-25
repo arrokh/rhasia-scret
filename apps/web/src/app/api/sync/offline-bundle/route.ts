@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import type { OfflineSyncBundleReader } from "@/modules/sync/server";
-import { PrismaOfflineSyncBundleReader } from "@/modules/sync/infrastructure/prisma-offline-sync-bundle-reader";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
+import { createOfflineSyncBundleReader, type OfflineSyncBundleReader } from "@/modules/sync/server";
 
 export function createOfflineSyncBundleHandler({
   sessionVerifier,
@@ -31,5 +27,5 @@ export function createOfflineSyncBundleHandler({
 export const GET = createOfflineSyncBundleHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  bundles: new PrismaOfflineSyncBundleReader()
+  bundles: createOfflineSyncBundleReader()
 });

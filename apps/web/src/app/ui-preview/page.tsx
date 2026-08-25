@@ -5,7 +5,7 @@ import { ArrowLeftRight, Plus, ShieldKeyhole, Vault } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
-import { PreviewAccountMenu } from "./preview-account-menu";
+import { PreviewAccountMenu } from "@/modules/identity/preview";
 
 export const dynamic = "force-dynamic";
 

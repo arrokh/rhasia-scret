@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { appendVaultAuditEvent } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core";
 import type { EncryptedVaultImportRepository } from "../application/import-encrypted-vault-archive";
@@ -54,13 +55,13 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
               accounts: { create: request.accounts.map((account) => ({ id: account.id, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion })) }
             }
           });
-          await transaction.vaultAuditEvent.create({ data: { vaultId: request.destination.vaultId, ownerId: actorUserId, actorUserId, eventType: "ARCHIVE_IMPORTED" } });
+          await appendVaultAuditEvent(transaction, { vaultId: request.destination.vaultId, ownerId: actorUserId, actorUserId, action: "ARCHIVE_IMPORTED" });
         } else {
           if (!destination) return { status: "DESTINATION_UNAVAILABLE" };
           if (request.accounts.length) {
             await transaction.authenticatorAccount.createMany({ data: request.accounts.map((account) => ({ id: account.id, vaultId: request.destination.vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion })) });
           }
-          await transaction.vaultAuditEvent.create({ data: { vaultId: request.destination.vaultId, ownerId: destination.ownerId, actorUserId, eventType: "ARCHIVE_IMPORTED" } });
+          await appendVaultAuditEvent(transaction, { vaultId: request.destination.vaultId, ownerId: destination.ownerId, actorUserId, action: "ARCHIVE_IMPORTED" });
         }
         return { status: "IMPORTED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated: request.destination.kind === "NEW_SHARED" };
       });

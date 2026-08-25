@@ -1,0 +1,32 @@
+# Privacy-safe browser analytics
+
+- **Status:** Accepted
+- **Date:** 2026-08-23
+- **Related:** ADR-0038, ADR-0041
+
+## Context
+
+The application needs PostHog Web Analytics for page traffic and browser performance, including protected application routes. The browser must not transmit or persist plaintext Vault content, account labels, issuer values, TOTP configuration, OTPs, QR data, passphrases, keys, email addresses, or arbitrary user identifiers. Disabling screen recording does not by itself prevent pageview, DOM-interaction, URL, exception, or performance metadata from being captured.
+
+## Decision
+
+Browser analytics is initialized only when the public PostHog token and host are configured. Its policy is centralized in `apps/web/src/shared/infrastructure/browser-analytics-config.ts`.
+
+The routes `/vaults`, `/local`, `/totp`, `/offline`, `/sign-in`, and `/auth` expose only these automatic events:
+
+- `$pageview`
+- `$pageleave`
+- `$web_vitals`
+- `$performance_event`
+
+Their URL paths are normalized to `/[private]`; query strings and fragments are removed. Automatic clicks, submits, dead clicks, heatmap payloads, exceptions, DOM text, DOM attributes, copied text, and object-valued automatic properties are rejected on those routes. Public DOM interaction autocapture is limited to `click`/`submit` on `a`/`button` elements; all enabled automatic event types pass through the same sanitizer. Heatmap collection is disabled globally because the SDK heatmap payload is object-valued DOM data that cannot be safely allowlisted by the generic sanitizer.
+
+Persistence is enabled only for the active browser tab through `sessionStorage`, with a dedicated persistence name. Referrer, campaign, and URL-fragment capture are disabled. PostHog session recording and surveys remain disabled, all text and element attributes remain masked, and Do Not Track remains respected. The application user identifier is SHA-256 hashed in the browser before `identify`; raw application identifiers are never sent to PostHog.
+
+Explicit application events use a typed allowlist and locale-independent, aggregate properties. They cannot accept arbitrary event names or Vault content.
+
+## Consequences
+
+PostHog Web Analytics can report redacted pageview and performance activity for protected routes while omitting their private interaction details. Session-level analytics can correlate reloads within one tab, but cross-tab and long-term visitor metrics are intentionally limited. SessionStorage contains only PostHog pseudonymous/session metadata; encrypted Vault state and application content remain in their existing client-owned stores and are not placed in analytics persistence.
+
+The `before_send` policy is defense-in-depth rather than a formal guarantee against future SDK behavior changes. Production rollout must include a controlled payload review after deployment, and any new automatic event type or sensitive property requires an analytics policy/test update.

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { appendVaultAuditEvent, type AuditAction } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import {
   canPerformSharedVaultAccountOperation,
@@ -181,12 +182,10 @@ function recordAccountAudit(
   transaction: Prisma.TransactionClient,
   vault: LockedVault,
   actorUserId: string,
-  eventType: "ACCOUNT_ADDED" | "ACCOUNT_UPDATED" | "ACCOUNT_DELETED" | "ACCOUNT_RESTORED",
+  action: Extract<AuditAction, "ACCOUNT_ADDED" | "ACCOUNT_UPDATED" | "ACCOUNT_DELETED" | "ACCOUNT_RESTORED">,
   accountId: string
 ) {
-  return transaction.vaultAuditEvent.create({
-    data: { vaultId: vault.id, ownerId: vault.ownerId, actorUserId, eventType, targetId: accountId }
-  });
+  return appendVaultAuditEvent(transaction, { vaultId: vault.id, ownerId: vault.ownerId, actorUserId, action, targetId: accountId });
 }
 
 function encryptedAccount(account: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
 import { useLocale, useTranslations } from "next-intl";
@@ -9,36 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  clearUnlockedVaultWorkspace,
   loadOfflineVaultWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser,
-  refreshUnlockedVaultWorkspace,
-  LocalStorageSyncError,
   type UnlockedVaultWorkspace
-} from "@/modules/authenticator-account";
+} from "../infrastructure/browser-vault-workspace";
 import { TotpAccountButton } from "@/modules/otp-runtime";
 import { AppPage, Brand, PageHeader, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
-import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
-import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { formatLocalDateTime } from "@/i18n/format";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { BrowserOfflineVaultRepository } from "../infrastructure/browser-offline-vault-repository";
-import { browserVaultLockPort } from "../infrastructure/browser-vault-lock";
-import { browserApplicationLifecycle, browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
-import { nextOfflineSyncState } from "@rhasia-scret/client-vault-core";
 import { VaultStatusIndicator } from "./vault-status-indicator";
+import { useWorkspaceLifecycle } from "./use-workspace-lifecycle";
 import type { OfflineProfileSummary } from "../infrastructure/browser-offline-vault-repository";
 
 export function OfflineVaultShell() {
   const t = useTranslations("Sync.offline");
   const locale = useLocale();
   const [profiles, setProfiles] = useState<OfflineProfileSummary[]>([]);
-  const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(null);
-  const workspaceRef = useRef(workspace);
-  const reconcileRef = useRef<() => Promise<void>>(async () => undefined);
-  const reconcilingRef = useRef(false);
-  const hadWorkspaceRef = useRef(false);
+  const { workspace, replaceWorkspace } = useWorkspaceLifecycle();
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "unlock_error" | "remembered_error" | "storage_error">("loading");
   const [secretVisible, setSecretVisible] = useState(false);
   const [repository] = useState(() => new BrowserOfflineVaultRepository());
@@ -53,23 +42,6 @@ export function OfflineVaultShell() {
     }
   });
 
-  function replaceWorkspace(next: UnlockedVaultWorkspace | null) {
-    setWorkspace((current) => {
-      if (current && current !== next) clearUnlockedVaultWorkspace(current);
-      return next;
-    });
-  }
-
-  useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
-  useEffect(() => browserVaultLockPort.subscribe(() => setWorkspace((current) => {
-    clearUnlockedVaultWorkspace(current);
-    return null;
-  })), []);
-  useEffect(() => {
-    setBrowserWritesReadOnly(workspace?.syncState === "CURRENT" ? null : "Offline Vault shell is read-only.");
-    return () => setBrowserWritesReadOnly(null);
-  }, [workspace?.syncState]);
-
   useEffect(() => {
     let active = true;
     repository.listProfiles().then((items) => {
@@ -78,40 +50,8 @@ export function OfflineVaultShell() {
       if (items[0]) form.setFieldValue("profileId", items[0].profileId);
       setStatus(items.length ? "ready" : "empty");
     }).catch(() => { if (active) setStatus("storage_error"); });
-    return () => { active = false; const current = workspaceRef.current; if (current) clearUnlockedVaultWorkspace(current); };
+    return () => { active = false; };
   }, [form, repository]);
-
-  useEffect(() => {
-    let active = true;
-    const offline = () => setWorkspace((current) => current ? { ...current, syncState: nextOfflineSyncState(current.syncState, "NETWORK_LOST") } : current);
-    const reconcile = async () => {
-      const current = workspaceRef.current;
-      if (!active || reconcilingRef.current || !browserNetworkStatus.isOnline() || !current || current.syncState === "CURRENT" || current.syncState === "SYNCING") return;
-      reconcilingRef.current = true;
-      setWorkspace((value) => value ? { ...value, syncState: nextOfflineSyncState(value.syncState, "RECONNECT_STARTED") } : value);
-      try {
-        const refreshed = await refreshUnlockedVaultWorkspace(current.userRootKey, current.profileId);
-        if (!active) { clearUnlockedVaultWorkspace(refreshed); return; }
-        replaceWorkspace({ ...refreshed, syncState: "CURRENT" });
-      } catch (error) {
-        if (!active) return;
-        const event = error instanceof BrowserApiError && error.status === 401 ? "AUTHENTICATION_FAILED" : error instanceof LocalStorageSyncError ? "LOCAL_STORAGE_FAILED" : "SYNC_FAILED";
-        setWorkspace((value) => value ? { ...value, syncState: nextOfflineSyncState("SYNCING", event) } : value);
-      } finally {
-        reconcilingRef.current = false;
-      }
-    };
-    reconcileRef.current = reconcile;
-    const disposeNetwork = browserNetworkStatus.subscribe((online) => { if (online) void reconcile(); else offline(); });
-    const disposeVisibility = browserApplicationLifecycle.subscribeVisibility((visible) => { if (visible) void reconcile(); });
-    return () => { active = false; disposeNetwork(); disposeVisibility(); };
-  }, []);
-
-  useEffect(() => {
-    const newlyUnlocked = workspace !== null && !hadWorkspaceRef.current;
-    hadWorkspaceRef.current = workspace !== null;
-    if (newlyUnlocked && browserNetworkStatus.isOnline()) void reconcileRef.current();
-  }, [workspace]);
 
   async function unlockRemembered() {
     const profileId = form.state.values.profileId;

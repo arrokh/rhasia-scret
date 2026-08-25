@@ -17,8 +17,5 @@ export { VaultWorkspaceUnlock } from "./presentation/vault-workspace-unlock";
 export { QrImportInput } from "./presentation/qr-import-input";
 export { BrowserQrImportPort, browserQrImportPort } from "./infrastructure/browser-qr-importer";
 export { useCreateEncryptedAuthenticatorAccountMutation } from "./presentation/hooks/use-authenticator-account-mutations";
-export { clearUnlockedVaultWorkspace, loadOfflineVaultWorkspace, loadOfflineVaultWorkspaceWithRememberedBrowser, loadUnlockedVaultWorkspaceWithRememberedBrowser, refreshUnlockedVaultWorkspace } from "./infrastructure/browser-vault-workspace";
 export { loadOfflineVaultWorkspace as loadOfflineVaultWorkspaceWithPorts, loadOfflineVaultWorkspaceWithRememberedBrowser as loadOfflineVaultWorkspaceWithRememberedBrowserWithPorts, loadUnlockedVaultWorkspace as loadUnlockedVaultWorkspaceWithPorts, loadUnlockedVaultWorkspaceWithPasskey as loadUnlockedVaultWorkspaceWithPasskeyWithPorts, loadUnlockedVaultWorkspaceWithRememberedBrowser as loadUnlockedVaultWorkspaceWithRememberedBrowserWithPorts, refreshUnlockedVaultWorkspace as refreshUnlockedVaultWorkspaceWithPorts } from "@rhasia-scret/client-vault-core";
-export { LocalStorageSyncError } from "./infrastructure/browser-vault-workspace";
-export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "./infrastructure/browser-vault-workspace";
 export { VaultDirectoryWorkspace, PersonalVaultDetailWorkspace, SharedVaultDetailWorkspace, SharedVaultCreationWorkspace, InvitationRedemptionWorkspace } from "./presentation/vault-management-workspace";

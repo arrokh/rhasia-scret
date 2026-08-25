@@ -1,12 +1,7 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import type { UserCryptoProfileRepository } from "@/modules/identity/application/user-crypto-profile-repository";
-import { PrismaUserCryptoProfileRepository } from "@/modules/identity/infrastructure/prisma-user-crypto-profile-repository";
+import { createApplicationUserRepository, createSessionVerifier, createUserCryptoProfileRepository, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier, type UserCryptoProfileRepository } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const schema = z.object({
@@ -44,5 +39,5 @@ export function createRewrapUserRootKeyHandler({ sessionVerifier, applicationUse
 export const POST = createRewrapUserRootKeyHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  cryptoProfiles: new PrismaUserCryptoProfileRepository()
+  cryptoProfiles: createUserCryptoProfileRepository()
 });

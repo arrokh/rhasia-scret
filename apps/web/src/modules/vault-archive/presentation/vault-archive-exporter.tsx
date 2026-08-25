@@ -5,13 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { Archive, Check, Clipboard, Download, KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUnlockedVaultWorkspace, VaultWorkspaceUnlock, type UnlockedVaultWorkspace } from "@/modules/authenticator-account";
-import { recordVaultArchiveExport } from "@/modules/vault-management";
+import { useUnlockedVaultWorkspace, VaultWorkspaceUnlock } from "@/modules/authenticator-account";
+import type { UnlockedVaultWorkspace } from "@/modules/sync";
+import { recordVaultArchiveExport } from "@/modules/audit";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
@@ -60,7 +62,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
         await recordVaultArchiveExport(vault.id);
         if (!activeRef.current) { clearPreparedVaultArchive(next); next = null; return; }
         replacePrepared(next);
-        captureAnalyticsEvent("vault_archive_export_prepared", { vault_type: vault.type });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.vaultArchiveExportPrepared, { vault_type: vault.type });
         next = null;
       } catch (error) {
         clearPreparedVaultArchive(next);

@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { MembershipUnavailableError, revokeVaultMembership } from "@/modules/vault-membership/application/manage-membership-lifecycle";
-import { PrismaMembershipLifecycleRepository } from "@/modules/vault-membership/infrastructure/prisma-membership-lifecycle-repository";
-import { updateSharedVaultMemberPermissionOverrides } from "@/modules/vault-membership/application/manage-shared-vault-account-permissions";
-import { PrismaSharedVaultAccountPermissionRepository } from "@/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository";
+import { createMembershipLifecycleRepository, createSharedVaultAccountPermissionRepository, MembershipUnavailableError, revokeVaultMembership, updateSharedVaultMemberPermissionOverrides } from "@/modules/vault-membership/server";
 
 const overridesSchema = z.object({
   expectedRevision: z.number().int().positive(),
@@ -34,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
       canEditAccounts: parsed.data.canEditAccounts,
       canDeleteAccounts: parsed.data.canDeleteAccounts
     },
-    new PrismaSharedVaultAccountPermissionRepository()
+    createSharedVaultAccountPermissionRepository()
   );
   if (result.status === "UNAVAILABLE") return NextResponse.json({ error: "member_unavailable" }, { status: 404 });
   if (result.status === "STALE") return NextResponse.json({ error: "stale_permissions_revision" }, { status: 409 });
@@ -53,7 +49,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (rateLimited) return rateLimited;
   try {
     const { vaultId, userId } = await params;
-    await revokeVaultMembership(user.id, vaultId, userId, new PrismaMembershipLifecycleRepository());
+    await revokeVaultMembership(user.id, vaultId, userId, createMembershipLifecycleRepository());
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof MembershipUnavailableError) return NextResponse.json({ error: "member_unavailable" }, { status: 404 });

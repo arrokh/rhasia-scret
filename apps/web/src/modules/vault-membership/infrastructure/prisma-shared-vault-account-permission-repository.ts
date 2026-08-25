@@ -1,3 +1,4 @@
+import { appendVaultAuditEvent } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import type {
   PermissionUpdateResult,
@@ -65,13 +66,11 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
           memberPermissionsRevision: true
         }
       });
-      await transaction.vaultAuditEvent.create({
-        data: {
-          vaultId,
-          ownerId,
-          actorUserId: ownerId,
-          eventType: "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED"
-        }
+      await appendVaultAuditEvent(transaction, {
+        vaultId,
+        ownerId,
+        actorUserId: ownerId,
+        action: "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED"
       });
       return {
         status: "UPDATED",
@@ -139,14 +138,12 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
         }
       });
       const storedOverrides = memberOverrides(member);
-      await transaction.vaultAuditEvent.create({
-        data: {
-          vaultId,
-          ownerId,
-          actorUserId: ownerId,
-          eventType: "MEMBER_PERMISSIONS_UPDATED",
-          targetId: memberUserId
-        }
+      await appendVaultAuditEvent(transaction, {
+        vaultId,
+        ownerId,
+        actorUserId: ownerId,
+        action: "MEMBER_PERMISSIONS_UPDATED",
+        targetId: memberUserId
       });
       return {
         status: "UPDATED",

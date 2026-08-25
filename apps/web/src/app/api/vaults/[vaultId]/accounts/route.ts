@@ -1,12 +1,8 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
-import type { PersonalAccountRepository } from "@/modules/authenticator-account/application/personal-account-repository";
-import { PrismaPersonalAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-personal-account-repository";
+import { createPersonalAccountRepository, type PersonalAccountRepository } from "@/modules/authenticator-account/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 
 const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1), source: z.literal("LOCAL_VAULT_COPY").optional() });
@@ -103,7 +99,7 @@ export function createPersonalAccountsHandlers({ sessionVerifier, applicationUse
   };
 }
 
-const handlers = createPersonalAccountsHandlers({ sessionVerifier: createSessionVerifier(), applicationUsers: createApplicationUserRepository(), accounts: new PrismaPersonalAccountRepository() });
+const handlers = createPersonalAccountsHandlers({ sessionVerifier: createSessionVerifier(), applicationUsers: createApplicationUserRepository(), accounts: createPersonalAccountRepository() });
 export const GET = handlers.GET;
 export const POST = handlers.POST;
 export const PATCH = handlers.PATCH;

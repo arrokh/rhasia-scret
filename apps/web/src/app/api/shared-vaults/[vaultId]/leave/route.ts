@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import { leaveVaultMembership, MembershipUnavailableError } from "@/modules/vault-membership/application/manage-membership-lifecycle";
-import { PrismaMembershipLifecycleRepository } from "@/modules/vault-membership/infrastructure/prisma-membership-lifecycle-repository";
+import { createMembershipLifecycleRepository, leaveVaultMembership, MembershipUnavailableError } from "@/modules/vault-membership/server";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
@@ -13,7 +11,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ va
   if (rateLimited) return rateLimited;
   try {
     const { vaultId } = await params;
-    await leaveVaultMembership(user.id, vaultId, new PrismaMembershipLifecycleRepository());
+    await leaveVaultMembership(user.id, vaultId, createMembershipLifecycleRepository());
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof MembershipUnavailableError) return NextResponse.json({ error: "viewer_membership_unavailable" }, { status: 404 });

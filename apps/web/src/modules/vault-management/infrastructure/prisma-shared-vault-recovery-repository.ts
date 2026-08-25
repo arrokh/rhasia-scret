@@ -1,5 +1,6 @@
+import { appendVaultAuditEvent, auditPurgeAfter, setVaultAuditRetention } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import { VAULT_RECOVERY_DAYS, auditPurgeAfter, vaultPurgeAfter } from "../domain/vault-retention-policy";
+import { VAULT_RECOVERY_DAYS, vaultPurgeAfter } from "../domain/vault-retention-policy";
 
 export class PrismaSharedVaultRecoveryRepository {
   constructor(private readonly now: () => Date = () => new Date()) {}
@@ -13,8 +14,8 @@ export class PrismaSharedVaultRecoveryRepository {
       });
       if (result.count !== 1) return false;
       const retentionPurgeAfter = auditPurgeAfter(deletedAt);
-      await transaction.vaultAuditEvent.updateMany({ where: { vaultId }, data: { ownerId, retentionPurgeAfter } });
-      await transaction.vaultAuditEvent.create({ data: { vaultId, ownerId, actorUserId: ownerId, eventType: "VAULT_DELETED", retentionPurgeAfter } });
+      await setVaultAuditRetention(transaction, vaultId, ownerId, retentionPurgeAfter);
+      await appendVaultAuditEvent(transaction, { vaultId, ownerId, actorUserId: ownerId, action: "VAULT_DELETED", retentionPurgeAfter });
       return true;
     });
   }
@@ -35,8 +36,8 @@ export class PrismaSharedVaultRecoveryRepository {
         data: { lifecycle: "ACTIVE", deletedAt: null, purgeAfter: null }
       });
       if (result.count !== 1) return false;
-      await transaction.vaultAuditEvent.updateMany({ where: { vaultId }, data: { ownerId, retentionPurgeAfter: null } });
-      await transaction.vaultAuditEvent.create({ data: { vaultId, ownerId, actorUserId: ownerId, eventType: "VAULT_RESTORED" } });
+      await setVaultAuditRetention(transaction, vaultId, ownerId, null);
+      await appendVaultAuditEvent(transaction, { vaultId, ownerId, actorUserId: ownerId, action: "VAULT_RESTORED" });
       return true;
     });
   }

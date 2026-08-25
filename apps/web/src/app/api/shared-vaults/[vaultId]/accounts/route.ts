@@ -1,11 +1,9 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createSharedAccountRepository, type SharedAccountMutationResult } from "@/modules/authenticator-account/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
-import type { SharedAccountMutationResult } from "@/modules/authenticator-account/application/shared-account-repository";
-import { PrismaSharedAccountRepository } from "@/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
 
 const MAX_ENCRYPTED_ACCOUNT_BYTES = 16 * 1024 + 29;
 const encryptedAccountPayload = z.base64().refine((value) => {
@@ -33,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const parsed = payload.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
-    const result = await new PrismaSharedAccountRepository().create(
+    const result = await createSharedAccountRepository().create(
       user.id,
       vaultId,
       Buffer.from(parsed.data.encryptedPayload, "base64"),
@@ -55,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
-    const result = await new PrismaSharedAccountRepository().update(
+    const result = await createSharedAccountRepository().update(
       user.id,
       vaultId,
       parsed.data.accountId,
@@ -79,7 +77,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const parsed = deleteSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
-    const result = await new PrismaSharedAccountRepository().delete(
+    const result = await createSharedAccountRepository().delete(
       user.id,
       vaultId,
       parsed.data.accountId,
@@ -100,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const parsed = restoreSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
-    const result = await new PrismaSharedAccountRepository().restore(user.id, vaultId, parsed.data.accountId);
+    const result = await createSharedAccountRepository().restore(user.id, vaultId, parsed.data.accountId);
     return result.status === "SUCCESS" ? new NextResponse(null, { status: 204 }) : mutationError(result);
   } catch (error) {
     return inactiveOrThrow(error);

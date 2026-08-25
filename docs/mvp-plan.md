@@ -79,7 +79,7 @@ Create the production-shaped foundation before behavior is implemented.
 
 ### Deliverables
 
-- Next.js App Router project with strict TypeScript, mise-managed Node.js 26.7.0 and pnpm 11.17.0 as the repository package manager.
+- Next.js App Router project with strict TypeScript, mise-managed Node.js 24.19.0 and pnpm 11.17.0 as the repository package manager.
 - Modular bounded-context directories and public module entry points.
 - ESLint, TypeScript, build, Vitest unit/integration/contract configuration, Playwright browser smoke configuration, and dependency-cruiser architecture checks.
 - Prisma schema, migration workflow, test-database environment contract, and a repository integration-test seam.

@@ -1,18 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
-import type { ApplicationUserRepository } from "@/modules/identity/application/application-user-repository";
-import type { SessionVerifier } from "@/modules/identity/application/session-verifier";
-import { createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
+  createDestructivePersonalVaultResetRepository,
   InvalidDestructiveResetConfirmationError,
   PasskeyRecoveryAlreadyEnrolledError,
   destructivelyResetPersonalVault,
   type DestructivePersonalVaultResetRepository
-} from "@/modules/vault-management/application/destructive-personal-vault-reset";
-import { PrismaDestructivePersonalVaultResetRepository } from "@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository";
+} from "@/modules/vault-management/server";
 
 const bodySchema = z.object({ confirmation: z.string() });
 
@@ -53,5 +50,5 @@ export function createDestructivePersonalVaultResetHandler({ sessionVerifier, ap
 export const POST = createDestructivePersonalVaultResetHandler({
   sessionVerifier: createSessionVerifier(),
   applicationUsers: createApplicationUserRepository(),
-  resets: new PrismaDestructivePersonalVaultResetRepository()
+  resets: createDestructivePersonalVaultResetRepository()
 });

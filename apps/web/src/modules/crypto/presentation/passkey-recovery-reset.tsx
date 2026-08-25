@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { Check, Copy, Fingerprint, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,7 +68,7 @@ export function PasskeyRecoveryReset() {
   async function reset(nextSecret: string, confirmation: string) {
     if (!nextSecret || confirmation.trim() !== nextSecret.trim()) return;
     setStatus("recovering");
-    try { await resetVaultUnlockSecretWithPasskey(nextSecret.trim()); captureAnalyticsEvent("passkey_recovery_reset_completed"); setStatus("success"); router.replace("/vaults"); }
+    try { await resetVaultUnlockSecretWithPasskey(nextSecret.trim()); captureAnalyticsEvent(ANALYTICS_EVENTS.passkeyRecoveryResetCompleted); setStatus("success"); router.replace("/vaults"); }
     catch { setStatus("recovery_error"); }
   }
 

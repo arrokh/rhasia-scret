@@ -16,13 +16,13 @@ The smoke and encrypted-workflow stages now run concurrently. Each gets a distin
 | Encrypted workflows | `BROWSER_TEST_PORT + 1` | `.next/browser-e2e` | `encrypted-vault-workflows` |
 | Production PWA | `BROWSER_TEST_PORT` | `.next` | `offline-pwa` |
 
-The suite runner deletes its isolated development output before and after every run. The gate waits for both development stages before starting the PWA stage; a failed stage terminates its sibling and preserves the existing non-zero failure semantics. The coverage inventory is enforced by `src/tests/unit/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
+The suite runner deletes its isolated development output before and after every run. The gate waits for both development stages before starting the PWA stage; a failed stage terminates its sibling and preserves the existing non-zero failure semantics. The coverage inventory is enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
 
 The web full gate already builds production output before browser tests. It passes `BROWSER_TEST_REUSE_BUILD=1` so the PWA stage starts that verified build rather than running a second `next build`. Running `pnpm run test:browser:pwa` directly still builds production output, so targeted use remains self-contained.
 
 ## Timing evidence
 
-All local measurements used the same generated Prisma client, local PostgreSQL database, installed browser binaries, Node 26.7.0, and the same working tree. The report contains only suite status and durations; it contains no account data, secrets, keys, OTPs, or decrypted content.
+All local measurements used the same generated Prisma client, local PostgreSQL database, installed browser binaries, Node 24.19.0, and the same working tree. The report contains only suite status and durations; it contains no account data, secrets, keys, OTPs, or decrypted content.
 
 | Run | Smoke | Encrypted workflows | PWA | Browser-gate wall clock |
 | --- | ---: | ---: | ---: | ---: |

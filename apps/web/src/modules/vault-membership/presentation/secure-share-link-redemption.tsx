@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
@@ -15,7 +16,7 @@ export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8A
   async function redeem() {
     if (!secret) { setStatus("error"); return; }
     setStatus("redeeming");
-    try { await redeemSecureShareLink(secret, userRootKey); captureAnalyticsEvent("secure_share_link_redeemed"); window.location.assign("/vaults"); }
+    try { await redeemSecureShareLink(secret, userRootKey); captureAnalyticsEvent(ANALYTICS_EVENTS.secureShareLinkRedeemed); window.location.assign("/vaults"); }
     catch { setStatus("error"); }
   }
   return <div className="grid gap-5 p-5 sm:p-6">

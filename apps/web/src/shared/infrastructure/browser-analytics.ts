@@ -1,41 +1,32 @@
 "use client";
 
-import type { BeforeSendFn } from "posthog-js";
+import type { AnalyticsEventName, AnalyticsEventPropertiesFor } from "./browser-analytics-config";
+import { ANALYTICS_EVENTS, BROWSER_ANALYTICS_CONFIG } from "./browser-analytics-config";
 
-type AnalyticsProperties = Record<string, string | number | boolean>;
 type PostHogClient = typeof import("posthog-js").default;
-
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 let posthogPromise: Promise<PostHogClient | null> | undefined;
-
-const sanitizeEventUrls: BeforeSendFn = (capture) => {
-  if (!capture) return null;
-  for (const property of ["$current_url", "$referrer", "$initial_referrer"]) {
-    const value = capture.properties[property];
-    if (typeof value !== "string") continue;
-    try {
-      const url = new URL(value);
-      url.search = "";
-      url.hash = "";
-      capture.properties[property] = url.toString();
-    } catch {
-      delete capture.properties[property];
-    }
-  }
-  return capture;
-};
 
 export function initializeBrowserAnalytics(): void {
   void loadPostHog();
 }
 
 export function identifyAnalyticsUser(userId: string): void {
-  void loadPostHog().then((posthog) => posthog?.identify(userId));
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId)) return;
+  void hashAnalyticsUserId(userId).then((hashedUserId) => {
+    if (!hashedUserId) return;
+    void loadPostHog().then((posthog) => posthog?.identify(hashedUserId));
+  });
 }
 
-export function captureAnalyticsEvent(event: string, properties?: AnalyticsProperties): void {
-  void loadPostHog().then((posthog) => posthog?.capture(event, properties));
+export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
+  event: EventName,
+  ...properties: AnalyticsEventPropertiesFor<EventName> extends undefined
+    ? []
+    : [properties: AnalyticsEventPropertiesFor<EventName>]
+): void {
+  void loadPostHog().then((posthog) => posthog?.capture(event, properties[0]));
 }
 
 export function resetAnalytics(): void {
@@ -43,31 +34,26 @@ export function resetAnalytics(): void {
 }
 
 export function captureAnalyticsError(error: Error & { digest?: string }): void {
-  captureAnalyticsEvent("client_error", { error_name: error.name, error_digest: error.digest ?? "unknown" });
+  captureAnalyticsEvent(ANALYTICS_EVENTS.clientError, {
+    error_name: error.name,
+    error_digest: error.digest ?? "unknown"
+  });
+}
+
+async function hashAnalyticsUserId(userId: string): Promise<string | null> {
+  if (typeof crypto === "undefined" || !crypto.subtle) return null;
+  try {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(userId));
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
 }
 
 function loadPostHog(): Promise<PostHogClient | null> {
   if (!projectToken || !posthogHost) return Promise.resolve(null);
   posthogPromise ??= import("posthog-js").then(({ default: posthog }) => {
-    posthog.init(projectToken, {
-      api_host: posthogHost,
-      defaults: "2026-01-30",
-      autocapture: false,
-      capture_pageview: false,
-      capture_pageleave: false,
-      capture_dead_clicks: false,
-      capture_heatmaps: false,
-      capture_performance: false,
-      capture_exceptions: false,
-      before_send: sanitizeEventUrls,
-      disable_session_recording: true,
-      disable_surveys: true,
-      disable_persistence: true,
-      mask_all_text: true,
-      mask_all_element_attributes: true,
-      respect_dnt: true,
-      debug: process.env.NODE_ENV === "development"
-    });
+    posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
     return posthog;
   }).catch(() => null);
   return posthogPromise;

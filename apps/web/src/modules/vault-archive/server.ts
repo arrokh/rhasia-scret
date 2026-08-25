@@ -1,3 +1,5 @@
+import { PrismaEncryptedVaultImportRepository } from "./infrastructure/prisma-encrypted-vault-import-repository";
+
 export {
   importEncryptedVaultArchive,
   type EncryptedVaultImportRepository
@@ -7,3 +9,7 @@ export {
   MAX_VAULT_ARCHIVE_IMPORT_ACCOUNTS,
   MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES
 } from "./domain/encrypted-vault-import";
+
+export function createEncryptedVaultImportRepository(): PrismaEncryptedVaultImportRepository {
+  return new PrismaEncryptedVaultImportRepository();
+}

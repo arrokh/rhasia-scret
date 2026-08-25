@@ -1,0 +1,52 @@
+import { NextRequest } from "next/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ listForOwner: vi.fn(), recordAccountAccess: vi.fn(), recordPersonalAccountCopiesToLocal: vi.fn() }));
+vi.mock("@/modules/identity/application/load-application-user", () => ({ loadApplicationUser: async () => ({ id: "user-1", canAccessApplication: () => true }) }));
+vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({ PrismaApplicationUserRepository: class {} }));
+vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
+vi.mock("@/modules/audit/server", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/modules/audit/server")>(),
+  createVaultAuditRepository: () => ({ listForOwner: mocks.listForOwner, recordAccountAccess: mocks.recordAccountAccess, recordArchiveExport: vi.fn(), recordPersonalAccountCopiesToLocal: mocks.recordPersonalAccountCopiesToLocal })
+}));
+
+import { GET, POST as POST_PERSONAL_COPY } from "@/app/api/vaults/[vaultId]/audit-events/route";
+import { POST } from "@/app/api/shared-vaults/[vaultId]/audit-events/route";
+
+describe("Shared Vault audit route", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("records an authorized opaque account-access event and rejects malformed JSON", async () => {
+    mocks.recordAccountAccess.mockResolvedValue(true);
+    const response = await POST(new Request("http://localhost/api", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventType: "ACCOUNT_ACCESSED", accountId: "account-1" }) }) as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(response.status).toBe(204);
+    expect(mocks.recordAccountAccess).toHaveBeenCalledWith("user-1", "vault-1", "account-1");
+
+    const malformed = await POST(new Request("http://localhost/api", { method: "POST", body: "{" }) as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(malformed.status).toBe(400);
+  });
+
+  it("records only bounded opaque Personal Vault account targets copied to Local Vault", async () => {
+    mocks.recordPersonalAccountCopiesToLocal.mockResolvedValue(true);
+    const response = await POST_PERSONAL_COPY(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ eventType: "ACCOUNT_COPIED_TO_LOCAL", accountIds: ["account-1", "account-2"] }) }), { params: Promise.resolve({ vaultId: "personal-1" }) });
+    expect(response.status).toBe(204);
+    expect(mocks.recordPersonalAccountCopiesToLocal).toHaveBeenCalledWith("user-1", "personal-1", ["account-1", "account-2"]);
+
+    const duplicateTargets = await POST_PERSONAL_COPY(new NextRequest("http://localhost/api", { method: "POST", body: JSON.stringify({ eventType: "ACCOUNT_COPIED_TO_LOCAL", accountIds: ["account-1", "account-1"] }) }), { params: Promise.resolve({ vaultId: "personal-1" }) });
+    expect(duplicateTargets.status).toBe(400);
+    expect(mocks.recordPersonalAccountCopiesToLocal).toHaveBeenCalledOnce();
+  });
+
+  it("applies exact account and actor filters before returning redacted owner-only events", async () => {
+    mocks.listForOwner.mockResolvedValue({ items: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: new Date("2026-07-26T12:00:00.000Z") }], nextCursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "event-1" } });
+    const response = await GET(new NextRequest("http://localhost/api?accountId=account-1&actorUserId=viewer-1"), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(mocks.listForOwner).toHaveBeenCalledWith("user-1", "vault-1", { accountId: "account-1", actorUserId: "viewer-1" }, { cursor: null, limit: 20 });
+    const body = await response.json();
+    expect(body).toEqual({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T12:00:00.000Z" }], nextCursor: expect.any(String) });
+    const nextResponse = await GET(new NextRequest(`http://localhost/api?accountId=account-1&actorUserId=viewer-1&cursor=${encodeURIComponent(body.nextCursor)}`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(nextResponse.status).toBe(200);
+    expect(mocks.listForOwner).toHaveBeenLastCalledWith("user-1", "vault-1", { accountId: "account-1", actorUserId: "viewer-1" }, { cursor: { createdAt: new Date("2026-07-26T12:00:00.000Z"), key: "event-1" }, limit: 20 });
+    const wrongFilter = await GET(new NextRequest(`http://localhost/api?accountId=other&actorUserId=viewer-1&cursor=${encodeURIComponent(body.nextCursor)}`), { params: Promise.resolve({ vaultId: "vault-1" }) });
+    expect(wrongFilter.status).toBe(400);
+  });
+});

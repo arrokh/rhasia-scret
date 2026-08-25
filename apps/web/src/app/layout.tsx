@@ -10,7 +10,7 @@ import { AppFooter } from "@/shared/presentation/app-ui";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 import { cn } from "@/lib/utils";
-import "./globals.css";
+import "@/shared/presentation/styles/globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
@@ -30,11 +30,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: [
-        { url: "/favicon.ico", sizes: "any", type: "image/x-icon" },
+        { url: "/assets/favicon.ico", sizes: "any", type: "image/x-icon" },
         { url: "/pwa/android/launchericon-48x48.png", sizes: "48x48", type: "image/png" },
         { url: "/pwa/android/launchericon-96x96.png", sizes: "96x96", type: "image/png" },
         { url: "/pwa/android/launchericon-192x192.png", sizes: "192x192", type: "image/png" },
-        { url: "/pwa/icon512_rounded.png", sizes: "512x512", type: "image/png" }
+        { url: "/assets/icon.png", sizes: "512x512", type: "image/png" }
       ],
       apple: [
         { url: "/pwa/ios/16.png", sizes: "16x16", type: "image/png" },
