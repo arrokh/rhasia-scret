@@ -49,12 +49,15 @@ export type AnalyticsEventPropertiesFor<Name extends AnalyticsEventName> = Analy
 const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referrer"] as const;
 const PRIVATE_ROUTE_PREFIXES = ["/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const AUTOMATIC_CAPTURE_PROPERTY_PATTERN = /(?:account|attr|cipher|content|cookie|description|email|error|exception|hash|href|input|issuer|key|label|message|name|otp|passphrase|password|path|plain|private|qr|query|referrer|secret|stack|text|title|token|trace|url|value|vault)/i;
+// The SDK adds `token` to every capture as a required ingestion property. It is
+// the public project token, not application or Vault data, and must survive before_send.
 const SAFE_ANALYTICS_PROPERTY_KEYS = new Set([
   "account_count",
   "created_new_vault",
   "destination_type",
   "error_digest",
   "error_name",
+  "token",
   "vault_type"
 ]);
 const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set(["$pageview", "$pageleave", "$web_vitals", "$performance_event"]);

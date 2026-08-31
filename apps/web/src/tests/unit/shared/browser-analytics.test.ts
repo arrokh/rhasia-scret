@@ -94,6 +94,23 @@ describe("browser analytics", () => {
     expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.applicationOpened);
   });
 
+  it("preserves PostHog's required ingestion token while sanitizing captures", () => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "capture-token-test-uuid",
+      event: ANALYTICS_EVENTS.applicationOpened,
+      properties: {
+        token: "phc_test_project_token",
+        distinct_id: "anonymous-test-id",
+        email: "alice@example.test"
+      }
+    });
+
+    expect(capture?.properties).toEqual({
+      token: "phc_test_project_token",
+      distinct_id: "anonymous-test-id"
+    });
+  });
+
   it("drops automatic events on private routes and removes sensitive automatic properties", () => {
     const privateCapture = sanitizeAnalyticsCapture({
       uuid: "capture-test-uuid",
