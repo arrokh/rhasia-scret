@@ -28,6 +28,18 @@ describe("issue 118 seam characterization", () => {
     expect(native).not.toContain("/api/vaults/");
   });
 
+  it("keeps conditional offline-bundle retrieval behind one shared protocol", () => {
+    for (const path of [
+      "apps/web/src/modules/sync/infrastructure/browser-offline-sync-client.ts",
+      "apps/mobile/src/infrastructure/mobile-vault-workspace.ts"
+    ]) {
+      const implementation = source(path);
+      expect(implementation).toContain("AuthorizedOfflineBundleTransport");
+      expect(implementation).not.toContain('url: "/api/sync/offline-bundle"');
+      expect(implementation).not.toContain('"if-none-match"');
+    }
+  });
+
   it("records native presentation-owned workspace lifecycle policy", () => {
     const native = source("apps/mobile/src/presentation/mobile-personal-vault.tsx");
     expect(native).toContain("AppState.addEventListener");
