@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { AuthorizedOfflineBundleTransportError } from "@rhasia-scret/client-vault-core";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { classifyBrowserWorkspaceRefreshFailure } from "@/modules/sync/infrastructure/browser-workspace-lifecycle";
