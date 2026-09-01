@@ -1,12 +1,9 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
-import type { ApplicationRateLimitPolicyId } from "@/modules/rate-limiting";
-import type { ApplicationUser } from "@/modules/identity";
 import { createSharedVaultAccessRepository } from "@/modules/vault-membership/server";
 import { createSharedVaultRepository, type SharedVaultRepository } from "@/modules/vault-management/server";
-import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
+import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
 const renameSchema = z.object({
   encryptedName: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
@@ -14,9 +11,8 @@ const renameSchema = z.object({
 });
 
 export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const user = await authenticateApplicationReader("fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const { vaultId } = await params;
   const access = await createSharedVaultAccessRepository().getForMember(user.id, vaultId);
   if (!access) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
@@ -35,11 +31,11 @@ export function createRenameSharedVaultHandler({
   authenticate,
   sharedVaults
 }: {
-  authenticate(operation: ApplicationRateLimitPolicyId): Promise<ApplicationUser | NextResponse>;
+  authenticate: typeof authenticateApplicationMutation;
   sharedVaults: SharedVaultRepository;
 }) {
   return async (request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) => {
-    const user = await authenticate("vault_mutation");
+    const user = await authenticate("vault_mutation", "fresh-provider-user");
     if (user instanceof NextResponse) return user;
     const parsed = renameSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_vault_name" }, { status: 400 });
@@ -50,6 +46,6 @@ export function createRenameSharedVaultHandler({
 }
 
 export const PATCH = createRenameSharedVaultHandler({
-  authenticate: (operation) => authenticateApplicationMutation(operation, "fresh-provider-user"),
+  authenticate: authenticateApplicationMutation,
   sharedVaults: createSharedVaultRepository()
 });

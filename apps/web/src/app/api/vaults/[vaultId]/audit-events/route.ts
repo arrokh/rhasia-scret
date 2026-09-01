@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { createVaultAuditRepository, listVaultAuditForOwner, recordPersonalVaultAccountCopiesToLocal } from "@/modules/audit/server";
-import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
+import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 const auditFilterSchema = z.object({ accountId: z.string().min(1).max(128).optional(), actorUserId: z.string().min(1).max(128).optional() });
@@ -25,9 +24,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const user = await authenticateApplicationReader("fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const parsedFilter = auditFilterSchema.safeParse({
     accountId: request.nextUrl.searchParams.get("accountId") ?? undefined,
     actorUserId: request.nextUrl.searchParams.get("actorUserId") ?? undefined

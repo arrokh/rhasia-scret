@@ -1,23 +1,20 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { createSharedVaultRepository, type SharedVaultRepository } from "@/modules/vault-management/server";
-import type { ApplicationRateLimitPolicyId } from "@/modules/rate-limiting";
 import { createSharedVaultAccessRepository, type SharedVaultAccessRepository } from "@/modules/vault-membership/server";
-import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
-import type { ApplicationUser } from "@/modules/identity";
+import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
 const blob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
 const schema = z.object({ vaultId: z.string().regex(/^[A-Za-z0-9_-]{16,128}$/).optional(), encryptedName: blob, encryptedOwnerVaultKey: blob, encryptionVersion: z.literal(1) });
 type Dependencies = {
-  authenticate(operation: ApplicationRateLimitPolicyId): Promise<ApplicationUser | NextResponse>;
+  authenticate: typeof authenticateApplicationMutation;
   sharedVaults: SharedVaultRepository;
 };
 
 export function createSharedVaultHandler({ authenticate, sharedVaults }: Dependencies) {
   return async function POST(request: NextRequest) {
-    const user = await authenticate("vault_mutation");
+    const user = await authenticate("vault_mutation", "fresh-provider-user");
     if (user instanceof NextResponse) return user;
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_vault" }, { status: 400 });
@@ -32,18 +29,15 @@ export function createSharedVaultHandler({ authenticate, sharedVaults }: Depende
 }
 
 export function createListSharedVaultsHandler({
-  sessionVerifier,
-  applicationUsers,
+  authenticate,
   sharedVaultAccess
 }: {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationReader;
   sharedVaultAccess: SharedVaultAccessRepository;
 }) {
   return async function GET() {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const user = await authenticate("fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const vaults = await sharedVaultAccess.listForMember(user.id);
     return NextResponse.json(vaults.map((vault) => ({
       vaultId: vault.vaultId,
@@ -63,15 +57,11 @@ export function createListSharedVaultsHandler({
   };
 }
 
-const sessionVerifier = createSessionVerifier();
-const applicationUsers = createApplicationUserRepository();
-
 export const GET = createListSharedVaultsHandler({
-  sessionVerifier,
-  applicationUsers,
+  authenticate: authenticateApplicationReader,
   sharedVaultAccess: createSharedVaultAccessRepository()
 });
 export const POST = createSharedVaultHandler({
-  authenticate: (operation) => authenticateApplicationMutation(operation, "fresh-provider-user"),
+  authenticate: authenticateApplicationMutation,
   sharedVaults: createSharedVaultRepository()
 });

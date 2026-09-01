@@ -1,14 +1,14 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { createApplicationUserRepository, createSessionVerifier, createUserCryptoProfileRepository, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier, type UserCryptoProfileRepository } from "@/modules/identity/server";
+import { createUserCryptoProfileRepository, type UserCryptoProfileRepository } from "@/modules/identity/server";
+import { authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
-type Dependencies = { sessionVerifier: SessionVerifier; applicationUsers: ApplicationUserRepository; cryptoProfiles: UserCryptoProfileRepository };
+type Dependencies = { authenticate: typeof authenticateApplicationReader; cryptoProfiles: UserCryptoProfileRepository };
 
-export function createGetUserCryptoProfileHandler({ sessionVerifier, applicationUsers, cryptoProfiles }: Dependencies) {
+export function createGetUserCryptoProfileHandler({ authenticate, cryptoProfiles }: Dependencies) {
   return async function GET() {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const user = await authenticate("fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const profile = await cryptoProfiles.get(user.id);
     if (!profile) return NextResponse.json({ error: "not_initialized" }, { status: 404 });
     return NextResponse.json({
@@ -23,7 +23,6 @@ export function createGetUserCryptoProfileHandler({ sessionVerifier, application
 }
 
 export const GET = createGetUserCryptoProfileHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationReader,
   cryptoProfiles: createUserCryptoProfileRepository()
 });

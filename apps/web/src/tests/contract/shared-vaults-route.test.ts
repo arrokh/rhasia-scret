@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRenameSharedVaultHandler } from "@/app/api/shared-vaults/[vaultId]/route";
 import { createListSharedVaultsHandler, createSharedVaultHandler } from "@/app/api/shared-vaults/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import { Vault } from "@/modules/vault-management";
 
 const payload = { encryptedName: Buffer.from("encrypted-shared-vault-name").toString("base64"), encryptedOwnerVaultKey: Buffer.from("encrypted-owner-vault-key").toString("base64"), encryptionVersion: 1 };
@@ -21,8 +20,7 @@ describe("GET /api/shared-vaults contract", () => {
       accounts: [{ id: "account-1", encryptedPayload: Uint8Array.from([7, 8, 9]), encryptionVersion: 1, revision: 2 }]
     }]);
     const handler = createListSharedVaultsHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       sharedVaultAccess: { getForMember: vi.fn(), listForMember }
     });
 

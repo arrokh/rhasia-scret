@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
 import { createOfflineSyncBundleReader, type OfflineSyncBundleReader } from "@/modules/sync/server";
+import { authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
 export function createOfflineSyncBundleHandler({
-  sessionVerifier,
-  applicationUsers,
+  authenticate,
   bundles
 }: {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationReader;
   bundles: OfflineSyncBundleReader;
 }) {
   return async function GET(request?: Request) {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+    const user = await authenticate("fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const bundle = await bundles.readAuthorizedBundle(user.id);
     if (!bundle) return NextResponse.json({ error: "not_initialized" }, { status: 404 });
     const etag = `"${bundle.synchronizationToken}"`;
@@ -25,7 +22,6 @@ export function createOfflineSyncBundleHandler({
 }
 
 export const GET = createOfflineSyncBundleHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationReader,
   bundles: createOfflineSyncBundleReader()
 });
