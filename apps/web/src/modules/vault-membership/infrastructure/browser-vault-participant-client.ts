@@ -1,11 +1,14 @@
 "use client";
 
-import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import { browserApiClient, browserAuthenticatedTransport } from "@/shared/infrastructure/browser-api-client";
 import type {
   EffectiveSharedVaultAccountPermissions,
   SharedVaultAccountPermissionOverrides,
   SharedVaultAccountPermissions
 } from "@rhasia-scret/client-vault-core";
+import { SecureShareLinkHttpTransport } from "@rhasia-scret/client-vault-core";
+
+const secureShareLinks = new SecureShareLinkHttpTransport(browserAuthenticatedTransport);
 
 export type BrowserVaultParticipant = {
   key: string;
@@ -75,7 +78,7 @@ export function deleteVaultParticipant(vaultId: string, participant: BrowserVaul
     return browserApiClient.deleteEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(participant.userId)}`);
   }
   if (participant.kind === "INVITATION" && participant.invitationId) {
-    return browserApiClient.deleteEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links/${encodeURIComponent(participant.invitationId)}`);
+    return secureShareLinks.cancel(vaultId, participant.invitationId);
   }
   return Promise.reject(new Error("Vault owner cannot be removed."));
 }
