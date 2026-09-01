@@ -12,9 +12,6 @@ export class AuthorizedOfflineBundleTransport {
   public constructor(private readonly transport: AuthenticatedTransport) {}
 
   public async fetch(cached: EncryptedOfflineVaultBundle | null = null): Promise<EncryptedOfflineVaultBundle> {
-    if (cached && !/^[A-Za-z0-9_-]{1,256}$/.test(cached.synchronizationToken)) {
-      throw new Error("The cached synchronization token is invalid.");
-    }
     const response = await this.transport.request({
       url: "/api/sync/offline-bundle",
       method: "GET",

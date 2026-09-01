@@ -23,6 +23,13 @@ describe("AuthorizedOfflineBundleTransport", () => {
     }]);
   });
 
+  it("forwards opaque synchronization tokens accepted by the bundle contract", async () => {
+    const cached = { ...fixture(), synchronizationToken: "2026-01-01T00:00:00.000Z" };
+    const transport = new StubTransport(response(304, null, { "x-synchronized-at": cached.synchronizedAt }));
+    await new AuthorizedOfflineBundleTransport(transport).fetch(cached);
+    expect(transport.requests[0]?.headers).toEqual({ "if-none-match": `"${cached.synchronizationToken}"` });
+  });
+
   it("strictly parses a changed encrypted bundle", async () => {
     const bundle = fixture();
     const protocol = new AuthorizedOfflineBundleTransport(new StubTransport(response(200, bundle)));
