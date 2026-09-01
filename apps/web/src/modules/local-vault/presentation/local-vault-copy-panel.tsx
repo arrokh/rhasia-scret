@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { Copy, LoaderCircle, LockKeyhole, Upload } from "lucide-react";
@@ -14,36 +14,21 @@ import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { StatusBanner } from "@/shared/presentation/app-ui";
-import { addLocalAccount, clearUnlockedLocalVault, readLocalVaultRecord, refreshUnlockedLocalVault, unlockLocalVault, type UnlockedLocalVault } from "@/modules/local-vault";
+import { addLocalAccount } from "@/modules/local-vault";
 import { recordPersonalVaultAccountCopiesToLocal } from "@/modules/audit";
+import { useLocalVaultSession } from "./use-local-vault-session";
 
 export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, personalVaultKey, personalAccounts, onPersonalAccountsCopied }: { personalVaultId: string; personalVaultName: string; personalVaultKey: Uint8Array; personalAccounts: WorkspaceAuthenticatorAccount[]; onPersonalAccountsCopied: (accounts: WorkspaceAuthenticatorAccount[]) => void }) {
   const t = useTranslations("LocalVaultCopy");
-  const [recordAvailable, setRecordAvailable] = useState<boolean | null>(null);
-  const [vault, setVault] = useState<UnlockedLocalVault | null>(null);
-  const vaultRef = useRef<UnlockedLocalVault | null>(null);
+  const { discoveryError, session, state: { discovered, record, vault } } = useLocalVaultSession();
   const [selectedLocal, setSelectedLocal] = useState<Set<string>>(new Set());
   const [selectedPersonal, setSelectedPersonal] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<"local" | "personal" | null>(null);
   const [status, setStatus] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
   const createMutation = useCreateEncryptedAuthenticatorAccountMutation();
 
-  useEffect(() => {
-    vaultRef.current = vault;
-  }, [vault]);
-  useEffect(() => () => clearUnlockedLocalVault(vaultRef.current), []);
-  useEffect(() => {
-    let active = true;
-    void readLocalVaultRecord().then((record) => { if (active) setRecordAvailable(record !== null); }).catch(() => { if (active) setRecordAvailable(false); });
-    return () => { active = false; };
-  }, []);
-
   async function unlock(passphrase: string) {
-    const record = await readLocalVaultRecord();
-    if (!record) throw new Error("The Local Profile is unavailable.");
-    const next = await unlockLocalVault(record, passphrase);
-    clearUnlockedLocalVault(vaultRef.current);
-    setVault(next);
+    await session.unlock(passphrase);
     setStatus(null);
   }
 
@@ -82,7 +67,7 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
     for (const account of personalAccounts.filter((entry) => selectedPersonal.has(entry.id))) {
       try {
         const source = { issuer: account.issuer, accountName: account.accountName, secret: account.secret.slice(), algorithm: account.algorithm, digits: account.digits, period: account.period };
-        await addLocalAccount(vault, source);
+        await session.mutate((current) => addLocalAccount(current, source));
         copiedAccountIds.push(account.id);
       } catch {
         copyFailed = true;
@@ -90,7 +75,7 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
       }
     }
     if (copiedAccountIds.length) {
-      try { setVault(await refreshUnlockedLocalVault(vault)); }
+      try { await session.refresh(); }
       catch { copyFailed = true; }
     }
     let auditFailed = false;
@@ -109,8 +94,8 @@ export function LocalVaultCopyPanel({ personalVaultId, personalVaultName, person
     setBusy(null);
   }
 
-  if (recordAvailable === null) return <p role="status">{t("checking")}</p>;
-  if (!recordAvailable) return <div className="grid gap-3"><StatusBanner tone="info">{t("notCreated")}</StatusBanner><Button variant="outline" asChild><a href="/local">{t("openLocal")}</a></Button></div>;
+  if (!discovered && !discoveryError) return <p role="status">{t("checking")}</p>;
+  if (!record) return <div className="grid gap-3"><StatusBanner tone="info">{t("notCreated")}</StatusBanner><Button variant="outline" asChild><a href="/local">{t("openLocal")}</a></Button></div>;
   if (!vault) return <LocalVaultUnlockForm onUnlock={unlock} />;
 
   return <div className="grid gap-5">

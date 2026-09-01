@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, Plus, Settings, ShieldCheck, Trash2 } from "lucide-react";
@@ -39,9 +39,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   const [clearOpen, setClearOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [editing, setEditing] = useState<UnlockedLocalVaultAccount | null>(null);
-  useEffect(() => {
-    if (discoveryError) setMessage({ tone: "danger", text: t("storageError") });
-  }, [discoveryError, t]);
+  const displayedMessage = message ?? (discoveryError ? { tone: "danger" as const, text: t("storageError") } : null);
 
   function lock() {
     session.lock();
@@ -94,7 +92,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
 
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} backHref={backHref} />
-    {message && <div className="mb-5"><StatusBanner tone={message.tone} role={message.tone === "danger" ? "alert" : "status"}>{message.text}</StatusBanner></div>}
+    {displayedMessage && <div className="mb-5"><StatusBanner tone={displayedMessage.tone} role={displayedMessage.tone === "danger" ? "alert" : "status"}>{displayedMessage.text}</StatusBanner></div>}
     <VaultStatusIndicator origin="LOCAL" className="mb-5" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
     {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={migrationRequired ? migrate : undefined} /></SurfaceCard>}
