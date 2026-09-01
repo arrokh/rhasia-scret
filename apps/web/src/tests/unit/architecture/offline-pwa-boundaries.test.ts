@@ -20,18 +20,26 @@ describe("offline PWA architecture boundaries", () => {
       .sort();
     expect(mutationCallers).toEqual([
       "src/modules/audit/infrastructure/browser-vault-audit-client.ts",
-      "src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts",
       "src/modules/crypto/infrastructure/browser-passkey-recovery-client.ts",
       "src/modules/identity/infrastructure/browser-passkey-recovery-status-client.ts",
       "src/modules/identity/infrastructure/browser-session-client.ts",
       "src/modules/vault-archive/infrastructure/browser-vault-import-client.ts",
       "src/modules/vault-management/infrastructure/browser-vault-management-client.ts",
-      "src/modules/vault-membership/infrastructure/browser-secure-share-link-workflow.ts",
-      "src/modules/vault-membership/infrastructure/browser-shared-vault-invitation.ts",
       "src/modules/vault-membership/infrastructure/browser-vault-participant-client.ts"
     ]);
     const client = readFileSync(join(sourceRoot, "shared/infrastructure/browser-api-client.ts"), "utf8");
+    const hostedAccounts = readFileSync(join(sourceRoot, "modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts"), "utf8");
+    const hostedShareLinks = [
+      "modules/vault-membership/infrastructure/browser-secure-share-link-workflow.ts",
+      "modules/vault-membership/infrastructure/browser-shared-vault-invitation.ts"
+    ].map((path) => readFileSync(join(sourceRoot, path), "utf8"));
     expect(client).toContain("assertBrowserMutationAllowed()");
+    expect(hostedAccounts).toContain("browserAuthenticatedTransport");
+    expect(hostedAccounts).toContain("HostedAuthenticatorAccountTransport");
+    for (const source of hostedShareLinks) {
+      expect(source).toContain("browserAuthenticatedTransport");
+      expect(source).toContain("SecureShareLinkHttpTransport");
+    }
   });
 
   it("keeps Local Vault Snapshots outside Query persistence and forbids replay primitives", () => {

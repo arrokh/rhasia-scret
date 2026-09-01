@@ -1,18 +1,14 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { createSecureShareLinkInvitation, createSecureShareLinkRepository, InvitationConflictError, InvitationRecipientUnavailableError } from "@/modules/vault-membership/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const schema = z.object({ recipientEmail: z.email(), linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32), encryptedPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13) });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-  const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);
-  if (rateLimited) return rateLimited;
+  const user = await authenticateApplicationMutation("membership_mutation", "fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_share_link" }, { status: 400 });
   try {

@@ -1,20 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { AppState, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { MobileMessages } from "../localization";
 import { createMobilePersonalVaultInitialization } from "../application/create-mobile-personal-vault";
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { MobilePersonalVaultRepository } from "../infrastructure/mobile-personal-vault-repository";
 import {
-  clearUnlockedVaultWorkspace,
   loadMobileVaultWorkspace,
   loadOfflineMobileVaultWorkspace,
   mobileOfflineVaultStore,
-  refreshMobileVaultWorkspace,
-  type UnlockedVaultWorkspace,
 } from "../infrastructure/mobile-vault-workspace";
 import { MobileAuthenticatorAccounts } from "./mobile-authenticator-accounts";
 import { redeemMobileSecureShareLink } from "../infrastructure/mobile-secure-share-link";
+import { useMobileWorkspaceLifecycle } from "./use-mobile-workspace-lifecycle";
 
 export function MobilePersonalVault({
   copy,
@@ -93,8 +91,7 @@ function PersonalVaultUnlock({
   transport: AuthenticatedTransport;
   consumeSecureShareSecret?: () => string | null;
 }) {
-  const unlocked = useRef<UnlockedVaultWorkspace | null>(null);
-  const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(null);
+  const { workspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } = useMobileWorkspaceLifecycle(transport);
   const [status, setStatus] = useState<"locked" | "unlocked" | "error">("locked");
   const [shareStatus, setShareStatus] = useState<"idle" | "redeemed" | "redeemed_refresh_error" | "error">("idle");
   const form = useForm({
@@ -102,18 +99,17 @@ function PersonalVaultUnlock({
     onSubmit: async ({ value }) => {
       setStatus("locked");
       try {
-        let result = mode.kind === "online"
+        const result = mode.kind === "online"
           ? await loadMobileVaultWorkspace(value.passphrase, mode.personalVaultId, transport)
           : await loadOfflineMobileVaultWorkspace(mode.profileId, value.passphrase, transport);
+        replaceWorkspace(result);
         const shareSecret = mode.kind === "online" ? consumeSecureShareSecret?.() : null;
         if (shareSecret) {
           try {
             await redeemMobileSecureShareLink(shareSecret, result.userRootKey, transport);
             setShareStatus("redeemed");
             try {
-              const refreshed = await refreshMobileVaultWorkspace(result, transport);
-              clearUnlockedVaultWorkspace(result);
-              result = refreshed;
+              await refreshWorkspaceAuthorization();
             } catch {
               setShareStatus("redeemed_refresh_error");
             }
@@ -121,9 +117,6 @@ function PersonalVaultUnlock({
             setShareStatus("error");
           }
         }
-        clearUnlockedVaultWorkspace(unlocked.current);
-        unlocked.current = result;
-        setWorkspace(result);
         form.reset();
         setStatus("unlocked");
       } catch {
@@ -133,22 +126,13 @@ function PersonalVaultUnlock({
   });
 
   const lock = useCallback(() => {
-    clearUnlockedVaultWorkspace(unlocked.current);
-    unlocked.current = null;
-    setWorkspace(null);
+    lockWorkspace();
     setStatus("locked");
-  }, []);
+  }, [lockWorkspace]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") lock();
-    });
-    return () => {
-      subscription.remove();
-      clearUnlockedVaultWorkspace(unlocked.current);
-      unlocked.current = null;
-    };
-  }, [lock]);
+    if (!workspace && status === "unlocked") setStatus("locked");
+  }, [status, workspace]);
 
   if (status === "unlocked") {
     return (
@@ -162,11 +146,7 @@ function PersonalVaultUnlock({
           <MobileAuthenticatorAccounts
             copy={copy}
             key={workspace.synchronizationToken}
-            onRefreshed={(refreshedWorkspace) => {
-              clearUnlockedVaultWorkspace(unlocked.current);
-              unlocked.current = refreshedWorkspace;
-              setWorkspace(refreshedWorkspace);
-            }}
+            refreshWorkspaceAuthorization={refreshWorkspaceAuthorization}
             transport={transport}
             workspace={workspace}
           />

@@ -1,5 +1,6 @@
 export * from "./modules/authenticator-account/application/account-payload-ports";
 export * from "./modules/authenticator-account/application/account-payload";
+export * from "./modules/authenticator-account/application/hosted-authenticator-account-transport";
 export * from "./modules/authenticator-account/application/qr-import-ports";
 export * from "./modules/authenticator-account/application/vault-workspace-ports";
 export * from "./modules/authenticator-account/application/vault-workspace";
@@ -14,6 +15,7 @@ export * from "./modules/crypto/application/vault-unlock-key-parameters";
 export * from "./modules/otp-runtime/application/generate-totp";
 export * from "./modules/otp-runtime/domain/totp-configuration";
 export * from "./modules/sync/application/client-storage-ports";
+export * from "./modules/sync/application/authorized-offline-bundle-transport";
 export * from "./modules/sync/application/workspace-lifecycle";
 export * from "./modules/sync/domain/offline-sync-state";
 export * from "./modules/sync/domain/offline-vault-bundle";
@@ -24,6 +26,7 @@ export * from "./modules/vault-membership/application/create-secure-share-link-m
 export * from "./modules/vault-membership/application/redeem-secure-share-link-material";
 export * from "./modules/vault-membership/application/redeem-secure-share-link";
 export * from "./modules/vault-membership/application/secure-share-link-workflow-ports";
+export * from "./modules/vault-membership/application/secure-share-link-http-transport";
 export * from "./modules/vault-membership/application/unlock-shared-vault";
 export * from "./modules/vault-membership/domain/shared-vault-account-permissions";
 export * from "./shared/application/archive-parameters";

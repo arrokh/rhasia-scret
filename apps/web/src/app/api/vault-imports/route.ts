@@ -1,8 +1,7 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 import {
   createEncryptedVaultImportRepository,
   importEncryptedVaultArchive,
@@ -33,18 +32,14 @@ const importSchema = z.object({
 });
 
 type Dependencies = {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationMutation;
   imports: EncryptedVaultImportRepository;
 };
 
-export function createEncryptedVaultImportHandler({ sessionVerifier, applicationUsers, imports }: Dependencies) {
+export function createEncryptedVaultImportHandler({ authenticate, imports }: Dependencies) {
   return async function POST(request: NextRequest) {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return json({ error: "unauthenticated" }, 401);
-    if (!user.canAccessApplication()) return json({ error: "inactive_user" }, 403);
-    const rateLimited = await rateLimitApplicationUser("archive_import", user.id);
-    if (rateLimited) return rateLimited;
+    const user = await authenticate("archive_import", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const declaredLength = Number(request.headers.get("content-length") ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES) return json({ error: "archive_import_too_large" }, 413);
     let boundedBody: string | null;
@@ -99,7 +94,6 @@ function json(body: Record<string, unknown>, status: number): NextResponse {
 }
 
 export const POST = createEncryptedVaultImportHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationMutation,
   imports: createEncryptedVaultImportRepository()
 });

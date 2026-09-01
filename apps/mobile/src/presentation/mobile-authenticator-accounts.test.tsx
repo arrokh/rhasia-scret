@@ -25,7 +25,7 @@ describe("MobileAuthenticatorAccounts", () => {
     const screen = await render(
       <MobileAuthenticatorAccounts
         copy={translate("en")}
-        onRefreshed={() => undefined}
+        refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
         workspace={workspace}
       />,
@@ -50,7 +50,7 @@ describe("MobileAuthenticatorAccounts", () => {
     const screen = await render(
       <MobileAuthenticatorAccounts
         copy={translate("en")}
-        onRefreshed={() => undefined}
+        refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
         workspace={workspace}
       />,
@@ -69,7 +69,7 @@ describe("MobileAuthenticatorAccounts", () => {
     const screen = await render(
       <MobileAuthenticatorAccounts
         copy={translate("id")}
-        onRefreshed={() => undefined}
+        refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
         workspace={workspace}
       />,

@@ -207,6 +207,10 @@ _Avoid_: Device account, browser user, server profile, Personal Vault
 The one writable encrypted Vault owned by a Local Profile. It exists only in application-owned browser storage, remains independent from server Personal and Shared Vaults, and supports explicit offline account management without automatic synchronization, account linking, background upload, merge, or deletion propagation. Its labels and account content are decrypted only in client memory.
 _Avoid_: Personal Vault, Shared Vault, Local Vault Snapshot, offline cache
 
+**Local Vault Session**:
+A direct client-only lifecycle owner for one consuming surface's unlocked Local Vault. It serializes state-changing operations and owns discovery, explicit migration, refresh replacement, lock, destructive clearing, and teardown zeroization. Each surface creates an independent session; a Local Vault Session is never global, persisted, placed in TanStack Query, or shared automatically between routes.
+_Avoid_: Global Local Vault store, Query cache, server session, synchronization session
+
 **Local Vault Passphrase**:
 The client-only passphrase that derives the Local Unlock Key for a Local Vault. It is separate from the server-backed Vault Unlock Secret and authentication credential, never reaches a server, and is not recoverable by logout, sign-in, or an identity provider. The Indonesian product label is **Passphrase Brankas Lokal** and the English product label is **Local Vault Passphrase**.
 _Avoid_: PIN, authentication password, Vault Unlock Secret, recovery secret

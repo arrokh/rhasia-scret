@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { createMembershipLifecycleRepository, leaveVaultMembership, MembershipUnavailableError } from "@/modules/vault-membership/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-  const rateLimited = await rateLimitApplicationUser("membership_mutation", user.id);
-  if (rateLimited) return rateLimited;
+  const user = await authenticateApplicationMutation("membership_mutation", "fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   try {
     const { vaultId } = await params;
     await leaveVaultMembership(user.id, vaultId, createMembershipLifecycleRepository());

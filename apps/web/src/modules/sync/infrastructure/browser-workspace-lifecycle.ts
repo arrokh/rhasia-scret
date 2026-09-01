@@ -1,6 +1,6 @@
 "use client";
 
-import type { UnlockedVaultWorkspace, WorkspaceLifecyclePorts, WorkspaceRefreshFailure } from "@rhasia-scret/client-vault-core";
+import { AuthorizedOfflineBundleTransportError, type UnlockedVaultWorkspace, type WorkspaceLifecyclePorts, type WorkspaceRefreshFailure } from "@rhasia-scret/client-vault-core";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { browserApplicationLifecycle, browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
 import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
@@ -28,6 +28,7 @@ export function createBrowserWorkspaceLifecyclePorts(
 }
 
 export function classifyBrowserWorkspaceRefreshFailure(error: unknown): WorkspaceRefreshFailure {
+  if (error instanceof AuthorizedOfflineBundleTransportError && error.status === 401) return "AUTHENTICATION";
   if (error instanceof BrowserApiError && error.status === 401) return "AUTHENTICATION";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
   return "SYNC";

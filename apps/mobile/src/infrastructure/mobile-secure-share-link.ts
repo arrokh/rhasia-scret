@@ -6,6 +6,7 @@ import { redeemSecureShareLinkMaterialWithCrypto } from "@rhasia-scret/client-va
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import { SecureShareLinkHttpTransport } from "@rhasia-scret/client-vault-core";
 
 export async function createMobileSecureShareLink(
   vault: { id: string; key: Uint8Array },
@@ -13,28 +14,20 @@ export async function createMobileSecureShareLink(
   transport: AuthenticatedTransport,
 ): Promise<{ expiresAt: string }> {
   const material = await createSecureShareLinkMaterialWithCrypto(vault.key, vault.id, nativeClientCrypto, async (value) => sha256(value));
+  const secureShareLinks = new SecureShareLinkHttpTransport(transport);
   let createdInvitationId: string | undefined;
   try {
-    const response = await transport.request({
-      url: `/api/shared-vaults/${encodeURIComponent(vault.id)}/share-links`,
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        recipientEmail: recipientEmail.trim().toLowerCase(),
-        linkVerifier: bytesToBase64(material.linkVerifier),
-        encryptedPackage: bytesToBase64(material.encryptedPackage),
-      }),
-      cache: "no-store",
+    const result = await secureShareLinks.create(vault.id, {
+      recipientEmail,
+      linkVerifier: bytesToBase64(material.linkVerifier),
+      encryptedPackage: bytesToBase64(material.encryptedPackage)
     });
-    if (!response.ok) throw new Error("Secure Share Link could not be created.");
-    const result = await response.json<unknown>();
-    if (!isCreatedLink(result)) throw new Error("Secure Share Link response is invalid.");
     createdInvitationId = result.id;
     const shareResult = await Share.share({ message: `https://rhasia-scret.vercel.app/vaults/invitations/redeem#${material.secret}` });
     if (shareResult.action === Share.dismissedAction) throw new Error("Secure Share Link sharing was cancelled.");
     return { expiresAt: result.expiresAt };
   } catch (error) {
-    if (createdInvitationId) await revokeSecureShareLink(vault.id, createdInvitationId, transport).catch(() => undefined);
+    if (createdInvitationId) await secureShareLinks.cancel(vault.id, createdInvitationId).catch(() => undefined);
     throw error;
   } finally {
     material.linkVerifier.fill(0);
@@ -43,20 +36,12 @@ export async function createMobileSecureShareLink(
   }
 }
 
-async function revokeSecureShareLink(vaultId: string, invitationId: string, transport: AuthenticatedTransport): Promise<void> {
-  const response = await transport.request({
-    url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links/${encodeURIComponent(invitationId)}`,
-    method: "DELETE",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error("Cancelled Secure Share Link could not be revoked.");
-}
-
 export function redeemMobileSecureShareLink(
   secret: string,
   userRootKey: Uint8Array,
   transport: AuthenticatedTransport,
 ): Promise<void> {
+  const secureShareLinks = new SecureShareLinkHttpTransport(transport);
   return redeemSecureShareLink(secret, userRootKey, {
     crypto: {
       digestSha256: async (value) => sha256(value),
@@ -69,44 +54,6 @@ export function redeemMobileSecureShareLink(
         async (value) => sha256(value),
       ),
     },
-    transport: {
-      lookup: async (verifier) => {
-        const response = await transport.request({
-          url: `/api/secure-share-links?verifier=${encodeURIComponent(verifier)}`,
-          method: "GET",
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error("Secure Share Link is unavailable.");
-        const value = await response.json<unknown>();
-        if (!isLookup(value)) throw new Error("Secure Share Link response is invalid.");
-        return value;
-      },
-      redeem: async (request) => {
-        const response = await transport.request({
-          url: "/api/secure-share-links",
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(request),
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error("Secure Share Link could not be redeemed.");
-      },
-    },
+    transport: secureShareLinks,
   });
-}
-
-function isCreatedLink(value: unknown): value is { id: string; expiresAt: string } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return typeof record.id === "string"
-    && typeof record.expiresAt === "string"
-    && Number.isFinite(new Date(record.expiresAt).getTime());
-}
-
-function isLookup(value: unknown): value is { id: string; vaultId: string; encryptedPackage: string } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return typeof record.id === "string"
-    && typeof record.vaultId === "string"
-    && typeof record.encryptedPackage === "string";
 }

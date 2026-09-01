@@ -95,8 +95,8 @@ describe("AuthenticatorAccountCreator", () => {
     });
     mocks.parseTotpUri.mockReturnValue(candidate);
     mocks.isDuplicateAccount.mockReturnValue(false);
-    mocks.encryptAccountConfiguration.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "new-account", revision: 1 }) });
+    mocks.encryptAccountConfiguration.mockResolvedValue(new Uint8Array(29).fill(1));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "new-account", revision: 1 }), { status: 201, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
     document.body.append(container);

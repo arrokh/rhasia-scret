@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { createVaultParticipantRepository, listVaultParticipantsForOwner, parseVaultParticipantCursorKey } from "@/modules/vault-membership/server";
+import { authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 export async function GET(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const user = await authenticateApplicationReader("fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const { vaultId } = await params;
   const scope = `vault-participants:${vaultId}`;
   const pagination = parseTimestampCursorPageRequest(new URL(request.url).searchParams, scope, (key) => parseVaultParticipantCursorKey(key) !== null);
