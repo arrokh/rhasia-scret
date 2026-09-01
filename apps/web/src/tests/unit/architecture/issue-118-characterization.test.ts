@@ -40,11 +40,12 @@ describe("issue 118 seam characterization", () => {
     }
   });
 
-  it("records native presentation-owned workspace lifecycle policy", () => {
+  it("keeps native workspace lifecycle policy behind the shared controller", () => {
     const native = source("apps/mobile/src/presentation/mobile-personal-vault.tsx");
-    expect(native).toContain("AppState.addEventListener");
-    expect(native).toContain("clearUnlockedVaultWorkspace");
-    expect(native).toContain("refreshMobileVaultWorkspace");
+    expect(native).toContain("useMobileWorkspaceLifecycle");
+    expect(native).not.toContain("AppState.addEventListener");
+    expect(native).not.toContain("clearUnlockedVaultWorkspace");
+    expect(native).not.toContain("refreshMobileVaultWorkspace");
   });
 
   it("records duplicated Local Vault session ownership by consuming surface", () => {

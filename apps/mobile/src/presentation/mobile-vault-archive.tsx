@@ -13,13 +13,12 @@ import {
   prepareMobileVaultArchive,
   sharePreparedMobileVaultArchive,
 } from "../infrastructure/mobile-vault-archive";
-import { refreshMobileVaultWorkspace } from "../infrastructure/mobile-vault-workspace";
 
-export function MobileVaultArchive({ copy, workspace, transport, onRefreshed }: {
+export function MobileVaultArchive({ copy, workspace, transport, refreshWorkspaceAuthorization }: {
   copy: MobileMessages;
   workspace: UnlockedVaultWorkspace;
   transport: AuthenticatedTransport;
-  onRefreshed(workspace: UnlockedVaultWorkspace): void;
+  refreshWorkspaceAuthorization(): Promise<void>;
 }) {
   const exportableVaults = workspace.vaults.filter((vault) => vault.role === "OWNER");
   const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
@@ -73,8 +72,7 @@ export function MobileVaultArchive({ copy, workspace, transport, onRefreshed }: 
       openedRef.current = null;
       setOpened(null);
       try {
-        const refreshed = await refreshMobileVaultWorkspace(workspace, transport);
-        onRefreshed(refreshed);
+        await refreshWorkspaceAuthorization();
         setStatus("success");
       } catch {
         setStatus("imported_refresh_error");
