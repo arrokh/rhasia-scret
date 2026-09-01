@@ -25,6 +25,7 @@ export * from "./modules/vault-membership/application/create-secure-share-link-m
 export * from "./modules/vault-membership/application/redeem-secure-share-link-material";
 export * from "./modules/vault-membership/application/redeem-secure-share-link";
 export * from "./modules/vault-membership/application/secure-share-link-workflow-ports";
+export * from "./modules/vault-membership/application/secure-share-link-http-transport";
 export * from "./modules/vault-membership/application/unlock-shared-vault";
 export * from "./modules/vault-membership/domain/shared-vault-account-permissions";
 export * from "./shared/application/archive-parameters";
