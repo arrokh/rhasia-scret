@@ -102,6 +102,14 @@ export function refreshMobileVaultWorkspace(
   return refreshWorkspace(workspace.userRootKey, workspace.profileId, createMobileVaultWorkspacePorts(transport));
 }
 
+export function refreshMobileVaultWorkspaceWithKey(
+  userRootKey: Uint8Array,
+  profileId: string,
+  transport: AuthenticatedTransport,
+): Promise<UnlockedVaultWorkspace> {
+  return refreshWorkspace(userRootKey, profileId, createMobileVaultWorkspacePorts(transport));
+}
+
 export function loadOfflineMobileVaultWorkspace(
   profileId: string,
   vaultUnlockSecret: string,
