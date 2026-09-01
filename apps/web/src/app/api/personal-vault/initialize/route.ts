@@ -1,9 +1,8 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { createPersonalVaultRepository, initializePersonalVault, type PersonalVaultInitializer } from "@/modules/vault-management/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const opaqueBlob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
 const initializationSchema = z.object({
@@ -15,18 +14,14 @@ const initializationSchema = z.object({
 });
 
 type Dependencies = {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationMutation;
   personalVaults: PersonalVaultInitializer;
 };
 
-export function createInitializePersonalVaultHandler({ sessionVerifier, applicationUsers, personalVaults }: Dependencies) {
+export function createInitializePersonalVaultHandler({ authenticate, personalVaults }: Dependencies) {
   return async function POST(request: NextRequest) {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-    const rateLimited = await rateLimitApplicationUser("key_material_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const user = await authenticate("key_material_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = initializationSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_initialization" }, { status: 400 });
     await initializePersonalVault(user.id, {
@@ -41,7 +36,6 @@ export function createInitializePersonalVaultHandler({ sessionVerifier, applicat
 }
 
 export const POST = createInitializePersonalVaultHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationMutation,
   personalVaults: createPersonalVaultRepository()
 });

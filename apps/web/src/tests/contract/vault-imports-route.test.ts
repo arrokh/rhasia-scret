@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createEncryptedVaultImportHandler } from "@/app/api/vault-imports/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import type { EncryptedVaultImportRepository } from "@/modules/vault-archive";
 
 const accountId = "c4e75cb6-5cc5-4df6-8607-afb56569456e";
@@ -66,8 +65,7 @@ describe("POST /api/vault-imports contract", () => {
 
 function createHandler(importArchive: EncryptedVaultImportRepository["import"]) {
   return createEncryptedVaultImportHandler({
-    sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "owner@example.test" }),
-    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "owner@example.test", "ACTIVE") },
+    authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "owner@example.test", "ACTIVE"),
     imports: { import: importArchive }
   });
 }

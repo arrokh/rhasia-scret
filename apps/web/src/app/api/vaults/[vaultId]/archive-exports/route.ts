@@ -1,19 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import { createVaultAuditRepository, recordVaultArchiveExport, type VaultAuditRepository } from "@/modules/audit/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 export function createVaultArchiveExportAuditHandler(dependencies: {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationMutation;
   audit: VaultAuditRepository;
 }) {
   return async function POST(_request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-    const user = await loadApplicationUser(dependencies.sessionVerifier, dependencies.applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-    const rateLimited = await rateLimitApplicationUser("archive_export", user.id);
-    if (rateLimited) return rateLimited;
+    const user = await dependencies.authenticate("archive_export", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     if (requestDeclaresContent(_request)) return NextResponse.json({ error: "archive_export_body_forbidden" }, { status: 400 });
     const { vaultId } = await params;
     const recorded = await recordVaultArchiveExport(user.id, vaultId, dependencies.audit);
@@ -28,7 +23,6 @@ function requestDeclaresContent(request: Request): boolean {
 }
 
 export const POST = createVaultArchiveExportAuditHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationMutation,
   audit: createVaultAuditRepository()
 });
