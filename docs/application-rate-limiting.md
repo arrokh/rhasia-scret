@@ -20,6 +20,8 @@ Budgets are shared by authenticated Application User and operation class, so alt
 
 Rate limiting happens after authentication and active-user checks but before body parsing, authorization-sensitive repository work, or mutation. It does not replace owner/member authorization, Account Revision checks, one-time link consumption, or any domain conflict.
 
+Authenticated reader and mutation routes enter through the HTTP-neutral server-composition application seam. Each mutation supplies its explicit operation class and assurance requirement; the seam keeps `allowed`, `limited`, and `unavailable` decisions typed until the Route Handler maps them to HTTP. Read-only execution cannot consume a mutation budget, and Route Handlers retain their use-case-specific validation and outcome mapping.
+
 ## Responses
 
 An exhausted budget returns:
