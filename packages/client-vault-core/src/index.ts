@@ -1,5 +1,6 @@
 export * from "./modules/authenticator-account/application/account-payload-ports";
 export * from "./modules/authenticator-account/application/account-payload";
+export * from "./modules/authenticator-account/application/hosted-authenticator-account-transport";
 export * from "./modules/authenticator-account/application/qr-import-ports";
 export * from "./modules/authenticator-account/application/vault-workspace-ports";
 export * from "./modules/authenticator-account/application/vault-workspace";
