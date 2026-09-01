@@ -48,15 +48,16 @@ describe("issue 118 seam characterization", () => {
     expect(native).not.toContain("refreshMobileVaultWorkspace");
   });
 
-  it("records duplicated Local Vault session ownership by consuming surface", () => {
+  it("keeps each Local Vault surface behind an independently scoped session", () => {
     for (const path of [
       "apps/web/src/modules/local-vault/presentation/local-vault-page.tsx",
       "apps/web/src/modules/local-vault/presentation/local-vault-copy-panel.tsx"
     ]) {
       const presentation = source(path);
-      expect(presentation).toContain("readLocalVaultRecord");
-      expect(presentation).toContain("unlockLocalVault");
-      expect(presentation).toContain("clearUnlockedLocalVault");
+      expect(presentation).toContain("useLocalVaultSession");
+      expect(presentation).not.toContain("readLocalVaultRecord");
+      expect(presentation).not.toContain("unlockLocalVault");
+      expect(presentation).not.toContain("clearUnlockedLocalVault");
     }
   });
 });
