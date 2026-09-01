@@ -2,17 +2,14 @@ import { verifyAuthenticationResponse, type AuthenticationResponseJSON } from "@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { browserE2eAuthenticationVerified, createApplicationUserRepository, createPasskeyRecoveryRepository, createSessionVerifier, loadApplicationUser, passkeyRecoveryConfiguration } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
+import { browserE2eAuthenticationVerified, createPasskeyRecoveryRepository, passkeyRecoveryConfiguration } from "@/modules/identity/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const bodySchema = z.object({ response: z.unknown() });
 
 export async function POST(request: NextRequest) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-  const rateLimited = await rateLimitApplicationUser("recovery_authentication", user.id);
-  if (rateLimited) return rateLimited;
+  const user = await authenticateApplicationMutation("recovery_authentication", "fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
