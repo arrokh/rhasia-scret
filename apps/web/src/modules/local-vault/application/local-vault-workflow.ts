@@ -237,10 +237,14 @@ export async function refreshUnlockedLocalVault(vault: UnlockedLocalVault, depen
   try { name = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes).trim(); }
   finally { nameBytes.fill(0); }
   const accounts: UnlockedLocalVaultAccount[] = [];
+  const rootKey = vault.rootKey.slice();
+  const vaultKey = vault.vaultKey.slice();
   try {
-    for (const account of record.accounts) accounts.push({ ...(await dependencies.accountPayload.decryptAccountConfiguration(vault.vaultKey, base64ToBytes(account.encryptedPayload), { purpose: "authenticator-account", payloadType: "totp-configuration", profileId: vault.profileId, accountId: account.id, keyVersion: account.encryptionVersion })), id: account.id, revision: account.revision });
-    return { ...vault, name, accounts: sortAccounts(accounts) };
+    for (const account of record.accounts) accounts.push({ ...(await dependencies.accountPayload.decryptAccountConfiguration(vaultKey, base64ToBytes(account.encryptedPayload), { purpose: "authenticator-account", payloadType: "totp-configuration", profileId: vault.profileId, accountId: account.id, keyVersion: account.encryptionVersion })), id: account.id, revision: account.revision });
+    return { ...vault, name, rootKey, vaultKey, accounts: sortAccounts(accounts) };
   } catch (error) {
+    rootKey.fill(0);
+    vaultKey.fill(0);
     for (const account of accounts) account.secret.fill(0);
     throw error;
   }
