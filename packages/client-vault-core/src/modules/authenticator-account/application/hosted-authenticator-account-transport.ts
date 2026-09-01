@@ -23,7 +23,13 @@ export class HostedAuthenticatorAccountTransport {
   ): Promise<HostedAuthenticatorAccountCreated> {
     validateDestination(destination);
     validateCiphertext(input.encryptedPayload);
-    return this.requestCreated(destination, "POST", input);
+    if (input.encryptionVersion !== 1) invalidResponse();
+    if (input.source !== undefined && input.source !== "LOCAL_VAULT_COPY") invalidResponse();
+    return this.requestCreated(destination, "POST", {
+      encryptedPayload: input.encryptedPayload,
+      encryptionVersion: input.encryptionVersion,
+      ...(input.source ? { source: input.source } : {})
+    });
   }
 
   public update(
@@ -34,7 +40,13 @@ export class HostedAuthenticatorAccountTransport {
     validateIdentifier(input.accountId, "accountId");
     validateRevision(input.expectedRevision);
     validateCiphertext(input.encryptedPayload);
-    return this.requestCreated(destination, "PATCH", input);
+    if (input.encryptionVersion !== 1) invalidResponse();
+    return this.requestCreated(destination, "PATCH", {
+      accountId: input.accountId,
+      expectedRevision: input.expectedRevision,
+      encryptedPayload: input.encryptedPayload,
+      encryptionVersion: input.encryptionVersion
+    });
   }
 
   public async delete(
@@ -44,7 +56,7 @@ export class HostedAuthenticatorAccountTransport {
     validateDestination(destination);
     validateIdentifier(input.accountId, "accountId");
     validateRevision(input.expectedRevision);
-    await this.requestEmpty(destination, "DELETE", input);
+    await this.requestEmpty(destination, "DELETE", { accountId: input.accountId, expectedRevision: input.expectedRevision });
   }
 
   public async restore(
@@ -53,7 +65,7 @@ export class HostedAuthenticatorAccountTransport {
   ): Promise<void> {
     validateDestination(destination);
     validateIdentifier(input.accountId, "accountId");
-    await this.requestEmpty(destination, "PUT", input);
+    await this.requestEmpty(destination, "PUT", { accountId: input.accountId });
   }
 
   private async requestCreated(

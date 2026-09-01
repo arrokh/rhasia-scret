@@ -24,7 +24,11 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkTransportPor
       url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links`,
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...request, recipientEmail: normalizeEmail(request.recipientEmail) }),
+      body: JSON.stringify({
+        recipientEmail: normalizeEmail(request.recipientEmail),
+        linkVerifier: request.linkVerifier,
+        encryptedPackage: request.encryptedPackage
+      }),
       cache: "no-store"
     });
     if (response.status !== 201) throw await requestError(response);
@@ -45,11 +49,16 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkTransportPor
   public async redeem(request: Readonly<{ invitationId: string; encryptedVaultKey: string; keyVersion: 1 }>): Promise<void> {
     validateIdentifier(request.invitationId);
     validateCiphertext(request.encryptedVaultKey);
+    if (request.keyVersion !== 1) invalidResponse();
     const response = await this.transport.request({
       url: "/api/secure-share-links",
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        invitationId: request.invitationId,
+        encryptedVaultKey: request.encryptedVaultKey,
+        keyVersion: request.keyVersion
+      }),
       cache: "no-store"
     });
     if (response.status !== 204) throw await requestError(response);

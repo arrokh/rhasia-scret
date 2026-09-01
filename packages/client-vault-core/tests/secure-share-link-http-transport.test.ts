@@ -51,6 +51,18 @@ describe("SecureShareLinkHttpTransport", () => {
     const expired = new SecureShareLinkHttpTransport(new StubTransport([response(404, { error: "share_link_unavailable" })]));
     await expect(expired.lookup(verifier)).rejects.toEqual(new SecureShareLinkHttpTransportError(404, "share_link_unavailable"));
   });
+
+  it("does not forward unexpected runtime request fields", async () => {
+    const transport = new StubTransport([response(201, { id: "invitation_1", expiresAt: "2026-09-08T00:00:00.000Z" })]);
+    const protocol = new SecureShareLinkHttpTransport(transport);
+    await protocol.create("vault_1", {
+      recipientEmail: "recipient@example.test",
+      linkVerifier: verifier,
+      encryptedPackage: ciphertext,
+      secret: "client-link-secret"
+    } as unknown as { recipientEmail: string; linkVerifier: string; encryptedPackage: string });
+    expect(JSON.parse(String(transport.requests[0]?.body))).toEqual({ recipientEmail: "recipient@example.test", linkVerifier: verifier, encryptedPackage: ciphertext });
+  });
 });
 
 class StubTransport implements AuthenticatedTransport {

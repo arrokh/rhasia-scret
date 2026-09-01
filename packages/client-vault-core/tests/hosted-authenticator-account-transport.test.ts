@@ -59,6 +59,16 @@ describe("HostedAuthenticatorAccountTransport", () => {
     await expect(failed.update({ vaultId: "vault_1", vaultType: "PERSONAL" }, { accountId: "account_1", expectedRevision: 1, encryptedPayload: ciphertext, encryptionVersion: 1 }))
       .rejects.toEqual(new HostedAuthenticatorAccountTransportError(409, "stale_revision"));
   });
+
+  it("does not forward unexpected runtime request fields", async () => {
+    const transport = new StubTransport(response(201, { id: "account_1", revision: 1 }));
+    const protocol = new HostedAuthenticatorAccountTransport(transport);
+    await protocol.create(
+      { vaultId: "vault_1", vaultType: "PERSONAL" },
+      { encryptedPayload: ciphertext, encryptionVersion: 1, extra: "plaintext" } as unknown as { encryptedPayload: string; encryptionVersion: 1 }
+    );
+    expect(JSON.parse(String(transport.requests[0]?.body))).toEqual({ encryptedPayload: ciphertext, encryptionVersion: 1 });
+  });
 });
 
 class StubTransport implements AuthenticatedTransport {
