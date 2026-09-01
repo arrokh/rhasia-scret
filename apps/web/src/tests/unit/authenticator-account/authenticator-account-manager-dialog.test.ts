@@ -23,7 +23,7 @@ describe("AuthenticatorAccountManagerDialog", () => {
   });
 
   it("encrypts and revision-updates an edited account label", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "account-1", revision: 2 }) });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "account-1", revision: 2 }), { status: 200, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const onUpdated = vi.fn();
     const container = document.createElement("div");
@@ -53,7 +53,7 @@ describe("AuthenticatorAccountManagerDialog", () => {
   });
 
   it("requires a second modal confirmation before deleting", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
     const onDeleted = vi.fn();
     const container = document.createElement("div");

@@ -20,7 +20,6 @@ describe("offline PWA architecture boundaries", () => {
       .sort();
     expect(mutationCallers).toEqual([
       "src/modules/audit/infrastructure/browser-vault-audit-client.ts",
-      "src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts",
       "src/modules/crypto/infrastructure/browser-passkey-recovery-client.ts",
       "src/modules/identity/infrastructure/browser-passkey-recovery-status-client.ts",
       "src/modules/identity/infrastructure/browser-session-client.ts",
@@ -31,7 +30,10 @@ describe("offline PWA architecture boundaries", () => {
       "src/modules/vault-membership/infrastructure/browser-vault-participant-client.ts"
     ]);
     const client = readFileSync(join(sourceRoot, "shared/infrastructure/browser-api-client.ts"), "utf8");
+    const hostedAccounts = readFileSync(join(sourceRoot, "modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts"), "utf8");
     expect(client).toContain("assertBrowserMutationAllowed()");
+    expect(hostedAccounts).toContain("browserAuthenticatedTransport");
+    expect(hostedAccounts).toContain("HostedAuthenticatorAccountTransport");
   });
 
   it("keeps Local Vault Snapshots outside Query persistence and forbids replay primitives", () => {

@@ -1,33 +1,30 @@
 "use client";
 
-import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import { HostedAuthenticatorAccountTransport, type HostedAuthenticatorAccountDestination } from "@rhasia-scret/client-vault-core";
+import { browserAuthenticatedTransport } from "@/shared/infrastructure/browser-api-client";
 
-export type AuthenticatorAccountDestination = { vaultId: string; vaultType: "PERSONAL" | "SHARED" };
+export type AuthenticatorAccountDestination = HostedAuthenticatorAccountDestination;
+
+const hostedAccounts = new HostedAuthenticatorAccountTransport(browserAuthenticatedTransport);
 
 export function deleteEncryptedAuthenticatorAccount(
   destination: AuthenticatorAccountDestination,
   accountId: string,
   expectedRevision: number
 ): Promise<void> {
-  return browserApiClient.deleteJsonEmpty(accountEndpoint(destination), { accountId, expectedRevision });
+  return hostedAccounts.delete(destination, { accountId, expectedRevision });
 }
 
 export function updateEncryptedAuthenticatorAccount(
   destination: AuthenticatorAccountDestination,
-  request: { accountId: string; expectedRevision: number; encryptedPayload: string; encryptionVersion: number }
+  request: { accountId: string; expectedRevision: number; encryptedPayload: string; encryptionVersion: 1 }
 ): Promise<{ id: string; revision: number }> {
-  return browserApiClient.patchJson(accountEndpoint(destination), request);
+  return hostedAccounts.update(destination, request);
 }
 
 export function createEncryptedAuthenticatorAccount(
   destination: AuthenticatorAccountDestination,
-  request: { encryptedPayload: string; encryptionVersion: number; source?: "LOCAL_VAULT_COPY" }
+  request: { encryptedPayload: string; encryptionVersion: 1; source?: "LOCAL_VAULT_COPY" }
 ): Promise<{ id: string; revision: number }> {
-  return browserApiClient.postJson(accountEndpoint(destination), request);
-}
-
-function accountEndpoint(destination: AuthenticatorAccountDestination): string {
-  return destination.vaultType === "PERSONAL"
-    ? `/api/vaults/${destination.vaultId}/accounts`
-    : `/api/shared-vaults/${destination.vaultId}/accounts`;
+  return hostedAccounts.create(destination, request);
 }

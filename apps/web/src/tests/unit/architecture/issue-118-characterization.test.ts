@@ -19,14 +19,13 @@ describe("issue 118 seam characterization", () => {
     }
   });
 
-  it("records identical hosted account endpoint selection on web and native", () => {
+  it("keeps web and native account adapters behind the shared hosted protocol", () => {
     const browser = source("apps/web/src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts");
     const native = source("apps/mobile/src/infrastructure/mobile-authenticator-account.ts");
-    for (const implementation of [browser, native]) {
-      expect(implementation).toContain("/api/vaults/");
-      expect(implementation).toContain("/api/shared-vaults/");
-      expect(implementation).toContain("/accounts");
-    }
+    expect(browser).toContain("HostedAuthenticatorAccountTransport");
+    expect(native).toContain("HostedAuthenticatorAccountTransport");
+    expect(browser).not.toContain("/api/vaults/");
+    expect(native).not.toContain("/api/vaults/");
   });
 
   it("records native presentation-owned workspace lifecycle policy", () => {

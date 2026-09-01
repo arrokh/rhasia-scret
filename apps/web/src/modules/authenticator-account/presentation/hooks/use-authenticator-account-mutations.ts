@@ -20,7 +20,7 @@ export function useUpdateEncryptedAuthenticatorAccountMutation() {
       accountId: string;
       expectedRevision: number;
       encryptedPayload: string;
-      encryptionVersion: number;
+      encryptionVersion: 1;
     }) => updateEncryptedAuthenticatorAccount({ vaultId, vaultType }, { accountId, expectedRevision, encryptedPayload, encryptionVersion })
   });
 }
@@ -32,7 +32,7 @@ export function useCreateEncryptedAuthenticatorAccountMutation() {
       vaultId: string;
       vaultType: "PERSONAL" | "SHARED";
       encryptedPayload: string;
-      encryptionVersion: number;
+      encryptionVersion: 1;
       source?: "LOCAL_VAULT_COPY";
     }) => createEncryptedAuthenticatorAccount({ vaultId, vaultType }, { encryptedPayload, encryptionVersion, source })
   });
