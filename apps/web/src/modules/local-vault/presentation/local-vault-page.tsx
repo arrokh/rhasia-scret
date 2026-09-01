@@ -61,7 +61,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
     try {
       await session.unlock(passphrase);
     } catch {
-      setMessage({ tone: "danger", text: session.state.migrationRequired ? t("migrationRequired") : t("unlockError") });
+      setMessage({ tone: "danger", text: migrationRequired ? t("migrationRequired") : t("unlockError") });
     }
   }
 
