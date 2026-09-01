@@ -6,15 +6,16 @@ const repositoryRoot = join(process.cwd(), "../..");
 const source = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 describe("issue 118 seam characterization", () => {
-  it("records the repeated authenticated mutation sequence", () => {
+  it("keeps account routes behind the authenticated execution seam", () => {
     for (const path of [
       "apps/web/src/app/api/vaults/[vaultId]/accounts/route.ts",
       "apps/web/src/app/api/shared-vaults/[vaultId]/accounts/route.ts"
     ]) {
       const route = source(path);
-      expect(route).toContain("loadApplicationUser");
-      expect(route).toContain("canAccessApplication");
-      expect(route).toContain('rateLimitApplicationUser("account_mutation"');
+      expect(route).not.toContain("loadApplicationUser");
+      expect(route).not.toContain("canAccessApplication");
+      expect(route).not.toContain("rateLimitApplicationUser");
+      expect(route).toContain('operation: "account_mutation"');
     }
   });
 

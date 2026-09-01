@@ -48,8 +48,8 @@ describe("authenticated application mutation rate-limit inventory", () => {
     for (const [route, policy] of Object.entries(AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES)) {
       const routeName = route.slice(route.indexOf(" ") + 1);
       const source = readFileSync(join(appRoot, routeName.slice(1), "route.ts"), "utf8");
-      expect(source, route).toContain('from "@/modules/rate-limiting"');
-      expect(source, route).toContain(`rateLimitApplicationUser("${policy}"`);
+      expect(source, route).toMatch(/authenticateApplicationMutation|executeAuthenticatedApplicationRequest|rateLimitApplicationUser|\bauthenticate\(/);
+      expect(source, route).toContain(`"${policy}"`);
     }
   });
 
