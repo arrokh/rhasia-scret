@@ -10,3 +10,4 @@ export type { ApplicationRateLimitPolicy, ApplicationRateLimitPolicyId } from ".
 export { BoundedRateLimitMetrics } from "./infrastructure/bounded-rate-limit-metrics";
 export { PrismaApplicationRateLimitRepository } from "./infrastructure/prisma-application-rate-limit-repository";
 export { createRateLimitApplicationUser, rateLimitApplicationUser } from "./presentation/rate-limit-application-user";
+export { applicationRateLimitResponse } from "./presentation/application-rate-limit-response";
