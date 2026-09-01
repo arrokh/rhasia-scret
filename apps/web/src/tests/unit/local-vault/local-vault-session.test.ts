@@ -123,6 +123,16 @@ describe("LocalVaultSession", () => {
     expect(test.session.state.vault).toBe(current);
   });
 
+  it("fails closed when storage disappears after a refresh", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+    test.setStored(null);
+    await expect(test.session.refresh()).rejects.toThrow("unavailable");
+    expect(test.session.state.vault).toBeNull();
+    expect(test.cleared.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("keeps the session locked when initial crypto fails", async () => {
     const test = harness();
     await test.session.discover();

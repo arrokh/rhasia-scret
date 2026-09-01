@@ -113,6 +113,11 @@ export class LocalVaultSession {
       const source = this.requireVault();
       const refreshed = await this.ports.refreshVault(source);
       const record = await this.ports.readRecord();
+      if (!record) {
+        this.ports.clearVault(refreshed);
+        this.lock();
+        throw new Error("The Local Profile is unavailable.");
+      }
       this.replaceVault(refreshed);
       this.commit({ ...this.current, record, vault: refreshed });
     });
@@ -123,6 +128,10 @@ export class LocalVaultSession {
       const result = await operation(this.requireVault());
       try {
         const record = await this.ports.readRecord();
+        if (!record) {
+          this.lock();
+          throw new Error("The Local Profile is unavailable.");
+        }
         this.commit({ ...this.current, record });
       } catch (error) {
         this.commit({ ...this.current });
