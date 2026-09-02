@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -80,8 +82,10 @@ function VaultDefaultPermissionsForm({ vaultId, permissions, revision }: { vault
       setStatus(null);
       try {
         await mutation.mutateAsync({ expectedRevision: revision, permissions: value });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultDefaultPermissionsUpdated);
         setStatus("saved");
       } catch {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "update_default_permissions", failure_code: "unknown" });
         setStatus("error");
       }
     }
@@ -127,8 +131,10 @@ function MemberPermissionsDialog({ vaultId, participant, onClose }: { vaultId: s
             canDeleteAccounts: overrideValue(value.canDeleteAccounts)
           }
         });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultMemberPermissionsUpdated);
         onClose();
       } catch {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "update_permissions", failure_code: "unknown" });
         setStatus("error");
       }
     }
@@ -182,13 +188,20 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
   ];
   async function removeParticipant() {
     if (!participantToDelete) return;
-    await deleteMutation.mutateAsync(participantToDelete);
-    const invitationId = participantToDelete.invitationId;
-    if (invitationId) {
-      setCreatedInvitations((current) => current.filter(({ id }) => id !== invitationId));
-      setPendingLinks((current) => { const next = { ...current }; delete next[invitationId]; return next; });
+    const participantType = participantToDelete.kind === "MEMBER" ? "member" : "invitation";
+    try {
+      await deleteMutation.mutateAsync(participantToDelete);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultParticipantRemoved, { participant_type: participantType });
+      const invitationId = participantToDelete.invitationId;
+      if (invitationId) {
+        setCreatedInvitations((current) => current.filter(({ id }) => id !== invitationId));
+        setPendingLinks((current) => { const next = { ...current }; delete next[invitationId]; return next; });
+      }
+      setParticipantToDelete(null);
+    } catch (error) {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "remove_participant", failure_code: "unknown" });
+      throw error;
     }
-    setParticipantToDelete(null);
   }
   async function copyPendingInvitation(invitationId: string) {
     const link = pendingLinks[invitationId];
@@ -218,8 +231,9 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
     try {
       const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key);
       const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationReissued);
       rememberInvitation({ id: invitation.id, email: participant.email, expiresAt: invitation.expiresAt, link }, participant.invitationId);
-    } catch { setReinvitationFailed(true); }
+    } catch { captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "reinvite", failure_code: "unknown" }); setReinvitationFailed(true); }
     finally { setReinvitingInvitationId(null); }
   }
   return <div className="grid gap-5">
@@ -249,7 +263,7 @@ function InvitationPanel({ vault, participants, loading, loadingMore, failed, ha
 function InvitationForm({ vault, onCreated }: { vault: MembershipVault; onCreated: (invitation: { id: string; email: string; expiresAt: string; link: string }) => void }) {
   const t = useTranslations("VaultManagement.invitations");
   const [error, setError] = useState(false);
-  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(false); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; form.reset(); onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link }); } catch { setError(true); } } });
+  const form = useForm({ defaultValues: { email: "" }, onSubmit: async ({ value }) => { setError(false); try { const email = value.email.trim().toLowerCase(); const invitation = await createSharedVaultInvitation(vault.id, email, vault.key); const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`; captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationCreated); form.reset(); onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link }); } catch { captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "invite", failure_code: "unknown" }); setError(true); } } });
   return <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
     <div><h3 className="flex items-center gap-2 font-bold text-ink-strong"><MailPlus className="size-5" />{t("formTitle")}</h3><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p></div>
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">

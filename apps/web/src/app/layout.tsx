@@ -7,6 +7,7 @@ import { Suspense, type ReactNode } from "react";
 import { deterministicTimeZone } from "@/i18n/config";
 import { QueryProvider } from "@/shared/presentation/query-provider";
 import { AppFooter } from "@/shared/presentation/app-ui";
+import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
           <QueryProvider>
+            <BrowserAnalyticsBootstrap />
             <ServiceWorkerRegistration />
             <Suspense fallback={null}><NavigationProgress /></Suspense>
             <div className="min-h-dvh">{children}<AppFooter /></div>

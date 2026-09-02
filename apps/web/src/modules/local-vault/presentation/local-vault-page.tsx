@@ -18,6 +18,8 @@ import { TotpAccountButton } from "@/modules/otp-runtime";
 import { VaultStatusIndicator } from "@/modules/sync";
 import { QrImportInput } from "@/modules/authenticator-account";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import {
   addLocalAccount,
   clearLocalVault,
@@ -85,6 +87,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
     setVault(null);
     setEditing(null);
     setMessage(null);
+    captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultLocked);
   }
 
   async function create(passphrase: string, name: string) {
@@ -96,6 +99,8 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
       await new BrowserLocalVaultRepository().create(created);
       setRecord(created);
       setVault(unlocked);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultCreated);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlocked, { method: "passphrase" });
     } catch {
       clearUnlockedLocalVault(unlocked ?? null);
       setMessage({ tone: "danger", text: t("storageError") });
@@ -108,8 +113,10 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
     try {
       const unlocked = await unlockLocalVault(record, passphrase);
       setVault(unlocked);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlocked, { method: "passphrase" });
     } catch (error) {
       setLegacyMigration(error instanceof LocalVaultMigrationRequiredError);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlockFailed, { method: "passphrase", failure_code: error instanceof LocalVaultMigrationRequiredError ? "migration_required" : "unknown" });
       setMessage({ tone: "danger", text: error instanceof LocalVaultMigrationRequiredError ? t("migrationRequired") : t("unlockError") });
     }
   }
@@ -122,6 +129,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
       setRecord(migrated);
       setVault(unlocked);
       setLegacyMigration(false);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultMigrated);
     } catch {
       setMessage({ tone: "danger", text: t("unlockError") });
     }
@@ -136,6 +144,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
       setRecord(null);
       setClearOpen(false);
       setMessage({ tone: "success", text: t("clear") });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultCleared);
     } catch {
       setMessage({ tone: "danger", text: t("storageError") });
     } finally {
@@ -152,9 +161,9 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
     <VaultStatusIndicator origin="LOCAL" className="mb-5" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
     {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={legacyMigration ? migrate : undefined} /></SurfaceCard>}
-    {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onClear={() => setClearOpen(true)} onRename={async (name) => { await renameLocalVault(vault, name); setVault({ ...vault }); void readLocalVaultRecord().then(setRecord); }} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
+    {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onClear={() => setClearOpen(true)} onRename={async (name) => { await renameLocalVault(vault, name); captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultRenamed); setVault({ ...vault }); void readLocalVaultRecord().then(setRecord); }} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
     {clearOpen && <ConfirmationDialog title={t("clearTitle")} description={t("clearDescription")} confirmLabel={t("clearConfirm")} danger pending={clearing} onCancel={() => setClearOpen(false)} onConfirm={() => void handleClear()} />}
-    {vault && editing && <LocalAccountEditor account={editing} onCancel={() => setEditing(null)} onDelete={async () => { await deleteLocalAccount(vault, editing.id); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onSave={async (configuration) => { await updateLocalAccount(vault, editing.id, configuration); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onError={(text) => setMessage({ tone: "danger", text })} />}
+    {vault && editing && <LocalAccountEditor account={editing} onCancel={() => setEditing(null)} onDelete={async () => { await deleteLocalAccount(vault, editing.id); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountDeleted); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onSave={async (configuration) => { await updateLocalAccount(vault, editing.id, configuration); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountUpdated); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onError={(text) => setMessage({ tone: "danger", text })} />}
   </AppPage>;
 }
 
@@ -190,6 +199,7 @@ function UnlockedLocalVaultView({ vault, onLock, onClear, onRename, onChanged, o
   async function add(configuration: TotpConfiguration): Promise<boolean> {
     try {
       await addLocalAccount(vault, configuration);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountCreated);
       onChanged({ ...vault, accounts: [...vault.accounts] });
       setActiveTab("vault");
       return true;
@@ -205,6 +215,7 @@ function UnlockedLocalVaultView({ vault, onLock, onClear, onRename, onChanged, o
       const result = await exportLocalVault(vault);
       download(result.archive, "local-vault.rhasia-vault");
       download(new TextEncoder().encode(bytesToBase64(result.key)), "local-vault.key.txt", "text/plain");
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveExportPrepared, { account_count: vault.accounts.length });
       result.key.fill(0);
     } catch { onError(t("backupError")); }
     finally { setExporting(false); }
@@ -307,6 +318,7 @@ function LocalArchiveImporter({ vault, onImported, onError, importing, setImport
       const preview = await previewLocalVaultArchive(keyBytes, archiveBytes);
       for (const account of preview.accounts) account.secret.fill(0);
       const count = await importLocalVaultArchive(vault, keyBytes, archiveBytes);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveImportCompleted, { account_count: count });
       onImported();
       if (count === 0) onError(t("noNewAccounts"));
       else onError(t("imported", { count }));

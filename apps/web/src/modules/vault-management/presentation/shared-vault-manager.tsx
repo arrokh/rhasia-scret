@@ -20,6 +20,8 @@ import {
   type SharedVaultAccountPermissions
 } from "@/modules/vault-membership";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -68,7 +70,7 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
   const renameMutation = useRenameSharedVaultMutation();
   const deleteMutation = useDeleteSharedVaultMutation();
   const audit = useVaultAuditQuery(vault.id, auditFilter.query, vault.role === "OWNER" && activeTab === "audit");
-  const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); setStatus("renamed"); } catch { setStatus("renameError"); } } });
+  const renameForm = useForm({ defaultValues: { name: vault.name }, onSubmit: async ({ value }) => { try { const name = value.name.trim(); const encryptedName = await encryptSharedVaultName(vault.key, name); await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) }); onRenamed(vault.id, name); captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultRenamed); setStatus("renamed"); } catch { captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "rename", failure_code: "unknown" }); setStatus("renameError"); } } });
 
   function openAudit(filter: VaultAuditFilter, label: string) { setAuditFilter({ query: filter, label }); setActiveTab("audit"); }
   async function deleteVault() {
@@ -76,8 +78,10 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
     try {
       await deleteMutation.mutateAsync(vault.id);
       setConfirmingDelete(false);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultDeleted);
       onDeleted?.(vault.id);
     } catch {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, { operation: "delete", failure_code: "unknown" });
       setConfirmingDelete(false);
       setStatus("deleteError");
     }
@@ -101,6 +105,7 @@ export function SharedVaultDetails({ vault, ownerEmail, initialDefaultAccountPer
         <VaultAccountManagementList
           vaultId={vault.id}
           vaultName={vault.name}
+          vaultType="SHARED"
           accounts={vault.accounts}
           canAddAccounts={vault.effectiveAccountPermissions.permissions.canAddAccounts}
           canDeleteAccounts={vault.effectiveAccountPermissions.permissions.canDeleteAccounts}

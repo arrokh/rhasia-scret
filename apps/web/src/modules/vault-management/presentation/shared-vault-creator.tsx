@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
@@ -26,8 +28,9 @@ export function SharedVaultCreator({ userRootKey, onCreated }: { userRootKey: Ui
         const vaultId = randomOpaqueId();
         const material = await createSharedVaultMaterial(userRootKey, value.name, vaultId);
         const created = await createMutation.mutateAsync({ vaultId, encryptedName: bytesToBase64(material.encryptedName), encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey), encryptionVersion: material.encryptionVersion });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultCreated);
         const createdName = value.name.trim(); form.reset(); setStatus("success"); onCreated?.({ id: created.id, name: createdName, key: material.vaultKey });
-      } catch { setStatus("error"); }
+      } catch { captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultCreationFailed); setStatus("error"); }
     }
   });
 

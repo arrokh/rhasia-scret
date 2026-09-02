@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { generateVaultUnlockSecret, initializePersonalVaultInBrowser, validateVaultUnlockSecret } from "@/modules/crypto";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
@@ -35,8 +37,10 @@ export function PersonalVaultSetupForm() {
       try {
         const material = await initializePersonalVaultInBrowser(value.secret, value.vaultName);
         await initializeMutation.mutateAsync({ vaultUnlockSalt: bytesToBase64(material.vaultUnlockSalt), wrappedUserRootKey: bytesToBase64(material.wrappedUserRootKey), encryptedPersonalVaultKey: bytesToBase64(material.encryptedPersonalVaultKey), encryptedVaultName: bytesToBase64(material.encryptedVaultName), encryptionVersion: material.encryptionVersion });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitialized);
         router.refresh();
       } catch {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitializationFailed);
         setStatus("setup_error");
       }
     }

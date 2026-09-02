@@ -39,13 +39,13 @@ export function AuthenticatorAccountManagerDialog({ account, vaultKey, canEdit =
         onUpdated({ ...nextAccount, revision: updated.revision });
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountUpdated, { vault_type: account.vaultType });
         setStatus("updated");
-      } catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setStatus("updateError"); }
+      } catch (error) { const permissionDenied = isPermissionChange(error); captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "update", failure_code: permissionDenied ? "permission_denied" : "unknown" }); if (permissionDenied) await onPermissionChanged?.(); setStatus("updateError"); }
     }
   });
 
   async function deleteAccount() {
     try { await deleteMutation.mutateAsync({ vaultId: account.vaultId, vaultType: account.vaultType, accountId: account.id, expectedRevision: account.revision }); onDeleted(account); captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountDeleted, { vault_type: account.vaultType }); onClose(); }
-    catch (error) { if (isPermissionChange(error)) await onPermissionChanged?.(); setConfirmingDelete(false); setStatus("deleteError"); }
+    catch (error) { const permissionDenied = isPermissionChange(error); captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "delete", failure_code: permissionDenied ? "permission_denied" : "unknown" }); if (permissionDenied) await onPermissionChanged?.(); setConfirmingDelete(false); setStatus("deleteError"); }
   }
 
   return (

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import { formatLocalDateTime } from "@/i18n/format";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { enrollRememberedBrowser, forgetRememberedBrowser, rememberedBrowserEnrollment, supportsLocalVerification } from "../infrastructure/browser-local-verification";
 import { PasskeyPrfUnsupportedError } from "../infrastructure/browser-passkey-prf";
 
@@ -32,6 +34,7 @@ export function RememberedBrowserEnrollment({ profileId, userRootKey }: { profil
         await enrollRememberedBrowser(profileId, userRootKey, controller.signal);
         if (controller.signal.aborted) return;
         setEnrolledAt(new Date().toISOString());
+        captureAnalyticsEvent(ANALYTICS_EVENTS.rememberedBrowserEnabled);
         setStatus("enrolled");
       } catch (error) {
         if (!controller.signal.aborted) setStatus(enrollmentFailureStatus(error));
@@ -59,6 +62,7 @@ export function RememberedBrowserEnrollment({ profileId, userRootKey }: { profil
     try {
       await forgetRememberedBrowser(profileId);
       setEnrolledAt(null);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.rememberedBrowserRemoved);
       setStatus("removed");
     } catch {
       setStatus("error");
