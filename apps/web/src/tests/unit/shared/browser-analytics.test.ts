@@ -29,7 +29,6 @@ type AnalyticsInitOptions = {
   disable_session_recording?: boolean;
   disable_surveys?: boolean;
   disable_persistence?: boolean;
-  persistence?: string;
   persistence_name?: string;
   disable_capture_url_hashes?: boolean;
   save_referrer?: boolean;
@@ -37,6 +36,11 @@ type AnalyticsInitOptions = {
   mask_all_text?: boolean;
   mask_all_element_attributes?: boolean;
   respect_dnt?: boolean;
+  advanced_disable_flags?: boolean;
+  disable_web_experiments?: boolean;
+  disable_product_tours?: boolean;
+  disable_conversations?: boolean;
+  disable_external_dependency_loading?: boolean;
   before_send?: typeof BROWSER_ANALYTICS_CONFIG.before_send;
   loaded?: (client: typeof posthogMocks) => void;
 };
@@ -75,15 +79,19 @@ describe("browser analytics", () => {
       capture_exceptions: true,
       disable_session_recording: true,
       disable_surveys: true,
-      disable_persistence: false,
-      persistence: "sessionStorage",
+      disable_persistence: true,
       persistence_name: "rhasia_scret_posthog",
       disable_capture_url_hashes: true,
       save_referrer: false,
       save_campaign_params: false,
       mask_all_text: true,
       mask_all_element_attributes: true,
-      respect_dnt: true
+      respect_dnt: true,
+      advanced_disable_flags: true,
+      disable_web_experiments: true,
+      disable_product_tours: true,
+      disable_conversations: true,
+      disable_external_dependency_loading: true
     });
     expect(options.loaded).toBeTypeOf("function");
     expect(options.before_send).toBeTypeOf("function");
@@ -109,6 +117,56 @@ describe("browser analytics", () => {
       token: "phc_test_project_token",
       distinct_id: "anonymous-test-id"
     });
+  });
+
+  it("keeps the product event catalog aggregate-only", () => {
+    expect(Object.values(ANALYTICS_EVENTS)).toContain("authentication_sign_in_link_requested");
+    expect(Object.values(ANALYTICS_EVENTS)).toContain("authentication_session_established");
+    expect(Object.values(ANALYTICS_EVENTS)).toContain("shared_vault_operation_failed");
+    expect(Object.values(ANALYTICS_EVENTS)).toContain("local_vault_archive_import_completed");
+
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "aggregate-event-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passkey",
+        failure_code: "passkey_error",
+        operation: "unlock",
+        participant_type: "member",
+        email: "alice@example.test",
+        vault_id: "vault-private-id"
+      }
+    });
+
+    expect(capture?.properties).toEqual({
+      method: "passkey",
+      failure_code: "passkey_error",
+      operation: "unlock",
+      participant_type: "member"
+    });
+  });
+
+  it("keeps error properties only on bounded explicit error events", () => {
+    const automaticException = sanitizeAnalyticsCapture({
+      uuid: "automatic-exception-test-uuid",
+      event: "$exception",
+      properties: {
+        error_name: "Error: alice@example.test",
+        error_digest: "https://example.test/?secret=private",
+        safe_number: 1
+      }
+    });
+    expect(automaticException?.properties).toEqual({ safe_number: 1 });
+
+    const explicitError = sanitizeAnalyticsCapture({
+      uuid: "explicit-error-test-uuid",
+      event: ANALYTICS_EVENTS.clientError,
+      properties: {
+        error_name: "Error: alice@example.test",
+        error_digest: "https://example.test/?secret=private"
+      }
+    });
+    expect(explicitError?.properties).toEqual({ error_name: "Error", error_digest: "unknown" });
   });
 
   it("drops automatic events on private routes and removes sensitive automatic properties", () => {
@@ -175,6 +233,18 @@ describe("browser analytics", () => {
     const identifiedUserId = posthogMocks.identify.mock.calls[0]?.[0];
     expect(identifiedUserId).not.toBe(rawUserId);
     expect(identifiedUserId).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("normalizes error boundary properties before capture", async () => {
+    const { captureAnalyticsError } = await import("@/shared/infrastructure/browser-analytics");
+    const error = Object.assign(new Error("private details"), {
+      name: "Error: alice@example.test",
+      digest: "https://example.test/?secret=private"
+    });
+
+    captureAnalyticsError(error);
+
+    await vi.waitFor(() => expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.clientError, { error_name: "Error", error_digest: "unknown" }));
   });
 
   it("does not identify an email-shaped identifier", async () => {

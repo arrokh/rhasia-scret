@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { hasRememberedBrowserForPersonalVault } from "@/modules/crypto";
 import { usePasskeyRecoveryStatusQuery } from "@/modules/identity";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { clearUnlockedVaultWorkspace, loadUnlockedVaultWorkspace, loadUnlockedVaultWorkspaceWithPasskey, loadUnlockedVaultWorkspaceWithRememberedBrowser, type UnlockedVaultWorkspace } from "@/modules/sync";
@@ -27,8 +29,8 @@ export function VaultWorkspaceUnlock({ personalVaultId, onUnlocked }: { personal
     defaultValues: { secret: "" },
     onSubmit: async ({ value }) => {
       setStatus("idle");
-      try { onUnlocked(await loadUnlockedVaultWorkspace(value.secret, personalVaultId)); form.reset(); }
-      catch { setStatus("secret_error"); }
+      try { onUnlocked(await loadUnlockedVaultWorkspace(value.secret, personalVaultId)); captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "passphrase" }); form.reset(); }
+      catch { captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, { method: "passphrase", failure_code: "invalid_secret" }); setStatus("secret_error"); }
     }
   });
 
@@ -51,9 +53,10 @@ export function VaultWorkspaceUnlock({ personalVaultId, onUnlocked }: { personal
       const workspace = await loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVaultId, controller.signal);
       if (controller.signal.aborted) { clearUnlockedVaultWorkspace(workspace); return; }
       onUnlocked(workspace);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "remembered_browser" });
       form.reset();
     } catch {
-      if (!controller.signal.aborted) setStatus("remembered_error");
+      if (!controller.signal.aborted) { captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, { method: "remembered_browser", failure_code: "remembered_browser_error" }); setStatus("remembered_error"); }
     } finally {
       if (rememberedOperationRef.current === controller) rememberedOperationRef.current = null;
       if (!controller.signal.aborted) setRememberedUnlocking(false);
@@ -63,8 +66,8 @@ export function VaultWorkspaceUnlock({ personalVaultId, onUnlocked }: { personal
   async function unlockWithPasskey() {
     setStatus("idle");
     setPasskeyUnlocking(true);
-    try { onUnlocked(await loadUnlockedVaultWorkspaceWithPasskey(personalVaultId)); form.reset(); }
-    catch { setStatus("passkey_error"); }
+    try { onUnlocked(await loadUnlockedVaultWorkspaceWithPasskey(personalVaultId)); captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "passkey" }); form.reset(); }
+    catch { captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, { method: "passkey", failure_code: "passkey_error" }); setStatus("passkey_error"); }
     finally { setPasskeyUnlocking(false); }
   }
 

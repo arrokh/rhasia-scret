@@ -6,14 +6,52 @@ import type { BeforeSendFn, PostHogConfig } from "posthog-js";
  * Automatic capture is enabled only with the safeguards below: private routes
  * expose only redacted page/performance events, DOM interaction capture is
  * ignored there, copied text is disabled, and before_send drops sensitive
- * fields before anything leaves the browser. Persistence is session-only and
- * excludes referrer/campaign data.
+ * fields before anything leaves the browser. Browser persistence is disabled
+ * because the SDK's session-properties manager can otherwise retain the raw
+ * current URL before before_send runs.
  */
 export const ANALYTICS_EVENTS = {
   applicationOpened: "application_opened",
+  authenticationSignInLinkRequested: "authentication_sign_in_link_requested",
+  authenticationSignInLinkRequestFailed: "authentication_sign_in_link_request_failed",
+  authenticationSessionEstablished: "authentication_session_established",
+  authenticationSignedOut: "authentication_signed_out",
+  personalVaultInitialized: "personal_vault_initialized",
+  personalVaultInitializationFailed: "personal_vault_initialization_failed",
+  sharedVaultCreated: "shared_vault_created",
+  sharedVaultCreationFailed: "shared_vault_creation_failed",
+  sharedVaultRenamed: "shared_vault_renamed",
+  sharedVaultDeleted: "shared_vault_deleted",
+  sharedVaultInvitationCreated: "shared_vault_invitation_created",
+  sharedVaultInvitationReissued: "shared_vault_invitation_reissued",
+  sharedVaultParticipantRemoved: "shared_vault_participant_removed",
+  sharedVaultDefaultPermissionsUpdated: "shared_vault_default_permissions_updated",
+  sharedVaultMemberPermissionsUpdated: "shared_vault_member_permissions_updated",
+  sharedVaultOperationFailed: "shared_vault_operation_failed",
+  vaultUnlocked: "vault_unlocked",
+  vaultUnlockFailed: "vault_unlock_failed",
+  offlineVaultUnlocked: "offline_vault_unlocked",
+  offlineVaultUnlockFailed: "offline_vault_unlock_failed",
+  offlineVaultLocked: "offline_vault_locked",
+  offlineVaultCleared: "offline_vault_cleared",
+  localVaultCreated: "local_vault_created",
+  localVaultUnlocked: "local_vault_unlocked",
+  localVaultUnlockFailed: "local_vault_unlock_failed",
+  localVaultMigrated: "local_vault_migrated",
+  localVaultLocked: "local_vault_locked",
+  localVaultCleared: "local_vault_cleared",
+  localVaultRenamed: "local_vault_renamed",
+  localVaultArchiveExportPrepared: "local_vault_archive_export_prepared",
+  localVaultArchiveImportCompleted: "local_vault_archive_import_completed",
+  localAuthenticatorAccountCreated: "local_authenticator_account_created",
+  localAuthenticatorAccountUpdated: "local_authenticator_account_updated",
+  localAuthenticatorAccountDeleted: "local_authenticator_account_deleted",
+  rememberedBrowserEnabled: "remembered_browser_enabled",
+  rememberedBrowserRemoved: "remembered_browser_removed",
   authenticatorAccountCreated: "authenticator_account_created",
   authenticatorAccountUpdated: "authenticator_account_updated",
   authenticatorAccountDeleted: "authenticator_account_deleted",
+  authenticatorAccountOperationFailed: "authenticator_account_operation_failed",
   secureShareLinkRedeemed: "secure_share_link_redeemed",
   personalVaultResetCompleted: "personal_vault_reset_completed",
   vaultArchiveExportPrepared: "vault_archive_export_prepared",
@@ -25,12 +63,58 @@ export const ANALYTICS_EVENTS = {
 
 export type AnalyticsEventName = keyof AnalyticsEventProperties;
 type AnalyticsVaultType = "PERSONAL" | "SHARED";
+type AnalyticsAuthenticationMethod = "email";
+type AnalyticsVaultUnlockMethod = "passphrase" | "remembered_browser" | "passkey";
+type AnalyticsOfflineUnlockMethod = "passphrase" | "remembered_browser";
+type AnalyticsFailureCode = "rate_limited" | "provider_error" | "invalid_secret" | "remembered_browser_error" | "passkey_error" | "permission_denied" | "duplicate" | "destination_unavailable" | "unknown";
+type AnalyticsAccountOperation = "create" | "update" | "delete";
+type AnalyticsParticipantType = "member" | "invitation";
 
 type AnalyticsEventProperties = {
   application_opened: undefined;
+  authentication_sign_in_link_requested: { method: AnalyticsAuthenticationMethod };
+  authentication_sign_in_link_request_failed: { method: AnalyticsAuthenticationMethod; failure_code: "rate_limited" | "provider_error" };
+  authentication_session_established: undefined;
+  authentication_signed_out: undefined;
+  personal_vault_initialized: undefined;
+  personal_vault_initialization_failed: undefined;
+  shared_vault_created: undefined;
+  shared_vault_creation_failed: undefined;
+  shared_vault_renamed: undefined;
+  shared_vault_deleted: undefined;
+  shared_vault_invitation_created: undefined;
+  shared_vault_invitation_reissued: undefined;
+  shared_vault_participant_removed: { participant_type: AnalyticsParticipantType };
+  shared_vault_default_permissions_updated: undefined;
+  shared_vault_member_permissions_updated: undefined;
+  shared_vault_operation_failed: {
+    operation: "rename" | "delete" | "invite" | "reinvite" | "remove_participant" | "update_permissions" | "update_default_permissions";
+    failure_code: "permission_denied" | "unknown";
+  };
+  vault_unlocked: { method: AnalyticsVaultUnlockMethod };
+  vault_unlock_failed: { method: AnalyticsVaultUnlockMethod; failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error" };
+  offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
+  offline_vault_unlock_failed: { method: AnalyticsOfflineUnlockMethod; failure_code: "invalid_secret" | "remembered_browser_error" };
+  offline_vault_locked: undefined;
+  offline_vault_cleared: undefined;
+  local_vault_created: undefined;
+  local_vault_unlocked: { method: "passphrase" };
+  local_vault_unlock_failed: { method: "passphrase"; failure_code: "invalid_secret" | "migration_required" | "unknown" };
+  local_vault_migrated: undefined;
+  local_vault_locked: undefined;
+  local_vault_cleared: undefined;
+  local_vault_renamed: undefined;
+  local_vault_archive_export_prepared: { account_count: number };
+  local_vault_archive_import_completed: { account_count: number };
+  local_authenticator_account_created: undefined;
+  local_authenticator_account_updated: undefined;
+  local_authenticator_account_deleted: undefined;
+  remembered_browser_enabled: undefined;
+  remembered_browser_removed: undefined;
   authenticator_account_created: { vault_type: AnalyticsVaultType };
   authenticator_account_updated: { vault_type: AnalyticsVaultType };
   authenticator_account_deleted: { vault_type: AnalyticsVaultType };
+  authenticator_account_operation_failed: { operation: AnalyticsAccountOperation; failure_code: AnalyticsFailureCode };
   secure_share_link_redeemed: undefined;
   personal_vault_reset_completed: undefined;
   vault_archive_export_prepared: { vault_type: AnalyticsVaultType };
@@ -49,14 +133,18 @@ export type AnalyticsEventPropertiesFor<Name extends AnalyticsEventName> = Analy
 const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referrer"] as const;
 const PRIVATE_ROUTE_PREFIXES = ["/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const AUTOMATIC_CAPTURE_PROPERTY_PATTERN = /(?:account|attr|cipher|content|cookie|description|email|error|exception|hash|href|input|issuer|key|label|message|name|otp|passphrase|password|path|plain|private|qr|query|referrer|secret|stack|text|title|token|trace|url|value|vault)/i;
+const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+const SAFE_ERROR_DIGEST_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 // The SDK adds `token` to every capture as a required ingestion property. It is
 // the public project token, not application or Vault data, and must survive before_send.
 const SAFE_ANALYTICS_PROPERTY_KEYS = new Set([
   "account_count",
   "created_new_vault",
   "destination_type",
-  "error_digest",
-  "error_name",
+  "failure_code",
+  "method",
+  "operation",
+  "participant_type",
   "token",
   "vault_type"
 ]);
@@ -65,6 +153,7 @@ const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set(["$pageview", "$pageleave
 export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): Parameters<BeforeSendFn>[0] {
   if (!capture) return null;
   const automaticCapture = capture.event.startsWith("$") && capture.event !== "$identify";
+  const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
   const privateRoute = isPrivateRoute(getAnalyticsPath(capture));
   for (const property of Object.keys(capture.properties)) {
     const value = capture.properties[property];
@@ -77,10 +166,28 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
       }
       continue;
     }
+    if (property === "error_name") {
+      if (!explicitClientError) delete capture.properties[property];
+      else capture.properties[property] = normalizeAnalyticsErrorName(value);
+      continue;
+    }
+    if (property === "error_digest") {
+      if (!explicitClientError) delete capture.properties[property];
+      else capture.properties[property] = normalizeAnalyticsErrorDigest(value);
+      continue;
+    }
     if (property.startsWith("$el_") || AUTOMATIC_CAPTURE_PROPERTY_PATTERN.test(property) && !SAFE_ANALYTICS_PROPERTY_KEYS.has(property) || typeof value === "object") delete capture.properties[property];
   }
   if (automaticCapture && privateRoute && !PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS.has(capture.event)) return null;
   return capture;
+}
+
+export function normalizeAnalyticsErrorName(value: unknown): string {
+  return typeof value === "string" && SAFE_ERROR_NAME_PATTERN.test(value) ? value : "Error";
+}
+
+export function normalizeAnalyticsErrorDigest(value: unknown): string {
+  return typeof value === "string" && SAFE_ERROR_DIGEST_PATTERN.test(value) ? value : "unknown";
 }
 
 const sanitizeAnalyticsUrls: BeforeSendFn = sanitizeAnalyticsCapture;
@@ -123,8 +230,9 @@ export const BROWSER_ANALYTICS_CONFIG = {
   capture_exceptions: true,
   disable_session_recording: true,
   disable_surveys: true,
-  disable_persistence: false,
-  persistence: "sessionStorage",
+  disable_persistence: true,
+  // Keep the former key so the SDK removes legacy sessionStorage data during
+  // the transition to disabled persistence.
   persistence_name: "rhasia_scret_posthog",
   disable_capture_url_hashes: true,
   save_referrer: false,
@@ -132,6 +240,11 @@ export const BROWSER_ANALYTICS_CONFIG = {
   mask_all_text: true,
   mask_all_element_attributes: true,
   respect_dnt: true,
+  advanced_disable_flags: true,
+  disable_web_experiments: true,
+  disable_product_tours: true,
+  disable_conversations: true,
+  disable_external_dependency_loading: true,
   loaded: (posthog) => posthog.capture(ANALYTICS_EVENTS.applicationOpened),
   before_send: sanitizeAnalyticsUrls,
   debug: process.env.NODE_ENV === "development"

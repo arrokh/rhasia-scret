@@ -5,12 +5,14 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { KeyRound, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 
 export type ManagedVaultAccountSummary = { id: string; issuer: string; accountName: string; revision: number; unavailable?: boolean };
 
-export function VaultAccountManagementList({ vaultId, vaultName, accounts, canAddAccounts = true, canDeleteAccounts = true, onAudit, onAccountDeleted }: { vaultId: string; vaultName: string; accounts: ManagedVaultAccountSummary[]; canAddAccounts?: boolean; canDeleteAccounts?: boolean; onAudit?: (account: ManagedVaultAccountSummary) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
+export function VaultAccountManagementList({ vaultId, vaultName, vaultType, accounts, canAddAccounts = true, canDeleteAccounts = true, onAudit, onAccountDeleted }: { vaultId: string; vaultName: string; vaultType: "PERSONAL" | "SHARED"; accounts: ManagedVaultAccountSummary[]; canAddAccounts?: boolean; canDeleteAccounts?: boolean; onAudit?: (account: ManagedVaultAccountSummary) => void; onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void> }) {
   const t = useTranslations("VaultManagement.accounts");
   const [accountToDelete, setAccountToDelete] = useState<ManagedVaultAccountSummary | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -21,9 +23,11 @@ export function VaultAccountManagementList({ vaultId, vaultName, accounts, canAd
     setDeletingAccount(true);
     try {
       await onAccountDeleted(vaultId, account.id, account.revision);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountDeleted, { vault_type: vaultType });
       setAccountToDelete(null);
       setStatus("deleted");
     } catch {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "delete", failure_code: "unknown" });
       setStatus("deleteError");
     } finally {
       setDeletingAccount(false);

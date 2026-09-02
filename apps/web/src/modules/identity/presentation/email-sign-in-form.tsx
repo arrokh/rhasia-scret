@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { createBrowserSupabaseClient } from "./browser-supabase-client";
 import { authConfirmationRedirectUrl, requestEmailSignInLink } from "./request-email-sign-in-link";
 
@@ -23,6 +25,11 @@ export function EmailSignInForm() {
       setStatus("sending");
       const result = await requestEmailSignInLink(createBrowserSupabaseClient(), value.email, authConfirmationRedirectUrl(window.location.origin));
       if (result === "rate_limited") setRetrySeconds(60);
+      if (result === "sent") {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });
+      } else {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequestFailed, { method: "email", failure_code: result === "rate_limited" ? "rate_limited" : "provider_error" });
+      }
       setStatus(result);
     }
   });

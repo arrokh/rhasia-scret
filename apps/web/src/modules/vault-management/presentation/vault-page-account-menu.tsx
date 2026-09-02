@@ -4,11 +4,18 @@ import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useUnlockedVaultWorkspace } from "@/modules/authenticator-account";
 import { LogoutForm } from "@/modules/identity";
-import { identifyAnalyticsUser } from "@/shared/infrastructure/browser-analytics";
+import { captureAnalyticsEvent, identifyAnalyticsUser } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 
 export function PostHogIdentify({ userId }: { userId: string }) {
   useEffect(() => {
-    identifyAnalyticsUser(userId);
+    let active = true;
+    void identifyAnalyticsUser(userId).then((identified) => {
+      if (active && identified) captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSessionEstablished);
+    });
+    return () => {
+      active = false;
+    };
   }, [userId]);
 
   return null;

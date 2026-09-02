@@ -16,6 +16,8 @@ import {
 import { TotpAccountButton } from "@/modules/otp-runtime";
 import { AppPage, Brand, PageHeader, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
+import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { formatLocalDateTime } from "@/i18n/format";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import { BrowserOfflineVaultRepository } from "../infrastructure/browser-offline-vault-repository";
@@ -37,8 +39,9 @@ export function OfflineVaultShell() {
       setStatus("ready");
       try {
         replaceWorkspace(await loadOfflineVaultWorkspace(value.profileId, value.secret));
+        captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlocked, { method: "passphrase" });
         form.setFieldValue("secret", "");
-      } catch { setStatus("unlock_error"); }
+      } catch { captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlockFailed, { method: "passphrase", failure_code: "invalid_secret" }); setStatus("unlock_error"); }
     }
   });
 
@@ -57,17 +60,17 @@ export function OfflineVaultShell() {
     const profileId = form.state.values.profileId;
     if (!profileId) return;
     setStatus("ready");
-    try { replaceWorkspace(await loadOfflineVaultWorkspaceWithRememberedBrowser(profileId)); }
-    catch { setStatus("remembered_error"); }
+    try { replaceWorkspace(await loadOfflineVaultWorkspaceWithRememberedBrowser(profileId)); captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlocked, { method: "remembered_browser" }); }
+    catch { captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlockFailed, { method: "remembered_browser", failure_code: "remembered_browser_error" }); setStatus("remembered_error"); }
   }
 
   async function clearDevice() {
     replaceWorkspace(null);
-    try { await repository.clearAll(); setProfiles([]); setStatus("empty"); }
+    try { await repository.clearAll(); captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultCleared); setProfiles([]); setStatus("empty"); }
     catch { setStatus("storage_error"); }
   }
 
-  if (workspace) return <UnlockedOfflineWorkspace workspace={workspace} onLock={() => replaceWorkspace(null)} onClear={() => void clearDevice()} />;
+  if (workspace) return <UnlockedOfflineWorkspace workspace={workspace} onLock={() => { replaceWorkspace(null); captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultLocked); }} onClear={() => void clearDevice()} />;
 
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} action={<Brand compact />} />
@@ -106,4 +109,3 @@ function UnlockedOfflineWorkspace({ workspace, onLock, onClear }: { workspace: U
     </SurfaceCard>
   </AppPage>;
 }
-

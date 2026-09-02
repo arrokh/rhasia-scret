@@ -88,7 +88,10 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
   async function save(candidate: DecryptedAuthenticatorAccount, selectedVaultId: string) {
     if (!workspace) return;
     const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
-    if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) throw new AccountCreatorError("destinationUnavailable");
+    if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "create", failure_code: "destination_unavailable" });
+      throw new AccountCreatorError("destinationUnavailable");
+    }
     const encryptedPayload = await encryptAccountConfiguration(vault.key, candidate, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: vault.id, keyVersion: 1 });
     let created: { id: string; revision: number };
     try {
@@ -96,8 +99,10 @@ export function AuthenticatorAccountCreator({ personalVaultId, preferredVaultId 
     } catch (error) {
       if (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") {
         await refreshWorkspaceAuthorization();
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "create", failure_code: "permission_denied" });
         throw new AccountCreatorError("destinationUnavailable");
       }
+      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, { operation: "create", failure_code: "unknown" });
       throw error;
     }
     setWorkspace({ ...workspace, accounts: [...workspace.accounts, { ...candidate, id: created.id, revision: created.revision, vaultId: vault.id, vaultName: vault.name, vaultType: vault.type }].sort((left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName)) });

@@ -1,7 +1,12 @@
 "use client";
 
 import type { AnalyticsEventName, AnalyticsEventPropertiesFor } from "./browser-analytics-config";
-import { ANALYTICS_EVENTS, BROWSER_ANALYTICS_CONFIG } from "./browser-analytics-config";
+import {
+  ANALYTICS_EVENTS,
+  BROWSER_ANALYTICS_CONFIG,
+  normalizeAnalyticsErrorDigest,
+  normalizeAnalyticsErrorName
+} from "./browser-analytics-config";
 
 type PostHogClient = typeof import("posthog-js").default;
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -12,12 +17,14 @@ export function initializeBrowserAnalytics(): void {
   void loadPostHog();
 }
 
-export function identifyAnalyticsUser(userId: string): void {
-  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId)) return;
-  void hashAnalyticsUserId(userId).then((hashedUserId) => {
-    if (!hashedUserId) return;
-    void loadPostHog().then((posthog) => posthog?.identify(hashedUserId));
-  });
+export async function identifyAnalyticsUser(userId: string): Promise<boolean> {
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId)) return false;
+  const hashedUserId = await hashAnalyticsUserId(userId);
+  if (!hashedUserId) return false;
+  const posthog = await loadPostHog();
+  if (!posthog) return false;
+  posthog.identify(hashedUserId);
+  return true;
 }
 
 export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
@@ -35,8 +42,8 @@ export function resetAnalytics(): void {
 
 export function captureAnalyticsError(error: Error & { digest?: string }): void {
   captureAnalyticsEvent(ANALYTICS_EVENTS.clientError, {
-    error_name: error.name,
-    error_digest: error.digest ?? "unknown"
+    error_name: normalizeAnalyticsErrorName(error.name),
+    error_digest: normalizeAnalyticsErrorDigest(error.digest)
   });
 }
 
