@@ -10,6 +10,7 @@ overrides:
   'xcode>uuid': 11.1.1
   deepmerge-ts: 8.0.2
   valibot: 1.4.2
+  mysql2: 3.22.0
 
 allowBuilds:
   '@parcel/watcher': false
@@ -28,16 +29,16 @@ onlyBuiltDependencies:
   - sharp
   - unrs-resolver
 minimumReleaseAgeExclude:
-  - '@expo/cli@57.0.14'
-  - '@expo/fingerprint@0.20.7'
+  - '@expo/cli@57.0.14 || 57.0.21'
+  - '@expo/fingerprint@0.20.7 || 0.20.12'
   - '@expo/inline-modules@0.1.5'
   - '@expo/local-build-cache-provider@57.0.6'
   - '@expo/metro-config@57.0.8'
   - '@expo/prebuild-config@57.0.11'
-  - expo-asset@57.0.10
-  - expo-constants@57.0.10
+  - expo-asset@57.0.10 || 57.0.16
+  - expo-constants@57.0.10 || 57.0.17
   - expo-server@57.0.2
-  - expo@57.0.12
+  - expo@57.0.12 || 57.0.19
   - jest-expo@57.0.4
   - uuid@11.1.1
   - brace-expansion@1.1.17 || 1.1.18 || 5.0.9
@@ -46,4 +47,12 @@ minimumReleaseAgeExclude:
   - hono@4.12.34
   - js-yaml@4.3.1
   - nanoid@3.3.17
+  - '@expo/router-server@57.0.9'
+  - babel-preset-expo@57.0.10
+  - expo-font@57.0.3
+  - expo-linking@57.0.9
+  - expo-modules-core@57.0.15
+  - expo-modules-jsi@57.0.7
+  - expo-secure-store@57.0.3
+  - expo-sharing@57.0.17
 auditConfig: { ignoreGhsas: [ GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq ] }
