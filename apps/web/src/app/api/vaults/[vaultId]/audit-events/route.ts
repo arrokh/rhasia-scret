@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
 import { createVaultAuditRepository, listVaultAuditForOwner, recordPersonalVaultAccountCopiesToLocal } from "@/modules/audit/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
+import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 import { encodeTimestampCursor, parseTimestampCursorPageRequest } from "@/shared/infrastructure/timestamp-cursor-codec";
 
 const auditFilterSchema = z.object({ accountId: z.string().min(1).max(128).optional(), actorUserId: z.string().min(1).max(128).optional() });
@@ -12,11 +11,8 @@ const localCopyAuditSchema = z.object({
 });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-  const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
-  if (rateLimited) return rateLimited;
+  const user = await authenticateApplicationMutation("account_mutation", "fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   let body: unknown;
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "invalid_copy_audit" }, { status: 400 }); }
@@ -28,9 +24,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
+  const user = await authenticateApplicationReader("fresh-provider-user");
+  if (user instanceof NextResponse) return user;
   const parsedFilter = auditFilterSchema.safeParse({
     accountId: request.nextUrl.searchParams.get("accountId") ?? undefined,
     actorUserId: request.nextUrl.searchParams.get("actorUserId") ?? undefined

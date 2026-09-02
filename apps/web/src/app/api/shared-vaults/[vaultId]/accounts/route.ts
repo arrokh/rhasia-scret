@@ -2,8 +2,8 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSharedAccountRepository, type SharedAccountMutationResult } from "@/modules/authenticator-account/server";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
+import { executeAuthenticatedApplicationRequest } from "@/modules/server-composition/server";
+import { authenticatedApplicationFailureResponse } from "@/shared/infrastructure/authenticated-application-response";
 
 const MAX_ENCRYPTED_ACCOUNT_BYTES = 16 * 1024 + 29;
 const encryptedAccountPayload = z.base64().refine((value) => {
@@ -15,19 +15,11 @@ const updateSchema = payload.extend({ accountId: z.string().min(1), expectedRevi
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict();
 const restoreSchema = z.object({ accountId: z.string().min(1) }).strict();
 
-async function actor() {
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  if (!user) return null;
-  if (!user.canAccessApplication()) throw new InactiveUserError();
-  return user;
-}
-
 export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const user = await actor();
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
+    const user = access.user;
     const parsed = payload.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -46,10 +38,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const user = await actor();
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
+    const user = access.user;
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -70,10 +61,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const user = await actor();
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
+    const user = access.user;
     const parsed = deleteSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -91,10 +81,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const user = await actor();
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    const rateLimited = await rateLimitApplicationUser("account_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
+    const user = access.user;
     const parsed = restoreSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -119,8 +108,5 @@ function mutationError(result: Exclude<SharedAccountMutationResult<unknown>, { s
 }
 
 function inactiveOrThrow(error: unknown): NextResponse {
-  if (error instanceof InactiveUserError) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
   throw error;
 }
-
-class InactiveUserError extends Error {}

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { NextResponse } from "next/server";
 import { createGetPersonalVaultHandler } from "@/app/api/personal-vault/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import { Vault } from "@/modules/vault-management";
 
 describe("GET /api/personal-vault contract", () => {
   it("rejects unauthenticated callers", async () => {
     const handler = createGetPersonalVaultHandler({
-      sessionVerifier: new FakeSessionVerifier(null),
-      applicationUsers: { provision: async () => { throw new Error("must not provision"); } },
+      authenticate: async () => NextResponse.json({ error: "unauthenticated" }, { status: 401 }),
       personalVaults: { ensureForOwner: async () => { throw new Error("must not create"); } }
     });
     const response = await handler();
@@ -18,8 +17,7 @@ describe("GET /api/personal-vault contract", () => {
 
   it("returns generic lifecycle metadata without a vault name", async () => {
     const handler = createGetPersonalVaultHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       personalVaults: { ensureForOwner: async () => new Vault("vault-1", "PERSONAL", "user-1", "UNINITIALIZED") }
     });
     const response = await handler();

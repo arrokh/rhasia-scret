@@ -9,7 +9,6 @@ import {
   MobileAuthenticatorAccountRepository,
   nativeClipboard,
 } from "../infrastructure/mobile-authenticator-account";
-import { refreshMobileVaultWorkspace } from "../infrastructure/mobile-vault-workspace";
 import { MobileQrScanner } from "./mobile-qr-scanner";
 import { MobileVaultArchive } from "./mobile-vault-archive";
 import { MobileSharedVaults } from "./mobile-shared-vault";
@@ -18,12 +17,12 @@ export function MobileAuthenticatorAccounts({
   copy,
   transport,
   workspace,
-  onRefreshed,
+  refreshWorkspaceAuthorization,
 }: {
   copy: MobileMessages;
   transport: AuthenticatedTransport;
   workspace: UnlockedVaultWorkspace;
-  onRefreshed(workspace: UnlockedVaultWorkspace): void;
+  refreshWorkspaceAuthorization(): Promise<void>;
 }) {
   const repository = useMemo(() => new MobileAuthenticatorAccountRepository(transport), [transport]);
   const personalVault = workspace.vaults.find((vault) => vault.type === "PERSONAL");
@@ -42,8 +41,7 @@ export function MobileAuthenticatorAccounts({
         account = await repository.importTotpUri(destination, value.uri);
         form.reset();
         try {
-          const refreshed = await refreshMobileVaultWorkspace(workspace, transport);
-          onRefreshed(refreshed);
+          await refreshWorkspaceAuthorization();
         } catch {
           setImportStatus("refresh_error");
           return;
@@ -145,14 +143,14 @@ export function MobileAuthenticatorAccounts({
             online={workspace.syncState === "CURRENT"}
             onDelete={async () => {
               await repository.deleteAccount(account);
-              onRefreshed(await refreshMobileVaultWorkspace(workspace, transport));
+              await refreshWorkspaceAuthorization();
             }}
             repository={repository}
           />
         );
       })}
       <MobileSharedVaults copy={copy} transport={transport} workspace={workspace} />
-      <MobileVaultArchive copy={copy} onRefreshed={onRefreshed} transport={transport} workspace={workspace} />
+      <MobileVaultArchive copy={copy} refreshWorkspaceAuthorization={refreshWorkspaceAuthorization} transport={transport} workspace={workspace} />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, Plus, Settings, ShieldCheck, Trash2 } from "lucide-react";
@@ -22,69 +22,30 @@ import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import {
   addLocalAccount,
-  clearLocalVault,
-  clearUnlockedLocalVault,
-  createLocalVault,
   deleteLocalAccount,
   exportLocalVault,
   importLocalVaultArchive,
   LocalVaultMigrationRequiredError,
-  migrateLegacyLocalVault,
   previewLocalVaultArchive,
-  readLocalVaultRecord,
-  refreshUnlockedLocalVault,
   renameLocalVault,
-  unlockLocalVault,
   updateLocalAccount,
   type UnlockedLocalVault,
   type UnlockedLocalVaultAccount
 } from "@/modules/local-vault";
-import { BrowserLocalVaultRepository, browserLocalVaultCapabilities } from "../infrastructure/browser-local-vault-repository";
 import { browserDownload } from "@/shared/infrastructure/browser-platform-ports";
-import type { LocalVaultRecord } from "../domain/local-vault-record";
+import { useLocalVaultSession } from "./use-local-vault-session";
 
 export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } = {}) {
   const t = useTranslations("LocalVault");
-  const [record, setRecord] = useState<LocalVaultRecord | null>(null);
-  const [vault, setVault] = useState<UnlockedLocalVault | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [unsupported, setUnsupported] = useState(false);
+  const { discoveryError, session, state: { available, discovered, migrationRequired, record, vault } } = useLocalVaultSession();
   const [message, setMessage] = useState<{ tone: "danger" | "success" | "warning"; text: string } | null>(null);
-  const [legacyMigration, setLegacyMigration] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [editing, setEditing] = useState<UnlockedLocalVaultAccount | null>(null);
-  const vaultRef = useRef<UnlockedLocalVault | null>(null);
-  useEffect(() => { vaultRef.current = vault; }, [vault]);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!browserLocalVaultCapabilities.isAvailable()) {
-        if (active) {
-          setUnsupported(true);
-          setLoading(false);
-        }
-        return;
-      }
-      try {
-        const stored = await readLocalVaultRecord();
-        if (active) setRecord(stored);
-      } catch {
-        if (active) setMessage({ tone: "danger", text: t("storageError") });
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    return () => { active = false; };
-  }, [t]);
-
-  useEffect(() => () => clearUnlockedLocalVault(vaultRef.current), []);
+  const displayedMessage = message ?? (discoveryError ? { tone: "danger" as const, text: t("storageError") } : null);
 
   function lock() {
-    clearUnlockedLocalVault(vault);
-    setVault(null);
+    session.lock();
     setEditing(null);
     setMessage(null);
     captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultLocked);
@@ -92,43 +53,31 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
 
   async function create(passphrase: string, name: string) {
     setMessage(null);
-    let unlocked: UnlockedLocalVault | undefined;
     try {
-      const created = await createLocalVault(passphrase, name);
-      unlocked = await unlockLocalVault(created, passphrase);
-      await new BrowserLocalVaultRepository().create(created);
-      setRecord(created);
-      setVault(unlocked);
+      await session.create(passphrase, name);
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultCreated);
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlocked, { method: "passphrase" });
     } catch {
-      clearUnlockedLocalVault(unlocked ?? null);
       setMessage({ tone: "danger", text: t("storageError") });
     }
   }
 
   async function unlock(passphrase: string) {
-    if (!record) return;
     setMessage(null);
     try {
-      const unlocked = await unlockLocalVault(record, passphrase);
-      setVault(unlocked);
+      await session.unlock(passphrase);
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlocked, { method: "passphrase" });
     } catch (error) {
-      setLegacyMigration(error instanceof LocalVaultMigrationRequiredError);
-      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlockFailed, { method: "passphrase", failure_code: error instanceof LocalVaultMigrationRequiredError ? "migration_required" : "unknown" });
-      setMessage({ tone: "danger", text: error instanceof LocalVaultMigrationRequiredError ? t("migrationRequired") : t("unlockError") });
+      const migrationFailure = error instanceof LocalVaultMigrationRequiredError;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultUnlockFailed, { method: "passphrase", failure_code: migrationFailure ? "migration_required" : "unknown" });
+      setMessage({ tone: "danger", text: migrationRequired ? t("migrationRequired") : t("unlockError") });
     }
   }
 
   async function migrate(passphrase: string) {
     setMessage(null);
     try {
-      const migrated = await migrateLegacyLocalVault(passphrase);
-      const unlocked = await unlockLocalVault(migrated, passphrase);
-      setRecord(migrated);
-      setVault(unlocked);
-      setLegacyMigration(false);
+      await session.migrate(passphrase);
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultMigrated);
     } catch {
       setMessage({ tone: "danger", text: t("unlockError") });
@@ -138,10 +87,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   async function handleClear() {
     setClearing(true);
     try {
-      await clearLocalVault();
-      clearUnlockedLocalVault(vault);
-      setVault(null);
-      setRecord(null);
+      await session.clear();
       setClearOpen(false);
       setMessage({ tone: "success", text: t("clear") });
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultCleared);
@@ -152,18 +98,18 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
     }
   }
 
-  if (loading) return <AppPage><PageHeader title={t("title")} /><SurfaceCard className="p-6"><p role="status">{t("loading")}</p></SurfaceCard></AppPage>;
-  if (unsupported) return <AppPage><PageHeader title={t("title")} /><SurfaceCard className="p-6"><StatusBanner tone="danger" role="alert">{t("unsupported")}</StatusBanner></SurfaceCard></AppPage>;
+  if (!discovered && !discoveryError) return <AppPage><PageHeader title={t("title")} /><SurfaceCard className="p-6"><p role="status">{t("loading")}</p></SurfaceCard></AppPage>;
+  if (!available) return <AppPage><PageHeader title={t("title")} /><SurfaceCard className="p-6"><StatusBanner tone="danger" role="alert">{t("unsupported")}</StatusBanner></SurfaceCard></AppPage>;
 
   return <AppPage>
     <PageHeader title={t("title")} description={t("description")} backHref={backHref} />
-    {message && <div className="mb-5"><StatusBanner tone={message.tone} role={message.tone === "danger" ? "alert" : "status"}>{message.text}</StatusBanner></div>}
+    {displayedMessage && <div className="mb-5"><StatusBanner tone={displayedMessage.tone} role={displayedMessage.tone === "danger" ? "alert" : "status"}>{displayedMessage.text}</StatusBanner></div>}
     <VaultStatusIndicator origin="LOCAL" className="mb-5" />
     {!record && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><CreateLocalVaultForm onCreate={create} /></SurfaceCard>}
-    {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={legacyMigration ? migrate : undefined} /></SurfaceCard>}
-    {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onClear={() => setClearOpen(true)} onRename={async (name) => { await renameLocalVault(vault, name); captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultRenamed); setVault({ ...vault }); void readLocalVaultRecord().then(setRecord); }} onChanged={(next) => { setVault(next); void readLocalVaultRecord().then(setRecord); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
+    {record && !vault && <SurfaceCard className="grid gap-5 p-5 sm:p-6"><UnlockLocalVaultForm onUnlock={unlock} onMigrate={migrationRequired ? migrate : undefined} /></SurfaceCard>}
+    {record && vault && <UnlockedLocalVaultView vault={vault} onLock={lock} onClear={() => setClearOpen(true)} runMutation={(operation) => session.mutate(operation)} refresh={() => session.refresh()} onRename={async (name) => { await session.mutate((current) => renameLocalVault(current, name)); captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultRenamed); }} onEdit={setEditing} onError={(text) => setMessage({ tone: "danger", text })} />}
     {clearOpen && <ConfirmationDialog title={t("clearTitle")} description={t("clearDescription")} confirmLabel={t("clearConfirm")} danger pending={clearing} onCancel={() => setClearOpen(false)} onConfirm={() => void handleClear()} />}
-    {vault && editing && <LocalAccountEditor account={editing} onCancel={() => setEditing(null)} onDelete={async () => { await deleteLocalAccount(vault, editing.id); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountDeleted); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onSave={async (configuration) => { await updateLocalAccount(vault, editing.id, configuration); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountUpdated); setEditing(null); setVault({ ...vault, accounts: [...vault.accounts] }); }} onError={(text) => setMessage({ tone: "danger", text })} />}
+    {vault && editing && <LocalAccountEditor account={editing} onCancel={() => setEditing(null)} onDelete={async () => { await session.mutate((current) => deleteLocalAccount(current, editing.id)); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountDeleted); setEditing(null); }} onSave={async (configuration) => { await session.mutate((current) => updateLocalAccount(current, editing.id, configuration)); captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountUpdated); setEditing(null); }} onError={(text) => setMessage({ tone: "danger", text })} />}
   </AppPage>;
 }
 
@@ -191,16 +137,15 @@ function UnlockLocalVaultForm({ onUnlock, onMigrate }: { onUnlock: (passphrase: 
   </form>;
 }
 
-function UnlockedLocalVaultView({ vault, onLock, onClear, onRename, onChanged, onEdit, onError }: { vault: UnlockedLocalVault; onLock: () => void; onClear: () => void; onRename: (name: string) => Promise<void>; onChanged: (vault: UnlockedLocalVault) => void; onEdit: (account: UnlockedLocalVaultAccount) => void; onError: (message: string) => void }) {
+function UnlockedLocalVaultView({ vault, onLock, onClear, onRename, runMutation, refresh, onEdit, onError }: { vault: UnlockedLocalVault; onLock: () => void; onClear: () => void; onRename: (name: string) => Promise<void>; runMutation: <Result>(operation: (vault: UnlockedLocalVault) => Promise<Result>) => Promise<Result>; refresh: () => Promise<void>; onEdit: (account: UnlockedLocalVaultAccount) => void; onError: (message: string) => void }) {
   const t = useTranslations("LocalVault");
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [activeTab, setActiveTab] = useState("vault");
   async function add(configuration: TotpConfiguration): Promise<boolean> {
     try {
-      await addLocalAccount(vault, configuration);
+      await runMutation((current) => addLocalAccount(current, configuration));
       captureAnalyticsEvent(ANALYTICS_EVENTS.localAuthenticatorAccountCreated);
-      onChanged({ ...vault, accounts: [...vault.accounts] });
       setActiveTab("vault");
       return true;
     } catch {
@@ -237,7 +182,7 @@ function UnlockedLocalVaultView({ vault, onLock, onClear, onRename, onChanged, o
       <TabsContent value="add" className="mt-0"><AddLocalAccountForm onAdd={add} /></TabsContent>
       <TabsContent value="backup" className="mt-0 p-5 sm:p-6">
         <div className="mb-4"><h2 className="font-bold text-ink-strong">{t("backupTitle")}</h2><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("backupDescription")}</p></div>
-        <div className="grid gap-4"><section className="grid gap-3 rounded-md border border-border p-4"><h3 className="font-bold text-ink-strong">{t("export")}</h3><p className="text-sm leading-5 text-muted-foreground">{t("exportDescription")}</p><div className="flex justify-end"><Button variant="outline" className="w-full sm:w-fit" onClick={() => void backup()} disabled={exporting}><Download />{exporting ? t("exporting") : t("export")}</Button></div></section><LocalArchiveImporter vault={vault} onImported={() => void reloadLocalVault(vault, onChanged)} onError={onError} importing={importing} setImporting={setImporting} /></div>
+        <div className="grid gap-4"><section className="grid gap-3 rounded-md border border-border p-4"><h3 className="font-bold text-ink-strong">{t("export")}</h3><p className="text-sm leading-5 text-muted-foreground">{t("exportDescription")}</p><div className="flex justify-end"><Button variant="outline" className="w-full sm:w-fit" onClick={() => void backup()} disabled={exporting}><Download />{exporting ? t("exporting") : t("export")}</Button></div></section><LocalArchiveImporter runMutation={runMutation} refresh={refresh} onError={onError} importing={importing} setImporting={setImporting} /></div>
       </TabsContent>
       <TabsContent value="advanced" className="mt-0 p-5 sm:p-6"><LocalVaultSettings vault={vault} onLock={onLock} onClear={onClear} onRename={onRename} onError={onError} /></TabsContent>
     </Tabs>
@@ -303,7 +248,7 @@ function LocalVaultSettings({ vault, onLock, onClear, onRename, onError }: { vau
   return <div className="grid gap-5"><SectionHeading icon={Settings} title={t("advancedTitle")} description={t("advancedDescription")} /><section className="grid gap-4 rounded-lg border border-border p-4"><div><h2 className="font-bold text-ink-strong">{t("renameTitle")}</h2><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("renameDescription")}</p></div><form noValidate className="grid gap-3" onSubmit={(event) => { event.preventDefault(); void form.handleSubmit(); }}><form.Field name="name" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : t("nameRequired") }}>{(field) => <div className="grid gap-2"><Label htmlFor="rename-local-vault">{t("name")}</Label><Input id="rename-local-vault" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby="rename-local-vault-error" required /><FormFieldError id="rename-local-vault-error" errors={field.state.meta.errors} /></div>}</form.Field><form.Subscribe selector={(state) => state.isSubmitting}>{(isSubmitting) => <div className="flex justify-end"><Button className="w-full sm:w-fit" type="submit" disabled={isSubmitting}>{isSubmitting ? t("renaming") : t("rename")}</Button></div>}</form.Subscribe></form></section><section className="grid gap-3 rounded-lg border border-border p-4"><div><h2 className="font-bold text-ink-strong">{t("lock")}</h2><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("lockDescription")}</p></div><div className="flex justify-end"><Button type="button" variant="outline" className="w-full sm:w-fit" onClick={onLock}><LockKeyhole />{t("lock")}</Button></div></section><section className="grid gap-3 rounded-lg border border-destructive/30 p-4"><div><h2 className="font-bold text-ink-strong">{t("clear")}</h2><p className="mt-1 text-sm leading-5 text-muted-foreground">{t("clearDescription")}</p></div><div className="flex justify-end"><Button type="button" variant="outline" className="w-full text-destructive hover:text-destructive sm:w-fit" onClick={onClear}><Trash2 />{t("clear")}</Button></div></section></div>;
 }
 
-function LocalArchiveImporter({ vault, onImported, onError, importing, setImporting }: { vault: UnlockedLocalVault; onImported: () => void; onError: (message: string) => void; importing: boolean; setImporting: (value: boolean) => void }) {
+function LocalArchiveImporter({ runMutation, refresh, onError, importing, setImporting }: { runMutation: <Result>(operation: (vault: UnlockedLocalVault) => Promise<Result>) => Promise<Result>; refresh: () => Promise<void>; onError: (message: string) => void; importing: boolean; setImporting: (value: boolean) => void }) {
   const t = useTranslations("LocalVault");
   const [archive, setArchive] = useState<File | null>(null);
   const [key, setKey] = useState<File | null>(null);
@@ -317,9 +262,9 @@ function LocalArchiveImporter({ vault, onImported, onError, importing, setImport
       archiveBytes = new Uint8Array(await archive.arrayBuffer());
       const preview = await previewLocalVaultArchive(keyBytes, archiveBytes);
       for (const account of preview.accounts) account.secret.fill(0);
-      const count = await importLocalVaultArchive(vault, keyBytes, archiveBytes);
+      const count = await runMutation((vault) => importLocalVaultArchive(vault, keyBytes!, archiveBytes!));
+      await refresh();
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveImportCompleted, { account_count: count });
-      onImported();
       if (count === 0) onError(t("noNewAccounts"));
       else onError(t("imported", { count }));
     } catch { onError(t("importError")); }
@@ -330,11 +275,6 @@ function LocalArchiveImporter({ vault, onImported, onError, importing, setImport
     }
   }
   return <div className="grid gap-3 rounded-md border border-border p-3"><p className="text-sm font-bold">{t("import")}</p><p className="text-xs leading-5 text-muted-foreground">{t("importDescription")}</p><Label className="grid gap-2 text-xs leading-5">{t("archiveFile")}<Input type="file" accept=".rhasia-vault,.rhasia,application/octet-stream" onChange={(event) => setArchive(event.target.files?.[0] ?? null)} /></Label><Label className="grid gap-2 text-xs leading-5">{t("keyFile")}<Input type="file" accept=".txt,text/plain" onChange={(event) => setKey(event.target.files?.[0] ?? null)} /></Label><div className="flex justify-end"><Button variant="outline" className="w-full sm:w-fit" onClick={() => void restore()} disabled={!archive || !key || importing}>{importing ? t("importing") : t("import")}</Button></div></div>;
-}
-
-async function reloadLocalVault(current: UnlockedLocalVault, onChanged: (vault: UnlockedLocalVault) => void): Promise<void> {
-  const refreshed = await refreshUnlockedLocalVault(current);
-  onChanged(refreshed);
 }
 
 function download(bytes: Uint8Array, filename: string, type = "application/octet-stream"): void {

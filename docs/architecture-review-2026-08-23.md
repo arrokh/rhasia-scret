@@ -4,7 +4,7 @@ This document records the ownership changes implemented from the `apps/web` arch
 
 ## Workspace lifecycle
 
-`WorkspaceLifecycle` in `@rhasia-scret/client-vault-core` owns reconciliation state transitions, logical cancellation, write gating, refresh-failure classification, replacement cleanup, lock cleanup, and teardown cleanup. The web Sync context supplies browser network, visibility, lock, write-policy, and workspace adapters through `useWorkspaceLifecycle`.
+`WorkspaceLifecycle` in `@rhasia-scret/client-vault-core` owns reconciliation state transitions, logical cancellation, write gating, refresh-failure classification, replacement cleanup, lock cleanup, and teardown cleanup. The web Sync context supplies browser network, visibility, lock, write-policy, and workspace adapters through `useWorkspaceLifecycle`; mobile supplies corresponding NetInfo, AppState, lock, write-gate, and refresh adapters through `useMobileWorkspaceLifecycle`. Native presentation observes the controller and issues commands instead of maintaining a second AppState/refresh policy.
 
 The online Authenticator Account provider and read-only offline shell only adapt this lifecycle to React. Workspace loading/decryption remains behind Sync infrastructure, and plaintext key/account material remains client-only.
 
@@ -31,7 +31,15 @@ Mutation repositories append audit records inside their existing Prisma transact
 
 ## Server composition seams
 
-Every App Router API route imports context application behavior and adapter factories only from public `modules/<context>/server.ts` seams. Concrete Prisma/provider adapter selection is kept in those server modules. Routes continue to validate HTTP input, invoke use cases, enforce the existing rate-limit call sites, and map typed outcomes to HTTP responses.
+Every App Router API route imports context application behavior and adapter factories only from public `modules/<context>/server.ts` seams. Concrete Prisma/provider adapter selection is kept in those server modules. Authenticated routes declare reader or mutation execution plus the required assurance level; the server-composition application seam owns principal verification, Application User provisioning/admission, active-user enforcement, and typed mutation-rate-limit decisions. Routes continue to validate HTTP input, invoke use cases, preserve their operation class, and map typed outcomes to HTTP responses.
+
+## Hosted client protocols
+
+`@rhasia-scret/client-vault-core` owns the exact duplicated Authenticator Account, Secure Share Link, and conditional encrypted offline-bundle HTTP semantics above `AuthenticatedTransport`. Browser cookie and native bearer transports remain application adapters. Crypto, storage, link sharing, navigation, and presentation effects remain in their owning platform/context and no cross-context generic client is introduced.
+
+## Local Vault session ownership
+
+The Local Vault application seam owns one unlocked value per consuming surface, discovery, explicit migration, serialized state changes, refresh/replacement cleanup, lock, destructive clearing, and teardown zeroization. The Local Vault page and Local-to-Personal copy panel each construct an independent browser-backed session. Decrypted content and key material remain direct client-only state outside TanStack Query, service-worker caches, URLs, logs, and server persistence.
 
 ## Test ownership
 

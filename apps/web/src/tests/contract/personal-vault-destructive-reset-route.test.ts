@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 import { createDestructivePersonalVaultResetHandler } from "@/app/api/personal-vault/destructive-reset/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
   DESTRUCTIVE_RESET_CONFIRMATION,
@@ -11,8 +10,7 @@ import {
 
 function handler(reset: () => Promise<void>) {
   return createDestructivePersonalVaultResetHandler({
-    sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-    applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+    authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
     resets: { getEligibility: vi.fn(), reset }
   });
 }

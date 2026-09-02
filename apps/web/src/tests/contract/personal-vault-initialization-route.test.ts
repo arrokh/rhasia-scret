@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createInitializePersonalVaultHandler } from "@/app/api/personal-vault/initialize/route";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 
 const payload = {
   vaultUnlockSalt: Buffer.from("0123456789abcdef").toString("base64"),
@@ -16,8 +15,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
   it("stores only opaque initialization material for an active user", async () => {
     const initialize = vi.fn().mockResolvedValue(undefined);
     const handler = createInitializePersonalVaultHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       personalVaults: { initialize }
     });
     const response = await handler(new NextRequest("http://localhost/api/personal-vault/initialize", {
@@ -30,8 +28,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
 
   it("rejects malformed opaque material", async () => {
     const handler = createInitializePersonalVaultHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       personalVaults: { initialize: vi.fn() }
     });
     const response = await handler(new NextRequest("http://localhost/api/personal-vault/initialize", {

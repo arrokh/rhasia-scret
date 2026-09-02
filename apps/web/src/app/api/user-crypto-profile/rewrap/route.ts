@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, createUserCryptoProfileRepository, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier, type UserCryptoProfileRepository } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
+import { createUserCryptoProfileRepository, type UserCryptoProfileRepository } from "@/modules/identity/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const schema = z.object({
   vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
@@ -12,18 +12,14 @@ const schema = z.object({
 });
 
 type Dependencies = {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationMutation;
   cryptoProfiles: UserCryptoProfileRepository;
 };
 
-export function createRewrapUserRootKeyHandler({ sessionVerifier, applicationUsers, cryptoProfiles }: Dependencies) {
+export function createRewrapUserRootKeyHandler({ authenticate, cryptoProfiles }: Dependencies) {
   return async function POST(request: NextRequest) {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-    const rateLimited = await rateLimitApplicationUser("key_material_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const user = await authenticate("key_material_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_rewrap" }, { status: 400 });
     await cryptoProfiles.rewrapUserRootKey(user.id, {
@@ -37,7 +33,6 @@ export function createRewrapUserRootKeyHandler({ sessionVerifier, applicationUse
 }
 
 export const POST = createRewrapUserRootKeyHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationMutation,
   cryptoProfiles: createUserCryptoProfileRepository()
 });

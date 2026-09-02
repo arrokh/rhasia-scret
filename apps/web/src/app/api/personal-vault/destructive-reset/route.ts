@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createApplicationUserRepository, createSessionVerifier, loadApplicationUser, type ApplicationUserRepository, type SessionVerifier } from "@/modules/identity/server";
-import { rateLimitApplicationUser } from "@/modules/rate-limiting";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
   createDestructivePersonalVaultResetRepository,
@@ -10,22 +8,19 @@ import {
   destructivelyResetPersonalVault,
   type DestructivePersonalVaultResetRepository
 } from "@/modules/vault-management/server";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const bodySchema = z.object({ confirmation: z.string() });
 
 type Dependencies = {
-  sessionVerifier: SessionVerifier;
-  applicationUsers: ApplicationUserRepository;
+  authenticate: typeof authenticateApplicationMutation;
   resets: DestructivePersonalVaultResetRepository;
 };
 
-export function createDestructivePersonalVaultResetHandler({ sessionVerifier, applicationUsers, resets }: Dependencies) {
+export function createDestructivePersonalVaultResetHandler({ authenticate, resets }: Dependencies) {
   return async function POST(request: NextRequest) {
-    const user = await loadApplicationUser(sessionVerifier, applicationUsers);
-    if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    if (!user.canAccessApplication()) return NextResponse.json({ error: "inactive_user" }, { status: 403 });
-    const rateLimited = await rateLimitApplicationUser("destructive_mutation", user.id);
-    if (rateLimited) return rateLimited;
+    const user = await authenticate("destructive_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = bodySchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_confirmation" }, { status: 400 });
 
@@ -48,7 +43,6 @@ export function createDestructivePersonalVaultResetHandler({ sessionVerifier, ap
 }
 
 export const POST = createDestructivePersonalVaultResetHandler({
-  sessionVerifier: createSessionVerifier(),
-  applicationUsers: createApplicationUserRepository(),
+  authenticate: authenticateApplicationMutation,
   resets: createDestructivePersonalVaultResetRepository()
 });

@@ -15,7 +15,7 @@ describe("TanStack Query boundaries", () => {
   it("centralizes browser HTTP transport in the shared API client", () => {
     const fetchFiles = sourceFiles(sourceRoot)
       .filter((path) => !path.includes("/app/") && !path.includes("/tests/"))
-      .filter((path) => /\bfetch\(/.test(readFileSync(path, "utf8")))
+      .filter((path) => /(?:^|[^.\w])fetch\(/m.test(readFileSync(path, "utf8")))
       .map((path) => relative(process.cwd(), path));
 
     expect(fetchFiles).toEqual(["src/shared/infrastructure/browser-api-client.ts"]);

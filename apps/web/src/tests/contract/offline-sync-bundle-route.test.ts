@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { NextResponse } from "next/server";
 import { createOfflineSyncBundleHandler } from "@/app/api/sync/offline-bundle/route";
 import { ApplicationUser } from "@/modules/identity";
-import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 import type { EncryptedOfflineVaultBundle } from "@/modules/sync";
 
 const ciphertext = Buffer.alloc(32, 7).toString("base64");
@@ -22,8 +22,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
   it("returns one complete no-store ciphertext-only bundle for the authenticated active user", async () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle }
     });
 
@@ -43,8 +42,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
   it("revalidates authorization and returns no ciphertext when the encrypted snapshot is unchanged", async () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle }
     });
 
@@ -59,8 +57,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
   it("fails closed for missing authentication and never reads Vault data", async () => {
     const readAuthorizedBundle = vi.fn();
     const handler = createOfflineSyncBundleHandler({
-      sessionVerifier: new FakeSessionVerifier(null),
-      applicationUsers: { provision: vi.fn() },
+      authenticate: async () => NextResponse.json({ error: "unauthenticated" }, { status: 401 }),
       bundles: { readAuthorizedBundle }
     });
 
@@ -70,8 +67,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
 
   it("reports an initialized-profile miss without returning a partial response", async () => {
     const handler = createOfflineSyncBundleHandler({
-      sessionVerifier: new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }),
-      applicationUsers: { provision: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE") },
+      authenticate: async () => new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle: async () => null }
     });
 

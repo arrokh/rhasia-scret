@@ -5,24 +5,24 @@ import { generateTotp, type TotpCode } from "@rhasia-scret/client-vault-core";
 import { parseTotpUri } from "@rhasia-scret/client-vault-core";
 import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import type { AuthenticatedTransport, ClipboardPort } from "@rhasia-scret/client-vault-core";
+import { HostedAuthenticatorAccountTransport } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { nativeCryptoPrimitives } from "./native-crypto-primitives";
 
 const payloads = createAuthenticatorAccountPayloadPort(nativeClientCrypto);
 
 export class MobileAuthenticatorAccountRepository {
-  public constructor(private readonly transport: AuthenticatedTransport) {}
+  private readonly hostedAccounts: HostedAuthenticatorAccountTransport;
+
+  public constructor(private readonly transport: AuthenticatedTransport) {
+    this.hostedAccounts = new HostedAuthenticatorAccountTransport(transport);
+  }
 
   public async deleteAccount(account: { id: string; vaultId: string; vaultType: "PERSONAL" | "SHARED"; revision: number }): Promise<void> {
-    const base = account.vaultType === "PERSONAL" ? "/api/vaults" : "/api/shared-vaults";
-    const response = await this.transport.request({
-      url: `${base}/${encodeURIComponent(account.vaultId)}/accounts`,
-      method: "DELETE",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ accountId: account.id, expectedRevision: account.revision }),
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error("Authenticator Account could not be deleted.");
+    await this.hostedAccounts.delete(
+      { vaultId: account.vaultId, vaultType: account.vaultType },
+      { accountId: account.id, expectedRevision: account.revision }
+    );
   }
 
   public async recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
@@ -49,17 +49,10 @@ export class MobileAuthenticatorAccountRepository {
         vaultId: vault.id,
         keyVersion: 1,
       });
-      const response = await this.transport.request({
-        url: vault.type === "PERSONAL"
-          ? `/api/vaults/${encodeURIComponent(vault.id)}/accounts`
-          : `/api/shared-vaults/${encodeURIComponent(vault.id)}/accounts`,
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 }),
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("The encrypted Authenticator Account could not be stored.");
-      const created = parseCreatedAccount(await response.json<unknown>());
+      const created = await this.hostedAccounts.create(
+        { vaultId: vault.id, vaultType: vault.type },
+        { encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 }
+      );
       return {
         id: created.id,
         vaultId: vault.id,
@@ -84,15 +77,3 @@ export function generateMobileTotp(account: WorkspaceAuthenticatorAccount, now =
 export const nativeClipboard: ClipboardPort = {
   writeText: async (value) => { await Clipboard.setStringAsync(value); },
 };
-
-function parseCreatedAccount(value: unknown): { id: string; revision: number } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) invalidResponse();
-  const record = value as Record<string, unknown>;
-  if (typeof record.id !== "string" || !/^[A-Za-z0-9_-]{1,256}$/.test(record.id)) invalidResponse();
-  if (typeof record.revision !== "number" || !Number.isSafeInteger(record.revision) || record.revision < 1) invalidResponse();
-  return { id: record.id, revision: record.revision };
-}
-
-function invalidResponse(): never {
-  throw new Error("The Authenticator Account response is invalid.");
-}

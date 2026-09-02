@@ -17,9 +17,21 @@ vi.mock("@/modules/authenticator-account", () => ({
   useCreateEncryptedAuthenticatorAccountMutation: () => ({ mutateAsync: mocks.createPersonalAccount })
 }));
 vi.mock("@/modules/local-vault", () => ({
-  addLocalAccount: mocks.addLocalAccount,
+  addLocalAccount: mocks.addLocalAccount
+}));
+vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-repository", () => ({
+  BrowserLocalVaultRepository: class {
+    read = vi.fn(async () => ({ profileId: "local-profile-1" }));
+    create = vi.fn(async () => undefined);
+    clear = vi.fn(async () => undefined);
+  },
+  browserLocalVaultCapabilities: { isAvailable: () => true }
+}));
+vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-workflow", () => ({
   clearUnlockedLocalVault: vi.fn(),
-  readLocalVaultRecord: vi.fn(async () => ({ profileId: "local-profile-1" })),
+  createLocalVault: vi.fn(),
+  LocalVaultMigrationRequiredError: class extends Error {},
+  migrateLegacyLocalVault: vi.fn(),
   refreshUnlockedLocalVault: mocks.refreshUnlockedLocalVault,
   unlockLocalVault: mocks.unlockLocalVault
 }));
