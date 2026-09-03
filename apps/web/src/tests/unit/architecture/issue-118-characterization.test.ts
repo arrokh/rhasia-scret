@@ -15,7 +15,7 @@ describe("issue 118 seam characterization", () => {
       expect(route).not.toContain("loadApplicationUser");
       expect(route).not.toContain("canAccessApplication");
       expect(route).not.toContain("rateLimitApplicationUser");
-      expect(route).toContain('operation: "account_mutation"');
+      expect(route).toContain('"account_mutation"');
     }
   });
 

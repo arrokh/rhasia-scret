@@ -37,9 +37,11 @@ export class NativeVaultLockPort implements WorkspaceLifecycleLockPort {
   }
 }
 
+type NativeLockPort = WorkspaceLifecycleLockPort & { requestLock(): void };
+
 export class NativeApplicationLifecycle implements ApplicationLifecyclePort {
   public constructor(
-    private readonly lock: NativeVaultLockPort,
+    private readonly lock: NativeLockPort,
     private readonly appState: NativeAppState = AppState,
   ) {}
 
@@ -73,24 +75,21 @@ export class NativeWorkspaceWriteGate implements WorkspaceWriteGatePort {
   }
 }
 
-export const nativeVaultLockPort = new NativeVaultLockPort();
-export const nativeApplicationLifecycle = new NativeApplicationLifecycle(nativeVaultLockPort);
-export const nativeWorkspaceWriteGate = new NativeWorkspaceWriteGate();
-
 export function createNativeWorkspaceLifecyclePorts(
   transport: AuthenticatedTransport,
   adapters: Partial<{
     network: NetworkStatusPort;
     applicationLifecycle: ApplicationLifecyclePort;
-    lock: WorkspaceLifecycleLockPort;
+    lock: NativeLockPort;
     writes: WorkspaceWriteGatePort;
   }> = {},
 ): WorkspaceLifecyclePorts<UnlockedVaultWorkspace> {
+  const lock = adapters.lock ?? new NativeVaultLockPort();
   return {
     network: adapters.network ?? nativeNetworkStatus,
-    applicationLifecycle: adapters.applicationLifecycle ?? nativeApplicationLifecycle,
-    lock: adapters.lock ?? nativeVaultLockPort,
-    writes: adapters.writes ?? nativeWorkspaceWriteGate,
+    applicationLifecycle: adapters.applicationLifecycle ?? new NativeApplicationLifecycle(lock),
+    lock,
+    writes: adapters.writes ?? new NativeWorkspaceWriteGate(),
     workspace: {
       refresh: (userRootKey, profileId, cancellation) => refreshNativeWorkspace(userRootKey, profileId, cancellation, transport),
       clear: clearUnlockedVaultWorkspace,

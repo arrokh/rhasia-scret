@@ -1,5 +1,5 @@
 import type { CancellationPort } from "../../../shared/application/platform-ports";
-import type { CryptoEnvelopeContext, EncryptedEnvelope } from "./encrypted-envelope-types";
+import type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./encrypted-envelope-types";
 
 export type CryptoEnvelopeBytes = Uint8Array;
 
@@ -24,6 +24,7 @@ export interface CryptoPrimitivePort {
   decryptAesGcm(request: AesGcmDecryptionRequest): Promise<Uint8Array>;
   generateEcdhKeyPair(): Promise<PortableEcdhKeyPair>;
   deriveEcdhSharedKey(privateKey: PortableJsonWebKey, publicKey: PortableJsonWebKey): Promise<Uint8Array>;
+  deriveHkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array>;
   signHmac(algorithm: "SHA-1" | "SHA-256" | "SHA-512", key: Uint8Array, message: Uint8Array): Promise<Uint8Array>;
 }
 
@@ -84,4 +85,11 @@ export interface ClientCryptoPort {
   decryptPayloadWithContext(key: Uint8Array, envelope: EncryptedEnvelope, context: CryptoEnvelopeContext): Promise<Uint8Array>;
   serializeEncryptedEnvelope(envelope: EncryptedEnvelope): Uint8Array;
   deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelope;
+  generateUserEncryptionKeyPair(): Promise<PortableEcdhKeyPair>;
+  wrapKeyForRecipient(vaultKey: Uint8Array, recipientPublicKey: PortableJsonWebKey): Promise<KeyWrapEnvelope>;
+  wrapKeyForRecipientWithContext(vaultKey: Uint8Array, recipientPublicKey: PortableJsonWebKey, context: CryptoEnvelopeContext): Promise<KeyWrapEnvelope>;
+  serializeKeyWrapEnvelope(envelope: KeyWrapEnvelope): Uint8Array;
+  deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope;
+  unwrapKeyForRecipient(envelope: KeyWrapEnvelope, recipientPrivateKey: PortableJsonWebKey): Promise<Uint8Array>;
+  unwrapKeyForRecipientWithContext(envelope: KeyWrapEnvelope, recipientPrivateKey: PortableJsonWebKey, context: CryptoEnvelopeContext): Promise<Uint8Array>;
 }

@@ -5,6 +5,7 @@ import { BearerTokenTransport } from "@rhasia-scret/client-vault-core";
 import type { PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 
 const sourceRoot = join(process.cwd(), "src");
+const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -21,6 +22,24 @@ describe("platform-neutral client ports", () => {
       return forbidden.test(source) ? [relative(process.cwd(), path)] : [];
     });
     expect(findings).toEqual([]);
+  });
+
+  it("keeps context-bound key-wrap and Secure Share Link orchestration platform-neutral", () => {
+    const coreCrypto = read("../../packages/client-vault-core/src/modules/crypto/application/client-crypto-protocol.ts");
+    const browserEnvelope = read("src/modules/crypto/infrastructure/browser-crypto-envelope.ts");
+    const browserIdentity = read("src/modules/crypto/infrastructure/browser-user-encryption-identity.ts");
+    const browserRotation = read("src/modules/crypto/infrastructure/browser-user-encryption-key-rotation.ts");
+    const browserVaultRotation = read("src/modules/crypto/infrastructure/browser-vault-key-rotation.ts");
+    const browserShare = read("src/modules/vault-membership/infrastructure/browser-shared-vault-invitation.ts");
+    const nativeShare = read("../mobile/src/infrastructure/mobile-secure-share-link.ts");
+
+    expect(coreCrypto).toContain("deriveHkdfSha256");
+    expect(coreCrypto).toContain("serializeKeyWrapEnvelope");
+    for (const source of [browserEnvelope, browserIdentity, browserRotation, browserVaultRotation]) {
+      expect(source).not.toMatch(/crypto\.subtle|deriveSharedKey|function wrapKey|function unwrapKey/);
+    }
+    expect(browserShare).toContain("createSecureShareLink(");
+    expect(nativeShare).toContain("createSecureShareLink(");
   });
 
   it("exposes separate contracts for transport, crypto, encrypted storage, QR, archive, and lifecycle concerns", () => {

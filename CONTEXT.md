@@ -67,6 +67,10 @@ _Avoid_: Vault Unlock Secret, server authentication, UI-only assertion gate
 The period during which a Vault is available in an authenticated browser after it has been unlocked. It ends when the user explicitly locks the Vault or logs out.
 _Avoid_: Timeout, auto-lock interval
 
+**Workspace Lifecycle**:
+The client-only controller that owns an unlocked workspace's reconciliation, cancellation, write gating, replacement cleanup, lock cleanup, and teardown. Browser and native adapters provide platform signals and refresh/storage effects; presentation observes the current workspace and issues commands without creating a second lifecycle policy.
+_Avoid_: UI-owned sync state machine, uncancelled refresh, shared plaintext workspace store
+
 **User Encryption Key Pair**:
 A user-specific public and private key pair used to wrap Vault Encryption Keys for the user. Its private key is encrypted before server storage.
 _Avoid_: Device key pair, vault key
@@ -78,6 +82,10 @@ _Avoid_: Malicious-server-resistant, trusted key custodian
 **Authenticated Crypto Context**:
 A canonical, secret-free protocol context authenticated as AES-GCM additional authenticated data and, for ECDH key wraps, included in HKDF domain separation. It binds payload purpose/type, protocol and encryption/key versions, and applicable opaque Vault, account, recipient, or profile identifiers. A context mismatch fails before plaintext is parsed; user labels, secrets, QR data, OTPs, and decrypted content never enter it.
 _Avoid_: Plaintext AAD, server-readable label, optional context, context-free compatibility fallback
+
+**Context-Bound Key-Wrap Protocol**:
+The platform-neutral client protocol that creates and opens versioned ECDH/HKDF Key-Wrap Envelopes using an Authenticated Crypto Context. It owns portable key representations, strict envelope parsing, legacy migration gates, and client-only identity/Vault-key rotation above browser or native cryptographic primitives.
+_Avoid_: Browser-only key wrapping, context-free v2 package, server-held private key, server-held Vault Encryption Key
 
 **Permitted Server Metadata**:
 The limited server-visible information allowed by the zero-knowledge contract: opaque identifiers, ciphertext bytes, protocol/encryption/key versions, revisions, lifecycle/deletion deadlines, authorization relationships, permitted invited-email metadata, redacted audit actor/account identifiers, bounded counts, and operational timing/size metadata. It excludes Vault names, account labels, TOTP configuration, OTPs, raw QR data, secrets, keys, decrypted content, and archive/recovery material.
@@ -130,6 +138,10 @@ _Avoid_: Link recovery, link extension, verifier reuse
 **Secure Share Link**:
 A one-time secret link delivered by the owner through a secure out-of-band channel. It is bound to the intended invited user, expires exactly seven days after its Invitation is created, and lets them obtain an encrypted Vault Encryption Key package without giving that key to the server. The owner may cancel a pending Invitation, which permanently invalidates its Secure Share Link, or create a Re-invitation after expiry; the original link is never recovered or reused.
 _Avoid_: Server-visible key link, reusable sharing URL
+
+**Secure Share Link Creation Workflow**:
+The client-only workflow that prepares link material, stores only its verifier and encrypted key package through the authorized transport, delivers the secret through a platform-specific effect, revokes an invitation when delivery fails or is dismissed, and clears temporary verifier/package bytes. The workflow never sends the secret or usable Vault Encryption Key to the server.
+_Avoid_: Platform-duplicated cancellation, server-held link secret, reusable link delivery
 
 **Membership Grant**:
 An active authorization for an enrolled user to access a Shared Vault, created when the invited user redeems a Secure Share Link and receives a Key-Wrap Envelope. It does not require recipient acceptance in the MVP.

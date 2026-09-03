@@ -2,29 +2,33 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createPersonalAccountRepository, type PersonalAccountRepository } from "@/modules/authenticator-account/server";
-import type { AuthenticatedApplicationRequest, AuthenticatedApplicationResult } from "@/modules/server-composition";
-import { executeAuthenticatedApplicationRequest } from "@/modules/server-composition/server";
-import { authenticatedApplicationFailureResponse } from "@/shared/infrastructure/authenticated-application-response";
+import type { ApplicationUser, SessionAssurance } from "@/modules/identity";
+import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
 const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1), source: z.literal("LOCAL_VAULT_COPY").optional() });
 const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const restoreSchema = z.object({ accountId: z.string().min(1) });
+type ApplicationAuthenticationResult = ApplicationUser | NextResponse;
 type Dependencies = {
-  authenticate(request: AuthenticatedApplicationRequest): Promise<AuthenticatedApplicationResult>;
+  authenticateReader(assurance: SessionAssurance): Promise<ApplicationAuthenticationResult>;
+  authenticateMutation(operation: "account_mutation", assurance: SessionAssurance): Promise<ApplicationAuthenticationResult>;
   accounts: PersonalAccountRepository;
 };
 type Context = { params: Promise<{ vaultId: string }> };
 
-export function createPersonalAccountsHandlers({ authenticate, accounts }: Dependencies) {
-  async function access(request: AuthenticatedApplicationRequest) {
-    const result = await authenticate(request);
-    return result.status === "allowed" ? result.user : authenticatedApplicationFailureResponse(result);
+export function createPersonalAccountsHandlers({ authenticateReader, authenticateMutation, accounts }: Dependencies) {
+  async function readAccess() {
+    return authenticateReader("fresh-provider-user");
+  }
+
+  async function mutationAccess() {
+    return authenticateMutation("account_mutation", "fresh-provider-user");
   }
   return {
     GET: async (_request: NextRequest, { params }: Context) => {
       try {
-        const current = await access({ assurance: "fresh-provider-user", access: "reader" });
+        const current = await readAccess();
         if (current instanceof NextResponse) return current;
         const { vaultId } = await params;
         const list = await accounts.list(current.id, vaultId);
@@ -35,7 +39,7 @@ export function createPersonalAccountsHandlers({ authenticate, accounts }: Depen
     },
     POST: async (request: NextRequest, { params }: Context) => {
       try {
-        const current = await access({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+        const current = await mutationAccess();
         if (current instanceof NextResponse) return current;
         const parsed = payloadSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
@@ -48,7 +52,7 @@ export function createPersonalAccountsHandlers({ authenticate, accounts }: Depen
     },
     PATCH: async (request: NextRequest, { params }: Context) => {
       try {
-        const current = await access({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+        const current = await mutationAccess();
         if (current instanceof NextResponse) return current;
         const parsed = updateSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
@@ -64,7 +68,7 @@ export function createPersonalAccountsHandlers({ authenticate, accounts }: Depen
     },
     DELETE: async (request: NextRequest, { params }: Context) => {
       try {
-        const current = await access({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+        const current = await mutationAccess();
         if (current instanceof NextResponse) return current;
         const parsed = deleteSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
@@ -78,7 +82,7 @@ export function createPersonalAccountsHandlers({ authenticate, accounts }: Depen
     },
     PUT: async (request: NextRequest, { params }: Context) => {
       try {
-        const current = await access({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
+        const current = await mutationAccess();
         if (current instanceof NextResponse) return current;
         const parsed = restoreSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
@@ -93,7 +97,11 @@ export function createPersonalAccountsHandlers({ authenticate, accounts }: Depen
   };
 }
 
-const handlers = createPersonalAccountsHandlers({ authenticate: executeAuthenticatedApplicationRequest, accounts: createPersonalAccountRepository() });
+const handlers = createPersonalAccountsHandlers({
+  authenticateReader: authenticateApplicationReader,
+  authenticateMutation: authenticateApplicationMutation,
+  accounts: createPersonalAccountRepository()
+});
 export const GET = handlers.GET;
 export const POST = handlers.POST;
 export const PATCH = handlers.PATCH;

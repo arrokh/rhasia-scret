@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSharedAccountRepository, type SharedAccountMutationResult } from "@/modules/authenticator-account/server";
-import { executeAuthenticatedApplicationRequest } from "@/modules/server-composition/server";
-import { authenticatedApplicationFailureResponse } from "@/shared/infrastructure/authenticated-application-response";
+import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const MAX_ENCRYPTED_ACCOUNT_BYTES = 16 * 1024 + 29;
 const encryptedAccountPayload = z.base64().refine((value) => {
@@ -17,9 +16,8 @@ const restoreSchema = z.object({ accountId: z.string().min(1) }).strict();
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
-    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
-    const user = access.user;
+    const user = await authenticateApplicationMutation("account_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = payload.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -38,9 +36,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
-    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
-    const user = access.user;
+    const user = await authenticateApplicationMutation("account_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -61,9 +58,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
-    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
-    const user = access.user;
+    const user = await authenticateApplicationMutation("account_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = deleteSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;
@@ -81,9 +77,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   try {
-    const access = await executeAuthenticatedApplicationRequest({ assurance: "fresh-provider-user", access: "mutation", operation: "account_mutation" });
-    if (access.status !== "allowed") return authenticatedApplicationFailureResponse(access);
-    const user = access.user;
+    const user = await authenticateApplicationMutation("account_mutation", "fresh-provider-user");
+    if (user instanceof NextResponse) return user;
     const parsed = restoreSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
     const { vaultId } = await params;

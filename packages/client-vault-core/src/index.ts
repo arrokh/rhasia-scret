@@ -6,6 +6,9 @@ export * from "./modules/authenticator-account/application/vault-workspace-ports
 export * from "./modules/authenticator-account/application/vault-workspace";
 export * from "./modules/crypto/application/client-crypto-protocol";
 export * from "./modules/crypto/application/create-personal-vault-initialization";
+export * from "./modules/crypto/application/user-encryption-identity";
+export * from "./modules/crypto/application/user-encryption-key-rotation";
+export * from "./modules/crypto/application/vault-key-rotation";
 export * from "./modules/crypto/application/crypto-ports";
 export * from "./modules/crypto/application/encrypted-envelope-types";
 export * from "./modules/crypto/application/protocol-test-vectors";
@@ -22,6 +25,7 @@ export * from "./modules/sync/domain/offline-vault-bundle";
 export * from "./modules/vault-archive/application/archive-ports";
 export * from "./modules/vault-archive/application/open-and-validate-encrypted-vault-archive";
 export * from "./modules/vault-archive/application/prepare-encrypted-vault-archive";
+export * from "./modules/vault-membership/application/create-secure-share-link";
 export * from "./modules/vault-membership/application/create-secure-share-link-material";
 export * from "./modules/vault-membership/application/redeem-secure-share-link-material";
 export * from "./modules/vault-membership/application/redeem-secure-share-link";

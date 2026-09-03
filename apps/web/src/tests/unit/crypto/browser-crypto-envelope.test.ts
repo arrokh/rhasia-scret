@@ -8,8 +8,12 @@ import {
   generateSymmetricKey,
   generateUserEncryptionKeyPair,
   migrateLegacyEncryptedPayload,
+  serializeKeyWrapEnvelope,
+  deserializeKeyWrapEnvelope,
   unwrapKeyForRecipient,
-  wrapKeyForRecipient
+  unwrapKeyForRecipientWithContext,
+  wrapKeyForRecipient,
+  wrapKeyForRecipientWithContext
 } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
 
 describe("browser crypto envelopes", () => {
@@ -36,10 +40,14 @@ describe("browser crypto envelopes", () => {
 
   it("wraps a vault key through P-256 ECDH and HKDF", async () => {
     const pair = await generateUserEncryptionKeyPair();
-    const publicKey = await crypto.subtle.exportKey("jwk", pair.publicKey);
-    const privateKey = await crypto.subtle.exportKey("jwk", pair.privateKey);
     const vaultKey = generateSymmetricKey();
-    const envelope = await wrapKeyForRecipient(vaultKey, publicKey);
-    await expect(unwrapKeyForRecipient(envelope, privateKey)).resolves.toEqual(vaultKey);
+    const context = { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", vaultId: "vault-1", keyVersion: 1 } as const;
+    const envelope = await wrapKeyForRecipientWithContext(vaultKey, pair.publicKey, context);
+    const restored = deserializeKeyWrapEnvelope(serializeKeyWrapEnvelope(envelope));
+    await expect(unwrapKeyForRecipientWithContext(restored, pair.privateKey, context)).resolves.toEqual(vaultKey);
+    await expect(unwrapKeyForRecipientWithContext(restored, pair.privateKey, { ...context, vaultId: "vault-2" })).rejects.toThrow("authentication failed");
+
+    const legacy = await wrapKeyForRecipient(vaultKey, pair.publicKey);
+    await expect(unwrapKeyForRecipient(legacy, pair.privateKey)).resolves.toEqual(vaultKey);
   });
 });

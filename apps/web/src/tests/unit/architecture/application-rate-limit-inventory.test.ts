@@ -30,6 +30,21 @@ function exportedRouteMethods(source: string): string[] {
 }
 
 describe("authenticated application mutation rate-limit inventory", () => {
+  it("routes every protected API handler through one authenticated entry seam", () => {
+    const unprotectedRoutes = new Set(["/api/health", "/api/time", "/api/internal/retention-purge"]);
+    for (const path of routeFiles(appRoot)) {
+      const route = routePath(path);
+      if (!route.startsWith("/api/") || unprotectedRoutes.has(route)) continue;
+      const source = readFileSync(path, "utf8");
+      expect(source, route).toContain("@/shared/infrastructure/authenticated-application-request");
+      expect(source, route).toMatch(/authenticateApplication(?:Reader|Mutation)/);
+      expect(source, route).not.toContain("@/shared/infrastructure/authenticated-application-response");
+      expect(source, route).not.toContain("@/modules/server-composition/server");
+      expect(source, route).not.toContain("loadApplicationUser");
+      expect(source, route).not.toContain("rateLimitApplicationUser");
+    }
+  });
+
   it("requires every state-changing route to have a policy or a narrow documented exclusion", () => {
     const discovered = routeFiles(appRoot).flatMap((path) => {
       const source = readFileSync(path, "utf8");
