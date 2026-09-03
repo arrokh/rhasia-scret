@@ -1,17 +1,33 @@
 import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
 import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
 import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
-import { createMobileVaultWorkspacePorts } from "./mobile-vault-workspace";
+import type { NetInfoState } from "@react-native-community/netinfo";
+import { createMobileVaultWorkspacePorts, NativeNetworkStatus } from "./mobile-vault-workspace";
 
 jest.mock("@react-native-community/netinfo", () => ({
   __esModule: true,
   default: {
     fetch: async () => ({ isConnected: true, isInternetReachable: true }),
-    addEventListener: () => () => undefined,
+    addEventListener: () => ({ remove: () => undefined }),
   },
 }));
 
 describe("mobile Vault workspace transport", () => {
+  it("stops listening to native network changes after the last lifecycle subscriber leaves", () => {
+    const remove = jest.fn();
+    const state = { isConnected: true, isInternetReachable: true } as NetInfoState;
+    const netInfo = {
+      fetch: jest.fn(async () => state),
+      addEventListener: jest.fn(() => ({ remove })),
+    };
+    const network = new NativeNetworkStatus(netInfo);
+    const dispose = network.subscribe(jest.fn());
+
+    expect(netInfo.addEventListener).toHaveBeenCalledTimes(1);
+    dispose();
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
+
   it("uses bearer transport and reuses an unchanged encrypted snapshot without mutation replay", async () => {
     const cached = fixture();
     const transport = new StubTransport(response(304, null, { "x-synchronized-at": "2026-08-11T23:00:00.000Z" }));

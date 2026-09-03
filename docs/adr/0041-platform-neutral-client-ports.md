@@ -13,7 +13,7 @@ Ports are owned by the bounded context that owns the capability:
 
 - shared platform ports define authenticated HTTP transport, cancellation, network status, lifecycle visibility, clipboard, download, and file input contracts;
 - Identity and shared transport composition retain authorization semantics while allowing a bearer-token transport adapter;
-- Crypto defines primitive encryption, HMAC, ECDH, Argon2id derivation, and device-bound capability contracts;
+- Crypto defines primitive encryption, HMAC, ECDH, HKDF-SHA-256, Argon2id derivation, and device-bound capability contracts;
 - Sync and Local Vault define encrypted snapshot, Remembered Browser, Local Profile, and lock storage contracts;
 - Authenticator Account defines encrypted account payload and QR import contracts;
 - Vault Archive defines archive preparation and download contracts;
@@ -29,7 +29,7 @@ Authorization checks, revision checks, one-time Secure Share Link semantics, mut
 
 ## Cryptography and protocol compatibility
 
-The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, Argon2id, HMAC, and Worker execution are adapters. Synthetic cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, archives, and Secure Share Link material; no vector contains production secrets.
+The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, Argon2id, HMAC, HKDF-SHA-256, and Worker execution are adapters. Synthetic cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, context-bound key wraps, archives, and Secure Share Link material; no vector contains production secrets.
 
 WebAuthn PRF Remembered Browser and Passkey-Assisted Recovery expose the explicit `browser-webauthn-prf` capability. Unsupported platforms report unsupported; native passkey support is not treated as WebAuthn PRF compatibility and no native-equivalence claim is made.
 

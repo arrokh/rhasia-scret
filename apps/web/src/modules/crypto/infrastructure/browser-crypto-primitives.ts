@@ -40,6 +40,16 @@ export class BrowserCryptoPrimitives implements CryptoPrimitivePort {
     return new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: publicCryptoKey }, privateCryptoKey, 256));
   }
 
+  async deriveHkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+    if (!Number.isSafeInteger(length) || length < 0) throw new Error("HKDF output length is invalid.");
+    const key = await crypto.subtle.importKey("raw", ikm.slice(), "HKDF", false, ["deriveBits"]);
+    return new Uint8Array(await crypto.subtle.deriveBits(
+      { name: "HKDF", hash: "SHA-256", salt: salt.slice(), info: info.slice() },
+      key,
+      length * 8,
+    ));
+  }
+
   async signHmac(algorithm: "SHA-1" | "SHA-256" | "SHA-512", keyBytes: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
     const key = await crypto.subtle.importKey("raw", keyBytes.slice(), { name: "HMAC", hash: algorithm }, false, ["sign"]);
     return new Uint8Array(await crypto.subtle.sign("HMAC", key, message.slice()));

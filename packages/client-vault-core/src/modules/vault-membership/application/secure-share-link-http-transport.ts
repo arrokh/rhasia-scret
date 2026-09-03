@@ -1,7 +1,7 @@
 import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../shared/application/platform-ports";
-import type { SecureShareLinkLookup, SecureShareLinkTransportPort } from "./secure-share-link-workflow-ports";
+import type { CreatedSecureShareLink, SecureShareLinkCreationTransportPort, SecureShareLinkLookup } from "./secure-share-link-workflow-ports";
 
-export type CreatedSecureShareLink = Readonly<{ id: string; expiresAt: string }>;
+export type { CreatedSecureShareLink } from "./secure-share-link-workflow-ports";
 
 export class SecureShareLinkHttpTransportError extends Error {
   public constructor(public readonly status: number, public readonly code: string) {
@@ -10,7 +10,7 @@ export class SecureShareLinkHttpTransportError extends Error {
   }
 }
 
-export class SecureShareLinkHttpTransport implements SecureShareLinkTransportPort {
+export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTransportPort {
   public constructor(private readonly transport: AuthenticatedTransport) {}
 
   public async create(

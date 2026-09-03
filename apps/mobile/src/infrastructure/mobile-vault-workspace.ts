@@ -24,20 +24,42 @@ export const mobileOfflineVaultStore = new EncryptedOfflineVaultStore(
   nativeClientCrypto,
 );
 
-class NativeNetworkStatus implements NetworkStatusPort {
+type NativeNetworkSubscription = { remove(): void } | (() => void);
+type NativeNetworkInfo = {
+  fetch(): Promise<NetInfoState>;
+  addEventListener(listener: (state: NetInfoState) => void): NativeNetworkSubscription;
+};
+
+export class NativeNetworkStatus implements NetworkStatusPort {
   private online = false;
+  private listening = false;
+  private subscription: NativeNetworkSubscription | null = null;
   private readonly listeners = new Set<(online: boolean) => void>();
 
-  public constructor() {
-    void NetInfo.fetch().then((state) => this.update(state));
-    NetInfo.addEventListener((state) => this.update(state));
+  public constructor(private readonly netInfo: NativeNetworkInfo = NetInfo) {
+    void this.netInfo.fetch().then((state) => this.update(state), () => undefined);
   }
 
   public isOnline(): boolean { return this.online; }
 
   public subscribe(listener: (online: boolean) => void): PortDisposer {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    if (!this.listening) {
+      this.listening = true;
+      this.subscription = this.netInfo.addEventListener((state) => this.update(state));
+      void this.netInfo.fetch().then((state) => this.update(state), () => undefined);
+    }
+    return () => {
+      this.listeners.delete(listener);
+      if (this.listeners.size === 0) this.stopListening();
+    };
+  }
+
+  private stopListening(): void {
+    if (typeof this.subscription === "function") this.subscription();
+    else this.subscription?.remove();
+    this.subscription = null;
+    this.listening = false;
   }
 
   private update(state: NetInfoState): void {

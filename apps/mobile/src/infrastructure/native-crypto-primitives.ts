@@ -1,5 +1,6 @@
 import { gcm } from "@noble/ciphers/aes.js";
 import { p256 } from "@noble/curves/nist.js";
+import { hkdf } from "@noble/hashes/hkdf.js";
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha1 } from "@noble/hashes/legacy.js";
 import { sha256, sha512 } from "@noble/hashes/sha2.js";
@@ -93,6 +94,11 @@ export class NativeCryptoPrimitives implements CryptoPrimitivePort {
     } finally {
       privateBytes.fill(0);
     }
+  }
+
+  public async deriveHkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+    if (!Number.isSafeInteger(length) || length < 0 || length > 255 * 32) throw new Error("HKDF output length is invalid.");
+    return hkdf(sha256, ikm, salt, info, length);
   }
 
   public async signHmac(

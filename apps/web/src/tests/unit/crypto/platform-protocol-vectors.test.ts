@@ -32,8 +32,8 @@ describe("cross-platform protocol vectors", () => {
     await expect(decryptPayloadWithContext(key, envelope, { ...context, profileId: "other-profile" })).rejects.toThrow("authentication failed");
 
     const keyPair = await generateUserEncryptionKeyPair();
-    const publicKey = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-    const privateKey = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+    const publicKey = keyPair.publicKey;
+    const privateKey = keyPair.privateKey;
     const wrappedVaultKey = await wrapKeyForRecipientWithContext(key, publicKey, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: "profile-vector", keyVersion: 1 });
     await expect(unwrapKeyForRecipientWithContext(wrappedVaultKey, privateKey, { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: "profile-vector", keyVersion: 1 })).resolves.toEqual(key);
 

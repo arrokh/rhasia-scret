@@ -10,7 +10,9 @@ describe("createSharedVaultInvitation", () => {
 
   it("sends only recipient identity and encrypted one-time material to the server", async () => {
     const vaultKey = new Uint8Array(32).fill(9);
-    mocks.createSecureShareLinkMaterial.mockResolvedValue({ secret: "client-only-secret", linkVerifier: new Uint8Array(32).fill(1), encryptedPackage: new Uint8Array(13).fill(2) });
+    const linkVerifier = new Uint8Array(32).fill(1);
+    const encryptedPackage = new Uint8Array(13).fill(2);
+    mocks.createSecureShareLinkMaterial.mockResolvedValue({ secret: "client-only-secret", linkVerifier, encryptedPackage });
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ id: "invitation-1", expiresAt: "2026-08-05T12:00:00.000Z" }) });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -21,5 +23,7 @@ describe("createSharedVaultInvitation", () => {
     expect(body).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
     expect(JSON.stringify(body)).not.toContain("client-only-secret");
     expect(JSON.stringify(body)).not.toContain(Array.from(vaultKey).join(","));
+    expect(linkVerifier).toEqual(new Uint8Array(32));
+    expect(encryptedPackage).toEqual(new Uint8Array(13));
   });
 });
