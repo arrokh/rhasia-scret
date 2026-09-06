@@ -131,6 +131,17 @@ type AnalyticsEventProperties = {
 export type AnalyticsEventPropertiesFor<Name extends AnalyticsEventName> = AnalyticsEventProperties[Name];
 
 const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referrer"] as const;
+// Only source-controlled route segments may leave the browser. Unknown suffixes
+// fail closed, including future dynamic routes and user-controlled 404 paths.
+const STATIC_ANALYTICS_ROUTES = [
+  "/", "/local", "/offline", "/sign-in", "/smoke", "/totp",
+  "/auth/confirm", "/auth/logout", "/auth/oidc/callback",
+  "/vaults", "/vaults/recovery", "/vaults/accounts/new",
+  "/vaults/manage", "/vaults/manage/personal", "/vaults/manage/new",
+  "/vaults/backup", "/vaults/import", "/vaults/invitations/redeem",
+  "/ui-preview", "/ui-preview/recovery", "/ui-preview/archive-backup",
+  "/ui-preview/archive-import", "/ui-preview/remembered-browser", "/ui-preview/vaults"
+] as const;
 const PRIVATE_ROUTE_PREFIXES = ["/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const AUTOMATIC_CAPTURE_PROPERTY_PATTERN = /(?:account|attr|cipher|content|cookie|description|email|error|exception|hash|href|input|issuer|key|label|message|name|otp|passphrase|password|path|plain|private|qr|query|referrer|secret|stack|text|title|token|trace|url|value|vault)/i;
 const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
@@ -166,6 +177,12 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
       }
       continue;
     }
+    if (property === "$pathname") {
+      if (typeof value === "string" && value.startsWith("/") && !value.startsWith("//")) {
+        capture.properties[property] = sanitizeAnalyticsPath(value.split(/[?#]/, 1)[0]);
+      } else delete capture.properties[property];
+      continue;
+    }
     if (property === "error_name") {
       if (!explicitClientError) delete capture.properties[property];
       else capture.properties[property] = normalizeAnalyticsErrorName(value);
@@ -194,10 +211,25 @@ const sanitizeAnalyticsUrls: BeforeSendFn = sanitizeAnalyticsCapture;
 
 function sanitizeAnalyticsUrl(value: string): string {
   const url = new URL(value);
+  if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Unsupported analytics URL protocol");
+  url.username = "";
+  url.password = "";
   url.search = "";
   url.hash = "";
-  if (isPrivateRoute(url.pathname)) url.pathname = "/[private]";
+  url.pathname = sanitizeAnalyticsPath(url.pathname);
   return url.toString();
+}
+
+function sanitizeAnalyticsPath(pathname: string): string {
+  const segments = pathname.split("/");
+  let knownPrefix = "";
+  let privateSuffix = false;
+  return segments.map((segment, index) => {
+    if (index === 0 || index === segments.length - 1 && segment === "") return segment;
+    knownPrefix += `/${segment}`;
+    privateSuffix ||= !STATIC_ANALYTICS_ROUTES.some((route) => route === knownPrefix || route.startsWith(`${knownPrefix}/`));
+    return privateSuffix ? "[redacted]" : segment;
+  }).join("/");
 }
 
 function getAnalyticsPath(capture: NonNullable<Parameters<BeforeSendFn>[0]>): string {
@@ -222,7 +254,7 @@ export const BROWSER_ANALYTICS_CONFIG = {
     element_attribute_ignorelist: ["aria-label", "data-slot", "data-testid", "for", "href", "id", "name", "placeholder", "title", "value"],
     capture_copied_text: false
   },
-  capture_pageview: true,
+  capture_pageview: "history_change",
   capture_pageleave: true,
   capture_dead_clicks: true,
   capture_heatmaps: false,
