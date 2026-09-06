@@ -48,7 +48,7 @@ An optional browser-held recovery path that uses a verified WebAuthn PRF output 
 _Avoid_: Server reset, passkey-only server decryption
 
 **Passkey-Assisted Unlock**:
-An optional alternative way to start an Unlocked Vault Session by verifying the enrolled recovery passkey and opening the User Root Key recovery package entirely in the browser. It does not change or remove the Vault Unlock Secret, is not a second authentication factor, and requires an online server-verified WebAuthn assertion.
+An optional alternative way to start an Unlocked Vault Session by verifying the enrolled recovery passkey and opening the User Root Key recovery package entirely in the browser. It does not change or remove the Vault Unlock Secret, is not a second authentication factor, and requires an online server-verified WebAuthn assertion. PRF evaluation and assertion verification use one application-issued credential ceremony; the authenticated client receives opaque recovery ciphertext before the ceremony but opens it only after server verification.
 _Avoid_: Second factor, passwordless account login, server-side vault unlock
 
 **Destructive Personal Vault Reset**:
@@ -102,10 +102,6 @@ _Avoid_: Email as identity, session cookie as principal, provider-specific sessi
 **External Identity**:
 A durable identity binding unique by `(issuer, subject)` and associated with exactly one Application User. Email is permitted admission/contact metadata but never silently links identities or merges Application Users.
 _Avoid_: `supabaseUserId`, automatic email linking, provider account row as Application User
-
-**Analytics Identity**:
-An identified PostHog person uses the raw Application User identifier (`application_users.id`) as its distinct ID and the Application User email as its sole explicitly supplied person property (ADR-0045). This is permitted identifiable analytics metadata, not Vault content. Email never becomes an identity key; anonymous browser activity has no direct Application User mapping before identification. Historical SHA-256 identities are not automatically merged.
-_Avoid_: Supabase analytics identity, email as distinct ID, anonymous authenticated analytics
 
 **Application Admission**:
 The separate policy decision that determines whether a Verified Principal may use the application. In the Supabase deployment, a verified email principal is admitted to the hosted application; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.

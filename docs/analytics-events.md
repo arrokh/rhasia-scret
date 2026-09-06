@@ -71,7 +71,7 @@ PostHog receives explicit product events from the browser through the typed cont
 
 ## Analysis guidance
 
-`authentication_sign_in_link_requested` is an anonymous pre-authentication signal. It means that the provider accepted the request to send a link; it should be analyzed separately from identified post-login events. `authentication_session_established` is emitted only after the browser has identified the authenticated user with the raw `application_users.id` as `distinct_id` and `application_users.email` as the email person property (ADR-0045), so it is the correct starting point for authenticated funnels. Use unique users for funnel conversion and treat event totals as activity, not sessions. Historical hashed identities are not automatically merged with raw-ID identities, so cross-rollout user counts and funnels may be split. Email is allowed only as an explicit identification person property, never as a product-event property.
+`authentication_sign_in_link_requested` is an anonymous pre-authentication signal. It means that the provider accepted the request to send a link; it should be analyzed separately from identified post-login events. `authentication_session_established` is emitted only after the browser has identified the authenticated user with the SHA-256-derived identifier, so it is the correct starting point for authenticated funnels. Use unique users for funnel conversion and treat event totals as activity, not sessions.
 
 Recommended PostHog views are:
 
@@ -81,6 +81,19 @@ Recommended PostHog views are:
 4. Local adoption: compare local Vault creation, unlock, account, archive, and clear events separately from hosted Vault activity.
 
 Do not use raw URLs, event properties, or PostHog autocapture to recover labels or identifiers. Protected routes remain limited to redacted automatic page/performance events, and browser persistence is disabled because PostHog can retain session URL properties before `before_send` runs.
+
+## Automatic reports and operational views
+
+The browser SDK explicitly enables only these automatic reports:
+
+- **Web Analytics / page reports:** `$pageview` and `$pageleave`, with static route paths preserved and dynamic segments replaced by `[redacted]`. Query strings, fragments, credentials, titles, DOM text, and element attributes are removed.
+- **Web Vitals:** `$web_vitals` for LCP, CLS, FCP, and INP. Only bounded numeric metric values survive the client sanitizer; attribution objects and navigation URLs do not.
+- **Live traffic:** use PostHog Live Events over the same sanitized event stream. Do not enable raw-property inspection for protected-route events.
+- **Installation health:** use PostHog's deployment/project health view and the event delivery/request error indicators. Keep staging and production projects separate.
+- **Error tracking:** unhandled errors and promise rejections are enabled; console capture is disabled. Automatic exceptions retain only a bounded error type. The explicit `client_error` event retains only a bounded error name and digest.
+- **Logs:** browser console-log capture is intentionally disabled. PostHog browser log records attach current URL metadata outside the event `before_send` sanitizer, so arbitrary browser logs would violate the privacy contract. Do not enable console logs until a URL-redacting log hook is available.
+
+The sanitizer is allowlist-first at runtime: unknown automatic events and explicit events are dropped, event properties are validated by event name, counts are bounded, and only fixed enum values are accepted. The unit tests in `src/tests/unit/shared/browser-analytics.test.ts` are the contract for this policy.
 
 ## Configure in PostHog
 

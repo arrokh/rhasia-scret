@@ -7,16 +7,16 @@ import { LogoutForm } from "@/modules/identity";
 import { captureAnalyticsEvent, identifyAnalyticsUser } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 
-export function PostHogIdentify({ userId, email }: { userId: string; email: string }) {
+export function PostHogIdentify({ userId }: { userId: string }) {
   useEffect(() => {
     let active = true;
-    void identifyAnalyticsUser(userId, email).then((identified) => {
+    void identifyAnalyticsUser(userId).then((identified) => {
       if (active && identified) captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSessionEstablished);
     });
     return () => {
       active = false;
     };
-  }, [userId, email]);
+  }, [userId]);
 
   return null;
 }
