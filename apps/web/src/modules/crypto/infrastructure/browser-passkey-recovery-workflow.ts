@@ -1,6 +1,6 @@
 "use client";
 
-import { base64ToBytes, base64UrlToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
+import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./browser-passkey-recovery-package";
 import {
   loadPasskeyAuthenticationOptions,
@@ -9,7 +9,7 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration
 } from "./browser-passkey-recovery-client";
-import { authenticatePasskey, createPasskeyCredential, evaluatePasskeyPrf } from "./browser-passkey-prf";
+import { authenticatePasskey, createPasskeyCredential } from "./browser-passkey-prf";
 import { wrapUserRootKeyWithVaultUnlockSecret } from "./browser-vault-unlock-secret-change";
 
 export async function enrollPasskeyRecovery(userRootKey: Uint8Array): Promise<void> {
@@ -29,16 +29,22 @@ export async function recoverUserRootKeyWithPasskey(): Promise<Uint8Array> {
   let prfOutput: Uint8Array | undefined;
   try {
     const options = await loadPasskeyAuthenticationOptions();
-    const credential = requiredRecoveryCredential(options);
-    const assertionResponse = await authenticatePasskey(options);
-    const recovery = await verifyPasskeyAuthentication(assertionResponse);
-    const packageBytes = base64ToBytes(recovery.encryptedRecoveryPackage);
-    prfOutput = await evaluatePasskeyPrf(
-      base64UrlToBytes(credential.id),
-      credential.rpId,
-      passkeyRecoverySalt(packageBytes)
-    );
-    return (await recoverUserRootKeyFromPasskeyPackage(prfOutput, packageBytes)).userRootKey;
+    requiredRecoveryCredential(options);
+    const packageBytes = base64ToBytes(options.encryptedRecoveryPackage);
+    try {
+      const prfSalt = passkeyRecoverySalt(packageBytes);
+      try {
+        const assertion = await authenticatePasskey(options, prfSalt);
+        prfOutput = assertion.prfOutput;
+        const recovery = await verifyPasskeyAuthentication(assertion.response);
+        if (recovery.encryptedRecoveryPackage !== options.encryptedRecoveryPackage) throw new Error("Passkey recovery package changed.");
+        return (await recoverUserRootKeyFromPasskeyPackage(prfOutput, packageBytes)).userRootKey;
+      } finally {
+        prfSalt.fill(0);
+      }
+    } finally {
+      packageBytes.fill(0);
+    }
   } finally {
     prfOutput?.fill(0);
   }
@@ -59,8 +65,6 @@ export async function resetVaultUnlockSecretWithPasskey(secret: string): Promise
   }
 }
 
-function requiredRecoveryCredential(options: PublicKeyCredentialRequestOptionsJSON): { id: string; rpId: string } {
-  const id = options.allowCredentials?.[0]?.id;
-  if (!id || !options.rpId) throw new Error("Passkey recovery options are incomplete.");
-  return { id, rpId: options.rpId };
+function requiredRecoveryCredential(options: PublicKeyCredentialRequestOptionsJSON): void {
+  if (!options.allowCredentials?.[0]?.id || !options.rpId) throw new Error("Passkey recovery options are incomplete.");
 }

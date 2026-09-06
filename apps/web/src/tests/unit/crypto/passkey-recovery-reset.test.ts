@@ -9,7 +9,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({
   generateVaultUnlockSecret: vi.fn(() => "alpha bravo charlie delta echo foxtrot"),
   routerReplace: vi.fn(),
-  authenticatePasskey: vi.fn(async () => ({ id: "credential-response" })),
+  authenticatePasskey: vi.fn(async () => ({ response: { id: "credential-response" }, prfOutput: Uint8Array.of(3, 4) })),
   evaluatePasskeyPrf: vi.fn(async () => Uint8Array.of(3, 4)),
   passkeyRecoverySalt: vi.fn(() => Uint8Array.of(5, 6)),
   recoverUserRootKeyFromPasskeyPackage: vi.fn(async () => ({ userRootKey: Uint8Array.of(7, 8), prfSalt: Uint8Array.of(5, 6) })),
@@ -45,6 +45,7 @@ describe("PasskeyRecoveryReset", () => {
   it("verifies the passkey, recovers the User Root Key locally, and persists only rewrapped material", async () => {
     const options = {
       challenge: "challenge",
+      encryptedRecoveryPackage: "CQ==",
       rpId: "example.test",
       allowCredentials: [{ id: "AQI", type: "public-key" }]
     } as PublicKeyCredentialRequestOptionsJSON;
@@ -65,9 +66,9 @@ describe("PasskeyRecoveryReset", () => {
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(mocks.authenticatePasskey).toHaveBeenCalledWith(options);
-    expect(mocks.evaluatePasskeyPrf).toHaveBeenCalledWith(Uint8Array.of(1, 2), "example.test", Uint8Array.of(5, 6));
-    expect(mocks.recoverUserRootKeyFromPasskeyPackage).toHaveBeenCalledWith(expect.any(Uint8Array), Uint8Array.of(9));
+    expect(mocks.authenticatePasskey).toHaveBeenCalledWith(options, expect.any(Uint8Array));
+    expect(mocks.evaluatePasskeyPrf).not.toHaveBeenCalled();
+    expect(mocks.recoverUserRootKeyFromPasskeyPackage).toHaveBeenCalledWith(expect.any(Uint8Array), Uint8Array.of(0));
     expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(expect.any(Uint8Array), "alpha bravo charlie delta echo foxtrot");
     const rewrapCall = fetchMock.mock.calls.find(([url]) => url === "/api/user-crypto-profile/rewrap");
     const rewrapRequest = rewrapCall?.[1];
@@ -96,7 +97,7 @@ describe("PasskeyRecoveryReset", () => {
   });
 
   it("accepts a custom Passphrase Brankas baru", async () => {
-    const options = { challenge: "challenge", rpId: "example.test", allowCredentials: [{ id: "AQI", type: "public-key" }] } as PublicKeyCredentialRequestOptionsJSON;
+    const options = { challenge: "challenge", encryptedRecoveryPackage: "CQ==", rpId: "example.test", allowCredentials: [{ id: "AQI", type: "public-key" }] } as PublicKeyCredentialRequestOptionsJSON;
     vi.stubGlobal("fetch", vi.fn(async (input: string) => {
       if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
       if (input === "/api/passkey-recovery/authentication/verify") return jsonResponse({ encryptedRecoveryPackage: "CQ==" });

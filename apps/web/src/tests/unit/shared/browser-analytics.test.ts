@@ -10,7 +10,7 @@ const posthogMocks = vi.hoisted(() => ({
   reset: vi.fn()
 }));
 
-vi.mock("posthog-js", () => ({ default: posthogMocks }));
+vi.mock("posthog-js/dist/module.full.no-external", () => ({ default: posthogMocks }));
 
 type AnalyticsInitOptions = {
   autocapture?: {
@@ -25,8 +25,22 @@ type AnalyticsInitOptions = {
   capture_pageleave?: boolean;
   capture_dead_clicks?: boolean;
   capture_heatmaps?: boolean;
-  capture_performance?: boolean;
-  capture_exceptions?: boolean;
+  capture_performance?: boolean | {
+    web_vitals?: boolean;
+    web_vitals_allowed_metrics?: string[];
+    web_vitals_delayed_flush_ms?: number;
+    web_vitals_attribution?: boolean;
+    network_timing?: boolean;
+  };
+  capture_exceptions?: boolean | {
+    capture_unhandled_errors?: boolean;
+    capture_unhandled_rejections?: boolean;
+    capture_console_errors?: boolean;
+  };
+  error_tracking?: {
+    captureExtensionExceptions?: boolean;
+    exception_steps?: { enabled?: boolean };
+  };
   disable_session_recording?: boolean;
   disable_surveys?: boolean;
   disable_persistence?: boolean;
@@ -36,12 +50,16 @@ type AnalyticsInitOptions = {
   save_campaign_params?: boolean;
   mask_all_text?: boolean;
   mask_all_element_attributes?: boolean;
+  mask_personal_data_properties?: boolean;
+  custom_personal_data_properties?: string[];
+  person_profiles?: string;
   respect_dnt?: boolean;
   advanced_disable_flags?: boolean;
   disable_web_experiments?: boolean;
   disable_product_tours?: boolean;
   disable_conversations?: boolean;
   disable_external_dependency_loading?: boolean;
+  logs?: { captureConsoleLogs?: boolean };
   before_send?: typeof BROWSER_ANALYTICS_CONFIG.before_send;
   loaded?: (client: typeof posthogMocks) => void;
 };
@@ -76,8 +94,19 @@ describe("browser analytics", () => {
       capture_pageleave: true,
       capture_dead_clicks: true,
       capture_heatmaps: false,
-      capture_performance: true,
-      capture_exceptions: true,
+      capture_performance: {
+        web_vitals: true,
+        web_vitals_allowed_metrics: ["LCP", "CLS", "FCP", "INP"],
+        web_vitals_delayed_flush_ms: 5_000,
+        web_vitals_attribution: false,
+        network_timing: false
+      },
+      capture_exceptions: {
+        capture_unhandled_errors: true,
+        capture_unhandled_rejections: true,
+        capture_console_errors: false
+      },
+      error_tracking: { captureExtensionExceptions: false, exception_steps: { enabled: false } },
       disable_session_recording: true,
       disable_surveys: true,
       disable_persistence: true,
@@ -87,12 +116,16 @@ describe("browser analytics", () => {
       save_campaign_params: false,
       mask_all_text: true,
       mask_all_element_attributes: true,
+      mask_personal_data_properties: true,
+      custom_personal_data_properties: ["email", "token", "secret", "passphrase", "password", "otp", "code"],
+      person_profiles: "identified_only",
       respect_dnt: true,
       advanced_disable_flags: true,
       disable_web_experiments: true,
       disable_product_tours: true,
       disable_conversations: true,
-      disable_external_dependency_loading: true
+      disable_external_dependency_loading: true,
+      logs: { captureConsoleLogs: false }
     });
     expect(options.loaded).toBeTypeOf("function");
     expect(options.before_send).toBeTypeOf("function");
@@ -141,9 +174,7 @@ describe("browser analytics", () => {
 
     expect(capture?.properties).toEqual({
       method: "passkey",
-      failure_code: "passkey_error",
-      operation: "unlock",
-      participant_type: "member"
+      failure_code: "passkey_error"
     });
   });
 
@@ -157,7 +188,7 @@ describe("browser analytics", () => {
         safe_number: 1
       }
     });
-    expect(automaticException?.properties).toEqual({ safe_number: 1 });
+    expect(automaticException?.properties).toEqual({});
 
     const explicitError = sanitizeAnalyticsCapture({
       uuid: "explicit-error-test-uuid",
@@ -195,8 +226,7 @@ describe("browser analytics", () => {
     });
     expect(privatePageview?.properties).toEqual({
       $current_url: "https://vault.example.test/vaults/[redacted]",
-      $pathname: "/vaults/[redacted]",
-      safe_number: 1
+      $pathname: "/vaults/[redacted]"
     });
 
     const publicCapture = sanitizeAnalyticsCapture({
@@ -211,9 +241,57 @@ describe("browser analytics", () => {
       }
     });
     expect(publicCapture?.properties).toEqual({
-      $current_url: "https://vault.example.test/",
-      safe_number: 1
+      $current_url: "https://vault.example.test/"
     });
+  });
+
+  it("keeps only aggregate Web Vitals values", () => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "web-vitals-test-uuid",
+      event: "$web_vitals",
+      properties: {
+        $current_url: "https://vault.example.test/vaults",
+        $web_vitals_LCP_value: 1234,
+        $web_vitals_CLS_value: 0.04,
+        $web_vitals_INP_value: 80,
+        $web_vitals_LCP_event: { name: "LCP", navigationURL: "https://vault.example.test/vaults/private-id" },
+        email: "alice@example.test",
+        $web_vitals_FCP_value: "private"
+      }
+    });
+
+    expect(capture?.properties).toEqual({
+      $current_url: "https://vault.example.test/vaults",
+      $web_vitals_LCP_value: 1234,
+      $web_vitals_CLS_value: 0.04,
+      $web_vitals_INP_value: 80
+    });
+  });
+
+  it("retains only a bounded exception type for public error tracking", () => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "exception-redaction-test-uuid",
+      event: "$exception",
+      properties: {
+        $current_url: "https://vault.example.test/",
+        $exception_list: [{ type: "TypeError", value: "alice@example.test", stacktrace: { frames: [{ filename: "https://vault.example.test/private" }] } }]
+      }
+    });
+
+    expect(capture?.properties).toEqual({
+      $current_url: "https://vault.example.test/",
+      $exception_list: [{ type: "TypeError" }]
+    });
+  });
+
+  it("drops unknown event names and unapproved explicit properties", () => {
+    expect(sanitizeAnalyticsCapture({ uuid: "unknown-event", event: "private_event", properties: {} })).toBeNull();
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "explicit-redaction-test",
+      event: ANALYTICS_EVENTS.vaultUnlocked,
+      properties: { method: "passkey", account_count: 1, email: "alice@example.test" }
+    });
+    expect(capture?.properties).toEqual({ method: "passkey" });
   });
 
   it.each([

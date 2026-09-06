@@ -8,7 +8,7 @@ import {
   normalizeAnalyticsErrorName
 } from "./browser-analytics-config";
 
-type PostHogClient = typeof import("posthog-js").default;
+type PostHogClient = typeof import("posthog-js/dist/module.full.no-external").default;
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 let posthogPromise: Promise<PostHogClient | null> | undefined;
@@ -59,7 +59,7 @@ async function hashAnalyticsUserId(userId: string): Promise<string | null> {
 
 function loadPostHog(): Promise<PostHogClient | null> {
   if (!projectToken || !posthogHost) return Promise.resolve(null);
-  posthogPromise ??= import("posthog-js").then(({ default: posthog }) => {
+  posthogPromise ??= import("posthog-js/dist/module.full.no-external").then(({ default: posthog }) => {
     posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
     return posthog;
   }).catch(() => null);

@@ -22,11 +22,24 @@ export async function evaluatePasskeyPrf(credentialId: Uint8Array, rpId: string,
   return evaluatePrf(toArrayBuffer(credentialId), rpId, prfSalt);
 }
 
-export async function authenticatePasskey(options: PublicKeyCredentialRequestOptionsJSON): Promise<unknown> {
-  const credential = await navigator.credentials.get({ publicKey: { challenge: base64UrlToBytes(options.challenge), rpId: options.rpId, timeout: options.timeout, userVerification: options.userVerification as UserVerificationRequirement | undefined, allowCredentials: options.allowCredentials?.map((item) => ({ type: "public-key", id: base64UrlToBytes(item.id), transports: item.transports?.filter(isAuthenticatorTransport) })) } });
+export async function authenticatePasskey(options: PublicKeyCredentialRequestOptionsJSON, prfSalt: Uint8Array): Promise<{ response: unknown; prfOutput: Uint8Array }> {
+  if (prfSalt.length !== 32) throw new Error("Passkey PRF salt is invalid.");
+  const extensions = { prf: { eval: { first: toArrayBuffer(prfSalt) } } } as unknown as AuthenticationExtensionsClientInputs;
+  const credential = await navigator.credentials.get({ publicKey: { challenge: base64UrlToBytes(options.challenge), rpId: options.rpId, timeout: options.timeout, userVerification: "required", extensions, allowCredentials: options.allowCredentials?.map((item) => ({ type: "public-key", id: base64UrlToBytes(item.id), transports: item.transports?.filter(isAuthenticatorTransport) })) } });
   if (!(credential instanceof PublicKeyCredential) || !(credential.response instanceof AuthenticatorAssertionResponse)) throw new Error("Passkey recovery was cancelled.");
   const response = credential.response;
-  return { id: credential.id, rawId: toBase64Url(credential.rawId), type: credential.type, response: { authenticatorData: toBase64Url(response.authenticatorData), clientDataJSON: toBase64Url(response.clientDataJSON), signature: toBase64Url(response.signature), userHandle: response.userHandle ? toBase64Url(response.userHandle) : undefined }, clientExtensionResults: credential.getClientExtensionResults() };
+  const first = prfResult(credential.getClientExtensionResults());
+  if (!first || first.byteLength !== 32) {
+    if (first) new Uint8Array(first).fill(0);
+    throw new PasskeyPrfUnsupportedError();
+  }
+  try {
+    // PRF results are key material: never serialize client extension results.
+    const assertion = { id: credential.id, rawId: toBase64Url(credential.rawId), type: credential.type, response: { authenticatorData: toBase64Url(response.authenticatorData), clientDataJSON: toBase64Url(response.clientDataJSON), signature: toBase64Url(response.signature), userHandle: response.userHandle ? toBase64Url(response.userHandle) : undefined }, clientExtensionResults: serverSafeExtensionResults(credential.getClientExtensionResults()) };
+    return { response: assertion, prfOutput: new Uint8Array(first.slice(0)) };
+  } finally {
+    new Uint8Array(first).fill(0);
+  }
 }
 
 async function evaluatePrf(credentialId: ArrayBuffer, rpId: string, prfSalt: Uint8Array): Promise<Uint8Array> {
@@ -48,6 +61,11 @@ function registrationResponseJson(credential: PublicKeyCredential): unknown {
   const response = credential.response;
   if (!(response instanceof AuthenticatorAttestationResponse)) throw new Error("Passkey registration response is invalid.");
   return { id: credential.id, rawId: toBase64Url(credential.rawId), type: credential.type, response: { attestationObject: toBase64Url(response.attestationObject), clientDataJSON: toBase64Url(response.clientDataJSON), transports: response.getTransports() }, clientExtensionResults: credential.getClientExtensionResults() };
+}
+
+function serverSafeExtensionResults(value: unknown): Record<string, true> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return (value as Record<string, unknown>).browserE2eTest === true ? { browserE2eTest: true } : {};
 }
 
 function prfResult(value: unknown): ArrayBuffer | null {

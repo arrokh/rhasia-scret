@@ -48,7 +48,7 @@ An optional browser-held recovery path that uses a verified WebAuthn PRF output 
 _Avoid_: Server reset, passkey-only server decryption
 
 **Passkey-Assisted Unlock**:
-An optional alternative way to start an Unlocked Vault Session by verifying the enrolled recovery passkey and opening the User Root Key recovery package entirely in the browser. It does not change or remove the Vault Unlock Secret, is not a second authentication factor, and requires an online server-verified WebAuthn assertion.
+An optional alternative way to start an Unlocked Vault Session by verifying the enrolled recovery passkey and opening the User Root Key recovery package entirely in the browser. It does not change or remove the Vault Unlock Secret, is not a second authentication factor, and requires an online server-verified WebAuthn assertion. PRF evaluation and assertion verification use one application-issued credential ceremony; the authenticated client receives opaque recovery ciphertext before the ceremony but opens it only after server verification.
 _Avoid_: Second factor, passwordless account login, server-side vault unlock
 
 **Destructive Personal Vault Reset**:
