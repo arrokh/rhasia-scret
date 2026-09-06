@@ -28,7 +28,7 @@ describe("MobilePersonalVault", () => {
 
   it("renders complete Indonesian setup copy and form-owned validation", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("id")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} />,
+      <MobilePersonalVault copy={translate("id")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} webOrigin="https://vault.example.test" />,
     );
 
     expect(await screen.findByRole("header", { name: "Amankan Brankas Pribadi" })).toBeVisible();
@@ -40,7 +40,7 @@ describe("MobilePersonalVault", () => {
 
   it("renders the active Vault unlock ceremony in English", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} />,
+      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} webOrigin="https://vault.example.test" />,
     );
 
     expect(await screen.findByRole("header", { name: "Personal Vault ready" })).toBeVisible();
@@ -58,7 +58,7 @@ describe("MobilePersonalVault", () => {
     });
     jest.spyOn(workspaceModule, "loadMobileVaultWorkspace").mockResolvedValue(workspace);
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} />,
+      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} webOrigin="https://vault.example.test" />,
     );
     await screen.findByRole("header", { name: "Personal Vault ready" });
     await fireEvent.changeText(screen.getByLabelText("Vault Passphrase"), "valid-passphrase");
@@ -74,7 +74,7 @@ describe("MobilePersonalVault", () => {
 
   it("renders equivalent English labels without changing server contracts", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} />,
+      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} webOrigin="https://vault.example.test" />,
     );
 
     expect(await screen.findByRole("header", { name: "Secure your Personal Vault" })).toBeVisible();

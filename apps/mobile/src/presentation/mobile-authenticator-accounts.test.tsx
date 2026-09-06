@@ -27,6 +27,7 @@ describe("MobileAuthenticatorAccounts", () => {
         copy={translate("en")}
         refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
+        webOrigin="https://vault.example.test"
         workspace={workspace}
       />,
     );
@@ -52,6 +53,7 @@ describe("MobileAuthenticatorAccounts", () => {
         copy={translate("en")}
         refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
+        webOrigin="https://vault.example.test"
         workspace={workspace}
       />,
     );
@@ -71,6 +73,7 @@ describe("MobileAuthenticatorAccounts", () => {
         copy={translate("id")}
         refreshWorkspaceAuthorization={async () => undefined}
         transport={transport}
+        webOrigin="https://vault.example.test"
         workspace={workspace}
       />,
     );

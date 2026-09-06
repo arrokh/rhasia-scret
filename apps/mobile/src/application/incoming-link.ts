@@ -6,24 +6,24 @@ export interface MobileAuthCallbackPort {
   setSession(tokens: { access_token: string; refresh_token: string }): Promise<{ error: unknown }>;
 }
 
-export function classifyIncomingLink(rawUrl: string): IncomingLinkKind {
+export function classifyIncomingLink(rawUrl: string, webOrigin: string): IncomingLinkKind {
   const url = safeUrl(rawUrl);
-  if (!url || !isTrustedOrigin(url)) return "unknown";
+  if (!url || !isTrustedOrigin(url, webOrigin)) return "unknown";
   const path = normalizedPath(url);
   if (path === "/auth/callback" || path === "/auth/mobile") return "auth_callback";
   if (path === "/vaults/invitations/redeem") return "secure_share_link";
   return "unknown";
 }
 
-export function extractSecureShareLinkSecret(rawUrl: string): string | null {
-  if (classifyIncomingLink(rawUrl) !== "secure_share_link") return null;
+export function extractSecureShareLinkSecret(rawUrl: string, webOrigin: string): string | null {
+  if (classifyIncomingLink(rawUrl, webOrigin) !== "secure_share_link") return null;
   const url = safeUrl(rawUrl);
   const secret = url?.hash.startsWith("#") ? url.hash.slice(1) : "";
   return secret.length >= 16 && secret.length <= 4_096 ? secret : null;
 }
 
-export async function completeAuthCallback(rawUrl: string, auth: MobileAuthCallbackPort): Promise<AuthCallbackResult> {
-  if (classifyIncomingLink(rawUrl) !== "auth_callback") return "invalid";
+export async function completeAuthCallback(rawUrl: string, auth: MobileAuthCallbackPort, webOrigin: string): Promise<AuthCallbackResult> {
+  if (classifyIncomingLink(rawUrl, webOrigin) !== "auth_callback") return "invalid";
   const url = safeUrl(rawUrl);
   if (!url) return "invalid";
   if (url.searchParams.has("error") || fragmentParameters(url).has("error")) return "provider_error";
@@ -46,8 +46,8 @@ function safeUrl(rawUrl: string): URL | null {
   }
 }
 
-function isTrustedOrigin(url: URL): boolean {
-  return url.protocol === "rhasia-scret:" || (url.protocol === "https:" && url.hostname === "rhasia-scret.vercel.app");
+function isTrustedOrigin(url: URL, webOrigin: string): boolean {
+  return url.protocol === "rhasia-scret:" || (url.protocol === "https:" && url.origin === webOrigin);
 }
 
 function normalizedPath(url: URL): string {

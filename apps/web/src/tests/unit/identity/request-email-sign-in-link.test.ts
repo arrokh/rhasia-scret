@@ -4,7 +4,7 @@ import { authConfirmationRedirectUrl, requestEmailSignInLink } from "@/modules/i
 describe("requestEmailSignInLink", () => {
   it("builds callback URLs from the active browser origin", () => {
     expect(authConfirmationRedirectUrl("http://localhost:3000")).toBe("http://localhost:3000/auth/confirm");
-    expect(authConfirmationRedirectUrl("https://rhasia-scret.vercel.app")).toBe("https://rhasia-scret.vercel.app/auth/confirm");
+    expect(authConfirmationRedirectUrl("https://vault.example.test")).toBe("https://vault.example.test/auth/confirm");
   });
 
   it("uses passwordless sign-in and allows a new user to be created", async () => {

@@ -38,16 +38,15 @@ const securityHeaders = [
 ];
 
 const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
+const configuredPasskeyHost = hostnameFromOrigin(process.env.PASSKEY_ORIGIN);
+const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter((origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index);
 
 const nextConfig: NextConfig = {
   distDir: nextDistDir,
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
-  allowedDevOrigins: [
-    "127.0.0.1",
-    "rhasia-scret.vercel.app",
-  ],
+  allowedDevOrigins,
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
@@ -58,3 +57,12 @@ const nextConfig: NextConfig = {
 };
 
 export default withNextIntl(nextConfig);
+
+function hostnameFromOrigin(origin: string | undefined): string | undefined {
+  if (!origin) return undefined;
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return undefined;
+  }
+}

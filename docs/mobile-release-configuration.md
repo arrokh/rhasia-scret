@@ -1,6 +1,6 @@
 # Mobile release configuration
 
-The React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android and the production host `rhasia-scret.vercel.app`.
+The React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android. Its HTTPS web-link host is configured through `EXPO_PUBLIC_WEB_ORIGIN` and must match the deployed web origin.
 
 ## Verified links
 
@@ -16,7 +16,7 @@ The server then publishes:
 
 Both endpoints fail with `503 mobile_app_links_not_configured` rather than publishing placeholder trust data. Client intent filters are limited to `/auth/mobile` and `/vaults/invitations/redeem`.
 
-Add `https://rhasia-scret.vercel.app/auth/mobile` to the Supabase Auth redirect allowlist. Development builds may additionally allow `rhasia-scret://auth/callback`; do not use the custom scheme as production proof of verified links. Mobile sign-in requests surface a localized failure after 15 seconds rather than leaving the form indefinitely busy when native connectivity or TLS is stalled.
+Add `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile` to the Supabase Auth redirect allowlist. Development builds may additionally allow `rhasia-scret://auth/callback`; do not use the custom scheme as production proof of verified links. Mobile sign-in requests surface a localized failure after 15 seconds rather than leaving the form indefinitely busy when native connectivity or TLS is stalled.
 
 ## Native cryptography validation build
 

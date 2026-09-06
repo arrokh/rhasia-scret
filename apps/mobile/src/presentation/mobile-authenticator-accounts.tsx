@@ -16,11 +16,13 @@ import { MobileSharedVaults } from "./mobile-shared-vault";
 export function MobileAuthenticatorAccounts({
   copy,
   transport,
+  webOrigin,
   workspace,
   refreshWorkspaceAuthorization,
 }: {
   copy: MobileMessages;
   transport: AuthenticatedTransport;
+  webOrigin: string;
   workspace: UnlockedVaultWorkspace;
   refreshWorkspaceAuthorization(): Promise<void>;
 }) {
@@ -149,7 +151,7 @@ export function MobileAuthenticatorAccounts({
           />
         );
       })}
-      <MobileSharedVaults copy={copy} transport={transport} workspace={workspace} />
+      <MobileSharedVaults copy={copy} transport={transport} webOrigin={webOrigin} workspace={workspace} />
       <MobileVaultArchive copy={copy} refreshWorkspaceAuthorization={refreshWorkspaceAuthorization} transport={transport} workspace={workspace} />
     </View>
   );

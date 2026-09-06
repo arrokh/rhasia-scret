@@ -7,7 +7,8 @@ const mockSignOut = jest.fn();
 jest.mock("./src/config", () => ({
   nativeCryptoValidationEnabled: () => false,
   readMobileClientConfiguration: () => ({
-    apiUrl: "https://rhasia-scret.vercel.app",
+    apiUrl: "https://api.example.test",
+    webOrigin: "https://vault.example.test",
     authRedirectUrl: "rhasia-scret://auth/callback",
     supabaseUrl: "https://project.supabase.co",
     supabasePublishableKey: "publishable-key",

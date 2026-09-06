@@ -1,8 +1,9 @@
 import { parseMobileClientConfiguration } from "./config";
 
 const valid = {
-  apiUrl: "https://rhasia-scret.vercel.app/",
-  authRedirectUrl: "https://rhasia-scret.vercel.app/auth/mobile",
+  apiUrl: "https://api.example.test/",
+  webOrigin: "https://vault.example.test/",
+  authRedirectUrl: "https://vault.example.test/auth/mobile",
   supabaseUrl: "https://project.supabase.co/",
   supabasePublishableKey: "publishable-key",
 };
@@ -10,8 +11,9 @@ const valid = {
 describe("mobile public configuration", () => {
   it("accepts only public HTTPS service endpoints and a verified callback", () => {
     expect(parseMobileClientConfiguration(valid)).toEqual({
-      apiUrl: "https://rhasia-scret.vercel.app",
-      authRedirectUrl: "https://rhasia-scret.vercel.app/auth/mobile",
+      apiUrl: "https://api.example.test",
+      webOrigin: "https://vault.example.test",
+      authRedirectUrl: "https://vault.example.test/auth/mobile",
       supabaseUrl: "https://project.supabase.co",
       supabasePublishableKey: "publishable-key",
     });

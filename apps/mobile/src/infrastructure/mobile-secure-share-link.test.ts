@@ -6,18 +6,20 @@ import { createMobileSecureShareLink, redeemMobileSecureShareLink } from "./mobi
 import { nativeClientCrypto } from "./native-client-crypto";
 
 describe("mobile Secure Share Links", () => {
+  const webOrigin = "https://vault.example.test";
+
   afterEach(() => jest.restoreAllMocks());
 
   it("creates server-held ciphertext metadata and shares the client secret only through the native share sheet", async () => {
     const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction });
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
-    await createMobileSecureShareLink({ id: "shared_1", key }, "Recipient@Example.test", transport);
+    await createMobileSecureShareLink({ id: "shared_1", key }, "Recipient@Example.test", transport, webOrigin);
 
     const body = String(transport.requests[0].body);
     expect(body).toContain("recipient@example.test");
     expect(body).not.toContain("/vaults/invitations/redeem#");
-    expect(share).toHaveBeenCalledWith({ message: expect.stringMatching(/^https:\/\/rhasia-scret\.vercel\.app\/vaults\/invitations\/redeem#[A-Za-z0-9_-]+$/) });
+    expect(share).toHaveBeenCalledWith({ message: expect.stringMatching(/^https:\/\/vault\.example\.test\/vaults\/invitations\/redeem#[A-Za-z0-9_-]+$/) });
     key.fill(0);
   });
 
@@ -25,7 +27,7 @@ describe("mobile Secure Share Links", () => {
     jest.spyOn(Share, "share").mockResolvedValue({ action: Share.dismissedAction });
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
-    await expect(createMobileSecureShareLink({ id: "shared_1", key }, "recipient@example.test", transport)).rejects.toThrow("cancelled");
+    await expect(createMobileSecureShareLink({ id: "shared_1", key }, "recipient@example.test", transport, webOrigin)).rejects.toThrow("cancelled");
     expect(transport.requests[1]).toEqual({
       url: "/api/shared-vaults/shared_1/share-links/invitation_1",
       method: "DELETE",

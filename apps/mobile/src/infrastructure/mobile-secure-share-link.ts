@@ -14,6 +14,7 @@ export function createMobileSecureShareLink(
   vault: { id: string; key: Uint8Array },
   recipientEmail: string,
   transport: AuthenticatedTransport,
+  webOrigin: string,
 ): Promise<{ expiresAt: string }> {
   const secureShareLinks = new SecureShareLinkHttpTransport(transport);
   return createSecureShareLink(vault.id, recipientEmail, vault.key, {
@@ -28,7 +29,7 @@ export function createMobileSecureShareLink(
     transport: secureShareLinks,
     delivery: {
       deliver: async ({ secret }) => {
-        const shareResult = await Share.share({ message: `https://rhasia-scret.vercel.app/vaults/invitations/redeem#${secret}` });
+        const shareResult = await Share.share({ message: `${webOrigin}/vaults/invitations/redeem#${secret}` });
         if (shareResult.action === Share.dismissedAction) throw new Error("Secure Share Link sharing was cancelled.");
       },
     },
