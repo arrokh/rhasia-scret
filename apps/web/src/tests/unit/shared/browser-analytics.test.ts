@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANALYTICS_EVENTS, sanitizeAnalyticsCapture } from "@/shared/infrastructure/browser-analytics-config";
 import type { BROWSER_ANALYTICS_CONFIG } from "@/shared/infrastructure/browser-analytics-config";
@@ -20,7 +21,7 @@ type AnalyticsInitOptions = {
     element_attribute_ignorelist?: string[];
     capture_copied_text?: boolean;
   };
-  capture_pageview?: boolean;
+  capture_pageview?: boolean | "history_change";
   capture_pageleave?: boolean;
   capture_dead_clicks?: boolean;
   capture_heatmaps?: boolean;
@@ -71,7 +72,7 @@ describe("browser analytics", () => {
       capture_copied_text: false
     });
     expect(options).toMatchObject({
-      capture_pageview: true,
+      capture_pageview: "history_change",
       capture_pageleave: true,
       capture_dead_clicks: true,
       capture_heatmaps: false,
@@ -193,7 +194,8 @@ describe("browser analytics", () => {
       }
     });
     expect(privatePageview?.properties).toEqual({
-      $current_url: "https://vault.example.test/[private]",
+      $current_url: "https://vault.example.test/vaults/[redacted]",
+      $pathname: "/vaults/[redacted]",
       safe_number: 1
     });
 
@@ -212,6 +214,84 @@ describe("browser analytics", () => {
       $current_url: "https://vault.example.test/",
       safe_number: 1
     });
+  });
+
+  it.each([
+    ["/", "/"],
+    ["/vaults", "/vaults"],
+    ["/vaults/accounts/new", "/vaults/accounts/new"],
+    ["/vaults/manage/personal", "/vaults/manage/personal"],
+    ["/vaults/manage/new", "/vaults/manage/new"],
+    ["/vaults/manage/cms1btg0p00wt9spon6tz59d4", "/vaults/manage/[redacted]"],
+    ["/vaults/manage/personal-id/secret", "/vaults/manage/[redacted]/[redacted]"],
+    ["/vaults/manage/%61lice%40example.test", "/vaults/manage/[redacted]"],
+    ["/vaults/invitations/redeem", "/vaults/invitations/redeem"],
+    ["/local", "/local"],
+    ["/offline", "/offline"],
+    ["/totp", "/totp"],
+    ["/sign-in", "/sign-in"],
+    ["/auth/oidc/callback", "/auth/oidc/callback"],
+    ["/ui-preview/vaults", "/ui-preview/vaults"],
+    ["/unknown-user-value", "/[redacted]"],
+    ["/vaults/manage/new/", "/vaults/manage/new/"]
+  ])("records safe route structure for %s", (path, expected) => {
+    for (const event of ["$pageview", "$pageleave", "$web_vitals", "$performance_event", ANALYTICS_EVENTS.applicationOpened]) {
+      const capture = sanitizeAnalyticsCapture({
+        uuid: "route-test-uuid",
+        event,
+        properties: {
+          $current_url: `https://vault.example.test${path}?secret=hidden#key`,
+          $referrer: `https://vault.example.test${path}?secret=hidden#key`,
+          $initial_referrer: `https://vault.example.test${path}?secret=hidden#key`,
+          $pathname: path
+        }
+      });
+      expect(capture?.properties).toEqual({
+        $current_url: `https://vault.example.test${expected}`,
+        $referrer: `https://vault.example.test${expected}`,
+        $initial_referrer: `https://vault.example.test${expected}`,
+        $pathname: expected
+      });
+    }
+  });
+
+  it("preserves every current static App Router page", () => {
+    const pages = readdirSync("src/app", { recursive: true, encoding: "utf8" })
+      .filter((path) => /(?:^|\/)page\.tsx$/.test(path) && !path.includes("["));
+    expect(pages.length).toBeGreaterThan(0);
+    for (const page of pages) {
+      const path = `/${page.replace(/(?:^|\/)page\.tsx$/, "")}`;
+      const capture = sanitizeAnalyticsCapture({
+        uuid: "static-route-inventory-test",
+        event: "$pageview",
+        properties: { $pathname: path }
+      });
+      expect(capture?.properties.$pathname, page).toBe(path);
+    }
+  });
+
+  it("removes URL credentials and rejects non-web or malformed URLs", () => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "unsafe-url-test",
+      event: "$pageview",
+      properties: {
+        $current_url: "https://alice:secret@vault.example.test/vaults?secret=hidden#key",
+        $referrer: "mailto:alice@example.test",
+        $initial_referrer: "not a URL",
+        $pathname: "//alice:secret@vault.example.test"
+      }
+    });
+    expect(capture?.properties).toEqual({ $current_url: "https://vault.example.test/vaults" });
+  });
+
+  it.each(["/vaults", "/vaults/manage/personal", "/vaults/manage/private-id", "/local", "/offline", "/sign-in", "/totp", "/auth/confirm"])("still suppresses private interactions on %s", (path) => {
+    for (const event of ["$autocapture", "$dead_click", "$exception", "$heatmaps"]) {
+      expect(sanitizeAnalyticsCapture({
+        uuid: "private-interaction-test",
+        event,
+        properties: { $current_url: `https://vault.example.test${path}`, $el_text: "private content" }
+      })).toBeNull();
+    }
   });
 
   it("forwards explicit events through the initialized singleton", async () => {
