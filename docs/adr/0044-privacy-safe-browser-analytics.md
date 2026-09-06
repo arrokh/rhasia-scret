@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-23
 - **Related:** ADR-0038, ADR-0041
+- **Amended by:** ADR-0045 supersedes the hashed identity and blanket email exclusion below; all other safeguards remain in force.
 
 ## Context
 

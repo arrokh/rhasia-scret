@@ -163,11 +163,27 @@ const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set(["$pageview", "$pageleave
 
 export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): Parameters<BeforeSendFn>[0] {
   if (!capture) return null;
-  const automaticCapture = capture.event.startsWith("$") && capture.event !== "$identify";
+  const personUpdate = capture.event === "$identify" || capture.event === "$set";
+  const automaticCapture = capture.event.startsWith("$") && !personUpdate;
+  // The SDK uses envelope-level $set for identify, property-level $set for updates.
+  const personProperties = personUpdate ? sanitizeAnalyticsPersonProperties(capture.$set) : undefined;
+  if (personProperties) capture.$set = personProperties;
+  else delete capture.$set;
+  delete capture.$set_once;
   const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
   const privateRoute = isPrivateRoute(getAnalyticsPath(capture));
   for (const property of Object.keys(capture.properties)) {
     const value = capture.properties[property];
+    // Only explicit identification/person updates may set the user's email.
+    if (property === "$set" && personUpdate) {
+      const personProperties = sanitizeAnalyticsPersonProperties(value);
+      if (personProperties) {
+        capture.properties[property] = personProperties;
+      } else {
+        delete capture.properties[property];
+      }
+      continue;
+    }
     if (SANITIZED_URL_PROPERTIES.includes(property as (typeof SANITIZED_URL_PROPERTIES)[number])) {
       if (typeof value !== "string") { delete capture.properties[property]; continue; }
       try {
@@ -197,6 +213,17 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
   }
   if (automaticCapture && privateRoute && !PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS.has(capture.event)) return null;
   return capture;
+}
+
+function sanitizeAnalyticsPersonProperties(value: unknown): { email: string } | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value) && "email" in value && isAnalyticsEmail(value.email)) {
+    return { email: value.email };
+  }
+  return undefined;
+}
+
+export function isAnalyticsEmail(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 254 && !/\s/.test(value) && /^[^@]+@[^@]+\.[^@]+$/.test(value);
 }
 
 export function normalizeAnalyticsErrorName(value: unknown): string {

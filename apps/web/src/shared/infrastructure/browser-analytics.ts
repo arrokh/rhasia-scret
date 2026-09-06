@@ -4,6 +4,7 @@ import type { AnalyticsEventName, AnalyticsEventPropertiesFor } from "./browser-
 import {
   ANALYTICS_EVENTS,
   BROWSER_ANALYTICS_CONFIG,
+  isAnalyticsEmail,
   normalizeAnalyticsErrorDigest,
   normalizeAnalyticsErrorName
 } from "./browser-analytics-config";
@@ -17,13 +18,11 @@ export function initializeBrowserAnalytics(): void {
   void loadPostHog();
 }
 
-export async function identifyAnalyticsUser(userId: string): Promise<boolean> {
-  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId)) return false;
-  const hashedUserId = await hashAnalyticsUserId(userId);
-  if (!hashedUserId) return false;
+export async function identifyAnalyticsUser(userId: string, email: string): Promise<boolean> {
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId) || !isAnalyticsEmail(email)) return false;
   const posthog = await loadPostHog();
   if (!posthog) return false;
-  posthog.identify(hashedUserId);
+  posthog.identify(userId, { email });
   return true;
 }
 
@@ -45,16 +44,6 @@ export function captureAnalyticsError(error: Error & { digest?: string }): void 
     error_name: normalizeAnalyticsErrorName(error.name),
     error_digest: normalizeAnalyticsErrorDigest(error.digest)
   });
-}
-
-async function hashAnalyticsUserId(userId: string): Promise<string | null> {
-  if (typeof crypto === "undefined" || !crypto.subtle) return null;
-  try {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(userId));
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch {
-    return null;
-  }
 }
 
 function loadPostHog(): Promise<PostHogClient | null> {

@@ -103,6 +103,10 @@ _Avoid_: Email as identity, session cookie as principal, provider-specific sessi
 A durable identity binding unique by `(issuer, subject)` and associated with exactly one Application User. Email is permitted admission/contact metadata but never silently links identities or merges Application Users.
 _Avoid_: `supabaseUserId`, automatic email linking, provider account row as Application User
 
+**Analytics Identity**:
+An identified PostHog person uses the raw Application User identifier (`application_users.id`) as its distinct ID and the Application User email as its sole explicitly supplied person property (ADR-0045). This is permitted identifiable analytics metadata, not Vault content. Email never becomes an identity key; anonymous browser activity has no direct Application User mapping before identification. Historical SHA-256 identities are not automatically merged.
+_Avoid_: Supabase analytics identity, email as distinct ID, anonymous authenticated analytics
+
 **Application Admission**:
 The separate policy decision that determines whether a Verified Principal may use the application. In the Supabase deployment, a verified email principal is admitted to the hosted application; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
 _Avoid_: Authentication equals admission, unverified-email access, automatic Shared Vault membership
