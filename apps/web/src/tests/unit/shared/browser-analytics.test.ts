@@ -303,16 +303,13 @@ describe("browser analytics", () => {
     expect(posthogMocks.init).toHaveBeenCalledOnce();
   });
 
-  it("hashes an opaque user identifier before identifying it", async () => {
+  it("identifies the raw application user ID with its email person property", async () => {
     const { identifyAnalyticsUser } = await import("@/shared/infrastructure/browser-analytics");
     const rawUserId = "2d7f6ef7-0d69-4da2-9b7d-2c2a1e2f9b44";
 
-    identifyAnalyticsUser(rawUserId);
+    await expect(identifyAnalyticsUser(rawUserId, "alice@example.test")).resolves.toBe(true);
 
-    await vi.waitFor(() => expect(posthogMocks.identify).toHaveBeenCalledOnce());
-    const identifiedUserId = posthogMocks.identify.mock.calls[0]?.[0];
-    expect(identifiedUserId).not.toBe(rawUserId);
-    expect(identifiedUserId).toMatch(/^[a-f0-9]{64}$/);
+    expect(posthogMocks.identify).toHaveBeenCalledExactlyOnceWith(rawUserId, { email: "alice@example.test" });
   });
 
   it("normalizes error boundary properties before capture", async () => {
@@ -330,18 +327,70 @@ describe("browser analytics", () => {
   it("does not identify an email-shaped identifier", async () => {
     const { identifyAnalyticsUser } = await import("@/shared/infrastructure/browser-analytics");
 
-    identifyAnalyticsUser("user@example.test");
+    await expect(identifyAnalyticsUser("user@example.test", "user@example.test")).resolves.toBe(false);
     await Promise.resolve();
 
     expect(posthogMocks.init).not.toHaveBeenCalled();
     expect(posthogMocks.identify).not.toHaveBeenCalled();
   });
 
+  it.each(["", "invalid", "alice@example.test\n", "a".repeat(250) + "@example.test"])("rejects invalid identity email %j", async (email) => {
+    const { identifyAnalyticsUser } = await import("@/shared/infrastructure/browser-analytics");
+    await expect(identifyAnalyticsUser("application-user-id", email)).resolves.toBe(false);
+    expect(posthogMocks.identify).not.toHaveBeenCalled();
+  });
+
+  it.each(["$identify", "$set"])("preserves only email in %s person properties on private routes", (event) => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "identify-test-uuid",
+      event,
+      $set: { email: "alice@example.test", secret: "private" },
+      $set_once: { email: "other@example.test", secret: "private" },
+      properties: {
+        distinct_id: "application-user-id",
+        $anon_distinct_id: "anonymous-id",
+        token: "phc_test_project_token",
+        $current_url: "https://vault.example.test/vaults/private?secret=value",
+        $set: { email: "alice@example.test", name: "Private label", secret: "private", nested: { email: "other@example.test" } },
+        $set_once: { email: "other@example.test" },
+        email: "other@example.test"
+      }
+    });
+    expect(capture?.$set).toEqual({ email: "alice@example.test" });
+    expect(capture?.$set_once).toBeUndefined();
+    expect(capture?.properties).toEqual({
+      distinct_id: "application-user-id",
+      $anon_distinct_id: "anonymous-id",
+      token: "phc_test_project_token",
+      $current_url: "https://vault.example.test/vaults/[redacted]",
+      $set: { email: "alice@example.test" }
+    });
+  });
+
+  it.each([null, [], "alice@example.test", { email: 123 }, { email: "invalid" }, { secret: "private" }])("drops invalid identify person properties %j", ($set) => {
+    expect(sanitizeAnalyticsCapture({ uuid: "invalid-person", event: "$identify", properties: { $set } })?.properties).toEqual({});
+  });
+
+  it.each(["$pageview", "$autocapture", ANALYTICS_EVENTS.authenticationSessionEstablished])("does not allow person properties on %s", (event) => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "non-identify-person",
+      event,
+      $set: { email: "alice@example.test" },
+      $set_once: { email: "alice@example.test" },
+      properties: { $current_url: "https://vault.example.test/", $set: { email: "alice@example.test" }, $set_once: { email: "alice@example.test" }, email: "alice@example.test" }
+    });
+    expect(capture?.properties).toEqual({ $current_url: "https://vault.example.test/" });
+    expect(capture?.$set).toBeUndefined();
+    expect(capture?.$set_once).toBeUndefined();
+  });
+
   it("stays disabled when public PostHog configuration is incomplete", async () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
-    const { initializeBrowserAnalytics } = await import("@/shared/infrastructure/browser-analytics");
+    const { initializeBrowserAnalytics, identifyAnalyticsUser } = await import("@/shared/infrastructure/browser-analytics");
 
     initializeBrowserAnalytics();
+    await expect(identifyAnalyticsUser("application-user-id", "alice@example.test")).resolves.toBe(false);
+    expect(posthogMocks.identify).not.toHaveBeenCalled();
     await Promise.resolve();
 
     expect(posthogMocks.init).not.toHaveBeenCalled();

@@ -71,7 +71,7 @@ PostHog receives explicit product events from the browser through the typed cont
 
 ## Analysis guidance
 
-`authentication_sign_in_link_requested` is an anonymous pre-authentication signal. It means that the provider accepted the request to send a link; it should be analyzed separately from identified post-login events. `authentication_session_established` is emitted only after the browser has identified the authenticated user with the SHA-256-derived identifier, so it is the correct starting point for authenticated funnels. Use unique users for funnel conversion and treat event totals as activity, not sessions.
+`authentication_sign_in_link_requested` is an anonymous pre-authentication signal. It means that the provider accepted the request to send a link; it should be analyzed separately from identified post-login events. `authentication_session_established` is emitted only after the browser has identified the authenticated user with the raw `application_users.id` as `distinct_id` and `application_users.email` as the email person property (ADR-0045), so it is the correct starting point for authenticated funnels. Use unique users for funnel conversion and treat event totals as activity, not sessions. Historical hashed identities are not automatically merged with raw-ID identities, so cross-rollout user counts and funnels may be split. Email is allowed only as an explicit identification person property, never as a product-event property.
 
 Recommended PostHog views are:
 
