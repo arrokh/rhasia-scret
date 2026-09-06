@@ -15,7 +15,7 @@ import "@/shared/presentation/styles/globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
-const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
+const cloudflareAnalyticsToken = "3222d45daa30495d9d39e96e73dbc538";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
@@ -91,15 +91,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <div className="min-h-dvh">{children}<AppFooter /></div>
           </QueryProvider>
         </NextIntlClientProvider>
-        {cloudflareAnalyticsToken ? (
-          <Script
-            id="cloudflare-web-analytics"
-            type="module"
-            src="https://static.cloudflareinsights.com/beacon.min.js"
-            strategy="afterInteractive"
-            data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
-          />
-        ) : null}
+        <Script
+          id="cloudflare-web-analytics"
+          type="module"
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          strategy="afterInteractive"
+          data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
+        />
       </body>
     </html>
   );
