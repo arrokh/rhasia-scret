@@ -8,8 +8,9 @@ import { loadMobileVaultAuditEvents, type MobileVaultAuditEvent } from "../infra
 import { loadMobileVaultPermissionDefaults, updateMobileVaultPermissionDefaults, type MobileVaultPermissionDefaults } from "../infrastructure/mobile-vault-permissions";
 import type { MobileMessages } from "../localization";
 
-export function MobileSharedVaults({ copy, workspace, transport }: {
+export function MobileSharedVaults({ copy, webOrigin, workspace, transport }: {
   copy: MobileMessages;
+  webOrigin: string;
   workspace: UnlockedVaultWorkspace;
   transport: AuthenticatedTransport;
 }) {
@@ -29,7 +30,7 @@ export function MobileSharedVaults({ copy, workspace, transport }: {
       if (!vault) return;
       setStatus("busy");
       try {
-        await createMobileSecureShareLink(vault, value.email, transport);
+        await createMobileSecureShareLink(vault, value.email, transport, webOrigin);
         form.reset();
         setStatus("success");
       } catch { setStatus("error"); }

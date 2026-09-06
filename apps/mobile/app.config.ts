@@ -1,6 +1,7 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
-const productionHost = "rhasia-scret.vercel.app";
+const configuredWebOrigin = process.env.EXPO_PUBLIC_WEB_ORIGIN?.trim();
+const productionHost = configuredWebOrigin ? configuredWebHostname(configuredWebOrigin) : undefined;
 
 const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -24,7 +25,7 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: "com.arrokh.rhasiascret",
     supportsTablet: true,
-    associatedDomains: [`applinks:${productionHost}`],
+    associatedDomains: productionHost ? [`applinks:${productionHost}`] : [],
     infoPlist: {
       CFBundleAllowMixedLocalizations: true,
       CFBundleLocalizations: ["id", "en"],
@@ -37,7 +38,7 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: "./assets/android-icon-foreground.png",
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
-    intentFilters: [{
+    intentFilters: productionHost ? [{
       action: "VIEW",
       autoVerify: true,
       category: ["BROWSABLE", "DEFAULT"],
@@ -45,10 +46,11 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
         { scheme: "https", host: productionHost, pathPrefix: "/auth/mobile" },
         { scheme: "https", host: productionHost, pathPrefix: "/vaults/invitations/redeem" },
       ],
-    }],
+    }] : [],
   },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    webOrigin: process.env.EXPO_PUBLIC_WEB_ORIGIN,
     authRedirectUrl: process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL,
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -57,3 +59,11 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
 });
 
 export default mobileAppConfig;
+
+function configuredWebHostname(origin: string): string {
+  const parsed = new URL(origin);
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error("EXPO_PUBLIC_WEB_ORIGIN must be an HTTPS origin without credentials, a path, query, or fragment.");
+  }
+  return parsed.hostname;
+}

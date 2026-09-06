@@ -18,11 +18,13 @@ export function MobilePersonalVault({
   copy,
   repository,
   transport,
+  webOrigin,
   consumeSecureShareSecret,
 }: {
   copy: MobileMessages;
   repository: MobilePersonalVaultRepository;
   transport: AuthenticatedTransport;
+  webOrigin: string;
   consumeSecureShareSecret?: () => string | null;
 }) {
   const [state, setState] = useState<"loading" | "uninitialized" | "active" | "offline" | "error">("loading");
@@ -75,8 +77,8 @@ export function MobilePersonalVault({
       </View>
     );
   }
-  if (state === "active" && vaultId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "online", personalVaultId: vaultId }} transport={transport} />;
-  if (state === "offline" && offlineProfileId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "offline", profileId: offlineProfileId }} transport={transport} />;
+  if (state === "active" && vaultId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "online", personalVaultId: vaultId }} transport={transport} webOrigin={webOrigin} />;
+  if (state === "offline" && offlineProfileId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "offline", profileId: offlineProfileId }} transport={transport} webOrigin={webOrigin} />;
   return <PersonalVaultSetup copy={copy} repository={repository} onInitialized={() => setState("active")} />;
 }
 
@@ -84,11 +86,13 @@ function PersonalVaultUnlock({
   copy,
   mode,
   transport,
+  webOrigin,
   consumeSecureShareSecret,
 }: {
   copy: MobileMessages;
   mode: { kind: "online"; personalVaultId: string } | { kind: "offline"; profileId: string };
   transport: AuthenticatedTransport;
+  webOrigin: string;
   consumeSecureShareSecret?: () => string | null;
 }) {
   const { workspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } = useMobileWorkspaceLifecycle(transport);
@@ -148,6 +152,7 @@ function PersonalVaultUnlock({
             key={workspace.synchronizationToken}
             refreshWorkspaceAuthorization={refreshWorkspaceAuthorization}
             transport={transport}
+            webOrigin={webOrigin}
             workspace={workspace}
           />
         ) : null}

@@ -16,22 +16,22 @@ export function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promi
   });
 }
 
-export function useMobileSession(supabase: SupabaseClient, authRedirectUrl: string, transport: AuthenticatedTransport) {
+export function useMobileSession(supabase: SupabaseClient, authRedirectUrl: string, webOrigin: string, transport: AuthenticatedTransport) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<MobileSessionStatus>("idle");
   const secureShareSecret = useRef<string | null>(null);
 
   const handleUrl = useCallback(async (url: string) => {
-    const kind = classifyIncomingLink(url);
+    const kind = classifyIncomingLink(url, webOrigin);
     if (kind === "secure_share_link") {
-      secureShareSecret.current = extractSecureShareLinkSecret(url);
+      secureShareSecret.current = extractSecureShareLinkSecret(url, webOrigin);
       setStatus(secureShareSecret.current ? "share_link_ready" : "callback_error");
       return;
     }
     if (kind !== "auth_callback") return;
-    const result = await completeAuthCallback(url, supabase.auth);
+    const result = await completeAuthCallback(url, supabase.auth, webOrigin);
     setStatus(result === "authenticated" ? "verifying" : "callback_error");
-  }, [supabase]);
+  }, [supabase, webOrigin]);
 
   useEffect(() => {
     let mounted = true;

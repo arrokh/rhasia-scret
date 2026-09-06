@@ -6,7 +6,7 @@ Expo/React Native client for iOS and Android. This project is the native composi
 
 Copy `.env.example` to `.env.local` and set only public client values. Never add a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment to Expo environment variables.
 
-Production authentication callbacks use the verified universal/app link `https://rhasia-scret.vercel.app/auth/mobile`. Development builds may use `rhasia-scret://auth/callback`. Configure the same redirect in Supabase Auth. The iOS Associated Domain and Android verified App Link also accept `/vaults/invitations/redeem`; the fragment remains client-only.
+Production authentication callbacks use the verified universal/app link `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile`, where `EXPO_PUBLIC_WEB_ORIGIN` is the deployed HTTPS web origin. Development builds may use `rhasia-scret://auth/callback`. Configure the same redirect in Supabase Auth. The iOS Associated Domain and Android verified App Link also accept `/vaults/invitations/redeem`; the fragment remains client-only.
 
 ## Run and verify
 

@@ -43,7 +43,7 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
   const supabase = useMemo(() => createMobileSupabaseClient(configuration), [configuration]);
   const transport = useMemo(() => createNativeAuthenticatedTransport(configuration.apiUrl, supabase), [configuration.apiUrl, supabase]);
   const personalVaultRepository = useMemo(() => new MobilePersonalVaultRepository(transport), [transport]);
-  const { session, status, requestSignInLink, signOut, consumeSecureShareSecret } = useMobileSession(supabase, configuration.authRedirectUrl, transport);
+  const { session, status, requestSignInLink, signOut, consumeSecureShareSecret } = useMobileSession(supabase, configuration.authRedirectUrl, configuration.webOrigin, transport);
   const form = useForm({
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => requestSignInLink(value.email),
@@ -79,7 +79,7 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                   <Text style={styles.secondaryButtonText}>{copy.signOut}</Text>
                 </Pressable>
                 {status === "authenticated" || status === "session_unavailable" ? (
-                  <MobilePersonalVault copy={copy} consumeSecureShareSecret={consumeSecureShareSecret} repository={personalVaultRepository} transport={transport} />
+                  <MobilePersonalVault copy={copy} consumeSecureShareSecret={consumeSecureShareSecret} repository={personalVaultRepository} transport={transport} webOrigin={configuration.webOrigin} />
                 ) : null}
               </View>
             ) : (
