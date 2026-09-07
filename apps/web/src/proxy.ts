@@ -5,6 +5,8 @@ type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => P
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
+const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
+const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
 const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Content-Type-Options": "nosniff",
@@ -19,15 +21,15 @@ const SECURITY_HEADERS: Record<string, string> = {
 function createCsp(nonce: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   // Next.js can omit a nonce from dynamically inserted chunk elements; keep inline scripts nonced while allowing immutable same-origin chunks.
-  const scriptElementPolicy = [`script-src-elem 'self' 'nonce-${nonce}'`, posthogAssetsHost].filter(Boolean).join(" ");
+  const scriptElementPolicy = [`script-src-elem 'self' 'nonce-${nonce}'`, posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" ");
   return [
     "default-src 'self'",
-    [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`, posthogAssetsHost].filter(Boolean).join(" "),
+    [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`, posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
     scriptElementPolicy,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost].filter(Boolean).join(" "),
+    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",

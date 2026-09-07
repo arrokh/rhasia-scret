@@ -52,6 +52,8 @@ function expectSecurityHeaders(response: HeaderResponse, dynamicCsp: boolean): v
   expect(headers["strict-transport-security"]).toContain("preload");
   expect(headers["content-security-policy"]).toContain("object-src 'none'");
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["content-security-policy"]).toContain("https://static.cloudflareinsights.com");
+  expect(headers["content-security-policy"]).toContain("https://cloudflareinsights.com");
   expect(headers["content-security-policy"]).not.toContain("script-src 'unsafe-inline'");
   if (dynamicCsp) expect(headers["content-security-policy"]).toMatch(/nonce-[^']+/);
 }
