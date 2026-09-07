@@ -97,6 +97,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             type="module"
             src="https://static.cloudflareinsights.com/beacon.min.js"
             strategy="afterInteractive"
+            crossOrigin="anonymous"
             data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
           />
         ) : null}
