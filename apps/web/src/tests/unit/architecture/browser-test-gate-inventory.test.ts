@@ -42,6 +42,15 @@ describe("browser test gate inventory", () => {
     expect(gate).toContain('runStage("pwa"');
   });
 
+  it("serializes development suites on constrained CI runners", () => {
+    const workflow = readFileSync(resolve(process.cwd(), "../../.github/workflows/ci.yml"), "utf8");
+    const gate = readFileSync(resolve(process.cwd(), "scripts/run-browser-gate.ts"), "utf8");
+
+    expect(workflow).toContain("BROWSER_TEST_SEQUENTIAL: 1");
+    expect(gate).toContain('process.env.BROWSER_TEST_SEQUENTIAL === "1"');
+    expect(gate).toContain('"sequential-dev-suites-then-production-pwa"');
+  });
+
   it("keeps navigation performance as the explicit CI performance command", () => {
     const packageJson = readFileSync(resolve(process.cwd(), "package.json"), "utf8");
     expect(packageJson).toContain('"performance": "playwright test --config playwright.performance.config.ts"');

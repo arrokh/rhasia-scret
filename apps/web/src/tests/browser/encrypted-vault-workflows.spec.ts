@@ -563,8 +563,10 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
             .url()
             .endsWith(`/api/shared-vaults/${sharedVaultId}/member-permissions`),
       );
-      await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
+      const saveDefaultsButton = page.getByRole("button", { name: "Simpan bawaan anggota" });
+      await saveDefaultsButton.click();
       expect((await defaultsResponse).status()).toBe(200);
+      await expect(saveDefaultsButton).toBeEnabled();
       await getManagementTab(page, /(Undangan|Invitations)/i).first().click();
       await page
         .getByLabel(`Atur izin akun untuk ${e2eUserEmail(leaveAlias)}`)

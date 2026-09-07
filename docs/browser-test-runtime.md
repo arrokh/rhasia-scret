@@ -8,7 +8,7 @@
 2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium + Firefox + WebKit.
 3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and all supported browser projects (with its existing capability skips).
 
-The smoke and encrypted-workflow stages now run concurrently. Each gets a distinct port and Next development output directory:
+The smoke and encrypted-workflow stages use distinct ports and Next development output directories. They run concurrently by default for fast local feedback. GitHub Actions sets `BROWSER_TEST_SEQUENTIAL=1` to run them one after the other, avoiding the cross-suite CPU and database contention that made browser outcomes intermittent on constrained hosted runners:
 
 | Stage | Port | Next output | Specs |
 | --- | ---: | --- | --- |
@@ -16,7 +16,7 @@ The smoke and encrypted-workflow stages now run concurrently. Each gets a distin
 | Encrypted workflows | `BROWSER_TEST_PORT + 1` | `.next/browser-e2e` | `encrypted-vault-workflows` |
 | Production PWA | `BROWSER_TEST_PORT` | `.next` | `offline-pwa` |
 
-The suite runner deletes its isolated development output before and after every run. The gate waits for both development stages before starting the PWA stage; a failed stage terminates its sibling and preserves the existing non-zero failure semantics. The coverage inventory is enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
+The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory and CI serialization setting are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
 
 The web full gate already builds production output before browser tests. It passes `BROWSER_TEST_REUSE_BUILD=1` so the PWA stage starts that verified build rather than running a second `next build`. Running `pnpm run test:browser:pwa` directly still builds production output, so targeted use remains self-contained.
 
@@ -49,6 +49,9 @@ pnpm run test:browser:pwa
 
 # Tune worker count for the available machine without changing coverage.
 PLAYWRIGHT_WORKERS=1 pnpm run test:browser
+
+# Reproduce the stable constrained-runner topology used by GitHub Actions.
+BROWSER_TEST_SEQUENTIAL=1 PLAYWRIGHT_SMOKE_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=1 pnpm run test:browser
 ```
 
-`PLAYWRIGHT_WORKERS` remains the general worker override, and `PLAYWRIGHT_FULLY_PARALLEL` retains the existing configuration contract. CI sets `PLAYWRIGHT_SMOKE_WORKERS=1` and `PLAYWRIGHT_E2E_WORKERS=1` so the concurrent servers do not starve the crypto-heavy workflow; local runs use the general worker setting unless these optional suite-specific overrides are supplied. Parallel development servers increase transient CPU and memory use; constrained environments can lower workers while retaining every browser project and test file. No browser installation cache, test fixture, encrypted payload, or server state is shared between the two development outputs.
+`PLAYWRIGHT_WORKERS` remains the general worker override, and `PLAYWRIGHT_FULLY_PARALLEL` retains the existing configuration contract. CI sets `BROWSER_TEST_SEQUENTIAL=1`, `PLAYWRIGHT_SMOKE_WORKERS=1`, and `PLAYWRIGHT_E2E_WORKERS=1`; local runs retain concurrent suites and use the general worker setting unless these optional overrides are supplied. Parallel development servers increase transient CPU, memory, and shared-database pressure, so constrained environments should use sequential mode while retaining every browser project and test file. Distinct development output directories continue to isolate each Next.js server's generated build state.

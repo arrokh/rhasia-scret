@@ -96,6 +96,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
 test("keeps the language confirmation open after selecting a setting", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ui-preview");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Pengaturan akun" }).click();
   await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
   await page.getByRole("menuitemradio", { name: "English" }).click();

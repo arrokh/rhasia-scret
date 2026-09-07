@@ -7,6 +7,7 @@ const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const startedAt = performance.now();
 const children = new Set<ChildProcess>();
 const stages: StageResult[] = [];
+const sequentialDevelopmentSuites = process.env.BROWSER_TEST_SEQUENTIAL === "1";
 let stopping = false;
 
 process.once("SIGINT", () => {
@@ -25,10 +26,22 @@ void main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
-  const [smoke, e2e] = await Promise.all([
-    runStage("smoke", ["run", "test:browser:smoke"]),
-    runStage("e2e", ["run", "test:browser:e2e"])
-  ]);
+  let smoke: StageResult;
+  let e2e: StageResult;
+  if (sequentialDevelopmentSuites) {
+    smoke = await runStage("smoke", ["run", "test:browser:smoke"]);
+    if (smoke.exitCode !== 0) {
+      writeReport("failed", stages);
+      process.exitCode = 1;
+      return;
+    }
+    e2e = await runStage("e2e", ["run", "test:browser:e2e"]);
+  } else {
+    [smoke, e2e] = await Promise.all([
+      runStage("smoke", ["run", "test:browser:smoke"]),
+      runStage("e2e", ["run", "test:browser:e2e"])
+    ]);
+  }
 
   if (smoke.exitCode !== 0 || e2e.exitCode !== 0) {
     writeReport("failed", stages);
@@ -68,7 +81,9 @@ function writeReport(status: "passed" | "failed", completedStages: StageResult[]
   writeFileSync(output, `${JSON.stringify({
     schemaVersion: 1,
     status,
-    strategy: "parallel-dev-suites-then-production-pwa",
+    strategy: sequentialDevelopmentSuites
+      ? "sequential-dev-suites-then-production-pwa"
+      : "parallel-dev-suites-then-production-pwa",
     stages: completedStages.map(({ name, exitCode, signal, durationMs, error }) => ({
       name,
       exitCode,
