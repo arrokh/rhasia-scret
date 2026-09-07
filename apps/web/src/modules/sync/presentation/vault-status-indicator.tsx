@@ -7,8 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { formatLocalDateTime } from "@/i18n/format";
 import { cn } from "@/lib/utils";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
-import { resolveVaultStatus, type VaultOrigin } from "../domain/vault-status";
-import type { OfflineSyncState } from "@rhasia-scret/client-vault-core";
+import { resolveVaultStatus, type OfflineSyncState, type VaultOrigin } from "@rhasia-scret/client-vault-core";
 
 export function VaultStatusIndicator({ origin, syncState, lastSynchronizedAt, className, collapsible = false }: { origin: VaultOrigin; syncState?: OfflineSyncState; lastSynchronizedAt?: string; className?: string; collapsible?: boolean }) {
   const t = useTranslations("Sync.status");
@@ -23,5 +22,3 @@ export function VaultStatusIndicator({ origin, syncState, lastSynchronizedAt, cl
     {(!collapsible || expanded) && <><p className="leading-5 text-muted-foreground">{t(`capability.${status.capability}`)}</p>{status.lastSynchronizedAt && status.kind !== "DEVICE_ONLY" && <p className="text-muted-foreground">{t("lastSynchronized", { date: formatLocalDateTime(status.lastSynchronizedAt, locale) })}</p>}{status.kind !== "DEVICE_ONLY" && <p className="text-muted-foreground">{t(onlineHint ? "browserOnlineHint" : "browserOfflineHint")}</p>}</>}
   </div>;
 }
-
-export type { VaultStatusKind } from "../domain/vault-status";

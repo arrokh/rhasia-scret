@@ -39,7 +39,7 @@ function chunkPath(buildDirectory: string, publicPath: string): string {
 }
 
 const buildDirectory = resolve(argument("--build-dir", ".next"));
-const output = resolve(argument("--output", "artifacts/performance/route-bundles.json"));
+const output = resolve(argument("--output", "test-results/performance/route-bundles.json"));
 const label = argument("--label", "implementation");
 const enforce = process.argv.includes("--enforce");
 const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();

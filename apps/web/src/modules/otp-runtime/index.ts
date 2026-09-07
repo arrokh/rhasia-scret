@@ -1,6 +1,6 @@
 export { parseTotpUri, TotpConfigurationError } from "@rhasia-scret/client-vault-core";
 export type { TotpAlgorithm, TotpConfiguration, TotpConfigurationErrorCode } from "@rhasia-scret/client-vault-core";
-export { hasClockDrift } from "./domain/clock-drift";
+export { hasClockDrift } from "@rhasia-scret/client-vault-core";
 export { generateTotp } from "@rhasia-scret/client-vault-core";
 export type { ServerTimePort } from "./application/time-ports";
 export { BrowserServerTimePort, browserServerTimePort } from "./infrastructure/browser-time-client";

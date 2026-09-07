@@ -91,7 +91,7 @@ test("measures protected navigation and interaction performance without recordin
     unlock: { ...unlock, stages: unlockStages },
     interactions: metrics
   };
-  const output = resolve(process.env.PERFORMANCE_OUTPUT ?? "artifacts/performance/navigation-current.json");
+  const output = resolve(process.env.PERFORMANCE_OUTPUT ?? "../../test-results/performance/navigation-current.json");
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`);
 
