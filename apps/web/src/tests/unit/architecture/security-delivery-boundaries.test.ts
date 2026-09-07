@@ -17,6 +17,9 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("https://cloudflareinsights.com");
     expect(config).toContain("frame-ancestors 'none'");
     expect(config).toContain("Cache-Control");
+    const layout = read("src/app/layout.tsx");
+    expect(layout).toContain('src="https://static.cloudflareinsights.com/beacon.min.js"');
+    expect(layout).toContain('crossOrigin="anonymous"');
   });
 
   it("keeps generated test artifacts outside the lint boundary", () => {
