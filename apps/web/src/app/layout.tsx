@@ -13,8 +13,8 @@ import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 import { cn } from "@/lib/utils";
 import "@/shared/presentation/styles/globals.css";
 
-const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
-const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });
+const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });
 const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -96,7 +96,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             id="cloudflare-web-analytics"
             type="module"
             src="https://static.cloudflareinsights.com/beacon.min.js"
-            strategy="afterInteractive"
+            strategy="lazyOnload"
             crossOrigin="anonymous"
             data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
           />
