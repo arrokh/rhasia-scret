@@ -22,6 +22,13 @@ describe("browser-delivery security boundaries", () => {
     expect(layout).toContain('crossOrigin="anonymous"');
   });
 
+  it("avoids preloading non-critical analytics and font resources", () => {
+    const layout = read("src/app/layout.tsx");
+    expect(layout).toContain('const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });');
+    expect(layout).toContain('const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });');
+    expect(layout).toContain('strategy="lazyOnload"');
+  });
+
   it("keeps generated test artifacts outside the lint boundary", () => {
     const config = read("eslint.config.mjs");
     expect(config).toContain('"test-results/**"');
