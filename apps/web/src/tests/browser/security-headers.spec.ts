@@ -22,6 +22,7 @@ test.describe("browser security delivery headers", () => {
   test("allows same-origin Next.js chunks across client-side navigation", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.headers()["content-security-policy"]).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
+    await page.waitForLoadState("networkidle");
     await page.evaluate(() => {
       const state = window as typeof window & { __cspNavigationMarker?: boolean; __cspChunkViolations?: string[] };
       state.__cspNavigationMarker = true;
