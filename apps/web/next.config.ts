@@ -8,15 +8,17 @@ loadEnvironment({ path: resolve(process.cwd(), "../../.env") });
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
+const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
+const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
 
 const staticContentSecurityPolicy = [
   "default-src 'self'",
-  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost].filter(Boolean).join(" "),
-  ["script-src-elem 'self'", posthogAssetsHost].filter(Boolean).join(" "),
+  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
+  ["script-src-elem 'self'", posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost].filter(Boolean).join(" "),
+  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",

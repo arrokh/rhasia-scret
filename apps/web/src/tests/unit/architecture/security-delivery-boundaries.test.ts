@@ -13,6 +13,8 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("Content-Security-Policy");
     expect(config).toContain("script-src 'self' 'wasm-unsafe-eval'");
     expect(config).toContain("script-src-elem 'self'");
+    expect(config).toContain("https://static.cloudflareinsights.com");
+    expect(config).toContain("https://cloudflareinsights.com");
     expect(config).toContain("frame-ancestors 'none'");
     expect(config).toContain("Cache-Control");
   });
