@@ -1,4 +1,4 @@
-import type { OfflineSyncState } from "@rhasia-scret/client-vault-core";
+import type { OfflineSyncState } from "./offline-sync-state";
 
 export type VaultOrigin = "LOCAL" | "PERSONAL" | "SHARED" | "SNAPSHOT";
 export type VaultCapability = "LOCAL_WRITABLE" | "SERVER_WRITABLE" | "READ_ONLY";

@@ -34,5 +34,5 @@ Captured 2026-08-12 on branch `mobile/feature/native-foundation`.
 
 - `adb devices` currently reports no physical Android device.
 - `xcrun xctrace list devices` reports only the host Mac and iOS simulators; no physical iOS device.
-- Production `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association` currently return HTTP 404 (`artifacts/mobile-validation/link-deployment-status.txt`).
+- Production `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association` returned HTTP 404 when captured; the raw command output is intentionally not retained in source control.
 - Therefore issue #96 must remain open/incomplete: hardware-gated device-bound recovery and production verified-link deployment are not evidenced.

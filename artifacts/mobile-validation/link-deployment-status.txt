@@ -1,2 +1,0 @@
-assetlinks_status=404
-apple_association_status=404

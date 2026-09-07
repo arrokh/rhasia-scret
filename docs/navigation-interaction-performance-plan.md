@@ -16,7 +16,7 @@ The original progress indicator improved feedback in its unit test, but its bubb
 
 ## Implementation evidence
 
-All applicable slices below are implemented. Checked artifacts live under `artifacts/performance/`.
+All applicable slices below are implemented. Versioned baselines live under [`performance/`](./performance/); fresh reports are generated under ignored `test-results/performance/`.
 
 | Measure | Latest-main baseline | Implementation | Result |
 | --- | ---: | ---: | --- |

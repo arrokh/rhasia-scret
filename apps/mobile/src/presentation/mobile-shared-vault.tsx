@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
-import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
+import { canMutateVault, resolveVaultStatus, type AuthenticatedTransport, type UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
 import { createMobileSecureShareLink } from "../infrastructure/mobile-secure-share-link";
 import { loadMobileVaultAuditEvents, type MobileVaultAuditEvent } from "../infrastructure/mobile-vault-audit";
 import { loadMobileVaultPermissionDefaults, updateMobileVaultPermissionDefaults, type MobileVaultPermissionDefaults } from "../infrastructure/mobile-vault-permissions";
@@ -15,6 +14,7 @@ export function MobileSharedVaults({ copy, webOrigin, workspace, transport }: {
   transport: AuthenticatedTransport;
 }) {
   const sharedVaults = workspace.vaults.filter((vault) => vault.type === "SHARED");
+  const workspaceWritable = canMutateVault(resolveVaultStatus({ origin: "PERSONAL", syncState: workspace.syncState, onlineHint: workspace.syncState === "CURRENT", lastSynchronizedAt: workspace.synchronizedAt }));
   const owned = sharedVaults.filter((vault) => vault.role === "OWNER");
   const [vaultId, setVaultId] = useState(owned[0]?.id ?? "");
   const [status, setStatus] = useState<"idle" | "busy" | "success" | "error">("idle");
@@ -46,7 +46,7 @@ export function MobileSharedVaults({ copy, webOrigin, workspace, transport }: {
           <Text style={styles.name}>{vault.name}</Text>
           <Text style={styles.guidance}>{vault.role === "OWNER" ? copy.sharedVaultOwner : copy.sharedVaultViewer}</Text>
           <Text style={styles.guidance}>{permissionSummary(vault.effectiveAccountPermissions.permissions, copy)}</Text>
-          {vault.role === "OWNER" && workspace.syncState === "CURRENT" ? (
+          {vault.role === "OWNER" && workspaceWritable ? (
             <View style={styles.actions}>
               <Pressable accessibilityRole="button" onPress={() => void loadMobileVaultAuditEvents(vault.id, transport).then((events) => { setAuditEvents(events); setAuditError(false); }, () => setAuditError(true))} style={styles.button}>
                 <Text style={styles.buttonText}>{copy.loadAuditHistory}</Text>
@@ -72,7 +72,7 @@ export function MobileSharedVaults({ copy, webOrigin, workspace, transport }: {
       {permissionError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.memberPermissionsError}</Text> : null}
       {auditEvents.length ? <View style={styles.section}>{auditEvents.map((event) => <View key={event.id} style={styles.card}><Text style={styles.name}>{auditLabel(event.eventType, copy)}</Text><Text style={styles.guidance}>{event.actorEmail} · {new Date(event.createdAt).toLocaleString(copy.dateLocale)}</Text></View>)}</View> : null}
       {auditError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.auditHistoryError}</Text> : null}
-      {owned.length && workspace.syncState === "CURRENT" ? (
+      {owned.length && workspaceWritable ? (
         <View style={styles.section}>
           <Text style={styles.name}>{copy.createSecureShareLink}</Text>
           <View style={styles.actions}>{owned.map((vault) => (

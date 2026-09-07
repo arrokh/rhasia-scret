@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
-import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
+import { canMutateVault, resolveVaultStatus, type AuthenticatedTransport, type UnlockedVaultWorkspace, type WorkspaceAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
 import type { MobileMessages } from "../localization";
 import {
   generateMobileTotp,
@@ -27,6 +26,8 @@ export function MobileAuthenticatorAccounts({
   refreshWorkspaceAuthorization(): Promise<void>;
 }) {
   const repository = useMemo(() => new MobileAuthenticatorAccountRepository(transport), [transport]);
+  const workspaceStatus = resolveVaultStatus({ origin: "PERSONAL", syncState: workspace.syncState, onlineHint: workspace.syncState === "CURRENT", lastSynchronizedAt: workspace.synchronizedAt });
+  const workspaceWritable = canMutateVault(workspaceStatus);
   const personalVault = workspace.vaults.find((vault) => vault.type === "PERSONAL");
   const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
   const [destinationId, setDestinationId] = useState(personalVault?.id ?? writableVaults[0]?.id ?? "");
@@ -74,7 +75,7 @@ export function MobileAuthenticatorAccounts({
   return (
     <View style={styles.section}>
       <Text accessibilityRole="header" style={styles.heading}>{copy.authenticatorAccounts}</Text>
-      {workspace.syncState === "CURRENT" ? (
+      {workspaceWritable ? (
         <>
           <Text style={styles.guidance}>{copy.authenticatorAccountImportGuidance}</Text>
           <Text style={styles.label}>{copy.destinationVault}</Text>
@@ -139,10 +140,10 @@ export function MobileAuthenticatorAccounts({
         return (
           <MobileTotpAccount
             account={account}
-            canDelete={workspace.syncState === "CURRENT" && vault?.effectiveAccountPermissions.permissions.canDeleteAccounts === true}
+            canDelete={workspaceWritable && vault?.effectiveAccountPermissions.permissions.canDeleteAccounts === true}
             copy={copy}
             key={account.id}
-            online={workspace.syncState === "CURRENT"}
+            online={workspaceWritable}
             onDelete={async () => {
               await repository.deleteAccount(account);
               await refreshWorkspaceAuthorization();

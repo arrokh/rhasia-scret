@@ -69,7 +69,7 @@ API contracts validate schemas with Zod. They never accept or return plaintext s
 
 Use [`ui-reference/rhasia-mobile/README.md`](ui-reference/rhasia-mobile/README.md) and its 15 numbered screen slices as the visual reference for the mobile experience. Every screen inherits the canonical [`ui-reference/rhasia-mobile/design-system.md`](ui-reference/rhasia-mobile/design-system.md) contract for tokens, layout, components, states, and accessibility. The reference maps each screen to the delivery slices and captures reusable OTP, countdown, Vault-card, role-badge, synchronization-status, and icon specimens.
 
-It is non-authoritative for behavior and terminology. In particular, do not reproduce its pictured PIN/auto-lock controls or “Can edit” role: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, and the Owner/Viewer role plus granular account-capability model defined above and in the ADRs. QR/raw URI handling, audit redaction, and offline write blocking remain security constraints even where the reference is silent.
+It is non-authoritative for behavior and terminology: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, the Owner/Viewer role plus granular account-capability model defined above and in the ADRs, QR/raw URI handling, audit redaction, and offline write blocking.
 
 ## Slice 0 — architecture skeleton and quality gates
 

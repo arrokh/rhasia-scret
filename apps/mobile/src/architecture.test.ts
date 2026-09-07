@@ -23,6 +23,11 @@ function nativeSourceFiles(directory: string): string[] {
 describe("native security boundaries", () => {
   const files = sourceFiles(sourceRoot).map((path) => ({ path, source: readFileSync(path, "utf8") }));
 
+  it("does not alias native imports into the web application", () => {
+    const tsconfig = readFileSync(join(__dirname, "..", "tsconfig.json"), "utf8");
+    expect(tsconfig).not.toContain("../web/src");
+  });
+
   it("keeps direct network access and secure storage inside native infrastructure", () => {
     for (const file of files) {
       if (!file.path.includes("/infrastructure/")) {

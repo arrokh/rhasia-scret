@@ -7,8 +7,8 @@ test-results/
 apps/web/test-results/
 apps/web/playwright-report/
 
-artifacts/ui-audit/
-artifacts/**/*.png
+artifacts/
+
 /design-qa.md
 /hero-responsive-comparison.png
 /implementation-*.png
