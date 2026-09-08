@@ -59,6 +59,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Verify CI policy
         run: pnpm run verify:ci-policy
+      - name: Verify release version alignment
+        run: pnpm run verify:version-alignment
       - name: Verify shared client package
         run: pnpm run test:full:core
       - name: Verify mobile package

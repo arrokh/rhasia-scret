@@ -47,7 +47,7 @@ Java_expo_modules_cryptoargon2_ExpoCryptoArgon2Module_nativeArgon2id(
         hash.data(), hash.size()
     );
 
-    std::memset(pwd.data(), 0, pwd.size());
+    std::memset(input.data(), 0, input.size());
 
     if (rc != ARGON2_OK) {
         std::memset(hash.data(), 0, hash.size());

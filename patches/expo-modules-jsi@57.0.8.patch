@@ -1,0 +1,84 @@
+diff --git a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+index 00f7329166629c82bbce1344b93e05406a8517a6..ca3183fad11c87be0552c67f05a67142d1483987 100644
+--- a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
++++ b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+@@ -739,6 +739,13 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+   }
+ }
+ 
++/// Packages call-scoped raw pointers for the synchronous actor hop used by the JSI bridge.
++/// The callback never escapes the C++ invocation, so the pointers remain valid until the actor
++/// operation completes. Swift's strict concurrency checker cannot infer that lifetime guarantee.
++private struct UncheckedSendable<Value>: @unchecked Sendable {
++  let value: Value
++}
++
+ private func createFunctionClosure(
+   runtime: JavaScriptRuntime, name: String? = nil, _ closure: @escaping JavaScriptRuntime.SyncFunctionClosure
+ ) -> expo.HostFunctionClosure {
+@@ -760,8 +767,8 @@ private func createFunctionClosure(
+     // synchronous call, so the `nonisolated(unsafe)` capture is sound. This removes a per-call class
+     // allocation + retain/release + dealloc that profiling showed dominating the no-op `@JS` host-call
+     // floor.
+-    nonisolated(unsafe) let thisPtr = thisPtr
+-    nonisolated(unsafe) let argumentsPtr = argumentsPtr
++    let thisPtr = UncheckedSendable(value: thisPtr)
++    let argumentsPtr = UncheckedSendable(value: argumentsPtr)
+     nonisolated(unsafe) let resultPtr = resultPtr
+ 
+     // See `withGuaranteedContext` for why neither the context nor the runtime is retained here, and
+@@ -769,8 +776,8 @@ private func createFunctionClosure(
+     withGuaranteedContext(context) { (context: HostFunctionContext, runtime) in
+       resultPtr.pointee = JavaScriptActor.assumeIsolated {
+         return forwardingSwiftErrorsToJS(runtime: runtime) {
+-          let this = UnsafeMutablePointer(mutating: thisPtr).move()
+-          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr, count: argumentsCount)
++          let this = UnsafeMutablePointer(mutating: thisPtr.value).move()
++          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr.value, count: argumentsCount)
+           let thisValue = JavaScriptValue(runtime, this)
+           return try context.call(thisValue, consume arguments).asJSIValue()
+         }
+@@ -803,8 +810,8 @@ private func createFunctionClosure(
+     // handed in as a borrowed `JavaScriptUnownedValue` pointing straight at the C++-owned `this` slot:
+     // it is not moved out and no owning `JavaScriptValue` is allocated, so the closure avoids the
+     // per-call `weak`-runtime form/destroy and heap object that the owning `this` pays.
+-    nonisolated(unsafe) let thisPtr = thisPtr
+-    nonisolated(unsafe) let argumentsPtr = argumentsPtr
++    let thisPtr = UncheckedSendable(value: thisPtr)
++    let argumentsPtr = UncheckedSendable(value: argumentsPtr)
+     nonisolated(unsafe) let resultPtr = resultPtr
+ 
+     // See `withGuaranteedContext` for why neither the context nor the runtime is retained here, and
+@@ -812,8 +819,8 @@ private func createFunctionClosure(
+     withGuaranteedContext(context) { (context: UnownedThisHostFunctionContext, runtime) in
+       resultPtr.pointee = JavaScriptActor.assumeIsolated {
+         return forwardingSwiftErrorsToJS(runtime: runtime) {
+-          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr, count: argumentsCount)
+-          let thisValue = JavaScriptUnownedValue(runtime.pointee, thisPtr)
++          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr.value, count: argumentsCount)
++          let thisValue = JavaScriptUnownedValue(runtime.pointee, thisPtr.value)
+           return try context.call(thisValue, consume arguments).asJSIValue()
+         }
+       }
+diff --git a/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h b/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+index 6115e87a6e430f55570fbf759283dca0cca1ee80..957527c85379285d9ee5fc7974ad01e94ee12bc5 100644
+--- a/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
++++ b/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+@@ -50,7 +50,7 @@ public:
+    `scheduleTask` dispatches through `fn`, which the host implements against
+    the real react::RuntimeScheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
++  RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
+       : nativeScheduler(scheduler), scheduleFn(fn) {}
+ 
+   /**
+@@ -58,7 +58,7 @@ public:
+    caller's thread — intended for standalone runtimes (e.g. tests) that have
+    no React scheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler() {}
++  RuntimeScheduler() {}
+ 
+   RuntimeScheduler(const RuntimeScheduler &) = delete;
+ 

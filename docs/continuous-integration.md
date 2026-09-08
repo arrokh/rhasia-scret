@@ -19,12 +19,13 @@ Do not add secrets to pull-request jobs. GitHub does not expose repository secre
 The quality job covers:
 
 1. frozen-lockfile installation with Node.js `24.19.0` and pnpm `11.17.0`;
-2. shared client package verification;
-3. Expo mobile JavaScript verification;
-4. production dependency audit and dependency-license review;
-5. Prisma generation, schema validation, migrations, and provider-neutral identity backfill;
-6. lint, strict typechecking, unit/integration/contract tests, architecture checks, and production build;
-7. client build-output and route-bundle checks.
+2. product-version alignment across the root, web, mobile, core, and Expo configuration;
+3. shared client package verification;
+4. Expo mobile JavaScript verification;
+5. production dependency audit and dependency-license review;
+6. Prisma generation, schema validation, migrations, and provider-neutral identity backfill;
+7. lint, strict typechecking, unit/integration/contract tests, architecture checks, and production build;
+8. client build-output and route-bundle checks.
 
 The browser job covers Playwright smoke, encrypted workflow, PWA, security-header, localization, archive, and performance coverage through `pnpm run test:browser` and `pnpm run test:performance`. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 

@@ -24,6 +24,8 @@ This index is the public entry point for the repository's product, operating, ar
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.
 - [`mobile-release-configuration.md`](mobile-release-configuration.md) — verified links, native cryptography validation, and release evidence.
+- [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
+- [`release-readiness/2026-09-08.md`](release-readiness/2026-09-08.md) — current launch decision and evidence ledger.
 - [`browser-test-runtime.md`](browser-test-runtime.md) — browser-gate topology, worker controls, and reproducible test commands.
 - [`monorepo.md`](monorepo.md) — workspace ownership, package commands, deployment assumptions, and local verification.
 - [`performance/README.md`](performance/README.md) — bundle and navigation performance evidence.

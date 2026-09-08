@@ -64,6 +64,8 @@ The server stores only encrypted content and permitted authorization/lifecycle m
 
 See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
 
+Release candidates follow the [release process](docs/release-process.md) and must have a completed [launch-readiness record](docs/release-readiness/2026-09-08.md) before a tag or GitHub Release is published.
+
 ## Prerequisites
 
 The repository uses the mise-managed toolchain:
@@ -156,6 +158,7 @@ pnpm run verify:deployment-config
 pnpm run verify:prisma-connections
 pnpm run verify:dependency-licenses
 pnpm run verify:ci-policy
+pnpm run verify:version-alignment
 pnpm run verify:build-output
 pnpm run build
 
