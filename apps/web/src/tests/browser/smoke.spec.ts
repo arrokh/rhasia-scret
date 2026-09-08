@@ -146,7 +146,9 @@ async function switchLanguage(page: import("@playwright/test").Page, language: "
     await page.getByLabel(/Pengaturan akun|Account settings/).click();
     await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
   } else {
-    await page.getByRole("button", { name: /Pilih bahasa|Choose language/ }).click();
+    const languageTrigger = page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
+    await expect(languageTrigger).toBeVisible();
+    await languageTrigger.click();
   }
   await page.getByRole("menuitemradio", { name: language }).click();
   await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
