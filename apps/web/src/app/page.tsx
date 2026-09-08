@@ -29,7 +29,7 @@ export default async function LandingPage() {
       <section className="landing-shell grid items-center gap-8 pb-16 pt-6 sm:gap-12 sm:pb-24 sm:pt-12 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-8 md:pb-20 md:pt-10 lg:min-h-[calc(100dvh-6.25rem)] lg:gap-12 lg:pb-24 lg:pt-12" aria-labelledby="page-title">
         <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/65 p-5 shadow-card md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
           <div className="absolute inset-0 md:hidden" aria-hidden="true">
-            <Image src="/landing/private-handoff-hero.png" alt={t("heroImageAlt")} fill sizes="(max-width: 767px) calc(100vw - 2rem), 1px" className="object-cover object-center opacity-30" />
+            <Image src="/landing/private-handoff-hero.webp" alt={t("heroImageAlt")} fill sizes="(max-width: 767px) calc(100vw - 2rem), 1px" className="object-cover object-center opacity-30" />
             <div className="absolute inset-0 bg-background/75" />
           </div>
           <div className="relative max-w-xl">
@@ -47,7 +47,7 @@ export default async function LandingPage() {
           </div>
         </div>
         <div className="landing-hero-art relative mx-auto hidden w-full max-w-2xl overflow-hidden rounded-[2rem] md:block">
-          <Image src="/landing/private-handoff-hero.png" alt={t("heroImageAlt")} width={1000} height={900} priority className="landing-hero-art-image h-auto w-full object-cover" />
+          <Image src="/landing/private-handoff-hero.webp" alt={t("heroImageAlt")} width={1000} height={900} priority className="landing-hero-art-image h-auto w-full object-cover" />
         </div>
       </section>
       <div id="landing-hero-end" className="h-px" aria-hidden="true" />
