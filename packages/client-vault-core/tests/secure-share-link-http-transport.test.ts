@@ -63,6 +63,13 @@ describe("SecureShareLinkHttpTransport", () => {
     } as unknown as { recipientEmail: string; linkVerifier: string; encryptedPackage: string });
     expect(JSON.parse(String(transport.requests[0]?.body))).toEqual({ recipientEmail: "recipient@example.test", linkVerifier: verifier, encryptedPackage: ciphertext });
   });
+
+  it("rejects oversized recipient emails before regex processing", async () => {
+    const protocol = new SecureShareLinkHttpTransport(new StubTransport([]));
+
+    await expect(protocol.create("vault_1", { recipientEmail: `${"a".repeat(310)}@example.test`, linkVerifier: verifier, encryptedPackage: ciphertext }))
+      .rejects.toThrow("protocol value is invalid");
+  });
 });
 
 class StubTransport implements AuthenticatedTransport {

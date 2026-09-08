@@ -17,6 +17,8 @@ export type TotpConfiguration = {
   period: number;
 };
 
+const MAX_BASE32_SECRET_INPUT_LENGTH = 1024;
+
 export function parseTotpUri(uri: string): TotpConfiguration {
   let url: URL;
   try {
@@ -76,6 +78,7 @@ function parsePeriod(value: string): number {
 }
 
 function decodeBase32(value: string): Uint8Array {
+  if (value.length > MAX_BASE32_SECRET_INPUT_LENGTH) throw new TotpConfigurationError("invalidSecret");
   const normalized = value.replace(/[\s-]/g, "").replace(/=+$/, "").toUpperCase();
   if (!/^[A-Z2-7]+$/.test(normalized)) throw new TotpConfigurationError("invalidSecret");
   let bits = 0;

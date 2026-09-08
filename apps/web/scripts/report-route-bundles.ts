@@ -1,5 +1,5 @@
 import { gzipSync } from "node:zlib";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -50,8 +50,9 @@ const routes = Object.fromEntries(Object.entries(routeManifests).map(([route, ma
   const chunks = [...new Set(Object.values(manifest.clientModules).flatMap((module) => module.chunks ?? []))].sort();
   const files = chunks.map((publicPath) => {
     const path = chunkPath(buildDirectory, publicPath);
-    const bytes = statSync(path).size;
-    const gzipBytes = gzipSync(readFileSync(path)).byteLength;
+    const contents = readFileSync(path);
+    const bytes = contents.byteLength;
+    const gzipBytes = gzipSync(contents).byteLength;
     return { path: publicPath, bytes, gzipBytes };
   });
   const rawBytes = files.reduce((total, file) => total + file.bytes, 0);
