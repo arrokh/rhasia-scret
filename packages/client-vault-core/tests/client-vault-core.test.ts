@@ -8,4 +8,10 @@ describe("client vault core public API", () => {
     const result = await generateTotp(configuration, { sign: async () => Uint8Array.from({ length: 20 }, (_, index) => index === 3 ? 1 : 0) }, new Date(59_000));
     expect(result.value).toBe("00000001");
   });
+
+  it("rejects oversized Base32 secrets before regex processing", () => {
+    const secret = "A".repeat(1025);
+
+    expect(() => parseTotpUri(`otpauth://totp/Example:alice?secret=${secret}`)).toThrow("invalidSecret");
+  });
 });

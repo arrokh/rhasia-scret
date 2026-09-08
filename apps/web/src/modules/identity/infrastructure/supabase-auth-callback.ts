@@ -6,6 +6,7 @@ export type SupabaseCallbackCookieStore = {
 };
 
 type SupabaseCallbackConfiguration = { url: string; key: string };
+type SupabaseCallback = { kind: "code"; value: string } | { kind: "token_hash"; value: string };
 
 export async function completeSupabaseCallback(
   code: string | null,
@@ -13,7 +14,8 @@ export async function completeSupabaseCallback(
   cookieStore: SupabaseCallbackCookieStore,
   configuration: SupabaseCallbackConfiguration
 ): Promise<boolean> {
-  if (!code && !tokenHash) return false;
+  const callback = parseCallback(code, tokenHash);
+  if (!callback) return false;
   const client = createServerClient(configuration.url, configuration.key, {
     cookies: {
       getAll: () => cookieStore.getAll(),
@@ -22,10 +24,19 @@ export async function completeSupabaseCallback(
       }
     }
   });
-  const { error } = code
-    ? await client.auth.exchangeCodeForSession(code)
-    : await client.auth.verifyOtp({ token_hash: tokenHash!, type: "email" });
-  return !error;
+  switch (callback.kind) {
+    case "code":
+      return !(await client.auth.exchangeCodeForSession(callback.value)).error;
+    case "token_hash":
+      return !(await client.auth.verifyOtp({ token_hash: callback.value, type: "email" })).error;
+  }
+}
+
+function parseCallback(code: string | null, tokenHash: string | null): SupabaseCallback | null {
+  if (code && tokenHash) return null;
+  if (code) return { kind: "code", value: code };
+  if (tokenHash) return { kind: "token_hash", value: tokenHash };
+  return null;
 }
 
 export function readSupabaseCallbackConfiguration(): SupabaseCallbackConfiguration | null {

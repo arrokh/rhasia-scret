@@ -106,7 +106,7 @@ async function requestError(response: PlatformHttpResponse): Promise<SecureShare
 
 function normalizeEmail(value: string): string {
   const normalized = value.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || normalized.length > 320) invalidResponse();
+  if (normalized.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) invalidResponse();
   return normalized;
 }
 

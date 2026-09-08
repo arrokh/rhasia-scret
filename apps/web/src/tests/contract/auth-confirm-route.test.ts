@@ -60,6 +60,23 @@ describe("GET /auth/confirm contract", () => {
 
     expect(response.headers.get("location")).toBe("https://vault.example.test/vaults");
   });
+
+  it("verifies token-hash callbacks through the fixed callback protocol", async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+    mocks.createServerClient.mockReturnValue({ auth: { verifyOtp } });
+
+    const response = await GET(request("/auth/confirm?token_hash=valid&type=email"));
+
+    expect(response.headers.get("location")).toBe("https://vault.example.test/vaults");
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "valid", type: "email" });
+  });
+
+  it("rejects callbacks that contain multiple provider protocols", async () => {
+    const response = await GET(request("/auth/confirm?code=valid&token_hash=also-valid"));
+
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=verification_failed");
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
 });
 
 function request(pathname: string): NextRequest {

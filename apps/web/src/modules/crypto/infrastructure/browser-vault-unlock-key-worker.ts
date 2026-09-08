@@ -10,6 +10,8 @@ type DerivationRequest = { password: ArrayBuffer; salt: ArrayBuffer };
 type DerivationResponse = { ok: true; key: ArrayBuffer } | { ok: false };
 
 self.onmessage = async (event: MessageEvent<DerivationRequest>) => {
+  // Dedicated-worker messages may have an empty origin; reject explicit foreign origins.
+  if (event.origin && event.origin !== self.location.origin) return;
   const password = new Uint8Array(event.data.password);
   const salt = new Uint8Array(event.data.salt);
   try {

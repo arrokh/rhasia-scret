@@ -81,6 +81,17 @@ describe("browser-delivery security boundaries", () => {
     expect(worker).toContain('response.type === "basic"');
   });
 
+  it("accepts messages only from the application origin", () => {
+    expect(read("public/sw.js")).toContain("if (event.origin !== self.location.origin) return;");
+    expect(read("src/modules/crypto/infrastructure/browser-vault-unlock-key-worker.ts")).toContain("if (event.origin && event.origin !== self.location.origin) return;");
+  });
+
+  it("reads each route bundle once before measuring it", () => {
+    const report = read("scripts/report-route-bundles.ts");
+    expect(report).toContain("const contents = readFileSync(path);");
+    expect(report).not.toContain("statSync");
+  });
+
   it("keeps build-output and incident controls committed", () => {
     expect(read("scripts/verify-build-output.ts")).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(read("scripts/verify-dependency-licenses.ts")).toContain("Prohibited dependency licenses");
