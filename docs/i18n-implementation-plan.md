@@ -2,23 +2,23 @@
 
 ## Outcome
 
-Make every user-facing application surface available in English and Indonesian (Bahasa Indonesia) while preserving the current routes, zero-knowledge boundaries, encrypted offline behavior, and Indonesian experience as the default.
+Make every user-facing web and native application surface available in English and Indonesian (Bahasa Indonesia) while preserving the current routes, zero-knowledge boundaries, encrypted offline behavior, and Indonesian experience as the default. Web catalog and `next-intl` work described here applies to `apps/web`; the Expo client maintains exact key parity in `apps/mobile/src/localization.ts` without importing `next-intl`.
 
 A complete implementation includes visible copy, accessibility text, validation and error messages, dates and plurals, metadata, the web app manifest, development previews, and browser tests. API contracts, domain enums, cryptographic formats, and encrypted user content remain locale-independent.
 
 ## Current state
 
-- `src/app/layout.tsx` fixes `<html lang="id">` and Indonesian metadata.
-- `src/app/manifest.ts` fixes `lang: "id-ID"` and an Indonesian description.
+- `apps/web/src/app/layout.tsx` resolves `<html lang>` and localized metadata.
+- `apps/web/src/app/manifest.ts` resolves the localized `lang` and description.
 - Copy is embedded across 22 App Router page/layout/metadata files, 38 context presentation files, and 7 shared presentation files.
 - Date formatting is fixed to `id-ID` in synchronization, account, crypto, and vault-management presentation code. Audit timestamps additionally use `Asia/Jakarta`.
 - Some user-visible messages currently cross the presentation boundary as localized `Error.message` values, notably TOTP parsing, QR import, passkey recovery, workspace loading, and archive import.
 - Browser and component tests generally locate elements through Indonesian accessible names and copy.
-- There is no i18n dependency, locale resolver, translation catalog, or language preference.
+- The web implementation has a `next-intl` resolver and typed `apps/web/messages/id.json` / `apps/web/messages/en.json` catalogs. The native Expo client has a separate typed Indonesian/English catalog in `apps/mobile/src/localization.ts`; native locale state is presentation-only and is not stored in the web cookie, Prisma, encrypted content, or offline snapshots.
 
-## Recommended decisions
+## Implemented decisions
 
-These decisions should be recorded in a new ADR before implementation because routing and locale persistence are costly to reverse.
+These decisions are recorded in ADR-0035 and are now the maintenance contract for web and native presentation because routing and locale persistence are costly to reverse.
 
 | Concern | Decision | Reason |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ These decisions should be recorded in a new ADR before implementation because ro
 | Routing | Keep locale out of URLs. Continue using `/`, `/vaults`, `/offline`, and `/vaults/invitations/redeem#…`. | The app uses passwordless email auth rather than SEO-led localized routes. This avoids migrations and regressions in auth callbacks, protected-route checks, PWA scope, and secret-bearing share-link fragments. |
 | Persistence | Store only `id` or `en` in a first-party `RHSIA_LOCALE` cookie (`Path=/`, `SameSite=Lax`, one-year maximum age). Do not store it in Prisma, IndexedDB, or TanStack Query. | The preference is non-sensitive, works for server rendering, and does not alter server data or cached encrypted content. |
 | Switching | Put an accessible language switcher on every page through the shared footer. A switch writes the cookie, refreshes the current route, and refreshes the cached offline shell when online. | Public, authenticated, and offline entry points all remain reachable without duplicating controls per context. |
-| Catalog ownership | Keep two top-level catalogs, `messages/id.json` and `messages/en.json`, whose namespaces mirror bounded contexts. | Translators get conventional files while keys still preserve domain ownership (`Identity`, `VaultManagement`, `OtpRuntime`, and so on). Catalogs contain copy only, never behavior. |
+| Catalog ownership | Keep two web catalogs, `apps/web/messages/id.json` and `apps/web/messages/en.json`, whose namespaces mirror bounded contexts; keep the native catalog in `apps/mobile/src/localization.ts` with exact key parity. | Translators get conventional web files while keys preserve domain ownership (`Identity`, `VaultManagement`, `OtpRuntime`, and so on). Catalogs contain copy only, never behavior. |
 | Error boundary | Domain, application, and infrastructure code expose typed errors or stable error codes. Presentation maps those codes to catalog keys. | `next-intl` must not enter domain/application/infrastructure layers, and raw localized `Error.message` values must not become contracts. |
 | Existing URLs and APIs | Do not translate route paths, query parameter values, API error codes, enum values, audit event types, archive versions, or cryptographic names. | These are machine contracts rather than copy. |
 | Destructive reset token | Keep the ADR-0025 token `HAPUS DATA BRANKAS` identical in both locales; translate the instructions and warnings around it. | Changing or accepting another token changes a security-sensitive application contract and needs a separate ADR amendment. |
@@ -42,20 +42,18 @@ Reading the locale cookie in the root layout makes otherwise static public/previ
 ## Target structure
 
 ```text
-messages/
+apps/web/messages/
   id.json                       # canonical key shape and current Indonesian copy
   en.json                       # exact English key parity
-src/
-  i18n/
-    config.ts                   # locales, default, cookie name, validation/mapping
-    request.ts                  # request-scoped locale and selected messages
-    locale-provider.tsx         # selected next-intl client provider
-    locale-switcher.tsx         # accessible cookie + refresh behavior
-  types/
-    next-intl.d.ts              # AppConfig Locale/Messages augmentation
-  app/
-    layout.tsx                  # resolved lang and provider
-    manifest.ts                 # localized description/lang
+apps/web/src/i18n/
+  config.ts                     # locales, default, cookie name, validation/mapping
+  request.ts                    # request-scoped locale and selected messages
+  locale-provider.tsx           # selected next-intl client provider
+  locale-switcher.tsx           # accessible cookie + refresh behavior
+apps/web/src/types/next-intl.d.ts # AppConfig Locale/Messages augmentation
+apps/mobile/src/localization.ts # native Indonesian/English catalog
+apps/web/src/app/layout.tsx    # resolved lang and provider
+apps/web/src/app/manifest.ts   # localized description/lang
 ```
 
 Catalog namespaces should follow the existing ownership model:

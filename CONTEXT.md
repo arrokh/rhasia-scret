@@ -1,6 +1,6 @@
 # rhasia-scret
 
-A zero-knowledge authenticator application for personal and shared TOTP accounts.
+A zero-knowledge authenticator application for personal and shared TOTP accounts. The hosted product has a Next.js web client and an Expo SDK 57 native client for iOS and Android. Both clients use the same encrypted protocol and authorization contracts; platform-specific storage, cryptography, presentation, and capability limits remain explicit.
 
 ## Product localization
 
@@ -64,7 +64,7 @@ A browser-mediated biometric or device-PIN check whose WebAuthn PRF output crypt
 _Avoid_: Vault Unlock Secret, server authentication, UI-only assertion gate
 
 **Unlocked Vault Session**:
-The period during which a Vault is available in an authenticated browser after it has been unlocked. It ends when the user explicitly locks the Vault or logs out.
+The period during which a Vault is available in an authenticated web or native client after it has been unlocked. It ends when the user explicitly locks the Vault or logs out; the native client also ends it when AppState leaves the active state and the workspace lifecycle clears key material. It is not a timer-based auto-lock interval.
 _Avoid_: Timeout, auto-lock interval
 
 **Workspace Lifecycle**:
@@ -76,7 +76,7 @@ A user-specific public and private key pair used to wrap Vault Encryption Keys f
 _Avoid_: Device key pair, vault key
 
 **Honest-but-Curious Server**:
-The assumed server behavior: it correctly serves the application and enforces authorization but cannot be trusted with stored encrypted data or plaintext secrets. An actively malicious application host is outside the MVP security boundary. Zero knowledge does not hide permitted ciphertext size/timing or authorization/lifecycle metadata and does not protect secrets after decryption in a client served by an actively malicious host.
+The assumed server behavior: it correctly serves the application and enforces authorization but cannot be trusted with stored encrypted data or plaintext secrets. An actively malicious application host or native application supply chain is outside the MVP security boundary. Zero knowledge does not hide permitted ciphertext size/timing or authorization/lifecycle metadata and does not protect secrets after decryption in a client served by an actively malicious host.
 _Avoid_: Malicious-server-resistant, trusted key custodian
 
 **Authenticated Crypto Context**:
@@ -211,6 +211,10 @@ _Avoid_: Silent time correction
 The current or previous major release of Chrome, Edge, Firefox, or Safari with Web Crypto, IndexedDB, service workers, Clipboard API, and WebAuthn user verification. Private browsing and embedded webviews are unsupported for Remembered Browser or offline behavior. PWA installation is optional.
 _Avoid_: Best-effort webview support, private-mode persistence
 
+**Native Mobile Client**:
+The Expo SDK 57 React Native application under `apps/mobile` for iOS and Android. It uses native secure storage, file, camera, clipboard, sharing, lifecycle, and cryptography adapters while consuming platform-neutral client workflows. It supports hosted Personal and Shared Vault workflows and read-only encrypted offline snapshots, but does not implement the browser-only Local Profile/Local Vault or WebAuthn PRF-equivalent device recovery. Distributed builds must omit native validation diagnostics.
+_Avoid_: Mobile webview, browser-equivalent passkey recovery, native Local Vault
+
 **Local Profile**:
 A device/browser-installation-scoped client-owned container that exists without a Supabase session or Application User and owns exactly one writable Local Vault. It is not identified by email, server user ID, or provider identity. A browser installation may have at most one Local Profile, and creating another requires explicitly clearing the existing one.
 _Avoid_: Device account, browser user, server profile, Personal Vault
@@ -228,9 +232,9 @@ The client-only passphrase that derives the Local Unlock Key for a Local Vault. 
 _Avoid_: PIN, authentication password, Vault Unlock Secret, recovery secret
 
 **Local Vault Snapshot**:
-An encrypted browser-stored copy of a previously synchronized server Vault used for read-only offline OTP generation. It is not a Local Vault, cannot queue or replay mutations, and on a later successful contact is deleted if the server reports the user no longer has access.
+An encrypted client-stored copy of a previously synchronized server Vault used for read-only offline OTP generation. The web client stores it through browser-owned storage; the native client adds a separate context-authenticated encryption layer, keeps its random storage key in Keychain/Android Keystore, and stores the ciphertext in the application document directory. It is not a Local Vault, cannot queue or replay mutations, and on a later successful contact is deleted if the server reports the user no longer has access.
 _Avoid_: Plaintext offline cache, writable local vault, offline write queue
 
 **Encrypted Vault Archive**:
-A portable, explicitly user-created versioned archive whose authenticated ciphertext contains one plaintext Vault Name and normalized TOTP configurations only while opened in client memory. Its owner-only export generates a separate random 32-byte archive key in the browser and releases the archive and key only after the server records a redacted Archive Exported event. Import requires user-supplied 32-byte archive key material, validates and previews all content locally, then atomically stores newly encrypted account ciphertext and one redacted Archive Imported event in an owned destination Vault or a newly created Shared Vault. Personal and Shared Vault owners can view these events in Vault Audit History. Export-audit requests contain only opaque Vault/user identifiers and reveal no archive bytes, keys, names, account counts, or TOTP content. Import requests contain opaque destination/account identifiers, envelope versions, and re-encrypted account ciphertext, so the server can observe the imported record count but cannot read archive or TOTP content.
+A portable, explicitly user-created versioned archive whose authenticated ciphertext contains one plaintext Vault Name and normalized TOTP configurations only while opened in authorized client memory. Its owner-only export generates a separate random 32-byte archive key in the client and releases the archive and key only after the server records a redacted Archive Exported event; web uses a download and native uses a temporary file/share sheet. Import requires user-supplied 32-byte archive key material, validates and previews all content locally, then atomically stores newly encrypted account ciphertext and one redacted Archive Imported event in an owned destination Vault or a newly created Shared Vault. Personal and Shared Vault owners can view these events in Vault Audit History. Export-audit requests contain only opaque Vault/user identifiers and reveal no archive bytes, keys, names, account counts, or TOTP content. Import requests contain opaque destination/account identifiers, envelope versions, and re-encrypted account ciphertext, so the server can observe the imported record count but cannot read archive or TOTP content.
 _Avoid_: Plaintext backup, server-side archive, recovery package

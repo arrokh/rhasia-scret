@@ -6,7 +6,7 @@ This directory is the development reference extracted from `/Users/arrokh/Downlo
 
 | Asset | Reference screen | Analysis | MVP-plan coverage |
 | --- | --- | --- | --- |
-| `01-login.png` | Login | [01-login.md](01-login.md) | Slice 1 — invited authentication |
+| `01-login.png` | Login | [01-login.md](01-login.md) | Slice 1 — verified-email authentication |
 | `02-vault-unlock.png` | Vault unlock | [02-vault-unlock.md](02-vault-unlock.md) | Slices 2 and 4 — secure setup and unlock |
 | `03-home-otp-list.png` | Home / OTP list | [03-home-otp-list.md](03-home-otp-list.md) | Slices 3, 5, and 10 — local OTP display and vault access |
 | `04-vaults.png` | Vault list | [04-vaults.md](04-vaults.md) | Slices 2, 7, and 10 — Personal and Shared Vault navigation |
@@ -41,7 +41,7 @@ All screen analyses inherit [`design-system.md`](design-system.md). It standardi
 The source is a visual reference only. Implementations must follow `CONTEXT.md`, `docs/mvp-plan.md`, and the ADRs when this reference differs:
 
 - Call the product **rhasia-scret** and use the glossary terms: **Vault**, **Authenticator Account**, **Vault Unlock Secret** (labelled **Passphrase Brankas** in Indonesian UI), **Vault Owner**, and **Vault Viewer**.
-- Do **not** implement the pictured numeric “Vault PIN,” PIN change, or one-minute auto-lock. A Vault Unlock Secret contains at least four randomly generated words; sessions end only on explicit lock or logout. See ADR-0001, ADR-0002, ADR-0007, and ADR-0021.
+- Do **not** implement the pictured numeric “Vault PIN,” PIN change, or one-minute auto-lock. A generated Vault Unlock Secret is a recommended difficult multi-word secret; a user-created value may contain at least three trimmed characters under ADR-0029. Web sessions end through explicit lock or logout; the native workspace also locks when AppState leaves the active state. See ADR-0001, ADR-0002, ADR-0007, ADR-0021, and ADR-0029.
 - The only Shared Vault roles are Owner and Viewer. Do not add the pictured “Can edit” role. A Viewer is read/copy-capable and may receive independent account add/edit/delete capabilities through Vault-wide defaults and per-member overrides; member management and audit history remain owner-only.
 - The client may scan or manually enter an `otpauth://totp` URI, but raw QR data, raw URIs, TOTP secrets, and generated OTPs must never reach or persist on the server.
 - Offline UI must make all mutations unavailable and never queue writes. It may present cached OTPs only from an encrypted Local Vault Snapshot.

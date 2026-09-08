@@ -1,6 +1,6 @@
 # rhasia-scret mobile
 
-Expo/React Native client for iOS and Android. This project is the native composition layer for the platform-neutral application ports introduced by issue #95.
+Expo SDK 57 / React Native client for iOS and Android. This project is the native composition layer for the platform-neutral application ports introduced by ADR-0041. It supports hosted Personal and Shared Vault workflows, archives, QR import, and read-only encrypted offline snapshots; it does not implement the browser-only Local Profile/Local Vault or WebAuthn PRF-equivalent recovery.
 
 ## Configure
 
@@ -18,7 +18,7 @@ mise exec -- pnpm --dir apps/mobile run build:android-native
 mise exec -- pnpm --dir apps/mobile run build:ios-simulator
 ```
 
-`verify` runs lint, strict TypeScript, Jest, Expo Doctor, and production JavaScript exports for iOS and Android. The native build commands regenerate ignored native projects and compile Android Release and iOS Release-simulator artifacts; Android uses the mise-managed Java 21 toolchain. Native store/archive/camera/crypto flows are added as issue #96 vertical slices; do not substitute browser IndexedDB, cookies, service workers, DOM APIs, or web-only WebAuthn assumptions.
+`verify` runs lint, strict TypeScript, Jest, Expo Doctor, and production JavaScript exports for iOS and Android. The native build commands regenerate ignored native projects and compile Android Release and iOS Release-simulator artifacts; Android uses the mise-managed Java 21 toolchain. `pnpm run test:full` includes this JavaScript verification but does not compile native projects, run Android instrumentation, or prove physical-device behavior. Native store/archive/camera/crypto flows are implemented in the current foundation; do not substitute browser IndexedDB, cookies, service workers, DOM APIs, or web-only WebAuthn assumptions.
 
 ## Security boundary
 
@@ -29,4 +29,4 @@ mise exec -- pnpm --dir apps/mobile run build:ios-simulator
 - AES-GCM, HMAC, and P-256 operations use pinned Noble primitives against shared web/native vectors. The owned Expo module in `modules/native-argon2id` runs Argon2id off the JavaScript thread and supplies platform secure randomness; its upstream wrapper and Argon2 licenses are retained with the source.
 - Authorized encrypted Vault snapshots receive a second context-authenticated encryption layer in `expo-file-system`; its random key remains in Keychain/Android Keystore through `expo-secure-store`. Offline snapshots expose local TOTP generation and explicit `expo-clipboard` copy but no mutations, queue, replay, merge, upload, or deletion propagation.
 - Authenticator Account URI import parses and encrypts on-device, sends only the existing encrypted payload contract, and refreshes the encrypted snapshot after confirmed server persistence.
-- App lifecycle changes stop background token refresh. Later unlocked-Vault slices must additionally clear in-memory key material whenever the app leaves the active state.
+- App lifecycle changes stop background token refresh and the shared native workspace lifecycle locks and clears in-memory key material whenever the app leaves the active state.

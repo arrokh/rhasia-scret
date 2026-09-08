@@ -6,9 +6,9 @@
 
 ## Decision
 
-A browser/device installation may own at most one client-only **Local Profile**. A Local Profile owns exactly one writable **Local Vault**. Neither record requires a Supabase session, an Application User, an API request, or a network connection. The Local Profile and Local Vault are independent from every server Personal Vault, Shared Vault, Application User, Local Vault Snapshot, and Remembered Browser.
+A browser installation may own at most one client-only **Local Profile**. A Local Profile owns exactly one writable **Local Vault**. Neither record requires a Supabase session, an Application User, an API request, or a network connection. The Local Profile and Local Vault are independent from every server Personal Vault, Shared Vault, Application User, Local Vault Snapshot, and Remembered Browser. This ADR defines the web-only writable local capability; the native client currently uses hosted Vaults and read-only encrypted Local Vault Snapshots instead.
 
-The browser installation is the security and lifecycle scope. The application does not identify a Local Profile by email, Supabase subject, Application User identifier, device account, or any server-provided value. It may store an opaque random profile identifier only to address its own encrypted records.
+The browser installation is the security and lifecycle scope. The application does not identify a Local Profile by email, Supabase subject, Application User identifier, device account, or any server-provided value. It may store an opaque random profile identifier only to address its own encrypted records. An Expo installation is not a second implementation of this writable Local Profile contract.
 
 A Local Vault is a writable client-owned source of Authenticator Accounts. A Local Vault Snapshot remains the existing read-only encrypted copy of a previously synchronized server Vault described by ADR-0016; the two types must never share an identity, write path, synchronization state, or deletion operation.
 

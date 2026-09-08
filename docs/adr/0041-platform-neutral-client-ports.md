@@ -7,7 +7,7 @@
 
 ## Decision
 
-Client application workflows use typed platform ports. Browser APIs remain in explicit web adapters selected by the Next.js composition layer; a future React Native composition may supply native adapters without importing browser APIs into shared workflows.
+Client application workflows use typed platform ports. Browser APIs remain in explicit web adapters selected by the Next.js composition layer, and the Expo React Native composition in `apps/mobile` supplies native adapters without importing browser APIs into shared workflows.
 
 Ports are owned by the bounded context that owns the capability:
 
@@ -19,17 +19,17 @@ Ports are owned by the bounded context that owns the capability:
 - Vault Archive defines archive preparation and download contracts;
 - OTP Runtime defines server-time access.
 
-Application workflows must not import Next.js, React presentation code, browser globals, IndexedDB, DOM download APIs, Service Workers, Web Workers, or Web Crypto. They receive ports for all platform effects. Existing web entry points retain their public behavior by constructing adapters around the existing browser implementations.
+Application workflows must not import Next.js, React presentation code, browser globals, IndexedDB, DOM download APIs, Service Workers, Web Workers, Web Crypto, React Native, or Expo. They receive ports for all platform effects. Web entry points construct browser adapters; the native entry point constructs Expo/React Native adapters. Neither composition may bypass the shared package public API or import the other application.
 
 ## Authentication and transport
 
-The current web adapter continues to use the existing same-origin cookie session. `AuthenticatedTransport` is intentionally credential-neutral. `BearerTokenTransport` adds a future native bearer token only at the transport boundary. Tokens are never passed into workflows as query data, persisted client state, logs, encrypted content, or server data beyond the provider's request.
+The current web adapter continues to use the existing same-origin cookie session. The native adapter uses `BearerTokenTransport` with the Supabase access token only at the transport boundary. `AuthenticatedTransport` is intentionally credential-neutral. Tokens are never passed into workflows as query data, persisted client state, logs, encrypted content, or server data beyond the provider's request.
 
 Authorization checks, revision checks, one-time Secure Share Link semantics, mutation rate limits, audit redaction, and server/client zero-knowledge boundaries are unchanged.
 
 ## Cryptography and protocol compatibility
 
-The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, Argon2id, HMAC, HKDF-SHA-256, and Worker execution are adapters. Synthetic cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, context-bound key wraps, archives, and Secure Share Link material; no vector contains production secrets.
+The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, browser Argon2id/Worker execution, native Noble primitives, and the repository-owned native Argon2id module are adapters. Synthetic cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, context-bound key wraps, archives, and Secure Share Link material; no vector contains production secrets.
 
 WebAuthn PRF Remembered Browser and Passkey-Assisted Recovery expose the explicit `browser-webauthn-prf` capability. Unsupported platforms report unsupported; native passkey support is not treated as WebAuthn PRF compatibility and no native-equivalence claim is made.
 

@@ -1,6 +1,6 @@
 # Privacy-safe analytics events
 
-PostHog receives explicit product events from the browser through the typed contract in `apps/web/src/shared/infrastructure/browser-analytics-config.ts`. These events are intentionally aggregate-only so they can describe adoption and reliability without identifying Vault content.
+PostHog receives explicit product events from the web browser through the typed contract in `apps/web/src/shared/infrastructure/browser-analytics-config.ts`. The native Expo client currently has no analytics integration; do not add native event capture or infer mobile activity from browser events without a separate privacy review. These events are intentionally aggregate-only so they can describe web adoption and reliability without identifying Vault content.
 
 ## Event catalog
 
