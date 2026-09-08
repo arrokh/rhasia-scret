@@ -134,7 +134,7 @@ const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referre
 // Only source-controlled route segments may leave the browser. Unknown suffixes
 // fail closed, including future dynamic routes and user-controlled 404 paths.
 const STATIC_ANALYTICS_ROUTES = [
-  "/", "/local", "/offline", "/sign-in", "/smoke", "/totp",
+  "/", "/privacy", "/support", "/local", "/offline", "/sign-in", "/smoke", "/totp",
   "/auth/confirm", "/auth/logout", "/auth/oidc/callback",
   "/vaults", "/vaults/recovery", "/vaults/accounts/new",
   "/vaults/manage", "/vaults/manage/personal", "/vaults/manage/new",

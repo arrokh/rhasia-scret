@@ -10,6 +10,13 @@ This index is the public entry point for the repository's product, operating, ar
 - [`browser-acceptance-tests.md`](browser-acceptance-tests.md) — supported browser acceptance coverage.
 - [`ui-reference/`](ui-reference/) — web and native presentation references, including mobile behavior.
 
+## Privacy, support, and provenance
+
+- [`privacy.md`](privacy.md) / [`privacy.id.md`](privacy.id.md) — user- and operator-facing privacy and hosted-service disclosures.
+- [`support.md`](support.md) / [`support.id.md`](support.id.md) — public support channels, safe report boundaries, and triage.
+- [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) — native, UI, font, icon, asset, dependency, and generated-material provenance.
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md), [`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md), [`../GOVERNANCE.md`](../GOVERNANCE.md) — contributor and maintainer workflow.
+
 ## Deployment and operations
 
 - [`authentication-configuration.md`](authentication-configuration.md) — Supabase and OIDC configuration, callbacks, route protection, and logout.
@@ -35,6 +42,7 @@ This index is the public entry point for the repository's product, operating, ar
 - [`security/dependency-audit-exceptions.md`](security/dependency-audit-exceptions.md) — explicit dependency advisory exceptions and expiry owners.
 - [`security/incident-response.md`](security/incident-response.md) — incident handling and escalation guidance.
 - [`advanced-recovery-security.md`](advanced-recovery-security.md) — recovery limitations and client-only key handling.
+- [`../SECURITY.md`](../SECURITY.md) — private vulnerability reporting and embargo policy.
 - [`adr/0004-honest-but-curious-server-threat-model.md`](adr/0004-honest-but-curious-server-threat-model.md) — authoritative server trust boundary.
 - [`audits/2026-07-29-security-privacy-quality-operational-readiness.md`](audits/2026-07-29-security-privacy-quality-operational-readiness.md) — historical repository audit; production controls marked Not Verifiable remain unresolved until operator evidence exists.
 

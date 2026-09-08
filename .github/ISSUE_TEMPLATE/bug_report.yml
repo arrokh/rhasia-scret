@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible product or documentation bug using synthetic data.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, Vault content, OTPs, QR data, credentials, cookies, tokens, or private vulnerability details. Use the private security channel in SECURITY.md for vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Release or commit
+      description: Identify the release, commit, or deployment version.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser/OS or native platform, and hosted versus self-hosted.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic data and include the expected and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Include safe error codes, timestamps, route names, or screenshots with all sensitive material removed.

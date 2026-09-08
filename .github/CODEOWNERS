@@ -1,0 +1,15 @@
+# Repository ownership for review routing. Security-sensitive paths require the
+# repository maintainer's explicit review before merge.
+* @arrokh
+/AGENTS.md @arrokh
+/CONTEXT.md @arrokh
+/LICENSE @arrokh
+/THIRD_PARTY_NOTICES.md @arrokh
+/DCO.md @arrokh
+/.github/ @arrokh
+/apps/mobile/modules/native-argon2id/ @arrokh
+/apps/web/src/modules/crypto/ @arrokh
+/apps/web/src/modules/identity/ @arrokh
+/apps/web/src/modules/audit/ @arrokh
+/apps/web/src/shared/infrastructure/browser-analytics* @arrokh
+/apps/web/prisma/ @arrokh

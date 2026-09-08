@@ -40,6 +40,8 @@ describe("shadcn/ui design-system boundaries", () => {
     expect(layout).toContain("<QueryProvider>");
     expect(layout).toContain("<AppFooter />");
     expect(appUi).toContain("fixed inset-x-0 bottom-0");
+    expect(appUi).toContain('href="/privacy"');
+    expect(appUi).toContain('href="/support"');
     expect(appUi).toContain("backHref");
   });
 
