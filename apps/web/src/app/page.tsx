@@ -24,7 +24,7 @@ export default async function LandingPage() {
 
   return (
     <main className="landing-page pb-20 sm:pb-0">
-      <LandingHeader localVaultLabel={t("localVault")} hostedVaultLabel={t("hostedVault")} githubLabel={t("github")} githubDialogTitle={t("githubDialogTitle")} githubDialogDescription={t("githubDialogDescription")} githubDialogClose={t("githubDialogClose")} />
+      <LandingHeader localVaultLabel={t("localVault")} hostedVaultLabel={t("hostedVault")} githubLabel={t("github")} />
 
       <section className="landing-shell grid items-center gap-8 pb-16 pt-6 sm:gap-12 sm:pb-24 sm:pt-12 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-8 md:pb-20 md:pt-10 lg:min-h-[calc(100dvh-6.25rem)] lg:gap-12 lg:pb-24 lg:pt-12" aria-labelledby="page-title">
         <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/65 p-5 shadow-card md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">

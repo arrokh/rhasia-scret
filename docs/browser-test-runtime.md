@@ -8,7 +8,7 @@
 2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium + Firefox + WebKit.
 3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and all supported browser projects (with its existing capability skips).
 
-The smoke and encrypted-workflow stages use distinct ports and Next development output directories. They run concurrently by default for fast local feedback. GitHub Actions sets `BROWSER_TEST_SEQUENTIAL=1` to run them one after the other, avoiding the cross-suite CPU and database contention that made browser outcomes intermittent on constrained hosted runners:
+The smoke and encrypted-workflow stages use distinct ports and Next development output directories. They run concurrently by default for fast local feedback. GitHub Actions sets `CI=true` and `BROWSER_TEST_SEQUENTIAL=1` to run them one after the other, avoiding the cross-suite CPU and database contention that made browser outcomes intermittent on constrained hosted runners. In CI mode, the two data-heavy WebKit encrypted-workflow cases are intentionally skipped; Chromium and Firefox retain those scenarios, while WebKit retains the lighter Personal Vault and passkey coverage:
 
 | Stage | Port | Next output | Specs |
 | --- | ---: | --- | --- |
@@ -51,7 +51,11 @@ pnpm run test:browser:pwa
 PLAYWRIGHT_WORKERS=1 pnpm run test:browser
 
 # Reproduce the stable constrained-runner topology used by GitHub Actions.
-BROWSER_TEST_SEQUENTIAL=1 PLAYWRIGHT_SMOKE_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=1 pnpm run test:browser
+CI=true \
+BROWSER_TEST_SEQUENTIAL=1 \
+PLAYWRIGHT_SMOKE_WORKERS=1 \
+PLAYWRIGHT_E2E_WORKERS=1 \
+pnpm run test:browser
 ```
 
-`PLAYWRIGHT_WORKERS` remains the general worker override, and `PLAYWRIGHT_FULLY_PARALLEL` retains the existing configuration contract. CI sets `BROWSER_TEST_SEQUENTIAL=1`, `PLAYWRIGHT_SMOKE_WORKERS=1`, and `PLAYWRIGHT_E2E_WORKERS=1`; local runs retain concurrent suites and use the general worker setting unless these optional overrides are supplied. Parallel development servers increase transient CPU, memory, and shared-database pressure, so constrained environments should use sequential mode while retaining every browser project and test file. Distinct development output directories continue to isolate each Next.js server's generated build state.
+`PLAYWRIGHT_WORKERS` remains the general worker override, and `PLAYWRIGHT_FULLY_PARALLEL` retains the existing configuration contract. CI sets `CI=true`, `BROWSER_TEST_SEQUENTIAL=1`, `PLAYWRIGHT_SMOKE_WORKERS=1`, and `PLAYWRIGHT_E2E_WORKERS=1`; local runs retain concurrent suites and use the general worker setting unless these optional overrides are supplied. Parallel development servers increase transient CPU, memory, and shared-database pressure, so constrained environments should use sequential mode while retaining every browser project and test file. Distinct development output directories continue to isolate each Next.js server's generated build state.

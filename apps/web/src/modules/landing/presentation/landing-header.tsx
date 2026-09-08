@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FaGithub } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/shared/presentation/app-ui";
@@ -13,14 +12,10 @@ type LandingHeaderProps = {
   localVaultLabel: string;
   hostedVaultLabel: string;
   githubLabel: string;
-  githubDialogTitle: string;
-  githubDialogDescription: string;
-  githubDialogClose: string;
 };
 
-export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel, githubDialogTitle, githubDialogDescription, githubDialogClose }: LandingHeaderProps) {
+export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel }: LandingHeaderProps) {
   const [hasPassedHero, setHasPassedHero] = useState(false);
-  const [githubDialogOpen, setGithubDialogOpen] = useState(false);
 
   useEffect(() => {
     const heroEnd = document.getElementById("landing-hero-end");
@@ -56,7 +51,7 @@ export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel, 
       <header className="landing-shell flex items-center justify-between gap-3 py-5 sm:py-7">
         <BrandLink />
         <div className="flex items-center gap-1 sm:gap-2">
-          <GitHubButton label={githubLabel} onClick={() => setGithubDialogOpen(true)} />
+          <GitHubButton label={githubLabel} />
           <LocaleSwitcher />
         </div>
       </header>
@@ -75,22 +70,11 @@ export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel, 
           <div className="flex items-center gap-1 sm:gap-2">
             <Button asChild size="sm" className="px-2.5"><Link href="/local?from=landing">{localVaultLabel}</Link></Button>
             <Button asChild size="sm" className="bg-[#1b252c] px-2.5 text-card hover:bg-[#2b3a44] active:bg-[#11181d]"><Link href="/sign-in">{hostedVaultLabel}</Link></Button>
-            <GitHubButton label={githubLabel} onClick={() => setGithubDialogOpen(true)} />
+            <GitHubButton label={githubLabel} />
             <LocaleSwitcher />
           </div>
         </div>
       </header>
-      <Dialog open={githubDialogOpen} onOpenChange={setGithubDialogOpen}>
-        <DialogContent showCloseButton={false} className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet">
-          <DialogHeader className="gap-3">
-            <DialogTitle className="text-xl leading-7 font-bold text-ink-strong">{githubDialogTitle}</DialogTitle>
-            <DialogDescription className="leading-6">{githubDialogDescription}</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end">
-            <DialogClose asChild><Button type="button">{githubDialogClose}</Button></DialogClose>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -103,10 +87,12 @@ function BrandLink() {
   );
 }
 
-function GitHubButton({ label, onClick }: { label: string; onClick: () => void }) {
+function GitHubButton({ label }: { label: string }) {
   return (
-    <Button variant="ghost" size="icon-sm" type="button" aria-label={label} title={label} onClick={onClick}>
-      <FaGithub className="size-5" aria-hidden="true" />
+    <Button asChild variant="ghost" size="icon-sm">
+      <a href="https://github.com/arrokh/rhasia-scret" target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+        <FaGithub className="size-5" aria-hidden="true" />
+      </a>
     </Button>
   );
 }

@@ -20,9 +20,7 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(page.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   const landingHeader = page.locator("main > header");
   await expect(landingHeader.getByRole("link", { name: "Masuk" })).toHaveCount(0);
-  await landingHeader.getByRole("button", { name: "Profil GitHub" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Repositori rhasia-scret akan tersedia untuk publik dalam waktu dekat.");
-  await page.getByRole("button", { name: "Mengerti" }).click();
+  await expect(landingHeader.getByRole("link", { name: "Repositori GitHub" })).toHaveAttribute("href", "https://github.com/arrokh/rhasia-scret");
   const localVaultLink = page.locator('a[href="/local?from=landing"]').first();
   await expect(localVaultLink).toBeVisible();
   await expect(localVaultLink).toHaveAttribute("href", "/local?from=landing");
