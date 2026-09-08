@@ -331,6 +331,7 @@ function isPrivateRoute(pathname: string): boolean {
 
 export const BROWSER_ANALYTICS_CONFIG = {
   defaults: "2026-01-30",
+  ui_host: 'https://us.posthog.com',
   autocapture: {
     url_ignorelist: [/\/(?:auth|local|offline|sign-in|totp|vaults)(?:\/|$)/],
     dom_event_allowlist: ["click", "submit"],
