@@ -1,0 +1,27 @@
+name: Documentation request
+description: Report missing, incorrect, or unclear documentation.
+title: "[Docs]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, Vault content, OTPs, QR data, credentials, cookies, tokens, or private vulnerability details.
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Link the file, page, or product surface.
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Gap or correction
+      description: Explain what is missing or inaccurate and the intended audience.
+    validations:
+      required: true
+  - type: textarea
+    id: languages
+    attributes:
+      label: Localization impact
+      description: Note whether both Indonesian and English surfaces need an update.

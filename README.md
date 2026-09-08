@@ -186,10 +186,25 @@ The application currently defers browser Supabase Data API/RLS access in favor o
 
 Pull requests run the public CI checks described in [`docs/continuous-integration.md`](docs/continuous-integration.md). Before proposing a change, read [`AGENTS.md`](AGENTS.md), the relevant ADRs, and the documentation index. Security-sensitive changes must preserve the client/server boundary, localization parity, authorization checks, and the full verification gate.
 
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for architecture boundaries,
+localization parity, migration rules, DCO sign-off, and required verification
+commands. User and operator questions start at [`SUPPORT.md`](SUPPORT.md) and
+[`docs/support.md`](docs/support.md); vulnerabilities use [`SECURITY.md`](SECURITY.md)
+and the private GitHub Security Advisory channel.
+
 ## License and provenance
 
-The project license and third-party notices are tracked as the legal/provenance work for [issue #142](https://github.com/arrokh/rhasia-scret/issues/142). Until that work is completed, do not treat this repository as having a selected project license. Native Argon2 wrapper and embedded source notices remain beside their source under `apps/mobile/modules/native-argon2id/`.
+The repository source, documentation, and maintainer-created assets are
+licensed under the [MIT License](LICENSE). Third-party material is listed in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md); native Argon2 wrapper and
+embedded source notices remain beside their source under
+`apps/mobile/modules/native-argon2id/`. Contributions use the
+[Developer Certificate of Origin](DCO.md).
+
+The public privacy and hosted-service disclosure is available in
+[English](docs/privacy.md) and [Indonesian](docs/privacy.id.md), with product
+links at `/privacy` and `/support` in the web application.
 
 ## Project status
 
-The public-launch backlog is tracked in GitHub issues [#142–#150](https://github.com/arrokh/rhasia-scret/issues). A first release is not implied by this README; launch remains conditional on the documented legal, security, CI, deployment, privacy, governance, and release evidence.
+The public-launch backlog is tracked in GitHub issues [#142–#150](https://github.com/arrokh/rhasia-scret/issues). A first release is not implied by this README; launch remains conditional on the documented legal, security, CI, deployment, privacy, governance, and release evidence. See the [roadmap](ROADMAP.md), [governance](GOVERNANCE.md), and [changelog](CHANGELOG.md) for the public record.

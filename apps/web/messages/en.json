@@ -11,6 +11,9 @@
     "openingPage": "Opening page",
     "loading": "Loading",
     "by": "by",
+    "footerNavigation": "Legal and support",
+    "privacy": "Privacy",
+    "support": "Support",
     "globalError": {
       "title": "Something went wrong",
       "description": "Please try again.",
@@ -32,6 +35,32 @@
   "Metadata": {
     "description": "Encrypted TOTP authenticator for personal and shared vaults",
     "manifestDescription": "Zero-knowledge shared authenticator"
+  },
+  "Privacy": {
+    "metadataTitle": "Privacy and hosted-service disclosure | rhasia-scret",
+    "title": "Privacy and hosted-service disclosure",
+    "description": "What rhasia-scret handles, what remains client-only, and what hosted or self-hosted operators must control.",
+    "fullDocument": "Read the full privacy document",
+    "sections": {
+      "scope": { "title": "Application boundary", "description": "Local Vault data stays in the browser. Hosted Vault workflows send encrypted payloads and only the permitted metadata needed to operate them.", "items": { "local": "Local Profile and Local Vault data, labels, TOTP configuration, secrets, and generated OTPs are not sent to the rhasia-scret server.", "hosted": "Authorized web and native clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata." } },
+      "server": { "title": "Server-visible boundary", "description": "The zero-knowledge contract is explicit about what the server may and may not receive.", "items": { "allowed": "Permitted metadata includes opaque identifiers, ciphertext, protocol versions, revisions, membership, deletion deadlines, redacted audit actors, bounded counts, and operational timing or size metadata.", "excluded": "Vault Names, account labels, TOTP configuration, OTPs, QR data, passphrases, Vault keys, private keys, archive keys, Secure Share Link material, and decrypted content remain client-only." } },
+      "providers": { "title": "Providers", "description": "Authentication, hosting, database, email, and optional analytics providers have separate operational responsibilities.", "items": { "auth": "Supabase Auth or OIDC may handle provider identity, email or subject metadata, authentication events, and sessions; it does not receive Vault plaintext from this application.", "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.", "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser Supabase Data API/RLS access is not part of the supported boundary.", "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply." } },
+      "retention": { "title": "Retention and deletion", "description": "Deletion windows affect application records, not every external provider or client copy.", "items": { "vault": "Soft-deleted Authenticator Accounts and deleted Shared Vault content are eligible for permanent purge after 30 days.", "audit": "Redacted Vault Audit History is retained for one calendar year after Vault deletion; restoration clears the pending audit purge.", "limits": "A destructive Personal Vault Reset is not recovery, and secrets or plaintext already obtained by another client cannot be erased remotely." } },
+      "responsibility": { "title": "Hosted demo and self-hosting", "description": "The operator of each deployment controls its provider contracts and operational evidence.", "items": { "hosted": "The hosted-demo operator is responsible for authentication, hosting, database, email, analytics, support, deletion, and user notices for that deployment.", "selfHosted": "A self-hosting operator is responsible for controller duties, TLS and callbacks, logs, backups, purge scheduling, incident response, and any enabled analytics." } },
+      "contact": { "title": "Questions and reports", "description": "Contact the deployment operator for account and deletion questions. Use project support for public documentation and reproducible issues.", "items": { "support": "Use the Support page and public issue templates with synthetic, redacted evidence only.", "security": "Report vulnerabilities privately through the GitHub Security Advisory process; never put secrets, cookies, tokens, or Vault material in a public issue." } }
+    }
+  },
+  "Support": {
+    "metadataTitle": "Support | rhasia-scret",
+    "title": "Project support",
+    "description": "Choose the safe channel for documentation, bugs, feature requests, hosted-demo questions, or security reports.",
+    "fullDocument": "Read the full support guide",
+    "sections": {
+      "channels": { "title": "Choose a channel", "description": "Different deployment and report types have different owners.", "items": { "docs": "Start with the documentation index and self-hosting guide for setup and operations.", "bug": "Use the public bug template for reproducible behavior with synthetic data.", "feature": "Use the feature or documentation template for focused improvement requests.", "security": "Use the private GitHub Security Advisory form for vulnerabilities; do not open a public issue." } },
+      "safe": { "title": "Safe reports", "description": "Support evidence must remain safe to publish.", "items": { "include": "Include a release or commit, platform, route, timestamp, safe error code, synthetic identifiers, and redacted reproduction steps.", "exclude": "Never include passwords, passphrases, OTPs, TOTP secrets, QR data, Secure Share Link fragments, cookies, authorization headers, provider tokens, database URLs, archive keys, or decrypted content." } },
+      "triage": { "title": "Triage and escalation", "description": "Maintainers label, reproduce, and route requests using the project governance process.", "items": { "triage": "Incoming requests are labeled as bug, feature, documentation, security, or question and linked to the relevant ADR or issue.", "escalate": "Security, privacy, authorization, retention, provider, release, and production incidents are escalated to the maintainer before merge or deployment." } },
+      "operator": { "title": "Deployment operator", "description": "The project cannot inspect or recover data from an independently operated deployment.", "items": { "hosted": "Contact the hosted-demo operator for account, deletion, provider, and service questions.", "selfHosted": "Contact your self-hosting operator for its database, backups, retention, analytics, and infrastructure." } }
+    }
   },
   "Home": {
     "landing": {
