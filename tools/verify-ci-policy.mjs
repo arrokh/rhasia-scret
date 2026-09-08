@@ -24,8 +24,9 @@ const secretScan = read(".github/workflows/secret-scan.yml");
 const dependabot = read(".github/dependabot.yml");
 const monorepo = read("docs/monorepo.md");
 
-requireText(".github/workflows/ci.yml", ci, /\n\s+pull_request:\s*(?:\n|$)/, "run for pull requests");
-requireText(".github/workflows/ci.yml", ci, /\n\s+workflow_dispatch:\s*(?:\n|$)/, "support manual dispatch");
+requireText(".github/workflows/ci.yml", ci, /\n\s+push:\s*\n\s+branches:\s+\[main\]/, "run only for pushes to main");
+if (/\n\s+pull_request:\s*(?:\n|$)/.test(ci)) failures.push(".github/workflows/ci.yml must not run for pull requests");
+if (/\n\s+workflow_dispatch:\s*(?:\n|$)/.test(ci)) failures.push(".github/workflows/ci.yml must not support manual dispatch");
 requireText(".github/workflows/ci.yml", ci, /permissions:\s*\n\s+contents:\s*read/, "default to read-only contents permissions");
 for (const command of [
   "pnpm run test:full:core",
@@ -48,7 +49,7 @@ requireText(".github/workflows/secret-scan.yml", secretScan, /gitleaks\/gitleaks
 requireText(".github/workflows/secret-scan.yml", secretScan, /schedule:\s*\n\s+- cron:/, "run a scheduled full-history scan");
 requireText(".github/dependabot.yml", dependabot, /package-ecosystem:\s*["']?npm["']?/, "update workspace dependencies");
 requireText(".github/dependabot.yml", dependabot, /package-ecosystem:\s*["']?github-actions["']?/, "update GitHub Actions");
-if (/only after a push reaches `main`|pull requests do not trigger/.test(monorepo)) failures.push("docs/monorepo.md must not describe push-only CI");
+if (/quality\/database and browser jobs for pull requests|quality and browser checks scoped to pull requests/.test(monorepo)) failures.push("docs/monorepo.md must describe quality/browser CI as main-push-only");
 
 const workflowPaths = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", ".github/workflows/dependency-review.yml", ".github/workflows/secret-scan.yml"];
 for (const relativePath of workflowPaths) {
@@ -65,4 +66,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("CI policy verified: public triggers, least privilege, coverage, security automation, fork safety, and immutable action pins are present.");
+console.log("CI policy verified: main-push quality gate, fork-safe PR security checks, least privilege, coverage, and immutable action pins are present.");
