@@ -20,7 +20,7 @@
     "test:web": "pnpm --filter @rhasia-scret/web test",
     "test:mobile": "pnpm --dir apps/mobile run test",
     "test:core": "pnpm --filter @rhasia-scret/client-vault-core test",
-    "test": "pnpm run test:core && pnpm run test:web && pnpm run test:mobile",
+    "test": "pnpm run test:release-evidence && pnpm run test:core && pnpm run test:web && pnpm run test:mobile",
     "test:parallel": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/web --filter @rhasia-scret/mobile run test",
     "test:unit": "pnpm --filter @rhasia-scret/web test:unit",
     "test:integration": "pnpm --filter @rhasia-scret/web test:integration",
@@ -37,7 +37,7 @@
     "test:full:web": "pnpm --filter @rhasia-scret/web test:full",
     "test:full:mobile": "pnpm --dir apps/mobile run test:full",
     "test:full:direct": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/web --filter @rhasia-scret/mobile run test:full",
-    "test:full": "pnpm run verify:version-alignment && pnpm run verify:ci-policy && pnpm run test:full:direct",
+    "test:full": "pnpm run verify:version-alignment && pnpm run verify:ci-policy && pnpm run verify:release-evidence && pnpm run test:full:direct",
     "ci:local": "pnpm run test:full",
     "test:performance": "pnpm --filter @rhasia-scret/web performance",
     "prisma:generate": "pnpm --filter @rhasia-scret/web prisma:generate",
@@ -52,7 +52,9 @@
     "verify:build-output": "pnpm --filter @rhasia-scret/web verify:build-output",
     "verify:dependency-licenses": "pnpm --filter @rhasia-scret/web verify:dependency-licenses",
     "verify:ci-policy": "node tools/verify-ci-policy.mjs",
-    "verify:version-alignment": "node tools/verify-version-alignment.mjs"
+    "verify:version-alignment": "node tools/verify-version-alignment.mjs",
+    "verify:release-evidence": "node tools/verify-release-evidence.mjs",
+    "test:release-evidence": "node --test tools/verify-release-evidence.test.mjs"
   },
   "devDependencies": {
     "dependency-cruiser": "^17.3.4"

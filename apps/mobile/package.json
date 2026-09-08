@@ -16,7 +16,7 @@
     "@rhasia-scret/client-vault-core": "workspace:*",
     "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-form": "^1.33.2",
-    "expo": "~57.0.20",
+    "expo": "~57.0.21",
     "expo-camera": "~57.0.4",
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.17",
