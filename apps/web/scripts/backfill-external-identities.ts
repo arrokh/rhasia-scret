@@ -1,5 +1,7 @@
-import "dotenv/config";
-import { prisma } from "../src/shared/infrastructure/prisma-client";
+import { loadWorkspaceEnvironment } from "./load-workspace-environment";
+
+loadWorkspaceEnvironment();
+const { prisma } = await import("../src/shared/infrastructure/prisma-client");
 
 async function main(): Promise<void> {
   const users = await prisma.applicationUser.findMany({
