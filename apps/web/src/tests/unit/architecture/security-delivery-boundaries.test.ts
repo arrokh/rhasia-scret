@@ -44,13 +44,26 @@ describe("browser-delivery security boundaries", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
   });
 
-  it("runs quality and browser CI only after a push reaches main", () => {
+  it("runs quality and browser CI only for pushes to main", () => {
     const workflow = read("../../.github/workflows/ci.yml");
     expect(workflow).toContain("on:\n  push:\n    branches: [main]");
     expect(workflow).not.toContain("pull_request:");
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("name: Quality and database test suite");
     expect(workflow).toContain("name: Browser smoke test");
+
+    const codeql = read("../../.github/workflows/codeql.yml");
+    expect(codeql).toContain("pull_request:");
+    expect(codeql).toContain("security-events: write");
+    expect(codeql).toContain("github.event.pull_request.head.repo.fork");
+
+    const dependencyReview = read("../../.github/workflows/dependency-review.yml");
+    expect(dependencyReview).toContain("pull_request:");
+    expect(dependencyReview).toContain("fail-on-severity: high");
+
+    const secretScan = read("../../.github/workflows/secret-scan.yml");
+    expect(secretScan).toContain("fetch-depth: 0");
+    expect(secretScan).toContain("GITLEAKS_ENABLE_COMMENTS: \"false\"");
   });
 
   it("does not expose the browser smoke fixture in production", () => {
