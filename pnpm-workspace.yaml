@@ -56,3 +56,5 @@ minimumReleaseAgeExclude:
   - expo-secure-store@57.0.3
   - expo-sharing@57.0.17
 auditConfig: { ignoreGhsas: [ GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq ] }
+patchedDependencies:
+  expo-modules-jsi@57.0.8: patches/expo-modules-jsi@57.0.8.patch
