@@ -6,9 +6,9 @@
 
 ## Context
 
-Users can explicitly copy Authenticator Accounts between the device-only Local Vault and their server-backed Personal Vault. Personal Vault owners need these copy activities in Vault Audit History, but the honest-but-curious server must not receive a Local Profile identifier, Local Vault identifier or name, Local account identifier, decrypted account label, issuer, TOTP configuration, secret, raw QR data, OTP, Local Vault key, or Local Vault Passphrase.
+Web users can explicitly copy Authenticator Accounts between the device-only Local Vault and their server-backed Personal Vault. Personal Vault owners need these copy activities in Vault Audit History, but the honest-but-curious server must not receive a Local Profile identifier, Local Vault identifier or name, Local account identifier, decrypted account label, issuer, TOTP configuration, secret, raw QR data, OTP, Local Vault key, or Local Vault Passphrase. The native client does not implement the writable Local Vault copy workflow.
 
-A Local-to-Personal copy creates a new Personal Vault Authenticator Account through the server. A Personal-to-Local copy writes only to browser storage, so recording its activity is a separate server request and cannot be transactionally coupled to the local write.
+A Local-to-Personal copy creates a new Personal Vault Authenticator Account through the server. A Personal-to-Local copy writes only to browser storage, so recording its activity is a separate server request and cannot be transactionally coupled to the local write. Native offline snapshots remain read-only and are outside this copy contract.
 
 ## Decision
 

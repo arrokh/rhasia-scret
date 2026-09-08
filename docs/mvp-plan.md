@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Build an installable, web-based, zero-knowledge shared authenticator. Users create or access hosted Application Users through verified Supabase email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
+Build installable web and native clients for a zero-knowledge shared authenticator. Users create or access hosted Application Users through verified Supabase email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The web client is a Next.js PWA and the native client is an Expo SDK 57 iOS/Android application; both use the same hosted protocol contracts while keeping platform storage and capability differences explicit. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
 
 This plan is implemented as vertical slices. A slice is complete only with its domain behavior, application use case, persistence/adapter, API contract, usable UI, forbidden-path test, sensitive-data review, and boundary checks.
 
@@ -10,18 +10,18 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 
 `CONTEXT.md` is the glossary. `docs/adr/` records hard-to-reverse decisions. The most important commitments are:
 
-- The server is **honest-but-curious**. It protects encrypted data at rest and in normal server access, but an actively malicious web host that changes delivered JavaScript is outside the MVP threat model.
+- The server is **honest-but-curious**. It protects encrypted data at rest and in normal server access, but an actively malicious web host or native application supply chain is outside the MVP threat model.
 - Supabase Auth public passwordless email signup with Confirm email is the hosted registration mechanism. There is no `allowed_emails` table, application admin UI, or application registration API in the MVP; Shared Vault invitations remain separate authorization grants.
-- Authentication and encryption are separate. A user creates a Vault Unlock Secret: at least four randomly generated words, never a PIN, never recoverable, and distinct from Supabase credentials.
+- Authentication and encryption are separate. A user creates a Vault Unlock Secret: a generated multi-word secret is recommended, while a user-created secret accepts a trimmed value of at least three characters under ADR-0029; it is never a PIN, never recoverable through the server, and distinct from Supabase credentials.
 - Argon2id derives a Vault Unlock Key. That key wraps a random User Root Key. The User Root Key protects the Personal Vault Encryption Key and encrypted user private key, allowing passphrase changes without re-encrypting accounts.
-- A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. The vault stays unlocked until explicit lock or logout; there is no automatic timeout. Browsers without Local Verification require the Vault Unlock Secret.
+- A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. On the web, the vault stays unlocked until explicit lock or logout; there is no automatic timeout. The native client currently uses the Vault Passphrase and locks when AppState leaves active state. Browsers without Local Verification require the Vault Unlock Secret.
 - AES-256-GCM encrypts payloads. P-256 ECDH, HKDF-SHA-256, and AES-256-GCM create versioned Key-Wrap Envelopes.
 - Vault names, account issuer/name, and normalized TOTP configuration are encrypted vault content. Before unlock, the UI uses generic locked labels.
 - A Shared Vault has exactly one Owner and zero or more Viewers. Owners always manage accounts, membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
-- Owners may invite an exact email recipient before that person has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs up or signs in, completes enrollment, redeems the link, and receives Shared Vault access without the owner returning. Secure Share Link expiry/cancel/reissue is deferred.
+- Owners may invite an exact email recipient before that person has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs up or signs in, completes enrollment, redeems the link, and receives Shared Vault access without the owner returning. The link expires exactly seven days after creation; owners may cancel pending links, and may re-invite the same recipient only after expiry with fresh link material.
 - Membership revocation immediately denies future online access and removes the local snapshot on next successful contact. It cannot erase copied secrets or offline caches; owners must reset the original service's 2FA for full credential revocation.
 - Shared Vaults and accounts soft-delete for 30 days and only owners may restore them. Personal Vaults cannot be deleted. Vault audit history is owner-only, opaque-ID-only, and retained one year after vault deletion.
-- The PWA permits read-only offline use from encrypted Local Vault Snapshots. It blocks and never queues offline writes. Installation is optional.
+- The PWA and native client permit read-only offline use from encrypted Local Vault Snapshots. They block and never queue offline writes. The native client adds a separate context-authenticated storage layer with its random key in Keychain/Android Keystore. Installation is optional for the PWA; the native target is an installable iOS/Android app.
 
 ## Bounded contexts and layering
 
@@ -31,31 +31,30 @@ Each context owns `domain/`, `application/`, `infrastructure/`, and, where neede
 - **Vault Management**: Personal/Shared Vault lifecycle, encrypted name payload, ownership, deletion/recovery.
 - **Vault Membership**: Owner/Viewer authorization, invitations, grants, revocation, secure share links.
 - **Authenticator Account**: encrypted normalized configurations, revisions, deletion/recovery, ordering.
-- **Crypto** (client): unlock hierarchy, user key pairs, envelopes, encryption versions, Local Verification integration.
+- **Crypto** (client): unlock hierarchy, user key pairs, envelopes, encryption versions, browser Local Verification integration, and native primitive adapters. Native WebAuthn PRF-equivalent recovery remains unsupported.
 - **OTP Runtime** (client): parse and validate supported `otpauth://totp` configurations, generate and format codes, countdown, clock-drift warning.
 - **Synchronization** (client): encrypted local snapshots, online revisions, read-only offline status.
 - **Audit**: redacted security events with opaque identifiers.
 
-Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js route handlers and React components are presentation adapters. Domain modules cannot import Next.js, React, Prisma, Supabase, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
+Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js route handlers, web React components, and native React Native components are presentation adapters. Domain modules cannot import Next.js, React, React Native, Prisma, Supabase, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
 
 ## Project structure
 
 ```text
-src/
-  app/                         # Next.js presentation and route adapters
-  modules/
-    identity/
-    vault-management/
-    vault-membership/
-    authenticator-account/
-    crypto/
-    otp-runtime/
-    sync/
-    audit/
-  shared/                      # minimal framework-neutral shared kernel
-  tests/
-    unit/ integration/ contract/ browser/ architecture/
-prisma/
+apps/
+  web/
+    src/app/                   # Next.js convention files and route adapters
+    src/modules/               # web bounded contexts and adapters
+    src/tests/                 # unit/integration/contract/browser/architecture tests
+    prisma/                    # server schema and migrations
+  mobile/
+    App.tsx                    # Expo composition root
+    src/                       # native application, infrastructure, and presentation
+    modules/                   # repository-owned native Expo modules
+packages/
+  client-vault-core/           # platform-neutral client workflows and contracts
+CONTEXT.md
+AGENTS.md
 docs/adr/
 ```
 
@@ -67,9 +66,9 @@ API contracts validate schemas with Zod. They never accept or return plaintext s
 
 ## Mobile UI reference
 
-Use [`ui-reference/rhasia-mobile/README.md`](ui-reference/rhasia-mobile/README.md) and its 15 numbered screen slices as the visual reference for the mobile experience. Every screen inherits the canonical [`ui-reference/rhasia-mobile/design-system.md`](ui-reference/rhasia-mobile/design-system.md) contract for tokens, layout, components, states, and accessibility. The reference maps each screen to the delivery slices and captures reusable OTP, countdown, Vault-card, role-badge, synchronization-status, and icon specimens.
+Use [`ui-reference/rhasia-mobile/README.md`](ui-reference/rhasia-mobile/README.md) and its 15 numbered screen slices as the visual reference for the mobile experience. Every screen inherits the canonical [`ui-reference/rhasia-mobile/design-system.md`](ui-reference/rhasia-mobile/design-system.md) contract for tokens, layout, components, states, and accessibility. The reference maps each screen to the delivery slices and captures reusable OTP, countdown, Vault-card, role-badge, synchronization-status, and icon specimens. The current native implementation is the Expo client under `apps/mobile`; this reference does not authorize browser-only Local Profile features or native WebAuthn PRF claims.
 
-It is non-authoritative for behavior and terminology: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, the Owner/Viewer role plus granular account-capability model defined above and in the ADRs, QR/raw URI handling, audit redaction, and offline write blocking.
+It is non-authoritative for behavior and terminology: the authoritative requirements remain the Vault Unlock Secret and explicit-lock model, the Owner/Viewer role plus granular account-capability model defined above and in the ADRs, QR/raw URI handling, audit redaction, and offline write blocking. Native AppState backgrounding additionally locks and clears the mobile workspace; native device authentication is not a WebAuthn PRF-equivalent unlock path.
 
 ## Slice 0 — architecture skeleton and quality gates
 
@@ -110,7 +109,7 @@ Implement versioned encryption envelopes, AES-GCM payload encryption, P-256/HKDF
 
 ## Slice 5 — encrypted Personal Vault accounts
 
-Client parses/normalizes input, encrypts it, and stores ciphertext. Reload/new enrolled browser access works without server decryption. Account lists decrypt locally and sort by issuer/account name. Duplicates are client-side warnings with cancel/open-existing/add-anyway actions. Copy writes only to the system clipboard on explicit action.
+Clients parse/normalize input, encrypt it, and store ciphertext. Reload/new enrolled web or native access works without server decryption. Account lists decrypt locally and sort by issuer/account name. Duplicates are client-side warnings with cancel/open-existing/add-anyway actions. Copy writes only to the system clipboard on explicit action.
 
 ## Slice 6 — QR import
 
@@ -122,7 +121,7 @@ Create a named encrypted Shared Vault and owner membership atomically. The owner
 
 ## Slice 8 — user encryption identity
 
-Create/register public keys; encrypt private key backups under the User Root Key. New browsers recover them only after secure enrollment. Private keys never reach the server in usable form.
+Create/register public keys; encrypt private key backups under the User Root Key. New web clients recover them only after secure enrollment, while native clients use the same encrypted protocol without claiming browser WebAuthn PRF parity. Private keys never reach the server in usable form.
 
 ## Slice 9 — share links and membership grants
 
@@ -144,9 +143,9 @@ Owners revoke viewers; viewers may leave. Future online fetches fail immediately
 
 Owners always update/delete/restore accounts with revisions. Viewers may replace the complete encrypted account payload or soft-delete an account only when the matching effective permission allows it. Account restoration and Shared Vault deletion/restoration remain owner-only; both deletion lifecycles retain their 30-day recovery windows. Personal Vault deletion is forbidden.
 
-## Slice 14 — encrypted offline PWA
+## Slice 14 — encrypted offline clients
 
-Store encrypted Local Vault Snapshots after sync. Allow read-only offline unlock and OTP generation; show offline state and block all writes. Reconnection handles revision/access removal.
+Store encrypted Local Vault Snapshots after sync. Allow read-only offline unlock and OTP generation; show offline state and block all writes. The web client uses browser-owned encrypted storage and the native client adds a context-authenticated file layer with a secure-store key. Reconnection handles revision/access removal.
 
 ## Slice 15 — audit history
 
@@ -156,7 +155,7 @@ Write redacted events for vault creation, invitation/link lifecycle, membership 
 
 Threat-model and implement recovery, device lifecycle, normal vault-key rotation, user-key rotation, export/import, and passkey-assisted recovery. Before this slice, suspected compromise requires a new vault, original-service 2FA reset/re-add, member re-grants, and deletion of the old vault.
 
-[Encrypted Vault Archive V1 backup/import](encrypted-vault-backup.md) is delivered as a client-cryptographic vertical slice: owners export a browser-created archive with a separate random key; import into an existing Shared Vault is available to a Viewer with effective add permission, while Personal Vault and new Shared Vault ownership rules remain unchanged; import validates and previews locally before an atomic write; and successful exports/imports create redacted owner-only Vault Audit events for Personal and Shared Vaults. Archive bytes, archive keys, Vault Names, account counts, and TOTP content never enter export-audit requests, logs, or TanStack Query. Import requests contain only permitted opaque identifiers, versions, and re-encrypted account ciphertext; the server can observe the imported record count but cannot read archive or TOTP content.
+[Encrypted Vault Archive V1 backup/import](encrypted-vault-backup.md) is delivered as a client-cryptographic vertical slice: owners export an archive in web or native client memory with a separate random key; import into an existing Shared Vault is available to a Viewer with effective add permission, while Personal Vault and new Shared Vault ownership rules remain unchanged; import validates and previews locally before an atomic write; and successful exports/imports create redacted owner-only Vault Audit events for Personal and Shared Vaults. Archive bytes, archive keys, Vault Names, account counts, and TOTP content never enter export-audit requests, logs, or TanStack Query. Import requests contain only permitted opaque identifiers, versions, and re-encrypted account ciphertext; the server can observe the imported record count but cannot read archive or TOTP content.
 
 ## Delivery order
 

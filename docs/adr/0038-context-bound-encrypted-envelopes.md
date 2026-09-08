@@ -31,7 +31,7 @@ Context mismatch, unknown envelope version, malformed nonce/tag/encoding, trunca
 | Passkey recovery package | `passkey-recovery-wrap` and `passkey-recovery-root`, payload types, key versions | PRF output and User Root Key remain client-only. |
 | User Encryption Key Pair private key | `user-encryption-private-key`, payload type, key version | Private JWK is encrypted before any permitted server persistence. |
 | Local Profile/Local Vault records | local root/key/name/account purposes plus opaque Local Profile/account identifiers | New local writes use v2 from first write. Local records are never server-linked. |
-| Local Vault Snapshot | the ordinary contained profile/name/key/account contexts | Snapshot remains an encrypted, read-only server-derived copy. |
+| Local Vault Snapshot | the ordinary contained profile/name/key/account contexts | Snapshot remains an encrypted, read-only server-derived copy. Native storage adds a separate outer `native-offline-snapshot` context-authenticated envelope; its random storage key remains in secure native storage and is not the Vault key. |
 | Encrypted Vault Archive | `encrypted-archive`, `vault-archive`, archive format version | The separate archive key is user-held and never persisted by the service. |
 | Recovery, invitation, audit, and lifecycle metadata | Intentionally exempt from encrypted payload context where they are permitted opaque authorization/lifecycle metadata | These records must not gain plaintext content merely to support context binding. |
 

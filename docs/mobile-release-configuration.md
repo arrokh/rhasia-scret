@@ -1,6 +1,6 @@
 # Mobile release configuration
 
-The React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android. Its HTTPS web-link host is configured through `EXPO_PUBLIC_WEB_ORIGIN` and must match the deployed web origin.
+The Expo SDK 57 React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android. Its HTTPS web-link host is configured through `EXPO_PUBLIC_WEB_ORIGIN` and must match the deployed web origin. The release target covers hosted Personal/Shared Vault use and read-only encrypted offline snapshots; browser Local Profile/Local Vault and native WebAuthn PRF-equivalent recovery are outside this target.
 
 ## Verified links
 
@@ -23,6 +23,20 @@ Add `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile` to the Supabase Auth redirect allowl
 Set `EXPO_PUBLIC_NATIVE_CRYPTO_VALIDATION=1` only for a locally installed validation build. That build replaces product presentation with a bilingual diagnostic that executes the shared synthetic 64 MiB Argon2id vector and platform secure-random check through the real Expo native module. It contains no production secret and performs no API request. Omit the value or set it to `0` for every distributed product build. Record a passing screen on iOS. On Android, `pnpm --dir apps/mobile run test:android-native` executes the same shared vector directly through JNI on a connected emulator/device and verifies platform secure randomness. Rebuild the normal product artifacts after validation.
 
 ## Required release evidence
+
+Before device-link validation, run the repository mobile verification plus native compilation from the mise-managed toolchain:
+
+```bash
+pnpm --dir apps/mobile run verify
+mise exec -- pnpm --dir apps/mobile run build:android-native
+mise exec -- pnpm --dir apps/mobile run build:ios-simulator
+```
+
+The Android instrumentation test is additional native-module evidence, not part of `pnpm run test:full`:
+
+```bash
+mise exec -- pnpm --dir apps/mobile run test:android-native
+```
 
 1. Install an iOS build signed by the configured Apple team and an Android build signed through the configured Play App Signing certificate.
 2. Verify each association endpoint over HTTPS without redirects and with the matching application identifier/certificate.

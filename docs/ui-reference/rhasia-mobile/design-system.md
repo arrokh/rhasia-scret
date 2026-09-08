@@ -2,7 +2,7 @@
 
 > **Canonical visual contract.** The screen references in this directory inherit this document. It resolves the visual direction in favour of the warm cream, ink, taupe, stone, and gold palette below; the older indigo/slate draft is retired. This document is a visual reference, not a replacement for the domain language in [`CONTEXT.md`](../../../CONTEXT.md) or the security and authorization decisions in [`docs/adr/`](../../adr/).
 >
-> Visual consistency never overrides product semantics: Vault Unlock Secret is not a PIN, Unlocked Vault Sessions end through explicit lock or logout, Shared Vault permissions are granular, and encrypted offline snapshots are read-only with no mutation queue.
+> Visual consistency never overrides product semantics: Vault Unlock Secret is not a PIN, web Unlocked Vault Sessions end through explicit lock or logout, native workspaces also lock when AppState leaves the active state, Shared Vault permissions are granular, and encrypted offline snapshots are read-only with no mutation queue.
 
 ## 1. Brand Direction
 

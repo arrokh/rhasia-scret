@@ -5,7 +5,7 @@ The repository uses pnpm workspaces as its monorepo boundary. The root `pnpm-loc
 ## Ownership
 
 - `apps/web` owns the Next.js application, server routes, Prisma schema and migrations, browser adapters, web presentation, localization catalogs, and web-only tests/configuration.
-- `apps/mobile` owns the Expo application, native modules, native adapters, mobile presentation, mobile localization, and mobile-only tests/configuration.
+- `apps/mobile` owns the Expo SDK 57 application, generated-native configuration, repository-owned native modules, native adapters, mobile presentation, mobile localization, and mobile-only tests/configuration. It consumes hosted Personal/Shared Vault workflows and read-only encrypted offline snapshots, not the browser-only Local Profile/Local Vault.
 - `packages/client-vault-core` owns platform-neutral client workflows and contracts. It exposes `src/index.ts` as its public API and has no dependency on either app or on browser, React, Expo, Prisma, Supabase, filesystem, or platform-storage APIs.
 
 Applications may depend on the shared package through `workspace:*`. They must not import the other application or reach into shared-package internals. Browser and native capabilities remain injected ports implemented by the owning app.
@@ -30,7 +30,7 @@ pnpm run test:full:mobile
 pnpm run test:full
 ```
 
-`test:full` runs the shared package, web, and mobile full verification paths concurrently because they use isolated test/build outputs. The service-specific commands remain available for focused validation. `test:parallel` runs the normal package test suites concurrently without changing the deterministic sequential `test` command.
+`test:full` runs the shared package, web, and mobile full verification paths concurrently because they use isolated test/build outputs. The mobile path includes JavaScript bundles and Expo Doctor but does not compile generated native projects, run Android instrumentation, or prove physical-device behavior; use `docs/mobile-release-configuration.md` for those release checks. The service-specific commands remain available for focused validation. `test:parallel` runs the normal package test suites concurrently without changing the deterministic sequential `test` command.
 
 Playwright projects use isolated browser contexts. Smoke tests use file-level parallelism by default, bounded to three local workers and two CI workers, while E2E and PWA tests use test-level parallelism where their isolated scenarios support it. Set `PLAYWRIGHT_FULLY_PARALLEL=1` to opt the smoke suite into test-level parallelism on capable environments; use `PLAYWRIGHT_FULLY_PARALLEL=0` to force file-level sequencing when diagnosing shared-resource failures. Override worker capacity for local or CI environments with `PLAYWRIGHT_WORKERS=50%` (or a positive integer). Browser E2E data uses browser/scenario-specific identities so concurrent workers do not share mutable Vault fixtures.
 
