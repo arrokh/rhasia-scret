@@ -1,4 +1,6 @@
-import "dotenv/config";
+import { loadWorkspaceEnvironment } from "./load-workspace-environment";
+
+loadWorkspaceEnvironment();
 
 type Connection = {
   host: string;

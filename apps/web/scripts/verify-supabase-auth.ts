@@ -1,10 +1,6 @@
-import { config as loadDotenv } from "dotenv";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadWorkspaceEnvironment } from "./load-workspace-environment";
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-loadDotenv({ path: resolve(scriptDirectory, "../.env") });
-loadDotenv({ path: resolve(scriptDirectory, "../../../.env") });
+loadWorkspaceEnvironment();
 
 type SupabaseAuthSettings = {
   disable_signup?: boolean;

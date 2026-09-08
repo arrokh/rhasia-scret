@@ -46,6 +46,7 @@
     "prisma:backfill-external-identities": "pnpm --filter @rhasia-scret/web prisma:backfill-external-identities",
     "verify:database": "pnpm --filter @rhasia-scret/web verify:database",
     "verify:prisma-connections": "pnpm --filter @rhasia-scret/web verify:prisma-connections",
+    "verify:deployment-config": "pnpm --filter @rhasia-scret/web verify:deployment-config",
     "verify:supabase-auth": "pnpm --filter @rhasia-scret/web verify:supabase-auth",
     "verify:build-output": "pnpm --filter @rhasia-scret/web verify:build-output",
     "verify:dependency-licenses": "pnpm --filter @rhasia-scret/web verify:dependency-licenses",

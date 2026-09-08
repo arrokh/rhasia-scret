@@ -1,5 +1,7 @@
-import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { loadWorkspaceEnvironment } from "./load-workspace-environment";
+
+loadWorkspaceEnvironment();
 import { PrismaPg } from "@prisma/adapter-pg";
 
 async function main() {

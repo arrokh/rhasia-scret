@@ -37,6 +37,7 @@
     "prisma:backfill-external-identities": "tsx scripts/backfill-external-identities.ts",
     "verify:database": "tsx scripts/verify-test-database.ts",
     "verify:prisma-connections": "tsx scripts/verify-prisma-connections.ts",
+    "verify:deployment-config": "tsx scripts/verify-deployment-config.ts",
     "verify:supabase-auth": "tsx scripts/verify-supabase-auth.ts",
     "verify:build-output": "tsx scripts/verify-build-output.ts",
     "verify:dependency-licenses": "tsx scripts/verify-dependency-licenses.ts"

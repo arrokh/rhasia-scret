@@ -91,7 +91,9 @@ pnpm run prisma:generate
 pnpm run prisma:migrate:deploy
 ```
 
-The repository's tests use synthetic data and local services. Never put a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md).
+For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
+
+The repository's tests use synthetic data and local services. Never put a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository does not provide Docker/Compose support; use a local or operator-provided PostgreSQL service as described in the [self-hosting guide](docs/self-hosting.md).
 
 ## Run and verify
 
@@ -146,6 +148,7 @@ pnpm run test:performance
 # Database, build, and repository policy checks
 pnpm run prisma:validate
 pnpm run verify:database
+pnpm run verify:deployment-config
 pnpm run verify:prisma-connections
 pnpm run verify:dependency-licenses
 pnpm run verify:ci-policy
