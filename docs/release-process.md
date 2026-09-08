@@ -69,6 +69,7 @@ review. Never infer protocol compatibility from a matching package version.
    pnpm install --frozen-lockfile
    pnpm run verify:ci-policy
    pnpm run verify:version-alignment
+   pnpm run verify:release-evidence
    pnpm run test:full
    ```
 
@@ -96,6 +97,16 @@ review. Never infer protocol compatibility from a matching package version.
 8. Have the maintainer review the completed readiness record. Only then create
    an annotated `vX.Y.Z` tag and GitHub Release whose notes are copied from the
    changelog. Do not publish a tag while the decision is `HOLD`.
+
+## Repository evidence workflow
+
+The manually dispatched `Repository release evidence` workflow runs from a
+clean checkout of the selected ref. It validates the readiness record and
+release-policy invariants, runs `pnpm run test:full`, and uploads only
+non-sensitive commit, toolchain, and lockfile-digest metadata. It does not
+deploy, sign, submit, tag, or publish anything. A readiness record may remain
+`HOLD` when external evidence is unavailable; the repository-only completion
+state is `READY FOR HUMAN RELEASE REVIEW`.
 
 ## Provenance, signing, and rollback
 

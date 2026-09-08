@@ -35,6 +35,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - **CodeQL:** JavaScript/TypeScript analysis runs on pull requests, `main`, and manual dispatch. Fork analysis runs without uploading results when the token cannot write security events.
 - **Secret scanning:** GitHub secret scanning and push protection are enabled for this public repository. The checked-in Gitleaks workflow remains an independent backstop: it scans changed commits on pull requests/pushes and runs a full-history scan on manual or weekly scheduled dispatches, redacting findings in output.
+- **Repository release evidence:** The manually dispatched `Repository release evidence` workflow validates the dated readiness record, version/policy invariants, full repository gate, and non-sensitive commit/toolchain/lockfile metadata from a clean checkout. It never deploys or publishes a release.
 - **Dependency review:** the pull-request workflow inspects changed dependency manifests and lockfile changes; the main-push quality job also runs the production audit and license policy.
 - **Dependabot:** weekly updates cover the root npm/pnpm workspace and GitHub Actions. Updates must preserve the single root `pnpm-lock.yaml` boundary.
 - **Action pinning:** third-party actions are pinned to immutable commit SHAs. Dependabot owns their updates.
