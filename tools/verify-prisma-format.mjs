@@ -9,6 +9,7 @@ const source = readFileSync(schemaPath, "utf8");
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "rhasia-scret-prisma-format-"));
 const temporarySchemaPath = join(temporaryDirectory, "schema.prisma");
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+let exitCode = 0;
 
 try {
   writeFileSync(temporarySchemaPath, source);
@@ -26,15 +27,19 @@ try {
   );
 
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
-
-  const formatted = readFileSync(temporarySchemaPath, "utf8");
-  if (formatted !== source) {
-    console.error("Prisma schema is not formatted. Run `pnpm run format:prisma`.");
-    process.exit(1);
+  if (result.status !== 0) {
+    exitCode = result.status ?? 1;
+  } else {
+    const formatted = readFileSync(temporarySchemaPath, "utf8");
+    if (formatted !== source) {
+      console.error("Prisma schema is not formatted. Run `pnpm run format:prisma`.");
+      exitCode = 1;
+    } else {
+      console.log("Prisma schema is formatted.");
+    }
   }
-
-  console.log("Prisma schema is formatted.");
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });
 }
+
+process.exitCode = exitCode;
