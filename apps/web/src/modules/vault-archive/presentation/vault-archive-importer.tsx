@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
@@ -43,6 +43,9 @@ import {
 } from "../infrastructure/browser-vault-import-client";
 
 const NEW_SHARED_DESTINATION = "NEW_SHARED";
+const subscribeToHydration = () => () => undefined;
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
 
 type ImportPlan = { selection: string; vaultId: string; accountIds: string[] };
 type ImportPhase = "preparing" | "uploading" | "refreshing";
@@ -120,6 +123,7 @@ export function VaultArchiveImporter({
   const [duplicateConfirmation, setDuplicateConfirmation] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
   const [importPhase, setImportPhase] = useState<ImportPhase | null>(null);
+  const isHydrated = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
   const openedRef = useRef<OpenedVaultArchive | null>(null);
   const activeRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -397,7 +401,7 @@ export function VaultArchiveImporter({
           </previewForm.Field>
           <previewForm.Subscribe selector={(state) => state.isSubmitting}>
             {(pending) => (
-              <Button type="submit" disabled={!online || pending} aria-busy={pending}>
+              <Button type="submit" disabled={!isHydrated || !online || pending} aria-busy={pending}>
                 {pending && <LoaderCircle className="animate-spin" />}
                 {pending ? t("opening") : t("previewArchive")}
               </Button>
