@@ -221,6 +221,9 @@ importers:
       posthog-js:
         specifier: ^1.418.10
         version: 1.418.10
+      prisma:
+        specifier: ^7.9.1
+        version: 7.9.1(@types/node@26.1.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.5.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       radix-ui:
         specifier: ^1.6.7
         version: 1.6.7(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -282,9 +285,6 @@ importers:
       playwright:
         specifier: ^1.57.0
         version: 1.61.1
-      prisma:
-        specifier: ^7.9.1
-        version: 7.9.1(@types/node@26.1.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.5.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
