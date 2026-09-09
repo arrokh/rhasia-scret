@@ -14,6 +14,7 @@
     "footerNavigation": "Legal and support",
     "privacy": "Privacy",
     "support": "Support",
+    "footerAuthor": "nooroctavian.id",
     "globalError": {
       "title": "Something went wrong",
       "description": "Please try again.",
@@ -150,7 +151,7 @@
       "github": "GitHub repository",
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
-      "footerAuthor": "arrokh",
+      "footerAuthor": "nooroctavian.id",
       "hostedAccess": "Local Vault needs no sign-in. Hosted Vaults are available with a verified email address.",
       "comparison": {
         "eyebrow": "A simple explanation",

@@ -39,10 +39,12 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   const signInLink = landingFooter.locator('a[href*="sign-in"]').first();
   await expect(signInLink).toBeVisible();
   await expect(signInLink).toHaveAttribute("href", /(^https:\/\/rhasia-scret\.vercel\.app)?\/sign-in$/);
-  await expect(landingFooter.locator('a[href="https://github.com/arrokh"]').first()).toHaveAttribute(
+  await expect(landingFooter.locator('a[href="https://nooroctavian.id/"]').first()).toHaveAttribute(
     "href",
-    "https://github.com/arrokh",
+    "https://nooroctavian.id/",
   );
+  await expect(landingFooter.getByRole("link", { name: "Privasi" })).toHaveAttribute("href", "/privacy");
+  await expect(landingFooter.getByRole("link", { name: "Dukungan" })).toHaveAttribute("href", "/support");
   await page.evaluate(() => {
     const heroEnd = document.getElementById("landing-hero-end");
     const fallback = document.body.scrollHeight;

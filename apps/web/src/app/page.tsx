@@ -279,8 +279,8 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-center py-2 text-center">
-          <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground">
+        <div className="mx-auto grid min-h-14 max-w-3xl grid-cols-1 items-center gap-y-1 py-2 text-center sm:grid-cols-[1fr_auto_1fr]">
+          <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground sm:col-start-1 sm:justify-self-start">
             <a
               href="/sign-in"
               target="_blank"
@@ -292,7 +292,7 @@ export default async function LandingPage() {
             </a>
             <span>{common("by")}</span>
             <a
-              href="https://github.com/arrokh"
+              href="https://nooroctavian.id/"
               target="_blank"
               rel="noopener noreferrer"
               className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -300,6 +300,17 @@ export default async function LandingPage() {
               {t("footerAuthor")}
             </a>
           </p>
+          <nav
+            aria-label={common("footerNavigation")}
+            className="flex items-center justify-center gap-3 text-xs font-bold text-muted-foreground sm:col-start-3 sm:justify-self-end"
+          >
+            <Link href="/privacy" className="underline-offset-4 hover:text-primary hover:underline">
+              {common("privacy")}
+            </Link>
+            <Link href="/support" className="underline-offset-4 hover:text-primary hover:underline">
+              {common("support")}
+            </Link>
+          </nav>
         </div>
       </footer>
 
