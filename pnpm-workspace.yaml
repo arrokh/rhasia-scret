@@ -15,6 +15,9 @@ overrides:
   valibot: 1.4.2
   qs: 6.16.0
   mysql2: 3.23.1
+  # Keep Vitest's transitive obug dependency on a release older than the
+  # minimum-release-age window while retaining the compatible ^2.1.1 range.
+  obug: 2.1.4
   '@expo/plist>@xmldom/xmldom': 0.8.15
   'plist>@xmldom/xmldom': 0.9.12
   fast-uri: 3.1.6
