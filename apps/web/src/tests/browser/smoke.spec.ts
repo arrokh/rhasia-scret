@@ -146,7 +146,9 @@ async function switchLanguage(page: import("@playwright/test").Page, language: "
     await page.getByLabel(/Pengaturan akun|Account settings/).click();
     await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
   } else {
-    const languageTrigger = page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
+    const languageTrigger = await page.locator("main.landing-page").count()
+      ? page.locator('main.landing-page > header button[aria-label="Pilih bahasa"], main.landing-page > header button[aria-label="Choose language"]').first()
+      : page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
     await expect(languageTrigger).toBeVisible();
     await languageTrigger.click();
   }
@@ -165,14 +167,19 @@ async function switchLanguage(page: import("@playwright/test").Page, language: "
 
 test("logs out a stale session idempotently", async ({ page }) => {
   await page.goto("/sign-in");
-  await page.evaluate(() => {
-    const form = document.createElement("form");
-    form.method = "post";
-    form.action = "/auth/logout";
-    document.body.append(form);
-    form.submit();
+  const response = await page.request.post("/auth/logout", {
+    headers: {
+      origin: new URL(page.url()).origin,
+    },
+    maxRedirects: 0,
   });
-
-  await expect(page).toHaveURL(/\/sign-in\?auth=signed_out$/, { timeout: 15_000 });
-  await expect(page.getByText("Anda telah keluar.")).toBeVisible({ timeout: 15_000 });
+  expect(response.status()).toBe(303);
+  const noticePage = await page.context().newPage();
+  try {
+    await noticePage.goto(response.headers().location);
+    await expect(noticePage).toHaveURL(/\/sign-in\?auth=signed_out$/, { timeout: 15_000 });
+    await expect(noticePage.getByText("Anda telah keluar.")).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await noticePage.close();
+  }
 });

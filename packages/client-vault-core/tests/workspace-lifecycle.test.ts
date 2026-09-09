@@ -125,6 +125,18 @@ describe("WorkspaceLifecycle", () => {
     expect(test.writeReasons.at(-1)).toBeNull();
   });
 
+  it("stops platform listeners without clearing the current workspace", () => {
+    const initial = workspace();
+    const test = harness(initial);
+    test.controller.start();
+    test.controller.stop();
+
+    expect(initial.userRootKey).toEqual(Uint8Array.of(7, 8));
+    expect(test.controller.workspace).toBe(initial);
+    expect(test.network.listener).toBeUndefined();
+    expect(test.applicationLifecycle.listener).toBeUndefined();
+  });
+
   it("refreshes authorization through the same replacement and cleanup interface", async () => {
     const initial = workspace("CURRENT", "old");
     const test = harness(initial);

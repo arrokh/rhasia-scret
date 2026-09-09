@@ -144,6 +144,7 @@ async function openArchive(page: Page, archive: Uint8Array) {
 }
 
 async function setArchive(page: Page, archive: Uint8Array, key: string) {
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Berkas arsip").setInputFiles({ name: "backup.rhasia-vault", mimeType: "application/octet-stream", buffer: Buffer.from(archive) });
   await page.getByLabel("Kunci arsip Base64").fill(key);
   await page.getByRole("button", { name: "Pratinjau arsip" }).click();

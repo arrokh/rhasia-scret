@@ -77,6 +77,8 @@ test.describe("encrypted Vault archive backup", () => {
     let auditRequests = 0;
     await page.route("**/api/vaults/preview-personal-vault/archive-exports", async (route) => { auditRequests += 1; await route.abort(); });
     await page.goto("/ui-preview/archive-backup");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("button", { name: "Buat cadangan" })).toBeEnabled();
     await context.setOffline(true);
     await expect(page.getByText("Anda luring. Cadangan diblokir dan tidak akan diantrikan.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Buat cadangan" })).toBeDisabled();

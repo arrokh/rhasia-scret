@@ -13,6 +13,9 @@ test.describe("production Remembered Browser UI", () => {
   test.beforeEach(async ({ page }) => {
     await installMockLocalVerification(page);
     await page.route("**/api/passkey-recovery/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ enrolled: false }) }));
+    await page.goto("/ui-preview/remembered-browser");
+    await clearBrowserStorage(page);
+    await page.reload();
   });
 
   test("enrolls explicitly with required user verification, stores ciphertext only, and removes local material", async ({ page }) => {
@@ -87,6 +90,19 @@ test.describe("production Remembered Browser UI", () => {
     await expect(page.getByText("Unlocked Vault Session berhasil dibuat.")).toBeVisible({ timeout: 30_000 });
   });
 });
+
+async function clearBrowserStorage(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase("rhasia-scret-offline-vault");
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error("Could not clear browser storage."));
+      request.onblocked = () => reject(new Error("Browser storage cleanup was blocked."));
+    });
+  });
+}
 
 async function installMockLocalVerification(page: Page) {
   await page.addInitScript(({ output }) => {
