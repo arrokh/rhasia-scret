@@ -85,10 +85,10 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
-  await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretolehnooroctavian\.id/);
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
-  const developerLink = page.locator("footer").getByRole("link", { name: "arrokh" });
-  await expect(developerLink).toHaveAttribute("href", "https://github.com/arrokh");
+  const developerLink = page.locator("footer").getByRole("link", { name: "nooroctavian.id" });
+  await expect(developerLink).toHaveAttribute("href", "https://nooroctavian.id/");
   await expect(developerLink).toHaveAttribute("target", "_blank");
   await expect(developerLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
@@ -400,10 +400,10 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await waitForStableBoundingBox(confirmDeleteButton);
   await confirmDeleteButton.click({ force: true });
   await expect.poll(() => deletedVault).toBe(true);
-  await expect(page.locator("footer")).toHaveText(/rhasia-scretoleharrokh/);
+  await expect(page.locator("footer")).toHaveText(/rhasia-scretolehnooroctavian\.id/);
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
-  const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "arrokh" });
-  await expect(footerDeveloperLink).toHaveAttribute("href", "https://github.com/arrokh");
+  const footerDeveloperLink = page.locator("footer").getByRole("link", { name: "nooroctavian.id" });
+  await expect(footerDeveloperLink).toHaveAttribute("href", "https://nooroctavian.id/");
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
   await expect(footerDeveloperLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
@@ -443,11 +443,9 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
   const footerBrandBox = await footer.locator("p").boundingBox();
-  expect(
-    Math.abs(
-      (footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2),
-    ),
-  ).toBeLessThan(2);
+  expect((footerBrandBox?.x ?? Number.POSITIVE_INFINITY) + (footerBrandBox?.width ?? 0) / 2).toBeLessThan(
+    (footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2,
+  );
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {

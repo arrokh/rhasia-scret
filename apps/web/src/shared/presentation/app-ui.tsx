@@ -92,7 +92,7 @@ export function AppFooter() {
   return (
     <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
       <div className="mx-auto grid min-h-14 max-w-3xl grid-cols-1 items-center justify-items-center gap-x-3 gap-y-1 py-2 text-center min-[520px]:grid-cols-[1fr_auto_1fr]">
-        <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground min-[520px]:col-start-2 min-[520px]:row-start-1">
+        <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground min-[520px]:col-start-1 min-[520px]:row-start-1 min-[520px]:justify-self-start">
           <Link
             href="/"
             className="text-base font-bold tracking-tight underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -102,14 +102,17 @@ export function AppFooter() {
           </Link>
           <span>{t("by")}</span>
           <a
-            href="https://github.com/arrokh"
+            href="https://nooroctavian.id/"
             target="_blank"
             rel="noopener noreferrer"
             className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            arrokh
+            {t("footerAuthor")}
           </a>
         </p>
+        <span className="min-[520px]:col-start-2 min-[520px]:row-start-1">
+          <AppFooterLocaleSwitcher />
+        </span>
         <nav
           aria-label={t("footerNavigation")}
           className="flex items-center gap-3 text-xs font-bold text-muted-foreground min-[520px]:col-start-3 min-[520px]:row-start-1 min-[520px]:justify-self-end"
@@ -121,9 +124,6 @@ export function AppFooter() {
             {t("support")}
           </Link>
         </nav>
-        <span className="min-[520px]:col-start-1 min-[520px]:row-start-1 min-[520px]:justify-self-start">
-          <AppFooterLocaleSwitcher />
-        </span>
       </div>
     </footer>
   );

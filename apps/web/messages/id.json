@@ -14,6 +14,7 @@
     "footerNavigation": "Legal dan dukungan",
     "privacy": "Privasi",
     "support": "Dukungan",
+    "footerAuthor": "nooroctavian.id",
     "globalError": {
       "title": "Terjadi kesalahan",
       "description": "Coba lagi.",
@@ -150,7 +151,7 @@
       "github": "Repositori GitHub",
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
-      "footerAuthor": "arrokh",
+      "footerAuthor": "nooroctavian.id",
       "hostedAccess": "Brankas Lokal tidak memerlukan masuk. Hosted Vault tersedia dengan alamat email terverifikasi.",
       "comparison": {
         "eyebrow": "Penjelasan sederhana",
