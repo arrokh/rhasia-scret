@@ -4,6 +4,26 @@ This guide describes the supported deployment contract for operators running the
 
 The application is zero-knowledge with respect to Vault content. The web server and database may handle encrypted content and permitted authorization/lifecycle metadata, but must never receive or log Vault Names, authenticator labels, TOTP configuration, OTPs, QR data, Vault keys, passphrases, private keys, or decrypted content.
 
+## Contents
+
+- [Supported deployment matrix](#supported-deployment-matrix)
+- [Prerequisites and boundaries](#prerequisites-and-boundaries)
+- [Environment contract](#environment-contract)
+  - [Web and server variables](#web-and-server-variables)
+  - [Native client variables](#native-client-variables)
+- [Deployment procedure](#deployment-procedure)
+  - [1. Provision the web host](#1-provision-the-web-host)
+  - [2. Provision PostgreSQL and apply schema changes](#2-provision-postgresql-and-apply-schema-changes)
+  - [3. Configure authentication](#3-configure-authentication)
+    - [Supabase mode](#supabase-mode)
+    - [OIDC mode](#oidc-mode)
+    - [Local-only mode](#local-only-mode)
+  - [4. Configure HTTPS, passkeys, and mobile verified links](#4-configure-https-passkeys-and-mobile-verified-links)
+  - [5. Schedule retention purge](#5-schedule-retention-purge)
+- [Minimal local database path](#minimal-local-database-path)
+- [Clean deployment smoke test](#clean-deployment-smoke-test)
+- [Operational handoff checklist](#operational-handoff-checklist)
+
 ## Supported deployment matrix
 
 | Layer | Supported reference | Supported alternatives | Unsupported or unverified combinations |

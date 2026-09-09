@@ -24,7 +24,7 @@ services:
       target: migration
       args:
         COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
-    image: rhasia-scret:self-hosted-migrate-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret:migrate-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: "no"
     working_dir: /app
     environment:
@@ -44,7 +44,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
-    image: rhasia-scret:self-hosted-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: unless-stopped
     init: true
     environment:
@@ -93,7 +93,7 @@ services:
       start_period: 20s
 
   retention-purge:
-    image: rhasia-scret:self-hosted-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: unless-stopped
     init: true
     environment:
