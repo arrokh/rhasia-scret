@@ -781,6 +781,8 @@
       "eyebrow": "Accounts",
       "title": "Authenticator accounts",
       "add": "Add account",
+      "manageLabel": "Manage {issuer} {account}",
+      "manageTitle": "Manage account",
       "viewAudit": "View audit for {issuer} {account}",
       "viewUnavailableAudit": "View audit for unavailable account {id}",
       "deleteLabel": "Delete {issuer} {account}",

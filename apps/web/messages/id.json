@@ -781,6 +781,8 @@
       "eyebrow": "Akun",
       "title": "Akun autentikator",
       "add": "Tambah akun",
+      "manageLabel": "Kelola {issuer} {account}",
+      "manageTitle": "Kelola akun",
       "viewAudit": "Lihat audit {issuer} {account}",
       "viewUnavailableAudit": "Lihat audit akun yang tidak tersedia {id}",
       "deleteLabel": "Hapus {issuer} {account}",

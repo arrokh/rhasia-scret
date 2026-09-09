@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ALL_ACCOUNT_PERMISSIONS, SecureShareLinkRedemption } from "@/modules/vault-membership";
@@ -16,8 +17,10 @@ import {
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { useDeleteEncryptedAuthenticatorAccountMutation } from "./hooks/use-authenticator-account-mutations";
+import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
+import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
 
 export function VaultDirectoryWorkspace({ personalVaultId }: { personalVaultId: string }) {
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
@@ -35,6 +38,7 @@ export function PersonalVaultDetailWorkspace({
 }) {
   const t = useTranslations("AuthenticatorAccount.workspace");
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
+  const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
@@ -50,25 +54,49 @@ export function PersonalVaultDetailWorkspace({
         </Button>
       </div>
     );
+  const personalVaultKey = workspace.vaults.find(
+    (vault) => vault.id === personalVaultId && vault.type === "PERSONAL",
+  )?.key;
+  if (!personalVaultKey) return <ReadOnlyWorkspaceNotice />;
   return (
-    <PersonalVaultDetails
-      vault={personalVault}
-      ownerEmail={ownerEmail}
-      onAccountDeleted={async (vaultId, accountId, expectedRevision) => {
-        await deleteAccount.mutateAsync({ vaultId, vaultType: "PERSONAL", accountId, expectedRevision });
-        setWorkspace((current) =>
-          current
-            ? {
-                ...current,
-                accounts: current.accounts.filter((account) => account.id !== accountId || account.vaultId !== vaultId),
-                unavailableAccounts: current.unavailableAccounts.filter(
-                  (account) => account.id !== accountId || account.vaultId !== vaultId,
-                ),
-              }
-            : current,
-        );
-      }}
-    />
+    <>
+      <PersonalVaultDetails
+        vault={personalVault}
+        ownerEmail={ownerEmail}
+        onAccountEdit={(summary) => {
+          const account = workspace.accounts.find(
+            (candidate) => candidate.id === summary.id && candidate.vaultId === personalVaultId,
+          );
+          if (account) setManagedAccount(account);
+        }}
+        onAccountDeleted={async (vaultId, accountId, expectedRevision) => {
+          await deleteAccount.mutateAsync({ vaultId, vaultType: "PERSONAL", accountId, expectedRevision });
+          setWorkspace((current) =>
+            current
+              ? {
+                  ...current,
+                  accounts: current.accounts.filter(
+                    (account) => account.id !== accountId || account.vaultId !== vaultId,
+                  ),
+                  unavailableAccounts: current.unavailableAccounts.filter(
+                    (account) => account.id !== accountId || account.vaultId !== vaultId,
+                  ),
+                }
+              : current,
+          );
+        }}
+      />
+      {managedAccount && (
+        <WorkspaceAuthenticatorAccountManager
+          account={managedAccount}
+          vaultKey={personalVaultKey}
+          canEdit
+          canDelete
+          onUpdated={setManagedAccount}
+          onClose={() => setManagedAccount(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -84,6 +112,7 @@ export function SharedVaultDetailWorkspace({
   const t = useTranslations("AuthenticatorAccount.workspace");
   const router = useRouter();
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
+  const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
@@ -100,62 +129,139 @@ export function SharedVaultDetailWorkspace({
       </div>
     );
   return (
-    <SharedVaultDetails
-      vault={vault}
-      ownerEmail={ownerEmail}
-      onRenamed={(updatedVaultId, name) =>
+    <>
+      <SharedVaultDetails
+        vault={vault}
+        ownerEmail={ownerEmail}
+        onAccountEdit={(summary) => {
+          const account = workspace.accounts.find(
+            (candidate) => candidate.id === summary.id && candidate.vaultId === vaultId,
+          );
+          if (account) setManagedAccount(account);
+        }}
+        onRenamed={(updatedVaultId, name) =>
+          setWorkspace((current) =>
+            current
+              ? {
+                  ...current,
+                  vaults: current.vaults.map((entry) => (entry.id === updatedVaultId ? { ...entry, name } : entry)),
+                  accounts: current.accounts.map((account) =>
+                    account.vaultId === updatedVaultId ? { ...account, vaultName: name } : account,
+                  ),
+                }
+              : current,
+          )
+        }
+        onAccountDeleted={async (updatedVaultId, accountId, expectedRevision) => {
+          try {
+            await deleteAccount.mutateAsync({
+              vaultId: updatedVaultId,
+              vaultType: "SHARED",
+              accountId,
+              expectedRevision,
+            });
+          } catch (error) {
+            if (isPermissionChange(error)) await refreshWorkspaceAuthorization();
+            throw error;
+          }
+          setWorkspace((current) =>
+            current
+              ? {
+                  ...current,
+                  accounts: current.accounts.filter(
+                    (account) => account.id !== accountId || account.vaultId !== updatedVaultId,
+                  ),
+                  unavailableAccounts: current.unavailableAccounts.filter(
+                    (account) => account.id !== accountId || account.vaultId !== updatedVaultId,
+                  ),
+                }
+              : current,
+          );
+        }}
+        onDeleted={(deletedVaultId) => {
+          setWorkspace((current) => {
+            if (!current) return current;
+            current.vaults.find((entry) => entry.id === deletedVaultId)?.key.fill(0);
+            for (const account of current.accounts) if (account.vaultId === deletedVaultId) account.secret.fill(0);
+            return {
+              ...current,
+              vaults: current.vaults.filter((entry) => entry.id !== deletedVaultId),
+              accounts: current.accounts.filter((account) => account.vaultId !== deletedVaultId),
+              unavailableAccounts: current.unavailableAccounts.filter((account) => account.vaultId !== deletedVaultId),
+            };
+          });
+          router.push("/vaults/manage");
+        }}
+      />
+      {managedAccount && (
+        <WorkspaceAuthenticatorAccountManager
+          account={managedAccount}
+          vaultKey={vault.key}
+          canEdit={vault.effectiveAccountPermissions.permissions.canEditAccounts}
+          canDelete={vault.effectiveAccountPermissions.permissions.canDeleteAccounts}
+          onPermissionChanged={refreshWorkspaceAuthorization}
+          onUpdated={setManagedAccount}
+          onClose={() => setManagedAccount(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function WorkspaceAuthenticatorAccountManager({
+  account,
+  vaultKey,
+  canEdit,
+  canDelete,
+  onPermissionChanged,
+  onUpdated,
+  onClose,
+}: {
+  account: WorkspaceAuthenticatorAccount;
+  vaultKey: Uint8Array;
+  canEdit: boolean;
+  canDelete: boolean;
+  onPermissionChanged?: () => Promise<void>;
+  onUpdated: (account: WorkspaceAuthenticatorAccount) => void;
+  onClose: () => void;
+}) {
+  const { setWorkspace } = useUnlockedVaultWorkspace();
+  return (
+    <AuthenticatorAccountManagerDialog
+      account={account}
+      vaultKey={vaultKey}
+      canEdit={canEdit}
+      canDelete={canDelete}
+      onPermissionChanged={onPermissionChanged}
+      onUpdated={(updated) => {
         setWorkspace((current) =>
           current
             ? {
                 ...current,
-                vaults: current.vaults.map((entry) => (entry.id === updatedVaultId ? { ...entry, name } : entry)),
-                accounts: current.accounts.map((account) =>
-                  account.vaultId === updatedVaultId ? { ...account, vaultName: name } : account,
+                accounts: current.accounts.map((candidate) =>
+                  candidate.id === updated.id && candidate.vaultId === updated.vaultId ? updated : candidate,
                 ),
               }
             : current,
-        )
-      }
-      onAccountDeleted={async (updatedVaultId, accountId, expectedRevision) => {
-        try {
-          await deleteAccount.mutateAsync({
-            vaultId: updatedVaultId,
-            vaultType: "SHARED",
-            accountId,
-            expectedRevision,
-          });
-        } catch (error) {
-          if (isPermissionChange(error)) await refreshWorkspaceAuthorization();
-          throw error;
-        }
+        );
+        onUpdated(updated);
+      }}
+      onDeleted={(deleted) =>
         setWorkspace((current) =>
           current
             ? {
                 ...current,
                 accounts: current.accounts.filter(
-                  (account) => account.id !== accountId || account.vaultId !== updatedVaultId,
+                  (candidate) => candidate.id !== deleted.id || candidate.vaultId !== deleted.vaultId,
                 ),
                 unavailableAccounts: current.unavailableAccounts.filter(
-                  (account) => account.id !== accountId || account.vaultId !== updatedVaultId,
+                  (candidate) => candidate.id !== deleted.id || candidate.vaultId !== deleted.vaultId,
                 ),
               }
             : current,
-        );
-      }}
-      onDeleted={(deletedVaultId) => {
-        setWorkspace((current) => {
-          if (!current) return current;
-          current.vaults.find((entry) => entry.id === deletedVaultId)?.key.fill(0);
-          for (const account of current.accounts) if (account.vaultId === deletedVaultId) account.secret.fill(0);
-          return {
-            ...current,
-            vaults: current.vaults.filter((entry) => entry.id !== deletedVaultId),
-            accounts: current.accounts.filter((account) => account.vaultId !== deletedVaultId),
-            unavailableAccounts: current.unavailableAccounts.filter((account) => account.vaultId !== deletedVaultId),
-          };
-        });
-        router.push("/vaults/manage");
-      }}
+        )
+      }
+      onClose={onClose}
     />
   );
 }

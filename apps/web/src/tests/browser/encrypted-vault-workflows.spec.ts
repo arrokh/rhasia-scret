@@ -477,6 +477,22 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
         }),
       ).toBeVisible();
 
+      await leavePage.getByRole("link", { name: "Brankas", exact: true }).click();
+      await leavePage.getByRole("link", { name: sharedName }).click();
+      const manageAccount = leavePage.getByRole("button", { name: "Kelola E2E Image image-user" });
+      await expect(manageAccount).toBeVisible();
+      await manageAccount.click();
+      const label = leavePage.getByRole("dialog").getByLabel("Label akun");
+      await label.fill("image-user-member-edited");
+      const editResponse = leavePage.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          response.url().endsWith(`/api/shared-vaults/${sharedVaultId}/accounts`),
+      );
+      await leavePage.getByRole("dialog").getByRole("button", { name: "Simpan label" }).click();
+      expect((await editResponse).status()).toBe(200);
+      await expect(leavePage.getByText("Label akun diperbarui.")).toBeVisible();
+
       const deleteStatus = await leavePage.evaluate(
         async ({ vaultId }) => {
           const bundle = (await fetch("/api/sync/offline-bundle").then((response) => response.json())) as {
