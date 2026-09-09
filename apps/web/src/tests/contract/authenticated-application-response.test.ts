@@ -10,7 +10,9 @@ describe("authenticated application HTTP response mapping", () => {
     [{ status: "rate_limited", retryAfterSeconds: 17 } as const, 429, "17"],
     [{ status: "rate_limit_unavailable", retryAfterSeconds: 5 } as const, 503, "5"],
   ])("maps %j to status %i", async (result, status, retryAfter) => {
-    const response = authenticatedApplicationFailureResponse(result as Exclude<AuthenticatedApplicationResult, { status: "allowed" }>);
+    const response = authenticatedApplicationFailureResponse(
+      result as Exclude<AuthenticatedApplicationResult, { status: "allowed" }>,
+    );
 
     expect(response.status).toBe(status);
     await expect(response.json()).resolves.toEqual({ error: result.status });

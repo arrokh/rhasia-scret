@@ -1,18 +1,34 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createPersonalAccountRepository, type PersonalAccountRepository } from "@/modules/authenticator-account/server";
+import {
+  createPersonalAccountRepository,
+  type PersonalAccountRepository,
+} from "@/modules/authenticator-account/server";
 import type { ApplicationUser, SessionAssurance } from "@/modules/identity";
-import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
+import {
+  authenticateApplicationMutation,
+  authenticateApplicationReader,
+} from "@/shared/infrastructure/authenticated-application-request";
 
-const payloadSchema = z.object({ encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13), encryptionVersion: z.literal(1), source: z.literal("LOCAL_VAULT_COPY").optional() });
-const updateSchema = payloadSchema.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
+const payloadSchema = z.object({
+  encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
+  encryptionVersion: z.literal(1),
+  source: z.literal("LOCAL_VAULT_COPY").optional(),
+});
+const updateSchema = payloadSchema.extend({
+  accountId: z.string().min(1),
+  expectedRevision: z.number().int().positive(),
+});
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
 const restoreSchema = z.object({ accountId: z.string().min(1) });
 type ApplicationAuthenticationResult = ApplicationUser | NextResponse;
 type Dependencies = {
   authenticateReader(assurance: SessionAssurance): Promise<ApplicationAuthenticationResult>;
-  authenticateMutation(operation: "account_mutation", assurance: SessionAssurance): Promise<ApplicationAuthenticationResult>;
+  authenticateMutation(
+    operation: "account_mutation",
+    assurance: SessionAssurance,
+  ): Promise<ApplicationAuthenticationResult>;
   accounts: PersonalAccountRepository;
 };
 type Context = { params: Promise<{ vaultId: string }> };
@@ -32,7 +48,14 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
         if (current instanceof NextResponse) return current;
         const { vaultId } = await params;
         const list = await accounts.list(current.id, vaultId);
-        return NextResponse.json(list.map((account) => ({ id: account.id, encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"), encryptionVersion: account.encryptionVersion, revision: account.revision })));
+        return NextResponse.json(
+          list.map((account) => ({
+            id: account.id,
+            encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"),
+            encryptionVersion: account.encryptionVersion,
+            revision: account.revision,
+          })),
+        );
       } catch {
         return NextResponse.json({ error: "vault_unavailable" }, { status: 404 });
       }
@@ -44,7 +67,11 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
         const parsed = payloadSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
-        const account = await accounts.create(current.id, vaultId, { encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"), encryptionVersion: parsed.data.encryptionVersion, source: parsed.data.source });
+        const account = await accounts.create(current.id, vaultId, {
+          encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"),
+          encryptionVersion: parsed.data.encryptionVersion,
+          source: parsed.data.source,
+        });
         return NextResponse.json({ id: account.id, revision: account.revision }, { status: 201 });
       } catch {
         return NextResponse.json({ error: "vault_unavailable" }, { status: 404 });
@@ -57,11 +84,19 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
         const parsed = updateSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
-        const account = await accounts.update(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision, {
-          encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"),
-          encryptionVersion: parsed.data.encryptionVersion
-        });
-        return account ? NextResponse.json({ id: account.id, revision: account.revision }) : NextResponse.json({ error: "stale_revision" }, { status: 409 });
+        const account = await accounts.update(
+          current.id,
+          vaultId,
+          parsed.data.accountId,
+          parsed.data.expectedRevision,
+          {
+            encryptedPayload: Buffer.from(parsed.data.encryptedPayload, "base64"),
+            encryptionVersion: parsed.data.encryptionVersion,
+          },
+        );
+        return account
+          ? NextResponse.json({ id: account.id, revision: account.revision })
+          : NextResponse.json({ error: "stale_revision" }, { status: 409 });
       } catch {
         return NextResponse.json({ error: "vault_unavailable" }, { status: 404 });
       }
@@ -73,7 +108,7 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
         const parsed = deleteSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
-        return await accounts.delete(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision)
+        return (await accounts.delete(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision))
           ? new NextResponse(null, { status: 204 })
           : NextResponse.json({ error: "stale_revision" }, { status: 409 });
       } catch {
@@ -87,20 +122,20 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
         const parsed = restoreSchema.safeParse(await request.json());
         if (!parsed.success) return NextResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
-        return await accounts.restore(current.id, vaultId, parsed.data.accountId)
+        return (await accounts.restore(current.id, vaultId, parsed.data.accountId))
           ? new NextResponse(null, { status: 204 })
           : NextResponse.json({ error: "account_unavailable" }, { status: 404 });
       } catch {
         return NextResponse.json({ error: "vault_unavailable" }, { status: 404 });
       }
-    }
+    },
   };
 }
 
 const handlers = createPersonalAccountsHandlers({
   authenticateReader: authenticateApplicationReader,
   authenticateMutation: authenticateApplicationMutation,
-  accounts: createPersonalAccountRepository()
+  accounts: createPersonalAccountRepository(),
 });
 export const GET = handlers.GET;
 export const POST = handlers.POST;

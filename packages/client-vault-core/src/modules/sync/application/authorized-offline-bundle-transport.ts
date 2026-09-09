@@ -2,7 +2,10 @@ import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../shar
 import { parseEncryptedOfflineVaultBundle, type EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
 
 export class AuthorizedOfflineBundleTransportError extends Error {
-  public constructor(public readonly status: number, public readonly code: string) {
+  public constructor(
+    public readonly status: number,
+    public readonly code: string,
+  ) {
     super(`Authorized offline bundle request failed with ${status} (${code}).`);
     this.name = "AuthorizedOfflineBundleTransportError";
   }
@@ -16,13 +19,14 @@ export class AuthorizedOfflineBundleTransport {
       url: "/api/sync/offline-bundle",
       method: "GET",
       headers: cached ? { "if-none-match": `"${cached.synchronizationToken}"` } : undefined,
-      cache: "no-store"
+      cache: "no-store",
     });
     if (response.status === 304) {
-      if (!cached) throw new Error("The server returned an unchanged synchronization bundle without a cached encrypted snapshot.");
+      if (!cached)
+        throw new Error("The server returned an unchanged synchronization bundle without a cached encrypted snapshot.");
       return parseEncryptedOfflineVaultBundle({
         ...cached,
-        synchronizedAt: response.headers.get("x-synchronized-at") ?? cached.synchronizedAt
+        synchronizedAt: response.headers.get("x-synchronized-at") ?? cached.synchronizedAt,
       });
     }
     if (response.status !== 200) throw await requestError(response);
@@ -34,7 +38,13 @@ async function requestError(response: PlatformHttpResponse): Promise<AuthorizedO
   let code = "request_failed";
   try {
     const value = await response.json<unknown>();
-    if (isRecord(value) && Object.keys(value).length === 1 && typeof value.error === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(value.error)) code = value.error;
+    if (
+      isRecord(value) &&
+      Object.keys(value).length === 1 &&
+      typeof value.error === "string" &&
+      /^[a-z][a-z0-9_]{0,63}$/.test(value.error)
+    )
+      code = value.error;
   } catch {
     // Normalize malformed error bodies without retaining their content.
   }

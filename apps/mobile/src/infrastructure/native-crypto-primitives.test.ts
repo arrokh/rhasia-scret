@@ -16,7 +16,9 @@ describe("NativeCryptoPrimitives", () => {
 
     expect(bytesToHex(ciphertext)).toBe("bc5bd2191afd37797f1e6fb8a47b8096a2b0b777c9dda5ea5808e955539d85ebf7");
     await expect(primitives.decryptAesGcm({ key, nonce, ciphertext, additionalData })).resolves.toEqual(plaintext);
-    await expect(primitives.decryptAesGcm({ key, nonce, ciphertext, additionalData: new Uint8Array() })).rejects.toThrow("authentication failed");
+    await expect(
+      primitives.decryptAesGcm({ key, nonce, ciphertext, additionalData: new Uint8Array() }),
+    ).rejects.toThrow("authentication failed");
   });
 
   it("matches the shared RFC 6238 SHA-1 protocol vector", async () => {
@@ -42,7 +44,9 @@ describe("NativeCryptoPrimitives", () => {
     const info = Uint8Array.from([0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9]);
     const derived = await primitives.deriveHkdfSha256(ikm, salt, info, 42);
 
-    expect(bytesToHex(derived)).toBe("3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
+    expect(bytesToHex(derived)).toBe(
+      "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865",
+    );
     ikm.fill(0);
     salt.fill(0);
     info.fill(0);
@@ -52,23 +56,37 @@ describe("NativeCryptoPrimitives", () => {
   it("uses the shared context-bound key-wrap protocol", async () => {
     const pair = await nativeClientCrypto.generateUserEncryptionKeyPair();
     const vaultKey = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
-    const context = { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: "native-profile", keyVersion: 1 } as const;
+    const context = {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      profileId: "native-profile",
+      keyVersion: 1,
+    } as const;
     const envelope = await nativeClientCrypto.wrapKeyForRecipientWithContext(vaultKey, pair.publicKey, context);
 
-    await expect(nativeClientCrypto.unwrapKeyForRecipientWithContext(envelope, pair.privateKey, context)).resolves.toEqual(vaultKey);
-    await expect(nativeClientCrypto.unwrapKeyForRecipientWithContext(envelope, pair.privateKey, { ...context, profileId: "other-profile" })).rejects.toThrow("authentication failed");
+    await expect(
+      nativeClientCrypto.unwrapKeyForRecipientWithContext(envelope, pair.privateKey, context),
+    ).resolves.toEqual(vaultKey);
+    await expect(
+      nativeClientCrypto.unwrapKeyForRecipientWithContext(envelope, pair.privateKey, {
+        ...context,
+        profileId: "other-profile",
+      }),
+    ).rejects.toThrow("authentication failed");
     vaultKey.fill(0);
   });
 
   it("matches the Web Crypto P-256 JWK shared-secret format", async () => {
     const alice = {
-      kty: "EC", crv: "P-256",
+      kty: "EC",
+      crv: "P-256",
       x: "axfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpY",
       y: "T-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
       d: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
     };
     const bob = {
-      kty: "EC", crv: "P-256",
+      kty: "EC",
+      crv: "P-256",
       x: "fPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXg",
       y: "B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E",
     };
@@ -95,7 +113,9 @@ describe("NativeCryptoPrimitives", () => {
   it("rejects malformed P-256 key material", async () => {
     const pair = await primitives.generateEcdhKeyPair();
 
-    await expect(primitives.deriveEcdhSharedKey(pair.privateKey, { ...pair.publicKey, x: "AQ" })).rejects.toThrow("invalid");
+    await expect(primitives.deriveEcdhSharedKey(pair.privateKey, { ...pair.publicKey, x: "AQ" })).rejects.toThrow(
+      "invalid",
+    );
   });
 });
 

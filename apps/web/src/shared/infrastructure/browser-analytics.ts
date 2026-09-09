@@ -5,7 +5,7 @@ import {
   ANALYTICS_EVENTS,
   BROWSER_ANALYTICS_CONFIG,
   normalizeAnalyticsErrorDigest,
-  normalizeAnalyticsErrorName
+  normalizeAnalyticsErrorName,
 } from "./browser-analytics-config";
 
 type PostHogClient = typeof import("posthog-js/dist/module.full.no-external").default;
@@ -43,7 +43,7 @@ export function resetAnalytics(): void {
 export function captureAnalyticsError(error: Error & { digest?: string }): void {
   captureAnalyticsEvent(ANALYTICS_EVENTS.clientError, {
     error_name: normalizeAnalyticsErrorName(error.name),
-    error_digest: normalizeAnalyticsErrorDigest(error.digest)
+    error_digest: normalizeAnalyticsErrorDigest(error.digest),
   });
 }
 
@@ -59,9 +59,11 @@ async function hashAnalyticsUserId(userId: string): Promise<string | null> {
 
 function loadPostHog(): Promise<PostHogClient | null> {
   if (!projectToken || !posthogHost) return Promise.resolve(null);
-  posthogPromise ??= import("posthog-js/dist/module.full.no-external").then(({ default: posthog }) => {
-    posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
-    return posthog;
-  }).catch(() => null);
+  posthogPromise ??= import("posthog-js/dist/module.full.no-external")
+    .then(({ default: posthog }) => {
+      posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
+      return posthog;
+    })
+    .catch(() => null);
   return posthogPromise;
 }

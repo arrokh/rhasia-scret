@@ -4,7 +4,7 @@ import type { SecureShareLinkWorkflowPorts } from "./secure-share-link-workflow-
 export async function redeemSecureShareLink(
   secret: string,
   userRootKey: Uint8Array,
-  ports: SecureShareLinkWorkflowPorts
+  ports: SecureShareLinkWorkflowPorts,
 ): Promise<void> {
   const verifier = await ports.crypto.digestSha256(new TextEncoder().encode(secret));
   let encryptedPackage: Uint8Array | undefined;
@@ -13,8 +13,13 @@ export async function redeemSecureShareLink(
     const link = await ports.transport.lookup(bytesToBase64(verifier));
     encryptedPackage = base64ToBytes(link.encryptedPackage);
     material = await ports.crypto.redeemMaterial(secret, encryptedPackage, userRootKey, link.vaultId);
-    if (bytesToBase64Url(material.linkVerifier) !== bytesToBase64Url(verifier)) throw new Error("Secure Share Link verifier mismatch.");
-    await ports.transport.redeem({ invitationId: link.id, encryptedVaultKey: bytesToBase64(material.encryptedVaultKey), keyVersion: 1 });
+    if (bytesToBase64Url(material.linkVerifier) !== bytesToBase64Url(verifier))
+      throw new Error("Secure Share Link verifier mismatch.");
+    await ports.transport.redeem({
+      invitationId: link.id,
+      encryptedVaultKey: bytesToBase64(material.encryptedVaultKey),
+      keyVersion: 1,
+    });
   } finally {
     verifier.fill(0);
     encryptedPackage?.fill(0);

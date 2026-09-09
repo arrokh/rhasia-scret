@@ -26,25 +26,25 @@ export type EffectiveSharedVaultAccountPermissions = Readonly<{
 export const NO_ACCOUNT_PERMISSIONS: SharedVaultAccountPermissions = Object.freeze({
   canAddAccounts: false,
   canEditAccounts: false,
-  canDeleteAccounts: false
+  canDeleteAccounts: false,
 });
 
 export const ALL_ACCOUNT_PERMISSIONS: SharedVaultAccountPermissions = Object.freeze({
   canAddAccounts: true,
   canEditAccounts: true,
-  canDeleteAccounts: true
+  canDeleteAccounts: true,
 });
 
 export const NO_ACCOUNT_PERMISSION_OVERRIDES: SharedVaultAccountPermissionOverrides = Object.freeze({
   canAddAccounts: null,
   canEditAccounts: null,
-  canDeleteAccounts: null
+  canDeleteAccounts: null,
 });
 
 export function effectiveSharedVaultAccountPermissions(
   role: "OWNER" | "VIEWER",
   vaultDefaults: SharedVaultAccountPermissions,
-  memberOverrides: SharedVaultAccountPermissionOverrides
+  memberOverrides: SharedVaultAccountPermissionOverrides,
 ): EffectiveSharedVaultAccountPermissions {
   if (role === "OWNER") {
     return {
@@ -52,8 +52,8 @@ export function effectiveSharedVaultAccountPermissions(
       sources: {
         canAddAccounts: "OWNER",
         canEditAccounts: "OWNER",
-        canDeleteAccounts: "OWNER"
-      }
+        canDeleteAccounts: "OWNER",
+      },
     };
   }
 
@@ -61,19 +61,19 @@ export function effectiveSharedVaultAccountPermissions(
     permissions: {
       canAddAccounts: memberOverrides.canAddAccounts ?? vaultDefaults.canAddAccounts,
       canEditAccounts: memberOverrides.canEditAccounts ?? vaultDefaults.canEditAccounts,
-      canDeleteAccounts: memberOverrides.canDeleteAccounts ?? vaultDefaults.canDeleteAccounts
+      canDeleteAccounts: memberOverrides.canDeleteAccounts ?? vaultDefaults.canDeleteAccounts,
     },
     sources: {
       canAddAccounts: memberOverrides.canAddAccounts === null ? "VAULT" : "MEMBER",
       canEditAccounts: memberOverrides.canEditAccounts === null ? "VAULT" : "MEMBER",
-      canDeleteAccounts: memberOverrides.canDeleteAccounts === null ? "VAULT" : "MEMBER"
-    }
+      canDeleteAccounts: memberOverrides.canDeleteAccounts === null ? "VAULT" : "MEMBER",
+    },
   };
 }
 
 export function canPerformSharedVaultAccountOperation(
   permissions: SharedVaultAccountPermissions,
-  operation: SharedVaultAccountPermission
+  operation: SharedVaultAccountPermission,
 ): boolean {
   if (operation === "ADD") return permissions.canAddAccounts;
   if (operation === "EDIT") return permissions.canEditAccounts;

@@ -9,5 +9,16 @@ export const dynamic = "force-dynamic";
 export default async function VaultManagementPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
   const t = await getTranslations("Preview.vaults");
-  return <AppPage><PageHeader backHref="/ui-preview" backLabel={t("back")} title={t("title")} description={t("description")} action={<LogoutForm email="preview@local.invalid" />} /><VaultManagementPreview /></AppPage>;
+  return (
+    <AppPage>
+      <PageHeader
+        backHref="/ui-preview"
+        backLabel={t("back")}
+        title={t("title")}
+        description={t("description")}
+        action={<LogoutForm email="preview@local.invalid" />}
+      />
+      <VaultManagementPreview />
+    </AppPage>
+  );
 }

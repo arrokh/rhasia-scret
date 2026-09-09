@@ -14,7 +14,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { nativeCryptoValidationEnabled, readMobileClientConfiguration, type MobileClientConfiguration } from "./src/config";
+import {
+  nativeCryptoValidationEnabled,
+  readMobileClientConfiguration,
+  type MobileClientConfiguration,
+} from "./src/config";
 import { translate, type MobileLocale } from "./src/localization";
 import { createMobileSupabaseClient } from "./src/infrastructure/mobile-supabase-client";
 import { createNativeAuthenticatedTransport } from "./src/infrastructure/native-authenticated-transport";
@@ -41,9 +45,17 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
   const [locale, setLocale] = useState<MobileLocale>("id");
   const copy = translate(locale);
   const supabase = useMemo(() => createMobileSupabaseClient(configuration), [configuration]);
-  const transport = useMemo(() => createNativeAuthenticatedTransport(configuration.apiUrl, supabase), [configuration.apiUrl, supabase]);
+  const transport = useMemo(
+    () => createNativeAuthenticatedTransport(configuration.apiUrl, supabase),
+    [configuration.apiUrl, supabase],
+  );
   const personalVaultRepository = useMemo(() => new MobilePersonalVaultRepository(transport), [transport]);
-  const { session, status, requestSignInLink, signOut, consumeSecureShareSecret } = useMobileSession(supabase, configuration.authRedirectUrl, configuration.webOrigin, transport);
+  const { session, status, requestSignInLink, signOut, consumeSecureShareSecret } = useMobileSession(
+    supabase,
+    configuration.authRedirectUrl,
+    configuration.webOrigin,
+    transport,
+  );
   const form = useForm({
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => requestSignInLink(value.email),
@@ -56,7 +68,11 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
         <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
           <View style={styles.languageRow}>
             <Text style={styles.languageLabel}>{copy.language}</Text>
-            <Pressable accessibilityRole="button" onPress={() => setLocale(locale === "id" ? "en" : "id")} style={styles.languageButton}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setLocale(locale === "id" ? "en" : "id")}
+              style={styles.languageButton}
+            >
               <Text style={styles.languageButtonText}>{copy.switchLanguage}</Text>
             </Pressable>
           </View>
@@ -64,7 +80,9 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
           <View style={styles.card}>
             <Image source={appIcon} alt="" accessibilityIgnoresInvertColors style={styles.logo} />
             <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
-            <Text accessibilityRole="header" style={styles.title}>{copy.title}</Text>
+            <Text accessibilityRole="header" style={styles.title}>
+              {copy.title}
+            </Text>
             <Text style={styles.description}>{copy.description}</Text>
 
             {session ? (
@@ -74,12 +92,20 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                 {status === "inactive" ? <Text style={styles.error}>{copy.inactiveSession}</Text> : null}
                 {status === "session_unavailable" ? <Text style={styles.error}>{copy.sessionUnavailable}</Text> : null}
                 <Text style={styles.sessionLabel}>{copy.signedInAs}</Text>
-                <Text selectable style={styles.email}>{session.user.email}</Text>
+                <Text selectable style={styles.email}>
+                  {session.user.email}
+                </Text>
                 <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.secondaryButton}>
                   <Text style={styles.secondaryButtonText}>{copy.signOut}</Text>
                 </Pressable>
                 {status === "authenticated" || status === "session_unavailable" ? (
-                  <MobilePersonalVault copy={copy} consumeSecureShareSecret={consumeSecureShareSecret} repository={personalVaultRepository} transport={transport} webOrigin={configuration.webOrigin} />
+                  <MobilePersonalVault
+                    copy={copy}
+                    consumeSecureShareSecret={consumeSecureShareSecret}
+                    repository={personalVaultRepository}
+                    transport={transport}
+                    webOrigin={configuration.webOrigin}
+                  />
                 ) : null}
               </View>
             ) : (
@@ -97,7 +123,9 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                   const error = field.state.meta.errors[0];
                   return (
                     <View style={styles.formGroup}>
-                      <Text nativeID="email-label" style={styles.label}>{copy.emailLabel}</Text>
+                      <Text nativeID="email-label" style={styles.label}>
+                        {copy.emailLabel}
+                      </Text>
                       <TextInput
                         accessibilityLabel={copy.emailLabel}
                         aria-invalid={Boolean(error)}
@@ -110,7 +138,11 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                         style={[styles.input, error ? styles.inputInvalid : null]}
                         value={field.state.value}
                       />
-                      {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{String(error)}</Text> : null}
+                      {error ? (
+                        <Text accessibilityLiveRegion="polite" style={styles.error}>
+                          {String(error)}
+                        </Text>
+                      ) : null}
                       <form.Subscribe<[boolean, boolean]> selector={(state) => [state.canSubmit, state.isSubmitting]}>
                         {([canSubmit, isSubmitting]: [boolean, boolean]) => (
                           <Pressable
@@ -119,7 +151,9 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
                             onPress={() => void form.handleSubmit()}
                             style={({ pressed }) => [styles.primaryButton, pressed ? styles.buttonPressed : null]}
                           >
-                            <Text style={styles.primaryButtonText}>{isSubmitting || status === "sending" ? copy.sendingLink : copy.sendLink}</Text>
+                            <Text style={styles.primaryButtonText}>
+                              {isSubmitting || status === "sending" ? copy.sendingLink : copy.sendLink}
+                            </Text>
                           </Pressable>
                         )}
                       </form.Subscribe>
@@ -129,10 +163,26 @@ function ConfiguredApp({ configuration }: { configuration: MobileClientConfigura
               </form.Field>
             )}
 
-            {status === "link_sent" ? <Text accessibilityLiveRegion="polite" style={styles.success}>{copy.linkSent}</Text> : null}
-            {status === "request_error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.signInFailed}</Text> : null}
-            {status === "callback_error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.callbackFailed}</Text> : null}
-            {status === "share_link_ready" ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{copy.openShareLink}</Text> : null}
+            {status === "link_sent" ? (
+              <Text accessibilityLiveRegion="polite" style={styles.success}>
+                {copy.linkSent}
+              </Text>
+            ) : null}
+            {status === "request_error" ? (
+              <Text accessibilityLiveRegion="assertive" style={styles.error}>
+                {copy.signInFailed}
+              </Text>
+            ) : null}
+            {status === "callback_error" ? (
+              <Text accessibilityLiveRegion="assertive" style={styles.error}>
+                {copy.callbackFailed}
+              </Text>
+            ) : null}
+            {status === "share_link_ready" ? (
+              <Text accessibilityLiveRegion="polite" style={styles.notice}>
+                {copy.openShareLink}
+              </Text>
+            ) : null}
             <Text style={styles.securityNote}>{copy.securityNote}</Text>
           </View>
         </ScrollView>
@@ -145,8 +195,12 @@ function ConfigurationError() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.configurationError}>
-        <Text accessibilityRole="header" style={styles.title}>rhasia-scret</Text>
-        <Text style={styles.error}>{translate("id").configurationError} / {translate("en").configurationError}</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          rhasia-scret
+        </Text>
+        <Text style={styles.error}>
+          {translate("id").configurationError} / {translate("en").configurationError}
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -171,21 +225,67 @@ const styles = StyleSheet.create({
   page: { flexGrow: 1, justifyContent: "center", padding: 20, gap: 16 },
   languageRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 },
   languageLabel: { color: colors.muted, fontSize: 13, fontWeight: "700" },
-  languageButton: { minHeight: 44, justifyContent: "center", borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 },
+  languageButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+  },
   languageButtonText: { color: colors.ink, fontWeight: "700" },
-  card: { borderRadius: 24, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 24, gap: 14 },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    padding: 24,
+    gap: 14,
+  },
   logo: { width: 72, height: 72, borderRadius: 16, alignSelf: "center" },
-  eyebrow: { color: colors.primary, textAlign: "center", textTransform: "uppercase", letterSpacing: 1.5, fontSize: 12, fontWeight: "800" },
+  eyebrow: {
+    color: colors.primary,
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    fontSize: 12,
+    fontWeight: "800",
+  },
   title: { color: colors.ink, textAlign: "center", fontSize: 28, lineHeight: 34, fontWeight: "800" },
   description: { color: colors.muted, textAlign: "center", fontSize: 16, lineHeight: 24 },
   formGroup: { gap: 8, marginTop: 8 },
   label: { color: colors.ink, fontSize: 14, fontWeight: "700" },
-  input: { minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", color: colors.ink, paddingHorizontal: 14, fontSize: 16 },
+  input: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#FFFFFF",
+    color: colors.ink,
+    paddingHorizontal: 14,
+    fontSize: 16,
+  },
   inputInvalid: { borderColor: colors.danger },
-  primaryButton: { minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, marginTop: 6 },
+  primaryButton: {
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    marginTop: 6,
+  },
   primaryButtonText: { color: "#211704", fontSize: 16, fontWeight: "800" },
   buttonPressed: { backgroundColor: colors.primaryPressed },
-  secondaryButton: { minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginTop: 8 },
+  secondaryButton: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 8,
+  },
   secondaryButtonText: { color: colors.ink, fontWeight: "800" },
   success: { color: colors.success, textAlign: "center", lineHeight: 21, fontWeight: "700" },
   error: { color: colors.danger, textAlign: "center", lineHeight: 21, fontWeight: "700" },

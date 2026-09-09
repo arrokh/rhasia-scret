@@ -10,7 +10,7 @@ describe("provider-neutral session contract", () => {
       email: "Person@Example.Test",
       emailVerified: true,
       assurance: "active-session",
-      sessionId: "session-1"
+      sessionId: "session-1",
     });
     await expect(verifier.verify("active-session")).resolves.toEqual({
       issuer: "https://issuer.example.test",
@@ -18,17 +18,32 @@ describe("provider-neutral session contract", () => {
       email: "Person@Example.Test",
       emailVerified: true,
       assurance: "active-session",
-      sessionId: "session-1"
+      sessionId: "session-1",
     });
     await expect(verifier.verify("active-session")).resolves.not.toBeNull();
   });
 
   it.each([
-    ["missing assurance", { issuer: "issuer", subject: "subject", email: "person@example.test", assurance: "verified-claims" as const }, "active-session" as const],
-    ["unverified email", { issuer: "issuer", subject: "subject", email: "person@example.test", emailVerified: false, assurance: "active-session" as const }, "active-session" as const]
+    [
+      "missing assurance",
+      { issuer: "issuer", subject: "subject", email: "person@example.test", assurance: "verified-claims" as const },
+      "active-session" as const,
+    ],
+    [
+      "unverified email",
+      {
+        issuer: "issuer",
+        subject: "subject",
+        email: "person@example.test",
+        emailVerified: false,
+        assurance: "active-session" as const,
+      },
+      "active-session" as const,
+    ],
   ])("fails closed for %s", async (_name, principal, assurance) => {
     const verifier = new FakeSessionVerifier(principal);
-    if ("emailVerified" in principal && principal.emailVerified === false) await expect(verifier.verify()).resolves.toBeNull();
+    if ("emailVerified" in principal && principal.emailVerified === false)
+      await expect(verifier.verify()).resolves.toBeNull();
     else await expect(verifier.verify(assurance)).resolves.toBeNull();
   });
 

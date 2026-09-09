@@ -13,7 +13,9 @@ export function verifyPasskeyRegistration(request: {
   return browserApiClient.postEmpty("/api/passkey-recovery/registration/verify", request);
 }
 
-export function loadPasskeyAuthenticationOptions(): Promise<PublicKeyCredentialRequestOptionsJSON & { encryptedRecoveryPackage: string }> {
+export function loadPasskeyAuthenticationOptions(): Promise<
+  PublicKeyCredentialRequestOptionsJSON & { encryptedRecoveryPackage: string }
+> {
   return browserApiClient.postJson("/api/passkey-recovery/authentication/options", undefined, { cache: "no-store" });
 }
 

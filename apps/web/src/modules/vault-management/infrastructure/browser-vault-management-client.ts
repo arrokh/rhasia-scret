@@ -44,14 +44,15 @@ export async function destructivelyResetPersonalVault(confirmation: string): Pro
   if (response.ok) return { status: "reset" };
   const error = await parseResetError(response);
   if (error.error === "invalid_confirmation") return { status: "invalid_confirmation" };
-  if (error.error === "owned_shared_vaults_exist") return { status: "owned_shared_vaults_exist", count: error.count ?? 0 };
+  if (error.error === "owned_shared_vaults_exist")
+    return { status: "owned_shared_vaults_exist", count: error.count ?? 0 };
   if (error.error === "passkey_recovery_available") return { status: "passkey_recovery_available" };
   throw new Error("Destructive reset failed.");
 }
 
 async function parseResetError(response: Response): Promise<{ error?: string; count?: number }> {
   try {
-    return await response.json() as { error?: string; count?: number };
+    return (await response.json()) as { error?: string; count?: number };
   } catch {
     return {};
   }

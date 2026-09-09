@@ -1,21 +1,51 @@
 import { describe, expect, it, vi } from "vitest";
-import { WorkspaceLifecycle, WorkspaceLifecycleCancelledError, type WorkspaceLifecyclePorts } from "../src/modules/sync/application/workspace-lifecycle";
-import type { ApplicationLifecyclePort, NetworkStatusPort, PortDisposer } from "../src/shared/application/platform-ports";
+import {
+  WorkspaceLifecycle,
+  WorkspaceLifecycleCancelledError,
+  type WorkspaceLifecyclePorts,
+} from "../src/modules/sync/application/workspace-lifecycle";
+import type {
+  ApplicationLifecyclePort,
+  NetworkStatusPort,
+  PortDisposer,
+} from "../src/shared/application/platform-ports";
 
-type Workspace = { profileId: string; syncState: "OFFLINE" | "STALE" | "SYNCING" | "CURRENT" | "AUTH_REQUIRED" | "ERROR" | "LOCAL_STORAGE_ERROR"; userRootKey: Uint8Array; value: string };
+type Workspace = {
+  profileId: string;
+  syncState: "OFFLINE" | "STALE" | "SYNCING" | "CURRENT" | "AUTH_REQUIRED" | "ERROR" | "LOCAL_STORAGE_ERROR";
+  userRootKey: Uint8Array;
+  value: string;
+};
 
 class Network implements NetworkStatusPort {
   online = true;
   listener?: (online: boolean) => void;
-  isOnline() { return this.online; }
-  subscribe(listener: (online: boolean) => void): PortDisposer { this.listener = listener; return () => { this.listener = undefined; }; }
-  change(online: boolean) { this.online = online; this.listener?.(online); }
+  isOnline() {
+    return this.online;
+  }
+  subscribe(listener: (online: boolean) => void): PortDisposer {
+    this.listener = listener;
+    return () => {
+      this.listener = undefined;
+    };
+  }
+  change(online: boolean) {
+    this.online = online;
+    this.listener?.(online);
+  }
 }
 
 class Lifecycle implements ApplicationLifecyclePort {
   listener?: (visible: boolean) => void;
-  isVisible() { return true; }
-  subscribeVisibility(listener: (visible: boolean) => void): PortDisposer { this.listener = listener; return () => { this.listener = undefined; }; }
+  isVisible() {
+    return true;
+  }
+  subscribeVisibility(listener: (visible: boolean) => void): PortDisposer {
+    this.listener = listener;
+    return () => {
+      this.listener = undefined;
+    };
+  }
 }
 
 function workspace(syncState: Workspace["syncState"] = "CURRENT", value = "old"): Workspace {
@@ -32,14 +62,31 @@ function harness(initial = workspace("CURRENT")) {
   const ports: WorkspaceLifecyclePorts<Workspace> = {
     network,
     applicationLifecycle,
-    lock: { subscribe: (listener) => { lockListener = listener; return () => { lockListener = undefined; }; } },
+    lock: {
+      subscribe: (listener) => {
+        lockListener = listener;
+        return () => {
+          lockListener = undefined;
+        };
+      },
+    },
     writes: { setReadOnly: (reason) => writeReasons.push(reason) },
     workspace: {
       refresh,
-      clear: (value) => { if (value) { cleared.push(value); value.userRootKey.fill(0); } },
-      classifyFailure: (error) => error instanceof Error && error.message === "auth" ? "AUTHENTICATION" : error instanceof Error && error.message === "storage" ? "LOCAL_STORAGE" : "SYNC",
-      readOnlyReason: (value) => `Workspace is ${value.syncState}.`
-    }
+      clear: (value) => {
+        if (value) {
+          cleared.push(value);
+          value.userRootKey.fill(0);
+        }
+      },
+      classifyFailure: (error) =>
+        error instanceof Error && error.message === "auth"
+          ? "AUTHENTICATION"
+          : error instanceof Error && error.message === "storage"
+            ? "LOCAL_STORAGE"
+            : "SYNC",
+      readOnlyReason: (value) => `Workspace is ${value.syncState}.`,
+    },
   };
   const controller = new WorkspaceLifecycle(initial, ports);
   return { applicationLifecycle, cleared, controller, lock: () => lockListener?.(), network, refresh, writeReasons };
@@ -68,7 +115,7 @@ describe("WorkspaceLifecycle", () => {
   it.each([
     [new Error("auth"), "AUTH_REQUIRED"],
     [new Error("storage"), "LOCAL_STORAGE_ERROR"],
-    [new Error("sync"), "STALE"]
+    [new Error("sync"), "STALE"],
   ] as const)("classifies reconciliation failure %s", async (failure, expected) => {
     const test = harness(workspace("OFFLINE"));
     test.refresh.mockRejectedValue(failure);
@@ -81,10 +128,15 @@ describe("WorkspaceLifecycle", () => {
     const test = harness(workspace("OFFLINE"));
     let resolveRefresh: ((value: Workspace) => void) | undefined;
     let observedCancellation = false;
-    test.refresh.mockImplementation((_key, _profileId, cancellation) => new Promise((resolve) => {
-      resolveRefresh = resolve;
-      cancellation.subscribe(() => { observedCancellation = true; });
-    }));
+    test.refresh.mockImplementation(
+      (_key, _profileId, cancellation) =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+          cancellation.subscribe(() => {
+            observedCancellation = true;
+          });
+        }),
+    );
     test.controller.start();
     await vi.waitFor(() => expect(test.refresh).toHaveBeenCalledOnce());
 
@@ -101,7 +153,12 @@ describe("WorkspaceLifecycle", () => {
   it("rejects an explicit authorization refresh when lock cancels it", async () => {
     const test = harness(workspace("CURRENT"));
     let resolveRefresh: ((value: Workspace) => void) | undefined;
-    test.refresh.mockImplementation(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+    test.refresh.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
     test.controller.start();
 
     const refreshing = test.controller.refreshAuthorization();

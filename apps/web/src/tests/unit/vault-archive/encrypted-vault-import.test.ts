@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { hasDuplicateImportedAccountIds, type EncryptedImportedAccount } from "@/modules/vault-archive/domain/encrypted-vault-import";
+import {
+  hasDuplicateImportedAccountIds,
+  type EncryptedImportedAccount,
+} from "@/modules/vault-archive/domain/encrypted-vault-import";
 
 const account = (id: string): EncryptedImportedAccount => ({
   id,
   encryptedPayload: Uint8Array.of(1, 2, 3),
-  encryptionVersion: 1
+  encryptionVersion: 1,
 });
 
 describe("encrypted Vault archive import identifiers", () => {

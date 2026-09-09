@@ -6,7 +6,7 @@ import {
   InvalidDestructiveResetConfirmationError,
   PasskeyRecoveryAlreadyEnrolledError,
   destructivelyResetPersonalVault,
-  type DestructivePersonalVaultResetRepository
+  type DestructivePersonalVaultResetRepository,
 } from "@/modules/vault-management/server";
 import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
@@ -44,5 +44,5 @@ export function createDestructivePersonalVaultResetHandler({ authenticate, reset
 
 export const POST = createDestructivePersonalVaultResetHandler({
   authenticate: authenticateApplicationMutation,
-  resets: createDestructivePersonalVaultResetRepository()
+  resets: createDestructivePersonalVaultResetRepository(),
 });

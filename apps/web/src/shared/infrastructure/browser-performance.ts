@@ -7,6 +7,10 @@ export async function measureBrowserOperation<T>(name: `rhsia:${string}`, operat
     return await operation();
   } finally {
     const duration = Math.max(0, performance.now() - startedAt);
-    try { performance.measure(name, { start: startedAt, duration }); } catch { /* Performance metrics must never break product behavior. */ }
+    try {
+      performance.measure(name, { start: startedAt, duration });
+    } catch {
+      /* Performance metrics must never break product behavior. */
+    }
   }
 }

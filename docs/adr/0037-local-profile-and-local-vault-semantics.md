@@ -56,13 +56,13 @@ The local implementation requires IndexedDB, secure-context Web Crypto, authenti
 
 Use these exact concepts before implementing user-facing behavior:
 
-| Concept | English | Indonesian |
-| --- | --- | --- |
-| Device-scoped client-owned container | Local Profile | Profil Lokal |
-| Writable device-only encrypted source | Local Vault | Brankas Lokal |
-| Client-only unlock secret | Local Vault Passphrase | Passphrase Brankas Lokal |
-| Previously synchronized read-only copy | Local Vault Snapshot | Snapshot Brankas Lokal |
-| Destructive local lifecycle action | Clear Local Profile | Hapus Profil Lokal |
+| Concept                                | English                | Indonesian               |
+| -------------------------------------- | ---------------------- | ------------------------ |
+| Device-scoped client-owned container   | Local Profile          | Profil Lokal             |
+| Writable device-only encrypted source  | Local Vault            | Brankas Lokal            |
+| Client-only unlock secret              | Local Vault Passphrase | Passphrase Brankas Lokal |
+| Previously synchronized read-only copy | Local Vault Snapshot   | Snapshot Brankas Lokal   |
+| Destructive local lifecycle action     | Clear Local Profile    | Hapus Profil Lokal       |
 
 “Local Vault” must not be translated as Personal Vault, Shared Vault, or a server-derived snapshot. “Local Vault Passphrase” must not be called a PIN, authentication credential, Vault Unlock Secret, or recovery secret.
 

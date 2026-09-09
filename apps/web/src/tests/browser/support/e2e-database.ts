@@ -3,7 +3,7 @@ import { prisma } from "../../../shared/infrastructure/prisma-client";
 export async function cleanBrowserE2eUsers(emails?: string[]): Promise<void> {
   const users = await prisma.applicationUser.findMany({
     where: emails?.length ? { email: { in: emails } } : { email: { endsWith: "@browser-e2e.test" } },
-    select: { id: true }
+    select: { id: true },
   });
   const userIds = users.map(({ id }) => id);
   if (!userIds.length) return;
@@ -11,11 +11,15 @@ export async function cleanBrowserE2eUsers(emails?: string[]): Promise<void> {
   const vaultIds = ownedVaults.map(({ id }) => id);
 
   await prisma.$transaction(async (transaction) => {
-    await transaction.vaultAuditEvent.deleteMany({ where: { OR: [
-      { actorUserId: { in: userIds } },
-      { ownerId: { in: userIds } },
-      ...(vaultIds.length ? [{ vaultId: { in: vaultIds } }] : [])
-    ] } });
+    await transaction.vaultAuditEvent.deleteMany({
+      where: {
+        OR: [
+          { actorUserId: { in: userIds } },
+          { ownerId: { in: userIds } },
+          ...(vaultIds.length ? [{ vaultId: { in: vaultIds } }] : []),
+        ],
+      },
+    });
     if (vaultIds.length) {
       await transaction.authenticatorAccount.deleteMany({ where: { vaultId: { in: vaultIds } } });
       await transaction.vaultInvitation.deleteMany({ where: { vaultId: { in: vaultIds } } });

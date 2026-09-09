@@ -4,7 +4,7 @@ import { authenticateApplicationReader } from "@/shared/infrastructure/authentic
 
 export function createOfflineSyncBundleHandler({
   authenticate,
-  bundles
+  bundles,
 }: {
   authenticate: typeof authenticateApplicationReader;
   bundles: OfflineSyncBundleReader;
@@ -23,5 +23,5 @@ export function createOfflineSyncBundleHandler({
 
 export const GET = createOfflineSyncBundleHandler({
   authenticate: authenticateApplicationReader,
-  bundles: createOfflineSyncBundleReader()
+  bundles: createOfflineSyncBundleReader(),
 });

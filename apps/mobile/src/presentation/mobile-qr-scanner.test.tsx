@@ -13,7 +13,8 @@ jest.mock("expo-camera", () => ({
       Native.Pressable,
       {
         accessibilityRole: "button",
-        onPress: () => onBarcodeScanned({ data: "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example" }),
+        onPress: () =>
+          onBarcodeScanned({ data: "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example" }),
       },
       React.createElement(Native.Text, null, "Mock camera preview"),
     );
@@ -40,7 +41,9 @@ describe("MobileQrScanner", () => {
 
   it("requests permission only after an explicit user action", async () => {
     mockGranted = false;
-    const screen = await render(<MobileQrScanner copy={translate("id")} onCancel={() => undefined} onScan={() => undefined} />);
+    const screen = await render(
+      <MobileQrScanner copy={translate("id")} onCancel={() => undefined} onScan={() => undefined} />,
+    );
 
     expect(mockRequestPermission).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole("button", { name: "Izinkan kamera" }));

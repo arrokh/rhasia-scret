@@ -4,10 +4,14 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
-  restore: vi.fn()
+  restore: vi.fn(),
 }));
-vi.mock("@/modules/identity/application/load-application-user", () => ({ loadApplicationUser: async () => ({ id: "actor-1", canAccessApplication: () => true }) }));
-vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({ PrismaApplicationUserRepository: class {} }));
+vi.mock("@/modules/identity/application/load-application-user", () => ({
+  loadApplicationUser: async () => ({ id: "actor-1", canAccessApplication: () => true }),
+}));
+vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
+  PrismaApplicationUserRepository: class {},
+}));
 vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
 vi.mock("@/modules/authenticator-account/infrastructure/prisma-shared-account-repository", () => ({
   PrismaSharedAccountRepository: class {
@@ -15,7 +19,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/prisma-shared-account-re
     update = mocks.update;
     delete = mocks.delete;
     restore = mocks.restore;
-  }
+  },
 }));
 
 import { DELETE, PATCH, POST, PUT } from "@/app/api/shared-vaults/[vaultId]/accounts/route";
@@ -35,7 +39,9 @@ describe("Shared Vault account mutation routes", () => {
   });
 
   it("distinguishes missing capability from unavailable Vault access", async () => {
-    mocks.create.mockResolvedValueOnce({ status: "PERMISSION_DENIED" }).mockResolvedValueOnce({ status: "VAULT_UNAVAILABLE" });
+    mocks.create
+      .mockResolvedValueOnce({ status: "PERMISSION_DENIED" })
+      .mockResolvedValueOnce({ status: "VAULT_UNAVAILABLE" });
     const denied = await POST(request("POST", { encryptedPayload, encryptionVersion: 1 }), context);
     expect(denied.status).toBe(403);
     await expect(denied.json()).resolves.toEqual({ error: "account_permission_required" });
@@ -46,7 +52,10 @@ describe("Shared Vault account mutation routes", () => {
 
   it("preserves Account Revision conflicts for edits and deletions", async () => {
     mocks.update.mockResolvedValue({ status: "STALE_REVISION" });
-    const update = await PATCH(request("PATCH", { accountId: "account-1", expectedRevision: 2, encryptedPayload, encryptionVersion: 1 }), context);
+    const update = await PATCH(
+      request("PATCH", { accountId: "account-1", expectedRevision: 2, encryptedPayload, encryptionVersion: 1 }),
+      context,
+    );
     expect(update.status).toBe(409);
     await expect(update.json()).resolves.toEqual({ error: "stale_revision" });
 
@@ -57,7 +66,9 @@ describe("Shared Vault account mutation routes", () => {
   });
 
   it("keeps restoration owner-authorized and distinguishes an unavailable account", async () => {
-    mocks.restore.mockResolvedValueOnce({ status: "PERMISSION_DENIED" }).mockResolvedValueOnce({ status: "ACCOUNT_UNAVAILABLE" });
+    mocks.restore
+      .mockResolvedValueOnce({ status: "PERMISSION_DENIED" })
+      .mockResolvedValueOnce({ status: "ACCOUNT_UNAVAILABLE" });
     const denied = await PUT(request("PUT", { accountId: "account-1" }), context);
     expect(denied.status).toBe(403);
     const unavailable = await PUT(request("PUT", { accountId: "account-1" }), context);
@@ -66,7 +77,10 @@ describe("Shared Vault account mutation routes", () => {
   });
 
   it("strictly validates ciphertext-only request bodies", async () => {
-    const response = await POST(request("POST", { encryptedPayload, encryptionVersion: 1, plaintextSecret: "forbidden" }), context);
+    const response = await POST(
+      request("POST", { encryptedPayload, encryptionVersion: 1, plaintextSecret: "forbidden" }),
+      context,
+    );
     expect(response.status).toBe(400);
     expect(mocks.create).not.toHaveBeenCalled();
   });
@@ -76,6 +90,6 @@ function request(method: string, body: unknown) {
   return new Request("http://localhost/api/shared-vaults/vault-1/accounts", {
     method,
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   }) as never;
 }

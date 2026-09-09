@@ -57,19 +57,19 @@ Rules:
 
 ### Authorization matrix
 
-| Operation | Owner | Member |
-| --- | --- | --- |
-| Read/decrypt/generate/copy OTP | Always | Always while membership is active |
-| Add one account | Always | Effective `canAddAccounts` from member override or Vault defaults |
-| Import accounts into this existing Shared Vault | Always | Effective `canAddAccounts` |
-| Edit/replace an active account payload | Always | Effective `canEditAccounts` |
-| Soft-delete an active account | Always | Effective `canDeleteAccounts` |
-| Restore a deleted account | Always | Never |
-| Rename/delete/restore/export the Vault | Always | Never |
-| Invite/revoke/list members | Always | Never |
-| View/change member permissions | Always | Never |
-| View Vault Audit History | Always | Never |
-| Perform any mutation offline or from a stale snapshot | Never | Never |
+| Operation                                             | Owner  | Member                                                            |
+| ----------------------------------------------------- | ------ | ----------------------------------------------------------------- |
+| Read/decrypt/generate/copy OTP                        | Always | Always while membership is active                                 |
+| Add one account                                       | Always | Effective `canAddAccounts` from member override or Vault defaults |
+| Import accounts into this existing Shared Vault       | Always | Effective `canAddAccounts`                                        |
+| Edit/replace an active account payload                | Always | Effective `canEditAccounts`                                       |
+| Soft-delete an active account                         | Always | Effective `canDeleteAccounts`                                     |
+| Restore a deleted account                             | Always | Never                                                             |
+| Rename/delete/restore/export the Vault                | Always | Never                                                             |
+| Invite/revoke/list members                            | Always | Never                                                             |
+| View/change member permissions                        | Always | Never                                                             |
+| View Vault Audit History                              | Always | Never                                                             |
+| Perform any mutation offline or from a stale snapshot | Never  | Never                                                             |
 
 ## Baseline implementation gaps addressed
 
@@ -131,7 +131,7 @@ This implementation replaces those scattered account-mutation role checks with o
    - `canEditAccountsOverride Boolean?`;
    - `canDeleteAccountsOverride Boolean?`;
    - `permissionsRevision Int @default(1)`.
-   Mixed null/non-null values are valid and express independent fallback. Never collapse explicit `false` into `null`.
+     Mixed null/non-null values are valid and express independent fallback. Never collapse explicit `false` into `null`.
 5. Generate the migration only through Prisma CLI (`pnpm prisma migrate dev --name add_shared_vault_account_permissions`). Do not hand-author SQL. Non-null Vault defaults migrate existing Vaults to read-only member behavior; null member overrides make existing members inherit that baseline. Owner access remains preserved through the domain bypass.
 6. Do not add a permission index; authorization reads already use the `(vaultId, userId)` primary key.
 
@@ -173,7 +173,7 @@ This implementation replaces those scattered account-mutation role checks with o
    - new `ACCOUNT_UPDATED`;
    - new `ACCOUNT_DELETED`;
    - new `ACCOUNT_RESTORED` for owner restore.
-   Each event stores only Vault ID, owner ID, actor user ID, event type, opaque account ID, and timestamp. Failed/stale/unauthorized operations write no event.
+     Each event stores only Vault ID, owner ID, actor user ID, event type, opaque account ID, and timestamp. Failed/stale/unauthorized operations write no event.
 
 ### 5. Apply add permission to encrypted archive import
 
@@ -198,7 +198,7 @@ This implementation replaces those scattered account-mutation role checks with o
    - v2 requires `accountPermissions` on each Shared Vault;
    - v1 is normalized in memory to all-true for owners and all-false for Viewers;
    - unknown versions still fail closed.
-   This preserves existing read-only offline snapshots without trusting an old Viewer snapshot for writes.
+     This preserves existing read-only offline snapshots without trusting an old Viewer snapshot for writes.
 4. No IndexedDB store migration is required because the key/store shape is unchanged; a later successful online synchronization replaces v1 with v2.
 5. Keep all offline and stale workspaces mutation-disabled regardless of stored permissions.
 

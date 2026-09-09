@@ -13,7 +13,7 @@ export function formatJakartaAuditDateTime(value: string, locale: AppLocale): st
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false
+    hour12: false,
   });
 }
 

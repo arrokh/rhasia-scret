@@ -16,11 +16,15 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
     "expo-localization",
     "expo-secure-store",
     "expo-sharing",
-    ["expo-camera", {
-      cameraPermission: "Izinkan rhasia-scret memindai kode QR Authenticator / Allow rhasia-scret to scan Authenticator QR codes",
-      barcodeScannerEnabled: true,
-      recordAudioAndroid: false,
-    }],
+    [
+      "expo-camera",
+      {
+        cameraPermission:
+          "Izinkan rhasia-scret memindai kode QR Authenticator / Allow rhasia-scret to scan Authenticator QR codes",
+        barcodeScannerEnabled: true,
+        recordAudioAndroid: false,
+      },
+    ],
   ],
   ios: {
     bundleIdentifier: "com.arrokh.rhasiascret",
@@ -38,15 +42,19 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: "./assets/android-icon-foreground.png",
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
-    intentFilters: productionHost ? [{
-      action: "VIEW",
-      autoVerify: true,
-      category: ["BROWSABLE", "DEFAULT"],
-      data: [
-        { scheme: "https", host: productionHost, pathPrefix: "/auth/mobile" },
-        { scheme: "https", host: productionHost, pathPrefix: "/vaults/invitations/redeem" },
-      ],
-    }] : [],
+    intentFilters: productionHost
+      ? [
+          {
+            action: "VIEW",
+            autoVerify: true,
+            category: ["BROWSABLE", "DEFAULT"],
+            data: [
+              { scheme: "https", host: productionHost, pathPrefix: "/auth/mobile" },
+              { scheme: "https", host: productionHost, pathPrefix: "/vaults/invitations/redeem" },
+            ],
+          },
+        ]
+      : [],
   },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
@@ -62,7 +70,14 @@ export default mobileAppConfig;
 
 function configuredWebHostname(origin: string): string {
   const parsed = new URL(origin);
-  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
     throw new Error("EXPO_PUBLIC_WEB_ORIGIN must be an HTTPS origin without credentials, a path, query, or fragment.");
   }
   return parsed.hostname;

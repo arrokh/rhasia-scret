@@ -10,7 +10,7 @@ const granularVaultPages = [
   "src/app/vaults/manage/new/page.tsx",
   "src/app/vaults/manage/personal/page.tsx",
   "src/app/vaults/manage/[vaultId]/page.tsx",
-  "src/app/vaults/recovery/page.tsx"
+  "src/app/vaults/recovery/page.tsx",
 ];
 
 describe("granular loading boundaries", () => {
@@ -29,7 +29,10 @@ describe("granular loading boundaries", () => {
   });
 
   it("uses exact-region placeholders for permission defaults, participants, and audit history", () => {
-    const membership = readFileSync("src/modules/vault-membership/presentation/vault-membership-owner-panel.tsx", "utf8");
+    const membership = readFileSync(
+      "src/modules/vault-membership/presentation/vault-membership-owner-panel.tsx",
+      "utf8",
+    );
     const audit = readFileSync("src/modules/audit/presentation/vault-audit-history.tsx", "utf8");
     expect(membership).toContain("defaults.isPending");
     expect(membership).toContain("<FormLoadingPlaceholder");

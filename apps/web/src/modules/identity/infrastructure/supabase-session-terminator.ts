@@ -14,7 +14,7 @@ type SignOutClient = {
 type SignOutClientFactory = (
   url: string,
   key: string,
-  cookies: { getAll(): { name: string; value: string }[]; setAll(cookies: AuthCookie[]): void }
+  cookies: { getAll(): { name: string; value: string }[]; setAll(cookies: AuthCookie[]): void },
 ) => SignOutClient;
 type SupabaseConfiguration = { url: string; key: string };
 
@@ -22,14 +22,20 @@ export class SupabaseSessionTerminator implements SessionTerminator {
   public constructor(
     private readonly createClient: SignOutClientFactory = createSignOutClient,
     private readonly getCookieStore: () => Promise<AuthCookieStore> = getNextCookieStore,
-    private readonly getConfiguration: () => SupabaseConfiguration = readSupabaseConfiguration
+    private readonly getConfiguration: () => SupabaseConfiguration = readSupabaseConfiguration,
   ) {}
 
   public async terminateCurrentSession(): Promise<void> {
     const cookieStore = await this.getCookieStore();
     const testAlias = cookieStore.getAll().find(({ name }) => name === BROWSER_E2E_SESSION_COOKIE)?.value;
     if (browserE2eTestSession(testAlias)) {
-      cookieStore.set(BROWSER_E2E_SESSION_COOKIE, "", { expires: new Date(0), httpOnly: true, maxAge: 0, path: "/", sameSite: "lax" });
+      cookieStore.set(BROWSER_E2E_SESSION_COOKIE, "", {
+        expires: new Date(0),
+        httpOnly: true,
+        maxAge: 0,
+        path: "/",
+        sameSite: "lax",
+      });
       return;
     }
     const { url, key } = this.getConfiguration();
@@ -37,7 +43,7 @@ export class SupabaseSessionTerminator implements SessionTerminator {
       getAll: () => cookieStore.getAll(),
       setAll: (cookiesToSet) => {
         for (const { name, value, options } of cookiesToSet) cookieStore.set(name, value, options);
-      }
+      },
     });
     const { error } = await client.auth.signOut({ scope: "local" });
     if (error) throw new Error("Supabase logout failed.", { cause: error });
@@ -47,7 +53,7 @@ export class SupabaseSessionTerminator implements SessionTerminator {
 function createSignOutClient(
   url: string,
   key: string,
-  cookieMethods: { getAll(): { name: string; value: string }[]; setAll(cookies: AuthCookie[]): void }
+  cookieMethods: { getAll(): { name: string; value: string }[]; setAll(cookies: AuthCookie[]): void },
 ): SignOutClient {
   return createServerClient(url, key, { cookies: cookieMethods });
 }

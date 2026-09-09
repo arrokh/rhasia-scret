@@ -35,12 +35,14 @@ export async function redeemSecureShareLinkMaterialWithCrypto(
       ...(vaultId ? { vaultId } : {}),
       keyVersion: 1,
     });
-    encryptedVaultKey = crypto.serializeEncryptedEnvelope(await crypto.encryptPayloadWithContext(userRootKey, vaultKey, {
-      purpose: "vault-key-wrap",
-      payloadType: "vault-encryption-key",
-      ...(vaultId ? { vaultId } : {}),
-      keyVersion: 1,
-    }));
+    encryptedVaultKey = crypto.serializeEncryptedEnvelope(
+      await crypto.encryptPayloadWithContext(userRootKey, vaultKey, {
+        purpose: "vault-key-wrap",
+        payloadType: "vault-encryption-key",
+        ...(vaultId ? { vaultId } : {}),
+        keyVersion: 1,
+      }),
+    );
     return { linkVerifier, encryptedVaultKey };
   } catch (error) {
     linkVerifier?.fill(0);

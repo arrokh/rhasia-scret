@@ -3,10 +3,12 @@ import { redactSensitiveData } from "@/modules/crypto/application/redact-sensiti
 
 describe("redactSensitiveData", () => {
   it("removes sensitive material recursively before diagnostics", () => {
-    expect(redactSensitiveData({ event: "unlock", vaultKey: "key", detail: { otp: "123456", visible: true } })).toEqual({
-      event: "unlock",
-      vaultKey: "[REDACTED]",
-      detail: { otp: "[REDACTED]", visible: true }
-    });
+    expect(redactSensitiveData({ event: "unlock", vaultKey: "key", detail: { otp: "123456", visible: true } })).toEqual(
+      {
+        event: "unlock",
+        vaultKey: "[REDACTED]",
+        detail: { otp: "[REDACTED]", visible: true },
+      },
+    );
   });
 });

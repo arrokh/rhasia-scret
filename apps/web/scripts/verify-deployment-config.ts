@@ -8,7 +8,8 @@ const errors: string[] = [];
 const checked = new Set<string>();
 const backend = process.env.AUTH_BACKEND?.trim() || "supabase";
 
-if (production && !process.env.AUTH_BACKEND?.trim()) errors.push("AUTH_BACKEND must be set explicitly for a production deployment.");
+if (production && !process.env.AUTH_BACKEND?.trim())
+  errors.push("AUTH_BACKEND must be set explicitly for a production deployment.");
 if (!(["none", "supabase", "oidc"] as const).includes(backend as "none" | "supabase" | "oidc")) {
   errors.push("AUTH_BACKEND must be none, supabase, or oidc.");
 }
@@ -48,7 +49,8 @@ if (passkeyRpId || passkeyOrigin) {
       if (origin.pathname !== "/" || origin.search || origin.hash || origin.username || origin.password) {
         errors.push("PASSKEY_ORIGIN must contain only an origin.");
       }
-      if (passkeyRpId && origin.hostname !== passkeyRpId) errors.push("PASSKEY_RP_ID must match the PASSKEY_ORIGIN hostname.");
+      if (passkeyRpId && origin.hostname !== passkeyRpId)
+        errors.push("PASSKEY_RP_ID must match the PASSKEY_ORIGIN hostname.");
     } catch {
       // validateHttpsOrigin has already reported the malformed value.
     }
@@ -59,7 +61,7 @@ validateOptionalPattern("MOBILE_APPLE_TEAM_ID", /^[A-Z0-9]{10}$/, "must be a 10-
 validateOptionalPattern(
   "MOBILE_ANDROID_CERT_SHA256",
   /^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}(?:,\s*(?:[A-F0-9]{2}:){31}[A-F0-9]{2})*$/,
-  "must contain one or more comma-separated uppercase colon-delimited SHA-256 fingerprints"
+  "must contain one or more comma-separated uppercase colon-delimited SHA-256 fingerprints",
 );
 
 const cronSecret = process.env.CRON_SECRET?.trim();
@@ -98,11 +100,15 @@ function validateHttpsOrigin(name: string, originOnly: boolean): void {
   if (!value) return;
   try {
     const parsed = new URL(value);
-    if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && !production && ["localhost", "127.0.0.1"].includes(parsed.hostname))) {
+    if (
+      parsed.protocol !== "https:" &&
+      !(parsed.protocol === "http:" && !production && ["localhost", "127.0.0.1"].includes(parsed.hostname))
+    ) {
       errors.push(`${name} must use HTTPS${production ? " in production" : ""}.`);
     }
     if (parsed.username || parsed.password) errors.push(`${name} must not contain credentials.`);
-    if (originOnly && (parsed.pathname !== "/" || parsed.search || parsed.hash)) errors.push(`${name} must contain only an origin.`);
+    if (originOnly && (parsed.pathname !== "/" || parsed.search || parsed.hash))
+      errors.push(`${name} must contain only an origin.`);
   } catch {
     errors.push(`${name} must be a valid URL.`);
   }
@@ -112,7 +118,10 @@ function validateOptionalEmails(): void {
   const value = process.env.AUTH_ADMITTED_EMAILS?.trim();
   if (!value) return;
   checked.add("AUTH_ADMITTED_EMAILS");
-  const invalid = value.split(",").map((email) => email.trim()).some((email) => !/^[^@\s]+@[^@\s]+$/.test(email));
+  const invalid = value
+    .split(",")
+    .map((email) => email.trim())
+    .some((email) => !/^[^@\s]+@[^@\s]+$/.test(email));
   if (invalid) errors.push("AUTH_ADMITTED_EMAILS must contain comma-separated email addresses.");
 }
 

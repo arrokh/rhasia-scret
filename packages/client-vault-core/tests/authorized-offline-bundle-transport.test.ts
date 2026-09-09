@@ -6,7 +6,7 @@ import {
   type AuthenticatedTransport,
   type EncryptedOfflineVaultBundle,
   type PlatformHttpRequest,
-  type PlatformHttpResponse
+  type PlatformHttpResponse,
 } from "../src";
 
 describe("AuthorizedOfflineBundleTransport", () => {
@@ -15,12 +15,14 @@ describe("AuthorizedOfflineBundleTransport", () => {
     const transport = new StubTransport(response(304, null, { "x-synchronized-at": "2026-09-01T01:00:00.000Z" }));
     const protocol = new AuthorizedOfflineBundleTransport(transport);
     await expect(protocol.fetch(cached)).resolves.toEqual({ ...cached, synchronizedAt: "2026-09-01T01:00:00.000Z" });
-    expect(transport.requests).toEqual([{
-      url: "/api/sync/offline-bundle",
-      method: "GET",
-      headers: { "if-none-match": '"sync_token_1"' },
-      cache: "no-store"
-    }]);
+    expect(transport.requests).toEqual([
+      {
+        url: "/api/sync/offline-bundle",
+        method: "GET",
+        headers: { "if-none-match": '"sync_token_1"' },
+        cache: "no-store",
+      },
+    ]);
   });
 
   it("forwards opaque synchronization tokens accepted by the bundle contract", async () => {
@@ -37,14 +39,20 @@ describe("AuthorizedOfflineBundleTransport", () => {
   });
 
   it("rejects an unconditioned 304 and malformed synchronization timestamps", async () => {
-    await expect(new AuthorizedOfflineBundleTransport(new StubTransport(response(304, null))).fetch())
-      .rejects.toThrow("without a cached encrypted snapshot");
-    await expect(new AuthorizedOfflineBundleTransport(new StubTransport(response(304, null, { "x-synchronized-at": "not-a-time" }))).fetch(fixture()))
-      .rejects.toThrow("synchronizedAt is invalid");
+    await expect(new AuthorizedOfflineBundleTransport(new StubTransport(response(304, null))).fetch()).rejects.toThrow(
+      "without a cached encrypted snapshot",
+    );
+    await expect(
+      new AuthorizedOfflineBundleTransport(
+        new StubTransport(response(304, null, { "x-synchronized-at": "not-a-time" })),
+      ).fetch(fixture()),
+    ).rejects.toThrow("synchronizedAt is invalid");
   });
 
   it("normalizes authorized retrieval failures", async () => {
-    const protocol = new AuthorizedOfflineBundleTransport(new StubTransport(response(401, { error: "unauthenticated" })));
+    const protocol = new AuthorizedOfflineBundleTransport(
+      new StubTransport(response(401, { error: "unauthenticated" })),
+    );
     await expect(protocol.fetch()).rejects.toEqual(new AuthorizedOfflineBundleTransportError(401, "unauthenticated"));
   });
 });
@@ -63,9 +71,9 @@ function response(status: number, body: unknown, headers: Record<string, string>
     status,
     ok: status >= 200 && status < 300,
     headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-    json: async <Value,>() => body as Value,
+    json: async <Value>() => body as Value,
     bytes: async () => new Uint8Array(),
-    text: async () => body === null ? "" : JSON.stringify(body)
+    text: async () => (body === null ? "" : JSON.stringify(body)),
   };
 }
 
@@ -79,16 +87,16 @@ function fixture(): EncryptedOfflineVaultBundle {
       vaultUnlockSalt: bytesToBase64(new Uint8Array(16).fill(1)),
       wrappedUserRootKey: envelope(2),
       encryptedPersonalVaultKey: envelope(3),
-      encryptionVersion: 1
+      encryptionVersion: 1,
     },
     personalVault: {
       vaultId: "vault_1",
       lifecycle: "ACTIVE",
       encryptedName: envelope(4),
       encryptionVersion: 1,
-      accounts: []
+      accounts: [],
     },
-    sharedVaults: []
+    sharedVaults: [],
   };
 }
 

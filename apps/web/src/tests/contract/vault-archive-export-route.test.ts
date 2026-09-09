@@ -4,7 +4,8 @@ import { ApplicationUser } from "@/modules/identity";
 import { createVaultArchiveExportAuditHandler } from "@/app/api/vaults/[vaultId]/archive-exports/route";
 
 describe("Vault archive export audit route", () => {
-  const authenticate = async () => new ApplicationUser("owner-1", "supabase", "subject-1", "owner@example.test", "ACTIVE");
+  const authenticate = async () =>
+    new ApplicationUser("owner-1", "supabase", "subject-1", "owner@example.test", "ACTIVE");
 
   it("records a redacted owner-authorized event for a bodyless request", async () => {
     const audit = { recordArchiveExport: vi.fn(async () => true), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };
@@ -20,8 +21,12 @@ describe("Vault archive export audit route", () => {
     const POST = createVaultArchiveExportAuditHandler({ authenticate, audit });
     const request = new Request("http://localhost/api", {
       method: "POST",
-      body: new ReadableStream({ start(controller) { controller.close(); } }),
-      duplex: "half"
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+      duplex: "half",
     } as RequestInit & { duplex: "half" });
     const response = await POST(request as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
     expect(response.status).toBe(204);
@@ -31,15 +36,24 @@ describe("Vault archive export audit route", () => {
   it("rejects request content without auditing it", async () => {
     const audit = { recordArchiveExport: vi.fn(async () => true), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };
     const POST = createVaultArchiveExportAuditHandler({ authenticate, audit });
-    const response = await POST(new Request("http://localhost/api", { method: "POST", body: "sensitive-content-must-not-be-read" }) as never, { params: Promise.resolve({ vaultId: "vault-1" }) });
+    const response = await POST(
+      new Request("http://localhost/api", { method: "POST", body: "sensitive-content-must-not-be-read" }) as never,
+      { params: Promise.resolve({ vaultId: "vault-1" }) },
+    );
     expect(response.status).toBe(400);
     expect(audit.recordArchiveExport).not.toHaveBeenCalled();
   });
 
   it("does not release success when ownership authorization fails", async () => {
-    const audit = { recordArchiveExport: vi.fn(async () => false), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };
+    const audit = {
+      recordArchiveExport: vi.fn(async () => false),
+      recordAccountAccess: vi.fn(),
+      listForOwner: vi.fn(),
+    };
     const POST = createVaultArchiveExportAuditHandler({ authenticate, audit });
-    const response = await POST(new Request("http://localhost/api", { method: "POST" }) as never, { params: Promise.resolve({ vaultId: "viewer-vault" }) });
+    const response = await POST(new Request("http://localhost/api", { method: "POST" }) as never, {
+      params: Promise.resolve({ vaultId: "viewer-vault" }),
+    });
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "owner_access_required" });
   });

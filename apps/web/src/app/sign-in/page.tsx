@@ -12,7 +12,11 @@ import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-f
 export const dynamic = "force-dynamic";
 
 type SignInPageProps = { searchParams: Promise<{ auth?: string | string[] }> };
-type AuthNotice = { key: "required" | "signedOut" | "logoutFailed" | "missingCode" | "configurationError" | "verificationFailed"; role: "alert" | "status"; tone: "danger" | "success" | "info" };
+type AuthNotice = {
+  key: "required" | "signedOut" | "logoutFailed" | "missingCode" | "configurationError" | "verificationFailed";
+  role: "alert" | "status";
+  tone: "danger" | "success" | "info";
+};
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const t = await getTranslations("Home.signIn");
@@ -27,20 +31,43 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     <AppPage centered>
       <SurfaceCard className="w-full max-w-md px-5 py-7 sm:px-8 sm:py-9" aria-labelledby="page-title">
         <div className="flex flex-col items-center">
-          <h1 id="page-title"><Brand /></h1>
+          <h1 id="page-title">
+            <Brand />
+          </h1>
           <p className="mt-5 text-center text-sm leading-6 text-muted-foreground">{t("tagline")}</p>
         </div>
         <div className="mt-6 grid gap-5">
-          {notice && <StatusBanner tone={notice.tone} role={notice.role}>{t(`notice.${notice.key}`)}</StatusBanner>}
+          {notice && (
+            <StatusBanner tone={notice.tone} role={notice.role}>
+              {t(`notice.${notice.key}`)}
+            </StatusBanner>
+          )}
           {backend === "supabase" && <EmailSignInForm />}
-          {backend === "oidc" && <Button asChild><Link href="/auth/oidc">{t("oidcSignIn")}</Link></Button>}
-          {backend === "none" && <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>}
+          {backend === "oidc" && (
+            <Button asChild>
+              <Link href="/auth/oidc">{t("oidcSignIn")}</Link>
+            </Button>
+          )}
+          {backend === "none" && (
+            <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>
+          )}
           {backend !== "none" && <Separator />}
-          <Button variant="outline" asChild><Link href="/local"><Laptop aria-hidden="true" />{t("openLocalVault")}</Link></Button>
-          <Button variant="outline" asChild><Link href="/offline">{t("openOffline")}</Link></Button>
-          <p className="text-center text-xs leading-5 text-muted-foreground">{t(backend === "none" ? "localOnly" : backend === "supabase" ? "emailAccess" : "organizationAccess")}</p>
+          <Button variant="outline" asChild>
+            <Link href="/local">
+              <Laptop aria-hidden="true" />
+              {t("openLocalVault")}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/offline">{t("openOffline")}</Link>
+          </Button>
+          <p className="text-center text-xs leading-5 text-muted-foreground">
+            {t(backend === "none" ? "localOnly" : backend === "supabase" ? "emailAccess" : "organizationAccess")}
+          </p>
           <Separator />
-          <Button variant="ghost" asChild><Link href="/">{t("backHome")}</Link></Button>
+          <Button variant="ghost" asChild>
+            <Link href="/">{t("backHome")}</Link>
+          </Button>
         </div>
       </SurfaceCard>
     </AppPage>

@@ -9,19 +9,19 @@ export default [
       parserOptions: {
         ecmaFeatures: { jsx: true },
         sourceType: "module",
-        ecmaVersion: "latest"
-      }
+        ecmaVersion: "latest",
+      },
     },
     rules: {
       "no-undef": "off",
-      "no-unused-vars": "off"
-    }
+      "no-unused-vars": "off",
+    },
   },
   {
     files: ["**/*.{js,jsx}"],
     rules: {
       "no-undef": "off",
-      "no-unused-vars": "off"
-    }
-  }
+      "no-unused-vars": "off",
+    },
+  },
 ];

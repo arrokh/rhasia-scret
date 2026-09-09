@@ -7,8 +7,13 @@ const subjects: string[] = [];
 
 afterEach(async () => {
   if (subjects.length) {
-    const identities = await prisma.externalIdentity.findMany({ where: { subject: { in: subjects.splice(0) } }, select: { applicationUserId: true } });
-    await prisma.applicationUser.deleteMany({ where: { id: { in: identities.map(({ applicationUserId }) => applicationUserId) } } });
+    const identities = await prisma.externalIdentity.findMany({
+      where: { subject: { in: subjects.splice(0) } },
+      select: { applicationUserId: true },
+    });
+    await prisma.applicationUser.deleteMany({
+      where: { id: { in: identities.map(({ applicationUserId }) => applicationUserId) } },
+    });
   }
 });
 
@@ -17,7 +22,13 @@ describe("PrismaApplicationUserRepository", () => {
     const subject = randomUUID();
     subjects.push(subject);
     const repository = new PrismaApplicationUserRepository();
-    const principal = { issuer: "supabase", subject, email: "first@example.test", emailVerified: true, assurance: "fresh-provider-user" as const };
+    const principal = {
+      issuer: "supabase",
+      subject,
+      email: "first@example.test",
+      emailVerified: true,
+      assurance: "fresh-provider-user" as const,
+    };
     const first = await repository.provision(principal);
     const second = await repository.provision({ ...principal, email: "second@example.test" });
 
@@ -26,29 +37,53 @@ describe("PrismaApplicationUserRepository", () => {
     await expect(prisma.externalIdentity.count({ where: { issuer: "supabase", subject } })).resolves.toBe(1);
   });
 
-  it.skipIf(!process.env.DATABASE_URL)("provisions one Application User when concurrent requests race on the same external identity", async () => {
-    const subject = randomUUID();
-    subjects.push(subject);
-    const repository = new PrismaApplicationUserRepository();
-    const principal = { issuer: "oidc", subject, email: "concurrent@example.test", emailVerified: true, assurance: "active-session" as const };
+  it.skipIf(!process.env.DATABASE_URL)(
+    "provisions one Application User when concurrent requests race on the same external identity",
+    async () => {
+      const subject = randomUUID();
+      subjects.push(subject);
+      const repository = new PrismaApplicationUserRepository();
+      const principal = {
+        issuer: "oidc",
+        subject,
+        email: "concurrent@example.test",
+        emailVerified: true,
+        assurance: "active-session" as const,
+      };
 
-    const [first, second] = await Promise.all([repository.provision(principal), repository.provision(principal)]);
+      const [first, second] = await Promise.all([repository.provision(principal), repository.provision(principal)]);
 
-    expect(second.id).toBe(first.id);
-    await expect(prisma.externalIdentity.count({ where: { issuer: "oidc", subject } })).resolves.toBe(1);
-  });
+      expect(second.id).toBe(first.id);
+      await expect(prisma.externalIdentity.count({ where: { issuer: "oidc", subject } })).resolves.toBe(1);
+    },
+  );
 
-  it.skipIf(!process.env.DATABASE_URL)("does not write an unchanged existing user during a normal read path", async () => {
-    const subject = randomUUID();
-    subjects.push(subject);
-    const repository = new PrismaApplicationUserRepository();
-    const principal = { issuer: "supabase", subject, email: "stable@example.test", emailVerified: true, assurance: "fresh-provider-user" as const };
-    const user = await repository.provision(principal);
-    const before = await prisma.applicationUser.findUniqueOrThrow({ where: { id: user.id }, select: { updatedAt: true } });
+  it.skipIf(!process.env.DATABASE_URL)(
+    "does not write an unchanged existing user during a normal read path",
+    async () => {
+      const subject = randomUUID();
+      subjects.push(subject);
+      const repository = new PrismaApplicationUserRepository();
+      const principal = {
+        issuer: "supabase",
+        subject,
+        email: "stable@example.test",
+        emailVerified: true,
+        assurance: "fresh-provider-user" as const,
+      };
+      const user = await repository.provision(principal);
+      const before = await prisma.applicationUser.findUniqueOrThrow({
+        where: { id: user.id },
+        select: { updatedAt: true },
+      });
 
-    await repository.provision(principal);
+      await repository.provision(principal);
 
-    const after = await prisma.applicationUser.findUniqueOrThrow({ where: { id: user.id }, select: { updatedAt: true } });
-    expect(after.updatedAt).toEqual(before.updatedAt);
-  });
+      const after = await prisma.applicationUser.findUniqueOrThrow({
+        where: { id: user.id },
+        select: { updatedAt: true },
+      });
+      expect(after.updatedAt).toEqual(before.updatedAt);
+    },
+  );
 });

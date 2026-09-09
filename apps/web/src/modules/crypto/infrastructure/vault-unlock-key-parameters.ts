@@ -1,1 +1,6 @@
-export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, VAULT_UNLOCK_KEY_BYTES } from "@rhasia-scret/client-vault-core";
+export {
+  ARGON2_ITERATIONS,
+  ARGON2_MEMORY_KIB,
+  ARGON2_PARALLELISM,
+  VAULT_UNLOCK_KEY_BYTES,
+} from "@rhasia-scret/client-vault-core";

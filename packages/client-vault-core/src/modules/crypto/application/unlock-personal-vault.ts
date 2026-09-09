@@ -58,9 +58,18 @@ export async function unlockPersonalVault(
       ports.crypto,
     );
     if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
-    const migratedProfile = wrappedUserRootKey.version === 1 || encryptedPersonalVaultKey.version === 1
-      ? await migrateLegacyProfile(profile, unlockKey, userRootKey, personalVaultKey, wrappedUserRootKey, encryptedPersonalVaultKey, ports.crypto)
-      : undefined;
+    const migratedProfile =
+      wrappedUserRootKey.version === 1 || encryptedPersonalVaultKey.version === 1
+        ? await migrateLegacyProfile(
+            profile,
+            unlockKey,
+            userRootKey,
+            personalVaultKey,
+            wrappedUserRootKey,
+            encryptedPersonalVaultKey,
+            ports.crypto,
+          )
+        : undefined;
     return { userRootKey, personalVaultKey, migratedProfile };
   } catch (error) {
     userRootKey?.fill(0);
@@ -110,20 +119,26 @@ async function migrateLegacyProfile(
   encryptedPersonalVaultKey: EncryptedEnvelope,
   crypto: ClientCryptoPort,
 ): Promise<EncryptedPersonalVaultProfile> {
-  const migratedWrappedUserRootKey = wrappedUserRootKey.version === 1
-    ? crypto.serializeEncryptedEnvelope(await crypto.encryptPayloadWithContext(
-      unlockKey,
-      userRootKey,
-      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
-    ))
-    : profile.wrappedUserRootKey.slice();
-  const migratedPersonalVaultKey = encryptedPersonalVaultKey.version === 1
-    ? crypto.serializeEncryptedEnvelope(await crypto.encryptPayloadWithContext(
-      userRootKey,
-      personalVaultKey,
-      { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
-    ))
-    : profile.encryptedPersonalVaultKey.slice();
+  const migratedWrappedUserRootKey =
+    wrappedUserRootKey.version === 1
+      ? crypto.serializeEncryptedEnvelope(
+          await crypto.encryptPayloadWithContext(unlockKey, userRootKey, {
+            purpose: "user-root-key-wrap",
+            payloadType: "user-root-key",
+            keyVersion: 1,
+          }),
+        )
+      : profile.wrappedUserRootKey.slice();
+  const migratedPersonalVaultKey =
+    encryptedPersonalVaultKey.version === 1
+      ? crypto.serializeEncryptedEnvelope(
+          await crypto.encryptPayloadWithContext(userRootKey, personalVaultKey, {
+            purpose: "vault-key-wrap",
+            payloadType: "vault-encryption-key",
+            keyVersion: 1,
+          }),
+        )
+      : profile.encryptedPersonalVaultKey.slice();
   return {
     vaultUnlockSalt: profile.vaultUnlockSalt.slice(),
     wrappedUserRootKey: migratedWrappedUserRootKey,

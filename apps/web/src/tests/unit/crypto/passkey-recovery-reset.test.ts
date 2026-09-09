@@ -12,22 +12,30 @@ const mocks = vi.hoisted(() => ({
   authenticatePasskey: vi.fn(async () => ({ response: { id: "credential-response" }, prfOutput: Uint8Array.of(3, 4) })),
   evaluatePasskeyPrf: vi.fn(async () => Uint8Array.of(3, 4)),
   passkeyRecoverySalt: vi.fn(() => Uint8Array.of(5, 6)),
-  recoverUserRootKeyFromPasskeyPackage: vi.fn(async () => ({ userRootKey: Uint8Array.of(7, 8), prfSalt: Uint8Array.of(5, 6) })),
-  wrapUserRootKeyWithVaultUnlockSecret: vi.fn(async () => ({ vaultUnlockSalt: new Uint8Array(16), wrappedUserRootKey: new Uint8Array(13) }))
+  recoverUserRootKeyFromPasskeyPackage: vi.fn(async () => ({
+    userRootKey: Uint8Array.of(7, 8),
+    prfSalt: Uint8Array.of(5, 6),
+  })),
+  wrapUserRootKeyWithVaultUnlockSecret: vi.fn(async () => ({
+    vaultUnlockSalt: new Uint8Array(16),
+    wrappedUserRootKey: new Uint8Array(13),
+  })),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.routerReplace }) }));
-vi.mock("@/modules/crypto/presentation/generate-vault-unlock-secret", () => ({ generateVaultUnlockSecret: mocks.generateVaultUnlockSecret }));
+vi.mock("@/modules/crypto/presentation/generate-vault-unlock-secret", () => ({
+  generateVaultUnlockSecret: mocks.generateVaultUnlockSecret,
+}));
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-prf", () => ({
   authenticatePasskey: mocks.authenticatePasskey,
-  evaluatePasskeyPrf: mocks.evaluatePasskeyPrf
+  evaluatePasskeyPrf: mocks.evaluatePasskeyPrf,
 }));
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-package", () => ({
   passkeyRecoverySalt: mocks.passkeyRecoverySalt,
-  recoverUserRootKeyFromPasskeyPackage: mocks.recoverUserRootKeyFromPasskeyPackage
+  recoverUserRootKeyFromPasskeyPackage: mocks.recoverUserRootKeyFromPasskeyPackage,
 }));
 vi.mock("@/modules/crypto/infrastructure/browser-vault-unlock-secret-change", () => ({
-  wrapUserRootKeyWithVaultUnlockSecret: mocks.wrapUserRootKeyWithVaultUnlockSecret
+  wrapUserRootKeyWithVaultUnlockSecret: mocks.wrapUserRootKeyWithVaultUnlockSecret,
 }));
 
 import { PasskeyRecoveryReset } from "@/modules/crypto/presentation/passkey-recovery-reset";
@@ -47,11 +55,12 @@ describe("PasskeyRecoveryReset", () => {
       challenge: "challenge",
       encryptedRecoveryPackage: "CQ==",
       rpId: "example.test",
-      allowCredentials: [{ id: "AQI", type: "public-key" }]
+      allowCredentials: [{ id: "AQI", type: "public-key" }],
     } as PublicKeyCredentialRequestOptionsJSON;
     const fetchMock = vi.fn(async (input: string, _init?: RequestInit) => {
       if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
-      if (input === "/api/passkey-recovery/authentication/verify") return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
+      if (input === "/api/passkey-recovery/authentication/verify")
+        return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
       if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
       throw new Error(`Unexpected request: ${input}`);
     });
@@ -69,14 +78,17 @@ describe("PasskeyRecoveryReset", () => {
     expect(mocks.authenticatePasskey).toHaveBeenCalledWith(options, expect.any(Uint8Array));
     expect(mocks.evaluatePasskeyPrf).not.toHaveBeenCalled();
     expect(mocks.recoverUserRootKeyFromPasskeyPackage).toHaveBeenCalledWith(expect.any(Uint8Array), Uint8Array.of(0));
-    expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(expect.any(Uint8Array), "alpha bravo charlie delta echo foxtrot");
+    expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      "alpha bravo charlie delta echo foxtrot",
+    );
     const rewrapCall = fetchMock.mock.calls.find(([url]) => url === "/api/user-crypto-profile/rewrap");
     const rewrapRequest = rewrapCall?.[1];
     expect(rewrapRequest).toEqual(expect.objectContaining({ method: "POST" }));
     expect(JSON.parse(String(rewrapRequest?.body))).toEqual({
       vaultUnlockSalt: "AAAAAAAAAAAAAAAAAAAAAA==",
       wrappedUserRootKey: "AAAAAAAAAAAAAAAAAA==",
-      encryptionVersion: 1
+      encryptionVersion: 1,
     });
     expect(container.textContent).toContain("Passphrase berhasil diatur ulang");
     expect(mocks.routerReplace).toHaveBeenCalledWith("/vaults");
@@ -89,7 +101,9 @@ describe("PasskeyRecoveryReset", () => {
     root = createRoot(container);
 
     await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryReset))));
-    const copyButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Salin passphrase"));
+    const copyButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+      button.textContent?.includes("Salin passphrase"),
+    );
     await act(async () => copyButton?.click());
 
     expect(writeText).toHaveBeenCalledWith("alpha bravo charlie delta echo foxtrot");
@@ -97,13 +111,22 @@ describe("PasskeyRecoveryReset", () => {
   });
 
   it("accepts a custom Passphrase Brankas baru", async () => {
-    const options = { challenge: "challenge", encryptedRecoveryPackage: "CQ==", rpId: "example.test", allowCredentials: [{ id: "AQI", type: "public-key" }] } as PublicKeyCredentialRequestOptionsJSON;
-    vi.stubGlobal("fetch", vi.fn(async (input: string) => {
-      if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
-      if (input === "/api/passkey-recovery/authentication/verify") return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
-      if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
-      throw new Error(`Unexpected request: ${input}`);
-    }));
+    const options = {
+      challenge: "challenge",
+      encryptedRecoveryPackage: "CQ==",
+      rpId: "example.test",
+      allowCredentials: [{ id: "AQI", type: "public-key" }],
+    } as PublicKeyCredentialRequestOptionsJSON;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
+        if (input === "/api/passkey-recovery/authentication/verify")
+          return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
+        if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
+        throw new Error(`Unexpected request: ${input}`);
+      }),
+    );
     const container = document.createElement("div");
     root = createRoot(container);
 
@@ -116,7 +139,10 @@ describe("PasskeyRecoveryReset", () => {
     });
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(expect.any(Uint8Array), "my custom recovery phrase");
+    expect(mocks.wrapUserRootKeyWithVaultUnlockSecret).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      "my custom recovery phrase",
+    );
     expect(container.textContent).toContain("Passphrase berhasil diatur ulang");
   });
 

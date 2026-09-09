@@ -18,7 +18,7 @@ afterEach(async () => {
 describe("PrismaPersonalVaultRepository", () => {
   it.skipIf(!process.env.DATABASE_URL)("creates exactly one uninitialized Personal Vault for an owner", async () => {
     const user = await prisma.applicationUser.create({
-      data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` }
+      data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` },
     });
     userIds.push(user.id);
     const repository = new PrismaPersonalVaultRepository();

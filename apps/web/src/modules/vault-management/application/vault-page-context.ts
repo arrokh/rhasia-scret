@@ -26,7 +26,7 @@ export async function resolveVaultPageContext(
   sessionVerifier: SessionVerifier,
   applicationUsers: ApplicationUserRepository,
   personalVaults: PersonalVaultRepository,
-  contexts: VaultPageContextReader
+  contexts: VaultPageContextReader,
 ): Promise<VaultPageContext | null> {
   const session = await sessionVerifier.verify();
   if (!session) return null;
@@ -38,13 +38,13 @@ export async function resolveVaultPageContext(
   if (existing?.personalVault) {
     return {
       user: { id: user.id, email: user.email, status: user.status },
-      personalVault: existing.personalVault
+      personalVault: existing.personalVault,
     };
   }
 
   const personalVault = await personalVaults.ensureForOwner(user.id);
   return {
     user: { id: user.id, email: user.email, status: user.status },
-    personalVault: { id: personalVault.id, lifecycle: personalVault.lifecycle }
+    personalVault: { id: personalVault.id, lifecycle: personalVault.lifecycle },
   };
 }

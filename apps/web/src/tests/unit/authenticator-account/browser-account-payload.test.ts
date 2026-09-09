@@ -3,7 +3,12 @@ import { encryptPayload, generateSymmetricKey, serializeEncryptedEnvelope } from
 import { parseTotpUri } from "@/modules/otp-runtime";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { rfcTotpUri } from "../otp-runtime/totp-test-helpers";
-import { decryptAccountConfiguration, encryptAccountConfiguration, isDuplicateAccount, sortAccounts } from "@/modules/authenticator-account/infrastructure/browser-account-payload";
+import {
+  decryptAccountConfiguration,
+  encryptAccountConfiguration,
+  isDuplicateAccount,
+  sortAccounts,
+} from "@/modules/authenticator-account/infrastructure/browser-account-payload";
 
 const configuration = () => parseTotpUri(rfcTotpUri());
 
@@ -11,8 +16,13 @@ describe("browser account payload", () => {
   it("encrypts and decrypts a normalized account only with the Vault Encryption Key", async () => {
     const key = generateSymmetricKey();
     const encrypted = await encryptAccountConfiguration(key, configuration());
-    await expect(decryptAccountConfiguration(key, encrypted)).resolves.toMatchObject({ issuer: "Example", accountName: "alice" });
-    await expect(decryptAccountConfiguration(generateSymmetricKey(), encrypted)).rejects.toThrow("authentication failed");
+    await expect(decryptAccountConfiguration(key, encrypted)).resolves.toMatchObject({
+      issuer: "Example",
+      accountName: "alice",
+    });
+    await expect(decryptAccountConfiguration(generateSymmetricKey(), encrypted)).rejects.toThrow(
+      "authentication failed",
+    );
   });
 
   it("detects duplicates locally and derives alphabetical account order", () => {
@@ -30,7 +40,7 @@ describe("browser account payload", () => {
       secret: Uint8Array.of(1, 2, 3, 4),
       algorithm: "SHA-1" as const,
       digits: 6 as const,
-      period: 30
+      period: 30,
     };
     const plaintext = new TextEncoder().encode(JSON.stringify({ ...legacy, secret: bytesToBase64(legacy.secret) }));
     try {

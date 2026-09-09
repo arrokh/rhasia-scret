@@ -24,15 +24,36 @@ export type WorkspaceSharedVaultUnlock = {
 
 export interface VaultWorkspaceCryptoPort {
   unlockPersonalVault(secret: string, profile: WorkspacePersonalVaultProfile): Promise<WorkspacePersonalVaultUnlock>;
-  unlockPersonalVaultWithUserRootKey(userRootKey: Uint8Array, profile: WorkspacePersonalVaultProfile): Promise<Uint8Array>;
+  unlockPersonalVaultWithUserRootKey(
+    userRootKey: Uint8Array,
+    profile: WorkspacePersonalVaultProfile,
+  ): Promise<Uint8Array>;
   recoverUserRootKeyWithRememberedBrowser(profileId: string, signal?: CancellationPort): Promise<Uint8Array>;
   recoverUserRootKeyWithPasskey(): Promise<Uint8Array>;
-  rewrapUserCryptoProfile(profile: { vaultUnlockSalt: string; wrappedUserRootKey: string; encryptedPersonalVaultKey: string; encryptionVersion: number }): Promise<void>;
+  rewrapUserCryptoProfile(profile: {
+    vaultUnlockSalt: string;
+    wrappedUserRootKey: string;
+    encryptedPersonalVaultKey: string;
+    encryptionVersion: number;
+  }): Promise<void>;
   decryptPayload(key: Uint8Array, envelope: EncryptedEnvelope): Promise<Uint8Array>;
-  decryptPayloadWithContext(key: Uint8Array, envelope: EncryptedEnvelope, context: CryptoEnvelopeContext): Promise<Uint8Array>;
+  decryptPayloadWithContext(
+    key: Uint8Array,
+    envelope: EncryptedEnvelope,
+    context: CryptoEnvelopeContext,
+  ): Promise<Uint8Array>;
   deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelope;
-  unlockSharedVault(userRootKey: Uint8Array, encryptedVaultKey: Uint8Array, encryptedName: Uint8Array, vaultId: string): Promise<WorkspaceSharedVaultUnlock>;
-  decryptAccountConfiguration(vaultKey: Uint8Array, encryptedPayload: Uint8Array, context: CryptoEnvelopeContext): Promise<DecryptedAuthenticatorAccount>;
+  unlockSharedVault(
+    userRootKey: Uint8Array,
+    encryptedVaultKey: Uint8Array,
+    encryptedName: Uint8Array,
+    vaultId: string,
+  ): Promise<WorkspaceSharedVaultUnlock>;
+  decryptAccountConfiguration(
+    vaultKey: Uint8Array,
+    encryptedPayload: Uint8Array,
+    context: CryptoEnvelopeContext,
+  ): Promise<DecryptedAuthenticatorAccount>;
 }
 
 export interface VaultWorkspaceDataPort {

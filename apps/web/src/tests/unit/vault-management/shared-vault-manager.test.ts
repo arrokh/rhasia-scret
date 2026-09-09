@@ -3,12 +3,17 @@
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SharedVaultDetails as SharedVaultDetailsComponent, SharedVaultDirectory } from "@/modules/vault-management/presentation/shared-vault-manager";
+import {
+  SharedVaultDetails as SharedVaultDetailsComponent,
+  SharedVaultDirectory,
+} from "@/modules/vault-management/presentation/shared-vault-manager";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({ createSharedVaultInvitation: vi.fn() }));
-vi.mock("@/modules/vault-membership/infrastructure/browser-shared-vault-invitation", () => ({ createSharedVaultInvitation: mocks.createSharedVaultInvitation }));
+vi.mock("@/modules/vault-membership/infrastructure/browser-shared-vault-invitation", () => ({
+  createSharedVaultInvitation: mocks.createSharedVaultInvitation,
+}));
 
 function SharedVaultDetails(props: Omit<ComponentProps<typeof SharedVaultDetailsComponent>, "ownerEmail">) {
   return createElement(SharedVaultDetailsComponent, { ...props, ownerEmail: "owner@example.test" });
@@ -16,16 +21,22 @@ function SharedVaultDetails(props: Omit<ComponentProps<typeof SharedVaultDetails
 
 describe("dedicated Vault management", () => {
   let root: Root | undefined;
-  afterEach(async () => { await act(async () => root?.unmount()); document.body.innerHTML = ""; vi.unstubAllGlobals(); vi.clearAllMocks(); });
+  afterEach(async () => {
+    await act(async () => root?.unmount());
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
 
   it("lists Personal Vault first followed by every Shared Vault", async () => {
-    const container = mount(); root = createRoot(container);
+    const container = mount();
+    root = createRoot(container);
     await act(async () => root?.render(createElement(SharedVaultDirectory, { vaults: vaults() })));
 
     const links = [...container.querySelectorAll<HTMLAnchorElement>("li > a")];
     expect(links.map((link) => link.textContent)).toEqual([
       expect.stringContaining("Brankas Pribadi"),
-      expect.stringContaining("Tim Operasional")
+      expect.stringContaining("Tim Operasional"),
     ]);
     expect(links[0]?.pathname).toBe("/vaults/manage/personal");
     expect(links[1]?.pathname).toBe("/vaults/manage/shared-1");
@@ -45,15 +56,33 @@ describe("dedicated Vault management", () => {
   });
 
   it("loads owner permission defaults needed on Detail while managing accounts", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+        vaultDefaultAccountPermissionsRevision: 1,
+      }),
+    });
     vi.stubGlobal("fetch", fetchMock);
     const onAccountDeleted = vi.fn(async () => undefined);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted }),
+        ),
+      ),
+    );
 
     expect(container.querySelector('input[value="Tim Operasional"]')).not.toBeNull();
     await vi.waitFor(() => expect(container.textContent).toContain("owner@example.test"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/member-permissions", { cache: "no-store", method: "GET" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/member-permissions", {
+      cache: "no-store",
+      method: "GET",
+    });
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/participants"), expect.anything());
     expect(container.querySelector<HTMLAnchorElement>('a[href*="vaultId=shared-1"]')).not.toBeNull();
     expect(findButton(container, "Undangan")).toBeDefined();
@@ -66,19 +95,54 @@ describe("dedicated Vault management", () => {
   });
 
   it("lets an owner soft-delete a user-created Shared Vault after confirmation", async () => {
-    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => init?.method === "DELETE"
-      ? { ok: true, status: 204 }
-      : { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) });
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "DELETE"
+        ? { ok: true, status: 204 }
+        : {
+            ok: true,
+            json: async () => ({
+              vaultDefaultAccountPermissions: {
+                canAddAccounts: false,
+                canEditAccounts: false,
+                canDeleteAccounts: false,
+              },
+              vaultDefaultAccountPermissionsRevision: 1,
+            }),
+          },
+    );
     vi.stubGlobal("fetch", fetchMock);
     const onDeleted = vi.fn();
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn(), onDeleted }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, {
+            vault: vaults()[0]!,
+            onRenamed: vi.fn(),
+            onAccountDeleted: vi.fn(),
+            onDeleted,
+          }),
+        ),
+      ),
+    );
 
     await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
-    const permissionSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find((element) => element.textContent?.includes("Izin akun bawaan anggota"));
-    const deleteSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find((element) => element.textContent?.includes("Hapus Brankas Bersama ini"));
+    const permissionSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find(
+      (element) => element.textContent?.includes("Izin akun bawaan anggota"),
+    );
+    const deleteSection = [...container.querySelectorAll<HTMLElement>('[data-slot="collapsible"]')].find((element) =>
+      element.textContent?.includes("Hapus Brankas Bersama ini"),
+    );
     expect(deleteSection?.getAttribute("data-state")).toBe("closed");
-    expect(Boolean(permissionSection?.compareDocumentPosition(deleteSection as Node) && permissionSection.compareDocumentPosition(deleteSection as Node) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(
+      Boolean(
+        permissionSection?.compareDocumentPosition(deleteSection as Node) &&
+        permissionSection.compareDocumentPosition(deleteSection as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
     await act(async () => findButton(deleteSection as HTMLElement, "Hapus Brankas Bersama ini").click());
     expect(deleteSection?.getAttribute("data-state")).toBe("open");
     const deleteButton = findButton(deleteSection as HTMLElement, "Hapus Brankas Bersama");
@@ -92,13 +156,25 @@ describe("dedicated Vault management", () => {
   });
 
   it("opens member defaults initially when at least one permission is enabled", async () => {
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, {
-      vault: vaults()[0]!,
-      initialDefaultAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, revision: 1 },
-      onRenamed: vi.fn(),
-      onAccountDeleted: vi.fn()
-    }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, {
+            vault: vaults()[0]!,
+            initialDefaultAccountPermissions: {
+              permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false },
+              revision: 1,
+            },
+            onRenamed: vi.fn(),
+            onAccountDeleted: vi.fn(),
+          }),
+        ),
+      ),
+    );
 
     expect(container.querySelector<HTMLElement>('[data-slot="collapsible"]')?.getAttribute("data-state")).toBe("open");
     const save = findButton(container, "Simpan bawaan anggota");
@@ -106,9 +182,29 @@ describe("dedicated Vault management", () => {
   });
 
   it("hides the tab navigation when a Viewer can only see Detail", async () => {
-    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } } };
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const viewerVault = {
+      ...vaults()[0]!,
+      role: "VIEWER" as const,
+      effectiveAccountPermissions: {
+        permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+        sources: {
+          canAddAccounts: "VAULT" as const,
+          canEditAccounts: "VAULT" as const,
+          canDeleteAccounts: "VAULT" as const,
+        },
+      },
+    };
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     expect(container.querySelector('[role="tablist"]')).toBeNull();
     expect(container.querySelector('[role="tab"]')).toBeNull();
@@ -116,12 +212,36 @@ describe("dedicated Vault management", () => {
   });
 
   it("shows only the independently authorized account controls for a Viewer", async () => {
-    const viewerVault = { ...vaults()[0]!, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "MEMBER" as const } } };
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const viewerVault = {
+      ...vaults()[0]!,
+      role: "VIEWER" as const,
+      effectiveAccountPermissions: {
+        permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false },
+        sources: {
+          canAddAccounts: "VAULT" as const,
+          canEditAccounts: "VAULT" as const,
+          canDeleteAccounts: "MEMBER" as const,
+        },
+      },
+    };
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     expect(container.querySelector<HTMLAnchorElement>('a[href*="vaultId=shared-1"]')).not.toBeNull();
-    expect([...container.querySelectorAll("button")].some((button) => button.getAttribute("aria-label")?.startsWith("Hapus Example"))).toBe(false);
+    expect(
+      [...container.querySelectorAll("button")].some((button) =>
+        button.getAttribute("aria-label")?.startsWith("Hapus Example"),
+      ),
+    ).toBe(false);
     expect(container.textContent).toContain("Dapat menambah");
   });
 
@@ -136,19 +256,52 @@ describe("dedicated Vault management", () => {
       permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false },
       effectiveAccountPermissions: {
         permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false },
-        sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" }
+        sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" },
       },
-      permissionsRevision: 2
+      permissionsRevision: 2,
     };
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
-      if (init?.method === "PATCH") return { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 2 }) };
-      if (url.includes("/member-permissions")) return { ok: true, json: async () => ({ vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1 }) };
-      if (url.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants: [participant], nextCursor: null }) };
+      if (init?.method === "PATCH")
+        return {
+          ok: true,
+          json: async () => ({
+            vaultDefaultAccountPermissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false },
+            vaultDefaultAccountPermissionsRevision: 2,
+          }),
+        };
+      if (url.includes("/member-permissions"))
+        return {
+          ok: true,
+          json: async () => ({
+            vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+            vaultDefaultAccountPermissionsRevision: 1,
+          }),
+        };
+      if (url.includes("/participants"))
+        return {
+          ok: true,
+          json: async () => ({
+            owner: { id: "owner-1", email: "owner@example.test" },
+            vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+            vaultDefaultAccountPermissionsRevision: 1,
+            participants: [participant],
+            nextCursor: null,
+          }),
+        };
       return { ok: true, json: async () => ({ events: [], nextCursor: null }) };
     });
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
     const defaults = container.querySelector<HTMLElement>('[data-slot="collapsible"]');
@@ -157,7 +310,16 @@ describe("dedicated Vault management", () => {
     expect(defaults?.getAttribute("data-state")).toBe("open");
     await act(async () => container.querySelector<HTMLButtonElement>("#vault-default-canAddAccounts")?.click());
     await act(async () => findButton(container, "Simpan bawaan anggota").click());
-    await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/member-permissions") && init?.method === "PATCH" && String(init.body).includes('"canAddAccounts":true'))).toBe(true));
+    await vi.waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith("/member-permissions") &&
+            init?.method === "PATCH" &&
+            String(init.body).includes('"canAddAccounts":true'),
+        ),
+      ).toBe(true),
+    );
 
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
@@ -169,12 +331,44 @@ describe("dedicated Vault management", () => {
   });
 
   it("creates a complete client-only invitation URL from the Undangan tab", async () => {
-    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "pending-1", secret: "client-only-secret", expiresAt: "2026-08-05T12:00:00.000Z" });
+    mocks.createSharedVaultInvitation.mockResolvedValue({
+      id: "pending-1",
+      secret: "client-only-secret",
+      expiresAt: "2026-08-05T12:00:00.000Z",
+    });
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "invitation:pending-1", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "pending-1", invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: null }) }));
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          owner: { id: "owner-1", email: "owner@example.test" },
+          participants: [
+            {
+              key: "invitation:pending-1",
+              email: "viewer@example.test",
+              kind: "INVITATION",
+              userId: null,
+              invitationId: "pending-1",
+              invitedAt: "2026-07-26T12:00:00.000Z",
+            },
+          ],
+          nextCursor: null,
+        }),
+      }),
+    );
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
     await act(async () => {
       const invitationTab = findButton(container, "Undangan");
       invitationTab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -184,7 +378,11 @@ describe("dedicated Vault management", () => {
     await act(async () => setInputValue(email, "viewer@example.test"));
     await act(async () => email?.form?.requestSubmit());
 
-    await vi.waitFor(() => expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe("http://localhost:3000/vaults/invitations/redeem#client-only-secret"));
+    await vi.waitFor(() =>
+      expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe(
+        "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
+      ),
+    );
     expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
     const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
     await act(async () => copyPending.click());
@@ -194,33 +392,112 @@ describe("dedicated Vault management", () => {
   });
 
   it("re-invites an expired Invitation with fresh client-only link material", async () => {
-    mocks.createSharedVaultInvitation.mockResolvedValue({ id: "replacement-1", secret: "replacement-client-secret", expiresAt: "2026-08-05T12:00:00.000Z" });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "invitation:expired-1", email: "expired@example.test", kind: "INVITATION", userId: null, invitationId: "expired-1", invitationState: "EXPIRED", invitedAt: "2026-07-20T12:00:00.000Z", expiresAt: "2026-07-27T12:00:00.000Z", permissionOverrides: null, effectiveAccountPermissions: null, permissionsRevision: null }], nextCursor: null }) }));
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    mocks.createSharedVaultInvitation.mockResolvedValue({
+      id: "replacement-1",
+      secret: "replacement-client-secret",
+      expiresAt: "2026-08-05T12:00:00.000Z",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          owner: { id: "owner-1", email: "owner@example.test" },
+          participants: [
+            {
+              key: "invitation:expired-1",
+              email: "expired@example.test",
+              kind: "INVITATION",
+              userId: null,
+              invitationId: "expired-1",
+              invitationState: "EXPIRED",
+              invitedAt: "2026-07-20T12:00:00.000Z",
+              expiresAt: "2026-07-27T12:00:00.000Z",
+              permissionOverrides: null,
+              effectiveAccountPermissions: null,
+              permissionsRevision: null,
+            },
+          ],
+          nextCursor: null,
+        }),
+      }),
+    );
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("Kedaluwarsa"));
 
     await act(async () => findButton(container, "Undang kembali").click());
 
-    await vi.waitFor(() => expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe("http://localhost:3000/vaults/invitations/redeem#replacement-client-secret"));
-    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "expired@example.test", vaults()[0]!.key);
+    await vi.waitFor(() =>
+      expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe(
+        "http://localhost:3000/vaults/invitations/redeem#replacement-client-secret",
+      ),
+    );
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
+      "shared-1",
+      "expired@example.test",
+      vaults()[0]!.key,
+    );
     expect(container.textContent).toContain("Menunggu");
     expect(container.textContent).not.toContain("Kedaluwarsa");
   });
 
   it("opens Audit with an exact account filter and renders the Jakarta event layout", async () => {
-    const fetchMock = vi.fn().mockImplementation(async (url: string) => ({ ok: true, json: async () => url.includes("/participants") ? { owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null } : { events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer@example.test", createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: null } }));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.includes("/participants")
+          ? { owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null }
+          : {
+              events: [
+                {
+                  id: "event-1",
+                  eventType: "ACCOUNT_ACCESSED",
+                  targetId: "account-1",
+                  actorUserId: "viewer-1",
+                  actorEmail: "viewer@example.test",
+                  createdAt: "2026-07-26T13:28:00.000Z",
+                },
+              ],
+              nextCursor: null,
+            },
+    }));
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
     await act(async () => findButton(container, "Lihat audit Example person@example.test").click());
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?accountId=account-1"))).toBe(true);
     expect(container.textContent).toContain("Filter: Example · person@example.test");
-    const auditMetadata = [...container.querySelectorAll("li p")].find((element) => element.textContent?.includes("viewer@example.test"));
-    expect([...auditMetadata?.querySelectorAll("span") ?? []].map((element) => element.textContent)).toEqual(["viewer@example.test", "26 Jul 2026, 20.28"]);
-    expect([...auditMetadata?.querySelectorAll("span") ?? []].every((element) => element.className.includes("block"))).toBe(true);
+    const auditMetadata = [...container.querySelectorAll("li p")].find((element) =>
+      element.textContent?.includes("viewer@example.test"),
+    );
+    expect([...(auditMetadata?.querySelectorAll("span") ?? [])].map((element) => element.textContent)).toEqual([
+      "viewer@example.test",
+      "26 Jul 2026, 20.28",
+    ]);
+    expect(
+      [...(auditMetadata?.querySelectorAll("span") ?? [])].every((element) => element.className.includes("block")),
+    ).toBe(true);
     expect(container.textContent).toContain("Akun autentikator disalin");
     expect(container.textContent).toContain("Example · person@example.test");
   });
@@ -228,17 +505,38 @@ describe("dedicated Vault management", () => {
   it("renders loading and empty states for both paginated lists", async () => {
     let resolveParticipants: ((response: unknown) => void) | undefined;
     let resolveAudit: ((response: unknown) => void) | undefined;
-    const fetchMock = vi.fn().mockImplementation((url: string) => new Promise((resolve) => {
-      if (String(url).includes("/participants")) resolveParticipants = resolve;
-      else resolveAudit = resolve;
-    }));
+    const fetchMock = vi.fn().mockImplementation(
+      (url: string) =>
+        new Promise((resolve) => {
+          if (String(url).includes("/participants")) resolveParticipants = resolve;
+          else resolveAudit = resolve;
+        }),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     await act(async () => clickTab(container, "Undangan"));
     expect(container.textContent).toContain("Memuat pengguna…");
-    await act(async () => resolveParticipants?.({ ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [], nextCursor: null }) }));
+    await act(async () =>
+      resolveParticipants?.({
+        ok: true,
+        json: async () => ({
+          owner: { id: "owner-1", email: "owner@example.test" },
+          participants: [],
+          nextCursor: null,
+        }),
+      }),
+    );
     await vi.waitFor(() => expect(container.textContent).toContain("Belum ada pengguna yang diundang."));
 
     await act(async () => clickTab(container, "Audit"));
@@ -248,9 +546,21 @@ describe("dedicated Vault management", () => {
   });
 
   it("renders request errors for both paginated lists", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "unavailable" }) }));
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "unavailable" }) }),
+    );
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("Daftar pengguna tidak dapat dimuat."));
     await act(async () => clickTab(container, "Audit"));
@@ -260,13 +570,55 @@ describe("dedicated Vault management", () => {
   it("retains loaded rows and reports subsequent page failures", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const requestUrl = String(url);
-      if (requestUrl.includes("cursor=")) return { ok: false, status: 500, json: async () => ({ error: "unavailable" }) };
-      if (requestUrl.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants: [{ key: "member:viewer-1", email: "viewer1@example.test", kind: "MEMBER", userId: "viewer-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }], nextCursor: "participants-page-2" }) };
-      return { ok: true, json: async () => ({ events: [{ id: "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: "viewer-1", actorEmail: "viewer1@example.test", createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: "audit-page-2" }) };
+      if (requestUrl.includes("cursor="))
+        return { ok: false, status: 500, json: async () => ({ error: "unavailable" }) };
+      if (requestUrl.includes("/participants"))
+        return {
+          ok: true,
+          json: async () => ({
+            owner: { id: "owner-1", email: "owner@example.test" },
+            participants: [
+              {
+                key: "member:viewer-1",
+                email: "viewer1@example.test",
+                kind: "MEMBER",
+                userId: "viewer-1",
+                invitationId: null,
+                invitedAt: "2026-07-26T12:00:00.000Z",
+              },
+            ],
+            nextCursor: "participants-page-2",
+          }),
+        };
+      return {
+        ok: true,
+        json: async () => ({
+          events: [
+            {
+              id: "event-1",
+              eventType: "ACCOUNT_ACCESSED",
+              targetId: "account-1",
+              actorUserId: "viewer-1",
+              actorEmail: "viewer1@example.test",
+              createdAt: "2026-07-26T13:28:00.000Z",
+            },
+          ],
+          nextCursor: "audit-page-2",
+        }),
+      };
     });
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer1@example.test"));
@@ -286,18 +638,54 @@ describe("dedicated Vault management", () => {
       const requestUrl = String(url);
       if (requestUrl.includes("/participants")) {
         const secondPage = requestUrl.includes("cursor=participants-page-2");
-        return { ok: true, json: async () => ({
-          owner: { id: "owner-1", email: "owner@example.test" },
-          participants: [{ key: `member:viewer-${secondPage ? "2" : "1"}`, email: `viewer${secondPage ? "2" : "1"}@example.test`, kind: "MEMBER", userId: `viewer-${secondPage ? "2" : "1"}`, invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" }],
-          nextCursor: secondPage ? null : "participants-page-2"
-        }) };
+        return {
+          ok: true,
+          json: async () => ({
+            owner: { id: "owner-1", email: "owner@example.test" },
+            participants: [
+              {
+                key: `member:viewer-${secondPage ? "2" : "1"}`,
+                email: `viewer${secondPage ? "2" : "1"}@example.test`,
+                kind: "MEMBER",
+                userId: `viewer-${secondPage ? "2" : "1"}`,
+                invitationId: null,
+                invitedAt: "2026-07-26T12:00:00.000Z",
+              },
+            ],
+            nextCursor: secondPage ? null : "participants-page-2",
+          }),
+        };
       }
       const secondPage = requestUrl.includes("cursor=audit-page-2");
-      return { ok: true, json: async () => ({ events: [{ id: `event-${secondPage ? "2" : "1"}`, eventType: "ACCOUNT_ACCESSED", targetId: "account-1", actorUserId: `viewer-${secondPage ? "2" : "1"}`, actorEmail: `viewer${secondPage ? "2" : "1"}@example.test`, createdAt: "2026-07-26T13:28:00.000Z" }], nextCursor: secondPage ? null : "audit-page-2" }) };
+      return {
+        ok: true,
+        json: async () => ({
+          events: [
+            {
+              id: `event-${secondPage ? "2" : "1"}`,
+              eventType: "ACCOUNT_ACCESSED",
+              targetId: "account-1",
+              actorUserId: `viewer-${secondPage ? "2" : "1"}`,
+              actorEmail: `viewer${secondPage ? "2" : "1"}@example.test`,
+              createdAt: "2026-07-26T13:28:00.000Z",
+            },
+          ],
+          nextCursor: secondPage ? null : "audit-page-2",
+        }),
+      };
     });
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
 
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer1@example.test"));
@@ -310,23 +698,52 @@ describe("dedicated Vault management", () => {
     await act(async () => findButton(container, "Muat lebih banyak aktivitas").click());
     await vi.waitFor(() => expect(container.textContent).toContain("viewer2@example.test"));
     expect(container.textContent).toContain("Semua aktivitas telah dimuat.");
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("participants?cursor=participants-page-2"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("participants?cursor=participants-page-2"))).toBe(
+      true,
+    );
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?cursor=audit-page-2"))).toBe(true);
   });
 
   it("lists invited users, filters Audit by exact user id, and deletes a pending Invitation", async () => {
     const participants = [
-      { key: "member:viewer-1", email: "viewer@example.test", kind: "MEMBER", userId: "viewer-1", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z" },
-      { key: "invitation:pending-1", email: "pending@example.test", kind: "INVITATION", userId: null, invitationId: "pending-1", invitedAt: "2026-07-26T12:00:00.000Z" }
+      {
+        key: "member:viewer-1",
+        email: "viewer@example.test",
+        kind: "MEMBER",
+        userId: "viewer-1",
+        invitationId: null,
+        invitedAt: "2026-07-26T12:00:00.000Z",
+      },
+      {
+        key: "invitation:pending-1",
+        email: "pending@example.test",
+        kind: "INVITATION",
+        userId: null,
+        invitationId: "pending-1",
+        invitedAt: "2026-07-26T12:00:00.000Z",
+      },
     ];
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "DELETE") return { ok: true, status: 204 };
-      if (url.includes("/participants")) return { ok: true, json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants, nextCursor: null }) };
+      if (url.includes("/participants"))
+        return {
+          ok: true,
+          json: async () => ({ owner: { id: "owner-1", email: "owner@example.test" }, participants, nextCursor: null }),
+        };
       return { ok: true, json: async () => ({ events: [], nextCursor: null }) };
     });
     vi.stubGlobal("fetch", fetchMock);
-    const container = mount(); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }))));
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(SharedVaultDetails, { vault: vaults()[0]!, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+        ),
+      ),
+    );
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
     expect(container.textContent).toContain("pending@example.test");
@@ -335,17 +752,68 @@ describe("dedicated Vault management", () => {
     expect(container.textContent).toContain("Tautan aman asli hanya tersedia saat undangan dibuat");
 
     await act(async () => findButton(container, "Lihat audit viewer@example.test").click());
-    await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?actorUserId=viewer-1"))).toBe(true));
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("audit-events?actorUserId=viewer-1"))).toBe(
+        true,
+      ),
+    );
 
     await act(async () => clickTab(container, "Undangan"));
     await act(async () => findButton(container, "Hapus pending@example.test").click());
     await act(async () => findButton(document.body, "Hapus undangan").click());
-    await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/share-links/pending-1") && init?.method === "DELETE")).toBe(true));
+    await vi.waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => String(url).endsWith("/share-links/pending-1") && init?.method === "DELETE",
+        ),
+      ).toBe(true),
+    );
   });
 });
 
-function vaults() { return [{ id: "shared-1", name: "Tim Operasional", role: "OWNER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } }, key: new Uint8Array(32), accounts: [{ id: "account-1", issuer: "Example", accountName: "person@example.test", revision: 2 }, { id: "account-2", issuer: "Other", accountName: "other@example.test", revision: 1 }] }]; }
-function mount() { const container = document.createElement("div"); document.body.append(container); return container; }
-function setInputValue(input: HTMLInputElement | null, value: string) { if (!input) throw new Error("Expected input."); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }
-function clickTab(container: ParentNode, name: string) { const tab = findButton(container, name); tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 })); tab.click(); }
-function findButton(container: ParentNode, name: string): HTMLButtonElement { const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.replace(/\s/g, "") === name.replace(/\s/g, "") || candidate.getAttribute("aria-label") === name); if (!button) throw new Error(`Expected button: ${name}`); return button; }
+function vaults() {
+  return [
+    {
+      id: "shared-1",
+      name: "Tim Operasional",
+      role: "OWNER" as const,
+      effectiveAccountPermissions: {
+        permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+        sources: {
+          canAddAccounts: "OWNER" as const,
+          canEditAccounts: "OWNER" as const,
+          canDeleteAccounts: "OWNER" as const,
+        },
+      },
+      key: new Uint8Array(32),
+      accounts: [
+        { id: "account-1", issuer: "Example", accountName: "person@example.test", revision: 2 },
+        { id: "account-2", issuer: "Other", accountName: "other@example.test", revision: 1 },
+      ],
+    },
+  ];
+}
+function mount() {
+  const container = document.createElement("div");
+  document.body.append(container);
+  return container;
+}
+function setInputValue(input: HTMLInputElement | null, value: string) {
+  if (!input) throw new Error("Expected input.");
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+function clickTab(container: ParentNode, name: string) {
+  const tab = findButton(container, name);
+  tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+  tab.click();
+}
+function findButton(container: ParentNode, name: string): HTMLButtonElement {
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (candidate) =>
+      candidate.textContent?.replace(/\s/g, "") === name.replace(/\s/g, "") ||
+      candidate.getAttribute("aria-label") === name,
+  );
+  if (!button) throw new Error(`Expected button: ${name}`);
+  return button;
+}

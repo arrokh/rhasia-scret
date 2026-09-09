@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { authConfirmationRedirectUrl, requestEmailSignInLink } from "@/modules/identity/presentation/request-email-sign-in-link";
+import {
+  authConfirmationRedirectUrl,
+  requestEmailSignInLink,
+} from "@/modules/identity/presentation/request-email-sign-in-link";
 
 describe("requestEmailSignInLink", () => {
   it("builds callback URLs from the active browser origin", () => {
@@ -12,12 +15,12 @@ describe("requestEmailSignInLink", () => {
     const result = await requestEmailSignInLink(
       { auth: { signInWithOtp } },
       "person@example.test",
-      "https://vault.example.test/auth/confirm"
+      "https://vault.example.test/auth/confirm",
     );
     expect(result).toBe("sent");
     expect(signInWithOtp).toHaveBeenCalledWith({
       email: "person@example.test",
-      options: { shouldCreateUser: true, emailRedirectTo: "https://vault.example.test/auth/confirm" }
+      options: { shouldCreateUser: true, emailRedirectTo: "https://vault.example.test/auth/confirm" },
     });
   });
 
@@ -25,7 +28,7 @@ describe("requestEmailSignInLink", () => {
     const result = await requestEmailSignInLink(
       { auth: { signInWithOtp: vi.fn().mockResolvedValue({ error: new Error("provider failure") }) } },
       "person@example.test",
-      "https://vault.example.test/auth/confirm"
+      "https://vault.example.test/auth/confirm",
     );
     expect(result).toBe("error");
   });
@@ -34,7 +37,7 @@ describe("requestEmailSignInLink", () => {
     const result = await requestEmailSignInLink(
       { auth: { signInWithOtp: vi.fn().mockResolvedValue({ error: { status: 429, message: "rate limit" } }) } },
       "person@example.test",
-      "https://vault.example.test/auth/confirm"
+      "https://vault.example.test/auth/confirm",
     );
     expect(result).toBe("rate_limited");
   });

@@ -5,11 +5,7 @@ import { hmac } from "@noble/hashes/hmac.js";
 import { sha1 } from "@noble/hashes/legacy.js";
 import { sha256, sha512 } from "@noble/hashes/sha2.js";
 import { randomBytes as nativeRandomBytes } from "../../modules/native-argon2id";
-import type {
-  CryptoPrimitivePort,
-  PortableEcdhKeyPair,
-  PortableJsonWebKey,
-} from "@rhasia-scret/client-vault-core";
+import type { CryptoPrimitivePort, PortableEcdhKeyPair, PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 import { base64UrlToBytes, bytesToBase64Url } from "@rhasia-scret/client-vault-core";
 
 const aesKeyBytes = 32;
@@ -96,8 +92,14 @@ export class NativeCryptoPrimitives implements CryptoPrimitivePort {
     }
   }
 
-  public async deriveHkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
-    if (!Number.isSafeInteger(length) || length < 0 || length > 255 * 32) throw new Error("HKDF output length is invalid.");
+  public async deriveHkdfSha256(
+    ikm: Uint8Array,
+    salt: Uint8Array,
+    info: Uint8Array,
+    length: number,
+  ): Promise<Uint8Array> {
+    if (!Number.isSafeInteger(length) || length < 0 || length > 255 * 32)
+      throw new Error("HKDF output length is invalid.");
     return hkdf(sha256, ikm, salt, info, length);
   }
 

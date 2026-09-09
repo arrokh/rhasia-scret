@@ -13,13 +13,16 @@ export class PrismaTransactionalVaultAuditAppender implements VaultAuditAppender
         actorUserId: event.actorUserId,
         eventType: event.action,
         ...(event.targetId ? { targetId: event.targetId } : {}),
-        ...(event.retentionPurgeAfter ? { retentionPurgeAfter: event.retentionPurgeAfter } : {})
-      }
+        ...(event.retentionPurgeAfter ? { retentionPurgeAfter: event.retentionPurgeAfter } : {}),
+      },
     });
   }
 }
 
-export function appendVaultAuditEvent(transaction: Pick<Prisma.TransactionClient, "vaultAuditEvent">, event: VaultAuditAppend): Promise<void> {
+export function appendVaultAuditEvent(
+  transaction: Pick<Prisma.TransactionClient, "vaultAuditEvent">,
+  event: VaultAuditAppend,
+): Promise<void> {
   return new PrismaTransactionalVaultAuditAppender(transaction).append(event);
 }
 
@@ -27,7 +30,7 @@ export async function setVaultAuditRetention(
   transaction: Pick<Prisma.TransactionClient, "vaultAuditEvent">,
   vaultId: string,
   ownerId: string,
-  retentionPurgeAfter: Date | null
+  retentionPurgeAfter: Date | null,
 ): Promise<void> {
   await transaction.vaultAuditEvent.updateMany({ where: { vaultId }, data: { ownerId, retentionPurgeAfter } });
 }

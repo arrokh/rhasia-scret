@@ -8,7 +8,9 @@ function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(path);
-    return /\.(?:ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".test.ts") && !entry.name.endsWith(".test.tsx") ? [path] : [];
+    return /\.(?:ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".test.ts") && !entry.name.endsWith(".test.tsx")
+      ? [path]
+      : [];
   });
 }
 
@@ -39,13 +41,17 @@ describe("native security boundaries", () => {
 
   it("does not introduce query caches, browser persistence, or sensitive logging", () => {
     for (const file of files) {
-      expect(file.source).not.toMatch(/@tanstack\/react-query|AsyncStorage|indexedDB|localStorage|sessionStorage|console\.(?:log|debug|info|warn|error)/);
+      expect(file.source).not.toMatch(
+        /@tanstack\/react-query|AsyncStorage|indexedDB|localStorage|sessionStorage|console\.(?:log|debug|info|warn|error)/,
+      );
     }
   });
 
   it("keeps browser-only APIs out of native application workflows", () => {
     for (const file of files.filter(({ path }) => path.includes("/application/"))) {
-      expect(file.source).not.toMatch(/\bwindow\b|\bdocument\b|\bnavigator\b|ServiceWorker|WebAuthn|from ["']react-native["']/);
+      expect(file.source).not.toMatch(
+        /\bwindow\b|\bdocument\b|\bnavigator\b|ServiceWorker|WebAuthn|from ["']react-native["']/,
+      );
     }
   });
 
@@ -54,7 +60,9 @@ describe("native security boundaries", () => {
     expect(existsSync(join(nativeCryptoRoot, "c-argon2", "LICENSE"))).toBe(true);
     const nativeSources = nativeSourceFiles(nativeCryptoRoot);
     for (const path of nativeSources) {
-      expect(readFileSync(path, "utf8")).not.toMatch(/console\.(?:log|debug|info|warn|error)|\bNSLog\s*\(|android\.util\.Log|\bprintf\s*\(/);
+      expect(readFileSync(path, "utf8")).not.toMatch(
+        /console\.(?:log|debug|info|warn|error)|\bNSLog\s*\(|android\.util\.Log|\bprintf\s*\(/,
+      );
     }
   });
 });

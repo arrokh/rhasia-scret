@@ -5,12 +5,14 @@ import { resolveVaultPageContext } from "@/modules/vault-management/application/
 import { PrismaPersonalVaultRepository } from "@/modules/vault-management/infrastructure/prisma-personal-vault-repository";
 import { PrismaVaultPageContextReader } from "@/modules/vault-management/infrastructure/prisma-vault-page-context-reader";
 
-const readVaultPageContext = cache(() => resolveVaultPageContext(
-  createSessionVerifier(),
-  createApplicationUserRepository(),
-  new PrismaPersonalVaultRepository(),
-  new PrismaVaultPageContextReader()
-));
+const readVaultPageContext = cache(() =>
+  resolveVaultPageContext(
+    createSessionVerifier(),
+    createApplicationUserRepository(),
+    new PrismaPersonalVaultRepository(),
+    new PrismaVaultPageContextReader(),
+  ),
+);
 
 export async function loadVaultPageContext() {
   const context = await readVaultPageContext();

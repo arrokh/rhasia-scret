@@ -8,7 +8,9 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({ enrollPasskeyRecovery: vi.fn() }));
-vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-workflow", () => ({ enrollPasskeyRecovery: mocks.enrollPasskeyRecovery }));
+vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-workflow", () => ({
+  enrollPasskeyRecovery: mocks.enrollPasskeyRecovery,
+}));
 
 import { PasskeyRecoveryEnrollment } from "@/modules/crypto/presentation/passkey-recovery-enrollment";
 
@@ -24,7 +26,15 @@ describe("PasskeyRecoveryEnrollment", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enrolled: true }) }));
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }))));
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }),
+        ),
+      ),
+    );
     await vi.waitFor(() => expect(container.textContent).toContain("Pemulihan kunci akses aktif"));
 
     expect(container.textContent).toContain("tidak perlu mengaktifkannya lagi");
@@ -41,7 +51,15 @@ describe("PasskeyRecoveryEnrollment", () => {
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }))));
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }),
+        ),
+      ),
+    );
     await vi.waitFor(() => expect(findButton(container, "Hapus pemulihan kunci akses")).not.toBeUndefined());
 
     await act(async () => findButton(container, "Hapus pemulihan kunci akses")?.click());
@@ -56,10 +74,20 @@ describe("PasskeyRecoveryEnrollment", () => {
 
   it("shows the specific server failure instead of blaming every failure on browser support", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enrolled: false }) }));
-    mocks.enrollPasskeyRecovery.mockRejectedValue(new BrowserApiError("Request failed.", 400, "passkey_verification_failed"));
+    mocks.enrollPasskeyRecovery.mockRejectedValue(
+      new BrowserApiError("Request failed.", 400, "passkey_verification_failed"),
+    );
     const container = document.createElement("div");
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }))));
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(PasskeyRecoveryEnrollment, { userRootKey: new Uint8Array(32) }),
+        ),
+      ),
+    );
     await vi.waitFor(() => expect(findButton(container, "Aktifkan pemulihan kunci akses")).not.toBeUndefined());
     await act(async () => findButton(container, "Aktifkan pemulihan kunci akses")?.click());
 
@@ -69,5 +97,7 @@ describe("PasskeyRecoveryEnrollment", () => {
 });
 
 function findButton(container: HTMLElement, label: string) {
-  return [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes(label));
+  return [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+    button.textContent?.includes(label),
+  );
 }

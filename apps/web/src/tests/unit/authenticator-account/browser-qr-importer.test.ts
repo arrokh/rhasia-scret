@@ -7,13 +7,13 @@ const mocks = vi.hoisted(() => ({
   decodeQr: vi.fn(),
   canvasWidth: 640,
   canvasHeight: 480,
-  canvasData: new Uint8ClampedArray([0, 0, 0, 255])
+  canvasData: new Uint8ClampedArray([0, 0, 0, 255]),
 }));
 
 vi.mock("@zxing/browser", () => ({
   BrowserQRCodeReader: class {
     public decodeFromVideoDevice = mocks.decodeFromVideoDevice;
-  }
+  },
 }));
 
 vi.mock("jsqr", () => ({ default: mocks.decodeQr }));
@@ -39,7 +39,7 @@ describe("browser QR importer", () => {
       fillRect: vi.fn(),
       drawImage: vi.fn(),
       fillStyle: "",
-      getImageData: vi.fn(() => ({ data: mocks.canvasData, width: mocks.canvasWidth, height: mocks.canvasHeight }))
+      getImageData: vi.fn(() => ({ data: mocks.canvasData, width: mocks.canvasWidth, height: mocks.canvasHeight })),
     } as unknown as CanvasRenderingContext2D);
     const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, "createElement").mockImplementation(((tagName: string) => {
@@ -54,8 +54,8 @@ describe("browser QR importer", () => {
             set: (value: string) => {
               element.setAttribute("src", value);
               queueMicrotask(() => element.dispatchEvent(new Event("load")));
-            }
-          }
+            },
+          },
         });
       }
       return element;
@@ -67,7 +67,9 @@ describe("browser QR importer", () => {
     Object.defineProperty(file, "arrayBuffer", { value: async () => new ArrayBuffer(0) });
 
     await expect(decodeQrImage(file)).resolves.toBe("otpauth://totp/Example");
-    expect(mocks.decodeQr).toHaveBeenCalledWith(expect.any(Uint8ClampedArray), 640, 480, { inversionAttempts: "attemptBoth" });
+    expect(mocks.decodeQr).toHaveBeenCalledWith(expect.any(Uint8ClampedArray), 640, 480, {
+      inversionAttempts: "attemptBoth",
+    });
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:qr");
   });
 
@@ -82,7 +84,9 @@ describe("browser QR importer", () => {
 
     await expect(decodeQrImage(file)).resolves.toBe("otpauth://totp/Example");
     expect(createImageBitmap).toHaveBeenCalledWith(expect.any(Blob));
-    expect(mocks.decodeQr).toHaveBeenCalledWith(expect.any(Uint8ClampedArray), 800, 600, { inversionAttempts: "attemptBoth" });
+    expect(mocks.decodeQr).toHaveBeenCalledWith(expect.any(Uint8ClampedArray), 800, 600, {
+      inversionAttempts: "attemptBoth",
+    });
     expect(close).toHaveBeenCalledOnce();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
@@ -109,7 +113,9 @@ describe("browser QR importer", () => {
     Object.defineProperty(file, "arrayBuffer", { value: async () => new ArrayBuffer(0) });
 
     await expect(decodeQrImage(file)).resolves.toBe("otpauth://totp/Cropped");
-    expect(mocks.decodeQr).toHaveBeenNthCalledWith(2, expect.any(Uint8ClampedArray), 38, 38, { inversionAttempts: "attemptBoth" });
+    expect(mocks.decodeQr).toHaveBeenNthCalledWith(2, expect.any(Uint8ClampedArray), 38, 38, {
+      inversionAttempts: "attemptBoth",
+    });
   });
 
   it("keeps scanning after transient undecodable camera frames", async () => {
@@ -119,7 +125,7 @@ describe("browser QR importer", () => {
     await scanQrCamera(video, onValue);
     const callback = mocks.decodeFromVideoDevice.mock.calls[0]?.[2] as (
       result: { getText(): string } | undefined,
-      error: Error | undefined
+      error: Error | undefined,
     ) => void;
 
     for (const name of ["NotFoundException", "ChecksumException", "FormatException"]) {

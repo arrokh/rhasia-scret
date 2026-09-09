@@ -3,9 +3,7 @@ import { initializePersonalVaultInBrowser } from "@/modules/crypto/infrastructur
 
 describe("initializePersonalVaultInBrowser", () => {
   it("accepts a custom Vault Unlock Secret with at least three characters", async () => {
-    await expect(initializePersonalVaultInBrowser("ab", "Personal Vault")).rejects.toThrow(
-      "at least three characters"
-    );
+    await expect(initializePersonalVaultInBrowser("ab", "Personal Vault")).rejects.toThrow("at least three characters");
 
     const material = await initializePersonalVaultInBrowser("abc", "Personal Vault");
     expect(material.encryptionVersion).toBe(1);

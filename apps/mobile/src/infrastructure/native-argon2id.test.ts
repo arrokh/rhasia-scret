@@ -1,9 +1,5 @@
 import { ARGON2ID_PROTOCOL_VECTOR } from "@rhasia-scret/client-vault-core";
-import {
-  NativeArgon2idPort,
-  type NativeArgon2idDriver,
-  type NativeArgon2idRequest,
-} from "./native-argon2id";
+import { NativeArgon2idPort, type NativeArgon2idDriver, type NativeArgon2idRequest } from "./native-argon2id";
 
 const parameters = {
   memoryKiB: ARGON2ID_PROTOCOL_VECTOR.memoryKiB,
@@ -23,11 +19,7 @@ describe("NativeArgon2idPort", () => {
     };
     const port = new NativeArgon2idPort(driver);
 
-    const key = await port.deriveArgon2id(
-      ARGON2ID_PROTOCOL_VECTOR.secret,
-      ARGON2ID_PROTOCOL_VECTOR.salt,
-      parameters,
-    );
+    const key = await port.deriveArgon2id(ARGON2ID_PROTOCOL_VECTOR.secret, ARGON2ID_PROTOCOL_VECTOR.salt, parameters);
 
     expect(bytesToHex(key)).toBe(ARGON2ID_PROTOCOL_VECTOR.expectedHex);
     expect(request).toMatchObject({
@@ -46,12 +38,12 @@ describe("NativeArgon2idPort", () => {
     const derive = jest.fn<ReturnType<NativeArgon2idDriver["derive"]>, Parameters<NativeArgon2idDriver["derive"]>>();
     const port = new NativeArgon2idPort({ derive });
 
-    await expect(port.deriveArgon2id(
-      ARGON2ID_PROTOCOL_VECTOR.secret,
-      ARGON2ID_PROTOCOL_VECTOR.salt,
-      parameters,
-      { aborted: true, subscribe: () => () => undefined },
-    )).rejects.toMatchObject({ name: "AbortError" });
+    await expect(
+      port.deriveArgon2id(ARGON2ID_PROTOCOL_VECTOR.secret, ARGON2ID_PROTOCOL_VECTOR.salt, parameters, {
+        aborted: true,
+        subscribe: () => () => undefined,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
     expect(derive).not.toHaveBeenCalled();
   });
 });

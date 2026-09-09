@@ -4,7 +4,7 @@ import { prisma } from "@/shared/infrastructure/prisma-client";
 import {
   canPerformSharedVaultAccountOperation,
   effectiveSharedVaultAccountPermissions,
-  type SharedVaultAccountPermission
+  type SharedVaultAccountPermission,
 } from "@rhasia-scret/client-vault-core";
 import type { SharedAccountMutationResult, SharedAccountRepository } from "../application/shared-account-repository";
 import { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
@@ -32,13 +32,13 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
     actorUserId: string,
     vaultId: string,
     encryptedPayload: Uint8Array,
-    encryptionVersion: number
+    encryptionVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>> {
     return prisma.$transaction(async (transaction) => {
       const access = await authorize(transaction, actorUserId, vaultId, "ADD");
       if (access.status !== "AUTHORIZED") return access.result;
       const account = await transaction.authenticatorAccount.create({
-        data: { vaultId, encryptedPayload: copyBytes(encryptedPayload), encryptionVersion }
+        data: { vaultId, encryptedPayload: copyBytes(encryptedPayload), encryptionVersion },
       });
       await recordAccountAudit(transaction, access.vault, actorUserId, "ACCOUNT_ADDED", account.id);
       return { status: "SUCCESS", value: encryptedAccount(account) };
@@ -51,14 +51,14 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
     accountId: string,
     expectedRevision: number,
     encryptedPayload: Uint8Array,
-    encryptionVersion: number
+    encryptionVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>> {
     return prisma.$transaction(async (transaction) => {
       const access = await authorize(transaction, actorUserId, vaultId, "EDIT");
       if (access.status !== "AUTHORIZED") return access.result;
       const updated = await transaction.authenticatorAccount.updateMany({
         where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
-        data: { encryptedPayload: copyBytes(encryptedPayload), encryptionVersion, revision: { increment: 1 } }
+        data: { encryptedPayload: copyBytes(encryptedPayload), encryptionVersion, revision: { increment: 1 } },
       });
       if (updated.count !== 1) return { status: "STALE_REVISION" };
       const account = await transaction.authenticatorAccount.findUniqueOrThrow({ where: { id: accountId } });
@@ -71,7 +71,7 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
     actorUserId: string,
     vaultId: string,
     accountId: string,
-    expectedRevision: number
+    expectedRevision: number,
   ): Promise<SharedAccountMutationResult<undefined>> {
     return prisma.$transaction(async (transaction) => {
       const access = await authorize(transaction, actorUserId, vaultId, "DELETE");
@@ -79,7 +79,7 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
       const deletedAt = this.now();
       const deleted = await transaction.authenticatorAccount.updateMany({
         where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
-        data: { deletedAt, purgeAfter: accountPurgeAfter(deletedAt), revision: { increment: 1 } }
+        data: { deletedAt, purgeAfter: accountPurgeAfter(deletedAt), revision: { increment: 1 } },
       });
       if (deleted.count !== 1) return { status: "STALE_REVISION" };
       await recordAccountAudit(transaction, access.vault, actorUserId, "ACCOUNT_DELETED", accountId);
@@ -90,7 +90,7 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
   public restore(
     actorUserId: string,
     vaultId: string,
-    accountId: string
+    accountId: string,
   ): Promise<SharedAccountMutationResult<undefined>> {
     return prisma.$transaction(async (transaction) => {
       const vault = await lockActiveSharedVault(transaction, vaultId);
@@ -103,9 +103,9 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
           id: accountId,
           vaultId,
           deletedAt: { not: null },
-          OR: [{ purgeAfter: { gt: now } }, { purgeAfter: null, deletedAt: { gt: legacyRecoveryCutoff } }]
+          OR: [{ purgeAfter: { gt: now } }, { purgeAfter: null, deletedAt: { gt: legacyRecoveryCutoff } }],
         },
-        data: { deletedAt: null, purgeAfter: null, revision: { increment: 1 } }
+        data: { deletedAt: null, purgeAfter: null, revision: { increment: 1 } },
       });
       if (restored.count !== 1) return { status: "ACCOUNT_UNAVAILABLE" };
       await recordAccountAudit(transaction, vault, actorUserId, "ACCOUNT_RESTORED", accountId);
@@ -118,10 +118,9 @@ async function authorize(
   transaction: Prisma.TransactionClient,
   actorUserId: string,
   vaultId: string,
-  operation: SharedVaultAccountPermission
+  operation: SharedVaultAccountPermission,
 ): Promise<
-  | { status: "AUTHORIZED"; vault: LockedVault }
-  | { status: "REJECTED"; result: SharedAccountMutationResult<never> }
+  { status: "AUTHORIZED"; vault: LockedVault } | { status: "REJECTED"; result: SharedAccountMutationResult<never> }
 > {
   const vault = await lockActiveSharedVault(transaction, vaultId);
   if (!vault) return { status: "REJECTED", result: { status: "VAULT_UNAVAILABLE" } };
@@ -146,13 +145,13 @@ async function authorize(
     {
       canAddAccounts: vault.membersCanAddAccounts,
       canEditAccounts: vault.membersCanEditAccounts,
-      canDeleteAccounts: vault.membersCanDeleteAccounts
+      canDeleteAccounts: vault.membersCanDeleteAccounts,
     },
     {
       canAddAccounts: membership.canAddAccountsOverride,
       canEditAccounts: membership.canEditAccountsOverride,
-      canDeleteAccounts: membership.canDeleteAccountsOverride
-    }
+      canDeleteAccounts: membership.canDeleteAccountsOverride,
+    },
   );
   if (!canPerformSharedVaultAccountOperation(effective.permissions, operation)) {
     return { status: "REJECTED", result: { status: "PERMISSION_DENIED" } };
@@ -160,7 +159,10 @@ async function authorize(
   return { status: "AUTHORIZED", vault };
 }
 
-async function lockActiveSharedVault(transaction: Prisma.TransactionClient, vaultId: string): Promise<LockedVault | null> {
+async function lockActiveSharedVault(
+  transaction: Prisma.TransactionClient,
+  vaultId: string,
+): Promise<LockedVault | null> {
   const vaults = await transaction.$queryRaw<LockedVault[]>`
     SELECT
       "id",
@@ -183,9 +185,15 @@ function recordAccountAudit(
   vault: LockedVault,
   actorUserId: string,
   action: Extract<AuditAction, "ACCOUNT_ADDED" | "ACCOUNT_UPDATED" | "ACCOUNT_DELETED" | "ACCOUNT_RESTORED">,
-  accountId: string
+  accountId: string,
 ) {
-  return appendVaultAuditEvent(transaction, { vaultId: vault.id, ownerId: vault.ownerId, actorUserId, action, targetId: accountId });
+  return appendVaultAuditEvent(transaction, {
+    vaultId: vault.id,
+    ownerId: vault.ownerId,
+    actorUserId,
+    action,
+    targetId: accountId,
+  });
 }
 
 function encryptedAccount(account: {
@@ -200,7 +208,7 @@ function encryptedAccount(account: {
     account.vaultId,
     account.encryptedPayload,
     account.encryptionVersion,
-    account.revision
+    account.revision,
   );
 }
 

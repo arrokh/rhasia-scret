@@ -18,13 +18,15 @@ const staticContentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
+  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost]
+    .filter(Boolean)
+    .join(" "),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
-  "frame-ancestors 'none'"
+  "frame-ancestors 'none'",
 ].join("; ");
 
 const securityHeaders = [
@@ -36,13 +38,15 @@ const securityHeaders = [
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
-  { key: "Content-Security-Policy", value: staticContentSecurityPolicy }
+  { key: "Content-Security-Policy", value: staticContentSecurityPolicy },
 ];
 
 const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
 const isSelfHostedDockerBuild = process.env.SELF_HOSTED_DOCKER_BUILD === "1";
 const configuredPasskeyHost = hostnameFromOrigin(process.env.PASSKEY_ORIGIN);
-const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter((origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index);
+const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter(
+  (origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index,
+);
 
 const nextConfig: NextConfig = {
   distDir: nextDistDir,
@@ -57,9 +61,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/api/:path*", headers: [...securityHeaders, { key: "Cache-Control", value: "no-store, private" }] },
-      { source: "/auth/:path*", headers: [...securityHeaders, { key: "Cache-Control", value: "no-store, private" }] }
+      { source: "/auth/:path*", headers: [...securityHeaders, { key: "Cache-Control", value: "no-store, private" }] },
     ];
-  }
+  },
 };
 
 export default withNextIntl(nextConfig);

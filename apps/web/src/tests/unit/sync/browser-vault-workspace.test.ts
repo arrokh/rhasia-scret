@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   unlockPersonalVault: vi.fn(),
   unlockPersonalVaultWithUserRootKey: vi.fn(),
-  unlockSharedVault: vi.fn()
+  unlockSharedVault: vi.fn(),
 }));
 
 vi.mock("@/modules/crypto", () => ({
@@ -22,7 +22,7 @@ vi.mock("@/modules/crypto", () => ({
   recoverUserRootKeyWithRememberedBrowser: mocks.recoverUserRootKeyWithRememberedBrowser,
   rewrapUserCryptoProfile: mocks.rewrapUserCryptoProfile,
   unlockPersonalVault: mocks.unlockPersonalVault,
-  unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey
+  unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey,
 }));
 vi.mock("@/modules/sync", () => ({
   BrowserOfflineVaultRepository: class {
@@ -30,11 +30,11 @@ vi.mock("@/modules/sync", () => ({
     readByPersonalVaultId = mocks.readByPersonalVaultId;
     replace = mocks.replace;
   },
-  fetchAuthorizedOfflineBundle: mocks.fetchAuthorizedOfflineBundle
+  fetchAuthorizedOfflineBundle: mocks.fetchAuthorizedOfflineBundle,
 }));
 vi.mock("@/modules/vault-membership", () => ({ unlockSharedVault: mocks.unlockSharedVault }));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload", () => ({
-  decryptAccountConfiguration: mocks.decryptAccountConfiguration
+  decryptAccountConfiguration: mocks.decryptAccountConfiguration,
 }));
 
 import {
@@ -44,7 +44,7 @@ import {
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser,
-  refreshUnlockedVaultWorkspace
+  refreshUnlockedVaultWorkspace,
 } from "@/modules/sync/infrastructure/browser-vault-workspace";
 
 describe("Vault workspace loading", () => {
@@ -67,10 +67,17 @@ describe("Vault workspace loading", () => {
 
     const workspace = await loadUnlockedVaultWorkspace("four random secret words", "personal-1");
 
-    expect(workspace).toEqual(expect.objectContaining({ profileId: "profile-1", syncState: "CURRENT", userRootKey, unavailableSharedVaults: 0 }));
+    expect(workspace).toEqual(
+      expect.objectContaining({
+        profileId: "profile-1",
+        syncState: "CURRENT",
+        userRootKey,
+        unavailableSharedVaults: 0,
+      }),
+    );
     expect(workspace.accounts.map(({ issuer, vaultName }) => ({ issuer, vaultName }))).toEqual([
       { issuer: "Alpha", vaultName: "Tim Operasional" },
-      { issuer: "Zulu", vaultName: "Brankas Pribadi" }
+      { issuer: "Zulu", vaultName: "Brankas Pribadi" },
     ]);
     expect(mocks.replace).toHaveBeenCalledWith(bundle());
   });
@@ -95,7 +102,7 @@ describe("Vault workspace loading", () => {
       vaultUnlockSalt: Uint8Array.of(10, 11),
       wrappedUserRootKey: Uint8Array.of(12, 13),
       encryptedPersonalVaultKey: Uint8Array.of(14, 15),
-      encryptionVersion: 1
+      encryptionVersion: 1,
     };
     const userRootKey = Uint8Array.of(1);
     const personalVaultKey = Uint8Array.of(2);
@@ -108,16 +115,18 @@ describe("Vault workspace loading", () => {
       vaultUnlockSalt: "Cgs=",
       wrappedUserRootKey: "DA0=",
       encryptedPersonalVaultKey: "Dg8=",
-      encryptionVersion: 1
+      encryptionVersion: 1,
     });
-    expect(mocks.replace).toHaveBeenCalledWith(expect.objectContaining({
-      cryptoProfile: {
-        vaultUnlockSalt: "Cgs=",
-        wrappedUserRootKey: "DA0=",
-        encryptedPersonalVaultKey: "Dg8=",
-        encryptionVersion: 1
-      }
-    }));
+    expect(mocks.replace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cryptoProfile: {
+          vaultUnlockSalt: "Cgs=",
+          wrappedUserRootKey: "DA0=",
+          encryptedPersonalVaultKey: "Dg8=",
+          encryptionVersion: 1,
+        },
+      }),
+    );
   });
 
   it("loads a fresh authorized online bundle through PRF-bound Remembered Browser unlock", async () => {
@@ -152,16 +161,27 @@ describe("Vault workspace loading", () => {
 
   it("persists ciphertext concurrently and bounds account decryption concurrency", async () => {
     const largeBundle = bundle({ sharedVaults: [] });
-    largeBundle.personalVault.accounts = Array.from({ length: 25 }, (_, index) => ({ id: `account-${index}`, encryptedPayload: "BQ==", encryptionVersion: 1 as const, revision: 1 }));
+    largeBundle.personalVault.accounts = Array.from({ length: 25 }, (_, index) => ({
+      id: `account-${index}`,
+      encryptedPayload: "BQ==",
+      encryptionVersion: 1 as const,
+      revision: 1,
+    }));
     mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(largeBundle);
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
     let active = 0;
     let maximumActive = 0;
-    mocks.decryptAccountConfiguration.mockImplementation(() => new Promise((resolve) => {
-      active += 1;
-      maximumActive = Math.max(maximumActive, active);
-      queueMicrotask(() => { active -= 1; resolve(account("Issuer", "account")); });
-    }));
+    mocks.decryptAccountConfiguration.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          active += 1;
+          maximumActive = Math.max(maximumActive, active);
+          queueMicrotask(() => {
+            active -= 1;
+            resolve(account("Issuer", "account"));
+          });
+        }),
+    );
 
     const loading = loadUnlockedVaultWorkspace("secret", "personal-1");
     await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith(largeBundle));
@@ -181,10 +201,19 @@ describe("Vault workspace loading", () => {
   });
 
   it("isolates one malformed account without making its Shared Vault unavailable", async () => {
-    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(bundle({ sharedVaults: [{ ...sharedVault(), accounts: [
-      { id: "shared-valid", encryptedPayload: "CA==", encryptionVersion: 1 as const, revision: 1 },
-      { id: "shared-invalid", encryptedPayload: "CQ==", encryptionVersion: 1 as const, revision: 4 }
-    ] }] }));
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(
+      bundle({
+        sharedVaults: [
+          {
+            ...sharedVault(),
+            accounts: [
+              { id: "shared-valid", encryptedPayload: "CA==", encryptionVersion: 1 as const, revision: 1 },
+              { id: "shared-invalid", encryptedPayload: "CQ==", encryptionVersion: 1 as const, revision: 4 },
+            ],
+          },
+        ],
+      }),
+    );
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
     mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Tim" });
     mocks.decryptAccountConfiguration
@@ -196,14 +225,20 @@ describe("Vault workspace loading", () => {
 
     expect(workspace.vaults.map((vault) => vault.id)).toContain("shared-1");
     expect(workspace.accounts.map(({ id }) => id)).toContain("shared-valid");
-    expect(workspace.unavailableAccounts).toEqual([{ id: "shared-invalid", vaultId: "shared-1", vaultName: "Tim", vaultType: "SHARED", revision: 4 }]);
+    expect(workspace.unavailableAccounts).toEqual([
+      { id: "shared-invalid", vaultId: "shared-1", vaultName: "Tim", vaultType: "SHARED", revision: 4 },
+    ]);
     expect(workspace.unavailableSharedVaults).toBe(0);
   });
 
   it("keeps valid accounts available when one Shared Vault cannot be decrypted and clears all key material on lock", async () => {
-    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(bundle({ sharedVaults: [sharedVault("shared-good"), sharedVault("shared-bad")] }));
+    mocks.fetchAuthorizedOfflineBundle.mockResolvedValue(
+      bundle({ sharedVaults: [sharedVault("shared-good"), sharedVault("shared-bad")] }),
+    );
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
-    mocks.unlockSharedVault.mockResolvedValueOnce({ vaultKey: Uint8Array.of(3), name: "Tim" }).mockRejectedValueOnce(new Error("invalid"));
+    mocks.unlockSharedVault
+      .mockResolvedValueOnce({ vaultKey: Uint8Array.of(3), name: "Tim" })
+      .mockRejectedValueOnce(new Error("invalid"));
     const secret = Uint8Array.of(9);
     mocks.decryptAccountConfiguration.mockResolvedValue(account("Issuer", "account", secret));
 
@@ -223,7 +258,24 @@ function account(issuer: string, accountName: string, secret = Uint8Array.of(9))
 }
 
 function sharedVault(vaultId = "shared-1") {
-  return { vaultId, lifecycle: "ACTIVE" as const, role: "VIEWER" as const, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT" as const, canEditAccounts: "VAULT" as const, canDeleteAccounts: "VAULT" as const } }, encryptedName: "Bg==", encryptionVersion: 1 as const, encryptedVaultKey: "Bw==", keyVersion: 1, accounts: [] };
+  return {
+    vaultId,
+    lifecycle: "ACTIVE" as const,
+    role: "VIEWER" as const,
+    effectiveAccountPermissions: {
+      permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+      sources: {
+        canAddAccounts: "VAULT" as const,
+        canEditAccounts: "VAULT" as const,
+        canDeleteAccounts: "VAULT" as const,
+      },
+    },
+    encryptedName: "Bg==",
+    encryptionVersion: 1 as const,
+    encryptedVaultKey: "Bw==",
+    keyVersion: 1,
+    accounts: [],
+  };
 }
 
 function bundle(overrides: Record<string, unknown> = {}) {
@@ -232,9 +284,25 @@ function bundle(overrides: Record<string, unknown> = {}) {
     profileId: "profile-1",
     synchronizedAt: "2026-01-01T00:00:00.000Z",
     synchronizationToken: "sync-1",
-    cryptoProfile: { vaultUnlockSalt: "AQ==", wrappedUserRootKey: "Ag==", encryptedPersonalVaultKey: "Aw==", encryptionVersion: 1 as const },
-    personalVault: { vaultId: "personal-1", lifecycle: "ACTIVE" as const, encryptedName: "BA==", encryptionVersion: 1 as const, accounts: [{ id: "personal-account", encryptedPayload: "BQ==", encryptionVersion: 1 as const, revision: 1 }] },
-    sharedVaults: [{ ...sharedVault(), accounts: [{ id: "shared-account", encryptedPayload: "CA==", encryptionVersion: 1 as const, revision: 1 }] }],
-    ...overrides
+    cryptoProfile: {
+      vaultUnlockSalt: "AQ==",
+      wrappedUserRootKey: "Ag==",
+      encryptedPersonalVaultKey: "Aw==",
+      encryptionVersion: 1 as const,
+    },
+    personalVault: {
+      vaultId: "personal-1",
+      lifecycle: "ACTIVE" as const,
+      encryptedName: "BA==",
+      encryptionVersion: 1 as const,
+      accounts: [{ id: "personal-account", encryptedPayload: "BQ==", encryptionVersion: 1 as const, revision: 1 }],
+    },
+    sharedVaults: [
+      {
+        ...sharedVault(),
+        accounts: [{ id: "shared-account", encryptedPayload: "CA==", encryptionVersion: 1 as const, revision: 1 }],
+      },
+    ],
+    ...overrides,
   };
 }

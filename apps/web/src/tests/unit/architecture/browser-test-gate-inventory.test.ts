@@ -9,7 +9,7 @@ const smokeSpecs = [
   "security-headers.spec.ts",
   "smoke.spec.ts",
   "vault-archive-backup.spec.ts",
-  "vault-archive-import.spec.ts"
+  "vault-archive-import.spec.ts",
 ] as const;
 const e2eSpecs = ["encrypted-vault-workflows.spec.ts"] as const;
 const pwaSpecs = ["offline-pwa.spec.ts"] as const;
@@ -18,7 +18,9 @@ const separatelyRunSpecs = ["navigation-performance.spec.ts"] as const;
 const browserTestDirectory = resolve(process.cwd(), "src/tests/browser");
 
 function browserSpecFiles(): string[] {
-  return readdirSync(browserTestDirectory).filter((file) => file.endsWith(".spec.ts")).sort();
+  return readdirSync(browserTestDirectory)
+    .filter((file) => file.endsWith(".spec.ts"))
+    .sort();
 }
 
 describe("browser test gate inventory", () => {

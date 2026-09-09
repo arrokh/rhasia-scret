@@ -12,7 +12,7 @@ describe("Encrypted Vault Archive boundaries", () => {
       read("src/modules/vault-archive/presentation/vault-archive-importer.tsx"),
       read("src/modules/vault-archive/infrastructure/browser-vault-archive-export-workflow.ts"),
       read("src/modules/vault-archive/infrastructure/browser-vault-archive-workflow.ts"),
-      read("src/modules/vault-archive/infrastructure/browser-vault-import-client.ts")
+      read("src/modules/vault-archive/infrastructure/browser-vault-import-client.ts"),
     ].join("\n");
     expect(sources).not.toMatch(/@tanstack\/react-query|useMutation|useQuery|queryClient/i);
     expect(sources).not.toMatch(/localStorage|sessionStorage|indexedDB|console\./i);
@@ -22,7 +22,7 @@ describe("Encrypted Vault Archive boundaries", () => {
     const sources = [
       read("src/app/api/vault-imports/route.ts"),
       read("src/app/api/vaults/[vaultId]/archive-exports/route.ts"),
-      read("src/modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts")
+      read("src/modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts"),
     ].join("\n");
     expect(sources).not.toMatch(/modules\/crypto|otp-runtime|decryptPayload|openEncryptedVaultExport|parseTotpUri/);
     expect(sources).not.toMatch(/vaultName\s*:|issuer\s*:|accountName\s*:|secret\s*:/);
@@ -38,9 +38,13 @@ describe("Encrypted Vault Archive boundaries", () => {
 
   it("clears archive keys, decrypted account secrets, and temporary Vault material", () => {
     const exporter = read("src/modules/vault-archive/presentation/vault-archive-exporter.tsx");
-    const exportWorkflow = read("../../packages/client-vault-core/src/modules/vault-archive/application/prepare-encrypted-vault-archive.ts");
+    const exportWorkflow = read(
+      "../../packages/client-vault-core/src/modules/vault-archive/application/prepare-encrypted-vault-archive.ts",
+    );
     const importer = read("src/modules/vault-archive/presentation/vault-archive-importer.tsx");
-    const workflow = read("../../packages/client-vault-core/src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive.ts");
+    const workflow = read(
+      "../../packages/client-vault-core/src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive.ts",
+    );
     expect(exporter).toContain("clearPreparedVaultArchive(preparedRef.current)");
     expect(exportWorkflow).toContain("prepared.archive.fill(0)");
     expect(exportWorkflow).toContain("prepared.key.fill(0)");

@@ -3,11 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSharedVaultAccessRepository } from "@/modules/vault-membership/server";
 import { createSharedVaultRepository, type SharedVaultRepository } from "@/modules/vault-management/server";
-import { authenticateApplicationMutation, authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
+import {
+  authenticateApplicationMutation,
+  authenticateApplicationReader,
+} from "@/shared/infrastructure/authenticated-application-request";
 
 const renameSchema = z.object({
   encryptedName: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-  encryptionVersion: z.literal(1)
+  encryptionVersion: z.literal(1),
 });
 
 export async function GET(_request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
@@ -23,13 +26,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ vau
     encryptionVersion: access.encryptionVersion,
     encryptedVaultKey: Buffer.from(access.encryptedVaultKey).toString("base64"),
     keyVersion: access.keyVersion,
-    accounts: access.accounts.map((account) => ({ id: account.id, encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"), encryptionVersion: account.encryptionVersion, revision: account.revision }))
+    accounts: access.accounts.map((account) => ({
+      id: account.id,
+      encryptedPayload: Buffer.from(account.encryptedPayload).toString("base64"),
+      encryptionVersion: account.encryptionVersion,
+      revision: account.revision,
+    })),
   });
 }
 
 export function createRenameSharedVaultHandler({
   authenticate,
-  sharedVaults
+  sharedVaults,
 }: {
   authenticate: typeof authenticateApplicationMutation;
   sharedVaults: SharedVaultRepository;
@@ -40,12 +48,19 @@ export function createRenameSharedVaultHandler({
     const parsed = renameSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_vault_name" }, { status: 400 });
     const { vaultId } = await params;
-    const renamed = await sharedVaults.rename(user.id, vaultId, Buffer.from(parsed.data.encryptedName, "base64"), parsed.data.encryptionVersion);
-    return renamed ? new NextResponse(null, { status: 204 }) : NextResponse.json({ error: "owner_access_required" }, { status: 404 });
+    const renamed = await sharedVaults.rename(
+      user.id,
+      vaultId,
+      Buffer.from(parsed.data.encryptedName, "base64"),
+      parsed.data.encryptionVersion,
+    );
+    return renamed
+      ? new NextResponse(null, { status: 204 })
+      : NextResponse.json({ error: "owner_access_required" }, { status: 404 });
   };
 }
 
 export const PATCH = createRenameSharedVaultHandler({
   authenticate: authenticateApplicationMutation,
-  sharedVaults: createSharedVaultRepository()
+  sharedVaults: createSharedVaultRepository(),
 });

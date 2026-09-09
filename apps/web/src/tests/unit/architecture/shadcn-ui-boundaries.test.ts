@@ -15,18 +15,22 @@ function filesUnder(directory: string): string[] {
 
 describe("shadcn/ui design-system boundaries", () => {
   it("keeps shadcn configured as the sole component-system foundation", () => {
-    const config = JSON.parse(readFileSync(join(process.cwd(), "components.json"), "utf8")) as { style?: string; base?: string };
+    const config = JSON.parse(readFileSync(join(process.cwd(), "components.json"), "utf8")) as {
+      style?: string;
+      base?: string;
+    };
     expect(config.style).toBe("radix-nova");
     expect(filesUnder(uiRoot).length).toBeGreaterThan(10);
   });
 
   it("routes visible controls through shadcn primitives", () => {
-    const violations = visualRoots.flatMap(filesUnder)
+    const violations = visualRoots
+      .flatMap(filesUnder)
       .filter((path) => !path.endsWith("/app/global-error.tsx"))
       .filter((path) => !path.startsWith(uiRoot))
       .flatMap((path) => {
         const source = readFileSync(path, "utf8");
-        const withoutPermittedFileInput = source.replace(/<input className="sr-only"/g, "<FileInput");
+        const withoutPermittedFileInput = source.replace(/<input\s+className="sr-only"/g, "<FileInput");
         return /<(button|input|select|textarea|dialog|details|summary)(\s|>)/.test(withoutPermittedFileInput)
           ? [relative(process.cwd(), path)]
           : [];
@@ -53,7 +57,7 @@ describe("shadcn/ui design-system boundaries", () => {
       "app/vaults/manage/page.tsx",
       "app/vaults/manage/new/page.tsx",
       "app/vaults/manage/[vaultId]/page.tsx",
-      "app/vaults/invitations/redeem/page.tsx"
+      "app/vaults/invitations/redeem/page.tsx",
     ];
     const frame = readFileSync(join(sourceRoot, "modules/vault-management/presentation/vault-page-frame.tsx"), "utf8");
     expect(frame).toContain("<PageHeader");
@@ -73,7 +77,8 @@ describe("shadcn/ui design-system boundaries", () => {
   });
 
   it("routes every Passphrase Brankas input through the accessible visibility control", () => {
-    const rawPasswordInputs = visualRoots.flatMap(filesUnder)
+    const rawPasswordInputs = visualRoots
+      .flatMap(filesUnder)
       .filter((path) => !path.endsWith("password-input.tsx"))
       .filter((path) => readFileSync(path, "utf8").includes('type="password"'))
       .map((path) => relative(process.cwd(), path));
@@ -82,7 +87,23 @@ describe("shadcn/ui design-system boundaries", () => {
 
   it("encodes the documented Rhasia palette and rejects the former indigo system", () => {
     const css = readFileSync(join(sourceRoot, "shared/presentation/styles/globals.css"), "utf8").toLowerCase();
-    for (const color of ["#273039", "#171d22", "#e5a72e", "#c88717", "#f5d998", "#91867e", "#b9ada3", "#f8f4ed", "#fffdf9", "#ded8d0", "#3d7452", "#a5661b", "#a4433d", "#526d82"]) expect(css).toContain(color);
+    for (const color of [
+      "#273039",
+      "#171d22",
+      "#e5a72e",
+      "#c88717",
+      "#f5d998",
+      "#91867e",
+      "#b9ada3",
+      "#f8f4ed",
+      "#fffdf9",
+      "#ded8d0",
+      "#3d7452",
+      "#a5661b",
+      "#a4433d",
+      "#526d82",
+    ])
+      expect(css).toContain(color);
     expect(css).not.toMatch(/#312e81|#4f46e5|#172554|#f8fafc/);
     expect(css).not.toContain("gradient");
   });

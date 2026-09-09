@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { canMutateVault, resolveVaultStatus, type AuthenticatedTransport, type UnlockedVaultWorkspace, type WorkspaceAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
+import {
+  canMutateVault,
+  resolveVaultStatus,
+  type AuthenticatedTransport,
+  type UnlockedVaultWorkspace,
+  type WorkspaceAuthenticatorAccount,
+} from "@rhasia-scret/client-vault-core";
 import type { MobileMessages } from "../localization";
 import {
   generateMobileTotp,
@@ -26,10 +32,17 @@ export function MobileAuthenticatorAccounts({
   refreshWorkspaceAuthorization(): Promise<void>;
 }) {
   const repository = useMemo(() => new MobileAuthenticatorAccountRepository(transport), [transport]);
-  const workspaceStatus = resolveVaultStatus({ origin: "PERSONAL", syncState: workspace.syncState, onlineHint: workspace.syncState === "CURRENT", lastSynchronizedAt: workspace.synchronizedAt });
+  const workspaceStatus = resolveVaultStatus({
+    origin: "PERSONAL",
+    syncState: workspace.syncState,
+    onlineHint: workspace.syncState === "CURRENT",
+    lastSynchronizedAt: workspace.synchronizedAt,
+  });
   const workspaceWritable = canMutateVault(workspaceStatus);
   const personalVault = workspace.vaults.find((vault) => vault.type === "PERSONAL");
-  const writableVaults = workspace.vaults.filter((vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts);
+  const writableVaults = workspace.vaults.filter(
+    (vault) => vault.effectiveAccountPermissions.permissions.canAddAccounts,
+  );
   const [destinationId, setDestinationId] = useState(personalVault?.id ?? writableVaults[0]?.id ?? "");
   const destination = writableVaults.find((vault) => vault.id === destinationId);
   const [importStatus, setImportStatus] = useState<"idle" | "saving" | "error" | "refresh_error">("idle");
@@ -74,7 +87,9 @@ export function MobileAuthenticatorAccounts({
 
   return (
     <View style={styles.section}>
-      <Text accessibilityRole="header" style={styles.heading}>{copy.authenticatorAccounts}</Text>
+      <Text accessibilityRole="header" style={styles.heading}>
+        {copy.authenticatorAccounts}
+      </Text>
       {workspaceWritable ? (
         <>
           <Text style={styles.guidance}>{copy.authenticatorAccountImportGuidance}</Text>
@@ -92,12 +107,20 @@ export function MobileAuthenticatorAccounts({
               </Pressable>
             ))}
           </View>
-          <form.Field name="uri" validators={{ onSubmit: ({ value }) => value.trim().startsWith("otpauth://") ? undefined : copy.authenticatorAccountUriInvalid }}>
+          <form.Field
+            name="uri"
+            validators={{
+              onSubmit: ({ value }) =>
+                value.trim().startsWith("otpauth://") ? undefined : copy.authenticatorAccountUriInvalid,
+            }}
+          >
             {(field) => {
               const error = field.state.meta.errors[0];
               return (
                 <View style={styles.field}>
-                  <Text nativeID="totp-uri-label" style={styles.label}>{copy.authenticatorAccountUri}</Text>
+                  <Text nativeID="totp-uri-label" style={styles.label}>
+                    {copy.authenticatorAccountUri}
+                  </Text>
                   <TextInput
                     accessibilityLabel={copy.authenticatorAccountUri}
                     aria-invalid={Boolean(error)}
@@ -110,7 +133,11 @@ export function MobileAuthenticatorAccounts({
                     style={[styles.input, error ? styles.inputInvalid : null]}
                     value={field.state.value}
                   />
-                  {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{String(error)}</Text> : null}
+                  {error ? (
+                    <Text accessibilityLiveRegion="polite" style={styles.error}>
+                      {String(error)}
+                    </Text>
+                  ) : null}
                 </View>
               );
             }}
@@ -127,14 +154,28 @@ export function MobileAuthenticatorAccounts({
                 onPress={() => void form.handleSubmit()}
                 style={styles.primaryButton}
               >
-                <Text style={styles.primaryButtonText}>{importStatus === "saving" ? copy.authenticatorAccountSaving : copy.authenticatorAccountImport}</Text>
+                <Text style={styles.primaryButtonText}>
+                  {importStatus === "saving" ? copy.authenticatorAccountSaving : copy.authenticatorAccountImport}
+                </Text>
               </Pressable>
             )}
           </form.Subscribe>
-          {importStatus === "error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.authenticatorAccountImportError}</Text> : null}
-          {importStatus === "refresh_error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.authenticatorAccountRefreshError}</Text> : null}
+          {importStatus === "error" ? (
+            <Text accessibilityLiveRegion="assertive" style={styles.error}>
+              {copy.authenticatorAccountImportError}
+            </Text>
+          ) : null}
+          {importStatus === "refresh_error" ? (
+            <Text accessibilityLiveRegion="assertive" style={styles.error}>
+              {copy.authenticatorAccountRefreshError}
+            </Text>
+          ) : null}
         </>
-      ) : <Text accessibilityLiveRegion="polite" style={styles.guidance}>{copy.offlineSnapshotReadOnly}</Text>}
+      ) : (
+        <Text accessibilityLiveRegion="polite" style={styles.guidance}>
+          {copy.offlineSnapshotReadOnly}
+        </Text>
+      )}
       {workspace.accounts.map((account) => {
         const vault = workspace.vaults.find(({ id }) => id === account.vaultId);
         return (
@@ -153,12 +194,24 @@ export function MobileAuthenticatorAccounts({
         );
       })}
       <MobileSharedVaults copy={copy} transport={transport} webOrigin={webOrigin} workspace={workspace} />
-      <MobileVaultArchive copy={copy} refreshWorkspaceAuthorization={refreshWorkspaceAuthorization} transport={transport} workspace={workspace} />
+      <MobileVaultArchive
+        copy={copy}
+        refreshWorkspaceAuthorization={refreshWorkspaceAuthorization}
+        transport={transport}
+        workspace={workspace}
+      />
     </View>
   );
 }
 
-function MobileTotpAccount({ account, canDelete, copy, online, onDelete, repository }: {
+function MobileTotpAccount({
+  account,
+  canDelete,
+  copy,
+  online,
+  onDelete,
+  repository,
+}: {
   account: WorkspaceAuthenticatorAccount;
   canDelete: boolean;
   copy: MobileMessages;
@@ -185,10 +238,16 @@ function MobileTotpAccount({ account, canDelete, copy, online, onDelete, reposit
 
   return (
     <View style={styles.account}>
-      <Text style={styles.accountVault}>{account.vaultName} · {account.vaultType === "SHARED" ? copy.sharedVault : copy.personalVault}</Text>
+      <Text style={styles.accountVault}>
+        {account.vaultName} · {account.vaultType === "SHARED" ? copy.sharedVault : copy.personalVault}
+      </Text>
       <Text style={styles.accountIssuer}>{account.issuer}</Text>
       <Text style={styles.accountName}>{account.accountName}</Text>
-      {code ? <Text accessibilityLiveRegion="polite" style={styles.code}>{code.value}</Text> : null}
+      {code ? (
+        <Text accessibilityLiveRegion="polite" style={styles.code}>
+          {code.value}
+        </Text>
+      ) : null}
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" onPress={() => void generate()} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>{copy.generateCode}</Text>
@@ -199,13 +258,31 @@ function MobileTotpAccount({ account, canDelete, copy, online, onDelete, reposit
           </Pressable>
         ) : null}
         {canDelete ? (
-          <Pressable accessibilityRole="button" disabled={deleteStatus === "busy"} onPress={() => { setDeleteStatus("busy"); void onDelete().catch(() => setDeleteStatus("error")); }} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>{deleteStatus === "busy" ? copy.deletingAccount : copy.deleteAccount}</Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={deleteStatus === "busy"}
+            onPress={() => {
+              setDeleteStatus("busy");
+              void onDelete().catch(() => setDeleteStatus("error"));
+            }}
+            style={styles.secondaryButton}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {deleteStatus === "busy" ? copy.deletingAccount : copy.deleteAccount}
+            </Text>
           </Pressable>
         ) : null}
       </View>
-      {copied ? <Text accessibilityLiveRegion="polite" style={styles.guidance}>{copy.codeCopied}</Text> : null}
-      {deleteStatus === "error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.deleteAccountError}</Text> : null}
+      {copied ? (
+        <Text accessibilityLiveRegion="polite" style={styles.guidance}>
+          {copy.codeCopied}
+        </Text>
+      ) : null}
+      {deleteStatus === "error" ? (
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {copy.deleteAccountError}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -216,11 +293,34 @@ const styles = StyleSheet.create({
   guidance: { color: "#526D82", fontSize: 14, lineHeight: 20 },
   field: { gap: 6 },
   label: { color: "#172027", fontSize: 14, fontWeight: "700" },
-  input: { minHeight: 72, borderRadius: 12, borderWidth: 1, borderColor: "#DED8CE", backgroundColor: "#FFFFFF", color: "#172027", padding: 12 },
+  input: {
+    minHeight: 72,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DED8CE",
+    backgroundColor: "#FFFFFF",
+    color: "#172027",
+    padding: 12,
+  },
   inputInvalid: { borderColor: "#A4433D" },
-  primaryButton: { minHeight: 48, justifyContent: "center", alignItems: "center", borderRadius: 12, backgroundColor: "#D99412", paddingHorizontal: 16 },
+  primaryButton: {
+    minHeight: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: "#D99412",
+    paddingHorizontal: 16,
+  },
   primaryButtonText: { color: "#172027", fontWeight: "800" },
-  secondaryButton: { minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 12, borderWidth: 1, borderColor: "#DED8CE", paddingHorizontal: 14 },
+  secondaryButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DED8CE",
+    paddingHorizontal: 14,
+  },
   secondaryButtonText: { color: "#172027", fontWeight: "700" },
   selectedButton: { borderColor: "#D99412", backgroundColor: "#FFF5DD" },
   error: { color: "#A4433D", fontSize: 14, lineHeight: 20 },

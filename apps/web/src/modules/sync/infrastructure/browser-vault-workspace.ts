@@ -7,7 +7,7 @@ import {
   recoverUserRootKeyWithRememberedBrowser,
   rewrapUserCryptoProfile,
   unlockPersonalVault,
-  unlockPersonalVaultWithUserRootKey
+  unlockPersonalVaultWithUserRootKey,
 } from "@/modules/crypto";
 import { decryptAccountConfiguration } from "@/modules/authenticator-account/client";
 import { BrowserOfflineVaultRepository, fetchAuthorizedOfflineBundle } from "@/modules/sync";
@@ -24,7 +24,7 @@ import {
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   LocalStorageSyncError,
   type UnlockedVaultWorkspace,
-  type WorkspaceAuthenticatorAccount
+  type WorkspaceAuthenticatorAccount,
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
 
@@ -37,12 +37,15 @@ function browserPorts(): VaultWorkspacePlatformPorts {
     network: browserNetworkStatus,
     data: {
       snapshotStore,
-      fetchAuthorizedOfflineBundle: (cached) => fetchAuthorizedOfflineBundle(cached)
+      fetchAuthorizedOfflineBundle: (cached) => fetchAuthorizedOfflineBundle(cached),
     },
     crypto: {
       unlockPersonalVault,
       unlockPersonalVaultWithUserRootKey,
-      recoverUserRootKeyWithRememberedBrowser: (profileId, ...signals) => signals.length ? recoverUserRootKeyWithRememberedBrowser(profileId, signals[0] as AbortSignal | undefined) : recoverUserRootKeyWithRememberedBrowser(profileId),
+      recoverUserRootKeyWithRememberedBrowser: (profileId, ...signals) =>
+        signals.length
+          ? recoverUserRootKeyWithRememberedBrowser(profileId, signals[0] as AbortSignal | undefined)
+          : recoverUserRootKeyWithRememberedBrowser(profileId),
       recoverUserRootKeyWithPasskey,
       rewrapUserCryptoProfile,
       decryptPayload: async (key, envelope) => {
@@ -53,24 +56,37 @@ function browserPorts(): VaultWorkspacePlatformPorts {
       decryptPayloadWithContext,
       deserializeEncryptedEnvelope,
       unlockSharedVault,
-      decryptAccountConfiguration
-    }
+      decryptAccountConfiguration,
+    },
   };
 }
 
-export function loadUnlockedVaultWorkspace(vaultUnlockSecret: string, personalVaultId: string): Promise<UnlockedVaultWorkspace> {
+export function loadUnlockedVaultWorkspace(
+  vaultUnlockSecret: string,
+  personalVaultId: string,
+): Promise<UnlockedVaultWorkspace> {
   return loadUnlockedWorkspace(vaultUnlockSecret, personalVaultId, browserPorts());
 }
 
-export function loadUnlockedVaultWorkspaceWithRememberedBrowser(personalVaultId: string, signal?: AbortSignal): Promise<UnlockedVaultWorkspace> {
-  return loadUnlockedWorkspaceWithRememberedBrowser(personalVaultId, browserPorts(), signal as CancellationPort | undefined);
+export function loadUnlockedVaultWorkspaceWithRememberedBrowser(
+  personalVaultId: string,
+  signal?: AbortSignal,
+): Promise<UnlockedVaultWorkspace> {
+  return loadUnlockedWorkspaceWithRememberedBrowser(
+    personalVaultId,
+    browserPorts(),
+    signal as CancellationPort | undefined,
+  );
 }
 
 export function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
   return loadUnlockedWorkspaceWithPasskey(personalVaultId, browserPorts());
 }
 
-export function loadOfflineVaultWorkspace(profileId: string, vaultUnlockSecret: string): Promise<UnlockedVaultWorkspace> {
+export function loadOfflineVaultWorkspace(
+  profileId: string,
+  vaultUnlockSecret: string,
+): Promise<UnlockedVaultWorkspace> {
   return loadOfflineWorkspace(profileId, vaultUnlockSecret, browserPorts());
 }
 
@@ -78,6 +94,9 @@ export function loadOfflineVaultWorkspaceWithRememberedBrowser(profileId: string
   return loadOfflineWorkspaceWithRememberedBrowser(profileId, browserPorts());
 }
 
-export function refreshUnlockedVaultWorkspace(userRootKey: Uint8Array, expectedProfileId: string): Promise<UnlockedVaultWorkspace> {
+export function refreshUnlockedVaultWorkspace(
+  userRootKey: Uint8Array,
+  expectedProfileId: string,
+): Promise<UnlockedVaultWorkspace> {
   return refreshWorkspace(userRootKey, expectedProfileId, browserPorts());
 }

@@ -12,8 +12,17 @@ export async function POST() {
     const credential = await repository.getCredential(user.id);
     if (!credential) return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 404 });
     const configuration = passkeyRecoveryConfiguration();
-    const options = await generateAuthenticationOptions({ rpID: configuration.rpId, userVerification: "required", allowCredentials: [{ id: Buffer.from(credential.credentialId).toString("base64url") }] });
+    const options = await generateAuthenticationOptions({
+      rpID: configuration.rpId,
+      userVerification: "required",
+      allowCredentials: [{ id: Buffer.from(credential.credentialId).toString("base64url") }],
+    });
     await repository.issueChallenge(user.id, "AUTHENTICATION", options.challenge);
-    return NextResponse.json({ ...options, encryptedRecoveryPackage: Buffer.from(credential.encryptedRecoveryPackage).toString("base64") }, { headers: { "Cache-Control": "no-store" } });
-  } catch { return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 503 }); }
+    return NextResponse.json(
+      { ...options, encryptedRecoveryPackage: Buffer.from(credential.encryptedRecoveryPackage).toString("base64") },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 503 });
+  }
 }

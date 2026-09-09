@@ -15,7 +15,8 @@ async function precacheOfflineShell() {
 
 async function cacheOfflineShell(cache) {
   const response = await fetch(OFFLINE_SHELL, { cache: "reload", credentials: "include" });
-  if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html")) throw new Error("Offline shell could not be cached.");
+  if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html"))
+    throw new Error("Offline shell could not be cached.");
   await cache.put(OFFLINE_SHELL, response.clone());
   const html = await response.text();
   const resources = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
@@ -26,10 +27,20 @@ async function cacheOfflineShell(cache) {
 }
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(Promise.all([
-    caches.keys().then((names) => Promise.all(names.filter((name) => name.startsWith(OWNED_CACHE_PREFIX) && name !== CACHE_VERSION).map((name) => caches.delete(name)))),
-    self.clients.claim()
-  ]));
+  event.waitUntil(
+    Promise.all([
+      caches
+        .keys()
+        .then((names) =>
+          Promise.all(
+            names
+              .filter((name) => name.startsWith(OWNED_CACHE_PREFIX) && name !== CACHE_VERSION)
+              .map((name) => caches.delete(name)),
+          ),
+        ),
+      self.clients.claim(),
+    ]),
+  );
 });
 
 self.addEventListener("message", (event) => {
@@ -42,7 +53,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/"))
+    return;
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirstNavigation(request));
@@ -50,13 +62,19 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (!isCacheableStatic(url.pathname)) return;
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-    if (response.ok && response.type === "basic") {
-      const copy = response.clone();
-      event.waitUntil(caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy)));
-    }
-    return response;
-  })));
+  event.respondWith(
+    caches.match(request).then(
+      (cached) =>
+        cached ||
+        fetch(request).then((response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy)));
+          }
+          return response;
+        }),
+    ),
+  );
 });
 
 async function networkFirstNavigation(request) {
@@ -72,5 +90,8 @@ async function networkFirstNavigation(request) {
 }
 
 function isCacheableStatic(pathname) {
-  return !pathname.endsWith(".map") && (pathname === "/manifest.webmanifest" || pathname.startsWith("/_next/static/") || pathname.startsWith("/pwa/"));
+  return (
+    !pathname.endsWith(".map") &&
+    (pathname === "/manifest.webmanifest" || pathname.startsWith("/_next/static/") || pathname.startsWith("/pwa/"))
+  );
 }

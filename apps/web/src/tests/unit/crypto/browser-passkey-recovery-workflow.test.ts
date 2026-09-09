@@ -4,18 +4,18 @@ const mocks = vi.hoisted(() => ({
   createPasskeyCredential: vi.fn(),
   createPasskeyRecoveryPackage: vi.fn(),
   loadPasskeyRegistrationOptions: vi.fn(),
-  verifyPasskeyRegistration: vi.fn()
+  verifyPasskeyRegistration: vi.fn(),
 }));
 
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-prf", () => ({
-  createPasskeyCredential: mocks.createPasskeyCredential
+  createPasskeyCredential: mocks.createPasskeyCredential,
 }));
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-package", () => ({
-  createPasskeyRecoveryPackage: mocks.createPasskeyRecoveryPackage
+  createPasskeyRecoveryPackage: mocks.createPasskeyRecoveryPackage,
 }));
 vi.mock("@/modules/crypto/infrastructure/browser-passkey-recovery-client", () => ({
   loadPasskeyRegistrationOptions: mocks.loadPasskeyRegistrationOptions,
-  verifyPasskeyRegistration: mocks.verifyPasskeyRegistration
+  verifyPasskeyRegistration: mocks.verifyPasskeyRegistration,
 }));
 
 import { enrollPasskeyRecovery } from "@/modules/crypto/infrastructure/browser-passkey-recovery-workflow";
@@ -30,7 +30,7 @@ describe("browser passkey recovery workflow", () => {
     mocks.createPasskeyCredential.mockResolvedValue({
       registrationResponse: { id: "credential" },
       prfOutput,
-      prfSalt: Uint8Array.of(4, 5, 6)
+      prfSalt: Uint8Array.of(4, 5, 6),
     });
     mocks.createPasskeyRecoveryPackage.mockResolvedValue(Uint8Array.of(7, 8, 9));
     mocks.verifyPasskeyRegistration.mockResolvedValue(undefined);
@@ -47,7 +47,7 @@ describe("browser passkey recovery workflow", () => {
     mocks.createPasskeyCredential.mockResolvedValue({
       registrationResponse: { id: "credential" },
       prfOutput,
-      prfSalt: Uint8Array.of(4, 5, 6)
+      prfSalt: Uint8Array.of(4, 5, 6),
     });
     mocks.createPasskeyRecoveryPackage.mockRejectedValue(new Error("encryption failed"));
 

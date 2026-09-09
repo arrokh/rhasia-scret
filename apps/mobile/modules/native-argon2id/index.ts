@@ -27,7 +27,8 @@ const nativeModule = requireNativeModule<NativeModule>("ExpoCryptoArgon2");
 export function randomBytes(length: number): Uint8Array {
   if (!Number.isSafeInteger(length) || length < 0 || length > 1_024) throw new Error("Random byte length is invalid.");
   const bytes = nativeModule.randomBytes(length);
-  if (!(bytes instanceof Uint8Array) || bytes.length !== length) throw new Error("Native random provider returned invalid bytes.");
+  if (!(bytes instanceof Uint8Array) || bytes.length !== length)
+    throw new Error("Native random provider returned invalid bytes.");
   return bytes;
 }
 

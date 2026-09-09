@@ -5,18 +5,23 @@ import { BrowserApiClient, BrowserApiError } from "@/shared/infrastructure/brows
 import { OfflineMutationError, setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
 
 describe("BrowserApiClient", () => {
-  afterEach(() => { setBrowserWritesReadOnly(null); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    setBrowserWritesReadOnly(null);
+    vi.unstubAllGlobals();
+  });
 
   it("centralizes JSON request serialization and response parsing", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "vault-1" }) });
     vi.stubGlobal("fetch", fetchMock);
     const client = new BrowserApiClient();
 
-    await expect(client.postJson<{ id: string }>("/api/vaults", { encryptedName: "opaque" })).resolves.toEqual({ id: "vault-1" });
+    await expect(client.postJson<{ id: string }>("/api/vaults", { encryptedName: "opaque" })).resolves.toEqual({
+      id: "vault-1",
+    });
     expect(fetchMock).toHaveBeenCalledWith("/api/vaults", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ encryptedName: "opaque" })
+      body: JSON.stringify({ encryptedName: "opaque" }),
     });
   });
 
@@ -26,7 +31,7 @@ describe("BrowserApiClient", () => {
     const client = new BrowserApiClient();
 
     await expect(client.getJson("/api/time", { cache: "no-store" })).rejects.toEqual(
-      expect.objectContaining<Partial<BrowserApiError>>({ name: "BrowserApiError", status: 503 })
+      expect.objectContaining<Partial<BrowserApiError>>({ name: "BrowserApiError", status: 503 }),
     );
     expect(fetchMock).toHaveBeenCalledWith("/api/time", { cache: "no-store", method: "GET" });
   });
@@ -48,7 +53,9 @@ describe("BrowserApiClient", () => {
     let disposed = false;
     const cancellation = {
       aborted: false,
-      subscribe: () => () => { disposed = true; }
+      subscribe: () => () => {
+        disposed = true;
+      },
     };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, ok: true, headers: new Headers() }));
     const client = new BrowserApiClient();
@@ -59,11 +66,14 @@ describe("BrowserApiClient", () => {
   });
 
   it("preserves structured API error codes for context-specific messages", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "passkey_prf_required" }) }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "passkey_prf_required" }) }),
+    );
     const client = new BrowserApiClient();
 
     await expect(client.postEmpty("/api/passkey-recovery/registration/verify", {})).rejects.toEqual(
-      expect.objectContaining<Partial<BrowserApiError>>({ status: 400, code: "passkey_prf_required" })
+      expect.objectContaining<Partial<BrowserApiError>>({ status: 400, code: "passkey_prf_required" }),
     );
   });
 });

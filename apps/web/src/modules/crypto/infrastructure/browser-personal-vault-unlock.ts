@@ -9,10 +9,7 @@ import {
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
 import { browserArgon2idPort } from "./browser-vault-unlock-key";
 
-export type {
-  EncryptedPersonalVaultProfile,
-  PersonalVaultUnlockResult,
-} from "@rhasia-scret/client-vault-core";
+export type { EncryptedPersonalVaultProfile, PersonalVaultUnlockResult } from "@rhasia-scret/client-vault-core";
 
 export function unlockPersonalVault(
   vaultUnlockSecret: string,

@@ -6,5 +6,9 @@ export type ApplicationRateLimitDecision = Readonly<{
 }>;
 
 export interface ApplicationRateLimitRepository {
-  consume(userId: string, operation: ApplicationRateLimitPolicyId, policy: ApplicationRateLimitPolicy): Promise<ApplicationRateLimitDecision>;
+  consume(
+    userId: string,
+    operation: ApplicationRateLimitPolicyId,
+    policy: ApplicationRateLimitPolicy,
+  ): Promise<ApplicationRateLimitDecision>;
 }

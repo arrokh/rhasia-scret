@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   createServerClient: vi.fn(),
-  cookies: vi.fn()
+  cookies: vi.fn(),
 }));
 
 vi.mock("@supabase/ssr", () => ({ createServerClient: mocks.createServerClient }));
@@ -42,7 +42,7 @@ describe("GET /auth/confirm contract", () => {
 
   it("sends failed verification to sign in without exposing provider details", async () => {
     mocks.createServerClient.mockReturnValue({
-      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: new Error("provider details") }) }
+      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: new Error("provider details") }) },
     });
 
     const response = await GET(request("/auth/confirm?code=invalid"));
@@ -53,7 +53,7 @@ describe("GET /auth/confirm contract", () => {
 
   it("keeps successful authentication directed to vaults", async () => {
     mocks.createServerClient.mockReturnValue({
-      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }) }
+      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }) },
     });
 
     const response = await GET(request("/auth/confirm?code=valid"));

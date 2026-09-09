@@ -9,7 +9,7 @@ type GlobalErrorCopy = (typeof enMessages)["Common"]["globalError"];
 
 export default function GlobalError({
   error,
-  reset
+  reset,
 }: Readonly<{
   error: Error & { digest?: string };
   reset: () => void;
@@ -37,7 +37,15 @@ export default function GlobalError({
     <html lang={locale}>
       <body>
         <main aria-busy={!copy}>
-          {copy && <><h1>{copy.title}</h1><p>{copy.description}</p><button type="button" onClick={reset}>{copy.retry}</button></>}
+          {copy && (
+            <>
+              <h1>{copy.title}</h1>
+              <p>{copy.description}</p>
+              <button type="button" onClick={reset}>
+                {copy.retry}
+              </button>
+            </>
+          )}
         </main>
       </body>
     </html>

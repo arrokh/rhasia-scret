@@ -26,14 +26,14 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
   public async provision(principal: VerifiedPrincipal): Promise<ApplicationUser> {
     const existingIdentity = await prisma.externalIdentity.findUnique({
       where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
-      include: { applicationUser: { include: { externalIdentities: true } } }
+      include: { applicationUser: { include: { externalIdentities: true } } },
     });
     if (existingIdentity) return this.resolveExistingIdentity(existingIdentity, principal);
 
     if (isSupabaseIssuer(principal.issuer)) {
       const legacy = await prisma.applicationUser.findUnique({
         where: { supabaseUserId: principal.subject },
-        include: { externalIdentities: true }
+        include: { externalIdentities: true },
       });
       if (legacy) {
         await prisma.externalIdentity.create({
@@ -42,8 +42,8 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
             issuer: principal.issuer,
             subject: principal.subject,
             email: principal.email,
-            emailVerifiedAt: principal.emailVerified ? new Date() : undefined
-          }
+            emailVerifiedAt: principal.emailVerified ? new Date() : undefined,
+          },
         });
         return this.updateExistingIdentity(legacy, principal);
       }
@@ -62,51 +62,59 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
               issuer: principal.issuer,
               subject: principal.subject,
               email: principal.email,
-              emailVerifiedAt: new Date()
-            }
-          }
+              emailVerifiedAt: new Date(),
+            },
+          },
         },
-        include: { externalIdentities: true }
+        include: { externalIdentities: true },
       });
       return toApplicationUser(created);
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) throw error;
       const racedIdentity = await prisma.externalIdentity.findUnique({
         where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
-        include: { applicationUser: { include: { externalIdentities: true } } }
+        include: { applicationUser: { include: { externalIdentities: true } } },
       });
       if (!racedIdentity) throw error;
       return this.resolveExistingIdentity(racedIdentity, principal);
     }
   }
 
-  private async resolveExistingIdentity(identity: ExistingExternalIdentity, principal: VerifiedPrincipal): Promise<ApplicationUser> {
+  private async resolveExistingIdentity(
+    identity: ExistingExternalIdentity,
+    principal: VerifiedPrincipal,
+  ): Promise<ApplicationUser> {
     if (identity.email === principal.email && (identity.emailVerifiedAt !== null || !principal.emailVerified)) {
       return toApplicationUser(identity.applicationUser);
     }
     return this.updateExistingIdentity(identity.applicationUser, principal);
   }
 
-  private async updateExistingIdentity(record: ApplicationUserWithIdentity, principal: VerifiedPrincipal): Promise<ApplicationUser> {
+  private async updateExistingIdentity(
+    record: ApplicationUserWithIdentity,
+    principal: VerifiedPrincipal,
+  ): Promise<ApplicationUser> {
     const updated = await prisma.$transaction(async (transaction) => {
-      await transaction.externalIdentity.update({
-        where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
-        data: { email: principal.email, emailVerifiedAt: principal.emailVerified ? new Date() : undefined }
-      }).catch(async () => {
-        await transaction.externalIdentity.create({
-          data: {
-            applicationUserId: record.id,
-            issuer: principal.issuer,
-            subject: principal.subject,
-            email: principal.email,
-            emailVerifiedAt: principal.emailVerified ? new Date() : undefined
-          }
+      await transaction.externalIdentity
+        .update({
+          where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
+          data: { email: principal.email, emailVerifiedAt: principal.emailVerified ? new Date() : undefined },
+        })
+        .catch(async () => {
+          await transaction.externalIdentity.create({
+            data: {
+              applicationUserId: record.id,
+              issuer: principal.issuer,
+              subject: principal.subject,
+              email: principal.email,
+              emailVerifiedAt: principal.emailVerified ? new Date() : undefined,
+            },
+          });
         });
-      });
       return transaction.applicationUser.update({
         where: { id: record.id },
         data: { email: principal.email },
-        include: { externalIdentities: true }
+        include: { externalIdentities: true },
       });
     });
     return toApplicationUser(updated);
@@ -133,7 +141,19 @@ function toApplicationUser(record: ApplicationUserWithIdentity): ApplicationUser
   const identity = record.externalIdentities[0];
   if (!identity) {
     if (!record.supabaseUserId) throw new Error("Application user has no external identity.");
-    return new ApplicationUser(record.id, canonicalSupabaseIssuer(), record.supabaseUserId, record.email, record.status as ApplicationUserStatus);
+    return new ApplicationUser(
+      record.id,
+      canonicalSupabaseIssuer(),
+      record.supabaseUserId,
+      record.email,
+      record.status as ApplicationUserStatus,
+    );
   }
-  return new ApplicationUser(record.id, identity.issuer, identity.subject, record.email, record.status as ApplicationUserStatus);
+  return new ApplicationUser(
+    record.id,
+    identity.issuer,
+    identity.subject,
+    record.email,
+    record.status as ApplicationUserStatus,
+  );
 }

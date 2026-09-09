@@ -11,9 +11,37 @@ export default defineConfig({
   resolve,
   test: {
     projects: [
-      { resolve, test: { ...test, name: "unit", include: ["src/tests/unit/**/*.test.ts"], environment: "node", testTimeout: 15_000, setupFiles: ["src/tests/setup.ts", "src/tests/rate-limit-route-mock.ts"] } },
-      { resolve, test: { ...test, name: "integration", include: ["src/tests/integration/**/*.test.ts"], environment: "node", testTimeout: 15_000 } },
-      { resolve, test: { ...test, name: "contract", include: ["src/tests/contract/**/*.test.ts"], environment: "node", setupFiles: ["src/tests/rate-limit-route-mock.ts"] } }
-    ]
-  }
+      {
+        resolve,
+        test: {
+          ...test,
+          name: "unit",
+          include: ["src/tests/unit/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 15_000,
+          setupFiles: ["src/tests/setup.ts", "src/tests/rate-limit-route-mock.ts"],
+        },
+      },
+      {
+        resolve,
+        test: {
+          ...test,
+          name: "integration",
+          include: ["src/tests/integration/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 15_000,
+        },
+      },
+      {
+        resolve,
+        test: {
+          ...test,
+          name: "contract",
+          include: ["src/tests/contract/**/*.test.ts"],
+          environment: "node",
+          setupFiles: ["src/tests/rate-limit-route-mock.ts"],
+        },
+      },
+    ],
+  },
 });

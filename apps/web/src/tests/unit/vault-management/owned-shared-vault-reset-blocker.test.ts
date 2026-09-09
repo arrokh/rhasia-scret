@@ -11,17 +11,33 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("OwnedSharedVaultResetBlocker", () => {
   let root: Root | undefined;
-  afterEach(async () => { await act(async () => root?.unmount()); vi.unstubAllGlobals(); vi.clearAllMocks(); document.body.innerHTML = ""; });
+  afterEach(async () => {
+    await act(async () => root?.unmount());
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
 
   it("soft-deletes an owned Shared Vault after shadcn confirmation", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true }); vi.stubGlobal("fetch", fetchMock);
-    const container = document.createElement("div"); document.body.append(container); root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(OwnedSharedVaultResetBlocker, { vaultIds: ["shared-1"] }))));
-    const remove = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Hapus brankas"));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(TestQueryProvider, null, createElement(OwnedSharedVaultResetBlocker, { vaultIds: ["shared-1"] })),
+      ),
+    );
+    const remove = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+      button.textContent?.includes("Hapus brankas"),
+    );
     await act(async () => remove?.click());
     expect(fetchMock).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("Hapus Brankas Bersama?");
-    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus brankas" && button.closest('[role="dialog"]'));
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Hapus brankas" && button.closest('[role="dialog"]'),
+    );
     await act(async () => confirm?.click());
     expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
     expect(mocks.refresh).toHaveBeenCalledOnce();

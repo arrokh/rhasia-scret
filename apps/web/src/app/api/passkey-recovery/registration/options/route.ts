@@ -13,8 +13,18 @@ export async function POST() {
     const configuration = passkeyRecoveryConfiguration();
     // TypeScript's WebAuthn DOM declarations lag the standardized PRF extension.
     const prfExtensions = { prf: {} } as unknown as AuthenticationExtensionsClientInputs;
-    const options = await generateRegistrationOptions({ rpName: configuration.rpName, rpID: configuration.rpId, userName: user.email, userID: new TextEncoder().encode(user.id), authenticatorSelection: { residentKey: "required", userVerification: "required" }, extensions: prfExtensions, excludeCredentials: credential ? [{ id: Buffer.from(credential.credentialId).toString("base64url") }] : undefined });
+    const options = await generateRegistrationOptions({
+      rpName: configuration.rpName,
+      rpID: configuration.rpId,
+      userName: user.email,
+      userID: new TextEncoder().encode(user.id),
+      authenticatorSelection: { residentKey: "required", userVerification: "required" },
+      extensions: prfExtensions,
+      excludeCredentials: credential ? [{ id: Buffer.from(credential.credentialId).toString("base64url") }] : undefined,
+    });
     await repository.issueChallenge(user.id, "REGISTRATION", options.challenge);
     return NextResponse.json(options);
-  } catch { return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 503 }); }
+  } catch {
+    return NextResponse.json({ error: "passkey_recovery_unavailable" }, { status: 503 });
+  }
 }

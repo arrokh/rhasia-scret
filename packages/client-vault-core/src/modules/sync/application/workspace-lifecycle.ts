@@ -1,4 +1,9 @@
-import type { ApplicationLifecyclePort, CancellationPort, NetworkStatusPort, PortDisposer } from "../../../shared/application/platform-ports";
+import type {
+  ApplicationLifecyclePort,
+  CancellationPort,
+  NetworkStatusPort,
+  PortDisposer,
+} from "../../../shared/application/platform-ports";
 import { nextOfflineSyncState, type OfflineSyncEvent, type OfflineSyncState } from "../domain/offline-sync-state";
 
 export type WorkspaceLifecycleValue = {
@@ -46,8 +51,11 @@ export type WorkspaceLifecyclePorts<Workspace extends WorkspaceLifecycleValue> =
   workspace: WorkspaceLifecycleAdapter<Workspace>;
 };
 
-export type WorkspaceLifecycleListener<Workspace extends WorkspaceLifecycleValue> = (workspace: Workspace | null) => void;
-export type WorkspaceLifecycleUpdater<Workspace extends WorkspaceLifecycleValue> = Workspace | null | ((current: Workspace | null) => Workspace | null);
+export type WorkspaceLifecycleListener<Workspace extends WorkspaceLifecycleValue> = (
+  workspace: Workspace | null,
+) => void;
+export type WorkspaceLifecycleUpdater<Workspace extends WorkspaceLifecycleValue> =
+  Workspace | null | ((current: Workspace | null) => Workspace | null);
 
 /**
  * Owns the complete unlocked-workspace lifecycle. UI surfaces only adapt its
@@ -62,7 +70,10 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
   private readonly listeners = new Set<WorkspaceLifecycleListener<Workspace>>();
   private readonly disposers: PortDisposer[] = [];
 
-  constructor(initialWorkspace: Workspace | null, private readonly ports: WorkspaceLifecyclePorts<Workspace>) {
+  constructor(
+    initialWorkspace: Workspace | null,
+    private readonly ports: WorkspaceLifecyclePorts<Workspace>,
+  ) {
     this.current = initialWorkspace;
   }
 
@@ -81,7 +92,7 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
       }),
       this.ports.applicationLifecycle.subscribeVisibility((visible) => {
         if (visible) void this.reconcile();
-      })
+      }),
     );
     if (!this.ports.network.isOnline()) this.markNetworkLost();
     else void this.reconcile();
@@ -172,10 +183,10 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
       return;
     }
     if (
-      this.disposed
-      || !source
-      || !this.ports.network.isOnline()
-      || (mode === "reconciliation" && (source.syncState === "CURRENT" || source.syncState === "SYNCING"))
+      this.disposed ||
+      !source ||
+      !this.ports.network.isOnline() ||
+      (mode === "reconciliation" && (source.syncState === "CURRENT" || source.syncState === "SYNCING"))
     ) {
       if (mode === "authorization") throw new WorkspaceLifecycleCancelledError();
       return;
@@ -197,18 +208,23 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
         if (mode === "authorization") throw new WorkspaceLifecycleCancelledError();
         return;
       }
-      this.current = mode === "reconciliation"
-        ? { ...refreshed, syncState: nextOfflineSyncState("SYNCING", "SYNC_SUCCEEDED") }
-        : refreshed;
+      this.current =
+        mode === "reconciliation"
+          ? { ...refreshed, syncState: nextOfflineSyncState("SYNCING", "SYNC_SUCCEEDED") }
+          : refreshed;
       if (refreshing && refreshing !== this.current) this.ports.workspace.clear(refreshing);
       this.publish();
     } catch (error) {
       if (cancellation.aborted || this.disposed || this.current !== refreshing) {
-        if (mode === "authorization") throw error instanceof WorkspaceLifecycleCancelledError ? error : new WorkspaceLifecycleCancelledError();
+        if (mode === "authorization")
+          throw error instanceof WorkspaceLifecycleCancelledError ? error : new WorkspaceLifecycleCancelledError();
         return;
       }
       if (mode === "reconciliation" && this.current) {
-        this.current = { ...this.current, syncState: nextOfflineSyncState("SYNCING", failureEvent(this.ports.workspace.classifyFailure(error))) };
+        this.current = {
+          ...this.current,
+          syncState: nextOfflineSyncState("SYNCING", failureEvent(this.ports.workspace.classifyFailure(error))),
+        };
         this.publish();
       }
       if (mode === "authorization") throw error;
@@ -236,7 +252,9 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
   }
 
   private applyWriteGate(): void {
-    this.ports.writes.setReadOnly(this.current && this.current.syncState !== "CURRENT" ? this.ports.workspace.readOnlyReason(this.current) : null);
+    this.ports.writes.setReadOnly(
+      this.current && this.current.syncState !== "CURRENT" ? this.ports.workspace.readOnlyReason(this.current) : null,
+    );
   }
 }
 

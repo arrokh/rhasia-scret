@@ -11,38 +11,45 @@ export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepos
           include: {
             accounts: {
               where: { deletedAt: null },
-              select: { id: true, encryptedPayload: true, encryptionVersion: true, revision: true }
-            }
-          }
-        }
+              select: { id: true, encryptedPayload: true, encryptionVersion: true, revision: true },
+            },
+          },
+        },
       },
-      orderBy: { createdAt: "asc" }
+      orderBy: { createdAt: "asc" },
     });
     return memberships.flatMap((membership) => {
       if (!membership.vault.encryptedName || !membership.encryptedVaultKey || !membership.keyVersion) return [];
       if (membership.role !== "OWNER" && membership.role !== "VIEWER") return [];
-      return [{
-        vaultId: membership.vaultId,
-        role: membership.role,
-        effectiveAccountPermissions: effectiveSharedVaultAccountPermissions(
-          membership.role,
-          {
-            canAddAccounts: membership.vault.membersCanAddAccounts,
-            canEditAccounts: membership.vault.membersCanEditAccounts,
-            canDeleteAccounts: membership.vault.membersCanDeleteAccounts
-          },
-          {
-            canAddAccounts: membership.canAddAccountsOverride,
-            canEditAccounts: membership.canEditAccountsOverride,
-            canDeleteAccounts: membership.canDeleteAccountsOverride
-          }
-        ),
-        encryptedName: copyBytes(membership.vault.encryptedName),
-        encryptionVersion: membership.vault.encryptionVersion,
-        encryptedVaultKey: copyBytes(membership.encryptedVaultKey),
-        keyVersion: membership.keyVersion,
-        accounts: membership.vault.accounts.map((account) => ({ id: account.id, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion, revision: account.revision }))
-      }];
+      return [
+        {
+          vaultId: membership.vaultId,
+          role: membership.role,
+          effectiveAccountPermissions: effectiveSharedVaultAccountPermissions(
+            membership.role,
+            {
+              canAddAccounts: membership.vault.membersCanAddAccounts,
+              canEditAccounts: membership.vault.membersCanEditAccounts,
+              canDeleteAccounts: membership.vault.membersCanDeleteAccounts,
+            },
+            {
+              canAddAccounts: membership.canAddAccountsOverride,
+              canEditAccounts: membership.canEditAccountsOverride,
+              canDeleteAccounts: membership.canDeleteAccountsOverride,
+            },
+          ),
+          encryptedName: copyBytes(membership.vault.encryptedName),
+          encryptionVersion: membership.vault.encryptionVersion,
+          encryptedVaultKey: copyBytes(membership.encryptedVaultKey),
+          keyVersion: membership.keyVersion,
+          accounts: membership.vault.accounts.map((account) => ({
+            id: account.id,
+            encryptedPayload: copyBytes(account.encryptedPayload),
+            encryptionVersion: account.encryptionVersion,
+            revision: account.revision,
+          })),
+        },
+      ];
     });
   }
 
@@ -54,11 +61,11 @@ export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepos
           include: {
             accounts: {
               where: { deletedAt: null },
-              select: { id: true, encryptedPayload: true, encryptionVersion: true, revision: true }
-            }
-          }
-        }
-      }
+              select: { id: true, encryptedPayload: true, encryptionVersion: true, revision: true },
+            },
+          },
+        },
+      },
     });
     if (!membership?.vault.encryptedName || !membership.encryptedVaultKey || !membership.keyVersion) return null;
     if (membership.role !== "OWNER" && membership.role !== "VIEWER") return null;
@@ -70,19 +77,24 @@ export class PrismaSharedVaultAccessRepository implements SharedVaultAccessRepos
         {
           canAddAccounts: membership.vault.membersCanAddAccounts,
           canEditAccounts: membership.vault.membersCanEditAccounts,
-          canDeleteAccounts: membership.vault.membersCanDeleteAccounts
+          canDeleteAccounts: membership.vault.membersCanDeleteAccounts,
         },
         {
           canAddAccounts: membership.canAddAccountsOverride,
           canEditAccounts: membership.canEditAccountsOverride,
-          canDeleteAccounts: membership.canDeleteAccountsOverride
-        }
+          canDeleteAccounts: membership.canDeleteAccountsOverride,
+        },
       ),
       encryptedName: copyBytes(membership.vault.encryptedName),
       encryptionVersion: membership.vault.encryptionVersion,
       encryptedVaultKey: copyBytes(membership.encryptedVaultKey),
       keyVersion: membership.keyVersion,
-      accounts: membership.vault.accounts.map((account) => ({ id: account.id, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion, revision: account.revision }))
+      accounts: membership.vault.accounts.map((account) => ({
+        id: account.id,
+        encryptedPayload: copyBytes(account.encryptedPayload),
+        encryptionVersion: account.encryptionVersion,
+        revision: account.revision,
+      })),
     };
   }
 }

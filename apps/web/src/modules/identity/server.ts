@@ -11,23 +11,36 @@ import { PrismaApplicationUserRepository } from "./infrastructure/prisma-applica
 import { PrismaPasskeyRecoveryRepository } from "./infrastructure/prisma-passkey-recovery-repository";
 import { PrismaUserCryptoProfileRepository } from "./infrastructure/prisma-user-crypto-profile-repository";
 import { isOidcPrincipalAdmitted } from "./infrastructure/prisma-application-admission";
-import { completeSupabaseCallback as completeSupabaseCallbackWithAdapter, readSupabaseCallbackConfiguration, type SupabaseCallbackCookieStore } from "./infrastructure/supabase-auth-callback";
+import {
+  completeSupabaseCallback as completeSupabaseCallbackWithAdapter,
+  readSupabaseCallbackConfiguration,
+  type SupabaseCallbackCookieStore,
+} from "./infrastructure/supabase-auth-callback";
 import { SupabaseSessionTerminator } from "./infrastructure/supabase-session-terminator";
 import { SupabaseSessionVerifier } from "./infrastructure/supabase-session-verifier";
 
 export { loadApplicationUser };
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
-export { browserE2eAuthenticationVerified, browserE2eRegistrationCredential } from "./infrastructure/browser-e2e-passkey-verification";
+export {
+  browserE2eAuthenticationVerified,
+  browserE2eRegistrationCredential,
+} from "./infrastructure/browser-e2e-passkey-verification";
 export { passkeyRecoveryConfiguration } from "./infrastructure/passkey-recovery-configuration";
 
 export type SupabaseCallbackResult = "success" | "configuration_error" | "verification_failed";
 
-export async function completeSupabaseCallback(code: string | null, tokenHash: string | null, cookieStore: SupabaseCallbackCookieStore): Promise<SupabaseCallbackResult> {
+export async function completeSupabaseCallback(
+  code: string | null,
+  tokenHash: string | null,
+  cookieStore: SupabaseCallbackCookieStore,
+): Promise<SupabaseCallbackResult> {
   try {
     const configuration = readAuthConfiguration();
     const supabase = readSupabaseCallbackConfiguration();
     if (configuration.backend !== "supabase" || !supabase) return "configuration_error";
-    return await completeSupabaseCallbackWithAdapter(code, tokenHash, cookieStore, supabase) ? "success" : "verification_failed";
+    return (await completeSupabaseCallbackWithAdapter(code, tokenHash, cookieStore, supabase))
+      ? "success"
+      : "verification_failed";
   } catch {
     return "verification_failed";
   }
@@ -72,7 +85,9 @@ export function createUserCryptoProfileRepository(): UserCryptoProfileRepository
 export function createApplicationUserRepository(): PrismaApplicationUserRepository {
   try {
     const configuration = readAuthConfiguration();
-    return new PrismaApplicationUserRepository(configuration.backend === "oidc" ? isOidcPrincipalAdmitted : async () => configuration.backend !== "none");
+    return new PrismaApplicationUserRepository(
+      configuration.backend === "oidc" ? isOidcPrincipalAdmitted : async () => configuration.backend !== "none",
+    );
   } catch {
     return new PrismaApplicationUserRepository(async () => false);
   }

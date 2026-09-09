@@ -9,11 +9,16 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({
   client: {},
   requestEmailSignInLink: vi.fn(),
-  captureAnalyticsEvent: vi.fn()
+  captureAnalyticsEvent: vi.fn(),
 }));
 
-vi.mock("@/modules/identity/presentation/browser-supabase-client", () => ({ createBrowserSupabaseClient: () => mocks.client }));
-vi.mock("@/modules/identity/presentation/request-email-sign-in-link", () => ({ authConfirmationRedirectUrl: (origin: string) => `${origin}/auth/confirm`, requestEmailSignInLink: mocks.requestEmailSignInLink }));
+vi.mock("@/modules/identity/presentation/browser-supabase-client", () => ({
+  createBrowserSupabaseClient: () => mocks.client,
+}));
+vi.mock("@/modules/identity/presentation/request-email-sign-in-link", () => ({
+  authConfirmationRedirectUrl: (origin: string) => `${origin}/auth/confirm`,
+  requestEmailSignInLink: mocks.requestEmailSignInLink,
+}));
 vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
@@ -46,7 +51,9 @@ describe("EmailSignInForm", () => {
     await act(async () => setInputValue(input, "not-an-email"));
     await act(async () => form?.requestSubmit());
 
-    expect(container.querySelector<HTMLElement>('[role="alert"]')?.textContent).toBe("Masukkan alamat email yang valid.");
+    expect(container.querySelector<HTMLElement>('[role="alert"]')?.textContent).toBe(
+      "Masukkan alamat email yang valid.",
+    );
     expect(mocks.requestEmailSignInLink).not.toHaveBeenCalled();
   });
 
@@ -60,11 +67,19 @@ describe("EmailSignInForm", () => {
     const input = container.querySelector<HTMLInputElement>("#email");
     await act(async () => setInputValue(input, "person@example.test"));
     await act(async () => form?.requestSubmit());
-    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });
-    expect(mocks.captureAnalyticsEvent).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ email: expect.anything() }));
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticationSignInLinkRequested, {
+      method: "email",
+    });
+    expect(mocks.captureAnalyticsEvent).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ email: expect.anything() }),
+    );
 
     await act(async () => form?.requestSubmit());
-    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticationSignInLinkRequestFailed, { method: "email", failure_code: "rate_limited" });
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticationSignInLinkRequestFailed, {
+      method: "email",
+      failure_code: "rate_limited",
+    });
   });
 });
 

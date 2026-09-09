@@ -9,8 +9,9 @@ export interface ExpiredAccountPurgeRepository {
 export function purgeExpiredAuthenticatorAccounts(
   repository: ExpiredAccountPurgeRepository,
   now: Date,
-  batchSize: number
+  batchSize: number,
 ): Promise<AccountPurgeBatch> {
-  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500) throw new Error("Account purge batch size must be between 1 and 500.");
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500)
+    throw new Error("Account purge batch size must be between 1 and 500.");
   return repository.purgeExpired(now, batchSize);
 }

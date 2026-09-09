@@ -7,7 +7,17 @@ export const dynamic = "force-dynamic";
 
 export default async function RedeemInvitationPage() {
   const t = await getTranslations("VaultManagement.pages");
-  return <VaultPageFrame backHref="/vaults/manage" backLabel={t("backDirectory")} title={t("invitationTitle")} description={t("invitationDescription")} contentLabel={t("invitationLabel")}><InvitationContent /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults/manage"
+      backLabel={t("backDirectory")}
+      title={t("invitationTitle")}
+      description={t("invitationDescription")}
+      contentLabel={t("invitationLabel")}
+    >
+      <InvitationContent />
+    </VaultPageFrame>
+  );
 }
 
 async function InvitationContent() {

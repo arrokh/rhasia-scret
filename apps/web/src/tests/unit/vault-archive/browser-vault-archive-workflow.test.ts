@@ -5,16 +5,23 @@ import {
   encryptPayloadWithContext,
   generateSymmetricKey,
   MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES,
-  serializeEncryptedEnvelope
+  serializeEncryptedEnvelope,
 } from "@/modules/crypto";
 import {
   clearOpenedVaultArchive,
   countDuplicateArchiveAccounts,
   encryptVaultArchiveAccounts,
-  openAndValidateEncryptedVaultArchive
+  openAndValidateEncryptedVaultArchive,
 } from "@/modules/vault-archive/infrastructure/browser-vault-archive-workflow";
 
-const configuration = { issuer: "Example", accountName: "alice@example.test", secret: new Uint8Array([1, 2, 3, 4]), algorithm: "SHA-1" as const, digits: 6 as const, period: 30 };
+const configuration = {
+  issuer: "Example",
+  accountName: "alice@example.test",
+  secret: new Uint8Array([1, 2, 3, 4]),
+  algorithm: "SHA-1" as const,
+  digits: 6 as const,
+  period: 30,
+};
 
 describe("encrypted Vault archive browser workflow", () => {
   it("opens only the supported version with the correct key and validates normalized accounts", async () => {
@@ -28,24 +35,41 @@ describe("encrypted Vault archive browser workflow", () => {
 
   it("rejects authentication failure, corruption, unsupported versions, and malformed payloads", async () => {
     const valid = await createArchive(accountPayload(configuration));
-    await expect(openAndValidateEncryptedVaultArchive(generateSymmetricKey(), valid.archive)).rejects.toThrow("authentication");
+    await expect(openAndValidateEncryptedVaultArchive(generateSymmetricKey(), valid.archive)).rejects.toThrow(
+      "authentication",
+    );
     const corrupt = valid.archive.slice();
     corrupt[corrupt.length - 1] ^= 1;
     await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, corrupt)).rejects.toThrow("authentication");
 
     const unsupportedEnvelope = valid.archive.slice();
     unsupportedEnvelope[0] = 3;
-    await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, unsupportedEnvelope)).rejects.toThrow("Unsupported");
-    const unsupported = await encryptedRawArchive(valid.archiveKey, { version: 2, vaultName: "Imported Vault", accounts: [] });
+    await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, unsupportedEnvelope)).rejects.toThrow(
+      "Unsupported",
+    );
+    const unsupported = await encryptedRawArchive(valid.archiveKey, {
+      version: 2,
+      vaultName: "Imported Vault",
+      accounts: [],
+    });
     await expect(openAndValidateEncryptedVaultArchive(valid.archiveKey, unsupported)).rejects.toThrow("invalid");
     const malformed = await createArchive(new TextEncoder().encode("not-json"));
-    await expect(openAndValidateEncryptedVaultArchive(malformed.archiveKey, malformed.archive)).rejects.toThrow("payload is invalid");
+    await expect(openAndValidateEncryptedVaultArchive(malformed.archiveKey, malformed.archive)).rejects.toThrow(
+      "payload is invalid",
+    );
   });
 
   it("rejects unsupported TOTP configurations and oversized archives", async () => {
     const unsupported = await createArchive(accountPayload({ ...configuration, algorithm: "MD5" }));
-    await expect(openAndValidateEncryptedVaultArchive(unsupported.archiveKey, unsupported.archive)).rejects.toThrow("payload is invalid");
-    await expect(openAndValidateEncryptedVaultArchive(generateSymmetricKey(), new Uint8Array(MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES + 1))).rejects.toThrow("archiveTooLarge");
+    await expect(openAndValidateEncryptedVaultArchive(unsupported.archiveKey, unsupported.archive)).rejects.toThrow(
+      "payload is invalid",
+    );
+    await expect(
+      openAndValidateEncryptedVaultArchive(
+        generateSymmetricKey(),
+        new Uint8Array(MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES + 1),
+      ),
+    ).rejects.toThrow("archiveTooLarge");
   });
 
   it("warns for destination and within-archive duplicates", () => {
@@ -67,22 +91,45 @@ describe("encrypted Vault archive browser workflow", () => {
 async function createArchive(accountPlaintext: Uint8Array) {
   const vaultKey = generateSymmetricKey();
   const archiveKey = generateSymmetricKey();
-  const encryptedName = serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultKey, new TextEncoder().encode("Imported Vault"), { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 }));
-  const encryptedAccount = serializeEncryptedEnvelope(await encryptPayloadWithContext(vaultKey, accountPlaintext, { purpose: "authenticator-account", payloadType: "totp-configuration", keyVersion: 1 }));
-  return { archiveKey, archive: await createEncryptedVaultExport(vaultKey, archiveKey, encryptedName, [encryptedAccount]) };
+  const encryptedName = serializeEncryptedEnvelope(
+    await encryptPayloadWithContext(vaultKey, new TextEncoder().encode("Imported Vault"), {
+      purpose: "vault-name",
+      payloadType: "vault-name",
+      keyVersion: 1,
+    }),
+  );
+  const encryptedAccount = serializeEncryptedEnvelope(
+    await encryptPayloadWithContext(vaultKey, accountPlaintext, {
+      purpose: "authenticator-account",
+      payloadType: "totp-configuration",
+      keyVersion: 1,
+    }),
+  );
+  return {
+    archiveKey,
+    archive: await createEncryptedVaultExport(vaultKey, archiveKey, encryptedName, [encryptedAccount]),
+  };
 }
 
 async function encryptedRawArchive(key: Uint8Array, payload: unknown): Promise<Uint8Array> {
-  return serializeEncryptedEnvelope(await encryptPayloadWithContext(key, new TextEncoder().encode(JSON.stringify(payload)), { purpose: "encrypted-archive", payloadType: "vault-archive", archiveVersion: 1 }));
+  return serializeEncryptedEnvelope(
+    await encryptPayloadWithContext(key, new TextEncoder().encode(JSON.stringify(payload)), {
+      purpose: "encrypted-archive",
+      payloadType: "vault-archive",
+      archiveVersion: 1,
+    }),
+  );
 }
 
 function accountPayload(value: Record<string, unknown>): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify({
-    issuer: value.issuer,
-    accountName: value.accountName,
-    secret: btoa(String.fromCharCode(...(value.secret as Uint8Array))),
-    algorithm: value.algorithm,
-    digits: value.digits,
-    period: value.period
-  }));
+  return new TextEncoder().encode(
+    JSON.stringify({
+      issuer: value.issuer,
+      accountName: value.accountName,
+      secret: btoa(String.fromCharCode(...(value.secret as Uint8Array))),
+      algorithm: value.algorithm,
+      digits: value.digits,
+      period: value.period,
+    }),
+  );
 }

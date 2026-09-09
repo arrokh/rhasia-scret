@@ -20,9 +20,10 @@ export function createAuthenticatorAccountPayloadPort(crypto: ClientCryptoPort):
     },
     decryptAccountConfiguration: async (vaultKey, encryptedPayload, context = accountContext()) => {
       const envelope = crypto.deserializeEncryptedEnvelope(encryptedPayload);
-      const plaintext = envelope.version === 1
-        ? await crypto.decryptPayload(vaultKey, envelope)
-        : await crypto.decryptPayloadWithContext(vaultKey, envelope, context);
+      const plaintext =
+        envelope.version === 1
+          ? await crypto.decryptPayload(vaultKey, envelope)
+          : await crypto.decryptPayloadWithContext(vaultKey, envelope, context);
       try {
         return parseDecryptedAccountPayload(plaintext);
       } finally {
@@ -36,14 +37,16 @@ export function createAuthenticatorAccountPayloadPort(crypto: ClientCryptoPort):
 }
 
 export function serializeDecryptedAccountPayload(configuration: TotpConfiguration): Uint8Array {
-  const plaintext = new TextEncoder().encode(JSON.stringify({
-    issuer: configuration.issuer,
-    accountName: configuration.accountName,
-    secret: bytesToBase64(configuration.secret),
-    algorithm: configuration.algorithm,
-    digits: configuration.digits,
-    period: configuration.period,
-  }));
+  const plaintext = new TextEncoder().encode(
+    JSON.stringify({
+      issuer: configuration.issuer,
+      accountName: configuration.accountName,
+      secret: bytesToBase64(configuration.secret),
+      algorithm: configuration.algorithm,
+      digits: configuration.digits,
+      period: configuration.period,
+    }),
+  );
   try {
     const parsed = parseDecryptedAccountPayload(plaintext);
     parsed.secret.fill(0);
@@ -65,8 +68,10 @@ export function parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAu
   if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) invalidPayload();
   const record = decoded as Record<string, unknown>;
   if (Object.keys(record).sort().join(",") !== "accountName,algorithm,digits,issuer,period,secret") invalidPayload();
-  if (!validLabel(record.issuer) || !validLabel(record.accountName) || typeof record.secret !== "string") invalidPayload();
-  if (record.algorithm !== "SHA-1" && record.algorithm !== "SHA-256" && record.algorithm !== "SHA-512") invalidPayload();
+  if (!validLabel(record.issuer) || !validLabel(record.accountName) || typeof record.secret !== "string")
+    invalidPayload();
+  if (record.algorithm !== "SHA-1" && record.algorithm !== "SHA-256" && record.algorithm !== "SHA-512")
+    invalidPayload();
   if (record.digits !== 6 && record.digits !== 8) invalidPayload();
   if (typeof record.period !== "number" || !Number.isSafeInteger(record.period) || record.period <= 0) invalidPayload();
   let secret: Uint8Array;
@@ -80,16 +85,29 @@ export function parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAu
     secret.fill(0);
     invalidPayload();
   }
-  return { issuer: record.issuer, accountName: record.accountName, secret, algorithm: record.algorithm, digits: record.digits, period: record.period };
+  return {
+    issuer: record.issuer,
+    accountName: record.accountName,
+    secret,
+    algorithm: record.algorithm,
+    digits: record.digits,
+    period: record.period,
+  };
 }
 
-export function isDuplicateAccount(candidate: DecryptedAuthenticatorAccount, accounts: DecryptedAuthenticatorAccount[]): boolean {
-  return accounts.some((account) => account.issuer === candidate.issuer
-    && account.accountName === candidate.accountName
-    && account.algorithm === candidate.algorithm
-    && account.digits === candidate.digits
-    && account.period === candidate.period
-    && equalBytes(account.secret, candidate.secret));
+export function isDuplicateAccount(
+  candidate: DecryptedAuthenticatorAccount,
+  accounts: DecryptedAuthenticatorAccount[],
+): boolean {
+  return accounts.some(
+    (account) =>
+      account.issuer === candidate.issuer &&
+      account.accountName === candidate.accountName &&
+      account.algorithm === candidate.algorithm &&
+      account.digits === candidate.digits &&
+      account.period === candidate.period &&
+      equalBytes(account.secret, candidate.secret),
+  );
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {

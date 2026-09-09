@@ -22,7 +22,7 @@ export type PreparedVaultArchive = {
 
 export async function prepareEncryptedVaultArchive(
   input: VaultArchiveExportInput,
-  cryptoPort: VaultArchiveCryptoPort
+  cryptoPort: VaultArchiveCryptoPort,
 ): Promise<PreparedVaultArchive> {
   const { vault, accounts, now = new Date() } = input;
   if (vault.role !== "OWNER") throw new VaultArchiveExportError("owner_required");
@@ -40,7 +40,7 @@ export async function prepareEncryptedVaultArchive(
       archive,
       key: archiveKey,
       keyMaterial: bytesToBase64(archiveKey),
-      filename: `rhasia-vault-${now.toISOString().slice(0, 10)}.rhasia-vault`
+      filename: `rhasia-vault-${now.toISOString().slice(0, 10)}.rhasia-vault`,
     };
   } catch (error) {
     archiveKey.fill(0);

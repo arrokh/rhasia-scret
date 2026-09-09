@@ -3,18 +3,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ clearAllOfflineVaultData: vi.fn(), requestLocalVaultLock: vi.fn() }));
-vi.mock("@/modules/sync", () => ({ clearAllOfflineVaultData: mocks.clearAllOfflineVaultData, requestLocalVaultLock: mocks.requestLocalVaultLock }));
+vi.mock("@/modules/sync", () => ({
+  clearAllOfflineVaultData: mocks.clearAllOfflineVaultData,
+  requestLocalVaultLock: mocks.requestLocalVaultLock,
+}));
 
 import { terminateBrowserSession } from "@/modules/identity/infrastructure/browser-session-client";
 
 describe("terminateBrowserSession", () => {
-  afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
 
   it("clears all local snapshot and Remembered Browser data before successful server logout", async () => {
     const order: string[] = [];
-    mocks.requestLocalVaultLock.mockImplementation(() => { order.push("in-memory-lock"); });
-    mocks.clearAllOfflineVaultData.mockImplementation(async () => { order.push("local-cleanup"); });
-    vi.stubGlobal("fetch", vi.fn(async () => { order.push("server-logout"); return { ok: true, url: "/sign-in?auth=signed_out" }; }));
+    mocks.requestLocalVaultLock.mockImplementation(() => {
+      order.push("in-memory-lock");
+    });
+    mocks.clearAllOfflineVaultData.mockImplementation(async () => {
+      order.push("local-cleanup");
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        order.push("server-logout");
+        return { ok: true, url: "/sign-in?auth=signed_out" };
+      }),
+    );
 
     await expect(terminateBrowserSession()).resolves.toBe("/sign-in?auth=signed_out");
     expect(order).toEqual(["in-memory-lock", "local-cleanup", "server-logout"]);

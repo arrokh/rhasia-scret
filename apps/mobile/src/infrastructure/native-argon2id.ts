@@ -1,8 +1,5 @@
 import { argon2id } from "../../modules/native-argon2id";
-import type {
-  Argon2idParameters,
-  KeyDerivationPort,
-} from "@rhasia-scret/client-vault-core";
+import type { Argon2idParameters, KeyDerivationPort } from "@rhasia-scret/client-vault-core";
 import type { CancellationPort } from "@rhasia-scret/client-vault-core";
 
 const maximumMemoryKiB = 256 * 1_024;
@@ -70,7 +67,11 @@ export const nativeArgon2idPort = new NativeArgon2idPort();
 function validateRequest(secret: string, salt: Uint8Array, parameters: Argon2idParameters): void {
   if (secret.trim().length < 3) throw new Error("A Vault Unlock Secret must contain at least three characters.");
   if (salt.length !== 16) throw new Error("A 16-byte Vault Unlock salt is required.");
-  if (!Number.isSafeInteger(parameters.memoryKiB) || parameters.memoryKiB < 8 || parameters.memoryKiB > maximumMemoryKiB) {
+  if (
+    !Number.isSafeInteger(parameters.memoryKiB) ||
+    parameters.memoryKiB < 8 ||
+    parameters.memoryKiB > maximumMemoryKiB
+  ) {
     throw new Error("Argon2id memory parameters are invalid.");
   }
   if (!Number.isSafeInteger(parameters.iterations) || parameters.iterations < 1 || parameters.iterations > 10) {
@@ -79,7 +80,11 @@ function validateRequest(secret: string, salt: Uint8Array, parameters: Argon2idP
   if (!Number.isSafeInteger(parameters.parallelism) || parameters.parallelism < 1 || parameters.parallelism > 4) {
     throw new Error("Argon2id parallelism parameters are invalid.");
   }
-  if (!Number.isSafeInteger(parameters.outputBytes) || parameters.outputBytes < 16 || parameters.outputBytes > maximumOutputBytes) {
+  if (
+    !Number.isSafeInteger(parameters.outputBytes) ||
+    parameters.outputBytes < 16 ||
+    parameters.outputBytes > maximumOutputBytes
+  ) {
     throw new Error("Argon2id output parameters are invalid.");
   }
 }

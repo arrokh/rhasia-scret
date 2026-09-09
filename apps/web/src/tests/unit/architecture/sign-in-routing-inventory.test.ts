@@ -12,7 +12,7 @@ const protectedPages = [
   "src/app/vaults/manage/new/page.tsx",
   "src/app/vaults/manage/personal/page.tsx",
   "src/app/vaults/manage/[vaultId]/page.tsx",
-  "src/app/vaults/recovery/page.tsx"
+  "src/app/vaults/recovery/page.tsx",
 ] as const;
 
 describe("sign-in routing inventory", () => {
@@ -24,7 +24,10 @@ describe("sign-in routing inventory", () => {
   });
 
   it("redirects missing or inactive protected context to sign in", () => {
-    const loader = readFileSync(resolve(process.cwd(), "src/modules/vault-management/presentation/load-vault-page-context.ts"), "utf8");
+    const loader = readFileSync(
+      resolve(process.cwd(), "src/modules/vault-management/presentation/load-vault-page-context.ts"),
+      "utf8",
+    );
     expect(loader).toContain('redirect("/sign-in")');
   });
 });

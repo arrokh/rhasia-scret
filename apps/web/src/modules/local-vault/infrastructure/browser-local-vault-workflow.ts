@@ -14,12 +14,9 @@ import {
   deriveVaultUnlockKey,
   validateVaultUnlockSecret,
   type CryptoEnvelopeContext,
-  type EncryptedEnvelope
+  type EncryptedEnvelope,
 } from "@/modules/crypto";
-import {
-  browserAccountPayloadPort,
-  type DecryptedAuthenticatorAccount
-} from "@/modules/authenticator-account";
+import { browserAccountPayloadPort, type DecryptedAuthenticatorAccount } from "@/modules/authenticator-account";
 import type { TotpConfiguration } from "@/modules/otp-runtime";
 import { BrowserLocalVaultRepository } from "./browser-local-vault-repository";
 import {
@@ -37,7 +34,7 @@ import {
   updateLocalAccount as updateLocalAccountWorkflow,
   LocalVaultMigrationRequiredError,
   type UnlockedLocalVault,
-  type UnlockedLocalVaultAccount
+  type UnlockedLocalVaultAccount,
 } from "../application/local-vault-workflow";
 import type { LocalVaultWorkflowDependencies } from "../application/local-vault-workflow-ports";
 import type { LocalVaultRecord } from "../domain/local-vault-record";
@@ -59,15 +56,19 @@ function browserDependencies(): LocalVaultWorkflowDependencies {
       decryptPayloadWithContext: (key, envelope, context) => decryptPayloadWithContext(key, envelope, context),
       serializeEncryptedEnvelope,
       deserializeEncryptedEnvelope,
-      createEncryptedVaultExport: (vaultKey, archiveKey, encryptedName, encryptedAccounts, context, accountIds) => createEncryptedVaultExport(vaultKey, archiveKey, encryptedName, encryptedAccounts, context, accountIds),
-      openEncryptedVaultExport
+      createEncryptedVaultExport: (vaultKey, archiveKey, encryptedName, encryptedAccounts, context, accountIds) =>
+        createEncryptedVaultExport(vaultKey, archiveKey, encryptedName, encryptedAccounts, context, accountIds),
+      openEncryptedVaultExport,
     },
     accountPayload: {
       ...browserAccountPayloadPort,
-      encryptAccountConfiguration: (vaultKey, configuration, context: CryptoEnvelopeContext) => browserAccountPayloadPort.encryptAccountConfiguration(vaultKey, configuration, context),
-      decryptAccountConfiguration: (vaultKey, encryptedPayload, context: CryptoEnvelopeContext) => browserAccountPayloadPort.decryptAccountConfiguration(vaultKey, encryptedPayload, context),
-      isDuplicateAccount: (candidate, accounts) => browserAccountPayloadPort.isDuplicateAccount(candidate, accounts as DecryptedAuthenticatorAccount[])
-    }
+      encryptAccountConfiguration: (vaultKey, configuration, context: CryptoEnvelopeContext) =>
+        browserAccountPayloadPort.encryptAccountConfiguration(vaultKey, configuration, context),
+      decryptAccountConfiguration: (vaultKey, encryptedPayload, context: CryptoEnvelopeContext) =>
+        browserAccountPayloadPort.decryptAccountConfiguration(vaultKey, encryptedPayload, context),
+      isDuplicateAccount: (candidate, accounts) =>
+        browserAccountPayloadPort.isDuplicateAccount(candidate, accounts as DecryptedAuthenticatorAccount[]),
+    },
   };
 }
 
@@ -87,7 +88,11 @@ export async function addLocalAccount(vault: UnlockedLocalVault, configuration: 
   return addLocalAccountWorkflow(vault, configuration, browserDependencies());
 }
 
-export async function updateLocalAccount(vault: UnlockedLocalVault, accountId: string, configuration: TotpConfiguration): Promise<void> {
+export async function updateLocalAccount(
+  vault: UnlockedLocalVault,
+  accountId: string,
+  configuration: TotpConfiguration,
+): Promise<void> {
   return updateLocalAccountWorkflow(vault, accountId, configuration, browserDependencies());
 }
 
@@ -103,7 +108,10 @@ export async function exportLocalVault(vault: UnlockedLocalVault): Promise<{ arc
   return exportLocalVaultWorkflow(vault, browserDependencies());
 }
 
-export async function previewLocalVaultArchive(key: Uint8Array, archive: Uint8Array): Promise<{ vaultName: string; accounts: DecryptedAuthenticatorAccount[] }> {
+export async function previewLocalVaultArchive(
+  key: Uint8Array,
+  archive: Uint8Array,
+): Promise<{ vaultName: string; accounts: DecryptedAuthenticatorAccount[] }> {
   return previewLocalVaultArchiveWorkflow(key, archive, browserDependencies());
 }
 
@@ -111,7 +119,11 @@ export async function refreshUnlockedLocalVault(vault: UnlockedLocalVault): Prom
   return refreshUnlockedLocalVaultWorkflow(vault, browserDependencies());
 }
 
-export async function importLocalVaultArchive(vault: UnlockedLocalVault, key: Uint8Array, archive: Uint8Array): Promise<number> {
+export async function importLocalVaultArchive(
+  vault: UnlockedLocalVault,
+  key: Uint8Array,
+  archive: Uint8Array,
+): Promise<number> {
   return importLocalVaultArchiveWorkflow(vault, key, archive, browserDependencies());
 }
 

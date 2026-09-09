@@ -11,15 +11,33 @@ export class BrowserCryptoPrimitives implements CryptoPrimitivePort {
     return bytes;
   }
 
-  async encryptAesGcm(request: { key: Uint8Array; nonce: Uint8Array; plaintext: Uint8Array; additionalData?: Uint8Array }): Promise<Uint8Array> {
+  async encryptAesGcm(request: {
+    key: Uint8Array;
+    nonce: Uint8Array;
+    plaintext: Uint8Array;
+    additionalData?: Uint8Array;
+  }): Promise<Uint8Array> {
     const key = await importAesKey(request.key, ["encrypt"]);
-    return new Uint8Array(await crypto.subtle.encrypt(aesParameters(request.nonce, request.additionalData), key, request.plaintext.slice()));
+    return new Uint8Array(
+      await crypto.subtle.encrypt(aesParameters(request.nonce, request.additionalData), key, request.plaintext.slice()),
+    );
   }
 
-  async decryptAesGcm(request: { key: Uint8Array; nonce: Uint8Array; ciphertext: Uint8Array; additionalData?: Uint8Array }): Promise<Uint8Array> {
+  async decryptAesGcm(request: {
+    key: Uint8Array;
+    nonce: Uint8Array;
+    ciphertext: Uint8Array;
+    additionalData?: Uint8Array;
+  }): Promise<Uint8Array> {
     const key = await importAesKey(request.key, ["decrypt"]);
     try {
-      return new Uint8Array(await crypto.subtle.decrypt(aesParameters(request.nonce, request.additionalData), key, request.ciphertext.slice()));
+      return new Uint8Array(
+        await crypto.subtle.decrypt(
+          aesParameters(request.nonce, request.additionalData),
+          key,
+          request.ciphertext.slice(),
+        ),
+      );
     } catch {
       throw new Error("Encrypted envelope authentication failed.");
     }
@@ -29,29 +47,51 @@ export class BrowserCryptoPrimitives implements CryptoPrimitivePort {
     const pair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
     if (!("privateKey" in pair) || !("publicKey" in pair)) throw new Error("Could not create ECDH keys.");
     return {
-      publicKey: await crypto.subtle.exportKey("jwk", pair.publicKey) as unknown as PortableJsonWebKey,
-      privateKey: await crypto.subtle.exportKey("jwk", pair.privateKey) as unknown as PortableJsonWebKey
+      publicKey: (await crypto.subtle.exportKey("jwk", pair.publicKey)) as unknown as PortableJsonWebKey,
+      privateKey: (await crypto.subtle.exportKey("jwk", pair.privateKey)) as unknown as PortableJsonWebKey,
     };
   }
 
   async deriveEcdhSharedKey(privateKey: PortableJsonWebKey, publicKey: PortableJsonWebKey): Promise<Uint8Array> {
-    const privateCryptoKey = await crypto.subtle.importKey("jwk", privateKey as JsonWebKey, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
-    const publicCryptoKey = await crypto.subtle.importKey("jwk", publicKey as JsonWebKey, { name: "ECDH", namedCurve: "P-256" }, false, []);
-    return new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: publicCryptoKey }, privateCryptoKey, 256));
+    const privateCryptoKey = await crypto.subtle.importKey(
+      "jwk",
+      privateKey as JsonWebKey,
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      ["deriveBits"],
+    );
+    const publicCryptoKey = await crypto.subtle.importKey(
+      "jwk",
+      publicKey as JsonWebKey,
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      [],
+    );
+    return new Uint8Array(
+      await crypto.subtle.deriveBits({ name: "ECDH", public: publicCryptoKey }, privateCryptoKey, 256),
+    );
   }
 
   async deriveHkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
     if (!Number.isSafeInteger(length) || length < 0) throw new Error("HKDF output length is invalid.");
     const key = await crypto.subtle.importKey("raw", ikm.slice(), "HKDF", false, ["deriveBits"]);
-    return new Uint8Array(await crypto.subtle.deriveBits(
-      { name: "HKDF", hash: "SHA-256", salt: salt.slice(), info: info.slice() },
-      key,
-      length * 8,
-    ));
+    return new Uint8Array(
+      await crypto.subtle.deriveBits(
+        { name: "HKDF", hash: "SHA-256", salt: salt.slice(), info: info.slice() },
+        key,
+        length * 8,
+      ),
+    );
   }
 
-  async signHmac(algorithm: "SHA-1" | "SHA-256" | "SHA-512", keyBytes: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
-    const key = await crypto.subtle.importKey("raw", keyBytes.slice(), { name: "HMAC", hash: algorithm }, false, ["sign"]);
+  async signHmac(
+    algorithm: "SHA-1" | "SHA-256" | "SHA-512",
+    keyBytes: Uint8Array,
+    message: Uint8Array,
+  ): Promise<Uint8Array> {
+    const key = await crypto.subtle.importKey("raw", keyBytes.slice(), { name: "HMAC", hash: algorithm }, false, [
+      "sign",
+    ]);
     return new Uint8Array(await crypto.subtle.sign("HMAC", key, message.slice()));
   }
 }

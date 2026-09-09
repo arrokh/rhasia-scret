@@ -15,9 +15,16 @@ jest.mock("./src/config", () => ({
   }),
 }));
 jest.mock("./src/infrastructure/mobile-supabase-client", () => ({ createMobileSupabaseClient: () => ({}) }));
-jest.mock("./src/infrastructure/native-authenticated-transport", () => ({ createNativeAuthenticatedTransport: () => ({}) }));
+jest.mock("./src/infrastructure/native-authenticated-transport", () => ({
+  createNativeAuthenticatedTransport: () => ({}),
+}));
 jest.mock("./src/presentation/use-mobile-session", () => ({
-  useMobileSession: () => ({ session: null, status: "idle", requestSignInLink: mockRequestSignInLink, signOut: mockSignOut }),
+  useMobileSession: () => ({
+    session: null,
+    status: "idle",
+    requestSignInLink: mockRequestSignInLink,
+    signOut: mockSignOut,
+  }),
 }));
 
 describe("mobile foundation presentation", () => {

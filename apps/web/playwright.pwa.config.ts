@@ -27,6 +27,6 @@ export default defineConfig({
     command: `${productionServerCommand}pnpm exec next start -p ${browserTestPort}`,
     url: browserTestBaseUrl,
     reuseExistingServer: false,
-    timeout: 180_000
-  }
+    timeout: 180_000,
+  },
 });

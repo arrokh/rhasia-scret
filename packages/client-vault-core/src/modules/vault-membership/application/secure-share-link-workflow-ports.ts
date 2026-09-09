@@ -35,7 +35,12 @@ export interface SecureShareLinkDeliveryPort {
 
 export interface SecureShareLinkCryptoPort {
   digestSha256(value: Uint8Array): Promise<Uint8Array>;
-  redeemMaterial(secret: string, encryptedPackage: Uint8Array, userRootKey: Uint8Array, vaultId: string): Promise<{ linkVerifier: Uint8Array; encryptedVaultKey: Uint8Array }>;
+  redeemMaterial(
+    secret: string,
+    encryptedPackage: Uint8Array,
+    userRootKey: Uint8Array,
+    vaultId: string,
+  ): Promise<{ linkVerifier: Uint8Array; encryptedVaultKey: Uint8Array }>;
 }
 
 export type SecureShareLinkWorkflowPorts = {

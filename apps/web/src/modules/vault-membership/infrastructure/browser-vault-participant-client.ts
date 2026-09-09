@@ -4,7 +4,7 @@ import { browserApiClient, browserAuthenticatedTransport } from "@/shared/infras
 import type {
   EffectiveSharedVaultAccountPermissions,
   SharedVaultAccountPermissionOverrides,
-  SharedVaultAccountPermissions
+  SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
 import { SecureShareLinkHttpTransport } from "@rhasia-scret/client-vault-core";
 
@@ -36,24 +36,32 @@ export function loadVaultParticipants(vaultId: string, cursor: string | null): P
   const search = new URLSearchParams();
   if (cursor) search.set("cursor", cursor);
   const query = search.size ? `?${search.toString()}` : "";
-  return browserApiClient.getJson<BrowserVaultParticipantPage>(`/api/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`, { cache: "no-store" });
+  return browserApiClient.getJson<BrowserVaultParticipantPage>(
+    `/api/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`,
+    { cache: "no-store" },
+  );
 }
 
 export function loadVaultDefaultAccountPermissions(vaultId: string): Promise<{
   vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
   vaultDefaultAccountPermissionsRevision: number;
 }> {
-  return browserApiClient.getJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, { cache: "no-store" });
+  return browserApiClient.getJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
+    cache: "no-store",
+  });
 }
 
 export function updateVaultDefaultAccountPermissions(
   vaultId: string,
   expectedRevision: number,
-  permissions: SharedVaultAccountPermissions
-): Promise<{ vaultDefaultAccountPermissions: SharedVaultAccountPermissions; vaultDefaultAccountPermissionsRevision: number }> {
+  permissions: SharedVaultAccountPermissions,
+): Promise<{
+  vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
+  vaultDefaultAccountPermissionsRevision: number;
+}> {
   return browserApiClient.patchJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
     expectedRevision,
-    ...permissions
+    ...permissions,
   });
 }
 
@@ -61,21 +69,26 @@ export function updateVaultMemberAccountPermissionOverrides(
   vaultId: string,
   memberUserId: string,
   expectedRevision: number,
-  overrides: SharedVaultAccountPermissionOverrides
+  overrides: SharedVaultAccountPermissionOverrides,
 ): Promise<{
   permissionOverrides: SharedVaultAccountPermissionOverrides;
   effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
   permissionsRevision: number;
 }> {
-  return browserApiClient.patchJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(memberUserId)}`, {
-    expectedRevision,
-    ...overrides
-  });
+  return browserApiClient.patchJson(
+    `/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(memberUserId)}`,
+    {
+      expectedRevision,
+      ...overrides,
+    },
+  );
 }
 
 export function deleteVaultParticipant(vaultId: string, participant: BrowserVaultParticipant): Promise<void> {
   if (participant.kind === "MEMBER" && participant.userId) {
-    return browserApiClient.deleteEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(participant.userId)}`);
+    return browserApiClient.deleteEmpty(
+      `/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(participant.userId)}`,
+    );
   }
   if (participant.kind === "INVITATION" && participant.invitationId) {
     return secureShareLinks.cancel(vaultId, participant.invitationId);

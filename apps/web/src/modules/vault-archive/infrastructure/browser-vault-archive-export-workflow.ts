@@ -7,7 +7,7 @@ import {
   prepareEncryptedVaultArchive as prepareArchive,
   VaultArchiveExportError,
   type PreparedVaultArchive,
-  type VaultArchiveExportErrorCode
+  type VaultArchiveExportErrorCode,
 } from "@rhasia-scret/client-vault-core";
 import { serializeDecryptedAccountPayload } from "@/modules/authenticator-account";
 import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
@@ -18,17 +18,21 @@ export type { PreparedVaultArchive, VaultArchiveExportErrorCode };
 const browserArchiveCrypto = {
   generateSymmetricKey,
   serializeDecryptedAccountPayload,
-  createEncryptedVaultArchive
+  createEncryptedVaultArchive,
 };
 
 export async function prepareEncryptedVaultArchive(
   vault: { id: string; name: string; type: "PERSONAL" | "SHARED"; role: "OWNER" | "VIEWER" },
   accounts: WorkspaceAuthenticatorAccount[],
-  now = new Date()
+  now = new Date(),
 ): Promise<PreparedVaultArchive> {
   return prepareArchive({ vault, accounts, now }, browserArchiveCrypto);
 }
 
 export function downloadPreparedVaultArchive(prepared: PreparedVaultArchive): void {
-  browserDownload.download({ bytes: prepared.archive, filename: prepared.filename, mediaType: "application/octet-stream" });
+  browserDownload.download({
+    bytes: prepared.archive,
+    filename: prepared.filename,
+    mediaType: "application/octet-stream",
+  });
 }

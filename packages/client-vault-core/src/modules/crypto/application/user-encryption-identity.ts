@@ -15,7 +15,11 @@ export async function createUserEncryptionIdentityWithCrypto(
   try {
     return {
       publicKey: { ...pair.publicKey },
-      encryptedPrivateKey: await crypto.encryptPayloadWithContext(userRootKey, plaintext, userEncryptionIdentityContext()),
+      encryptedPrivateKey: await crypto.encryptPayloadWithContext(
+        userRootKey,
+        plaintext,
+        userEncryptionIdentityContext(),
+      ),
     };
   } finally {
     plaintext.fill(0);
@@ -27,7 +31,11 @@ export async function recoverUserEncryptionPrivateKeyWithCrypto(
   encryptedPrivateKey: EncryptedEnvelope,
   crypto: ClientCryptoPort,
 ): Promise<PortableJsonWebKey> {
-  const plaintext = await crypto.decryptPayloadWithContext(userRootKey, encryptedPrivateKey, userEncryptionIdentityContext());
+  const plaintext = await crypto.decryptPayloadWithContext(
+    userRootKey,
+    encryptedPrivateKey,
+    userEncryptionIdentityContext(),
+  );
   try {
     let parsed: unknown;
     try {
@@ -47,12 +55,14 @@ export function userEncryptionIdentityContext(): CryptoEnvelopeContext {
 }
 
 function isPrivateKey(value: unknown): value is PortableJsonWebKey {
-  return value !== null
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && (value as Record<string, unknown>).kty === "EC"
-    && (value as Record<string, unknown>).crv === "P-256"
-    && typeof (value as Record<string, unknown>).x === "string"
-    && typeof (value as Record<string, unknown>).y === "string"
-    && typeof (value as Record<string, unknown>).d === "string";
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).kty === "EC" &&
+    (value as Record<string, unknown>).crv === "P-256" &&
+    typeof (value as Record<string, unknown>).x === "string" &&
+    typeof (value as Record<string, unknown>).y === "string" &&
+    typeof (value as Record<string, unknown>).d === "string"
+  );
 }

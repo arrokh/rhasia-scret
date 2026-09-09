@@ -1,18 +1,19 @@
 # Continuous integration and security automation
 
-GitHub Actions provides a main-push quality gate and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
+GitHub Actions provides a main-push quality gate, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
 
 ## Events and permissions
 
-The quality and browser verification workflow runs only for pushes to `main`. The security workflows run on their appropriate public events:
+The quality and browser verification workflow runs only for pushes to `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
 
+- format check: pull requests targeting `main` and pushes to `main`;
 - CodeQL and secret scanning: pull requests targeting `main`, pushes to `main`, manual dispatch, and (for secret scanning) the weekly schedule;
 - dependency review: pull requests targeting `main`; and
 - Dependabot: weekly dependency and GitHub Actions update proposals.
 
 Workflows declare least-privilege read access by default. CodeQL receives `security-events: write` only for its analysis job so results can be uploaded when GitHub permits it; fork pull requests still execute analysis but do not receive repository secrets or write access.
 
-Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the subsequent push to `main`.
+Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the subsequent push to `main`.
 
 ## Required verification coverage
 
@@ -26,6 +27,14 @@ The quality job covers:
 6. Prisma generation, schema validation, migrations, and provider-neutral identity backfill;
 7. lint, strict typechecking, unit/integration/contract tests, architecture checks, and production build;
 8. client build-output and route-bundle checks.
+9. repository formatting through `pnpm run format:check`.
+
+The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
+JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
+repository schema. Prisma-generated SQL migrations are not rewritten after
+generation. The vendored Argon2 C/C++ implementation and native platform
+adapters remain outside this automatic formatter until the project adopts
+dedicated, compatible formatters for those languages.
 
 The browser job covers Playwright smoke, encrypted workflow, PWA, security-header, localization, archive, and performance coverage through `pnpm run test:browser` and `pnpm run test:performance`. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
@@ -46,7 +55,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - one pull-request approval before merge;
 - stale approval dismissal after new commits;
-- required pull-request checks: `CodeQL JavaScript and TypeScript`, `Dependency review`, and `Secret scan`; quality and browser verification run on pushes to `main`;
+- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, and `Secret scan`; quality and browser verification run on pushes to `main`;
 - strict up-to-date-branch checks and required conversation resolution;
 - linear history enforcement;
 - force-push and branch-deletion restrictions; and
@@ -62,6 +71,7 @@ Run the complete repository gate from the root with the mise-managed toolchain:
 mise install
 mise run setup
 pnpm install --frozen-lockfile
+pnpm run format:check
 pnpm run verify:ci-policy
 pnpm run test:full
 ```

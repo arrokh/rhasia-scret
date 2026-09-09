@@ -4,21 +4,21 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadApplicationUser: vi.fn(),
-  redirect: vi.fn()
+  redirect: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/modules/identity/application/load-application-user", () => ({
-  loadApplicationUser: mocks.loadApplicationUser
+  loadApplicationUser: mocks.loadApplicationUser,
 }));
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
-  PrismaApplicationUserRepository: class PrismaApplicationUserRepository {}
+  PrismaApplicationUserRepository: class PrismaApplicationUserRepository {},
 }));
 vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
-  SupabaseSessionVerifier: class SupabaseSessionVerifier {}
+  SupabaseSessionVerifier: class SupabaseSessionVerifier {},
 }));
 vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
-  EmailSignInForm: () => createElement("form", { "aria-label": "Formulir masuk" })
+  EmailSignInForm: () => createElement("form", { "aria-label": "Formulir masuk" }),
 }));
 
 import SignInPage from "@/app/sign-in/page";
@@ -34,7 +34,7 @@ describe("SignInPage", () => {
 
   it.each([
     ["signed-out", null],
-    ["inactive", { canAccessApplication: () => false }]
+    ["inactive", { canAccessApplication: () => false }],
   ])("keeps sign in public for a %s user", async (_scenario, user) => {
     mocks.loadApplicationUser.mockResolvedValue(user);
 

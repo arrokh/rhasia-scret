@@ -2,5 +2,5 @@ export { createAuthenticatedApplicationExecutor } from "./application/authentica
 export type {
   AuthenticatedApplicationDependencies,
   AuthenticatedApplicationRequest,
-  AuthenticatedApplicationResult
+  AuthenticatedApplicationResult,
 } from "./application/authenticated-application-request";

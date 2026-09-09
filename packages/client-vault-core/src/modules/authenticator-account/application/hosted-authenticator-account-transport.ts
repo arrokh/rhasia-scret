@@ -1,4 +1,8 @@
-import type { AuthenticatedTransport, PlatformHttpMethod, PlatformHttpResponse } from "../../../shared/application/platform-ports";
+import type {
+  AuthenticatedTransport,
+  PlatformHttpMethod,
+  PlatformHttpResponse,
+} from "../../../shared/application/platform-ports";
 
 export type HostedAuthenticatorAccountDestination = Readonly<{
   vaultId: string;
@@ -8,7 +12,10 @@ export type HostedAuthenticatorAccountDestination = Readonly<{
 export type HostedAuthenticatorAccountCreated = Readonly<{ id: string; revision: number }>;
 
 export class HostedAuthenticatorAccountTransportError extends Error {
-  public constructor(public readonly status: number, public readonly code: string) {
+  public constructor(
+    public readonly status: number,
+    public readonly code: string,
+  ) {
     super(`Hosted Authenticator Account request failed with ${status} (${code}).`);
     this.name = "HostedAuthenticatorAccountTransportError";
   }
@@ -19,7 +26,7 @@ export class HostedAuthenticatorAccountTransport {
 
   public create(
     destination: HostedAuthenticatorAccountDestination,
-    input: Readonly<{ encryptedPayload: string; encryptionVersion: 1; source?: "LOCAL_VAULT_COPY" }>
+    input: Readonly<{ encryptedPayload: string; encryptionVersion: 1; source?: "LOCAL_VAULT_COPY" }>,
   ): Promise<HostedAuthenticatorAccountCreated> {
     validateDestination(destination);
     validateCiphertext(input.encryptedPayload);
@@ -28,13 +35,13 @@ export class HostedAuthenticatorAccountTransport {
     return this.requestCreated(destination, "POST", {
       encryptedPayload: input.encryptedPayload,
       encryptionVersion: input.encryptionVersion,
-      ...(input.source ? { source: input.source } : {})
+      ...(input.source ? { source: input.source } : {}),
     });
   }
 
   public update(
     destination: HostedAuthenticatorAccountDestination,
-    input: Readonly<{ accountId: string; expectedRevision: number; encryptedPayload: string; encryptionVersion: 1 }>
+    input: Readonly<{ accountId: string; expectedRevision: number; encryptedPayload: string; encryptionVersion: 1 }>,
   ): Promise<HostedAuthenticatorAccountCreated> {
     validateDestination(destination);
     validateIdentifier(input.accountId, "accountId");
@@ -45,23 +52,26 @@ export class HostedAuthenticatorAccountTransport {
       accountId: input.accountId,
       expectedRevision: input.expectedRevision,
       encryptedPayload: input.encryptedPayload,
-      encryptionVersion: input.encryptionVersion
+      encryptionVersion: input.encryptionVersion,
     });
   }
 
   public async delete(
     destination: HostedAuthenticatorAccountDestination,
-    input: Readonly<{ accountId: string; expectedRevision: number }>
+    input: Readonly<{ accountId: string; expectedRevision: number }>,
   ): Promise<void> {
     validateDestination(destination);
     validateIdentifier(input.accountId, "accountId");
     validateRevision(input.expectedRevision);
-    await this.requestEmpty(destination, "DELETE", { accountId: input.accountId, expectedRevision: input.expectedRevision });
+    await this.requestEmpty(destination, "DELETE", {
+      accountId: input.accountId,
+      expectedRevision: input.expectedRevision,
+    });
   }
 
   public async restore(
     destination: HostedAuthenticatorAccountDestination,
-    input: Readonly<{ accountId: string }>
+    input: Readonly<{ accountId: string }>,
   ): Promise<void> {
     validateDestination(destination);
     validateIdentifier(input.accountId, "accountId");
@@ -71,7 +81,7 @@ export class HostedAuthenticatorAccountTransport {
   private async requestCreated(
     destination: HostedAuthenticatorAccountDestination,
     method: "POST" | "PATCH",
-    body: object
+    body: object,
   ): Promise<HostedAuthenticatorAccountCreated> {
     const response = await this.request(destination, method, body);
     if (response.status !== (method === "POST" ? 201 : 200)) throw await requestError(response);
@@ -81,7 +91,7 @@ export class HostedAuthenticatorAccountTransport {
   private async requestEmpty(
     destination: HostedAuthenticatorAccountDestination,
     method: "DELETE" | "PUT",
-    body: object
+    body: object,
   ): Promise<void> {
     const response = await this.request(destination, method, body);
     if (response.status !== 204) throw await requestError(response);
@@ -93,7 +103,7 @@ export class HostedAuthenticatorAccountTransport {
       method,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-      cache: "no-store"
+      cache: "no-store",
     });
   }
 }
@@ -116,7 +126,12 @@ async function requestError(response: PlatformHttpResponse): Promise<HostedAuthe
   let code = "request_failed";
   try {
     const value = await response.json<unknown>();
-    if (isRecord(value) && Object.keys(value).length === 1 && typeof value.error === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(value.error)) {
+    if (
+      isRecord(value) &&
+      Object.keys(value).length === 1 &&
+      typeof value.error === "string" &&
+      /^[a-z][a-z0-9_]{0,63}$/.test(value.error)
+    ) {
       code = value.error;
     }
   } catch {

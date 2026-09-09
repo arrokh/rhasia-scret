@@ -6,7 +6,7 @@ async function findSourceMaps(directory: string): Promise<string[]> {
   const result: string[] = [];
   for (const entry of entries) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) result.push(...await findSourceMaps(path));
+    if (entry.isDirectory()) result.push(...(await findSourceMaps(path)));
     else if (entry.name.endsWith(".map")) result.push(path);
   }
   return result;

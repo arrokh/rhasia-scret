@@ -11,7 +11,7 @@ test.describe("browser security delivery headers", () => {
       page.request.get("/offline"),
       page.request.get("/manifest.webmanifest"),
       page.request.get("/sw.js"),
-      page.request.get("/assets/icon.png")
+      page.request.get("/assets/icon.png"),
     ]);
     for (const response of responses) expectSecurityHeaders(response, response.url().endsWith("/offline"));
     expect(responses[0].headers()["cache-control"]).toBe("no-store, private");
@@ -32,10 +32,17 @@ test.describe("browser security delivery headers", () => {
       });
     });
 
-    await page.locator('a[href="/sign-in"]').first().evaluate((link) => (link as HTMLElement).click());
+    await page
+      .locator('a[href="/sign-in"]')
+      .first()
+      .evaluate((link) => (link as HTMLElement).click());
     await expect(page).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
-    expect(await page.evaluate(() => (window as typeof window & { __cspNavigationMarker?: boolean }).__cspNavigationMarker)).toBe(true);
-    expect(await page.evaluate(() => (window as typeof window & { __cspChunkViolations?: string[] }).__cspChunkViolations)).toEqual([]);
+    expect(
+      await page.evaluate(() => (window as typeof window & { __cspNavigationMarker?: boolean }).__cspNavigationMarker),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() => (window as typeof window & { __cspChunkViolations?: string[] }).__cspChunkViolations),
+    ).toEqual([]);
   });
 });
 

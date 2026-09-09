@@ -5,19 +5,24 @@ import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-sess
 
 describe("loadApplicationUser", () => {
   it("does not provision without a verified session", async () => {
-    const applicationUsers = { provision: async () => { throw new Error("must not provision"); } };
+    const applicationUsers = {
+      provision: async () => {
+        throw new Error("must not provision");
+      },
+    };
     await expect(loadApplicationUser(new FakeSessionVerifier(null), applicationUsers)).resolves.toBeNull();
   });
 
   it("provisions an application user from the verified Supabase identity", async () => {
     const session = { subject: "subject-1", email: "person@example.test" };
     const applicationUsers = {
-      provision: async (received: typeof session) => new ApplicationUser("user-1", "supabase", received.subject, received.email, "ACTIVE")
+      provision: async (received: typeof session) =>
+        new ApplicationUser("user-1", "supabase", received.subject, received.email, "ACTIVE"),
     };
     await expect(loadApplicationUser(new FakeSessionVerifier(session), applicationUsers)).resolves.toMatchObject({
       id: "user-1",
       subject: "subject-1",
-      email: "person@example.test"
+      email: "person@example.test",
     });
   });
 });

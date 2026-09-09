@@ -15,34 +15,52 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Resource-Policy": "same-origin",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-  "X-Permitted-Cross-Domain-Policies": "none"
+  "X-Permitted-Cross-Domain-Policies": "none",
 };
 
 function createCsp(nonce: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   // Next.js can omit a nonce from dynamically inserted chunk elements; keep inline scripts nonced while allowing immutable same-origin chunks.
-  const scriptElementPolicy = [`script-src-elem 'self' 'nonce-${nonce}'`, posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" ");
+  const scriptElementPolicy = [
+    `script-src-elem 'self' 'nonce-${nonce}'`,
+    posthogAssetsHost,
+    cloudflareAnalyticsScriptHost,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return [
     "default-src 'self'",
-    [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`, posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
+    [
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`,
+      posthogAssetsHost,
+      cloudflareAnalyticsScriptHost,
+    ]
+      .filter(Boolean)
+      .join(" "),
     scriptElementPolicy,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
+    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost]
+      .filter(Boolean)
+      .join(" "),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",
-    "frame-ancestors 'none'"
+    "frame-ancestors 'none'",
   ].join("; ");
 }
 
 function applySecurityHeaders(response: NextResponse, request: NextRequest, nonce: string): NextResponse {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
   response.headers.set("Content-Security-Policy", createCsp(nonce));
-  if (request.nextUrl.pathname.startsWith("/api/") || request.nextUrl.pathname.startsWith("/auth/") || isProtectedPagePath(request.nextUrl.pathname)) {
+  if (
+    request.nextUrl.pathname.startsWith("/api/") ||
+    request.nextUrl.pathname.startsWith("/auth/") ||
+    isProtectedPagePath(request.nextUrl.pathname)
+  ) {
     response.headers.set("Cache-Control", "no-store, private");
   }
   return response;
@@ -91,5 +109,5 @@ function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse)
 export const proxy = createAuthProxy();
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"]
+  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -12,6 +12,7 @@ function randomIndex(upperBound: number): number {
   const max = 0x1_0000_0000;
   const limit = max - (max % upperBound);
   const bytes = new Uint32Array(1);
-  do crypto.getRandomValues(bytes); while (bytes[0] >= limit);
+  do crypto.getRandomValues(bytes);
+  while (bytes[0] >= limit);
   return bytes[0] % upperBound;
 }

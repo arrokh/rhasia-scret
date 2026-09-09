@@ -12,7 +12,7 @@ export async function completeSupabaseCallback(
   code: string | null,
   tokenHash: string | null,
   cookieStore: SupabaseCallbackCookieStore,
-  configuration: SupabaseCallbackConfiguration
+  configuration: SupabaseCallbackConfiguration,
 ): Promise<boolean> {
   const callback = parseCallback(code, tokenHash);
   if (!callback) return false;
@@ -21,8 +21,8 @@ export async function completeSupabaseCallback(
       getAll: () => cookieStore.getAll(),
       setAll: (cookiesToSet: AuthCookie[]) => {
         for (const { name, value, options } of cookiesToSet) cookieStore.set(name, value, options);
-      }
-    }
+      },
+    },
   });
   switch (callback.kind) {
     case "code":

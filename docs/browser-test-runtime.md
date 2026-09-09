@@ -10,11 +10,11 @@
 
 The smoke and encrypted-workflow stages use distinct ports and Next development output directories. They run concurrently by default for fast local feedback. GitHub Actions sets `CI=true` and `BROWSER_TEST_SEQUENTIAL=1` to run them one after the other, avoiding the cross-suite CPU and database contention that made browser outcomes intermittent on constrained hosted runners. In CI mode, the two data-heavy WebKit encrypted-workflow cases are intentionally skipped; Chromium and Firefox retain those scenarios, while WebKit retains the lighter Personal Vault and passkey coverage:
 
-| Stage | Port | Next output | Specs |
-| --- | ---: | --- | --- |
-| Smoke | `BROWSER_TEST_PORT` (default `3100`) | `.next/browser-smoke` | `granular-loading`, `mobile-preview`, `remembered-browser`, `security-headers`, `smoke`, `vault-archive-backup`, `vault-archive-import` |
-| Encrypted workflows | `BROWSER_TEST_PORT + 1` | `.next/browser-e2e` | `encrypted-vault-workflows` |
-| Production PWA | `BROWSER_TEST_PORT` | `.next` | `offline-pwa` |
+| Stage               |                                 Port | Next output           | Specs                                                                                                                                   |
+| ------------------- | -----------------------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Smoke               | `BROWSER_TEST_PORT` (default `3100`) | `.next/browser-smoke` | `granular-loading`, `mobile-preview`, `remembered-browser`, `security-headers`, `smoke`, `vault-archive-backup`, `vault-archive-import` |
+| Encrypted workflows |              `BROWSER_TEST_PORT + 1` | `.next/browser-e2e`   | `encrypted-vault-workflows`                                                                                                             |
+| Production PWA      |                  `BROWSER_TEST_PORT` | `.next`               | `offline-pwa`                                                                                                                           |
 
 The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory and CI serialization setting are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
 
@@ -24,11 +24,11 @@ The web full gate already builds production output before browser tests. It pass
 
 All local measurements used the same generated Prisma client, local PostgreSQL database, installed browser binaries, Node 24.19.0, and the same working tree. The report contains only suite status and durations; it contains no account data, secrets, keys, OTPs, or decrypted content.
 
-| Run | Smoke | Encrypted workflows | PWA | Browser-gate wall clock |
-| --- | ---: | ---: | ---: | ---: |
-| Baseline, sequential gate | 90 passed / 35.2s test time | 13 passed, 2 skipped / 1.7m test time | 5 passed, 4 skipped / 13.4s test time plus build | 152.14s |
-| Optimized, isolated concurrent gate | 90 passed / 53.0s stage time | 13 passed, 2 skipped / 117.8s stage time | 5 passed, 4 skipped / 13.8s stage time | 132.34s |
-| Optimized CI gate #32630093624 | 90 passed / 12.2m stage time | 11 passed, 4 skipped / 13.4m stage time | 5 passed, 4 skipped / 59.0s stage time | 14m26s |
+| Run                                 |                        Smoke |                      Encrypted workflows |                                              PWA | Browser-gate wall clock |
+| ----------------------------------- | ---------------------------: | ---------------------------------------: | -----------------------------------------------: | ----------------------: |
+| Baseline, sequential gate           |  90 passed / 35.2s test time |    13 passed, 2 skipped / 1.7m test time | 5 passed, 4 skipped / 13.4s test time plus build |                 152.14s |
+| Optimized, isolated concurrent gate | 90 passed / 53.0s stage time | 13 passed, 2 skipped / 117.8s stage time |           5 passed, 4 skipped / 13.8s stage time |                 132.34s |
+| Optimized CI gate #32630093624      | 90 passed / 12.2m stage time |  11 passed, 4 skipped / 13.4m stage time |           5 passed, 4 skipped / 59.0s stage time |                  14m26s |
 
 The optimized local run reduced wall-clock time by 19.80s (13.0%). The dominant cost is the crypto-heavy encrypted-workflow stage, which occupies the critical path; parallelizing smoke removes its sequential cost without reducing that coverage. The local encrypted-workflow stage was slower under concurrent CPU pressure, so this change does not claim that every individual stage becomes faster.
 

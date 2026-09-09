@@ -3,11 +3,12 @@ import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 
 const suiteName = process.argv[2];
-const suite = suiteName === "smoke"
-  ? { config: "playwright.config.ts", portOffset: 0, distDir: ".next/browser-smoke" }
-  : suiteName === "e2e"
-    ? { config: "playwright.e2e.config.ts", portOffset: 1, distDir: ".next/browser-e2e" }
-    : null;
+const suite =
+  suiteName === "smoke"
+    ? { config: "playwright.config.ts", portOffset: 0, distDir: ".next/browser-smoke" }
+    : suiteName === "e2e"
+      ? { config: "playwright.e2e.config.ts", portOffset: 1, distDir: ".next/browser-e2e" }
+      : null;
 
 if (!suite) {
   console.error("Usage: tsx scripts/run-browser-suite.ts <smoke|e2e>");
@@ -19,9 +20,8 @@ const port = basePort + suite.portOffset;
 const distDir = suite.distDir;
 const absoluteDistDir = resolve(process.cwd(), distDir);
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const suiteWorkers = suiteName === "smoke"
-  ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim()
-  : process.env.PLAYWRIGHT_E2E_WORKERS?.trim();
+const suiteWorkers =
+  suiteName === "smoke" ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim() : process.env.PLAYWRIGHT_E2E_WORKERS?.trim();
 rmSync(absoluteDistDir, { recursive: true, force: true });
 const child = spawn(command, ["exec", "playwright", "test", "--config", suite.config, "--max-failures=1"], {
   cwd: process.cwd(),
@@ -29,10 +29,10 @@ const child = spawn(command, ["exec", "playwright", "test", "--config", suite.co
     ...process.env,
     BROWSER_TEST_PORT: String(port),
     NEXT_DIST_DIR: distDir,
-    ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {})
+    ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {}),
   },
   stdio: "inherit",
-  detached: process.platform !== "win32"
+  detached: process.platform !== "win32",
 });
 
 let cleaned = false;
@@ -65,7 +65,8 @@ child.once("exit", (code, signal) => {
 function parsePort(value: string): number {
   if (!/^\d+$/.test(value)) throw new Error("BROWSER_TEST_PORT must be a numeric TCP port.");
   const port = Number(value);
-  if (!Number.isInteger(port) || port < 1024 || port > 65534) throw new Error("BROWSER_TEST_PORT must be between 1024 and 65534.");
+  if (!Number.isInteger(port) || port < 1024 || port > 65534)
+    throw new Error("BROWSER_TEST_PORT must be between 1024 and 65534.");
   return port;
 }
 

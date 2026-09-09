@@ -25,7 +25,7 @@ describe("PostHog navigation path redaction", () => {
         if (sanitized?.event === "$pageview") pageviews.push(sanitized.properties);
         // Exercise SDK capture without sending test traffic.
         return null;
-      }
+      },
     });
 
     await vi.waitFor(() => expect(pageviews).toHaveLength(1));
@@ -33,10 +33,14 @@ describe("PostHog navigation path redaction", () => {
     window.history.replaceState({}, "", "/vaults/manage/personal");
 
     expect(pageviews.map((properties) => properties.$pathname)).toEqual([
-      "/vaults", "/vaults/manage/[redacted]", "/vaults/manage/personal"
+      "/vaults",
+      "/vaults/manage/[redacted]",
+      "/vaults/manage/personal",
     ]);
     expect(pageviews.map((properties) => new URL(String(properties.$current_url)).pathname)).toEqual([
-      "/vaults", "/vaults/manage/[redacted]", "/vaults/manage/personal"
+      "/vaults",
+      "/vaults/manage/[redacted]",
+      "/vaults/manage/personal",
     ]);
     expect(JSON.stringify(pageviews)).not.toMatch(/cms1btg0p00wt9spon6tz59d4|secret=hidden|#key/);
     expect(Object.keys(window.sessionStorage)).toEqual([]);

@@ -22,18 +22,26 @@ export class OidcSessionVerifier implements SessionVerifier {
     try {
       const { payload } = await jwtVerify(token, this.configuration.sessionSecret, {
         issuer: "rhasia:oidc-session",
-        audience: this.configuration.clientId
+        audience: this.configuration.clientId,
       });
       const principal = parsePrincipal(payload);
       const configuredIssuer = this.configuration.issuer.href.replace(/\/$/, "");
-      return principal && principal.issuer === configuredIssuer && assuranceSatisfies(principal.assurance, minimumAssurance) ? principal : null;
+      return principal &&
+        principal.issuer === configuredIssuer &&
+        assuranceSatisfies(principal.assurance, minimumAssurance)
+        ? principal
+        : null;
     } catch {
       return null;
     }
   }
 }
 
-export async function signOidcSession(configuration: OidcConfiguration, principal: VerifiedPrincipal, expiresAt: number): Promise<string> {
+export async function signOidcSession(
+  configuration: OidcConfiguration,
+  principal: VerifiedPrincipal,
+  expiresAt: number,
+): Promise<string> {
   const { SignJWT } = await import("jose");
   return new SignJWT({
     provider_issuer: principal.issuer,
@@ -41,7 +49,7 @@ export async function signOidcSession(configuration: OidcConfiguration, principa
     email: principal.email,
     email_verified: principal.emailVerified,
     assurance: principal.assurance,
-    session_id: principal.sessionId
+    session_id: principal.sessionId,
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuer("rhasia:oidc-session")
@@ -57,14 +65,16 @@ function parsePrincipal(payload: Record<string, unknown>): VerifiedPrincipal | n
   const email = payload.email;
   const emailVerified = payload.email_verified;
   const assurance = payload.assurance;
-  if (typeof issuer !== "string" || typeof subject !== "string" || typeof email !== "string" || emailVerified !== true) return null;
-  if (assurance !== "verified-claims" && assurance !== "fresh-provider-user" && assurance !== "active-session") return null;
+  if (typeof issuer !== "string" || typeof subject !== "string" || typeof email !== "string" || emailVerified !== true)
+    return null;
+  if (assurance !== "verified-claims" && assurance !== "fresh-provider-user" && assurance !== "active-session")
+    return null;
   return {
     issuer,
     subject,
     email: email.toLowerCase(),
     emailVerified,
     assurance,
-    sessionId: typeof payload.session_id === "string" ? payload.session_id : undefined
+    sessionId: typeof payload.session_id === "string" ? payload.session_id : undefined,
   };
 }

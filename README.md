@@ -10,15 +10,15 @@ rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaul
 
 ## Product and support matrix
 
-| Capability | Web | iOS/Android | Notes |
-| --- | --- | --- | --- |
-| Local Profile and writable Local Vault | Supported | Not supported | Browser-only, client-owned storage; no sign-in or automatic synchronization. |
-| Hosted Personal Vault | Supported | Supported | Encrypted content is prepared on the authorized client. |
-| Hosted Shared Vault | Supported | Supported | Invite-only membership, permissions, revocation, and owner audit history. |
-| Read-only encrypted offline snapshot | Supported | Supported | OTP generation remains client-side; offline mutations are not queued or replayed. |
-| Passkey-Assisted Unlock/Recovery | Supported | Not supported | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server. |
-| Encrypted Vault Archive export/import | Supported | Supported | Archive keys and opened content exist only in authorized client memory. |
-| TOTP formats | Supported | Supported | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported. |
+| Capability                             | Web       | iOS/Android   | Notes                                                                               |
+| -------------------------------------- | --------- | ------------- | ----------------------------------------------------------------------------------- |
+| Local Profile and writable Local Vault | Supported | Not supported | Browser-only, client-owned storage; no sign-in or automatic synchronization.        |
+| Hosted Personal Vault                  | Supported | Supported     | Encrypted content is prepared on the authorized client.                             |
+| Hosted Shared Vault                    | Supported | Supported     | Invite-only membership, permissions, revocation, and owner audit history.           |
+| Read-only encrypted offline snapshot   | Supported | Supported     | OTP generation remains client-side; offline mutations are not queued or replayed.   |
+| Passkey-Assisted Unlock/Recovery       | Supported | Not supported | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server. |
+| Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.             |
+| TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.  |
 
 The web application can run in local-only mode without remote authentication, or in hosted mode with the configured Supabase or OIDC Authentication Provider. The native client consumes hosted Personal/Shared Vault workflows and does not implement the browser-only Local Profile/Local Vault.
 

@@ -58,7 +58,7 @@ export const ANALYTICS_EVENTS = {
   vaultArchiveImportCompleted: "vault_archive_import_completed",
   passkeyRecoveryEnabled: "passkey_recovery_enabled",
   passkeyRecoveryResetCompleted: "passkey_recovery_reset_completed",
-  clientError: "client_error"
+  clientError: "client_error",
 } as const;
 
 export type AnalyticsEventName = keyof AnalyticsEventProperties;
@@ -66,14 +66,26 @@ type AnalyticsVaultType = "PERSONAL" | "SHARED";
 type AnalyticsAuthenticationMethod = "email";
 type AnalyticsVaultUnlockMethod = "passphrase" | "remembered_browser" | "passkey";
 type AnalyticsOfflineUnlockMethod = "passphrase" | "remembered_browser";
-type AnalyticsFailureCode = "rate_limited" | "provider_error" | "invalid_secret" | "remembered_browser_error" | "passkey_error" | "permission_denied" | "duplicate" | "destination_unavailable" | "unknown";
+type AnalyticsFailureCode =
+  | "rate_limited"
+  | "provider_error"
+  | "invalid_secret"
+  | "remembered_browser_error"
+  | "passkey_error"
+  | "permission_denied"
+  | "duplicate"
+  | "destination_unavailable"
+  | "unknown";
 type AnalyticsAccountOperation = "create" | "update" | "delete";
 type AnalyticsParticipantType = "member" | "invitation";
 
 type AnalyticsEventProperties = {
   application_opened: undefined;
   authentication_sign_in_link_requested: { method: AnalyticsAuthenticationMethod };
-  authentication_sign_in_link_request_failed: { method: AnalyticsAuthenticationMethod; failure_code: "rate_limited" | "provider_error" };
+  authentication_sign_in_link_request_failed: {
+    method: AnalyticsAuthenticationMethod;
+    failure_code: "rate_limited" | "provider_error";
+  };
   authentication_session_established: undefined;
   authentication_signed_out: undefined;
   personal_vault_initialized: undefined;
@@ -88,18 +100,34 @@ type AnalyticsEventProperties = {
   shared_vault_default_permissions_updated: undefined;
   shared_vault_member_permissions_updated: undefined;
   shared_vault_operation_failed: {
-    operation: "rename" | "delete" | "invite" | "reinvite" | "remove_participant" | "update_permissions" | "update_default_permissions";
+    operation:
+      | "rename"
+      | "delete"
+      | "invite"
+      | "reinvite"
+      | "remove_participant"
+      | "update_permissions"
+      | "update_default_permissions";
     failure_code: "permission_denied" | "unknown";
   };
   vault_unlocked: { method: AnalyticsVaultUnlockMethod };
-  vault_unlock_failed: { method: AnalyticsVaultUnlockMethod; failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error" };
+  vault_unlock_failed: {
+    method: AnalyticsVaultUnlockMethod;
+    failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error";
+  };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
-  offline_vault_unlock_failed: { method: AnalyticsOfflineUnlockMethod; failure_code: "invalid_secret" | "remembered_browser_error" };
+  offline_vault_unlock_failed: {
+    method: AnalyticsOfflineUnlockMethod;
+    failure_code: "invalid_secret" | "remembered_browser_error";
+  };
   offline_vault_locked: undefined;
   offline_vault_cleared: undefined;
   local_vault_created: undefined;
   local_vault_unlocked: { method: "passphrase" };
-  local_vault_unlock_failed: { method: "passphrase"; failure_code: "invalid_secret" | "migration_required" | "unknown" };
+  local_vault_unlock_failed: {
+    method: "passphrase";
+    failure_code: "invalid_secret" | "migration_required" | "unknown";
+  };
   local_vault_migrated: undefined;
   local_vault_locked: undefined;
   local_vault_cleared: undefined;
@@ -134,13 +162,32 @@ const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referre
 // Only source-controlled route segments may leave the browser. Unknown suffixes
 // fail closed, including future dynamic routes and user-controlled 404 paths.
 const STATIC_ANALYTICS_ROUTES = [
-  "/", "/privacy", "/support", "/local", "/offline", "/sign-in", "/smoke", "/totp",
-  "/auth/confirm", "/auth/logout", "/auth/oidc/callback",
-  "/vaults", "/vaults/recovery", "/vaults/accounts/new",
-  "/vaults/manage", "/vaults/manage/personal", "/vaults/manage/new",
-  "/vaults/backup", "/vaults/import", "/vaults/invitations/redeem",
-  "/ui-preview", "/ui-preview/recovery", "/ui-preview/archive-backup",
-  "/ui-preview/archive-import", "/ui-preview/remembered-browser", "/ui-preview/vaults"
+  "/",
+  "/privacy",
+  "/support",
+  "/local",
+  "/offline",
+  "/sign-in",
+  "/smoke",
+  "/totp",
+  "/auth/confirm",
+  "/auth/logout",
+  "/auth/oidc/callback",
+  "/vaults",
+  "/vaults/recovery",
+  "/vaults/accounts/new",
+  "/vaults/manage",
+  "/vaults/manage/personal",
+  "/vaults/manage/new",
+  "/vaults/backup",
+  "/vaults/import",
+  "/vaults/invitations/redeem",
+  "/ui-preview",
+  "/ui-preview/recovery",
+  "/ui-preview/archive-backup",
+  "/ui-preview/archive-import",
+  "/ui-preview/remembered-browser",
+  "/ui-preview/vaults",
 ] as const;
 const PRIVATE_ROUTE_PREFIXES = ["/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
@@ -165,10 +212,22 @@ const SAFE_ANALYTICS_PROPERTY_KEYS = new Set([
   "$screen_width",
   "$viewport_height",
   "$viewport_width",
-  "$timezone"
+  "$timezone",
 ]);
-const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set(["$pageview", "$pageleave", "$web_vitals", "$performance_event"]);
-const KNOWN_AUTOMATIC_EVENTS = new Set([...PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS, "$autocapture", "$dead_click", "$exception", "$identify", "$rageclick"]);
+const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set([
+  "$pageview",
+  "$pageleave",
+  "$web_vitals",
+  "$performance_event",
+]);
+const KNOWN_AUTOMATIC_EVENTS = new Set([
+  ...PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS,
+  "$autocapture",
+  "$dead_click",
+  "$exception",
+  "$identify",
+  "$rageclick",
+]);
 const EXPLICIT_EVENT_PROPERTY_KEYS: Record<string, ReadonlySet<string>> = {
   authentication_sign_in_link_requested: new Set(["method"]),
   authentication_sign_in_link_request_failed: new Set(["method", "failure_code"]),
@@ -188,11 +247,12 @@ const EXPLICIT_EVENT_PROPERTY_KEYS: Record<string, ReadonlySet<string>> = {
   authenticator_account_operation_failed: new Set(["operation", "failure_code"]),
   vault_archive_export_prepared: new Set(["vault_type"]),
   vault_archive_import_completed: new Set(["account_count", "destination_type", "created_new_vault"]),
-  client_error: new Set(["error_name", "error_digest"])
+  client_error: new Set(["error_name", "error_digest"]),
 };
 const SAFE_WEB_VITAL_PROPERTY_PATTERN = /^\$web_vitals_(?:LCP|CLS|FCP|INP)_value$/;
 const SAFE_PERFORMANCE_PROPERTY_PATTERN = /^\$performance_[a-z0-9_]+_(?:duration|value|count)$/;
-const SAFE_ANALYTICS_NUMBER = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 900_000;
+const SAFE_ANALYTICS_NUMBER = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 900_000;
 
 export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): Parameters<BeforeSendFn>[0] {
   if (!capture) return null;
@@ -200,13 +260,21 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
   const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
   const privateRoute = isPrivateRoute(getAnalyticsPath(capture));
   if (automaticCapture && !KNOWN_AUTOMATIC_EVENTS.has(capture.event)) return null;
-  if (!automaticCapture && capture.event !== "$identify" && !Object.values(ANALYTICS_EVENTS).includes(capture.event as (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS])) return null;
+  if (
+    !automaticCapture &&
+    capture.event !== "$identify" &&
+    !Object.values(ANALYTICS_EVENTS).includes(capture.event as (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS])
+  )
+    return null;
   if (automaticCapture && privateRoute && !PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS.has(capture.event)) return null;
 
   for (const property of Object.keys(capture.properties)) {
     const value = capture.properties[property];
     if (SANITIZED_URL_PROPERTIES.includes(property as (typeof SANITIZED_URL_PROPERTIES)[number])) {
-      if (typeof value !== "string") { delete capture.properties[property]; continue; }
+      if (typeof value !== "string") {
+        delete capture.properties[property];
+        continue;
+      }
       try {
         capture.properties[property] = sanitizeAnalyticsUrl(value);
       } catch {
@@ -241,7 +309,12 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
     }
     if (automaticCapture) {
       if (!isAllowedAutomaticProperty(capture.event, property, value)) delete capture.properties[property];
-    } else if (!isPrimitiveAnalyticsValue(value) || (capture.event !== "$identify" && !SAFE_ANALYTICS_PROPERTY_KEYS.has(property) && !isAllowedExplicitProperty(capture.event, property, value))) {
+    } else if (
+      !isPrimitiveAnalyticsValue(value) ||
+      (capture.event !== "$identify" &&
+        !SAFE_ANALYTICS_PROPERTY_KEYS.has(property) &&
+        !isAllowedExplicitProperty(capture.event, property, value))
+    ) {
       delete capture.properties[property];
     } else if (capture.event === "$identify" && !SAFE_ANALYTICS_PROPERTY_KEYS.has(property)) {
       delete capture.properties[property];
@@ -257,7 +330,8 @@ function isPrimitiveAnalyticsValue(value: unknown): boolean {
 function isAllowedAutomaticProperty(event: string, property: string, value: unknown): boolean {
   if (SAFE_ANALYTICS_PROPERTY_KEYS.has(property)) return isPrimitiveAnalyticsValue(value);
   if (event === "$web_vitals" && SAFE_WEB_VITAL_PROPERTY_PATTERN.test(property)) return SAFE_ANALYTICS_NUMBER(value);
-  if (event === "$performance_event" && SAFE_PERFORMANCE_PROPERTY_PATTERN.test(property)) return SAFE_ANALYTICS_NUMBER(value);
+  if (event === "$performance_event" && SAFE_PERFORMANCE_PROPERTY_PATTERN.test(property))
+    return SAFE_ANALYTICS_NUMBER(value);
   return false;
 }
 
@@ -265,13 +339,37 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
   if (!EXPLICIT_EVENT_PROPERTY_KEYS[event]?.has(property)) return false;
   if (property === "error_name") return typeof value === "string" && normalizeAnalyticsErrorName(value) === value;
   if (property === "error_digest") return typeof value === "string" && normalizeAnalyticsErrorDigest(value) === value;
-  if (property === "account_count") return Number.isInteger(value) && typeof value === "number" && value >= 0 && value <= 10_000;
+  if (property === "account_count")
+    return Number.isInteger(value) && typeof value === "number" && value >= 0 && value <= 10_000;
   if (property === "created_new_vault") return typeof value === "boolean";
   if (property === "vault_type" || property === "destination_type") return value === "PERSONAL" || value === "SHARED";
   if (property === "participant_type") return value === "member" || value === "invitation";
   if (property === "method") return ["email", "passphrase", "remembered_browser", "passkey"].includes(String(value));
-  if (property === "failure_code") return ["rate_limited", "provider_error", "invalid_secret", "remembered_browser_error", "passkey_error", "migration_required", "permission_denied", "duplicate", "destination_unavailable", "unknown"].includes(String(value));
-  if (property === "operation") return ["rename", "delete", "invite", "reinvite", "remove_participant", "update_permissions", "update_default_permissions", "create", "update"].includes(String(value));
+  if (property === "failure_code")
+    return [
+      "rate_limited",
+      "provider_error",
+      "invalid_secret",
+      "remembered_browser_error",
+      "passkey_error",
+      "migration_required",
+      "permission_denied",
+      "duplicate",
+      "destination_unavailable",
+      "unknown",
+    ].includes(String(value));
+  if (property === "operation")
+    return [
+      "rename",
+      "delete",
+      "invite",
+      "reinvite",
+      "remove_participant",
+      "update_permissions",
+      "update_default_permissions",
+      "create",
+      "update",
+    ].includes(String(value));
   return false;
 }
 
@@ -309,18 +407,26 @@ function sanitizeAnalyticsPath(pathname: string): string {
   const segments = pathname.split("/");
   let knownPrefix = "";
   let privateSuffix = false;
-  return segments.map((segment, index) => {
-    if (index === 0 || index === segments.length - 1 && segment === "") return segment;
-    knownPrefix += `/${segment}`;
-    privateSuffix ||= !STATIC_ANALYTICS_ROUTES.some((route) => route === knownPrefix || route.startsWith(`${knownPrefix}/`));
-    return privateSuffix ? "[redacted]" : segment;
-  }).join("/");
+  return segments
+    .map((segment, index) => {
+      if (index === 0 || (index === segments.length - 1 && segment === "")) return segment;
+      knownPrefix += `/${segment}`;
+      privateSuffix ||= !STATIC_ANALYTICS_ROUTES.some(
+        (route) => route === knownPrefix || route.startsWith(`${knownPrefix}/`),
+      );
+      return privateSuffix ? "[redacted]" : segment;
+    })
+    .join("/");
 }
 
 function getAnalyticsPath(capture: NonNullable<Parameters<BeforeSendFn>[0]>): string {
   const currentUrl = capture.properties.$current_url;
   if (typeof currentUrl === "string") {
-    try { return new URL(currentUrl).pathname; } catch { return ""; }
+    try {
+      return new URL(currentUrl).pathname;
+    } catch {
+      return "";
+    }
   }
   return typeof window === "undefined" ? "" : window.location.pathname;
 }
@@ -331,14 +437,25 @@ function isPrivateRoute(pathname: string): boolean {
 
 export const BROWSER_ANALYTICS_CONFIG = {
   defaults: "2026-01-30",
-  ui_host: 'https://us.posthog.com',
+  ui_host: "https://us.posthog.com",
   autocapture: {
     url_ignorelist: [/\/(?:auth|local|offline|sign-in|totp|vaults)(?:\/|$)/],
     dom_event_allowlist: ["click", "submit"],
     element_allowlist: ["a", "button"],
     css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]"],
-    element_attribute_ignorelist: ["aria-label", "data-slot", "data-testid", "for", "href", "id", "name", "placeholder", "title", "value"],
-    capture_copied_text: false
+    element_attribute_ignorelist: [
+      "aria-label",
+      "data-slot",
+      "data-testid",
+      "for",
+      "href",
+      "id",
+      "name",
+      "placeholder",
+      "title",
+      "value",
+    ],
+    capture_copied_text: false,
   },
   capture_pageview: "history_change",
   capture_pageleave: true,
@@ -349,16 +466,16 @@ export const BROWSER_ANALYTICS_CONFIG = {
     web_vitals_allowed_metrics: ["LCP", "CLS", "FCP", "INP"],
     web_vitals_delayed_flush_ms: 5_000,
     web_vitals_attribution: false,
-    network_timing: false
+    network_timing: false,
   },
   capture_exceptions: {
     capture_unhandled_errors: true,
     capture_unhandled_rejections: true,
-    capture_console_errors: false
+    capture_console_errors: false,
   },
   error_tracking: {
     captureExtensionExceptions: false,
-    exception_steps: { enabled: false }
+    exception_steps: { enabled: false },
   },
   disable_session_recording: true,
   disable_surveys: true,
@@ -386,5 +503,5 @@ export const BROWSER_ANALYTICS_CONFIG = {
   logs: { captureConsoleLogs: false },
   loaded: (posthog) => posthog.capture(ANALYTICS_EVENTS.applicationOpened),
   before_send: sanitizeAnalyticsUrls,
-  debug: process.env.NODE_ENV === "development"
+  debug: process.env.NODE_ENV === "development",
 } satisfies Partial<PostHogConfig>;

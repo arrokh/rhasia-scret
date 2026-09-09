@@ -7,7 +7,7 @@ import type {
   NetworkStatusPort,
   PlatformFile,
   PlatformFilePickerPort,
-  PortDisposer
+  PortDisposer,
 } from "@rhasia-scret/client-vault-core";
 
 export class BrowserNetworkStatus implements NetworkStatusPort {
@@ -84,7 +84,7 @@ function browserFile(file: File): PlatformFile {
     name: file.name,
     mediaType: file.type,
     size: file.size,
-    readBytes: async () => new Uint8Array(await file.arrayBuffer())
+    readBytes: async () => new Uint8Array(await file.arrayBuffer()),
   };
 }
 

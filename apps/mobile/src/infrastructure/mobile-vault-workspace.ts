@@ -15,7 +15,10 @@ import { nativeClientCrypto } from "./native-client-crypto";
 import { EncryptedOfflineVaultStore } from "./encrypted-offline-vault-store";
 import { nativeOfflineVaultPersistence, nativeOfflineVaultSecureKeys } from "./native-offline-vault-persistence";
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
-import { unlockMobilePersonalVault, unlockMobilePersonalVaultWithUserRootKey } from "../application/unlock-mobile-personal-vault";
+import {
+  unlockMobilePersonalVault,
+  unlockMobilePersonalVaultWithUserRootKey,
+} from "../application/unlock-mobile-personal-vault";
 
 const accountPayloads = createAuthenticatorAccountPayloadPort(nativeClientCrypto);
 export const mobileOfflineVaultStore = new EncryptedOfflineVaultStore(
@@ -37,17 +40,25 @@ export class NativeNetworkStatus implements NetworkStatusPort {
   private readonly listeners = new Set<(online: boolean) => void>();
 
   public constructor(private readonly netInfo: NativeNetworkInfo = NetInfo) {
-    void this.netInfo.fetch().then((state) => this.update(state), () => undefined);
+    void this.netInfo.fetch().then(
+      (state) => this.update(state),
+      () => undefined,
+    );
   }
 
-  public isOnline(): boolean { return this.online; }
+  public isOnline(): boolean {
+    return this.online;
+  }
 
   public subscribe(listener: (online: boolean) => void): PortDisposer {
     this.listeners.add(listener);
     if (!this.listening) {
       this.listening = true;
       this.subscription = this.netInfo.addEventListener((state) => this.update(state));
-      void this.netInfo.fetch().then((state) => this.update(state), () => undefined);
+      void this.netInfo.fetch().then(
+        (state) => this.update(state),
+        () => undefined,
+      );
     }
     return () => {
       this.listeners.delete(listener);
@@ -97,13 +108,8 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
       decryptPayload: nativeClientCrypto.decryptPayload,
       decryptPayloadWithContext: nativeClientCrypto.decryptPayloadWithContext,
       deserializeEncryptedEnvelope: nativeClientCrypto.deserializeEncryptedEnvelope,
-      unlockSharedVault: (userRootKey, encryptedVaultKey, encryptedName, vaultId) => unlockSharedVaultWithCrypto(
-        nativeClientCrypto,
-        userRootKey,
-        encryptedVaultKey,
-        encryptedName,
-        vaultId,
-      ),
+      unlockSharedVault: (userRootKey, encryptedVaultKey, encryptedName, vaultId) =>
+        unlockSharedVaultWithCrypto(nativeClientCrypto, userRootKey, encryptedVaultKey, encryptedName, vaultId),
       decryptAccountConfiguration: accountPayloads.decryptAccountConfiguration,
     },
   };

@@ -11,7 +11,7 @@ describe("authentication proxy contract", () => {
     "keeps %s public",
     (pathname) => {
       expect(isProtectedPagePath(pathname)).toBe(false);
-    }
+    },
   );
 
   it("allows an authenticated request to a protected page", async () => {
@@ -42,7 +42,9 @@ describe("authentication proxy contract", () => {
   });
 
   it("fails closed when stale-session verification throws", async () => {
-    const response = await createAuthProxy(async () => { throw new Error("expired session"); })(request("/totp"));
+    const response = await createAuthProxy(async () => {
+      throw new Error("expired session");
+    })(request("/totp"));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
@@ -74,5 +76,8 @@ describe("authentication proxy contract", () => {
 });
 
 function request(pathname: string, locale?: string): NextRequest {
-  return new NextRequest(`https://vault.example.test${pathname}`, locale ? { headers: { cookie: `RHSIA_LOCALE=${locale}` } } : undefined);
+  return new NextRequest(
+    `https://vault.example.test${pathname}`,
+    locale ? { headers: { cookie: `RHSIA_LOCALE=${locale}` } } : undefined,
+  );
 }

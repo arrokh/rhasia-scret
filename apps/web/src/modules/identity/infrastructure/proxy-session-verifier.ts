@@ -23,7 +23,7 @@ function createSupabaseProxySessionVerifier(): ProxySessionVerifier {
     if (!url || !key) return false;
     try {
       const client = createServerClient(url, key, {
-        cookies: { getAll: () => request.cookies.getAll(), setAll: setAuthCookies }
+        cookies: { getAll: () => request.cookies.getAll(), setAll: setAuthCookies },
       });
       const { data, error } = await client.auth.getClaims();
       return !error && typeof data?.claims?.sub === "string" && typeof data.claims.iss === "string";
@@ -33,7 +33,9 @@ function createSupabaseProxySessionVerifier(): ProxySessionVerifier {
   };
 }
 
-function createOidcProxySessionVerifier(configuration: Extract<AuthConfiguration, { backend: "oidc" }>): ProxySessionVerifier {
+function createOidcProxySessionVerifier(
+  configuration: Extract<AuthConfiguration, { backend: "oidc" }>,
+): ProxySessionVerifier {
   return async (request) => {
     if (browserE2eTestSession(request.cookies.get(BROWSER_E2E_SESSION_COOKIE)?.value)) return true;
     const token = request.cookies.get(OIDC_SESSION_COOKIE)?.value;
@@ -41,9 +43,13 @@ function createOidcProxySessionVerifier(configuration: Extract<AuthConfiguration
     try {
       const { payload } = await jwtVerify(token, configuration.oidc.sessionSecret, {
         issuer: "rhasia:oidc-session",
-        audience: configuration.oidc.clientId
+        audience: configuration.oidc.clientId,
       });
-      return payload.provider_issuer === configuration.oidc.issuer.href.replace(/\/$/, "") && typeof payload.subject === "string" && payload.email_verified === true;
+      return (
+        payload.provider_issuer === configuration.oidc.issuer.href.replace(/\/$/, "") &&
+        typeof payload.subject === "string" &&
+        payload.email_verified === true
+      );
     } catch {
       return false;
     }

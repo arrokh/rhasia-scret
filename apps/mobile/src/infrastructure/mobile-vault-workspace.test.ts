@@ -1,5 +1,9 @@
 import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
+import type {
+  AuthenticatedTransport,
+  PlatformHttpRequest,
+  PlatformHttpResponse,
+} from "@rhasia-scret/client-vault-core";
 import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import type { NetInfoState } from "@react-native-community/netinfo";
 import { createMobileVaultWorkspacePorts, NativeNetworkStatus } from "./mobile-vault-workspace";
@@ -36,12 +40,14 @@ describe("mobile Vault workspace transport", () => {
     const bundle = await ports.data.fetchAuthorizedOfflineBundle(cached);
 
     expect(bundle).toEqual({ ...cached, synchronizedAt: "2026-08-11T23:00:00.000Z" });
-    expect(transport.requests).toEqual([{
-      url: "/api/sync/offline-bundle",
-      method: "GET",
-      headers: { "if-none-match": '"sync-token-1"' },
-      cache: "no-store",
-    }]);
+    expect(transport.requests).toEqual([
+      {
+        url: "/api/sync/offline-bundle",
+        method: "GET",
+        headers: { "if-none-match": '"sync-token-1"' },
+        cache: "no-store",
+      },
+    ]);
   });
 
   it("fails closed on malformed bundle responses", async () => {
@@ -64,7 +70,7 @@ function response(status: number, body: unknown, headers: Record<string, string>
     status,
     ok: status >= 200 && status < 300,
     headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-    json: async <Value,>() => body as Value,
+    json: async <Value>() => body as Value,
     bytes: async () => new Uint8Array(),
     text: async () => JSON.stringify(body),
   };

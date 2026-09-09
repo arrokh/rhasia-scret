@@ -34,15 +34,19 @@ export class EncryptedOfflineVaultStore implements OfflineVaultSnapshotStore {
     private readonly crypto: ClientCryptoPort,
   ) {}
 
-  public listProfiles(): Promise<Array<{ profileId: string; personalVaultId: string; synchronizedAt: string; sharedVaultCount: number }>> {
-    return this.exclusive(async () => Object.values((await this.load()).profiles)
-      .map((bundle) => ({
-        profileId: bundle.profileId,
-        personalVaultId: bundle.personalVault.vaultId,
-        synchronizedAt: bundle.synchronizedAt,
-        sharedVaultCount: bundle.sharedVaults.length,
-      }))
-      .sort((left, right) => right.synchronizedAt.localeCompare(left.synchronizedAt)));
+  public listProfiles(): Promise<
+    Array<{ profileId: string; personalVaultId: string; synchronizedAt: string; sharedVaultCount: number }>
+  > {
+    return this.exclusive(async () =>
+      Object.values((await this.load()).profiles)
+        .map((bundle) => ({
+          profileId: bundle.profileId,
+          personalVaultId: bundle.personalVault.vaultId,
+          synchronizedAt: bundle.synchronizedAt,
+          sharedVaultCount: bundle.sharedVaults.length,
+        }))
+        .sort((left, right) => right.synchronizedAt.localeCompare(left.synchronizedAt)),
+    );
   }
 
   public read(profileId: string): Promise<EncryptedOfflineVaultBundle | null> {
@@ -50,8 +54,12 @@ export class EncryptedOfflineVaultStore implements OfflineVaultSnapshotStore {
   }
 
   public readByPersonalVaultId(personalVaultId: string): Promise<EncryptedOfflineVaultBundle | null> {
-    return this.exclusive(async () => Object.values((await this.load()).profiles)
-      .find((bundle) => bundle.personalVault.vaultId === personalVaultId) ?? null);
+    return this.exclusive(
+      async () =>
+        Object.values((await this.load()).profiles).find(
+          (bundle) => bundle.personalVault.vaultId === personalVaultId,
+        ) ?? null,
+    );
   }
 
   public replace(bundleInput: EncryptedOfflineVaultBundle): Promise<void> {
@@ -73,7 +81,11 @@ export class EncryptedOfflineVaultStore implements OfflineVaultSnapshotStore {
       const bundle = store.profiles[profileId];
       if (!bundle) return;
       if (bundle.personalVault.vaultId === vaultId) delete store.profiles[profileId];
-      else store.profiles[profileId] = { ...bundle, sharedVaults: bundle.sharedVaults.filter((vault) => vault.vaultId !== vaultId) };
+      else
+        store.profiles[profileId] = {
+          ...bundle,
+          sharedVaults: bundle.sharedVaults.filter((vault) => vault.vaultId !== vaultId),
+        };
       await this.persist(store);
     });
   }
@@ -96,7 +108,10 @@ export class EncryptedOfflineVaultStore implements OfflineVaultSnapshotStore {
 
   private exclusive<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.operation.then(operation, operation);
-    this.operation = result.then(() => undefined, () => undefined);
+    this.operation = result.then(
+      () => undefined,
+      () => undefined,
+    );
     return result;
   }
 
@@ -154,7 +169,8 @@ export class EncryptedOfflineVaultStore implements OfflineVaultSnapshotStore {
 function parseStore(value: unknown): PersistedStore {
   if (!value || typeof value !== "object" || Array.isArray(value)) invalidStore();
   const record = value as Record<string, unknown>;
-  if (record.version !== 1 || !record.profiles || typeof record.profiles !== "object" || Array.isArray(record.profiles)) invalidStore();
+  if (record.version !== 1 || !record.profiles || typeof record.profiles !== "object" || Array.isArray(record.profiles))
+    invalidStore();
   if (Object.keys(record).sort().join(",") !== "profiles,version") invalidStore();
   const profiles: Record<string, EncryptedOfflineVaultBundle> = {};
   for (const [profileId, bundleValue] of Object.entries(record.profiles as Record<string, unknown>)) {

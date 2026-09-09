@@ -6,7 +6,7 @@ export class Vault {
     public readonly id: string,
     public readonly type: VaultType,
     public readonly ownerId: string,
-    public readonly lifecycle: VaultLifecycle = "ACTIVE"
+    public readonly lifecycle: VaultLifecycle = "ACTIVE",
   ) {
     if (!id || !ownerId) throw new Error("Vault identity and owner are required.");
     if (type === "SHARED" && lifecycle === "UNINITIALIZED") {

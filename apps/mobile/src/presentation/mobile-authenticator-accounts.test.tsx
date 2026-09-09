@@ -8,7 +8,9 @@ const mockSetStringAsync = jest.fn(async (_value: string) => undefined);
 jest.mock("expo-clipboard", () => ({ setStringAsync: (value: string) => mockSetStringAsync(value) }));
 
 const transport: AuthenticatedTransport = {
-  request: async () => { throw new Error("No network request expected."); },
+  request: async () => {
+    throw new Error("No network request expected.");
+  },
 };
 
 describe("MobileAuthenticatorAccounts", () => {
@@ -58,7 +60,11 @@ describe("MobileAuthenticatorAccounts", () => {
       />,
     );
 
-    expect(screen.getByText("The offline snapshot is read-only. Code generation and copying remain local; mutations are disabled and will not be queued.")).toBeVisible();
+    expect(
+      screen.getByText(
+        "The offline snapshot is read-only. Code generation and copying remain local; mutations are disabled and will not be queued.",
+      ),
+    ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Import Authenticator Account" })).toBeNull();
     expect(screen.getByRole("button", { name: "Generate offline code" })).toBeVisible();
     workspace.accounts[0].secret.fill(0);
@@ -93,30 +99,34 @@ function fixtureWorkspace(): UnlockedVaultWorkspace {
     synchronizationToken: "token",
     syncState: "CURRENT",
     userRootKey: new Uint8Array(32).fill(1),
-    vaults: [{
-      id: "vault_1",
-      name: "Personal",
-      type: "PERSONAL",
-      role: "OWNER",
-      effectiveAccountPermissions: {
-        permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
-        sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
+    vaults: [
+      {
+        id: "vault_1",
+        name: "Personal",
+        type: "PERSONAL",
+        role: "OWNER",
+        effectiveAccountPermissions: {
+          permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+          sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
+        },
+        key: new Uint8Array(32).fill(2),
       },
-      key: new Uint8Array(32).fill(2),
-    }],
-    accounts: [{
-      id: "account_1",
-      vaultId: "vault_1",
-      vaultName: "Personal",
-      vaultType: "PERSONAL",
-      revision: 1,
-      issuer: "RFC",
-      accountName: "vector",
-      secret: new TextEncoder().encode("12345678901234567890"),
-      algorithm: "SHA-1",
-      digits: 8,
-      period: 30,
-    }],
+    ],
+    accounts: [
+      {
+        id: "account_1",
+        vaultId: "vault_1",
+        vaultName: "Personal",
+        vaultType: "PERSONAL",
+        revision: 1,
+        issuer: "RFC",
+        accountName: "vector",
+        secret: new TextEncoder().encode("12345678901234567890"),
+        algorithm: "SHA-1",
+        digits: 8,
+        period: 30,
+      },
+    ],
     unavailableAccounts: [],
     unavailableSharedVaults: 0,
   };

@@ -49,7 +49,11 @@ describe("native WorkspaceLifecycle adapters", () => {
   });
 
   it("creates controller-scoped lock and write-gate adapters", () => {
-    const transport: AuthenticatedTransport = { request: async () => { throw new Error("unused"); } };
+    const transport: AuthenticatedTransport = {
+      request: async () => {
+        throw new Error("unused");
+      },
+    };
     const first = createNativeWorkspaceLifecyclePorts(transport);
     const second = createNativeWorkspaceLifecyclePorts(transport);
 
@@ -75,13 +79,20 @@ describe("native WorkspaceLifecycle adapters", () => {
       isVisible: () => true,
       subscribeVisibility: () => applicationRemove,
     };
-    const transport: AuthenticatedTransport = { request: async () => { throw new Error("unused"); } };
-    const controller = new WorkspaceLifecycle(null, createNativeWorkspaceLifecyclePorts(transport, {
-      network,
-      applicationLifecycle,
-      lock: new NativeVaultLockPort(),
-      writes: { setReadOnly: jest.fn() },
-    }));
+    const transport: AuthenticatedTransport = {
+      request: async () => {
+        throw new Error("unused");
+      },
+    };
+    const controller = new WorkspaceLifecycle(
+      null,
+      createNativeWorkspaceLifecyclePorts(transport, {
+        network,
+        applicationLifecycle,
+        lock: new NativeVaultLockPort(),
+        writes: { setReadOnly: jest.fn() },
+      }),
+    );
 
     controller.start();
     controller.dispose();
@@ -92,17 +103,28 @@ describe("native WorkspaceLifecycle adapters", () => {
 
   it("composes injected lifecycle ports with the native workspace adapter", () => {
     const network: NetworkStatusPort = { isOnline: () => true, subscribe: () => () => undefined };
-    const applicationLifecycle: ApplicationLifecyclePort = { isVisible: () => true, subscribeVisibility: () => () => undefined };
+    const applicationLifecycle: ApplicationLifecyclePort = {
+      isVisible: () => true,
+      subscribeVisibility: () => () => undefined,
+    };
     const lock = new NativeVaultLockPort();
     const writes: WorkspaceWriteGatePort = { setReadOnly: jest.fn() };
-    const transport: AuthenticatedTransport = { request: async () => { throw new Error("unused"); } };
+    const transport: AuthenticatedTransport = {
+      request: async () => {
+        throw new Error("unused");
+      },
+    };
     const ports = createNativeWorkspaceLifecyclePorts(transport, { network, applicationLifecycle, lock, writes });
     expect(ports).toMatchObject({ network, applicationLifecycle, lock, writes });
   });
 
   it("classifies authentication, local storage, and synchronization failures", () => {
-    expect(classifyNativeWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(401, "unauthenticated"))).toBe("AUTHENTICATION");
-    expect(classifyNativeWorkspaceRefreshFailure(new Error("Native encrypted Vault storage is invalid."))).toBe("LOCAL_STORAGE");
+    expect(
+      classifyNativeWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(401, "unauthenticated")),
+    ).toBe("AUTHENTICATION");
+    expect(classifyNativeWorkspaceRefreshFailure(new Error("Native encrypted Vault storage is invalid."))).toBe(
+      "LOCAL_STORAGE",
+    );
     expect(classifyNativeWorkspaceRefreshFailure(new Error("network unavailable"))).toBe("SYNC");
   });
 });

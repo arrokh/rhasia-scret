@@ -15,7 +15,7 @@ describe("SupabaseSessionTerminator", () => {
     const terminator = new SupabaseSessionTerminator(
       createClient,
       async () => ({ getAll: () => [{ name: "sb-session", value: "stale" }], set }),
-      () => ({ url: "https://project.supabase.co", key: "publishable-key" })
+      () => ({ url: "https://project.supabase.co", key: "publishable-key" }),
     );
 
     await expect(terminator.terminateCurrentSession()).resolves.toBeUndefined();
@@ -29,7 +29,7 @@ describe("SupabaseSessionTerminator", () => {
     const terminator = new SupabaseSessionTerminator(
       () => ({ auth: { signOut } }),
       async () => ({ getAll: () => [], set: vi.fn() }),
-      () => ({ url: "https://project.supabase.co", key: "publishable-key" })
+      () => ({ url: "https://project.supabase.co", key: "publishable-key" }),
     );
 
     await expect(terminator.terminateCurrentSession()).resolves.toBeUndefined();
@@ -41,7 +41,7 @@ describe("SupabaseSessionTerminator", () => {
     const terminator = new SupabaseSessionTerminator(
       () => ({ auth: { signOut: vi.fn().mockResolvedValue({ error: providerFailure }) } }),
       async () => ({ getAll: () => [], set: vi.fn() }),
-      () => ({ url: "https://project.supabase.co", key: "publishable-key" })
+      () => ({ url: "https://project.supabase.co", key: "publishable-key" }),
     );
 
     await expect(terminator.terminateCurrentSession()).rejects.toThrow("Supabase logout failed.");

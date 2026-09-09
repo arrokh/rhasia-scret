@@ -1,13 +1,16 @@
 "use client";
 
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { loadPasskeyRecoveryStatus, removePasskeyRecovery } from "../../infrastructure/browser-passkey-recovery-status-client";
+import {
+  loadPasskeyRecoveryStatus,
+  removePasskeyRecovery,
+} from "../../infrastructure/browser-passkey-recovery-status-client";
 
 export const passkeyRecoveryStatusQueryOptions = queryOptions({
   queryKey: ["identity", "passkey-recovery-status"],
   queryFn: loadPasskeyRecoveryStatus,
   staleTime: 30_000,
-  retry: false
+  retry: false,
 });
 
 export function usePasskeyRecoveryStatusQuery(enabled = true) {
@@ -19,6 +22,6 @@ export function useRemovePasskeyRecoveryMutation() {
   return useMutation({
     mutationKey: ["identity", "remove-passkey-recovery"],
     mutationFn: removePasskeyRecovery,
-    onSuccess: () => queryClient.setQueryData(passkeyRecoveryStatusQueryOptions.queryKey, { enrolled: false })
+    onSuccess: () => queryClient.setQueryData(passkeyRecoveryStatusQueryOptions.queryKey, { enrolled: false }),
   });
 }

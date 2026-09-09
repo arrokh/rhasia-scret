@@ -8,12 +8,12 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({
   scanQrCamera: vi.fn(),
-  decodeQrImage: vi.fn()
+  decodeQrImage: vi.fn(),
 }));
 
 vi.mock("@/modules/authenticator-account/infrastructure/browser-qr-importer", () => ({
   scanQrCamera: mocks.scanQrCamera,
-  decodeQrImage: mocks.decodeQrImage
+  decodeQrImage: mocks.decodeQrImage,
 }));
 
 import { QrImportInput } from "@/modules/authenticator-account/presentation/qr-import-input";
@@ -42,7 +42,7 @@ describe("QrImportInput camera scanning", () => {
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
     expect(container.querySelector('[data-slot="collapsible"]')?.getAttribute("data-state")).toBe("closed");
-    expect(container.querySelector('#manual-authenticator-uri')).toBeNull();
+    expect(container.querySelector("#manual-authenticator-uri")).toBeNull();
     await act(async () => findButton(container, "Pindai dengan kamera").click());
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
@@ -75,7 +75,7 @@ describe("QrImportInput camera scanning", () => {
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
     await openAdvancedOptions(container);
-    const input = container.querySelector<HTMLInputElement>('#qr-image');
+    const input = container.querySelector<HTMLInputElement>("#qr-image");
     const file = new File(["qr"], "account.png", { type: "image/png" });
     Object.defineProperty(input, "files", { configurable: true, value: [file] });
     await act(async () => input?.dispatchEvent(new Event("change", { bubbles: true })));
@@ -93,7 +93,7 @@ describe("QrImportInput camera scanning", () => {
 
     await act(async () => root?.render(createElement(QrImportInput, { onUri })));
     await openAdvancedOptions(container);
-    const input = container.querySelector<HTMLInputElement>('#manual-authenticator-uri');
+    const input = container.querySelector<HTMLInputElement>("#manual-authenticator-uri");
     await act(async () => {
       if (!input) return;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -125,7 +125,11 @@ describe("QrImportInput camera scanning", () => {
     await act(async () => root?.render(createElement(QrImportInput, { onUri: vi.fn() })));
     await act(async () => findButton(container, "Pindai dengan kamera").click());
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-    await act(async () => document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true })));
+    await act(async () =>
+      document
+        .querySelector<HTMLElement>('[data-slot="dialog-overlay"]')
+        ?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true })),
+    );
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
@@ -181,7 +185,9 @@ function mount(): HTMLDivElement {
 }
 
 function findButton(container: ParentNode, name: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.includes(name));
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) =>
+    candidate.textContent?.includes(name),
+  );
   if (!button) throw new Error(`Expected button: ${name}`);
   return button;
 }

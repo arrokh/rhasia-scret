@@ -5,20 +5,20 @@ import { ApplicationUser } from "@/modules/identity/domain/application-user";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
   DESTRUCTIVE_RESET_CONFIRMATION,
-  PasskeyRecoveryAlreadyEnrolledError
+  PasskeyRecoveryAlreadyEnrolledError,
 } from "@/modules/vault-management/application/destructive-personal-vault-reset";
 
 function handler(reset: () => Promise<void>) {
   return createDestructivePersonalVaultResetHandler({
     authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
-    resets: { getEligibility: vi.fn(), reset }
+    resets: { getEligibility: vi.fn(), reset },
   });
 }
 
 function request(confirmation: string) {
   return new NextRequest("http://localhost/api/personal-vault/destructive-reset", {
     method: "POST",
-    body: JSON.stringify({ confirmation })
+    body: JSON.stringify({ confirmation }),
   });
 }
 
@@ -44,7 +44,7 @@ describe("POST /api/personal-vault/destructive-reset contract", () => {
 
   it("requires passkey recovery when it is enrolled", async () => {
     const response = await handler(vi.fn().mockRejectedValue(new PasskeyRecoveryAlreadyEnrolledError()))(
-      request(DESTRUCTIVE_RESET_CONFIRMATION)
+      request(DESTRUCTIVE_RESET_CONFIRMATION),
     );
 
     expect(response.status).toBe(409);
@@ -53,7 +53,7 @@ describe("POST /api/personal-vault/destructive-reset contract", () => {
 
   it("blocks users who still own an active Shared Vault", async () => {
     const response = await handler(vi.fn().mockRejectedValue(new ActiveOwnedSharedVaultsPreventResetError(2)))(
-      request(DESTRUCTIVE_RESET_CONFIRMATION)
+      request(DESTRUCTIVE_RESET_CONFIRMATION),
     );
 
     expect(response.status).toBe(409);

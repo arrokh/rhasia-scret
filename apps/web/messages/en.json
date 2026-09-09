@@ -42,12 +42,57 @@
     "description": "What rhasia-scret handles, what remains client-only, and what hosted or self-hosted operators must control.",
     "fullDocument": "Read the full privacy document",
     "sections": {
-      "scope": { "title": "Application boundary", "description": "Local Vault data stays in the browser. Hosted Vault workflows send encrypted payloads and only the permitted metadata needed to operate them.", "items": { "local": "Local Profile and Local Vault data, labels, TOTP configuration, secrets, and generated OTPs are not sent to the rhasia-scret server.", "hosted": "Authorized web and native clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata." } },
-      "server": { "title": "Server-visible boundary", "description": "The zero-knowledge contract is explicit about what the server may and may not receive.", "items": { "allowed": "Permitted metadata includes opaque identifiers, ciphertext, protocol versions, revisions, membership, deletion deadlines, redacted audit actors, bounded counts, and operational timing or size metadata.", "excluded": "Vault Names, account labels, TOTP configuration, OTPs, QR data, passphrases, Vault keys, private keys, archive keys, Secure Share Link material, and decrypted content remain client-only." } },
-      "providers": { "title": "Providers", "description": "Authentication, hosting, database, email, and optional analytics providers have separate operational responsibilities.", "items": { "auth": "Supabase Auth or OIDC may handle provider identity, email or subject metadata, authentication events, and sessions; it does not receive Vault plaintext from this application.", "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.", "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser Supabase Data API/RLS access is not part of the supported boundary.", "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply." } },
-      "retention": { "title": "Retention and deletion", "description": "Deletion windows affect application records, not every external provider or client copy.", "items": { "vault": "Soft-deleted Authenticator Accounts and deleted Shared Vault content are eligible for permanent purge after 30 days.", "audit": "Redacted Vault Audit History is retained for one calendar year after Vault deletion; restoration clears the pending audit purge.", "limits": "A destructive Personal Vault Reset is not recovery, and secrets or plaintext already obtained by another client cannot be erased remotely." } },
-      "responsibility": { "title": "Hosted demo and self-hosting", "description": "The operator of each deployment controls its provider contracts and operational evidence.", "items": { "hosted": "The hosted-demo operator is responsible for authentication, hosting, database, email, analytics, support, deletion, and user notices for that deployment.", "selfHosted": "A self-hosting operator is responsible for controller duties, TLS and callbacks, logs, backups, purge scheduling, incident response, and any enabled analytics." } },
-      "contact": { "title": "Questions and reports", "description": "Contact the deployment operator for account and deletion questions. Use project support for public documentation and reproducible issues.", "items": { "support": "Use the Support page and public issue templates with synthetic, redacted evidence only.", "security": "Report vulnerabilities privately through the GitHub Security Advisory process; never put secrets, cookies, tokens, or Vault material in a public issue." } }
+      "scope": {
+        "title": "Application boundary",
+        "description": "Local Vault data stays in the browser. Hosted Vault workflows send encrypted payloads and only the permitted metadata needed to operate them.",
+        "items": {
+          "local": "Local Profile and Local Vault data, labels, TOTP configuration, secrets, and generated OTPs are not sent to the rhasia-scret server.",
+          "hosted": "Authorized web and native clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata."
+        }
+      },
+      "server": {
+        "title": "Server-visible boundary",
+        "description": "The zero-knowledge contract is explicit about what the server may and may not receive.",
+        "items": {
+          "allowed": "Permitted metadata includes opaque identifiers, ciphertext, protocol versions, revisions, membership, deletion deadlines, redacted audit actors, bounded counts, and operational timing or size metadata.",
+          "excluded": "Vault Names, account labels, TOTP configuration, OTPs, QR data, passphrases, Vault keys, private keys, archive keys, Secure Share Link material, and decrypted content remain client-only."
+        }
+      },
+      "providers": {
+        "title": "Providers",
+        "description": "Authentication, hosting, database, email, and optional analytics providers have separate operational responsibilities.",
+        "items": {
+          "auth": "Supabase Auth or OIDC may handle provider identity, email or subject metadata, authentication events, and sessions; it does not receive Vault plaintext from this application.",
+          "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.",
+          "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser Supabase Data API/RLS access is not part of the supported boundary.",
+          "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply."
+        }
+      },
+      "retention": {
+        "title": "Retention and deletion",
+        "description": "Deletion windows affect application records, not every external provider or client copy.",
+        "items": {
+          "vault": "Soft-deleted Authenticator Accounts and deleted Shared Vault content are eligible for permanent purge after 30 days.",
+          "audit": "Redacted Vault Audit History is retained for one calendar year after Vault deletion; restoration clears the pending audit purge.",
+          "limits": "A destructive Personal Vault Reset is not recovery, and secrets or plaintext already obtained by another client cannot be erased remotely."
+        }
+      },
+      "responsibility": {
+        "title": "Hosted demo and self-hosting",
+        "description": "The operator of each deployment controls its provider contracts and operational evidence.",
+        "items": {
+          "hosted": "The hosted-demo operator is responsible for authentication, hosting, database, email, analytics, support, deletion, and user notices for that deployment.",
+          "selfHosted": "A self-hosting operator is responsible for controller duties, TLS and callbacks, logs, backups, purge scheduling, incident response, and any enabled analytics."
+        }
+      },
+      "contact": {
+        "title": "Questions and reports",
+        "description": "Contact the deployment operator for account and deletion questions. Use project support for public documentation and reproducible issues.",
+        "items": {
+          "support": "Use the Support page and public issue templates with synthetic, redacted evidence only.",
+          "security": "Report vulnerabilities privately through the GitHub Security Advisory process; never put secrets, cookies, tokens, or Vault material in a public issue."
+        }
+      }
     }
   },
   "Support": {
@@ -56,10 +101,40 @@
     "description": "Choose the safe channel for documentation, bugs, feature requests, hosted-demo questions, or security reports.",
     "fullDocument": "Read the full support guide",
     "sections": {
-      "channels": { "title": "Choose a channel", "description": "Different deployment and report types have different owners.", "items": { "docs": "Start with the documentation index and self-hosting guide for setup and operations.", "bug": "Use the public bug template for reproducible behavior with synthetic data.", "feature": "Use the feature or documentation template for focused improvement requests.", "security": "Use the private GitHub Security Advisory form for vulnerabilities; do not open a public issue." } },
-      "safe": { "title": "Safe reports", "description": "Support evidence must remain safe to publish.", "items": { "include": "Include a release or commit, platform, route, timestamp, safe error code, synthetic identifiers, and redacted reproduction steps.", "exclude": "Never include passwords, passphrases, OTPs, TOTP secrets, QR data, Secure Share Link fragments, cookies, authorization headers, provider tokens, database URLs, archive keys, or decrypted content." } },
-      "triage": { "title": "Triage and escalation", "description": "Maintainers label, reproduce, and route requests using the project governance process.", "items": { "triage": "Incoming requests are labeled as bug, feature, documentation, security, or question and linked to the relevant ADR or issue.", "escalate": "Security, privacy, authorization, retention, provider, release, and production incidents are escalated to the maintainer before merge or deployment." } },
-      "operator": { "title": "Deployment operator", "description": "The project cannot inspect or recover data from an independently operated deployment.", "items": { "hosted": "Contact the hosted-demo operator for account, deletion, provider, and service questions.", "selfHosted": "Contact your self-hosting operator for its database, backups, retention, analytics, and infrastructure." } }
+      "channels": {
+        "title": "Choose a channel",
+        "description": "Different deployment and report types have different owners.",
+        "items": {
+          "docs": "Start with the documentation index and self-hosting guide for setup and operations.",
+          "bug": "Use the public bug template for reproducible behavior with synthetic data.",
+          "feature": "Use the feature or documentation template for focused improvement requests.",
+          "security": "Use the private GitHub Security Advisory form for vulnerabilities; do not open a public issue."
+        }
+      },
+      "safe": {
+        "title": "Safe reports",
+        "description": "Support evidence must remain safe to publish.",
+        "items": {
+          "include": "Include a release or commit, platform, route, timestamp, safe error code, synthetic identifiers, and redacted reproduction steps.",
+          "exclude": "Never include passwords, passphrases, OTPs, TOTP secrets, QR data, Secure Share Link fragments, cookies, authorization headers, provider tokens, database URLs, archive keys, or decrypted content."
+        }
+      },
+      "triage": {
+        "title": "Triage and escalation",
+        "description": "Maintainers label, reproduce, and route requests using the project governance process.",
+        "items": {
+          "triage": "Incoming requests are labeled as bug, feature, documentation, security, or question and linked to the relevant ADR or issue.",
+          "escalate": "Security, privacy, authorization, retention, provider, release, and production incidents are escalated to the maintainer before merge or deployment."
+        }
+      },
+      "operator": {
+        "title": "Deployment operator",
+        "description": "The project cannot inspect or recover data from an independently operated deployment.",
+        "items": {
+          "hosted": "Contact the hosted-demo operator for account, deletion, provider, and service questions.",
+          "selfHosted": "Contact your self-hosting operator for its database, backups, retention, analytics, and infrastructure."
+        }
+      }
     }
   },
   "Home": {
@@ -93,34 +168,101 @@
           "device": { "browser": "Browser", "phone": "Mobile phone", "desktop": "Desktop app" },
           "vault": "Your encrypted Local, Personal, or Shared Vault",
           "services": "Protected services",
-          "localFirst": { "title": "Local-first", "description": "Start and keep codes in a writable Local Vault on your device. Nothing moves until you choose." },
-          "zeroKnowledge": { "title": "Zero knowledge", "description": "Hosted Vault content is encrypted before it reaches the service; readable names, labels, settings, and OTPs remain in your browser." },
-          "service": { "openai": "OpenAI", "instagram": "Instagram", "x": "X", "github": "GitHub", "google": "Google", "microsoft": "Microsoft", "discord": "Discord", "slack": "Slack", "facebook": "Facebook", "linkedin": "LinkedIn", "reddit": "Reddit", "spotify": "Spotify", "tiktok": "TikTok" },
+          "localFirst": {
+            "title": "Local-first",
+            "description": "Start and keep codes in a writable Local Vault on your device. Nothing moves until you choose."
+          },
+          "zeroKnowledge": {
+            "title": "Zero knowledge",
+            "description": "Hosted Vault content is encrypted before it reaches the service; readable names, labels, settings, and OTPs remain in your browser."
+          },
+          "service": {
+            "openai": "OpenAI",
+            "instagram": "Instagram",
+            "x": "X",
+            "github": "GitHub",
+            "google": "Google",
+            "microsoft": "Microsoft",
+            "discord": "Discord",
+            "slack": "Slack",
+            "facebook": "Facebook",
+            "linkedin": "LinkedIn",
+            "reddit": "Reddit",
+            "spotify": "Spotify",
+            "tiktok": "TikTok"
+          },
           "accountsTitle": "Your Vaults at a glance",
           "accountsDescription": "Example layout only; your actual labels remain encrypted.",
           "copied": "Copied!",
           "account": {
-            "local": { "label": "GitHub · your-name", "detail": "Only on this browser", "vault": "Local Vault", "access": "Only you" },
-            "personal": { "label": "Email · your-name", "detail": "Your encrypted personal Vault", "vault": "Personal Vault", "access": "Only you" },
-            "shared": { "label": "Workspace · team", "detail": "For a family or coworker group", "vault": "Shared Vault", "access": "Family or coworkers" }
+            "local": {
+              "label": "GitHub · your-name",
+              "detail": "Only on this browser",
+              "vault": "Local Vault",
+              "access": "Only you"
+            },
+            "personal": {
+              "label": "Email · your-name",
+              "detail": "Your encrypted personal Vault",
+              "vault": "Personal Vault",
+              "access": "Only you"
+            },
+            "shared": {
+              "label": "Workspace · team",
+              "detail": "For a family or coworker group",
+              "vault": "Shared Vault",
+              "access": "Family or coworkers"
+            }
           },
           "note": "This is not a silent sync path: moving an account between Vaults is always an explicit action."
         },
         "rows": {
-          "codes": { "label": "OTP codes", "googleAuthenticator": "Offline codes kept in the authenticator app.", "otherAuthenticatorApps": "Offline codes, with workflows set by each app.", "rhasiaScret": "Offline codes in a writable Local Vault—no sign-in required." },
-          "ownership": { "label": "Starting point", "googleAuthenticator": "An app on your device, with optional account backup.", "otherAuthenticatorApps": "The starting point and backup model vary by app.", "rhasiaScret": "A browser-local Vault whose readable content stays client-side." },
-          "moving": { "label": "Moving accounts", "googleAuthenticator": "Use account backup or device-transfer tools.", "otherAuthenticatorApps": "Backup and transfer options vary by app.", "rhasiaScret": "Copy an account only when you ask; a Local Vault never silently syncs." },
-          "sharing": { "label": "Team sharing", "googleAuthenticator": "Personal use, with transfers between devices.", "otherAuthenticatorApps": "Team features depend on the app and plan.", "rhasiaScret": "Shared Vaults add invite-only access, permissions, revocation, and owner audit history." }
+          "codes": {
+            "label": "OTP codes",
+            "googleAuthenticator": "Offline codes kept in the authenticator app.",
+            "otherAuthenticatorApps": "Offline codes, with workflows set by each app.",
+            "rhasiaScret": "Offline codes in a writable Local Vault—no sign-in required."
+          },
+          "ownership": {
+            "label": "Starting point",
+            "googleAuthenticator": "An app on your device, with optional account backup.",
+            "otherAuthenticatorApps": "The starting point and backup model vary by app.",
+            "rhasiaScret": "A browser-local Vault whose readable content stays client-side."
+          },
+          "moving": {
+            "label": "Moving accounts",
+            "googleAuthenticator": "Use account backup or device-transfer tools.",
+            "otherAuthenticatorApps": "Backup and transfer options vary by app.",
+            "rhasiaScret": "Copy an account only when you ask; a Local Vault never silently syncs."
+          },
+          "sharing": {
+            "label": "Team sharing",
+            "googleAuthenticator": "Personal use, with transfers between devices.",
+            "otherAuthenticatorApps": "Team features depend on the app and plan.",
+            "rhasiaScret": "Shared Vaults add invite-only access, permissions, revocation, and owner audit history."
+          }
         }
       },
       "flow": {
         "eyebrow": "A deliberate path",
         "title": "Stay local. Move only when it helps.",
         "description": "The same product supports private ownership, optional encrypted hosting, and persistent team access—without a silent sync in between.",
-        "client": { "title": "Start on your device", "description": "Create, edit, import, export, and generate OTPs offline in a writable Local Vault." },
-        "encrypted": { "title": "Choose a cloud transition", "description": "Copy accounts into a hosted Vault only when you ask. Nothing uploads or stays linked automatically." },
-        "authorized": { "title": "Share with governance", "description": "Shared Vaults support lasting membership, permissions, revocation, and focused access audit history." },
-        "mobilePwa": { "title": "Keep it on your phone", "description": "Install rhasia-scret as a mobile PWA for quick access without an app store." }
+        "client": {
+          "title": "Start on your device",
+          "description": "Create, edit, import, export, and generate OTPs offline in a writable Local Vault."
+        },
+        "encrypted": {
+          "title": "Choose a cloud transition",
+          "description": "Copy accounts into a hosted Vault only when you ask. Nothing uploads or stays linked automatically."
+        },
+        "authorized": {
+          "title": "Share with governance",
+          "description": "Shared Vaults support lasting membership, permissions, revocation, and focused access audit history."
+        },
+        "mobilePwa": {
+          "title": "Keep it on your phone",
+          "description": "Install rhasia-scret as a mobile PWA for quick access without an app store."
+        }
       },
       "boundary": {
         "eyebrow": "A boundary you can verify",
@@ -128,21 +270,42 @@
         "description": "The service can govern access without holding the names, secrets, or OTPs inside your Vault.",
         "browser": {
           "title": "Your browser",
-          "authenticatorMaterial": { "title": "Your local control", "description": "A Local Vault works without sign-in or a server connection." },
-          "decryptedContent": { "title": "Readable Vault content", "description": "Vault names, account labels, TOTP settings, and OTPs remain client-only." }
+          "authenticatorMaterial": {
+            "title": "Your local control",
+            "description": "A Local Vault works without sign-in or a server connection."
+          },
+          "decryptedContent": {
+            "title": "Readable Vault content",
+            "description": "Vault names, account labels, TOTP settings, and OTPs remain client-only."
+          }
         },
         "service": {
           "title": "Optional service",
-          "encryptedContent": { "title": "Encrypted content only", "description": "Hosted Vault content is encrypted before it reaches the service." },
-          "accessMetadata": { "title": "Governed sharing", "description": "Authorization and limited lifecycle metadata enable secure team access." }
+          "encryptedContent": {
+            "title": "Encrypted content only",
+            "description": "Hosted Vault content is encrypted before it reaches the service."
+          },
+          "accessMetadata": {
+            "title": "Governed sharing",
+            "description": "Authorization and limited lifecycle metadata enable secure team access."
+          }
         },
         "note": "There is no silent upload, automatic synchronization, or deletion propagation between Local and hosted Vaults."
       },
       "principles": {
         "label": "Why rhasia-scret",
-        "control": { "title": "Local is a real product", "description": "Keep a writable, offline Vault on your device—not a reduced trial of the hosted service." },
-        "privacy": { "title": "Cloud is always explicit", "description": "You decide when an account is copied to a Personal or Shared Vault, with no hidden connection afterward." },
-        "collaboration": { "title": "Teams stay portable", "description": "Use provider-neutral sign-in, encrypted archives, and optional hosted sharing without putting OTPs beside passwords." }
+        "control": {
+          "title": "Local is a real product",
+          "description": "Keep a writable, offline Vault on your device—not a reduced trial of the hosted service."
+        },
+        "privacy": {
+          "title": "Cloud is always explicit",
+          "description": "You decide when an account is copied to a Personal or Shared Vault, with no hidden connection afterward."
+        },
+        "collaboration": {
+          "title": "Teams stay portable",
+          "description": "Use provider-neutral sign-in, encrypted archives, and optional hosted sharing without putting OTPs beside passwords."
+        }
       }
     },
     "signIn": {

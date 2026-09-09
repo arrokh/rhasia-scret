@@ -44,7 +44,12 @@ export type Argon2idParameters = {
 };
 
 export interface KeyDerivationPort {
-  deriveArgon2id(secret: string, salt: Uint8Array, parameters: Argon2idParameters, signal?: CancellationPort): Promise<Uint8Array>;
+  deriveArgon2id(
+    secret: string,
+    salt: Uint8Array,
+    parameters: Argon2idParameters,
+    signal?: CancellationPort,
+  ): Promise<Uint8Array>;
 }
 
 export type DeviceBoundCapability = {
@@ -81,15 +86,31 @@ export interface ClientCryptoPort {
   generateSymmetricKey(): Uint8Array;
   encryptPayload(key: Uint8Array, plaintext: Uint8Array, additionalData?: Uint8Array): Promise<EncryptedEnvelope>;
   decryptPayload(key: Uint8Array, envelope: EncryptedEnvelope, additionalData?: Uint8Array): Promise<Uint8Array>;
-  encryptPayloadWithContext(key: Uint8Array, plaintext: Uint8Array, context: CryptoEnvelopeContext): Promise<EncryptedEnvelope>;
-  decryptPayloadWithContext(key: Uint8Array, envelope: EncryptedEnvelope, context: CryptoEnvelopeContext): Promise<Uint8Array>;
+  encryptPayloadWithContext(
+    key: Uint8Array,
+    plaintext: Uint8Array,
+    context: CryptoEnvelopeContext,
+  ): Promise<EncryptedEnvelope>;
+  decryptPayloadWithContext(
+    key: Uint8Array,
+    envelope: EncryptedEnvelope,
+    context: CryptoEnvelopeContext,
+  ): Promise<Uint8Array>;
   serializeEncryptedEnvelope(envelope: EncryptedEnvelope): Uint8Array;
   deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelope;
   generateUserEncryptionKeyPair(): Promise<PortableEcdhKeyPair>;
   wrapKeyForRecipient(vaultKey: Uint8Array, recipientPublicKey: PortableJsonWebKey): Promise<KeyWrapEnvelope>;
-  wrapKeyForRecipientWithContext(vaultKey: Uint8Array, recipientPublicKey: PortableJsonWebKey, context: CryptoEnvelopeContext): Promise<KeyWrapEnvelope>;
+  wrapKeyForRecipientWithContext(
+    vaultKey: Uint8Array,
+    recipientPublicKey: PortableJsonWebKey,
+    context: CryptoEnvelopeContext,
+  ): Promise<KeyWrapEnvelope>;
   serializeKeyWrapEnvelope(envelope: KeyWrapEnvelope): Uint8Array;
   deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope;
   unwrapKeyForRecipient(envelope: KeyWrapEnvelope, recipientPrivateKey: PortableJsonWebKey): Promise<Uint8Array>;
-  unwrapKeyForRecipientWithContext(envelope: KeyWrapEnvelope, recipientPrivateKey: PortableJsonWebKey, context: CryptoEnvelopeContext): Promise<Uint8Array>;
+  unwrapKeyForRecipientWithContext(
+    envelope: KeyWrapEnvelope,
+    recipientPrivateKey: PortableJsonWebKey,
+    context: CryptoEnvelopeContext,
+  ): Promise<Uint8Array>;
 }

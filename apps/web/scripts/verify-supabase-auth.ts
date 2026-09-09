@@ -22,12 +22,14 @@ async function main() {
   const settings: SupabaseAuthSettings = await response.json();
   const publicEmailSignupEnabled = settings.disable_signup === false;
   const confirmEmailEnabled = settings.mailer_autoconfirm === false;
-  console.log(JSON.stringify({
-    authReachable: true,
-    httpStatus: response.status,
-    publicEmailSignupEnabled,
-    confirmEmailEnabled,
-  }));
+  console.log(
+    JSON.stringify({
+      authReachable: true,
+      httpStatus: response.status,
+      publicEmailSignupEnabled,
+      confirmEmailEnabled,
+    }),
+  );
   if (!publicEmailSignupEnabled || !confirmEmailEnabled) {
     throw new Error("Supabase Auth must allow public signup and require email confirmation.");
   }

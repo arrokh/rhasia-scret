@@ -14,12 +14,16 @@ type PublicConfiguration = Partial<MobileClientConfiguration>;
 export function parseMobileClientConfiguration(values: PublicConfiguration): MobileClientConfiguration {
   const apiUrl = requiredUrl(values.apiUrl, "EXPO_PUBLIC_API_URL", ["https:"]);
   const webOrigin = readPublicWebOrigin(values.webOrigin);
-  const authRedirectUrl = requiredUrl(values.authRedirectUrl, "EXPO_PUBLIC_AUTH_REDIRECT_URL", ["https:", "rhasia-scret:"]);
+  const authRedirectUrl = requiredUrl(values.authRedirectUrl, "EXPO_PUBLIC_AUTH_REDIRECT_URL", [
+    "https:",
+    "rhasia-scret:",
+  ]);
   const supabaseUrl = requiredUrl(values.supabaseUrl, "EXPO_PUBLIC_SUPABASE_URL", ["https:"]);
   const supabasePublishableKey = required(values.supabasePublishableKey, "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
-  const approvedCallback = authRedirectUrl.protocol === "rhasia-scret:"
-    ? authRedirectUrl.hostname === "auth" && authRedirectUrl.pathname === "/callback"
-    : authRedirectUrl.origin === webOrigin && authRedirectUrl.pathname === "/auth/mobile";
+  const approvedCallback =
+    authRedirectUrl.protocol === "rhasia-scret:"
+      ? authRedirectUrl.hostname === "auth" && authRedirectUrl.pathname === "/callback"
+      : authRedirectUrl.origin === webOrigin && authRedirectUrl.pathname === "/auth/mobile";
   if (!approvedCallback) throw new Error("EXPO_PUBLIC_AUTH_REDIRECT_URL is not an approved callback.");
   if (apiUrl.username || apiUrl.password || supabaseUrl.username || supabaseUrl.password) {
     throw new Error("Public service URLs must not contain credentials.");

@@ -18,10 +18,15 @@ export class MobileAuthenticatorAccountRepository {
     this.hostedAccounts = new HostedAuthenticatorAccountTransport(transport);
   }
 
-  public async deleteAccount(account: { id: string; vaultId: string; vaultType: "PERSONAL" | "SHARED"; revision: number }): Promise<void> {
+  public async deleteAccount(account: {
+    id: string;
+    vaultId: string;
+    vaultType: "PERSONAL" | "SHARED";
+    revision: number;
+  }): Promise<void> {
     await this.hostedAccounts.delete(
       { vaultId: account.vaultId, vaultType: account.vaultType },
-      { accountId: account.id, expectedRevision: account.revision }
+      { accountId: account.id, expectedRevision: account.revision },
     );
   }
 
@@ -51,7 +56,7 @@ export class MobileAuthenticatorAccountRepository {
       });
       const created = await this.hostedAccounts.create(
         { vaultId: vault.id, vaultType: vault.type },
-        { encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 }
+        { encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 },
       );
       return {
         id: created.id,
@@ -75,5 +80,7 @@ export function generateMobileTotp(account: WorkspaceAuthenticatorAccount, now =
 }
 
 export const nativeClipboard: ClipboardPort = {
-  writeText: async (value) => { await Clipboard.setStringAsync(value); },
+  writeText: async (value) => {
+    await Clipboard.setStringAsync(value);
+  },
 };

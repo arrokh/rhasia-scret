@@ -4,7 +4,11 @@ import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vaul
 import type { UnlockedVault, UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
 import { createVaultArchiveProtocol } from "@rhasia-scret/client-vault-core";
 import { openAndValidateEncryptedVaultArchive, type OpenedVaultArchive } from "@rhasia-scret/client-vault-core";
-import { clearPreparedVaultArchive, prepareEncryptedVaultArchive, type PreparedVaultArchive } from "@rhasia-scret/client-vault-core";
+import {
+  clearPreparedVaultArchive,
+  prepareEncryptedVaultArchive,
+  type PreparedVaultArchive,
+} from "@rhasia-scret/client-vault-core";
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@rhasia-scret/client-vault-core";
 import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
@@ -29,10 +33,13 @@ export async function prepareMobileVaultArchive(
   vault: UnlockedVault,
   transport: AuthenticatedTransport,
 ): Promise<PreparedVaultArchive> {
-  const prepared = await prepareEncryptedVaultArchive({
-    vault,
-    accounts: workspace.accounts.filter((account) => account.vaultId === vault.id),
-  }, archivePort);
+  const prepared = await prepareEncryptedVaultArchive(
+    {
+      vault,
+      accounts: workspace.accounts.filter((account) => account.vaultId === vault.id),
+    },
+    archivePort,
+  );
   try {
     const response = await transport.request({
       url: `/api/vaults/${encodeURIComponent(vault.id)}/archive-exports`,
@@ -48,7 +55,7 @@ export async function prepareMobileVaultArchive(
 }
 
 export async function sharePreparedMobileVaultArchive(prepared: PreparedVaultArchive): Promise<void> {
-  if (!await Sharing.isAvailableAsync()) throw new Error("Native sharing is unavailable.");
+  if (!(await Sharing.isAvailableAsync())) throw new Error("Native sharing is unavailable.");
   const file = new File(Paths.cache, prepared.filename);
   try {
     file.create({ overwrite: true });
@@ -63,9 +70,13 @@ export async function pickAndOpenMobileVaultArchive(keyMaterial: string): Promis
   const key = parseArchiveKey(keyMaterial);
   let archive: Uint8Array | undefined;
   try {
-    const picked = await File.pickFileAsync({ mimeTypes: ["application/octet-stream", "application/zip"], multipleFiles: false });
+    const picked = await File.pickFileAsync({
+      mimeTypes: ["application/octet-stream", "application/zip"],
+      multipleFiles: false,
+    });
     if (picked.canceled) return null;
-    if (picked.result.size <= 0 || picked.result.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new Error("Encrypted Vault archive is too large.");
+    if (picked.result.size <= 0 || picked.result.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES)
+      throw new Error("Encrypted Vault archive is too large.");
     archive = await picked.result.bytes();
     return await openAndValidateEncryptedVaultArchive(key, archive, importPort);
   } finally {
@@ -79,16 +90,19 @@ export async function importOpenedArchiveIntoVault(
   destination: UnlockedVault,
   transport: AuthenticatedTransport,
 ): Promise<void> {
-  if (!destination.effectiveAccountPermissions.permissions.canAddAccounts) throw new Error("Vault does not permit account imports.");
+  if (!destination.effectiveAccountPermissions.permissions.canAddAccounts)
+    throw new Error("Vault does not permit account imports.");
   const encryptedPayloads: Uint8Array[] = [];
   try {
     for (const account of opened.accounts) {
-      encryptedPayloads.push(await accountPayloads.encryptAccountConfiguration(destination.key, account, {
-        purpose: "authenticator-account",
-        payloadType: "totp-configuration",
-        vaultId: destination.id,
-        keyVersion: 1,
-      }));
+      encryptedPayloads.push(
+        await accountPayloads.encryptAccountConfiguration(destination.key, account, {
+          purpose: "authenticator-account",
+          payloadType: "totp-configuration",
+          vaultId: destination.id,
+          keyVersion: 1,
+        }),
+      );
     }
     const accountIds = encryptedPayloads.map(() => randomUuid());
     const response = await transport.request({
@@ -107,7 +121,8 @@ export async function importOpenedArchiveIntoVault(
     });
     if (!response.ok) throw new Error("Encrypted Vault archive import failed.");
     const result = await response.json<unknown>();
-    if (!validImportResult(result, destination.id, accountIds)) throw new Error("Encrypted Vault archive import response is invalid.");
+    if (!validImportResult(result, destination.id, accountIds))
+      throw new Error("Encrypted Vault archive import response is invalid.");
   } finally {
     for (const payload of encryptedPayloads) payload.fill(0);
   }
@@ -134,9 +149,11 @@ function randomUuid(): string {
 function validImportResult(value: unknown, vaultId: string, accountIds: string[]): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  return record.vaultId === vaultId
-    && Array.isArray(record.accountIds)
-    && record.accountIds.join(",") === accountIds.join(",")
-    && record.vaultCreated === false
-    && typeof record.replayed === "boolean";
+  return (
+    record.vaultId === vaultId &&
+    Array.isArray(record.accountIds) &&
+    record.accountIds.join(",") === accountIds.join(",") &&
+    record.vaultCreated === false &&
+    typeof record.replayed === "boolean"
+  );
 }

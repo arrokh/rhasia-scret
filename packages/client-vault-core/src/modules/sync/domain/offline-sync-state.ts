@@ -1,4 +1,5 @@
-export type OfflineSyncState = "OFFLINE" | "STALE" | "SYNCING" | "CURRENT" | "AUTH_REQUIRED" | "ERROR" | "LOCAL_STORAGE_ERROR";
+export type OfflineSyncState =
+  "OFFLINE" | "STALE" | "SYNCING" | "CURRENT" | "AUTH_REQUIRED" | "ERROR" | "LOCAL_STORAGE_ERROR";
 export type OfflineSyncEvent =
   | "NETWORK_LOST"
   | "RECONNECT_STARTED"
@@ -12,7 +13,13 @@ export function nextOfflineSyncState(state: OfflineSyncState, event: OfflineSync
     case "NETWORK_LOST":
       return "OFFLINE";
     case "RECONNECT_STARTED":
-      return state === "OFFLINE" || state === "STALE" || state === "ERROR" || state === "LOCAL_STORAGE_ERROR" || state === "AUTH_REQUIRED" ? "SYNCING" : state;
+      return state === "OFFLINE" ||
+        state === "STALE" ||
+        state === "ERROR" ||
+        state === "LOCAL_STORAGE_ERROR" ||
+        state === "AUTH_REQUIRED"
+        ? "SYNCING"
+        : state;
     case "SYNC_SUCCEEDED":
       return state === "SYNCING" ? "CURRENT" : state;
     case "AUTHENTICATION_FAILED":

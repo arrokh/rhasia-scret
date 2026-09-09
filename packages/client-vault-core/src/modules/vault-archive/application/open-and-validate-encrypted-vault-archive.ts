@@ -19,10 +19,11 @@ export type OpenedVaultArchive = {
 export async function openAndValidateEncryptedVaultArchive(
   archiveKey: Uint8Array,
   archive: Uint8Array,
-  ports: VaultArchiveImportPort
+  ports: VaultArchiveImportPort,
 ): Promise<OpenedVaultArchive> {
   if (archiveKey.length !== 32) throw new VaultArchiveWorkflowError("invalidKeyLength");
-  if (archive.length === 0 || archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new VaultArchiveWorkflowError("archiveTooLarge");
+  if (archive.length === 0 || archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES)
+    throw new VaultArchiveWorkflowError("archiveTooLarge");
   const opened = await ports.openEncryptedVaultExport(archiveKey, archive);
   const accounts: DecryptedAuthenticatorAccount[] = [];
   try {
@@ -41,7 +42,11 @@ export async function openAndValidateEncryptedVaultArchive(
   }
 }
 
-export function countDuplicateArchiveAccounts(imported: DecryptedAuthenticatorAccount[], existing: DecryptedAuthenticatorAccount[], ports: VaultArchiveImportPort): number {
+export function countDuplicateArchiveAccounts(
+  imported: DecryptedAuthenticatorAccount[],
+  existing: DecryptedAuthenticatorAccount[],
+  ports: VaultArchiveImportPort,
+): number {
   let count = 0;
   const accepted: DecryptedAuthenticatorAccount[] = [];
   for (const account of imported) {
@@ -51,10 +56,23 @@ export function countDuplicateArchiveAccounts(imported: DecryptedAuthenticatorAc
   return count;
 }
 
-export async function encryptVaultArchiveAccounts(destinationKey: Uint8Array, accounts: DecryptedAuthenticatorAccount[], vaultId: string | undefined, ports: VaultArchiveImportPort): Promise<Uint8Array[]> {
+export async function encryptVaultArchiveAccounts(
+  destinationKey: Uint8Array,
+  accounts: DecryptedAuthenticatorAccount[],
+  vaultId: string | undefined,
+  ports: VaultArchiveImportPort,
+): Promise<Uint8Array[]> {
   const encrypted: Uint8Array[] = [];
   try {
-    for (const account of accounts) encrypted.push(await ports.encryptAccountConfiguration(destinationKey, account, { purpose: "authenticator-account", payloadType: "totp-configuration", ...(vaultId ? { vaultId } : {}), keyVersion: 1 }));
+    for (const account of accounts)
+      encrypted.push(
+        await ports.encryptAccountConfiguration(destinationKey, account, {
+          purpose: "authenticator-account",
+          payloadType: "totp-configuration",
+          ...(vaultId ? { vaultId } : {}),
+          keyVersion: 1,
+        }),
+      );
     return encrypted;
   } catch (error) {
     for (const payload of encrypted) payload.fill(0);

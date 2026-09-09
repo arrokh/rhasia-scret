@@ -14,18 +14,20 @@ export type BrowserWorkspaceLifecycle = {
 
 export function useWorkspaceLifecycle(
   initialWorkspace: UnlockedVaultWorkspace | null = null,
-  onCleared?: (workspace: UnlockedVaultWorkspace) => void
+  onCleared?: (workspace: UnlockedVaultWorkspace) => void,
 ): BrowserWorkspaceLifecycle {
   const [workspace, setWorkspaceState] = useState(initialWorkspace);
   const workspaceRef = useRef(workspace);
   const controllerRef = useRef<WorkspaceLifecycle<UnlockedVaultWorkspace> | null>(null);
   const onClearedRef = useRef(onCleared);
-  useEffect(() => { onClearedRef.current = onCleared; }, [onCleared]);
+  useEffect(() => {
+    onClearedRef.current = onCleared;
+  }, [onCleared]);
 
   useEffect(() => {
     const controller = new WorkspaceLifecycle(
       workspaceRef.current,
-      createBrowserWorkspaceLifecyclePorts((cleared) => onClearedRef.current?.(cleared))
+      createBrowserWorkspaceLifecyclePorts((cleared) => onClearedRef.current?.(cleared)),
     );
     controllerRef.current = controller;
     const unsubscribe = controller.subscribe((next) => {

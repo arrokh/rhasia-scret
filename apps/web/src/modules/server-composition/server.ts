@@ -7,7 +7,10 @@ const applicationUsers = createApplicationUserRepository();
 export const executeAuthenticatedApplicationRequest = createAuthenticatedApplicationExecutor({
   verifySession: async (assurance) => createSessionVerifier(assurance).verify(assurance),
   provisionApplicationUser: (principal) => applicationUsers.provision(principal),
-  checkApplicationRateLimit
+  checkApplicationRateLimit,
 });
 
-export type { AuthenticatedApplicationRequest, AuthenticatedApplicationResult } from "./application/authenticated-application-request";
+export type {
+  AuthenticatedApplicationRequest,
+  AuthenticatedApplicationResult,
+} from "./application/authenticated-application-request";

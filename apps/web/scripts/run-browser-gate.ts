@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   } else {
     [smoke, e2e] = await Promise.all([
       runStage("smoke", ["run", "test:browser:smoke"]),
-      runStage("e2e", ["run", "test:browser:e2e"])
+      runStage("e2e", ["run", "test:browser:e2e"]),
     ]);
   }
 
@@ -54,19 +54,27 @@ async function main(): Promise<void> {
   if (pwa.exitCode !== 0) process.exitCode = 1;
 }
 
-async function runStage(name: StageResult["name"], args: string[], env: NodeJS.ProcessEnv = process.env): Promise<StageResult> {
+async function runStage(
+  name: StageResult["name"],
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<StageResult> {
   const stageStartedAt = performance.now();
   const child = spawn(command, args, {
     cwd: process.cwd(),
     env,
     stdio: "inherit",
-    detached: process.platform !== "win32"
+    detached: process.platform !== "win32",
   });
   children.add(child);
 
   const result = await new Promise<StageResult>((resolveStage) => {
-    child.once("error", (error) => resolveStage({ name, exitCode: 1, signal: null, durationMs: elapsed(stageStartedAt), error: error.message }));
-    child.once("exit", (exitCode, signal) => resolveStage({ name, exitCode: exitCode ?? 1, signal, durationMs: elapsed(stageStartedAt) }));
+    child.once("error", (error) =>
+      resolveStage({ name, exitCode: 1, signal: null, durationMs: elapsed(stageStartedAt), error: error.message }),
+    );
+    child.once("exit", (exitCode, signal) =>
+      resolveStage({ name, exitCode: exitCode ?? 1, signal, durationMs: elapsed(stageStartedAt) }),
+    );
   });
   children.delete(child);
   stages.push(result);
@@ -76,23 +84,32 @@ async function runStage(name: StageResult["name"], args: string[], env: NodeJS.P
 }
 
 function writeReport(status: "passed" | "failed", completedStages: StageResult[]): void {
-  const output = resolve(process.env.BROWSER_TEST_RUNTIME_OUTPUT ?? "test-results/performance/test-browser-runtime.json");
+  const output = resolve(
+    process.env.BROWSER_TEST_RUNTIME_OUTPUT ?? "test-results/performance/test-browser-runtime.json",
+  );
   mkdirSync(resolve(output, ".."), { recursive: true });
-  writeFileSync(output, `${JSON.stringify({
-    schemaVersion: 1,
-    status,
-    strategy: sequentialDevelopmentSuites
-      ? "sequential-dev-suites-then-production-pwa"
-      : "parallel-dev-suites-then-production-pwa",
-    stages: completedStages.map(({ name, exitCode, signal, durationMs, error }) => ({
-      name,
-      exitCode,
-      signal,
-      durationMs: Math.round(durationMs),
-      ...(error ? { error } : {})
-    })),
-    wallClockMs: Math.round(elapsed(startedAt))
-  }, null, 2)}\n`);
+  writeFileSync(
+    output,
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        status,
+        strategy: sequentialDevelopmentSuites
+          ? "sequential-dev-suites-then-production-pwa"
+          : "parallel-dev-suites-then-production-pwa",
+        stages: completedStages.map(({ name, exitCode, signal, durationMs, error }) => ({
+          name,
+          exitCode,
+          signal,
+          durationMs: Math.round(durationMs),
+          ...(error ? { error } : {}),
+        })),
+        wallClockMs: Math.round(elapsed(startedAt)),
+      },
+      null,
+      2,
+    )}\n`,
+  );
 }
 
 function terminateChildren(): void {

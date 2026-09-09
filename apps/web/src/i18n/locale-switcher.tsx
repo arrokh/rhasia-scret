@@ -13,7 +13,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
@@ -27,7 +27,13 @@ function persistLocale(nextLocale: AppLocale) {
   document.documentElement.lang = nextLocale;
 }
 
-export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedded?: boolean; onLocaleRequested?: (locale: AppLocale) => void }) {
+export function LocaleSwitcher({
+  embedded = false,
+  onLocaleRequested,
+}: {
+  embedded?: boolean;
+  onLocaleRequested?: (locale: AppLocale) => void;
+}) {
   const locale = useLocale();
   const t = useTranslations("Locale");
   const online = useOnlineStatus();
@@ -52,7 +58,9 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
       const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]');
       const wrapper = content?.parentElement;
       if (!content || !wrapper) return;
-      const [currentShiftX = 0, currentShiftY = 0] = wrapper.style.translate.split(/\s+/).map((value) => Number.parseFloat(value) || 0);
+      const [currentShiftX = 0, currentShiftY = 0] = wrapper.style.translate
+        .split(/\s+/)
+        .map((value) => Number.parseFloat(value) || 0);
       if (Math.abs(currentShiftX) > 0.1 || Math.abs(currentShiftY) > 0.1) {
         positionObserver?.disconnect();
         wrapper.style.translate = "";
@@ -67,7 +75,13 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
       const overlapsTrigger = triggerBox && box.top < triggerBox.bottom && box.bottom > triggerBox.top;
       const verticalShift = nextShiftX !== 0 && overlapsTrigger ? triggerBox.bottom + minimum - box.top : 0;
       const nextShiftY = Math.abs(verticalShift) > 0.5 ? verticalShift : 0;
-      if (Math.abs(currentShiftX - nextShiftX) <= 0.1 && Math.abs(currentShiftY - nextShiftY) <= 0.1 && Math.abs(currentShiftX) <= 0.1 && Math.abs(currentShiftY) <= 0.1) return;
+      if (
+        Math.abs(currentShiftX - nextShiftX) <= 0.1 &&
+        Math.abs(currentShiftY - nextShiftY) <= 0.1 &&
+        Math.abs(currentShiftX) <= 0.1 &&
+        Math.abs(currentShiftY) <= 0.1
+      )
+        return;
       positionObserver?.disconnect();
       wrapper.style.translate = nextShiftX || nextShiftY ? `${nextShiftX}px ${nextShiftY}px` : "";
       positionObserver?.observe(wrapper, positionObserverOptions);
@@ -127,32 +141,70 @@ export function LocaleSwitcher({ embedded = false, onLocaleRequested }: { embedd
       {locales.map((candidate) => {
         const language = languageName(candidate, t);
         const disabled = !online && candidate !== locale;
-        return <DropdownMenuRadioItem key={candidate} value={candidate} disabled={disabled} title={disabled ? t("offlineUnavailable") : language} className="min-h-11" style={{ paddingInlineStart: "0.75rem", paddingInlineEnd: "2.5rem", whiteSpace: "nowrap" }}>{language}</DropdownMenuRadioItem>;
+        return (
+          <DropdownMenuRadioItem
+            key={candidate}
+            value={candidate}
+            disabled={disabled}
+            title={disabled ? t("offlineUnavailable") : language}
+            className="min-h-11"
+            style={{ paddingInlineStart: "0.75rem", paddingInlineEnd: "2.5rem", whiteSpace: "nowrap" }}
+          >
+            {language}
+          </DropdownMenuRadioItem>
+        );
       })}
     </DropdownMenuRadioGroup>
   );
 
-  return <>
-    {embedded ? (
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger aria-label={t("switcher")} className="min-h-11 px-2"><Languages aria-hidden="true" /><span>{activeLanguage}</span></DropdownMenuSubTrigger>
-        <DropdownMenuSubContent collisionPadding={8} onAnimationEnd={() => fitEmbeddedMenuRef.current()} className="w-56 rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 1rem))" }} aria-label={t("options")}>{options}</DropdownMenuSubContent>
-      </DropdownMenuSub>
-    ) : (
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="min-h-11 px-2 text-xs" aria-label={t("switcher")} title={t("selected", { language: activeLanguage })}>
+  return (
+    <>
+      {embedded ? (
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger aria-label={t("switcher")} className="min-h-11 px-2">
             <Languages aria-hidden="true" />
             <span>{activeLanguage}</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="rounded-md border-border bg-popover p-2 shadow-card" style={{ width: "min(14rem, calc(100vw - 2rem))" }} aria-label={t("options")}>
-          {options}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )}
-    {!onLocaleRequested && nextLocale && nextLocale !== locale && <LocaleChangeConfirmation nextLocale={nextLocale} onCancel={() => setNextLocale(null)} />}
-  </>;
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent
+            collisionPadding={8}
+            onAnimationEnd={() => fitEmbeddedMenuRef.current()}
+            className="w-56 rounded-md border-border bg-popover p-2 shadow-card"
+            style={{ width: "min(14rem, calc(100vw - 1rem))" }}
+            aria-label={t("options")}
+          >
+            {options}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      ) : (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-11 px-2 text-xs"
+              aria-label={t("switcher")}
+              title={t("selected", { language: activeLanguage })}
+            >
+              <Languages aria-hidden="true" />
+              <span>{activeLanguage}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="rounded-md border-border bg-popover p-2 shadow-card"
+            style={{ width: "min(14rem, calc(100vw - 2rem))" }}
+            aria-label={t("options")}
+          >
+            {options}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {!onLocaleRequested && nextLocale && nextLocale !== locale && (
+        <LocaleChangeConfirmation nextLocale={nextLocale} onCancel={() => setNextLocale(null)} />
+      )}
+    </>
+  );
 }
 
 export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale: AppLocale; onCancel: () => void }) {
@@ -169,14 +221,16 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
     startTransition(() => router.refresh());
   }
 
-  return <ConfirmationDialog
-    title={t("confirmTitle")}
-    description={t("confirmDescription", { language: languageName(nextLocale, t) })}
-    confirmLabel={t("confirm")}
-    pending={pending}
-    onCancel={onCancel}
-    onConfirm={confirmLocaleChange}
-  />;
+  return (
+    <ConfirmationDialog
+      title={t("confirmTitle")}
+      description={t("confirmDescription", { language: languageName(nextLocale, t) })}
+      confirmLabel={t("confirm")}
+      pending={pending}
+      onCancel={onCancel}
+      onConfirm={confirmLocaleChange}
+    />
+  );
 }
 
 function languageName(locale: AppLocale, t: ReturnType<typeof useTranslations<"Locale">>): string {

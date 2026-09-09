@@ -8,7 +8,12 @@ describe("shared client policies", () => {
   });
 
   it("maps synchronized workspace state to a writable vault status", () => {
-    const status = resolveVaultStatus({ origin: "PERSONAL", syncState: "CURRENT", onlineHint: true, lastSynchronizedAt: "2026-01-01T00:00:00.000Z" });
+    const status = resolveVaultStatus({
+      origin: "PERSONAL",
+      syncState: "CURRENT",
+      onlineHint: true,
+      lastSynchronizedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(status).toMatchObject({ kind: "CURRENT", capability: "SERVER_WRITABLE" });
     expect(canMutateVault(status)).toBe(true);
   });

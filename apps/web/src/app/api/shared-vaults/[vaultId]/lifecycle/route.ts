@@ -15,7 +15,8 @@ async function changeLifecycle(params: Promise<{ vaultId: string }>, action: "de
   if (user instanceof NextResponse) return user;
   const { vaultId } = await params;
   const repository = createSharedVaultRecoveryRepository();
-  const changed = action === "delete" ? await repository.delete(user.id, vaultId) : await repository.restore(user.id, vaultId);
+  const changed =
+    action === "delete" ? await repository.delete(user.id, vaultId) : await repository.restore(user.id, vaultId);
   if (!changed) return NextResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
   return new NextResponse(null, { status: 204 });
 }

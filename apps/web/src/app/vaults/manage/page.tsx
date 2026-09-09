@@ -7,7 +7,18 @@ export const dynamic = "force-dynamic";
 
 export default async function VaultDirectoryPage() {
   const t = await getTranslations("VaultManagement.pages");
-  return <VaultPageFrame backHref="/vaults" backLabel={t("backAccounts")} backPrefetch title={t("directoryTitle")} description={t("directoryDescription")} contentLabel={t("directoryLabel")}><VaultDirectoryContent /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults"
+      backLabel={t("backAccounts")}
+      backPrefetch
+      title={t("directoryTitle")}
+      description={t("directoryDescription")}
+      contentLabel={t("directoryLabel")}
+    >
+      <VaultDirectoryContent />
+    </VaultPageFrame>
+  );
 }
 
 async function VaultDirectoryContent() {

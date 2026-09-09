@@ -4,25 +4,25 @@ This directory is the development reference extracted from `/Users/arrokh/Downlo
 
 ## Screens
 
-| Asset | Reference screen | Analysis | MVP-plan coverage |
-| --- | --- | --- | --- |
-| `01-login.png` | Login | [01-login.md](01-login.md) | Slice 1 — verified-email authentication |
-| `02-vault-unlock.png` | Vault unlock | [02-vault-unlock.md](02-vault-unlock.md) | Slices 2 and 4 — secure setup and unlock |
-| `03-home-otp-list.png` | Home / OTP list | [03-home-otp-list.md](03-home-otp-list.md) | Slices 3, 5, and 10 — local OTP display and vault access |
-| `04-vaults.png` | Vault list | [04-vaults.md](04-vaults.md) | Slices 2, 7, and 10 — Personal and Shared Vault navigation |
-| `05-vault-detail-accounts.png` | Shared Vault account list | [05-vault-detail-accounts.md](05-vault-detail-accounts.md) | Slices 10 and 11 — role-aware Shared Vault accounts |
-| `06-add-account.png` | Add authenticator method picker | [06-add-account.md](06-add-account.md) | Slices 5 and 6 — encrypted account creation and QR import |
-| `07-scan-qr-code.png` | QR scanner | [07-scan-qr-code.md](07-scan-qr-code.md) | Slice 6 — client-only QR import |
-| `08-account-review.png` | Account review | [08-account-review.md](08-account-review.md) | Slices 5, 6, and 11 — local preview and confirmation before save |
-| `09-members.png` | Members | [09-members.md](09-members.md) | Slice 9 — owner-only membership management |
-| `10-invite-member.png` | Invite member | [10-invite-member.md](10-invite-member.md) | Slice 9 — invitation and Secure Share Link delivery |
-| `11-account-details.png` | Account details | [11-account-details.md](11-account-details.md) | Slices 5, 11, and 13 — account inspection, edit, deletion, and recovery |
-| `12-settings.png` | Settings | [12-settings.md](12-settings.md) | Slice 4 — unlock, Remembered Browser, and logout controls |
-| `13-activity.png` | Activity | [13-activity.md](13-activity.md) | Slice 15 — owner-only redacted Vault Audit History |
-| `14-empty-vault.png` | Empty Vault | [14-empty-vault.md](14-empty-vault.md) | Slices 5 and 11 — no-account empty state |
-| `15-offline-state.png` | Offline | [15-offline-state.md](15-offline-state.md) | Slice 14 — read-only offline status and reconnection |
-| `design-system-footer.png` | Design notes and component specimens | [design-system-footer.md](design-system-footer.md) | Cross-cutting UI system |
-| — | Canonical design-system contract | [design-system.md](design-system.md) | Cross-cutting UI system |
+| Asset                          | Reference screen                     | Analysis                                                   | MVP-plan coverage                                                       |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `01-login.png`                 | Login                                | [01-login.md](01-login.md)                                 | Slice 1 — verified-email authentication                                 |
+| `02-vault-unlock.png`          | Vault unlock                         | [02-vault-unlock.md](02-vault-unlock.md)                   | Slices 2 and 4 — secure setup and unlock                                |
+| `03-home-otp-list.png`         | Home / OTP list                      | [03-home-otp-list.md](03-home-otp-list.md)                 | Slices 3, 5, and 10 — local OTP display and vault access                |
+| `04-vaults.png`                | Vault list                           | [04-vaults.md](04-vaults.md)                               | Slices 2, 7, and 10 — Personal and Shared Vault navigation              |
+| `05-vault-detail-accounts.png` | Shared Vault account list            | [05-vault-detail-accounts.md](05-vault-detail-accounts.md) | Slices 10 and 11 — role-aware Shared Vault accounts                     |
+| `06-add-account.png`           | Add authenticator method picker      | [06-add-account.md](06-add-account.md)                     | Slices 5 and 6 — encrypted account creation and QR import               |
+| `07-scan-qr-code.png`          | QR scanner                           | [07-scan-qr-code.md](07-scan-qr-code.md)                   | Slice 6 — client-only QR import                                         |
+| `08-account-review.png`        | Account review                       | [08-account-review.md](08-account-review.md)               | Slices 5, 6, and 11 — local preview and confirmation before save        |
+| `09-members.png`               | Members                              | [09-members.md](09-members.md)                             | Slice 9 — owner-only membership management                              |
+| `10-invite-member.png`         | Invite member                        | [10-invite-member.md](10-invite-member.md)                 | Slice 9 — invitation and Secure Share Link delivery                     |
+| `11-account-details.png`       | Account details                      | [11-account-details.md](11-account-details.md)             | Slices 5, 11, and 13 — account inspection, edit, deletion, and recovery |
+| `12-settings.png`              | Settings                             | [12-settings.md](12-settings.md)                           | Slice 4 — unlock, Remembered Browser, and logout controls               |
+| `13-activity.png`              | Activity                             | [13-activity.md](13-activity.md)                           | Slice 15 — owner-only redacted Vault Audit History                      |
+| `14-empty-vault.png`           | Empty Vault                          | [14-empty-vault.md](14-empty-vault.md)                     | Slices 5 and 11 — no-account empty state                                |
+| `15-offline-state.png`         | Offline                              | [15-offline-state.md](15-offline-state.md)                 | Slice 14 — read-only offline status and reconnection                    |
+| `design-system-footer.png`     | Design notes and component specimens | [design-system-footer.md](design-system-footer.md)         | Cross-cutting UI system                                                 |
+| —                              | Canonical design-system contract     | [design-system.md](design-system.md)                       | Cross-cutting UI system                                                 |
 
 ## Design system captured in the footer
 

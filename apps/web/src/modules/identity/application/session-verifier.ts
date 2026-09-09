@@ -19,7 +19,7 @@ export function assuranceSatisfies(actual: SessionAssurance, minimum: SessionAss
   const rank: Record<SessionAssurance, number> = {
     "verified-claims": 1,
     "fresh-provider-user": 2,
-    "active-session": 3
+    "active-session": 3,
   };
   return rank[actual] >= rank[minimum];
 }

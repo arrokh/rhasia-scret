@@ -15,7 +15,9 @@ export class BrowserLocalVaultRepository implements LocalVaultRepository {
   async read(): Promise<LocalVaultRecord | null> {
     const database = await this.openDatabase();
     try {
-      const value = await request<unknown>(database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STORAGE_KEY));
+      const value = await request<unknown>(
+        database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STORAGE_KEY),
+      );
       return value === undefined ? null : parseLocalVaultRecord(value);
     } finally {
       database.close();
@@ -92,7 +94,8 @@ export async function clearLocalVault(): Promise<void> {
 }
 
 function openLocalVaultDatabase(): Promise<IDBDatabase> {
-  if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB is unavailable for the Local Vault."));
+  if (typeof indexedDB === "undefined")
+    return Promise.reject(new Error("IndexedDB is unavailable for the Local Vault."));
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {

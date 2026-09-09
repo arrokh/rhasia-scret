@@ -16,5 +16,10 @@ export function rotateUserEncryptionIdentity(
   encryptedPrivateKey: Uint8Array,
   wrappedVaultKeys: Uint8Array[],
 ): Promise<{ identity: EncryptedUserEncryptionIdentity; wrappedVaultKeys: Uint8Array[] }> {
-  return rotateUserEncryptionIdentityWithCrypto(userRootKey, encryptedPrivateKey, wrappedVaultKeys, browserClientCryptoPort);
+  return rotateUserEncryptionIdentityWithCrypto(
+    userRootKey,
+    encryptedPrivateKey,
+    wrappedVaultKeys,
+    browserClientCryptoPort,
+  );
 }

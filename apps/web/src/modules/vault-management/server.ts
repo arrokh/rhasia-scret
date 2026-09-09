@@ -9,7 +9,7 @@ export {
   ActiveOwnedSharedVaultsPreventResetError,
   InvalidDestructiveResetConfirmationError,
   PasskeyRecoveryAlreadyEnrolledError,
-  destructivelyResetPersonalVault
+  destructivelyResetPersonalVault,
 } from "./application/destructive-personal-vault-reset";
 export type { DestructivePersonalVaultResetRepository } from "./application/destructive-personal-vault-reset";
 export { ensurePersonalVault } from "./application/ensure-personal-vault";
@@ -19,7 +19,7 @@ export type { PersonalVaultRepository } from "./application/personal-vault-repos
 export {
   purgeExpiredSharedVaults,
   type ExpiredVaultRetentionRepository,
-  type VaultPurgeBatch
+  type VaultPurgeBatch,
 } from "./application/purge-expired-vault-retention";
 export type { SharedVaultRepository } from "./application/shared-vault-repository";
 
