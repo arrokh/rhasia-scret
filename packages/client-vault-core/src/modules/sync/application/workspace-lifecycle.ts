@@ -147,11 +147,17 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
     await this.refresh("reconciliation");
   }
 
-  dispose(): void {
+  /** Detaches platform listeners while retaining the current workspace. */
+  stop(): void {
     if (this.disposed) return;
-    this.disposed = true;
     this.cancelReconciliation();
     for (const dispose of this.disposers.splice(0)) dispose();
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.stop();
+    this.disposed = true;
     const previous = this.current;
     this.current = null;
     if (previous) this.ports.workspace.clear(previous);

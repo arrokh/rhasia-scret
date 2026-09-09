@@ -45,6 +45,8 @@ const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter((origin, i
 
 const nextConfig: NextConfig = {
   distDir: nextDistDir,
+  // Repository-level agent instructions are authoritative; keep dev startup side-effect free.
+  agentRules: false,
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,

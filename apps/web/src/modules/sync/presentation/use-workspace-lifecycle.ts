@@ -35,9 +35,15 @@ export function useWorkspaceLifecycle(
     controller.start();
     return () => {
       unsubscribe();
-      controller.dispose();
-      if (controllerRef.current === controller) controllerRef.current = null;
-      workspaceRef.current = null;
+      controller.stop();
+      // React replays effects in development Strict Mode. Defer disposal so the
+      // replay can transfer the still-live workspace to the replacement controller.
+      queueMicrotask(() => {
+        if (controllerRef.current !== controller) return;
+        controller.dispose();
+        controllerRef.current = null;
+        workspaceRef.current = null;
+      });
     };
   }, []);
 

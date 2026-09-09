@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, createElement } from "react";
+import { act, createElement, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,7 +42,11 @@ describe("PersonalVaultAccounts", () => {
     mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
     mocks.passkeyEnrolled = true;
   });
-  afterEach(async () => { await act(async () => root?.unmount()); document.body.innerHTML = ""; });
+  afterEach(async () => {
+    await act(async () => root?.unmount());
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    document.body.innerHTML = "";
+  });
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
     const container = document.createElement("div");
@@ -58,6 +62,20 @@ describe("PersonalVaultAccounts", () => {
     expect(container.querySelector('a[href="/vaults/manage"] .lucide-lock-keyhole')).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Keamanan"]')?.textContent).toContain("Keamanan");
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("preserves an initial workspace through development Strict Mode effect replay", async () => {
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () => root?.render(
+      createElement(StrictMode, null, createElement(TestQueryProvider, null,
+        createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: workspace() }, createElement(PersonalVaultAccounts, { vaultId: "personal-1" }))
+      ))
+    ));
+
+    expect(container.textContent).toContain("personal@example.test");
+    expect(mocks.clearUnlockedVaultWorkspace).not.toHaveBeenCalled();
   });
 
   it("moves Lock into Account settings above Sign out", async () => {

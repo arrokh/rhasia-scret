@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("browser security delivery headers", () => {
   test("protects pages, APIs, offline shell, manifest, service worker, and static assets", async ({ page }) => {
-    const pageResponse = await page.goto("/");
+    const pageResponse = await page.goto("/", { waitUntil: "domcontentloaded" });
     expect(pageResponse).not.toBeNull();
     expectSecurityHeaders(pageResponse!, true);
 
@@ -20,7 +20,7 @@ test.describe("browser security delivery headers", () => {
   });
 
   test("allows same-origin Next.js chunks across client-side navigation", async ({ page }) => {
-    const response = await page.goto("/");
+    const response = await page.goto("/", { waitUntil: "domcontentloaded" });
     expect(response?.headers()["content-security-policy"]).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
     await page.waitForLoadState("networkidle");
     await page.evaluate(() => {
