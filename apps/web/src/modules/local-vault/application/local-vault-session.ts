@@ -79,14 +79,19 @@ export class LocalVaultSession {
 
   public unlock(passphrase: string): Promise<void> {
     return this.enqueue(async () => {
-      const record = this.current.record ?? await this.ports.readRecord();
+      const record = this.current.record ?? (await this.ports.readRecord());
       if (!record) throw new Error("The Local Profile does not exist.");
       try {
         const vault = await this.ports.unlockRecord(record, passphrase);
         this.replaceVault(vault);
         this.commit({ ...this.current, discovered: true, migrationRequired: false, record, vault });
       } catch (error) {
-        this.commit({ ...this.current, discovered: true, migrationRequired: this.ports.isMigrationRequired(error), record });
+        this.commit({
+          ...this.current,
+          discovered: true,
+          migrationRequired: this.ports.isMigrationRequired(error),
+          record,
+        });
         throw error;
       }
     });
@@ -167,7 +172,10 @@ export class LocalVaultSession {
       if (this.disposed) throw new LocalVaultSessionDisposedError();
       return operation();
     });
-    this.serialized = result.then(() => undefined, () => undefined);
+    this.serialized = result.then(
+      () => undefined,
+      () => undefined,
+    );
     return result;
   }
 

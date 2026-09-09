@@ -3,7 +3,11 @@
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS } from "@rhasia-scret/client-vault-core";
 import { createVaultArchiveProtocol } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
-import { decryptPayloadWithContext, deserializeEncryptedEnvelope, type CryptoEnvelopeContext } from "./browser-crypto-envelope";
+import {
+  decryptPayloadWithContext,
+  deserializeEncryptedEnvelope,
+  type CryptoEnvelopeContext,
+} from "./browser-crypto-envelope";
 
 export { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS };
 const protocol = createVaultArchiveProtocol(browserClientCryptoPort);
@@ -34,13 +38,15 @@ export async function createEncryptedVaultExport(
   try {
     const vaultName = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes);
     for (const [index, account] of encryptedAccounts.entries()) {
-      accountPlaintexts.push(await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(account), {
-        purpose: "authenticator-account",
-        payloadType: "totp-configuration",
-        ...context,
-        accountId: accountIds[index],
-        keyVersion: 1,
-      }));
+      accountPlaintexts.push(
+        await decryptPayloadWithContext(vaultKey, deserializeEncryptedEnvelope(account), {
+          purpose: "authenticator-account",
+          payloadType: "totp-configuration",
+          ...context,
+          accountId: accountIds[index],
+          keyVersion: 1,
+        }),
+      );
     }
     return await createEncryptedVaultArchive(archiveKey, vaultName, accountPlaintexts);
   } finally {

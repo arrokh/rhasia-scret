@@ -17,12 +17,14 @@ export function createGetUserCryptoProfileHandler({ authenticate, cryptoProfiles
       encryptedPersonalVaultKey: Buffer.from(profile.encryptedPersonalVaultKey).toString("base64"),
       encryptionVersion: profile.encryptionVersion,
       userEncryptionPublicKey: profile.userEncryptionPublicKey,
-      encryptedUserPrivateKey: profile.encryptedUserPrivateKey ? Buffer.from(profile.encryptedUserPrivateKey).toString("base64") : undefined
+      encryptedUserPrivateKey: profile.encryptedUserPrivateKey
+        ? Buffer.from(profile.encryptedUserPrivateKey).toString("base64")
+        : undefined,
     });
   };
 }
 
 export const GET = createGetUserCryptoProfileHandler({
   authenticate: authenticateApplicationReader,
-  cryptoProfiles: createUserCryptoProfileRepository()
+  cryptoProfiles: createUserCryptoProfileRepository(),
 });

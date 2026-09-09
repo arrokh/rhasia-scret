@@ -6,7 +6,13 @@ import { createBrowserLocalVaultSession } from "../infrastructure/browser-local-
 
 export function useLocalVaultSession() {
   const sessionRef = useRef<LocalVaultSession | null>(null);
-  const [state, setState] = useState<LocalVaultSessionState>({ available: true, discovered: false, migrationRequired: false, record: null, vault: null });
+  const [state, setState] = useState<LocalVaultSessionState>({
+    available: true,
+    discovered: false,
+    migrationRequired: false,
+    record: null,
+    vault: null,
+  });
   const [discoveryError, setDiscoveryError] = useState<unknown>(null);
 
   useEffect(() => {
@@ -14,7 +20,9 @@ export function useLocalVaultSession() {
     let active = true;
     sessionRef.current = session;
     const unsubscribe = session.subscribe(setState);
-    void session.discover().catch((error) => { if (active) setDiscoveryError(error); });
+    void session.discover().catch((error) => {
+      if (active) setDiscoveryError(error);
+    });
     return () => {
       active = false;
       unsubscribe();
@@ -23,7 +31,7 @@ export function useLocalVaultSession() {
     };
   }, []);
 
-  const invoke = useCallback(<Result,>(operation: (session: LocalVaultSession) => Promise<Result>) => {
+  const invoke = useCallback(<Result>(operation: (session: LocalVaultSession) => Promise<Result>) => {
     const session = sessionRef.current;
     return session ? operation(session) : Promise.reject(new Error("The Local Vault session is not ready."));
   }, []);
@@ -35,7 +43,8 @@ export function useLocalVaultSession() {
       clear: () => invoke((current) => current.clear()),
       create: (passphrase: string, name: string) => invoke((current) => current.create(passphrase, name)),
       migrate: (passphrase: string) => invoke((current) => current.migrate(passphrase)),
-      mutate: <Result,>(operation: (vault: NonNullable<LocalVaultSessionState["vault"]>) => Promise<Result>) => invoke((current) => current.mutate(operation)),
+      mutate: <Result>(operation: (vault: NonNullable<LocalVaultSessionState["vault"]>) => Promise<Result>) =>
+        invoke((current) => current.mutate(operation)),
       refresh: () => invoke((current) => current.refresh()),
       lock,
       unlock: (passphrase: string) => invoke((current) => current.unlock(passphrase)),

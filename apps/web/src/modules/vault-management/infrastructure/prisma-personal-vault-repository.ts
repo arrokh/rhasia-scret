@@ -16,7 +16,7 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
       const existing = await transaction.vault.findFirst({
         where: { ownerId, type: "PERSONAL" },
-        orderBy: { createdAt: "asc" }
+        orderBy: { createdAt: "asc" },
       });
       if (existing) return toVault(existing);
 
@@ -26,8 +26,8 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
           type: "PERSONAL",
           lifecycle: "UNINITIALIZED",
           encryptionVersion: 1,
-          members: { create: { userId: ownerId, role: "OWNER" } }
-        }
+          members: { create: { userId: ownerId, role: "OWNER" } },
+        },
       });
       return toVault(created);
     });
@@ -38,7 +38,7 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
       const vault = await transaction.vault.findFirst({
         where: { ownerId, type: "PERSONAL" },
-        orderBy: { createdAt: "asc" }
+        orderBy: { createdAt: "asc" },
       });
       if (!vault) throw new Error("Personal Vault does not exist.");
       if (vault.lifecycle !== "UNINITIALIZED") throw new Error("Personal Vault is already initialized.");
@@ -50,16 +50,16 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
           wrappedUserRootKey: copyBytes(initialization.wrappedUserRootKey),
           rootKeyWrappingVersion: initialization.encryptionVersion,
           encryptedPersonalVaultKey: copyBytes(initialization.encryptedPersonalVaultKey),
-          personalVaultKeyEncryptionVersion: initialization.encryptionVersion
-        }
+          personalVaultKeyEncryptionVersion: initialization.encryptionVersion,
+        },
       });
       await transaction.vault.update({
         where: { id: vault.id },
         data: {
           encryptedName: copyBytes(initialization.encryptedVaultName),
           encryptionVersion: initialization.encryptionVersion,
-          lifecycle: "ACTIVE"
-        }
+          lifecycle: "ACTIVE",
+        },
       });
     });
   }

@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   parseTotpUri: vi.fn(),
   qrOnUri: undefined as undefined | ((uri: string) => void),
   push: vi.fn(),
-  refresh: vi.fn()
+  refresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
@@ -22,20 +22,28 @@ vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () 
 vi.mock("@/modules/otp-runtime", () => ({ parseTotpUri: mocks.parseTotpUri }));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload", () => ({
   encryptAccountConfiguration: mocks.encryptAccountConfiguration,
-  isDuplicateAccount: mocks.isDuplicateAccount
+  isDuplicateAccount: mocks.isDuplicateAccount,
 }));
 vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
   clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
-  refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace
+  refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace,
 }));
-vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({ QrImportInput: ({ onUri }: { onUri: (uri: string) => void }) => { mocks.qrOnUri = onUri; return null; } }));
+vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({
+  QrImportInput: ({ onUri }: { onUri: (uri: string) => void }) => {
+    mocks.qrOnUri = onUri;
+    return null;
+  },
+}));
 
 import { AuthenticatorAccountCreator } from "@/modules/authenticator-account/presentation/authenticator-account-creator";
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
-const ownerPermissions = { permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const } };
+const ownerPermissions = {
+  permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+  sources: { canAddAccounts: "OWNER" as const, canEditAccounts: "OWNER" as const, canDeleteAccounts: "OWNER" as const },
+};
 
 describe("AuthenticatorAccountCreator", () => {
   let root: Root | undefined;
@@ -53,32 +61,70 @@ describe("AuthenticatorAccountCreator", () => {
       syncState: "CURRENT" as const,
       userRootKey: new Uint8Array(32),
       vaults: [
-        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL" as const, role: "OWNER" as const, effectiveAccountPermissions: ownerPermissions, key: new Uint8Array(32) },
-        { id: "shared-1", name: "Tim Operasional", type: "SHARED" as const, role: "OWNER" as const, effectiveAccountPermissions: ownerPermissions, key: new Uint8Array(32) }
+        {
+          id: "personal-1",
+          name: "Brankas Pribadi",
+          type: "PERSONAL" as const,
+          role: "OWNER" as const,
+          effectiveAccountPermissions: ownerPermissions,
+          key: new Uint8Array(32),
+        },
+        {
+          id: "shared-1",
+          name: "Tim Operasional",
+          type: "SHARED" as const,
+          role: "OWNER" as const,
+          effectiveAccountPermissions: ownerPermissions,
+          key: new Uint8Array(32),
+        },
       ],
       accounts: [],
       unavailableAccounts: [],
-      unavailableSharedVaults: 0
+      unavailableSharedVaults: 0,
     };
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(TestQueryProvider, null,
-      createElement(UnlockedVaultWorkspaceProvider, { initialWorkspace: sessionWorkspace },
-        createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" })
-      )
-    )));
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            { initialWorkspace: sessionWorkspace },
+            createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" }),
+          ),
+        ),
+      ),
+    );
 
-    mocks.parseTotpUri.mockReturnValue({ issuer: "Example", accountName: "person@example.test", secret: Uint8Array.of(1), algorithm: "SHA-1", digits: 6, period: 30 });
+    mocks.parseTotpUri.mockReturnValue({
+      issuer: "Example",
+      accountName: "person@example.test",
+      secret: Uint8Array.of(1),
+      algorithm: "SHA-1",
+      digits: 6,
+      period: 30,
+    });
     expect(container.querySelector("#account-target-vault")).toBeNull();
-    await act(async () => mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+    await act(async () =>
+      mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"),
+    );
     expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
     expect(container.querySelector("#account-vault-unlock-secret")).toBeNull();
   });
 
   it("unlocks, selects an owned Shared Vault, encrypts locally, and posts from the dedicated page", async () => {
-    const candidate = { issuer: "Example", accountName: "person@example.test", secret: Uint8Array.of(1), algorithm: "SHA-1", digits: 6, period: 30 };
+    const candidate = {
+      issuer: "Example",
+      accountName: "person@example.test",
+      secret: Uint8Array.of(1),
+      algorithm: "SHA-1",
+      digits: 6,
+      period: 30,
+    };
     const sharedKey = Uint8Array.of(8);
     mocks.loadUnlockedVaultWorkspace.mockResolvedValue({
       profileId: "profile-1",
@@ -87,23 +133,52 @@ describe("AuthenticatorAccountCreator", () => {
       syncState: "CURRENT",
       userRootKey: Uint8Array.of(7),
       vaults: [
-        { id: "personal-1", name: "Brankas Pribadi", type: "PERSONAL", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: Uint8Array.of(6) },
-        { id: "shared-1", name: "Tim Operasional", type: "SHARED", role: "OWNER", effectiveAccountPermissions: ownerPermissions, key: sharedKey }
+        {
+          id: "personal-1",
+          name: "Brankas Pribadi",
+          type: "PERSONAL",
+          role: "OWNER",
+          effectiveAccountPermissions: ownerPermissions,
+          key: Uint8Array.of(6),
+        },
+        {
+          id: "shared-1",
+          name: "Tim Operasional",
+          type: "SHARED",
+          role: "OWNER",
+          effectiveAccountPermissions: ownerPermissions,
+          key: sharedKey,
+        },
       ],
       accounts: [],
-      unavailableAccounts: []
+      unavailableAccounts: [],
     });
     mocks.parseTotpUri.mockReturnValue(candidate);
     mocks.isDuplicateAccount.mockReturnValue(false);
     mocks.encryptAccountConfiguration.mockResolvedValue(new Uint8Array(29).fill(1));
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "new-account", revision: 1 }), { status: 201, headers: { "content-type": "application/json" } }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "new-account", revision: 1 }), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
-    await act(async () => root?.render(createElement(TestQueryProvider, null,
-      createElement(UnlockedVaultWorkspaceProvider, null, createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" }))
-    )));
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            null,
+            createElement(AuthenticatorAccountCreator, { personalVaultId: "personal-1", preferredVaultId: "shared-1" }),
+          ),
+        ),
+      ),
+    );
 
     await act(async () => {
       setInputValue(container.querySelector("#account-vault-unlock-secret"), "four random secret words");
@@ -111,7 +186,9 @@ describe("AuthenticatorAccountCreator", () => {
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(container.querySelector("#account-target-vault")).toBeNull();
-    await act(async () => mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+    await act(async () =>
+      mocks.qrOnUri?.("otpauth://totp/Example:person@example.test?secret=JBSWY3DPEHPK3PXP&issuer=Example"),
+    );
     expect(container.querySelector("#account-target-vault")?.textContent).toContain("Tim Operasional");
     expect(container.querySelector<HTMLInputElement>("#account-uri")?.readOnly).toBe(true);
     expect(container.textContent).toContain("Metadata autentikator");
@@ -121,8 +198,15 @@ describe("AuthenticatorAccountCreator", () => {
     await act(async () => setInputValue(container.querySelector("#account-label"), "Alice Mobile"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
-    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(sharedKey, { ...candidate, accountName: "Alice Mobile" }, { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: "shared-1", keyVersion: 1 });
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/accounts", expect.objectContaining({ method: "POST" }));
+    expect(mocks.encryptAccountConfiguration).toHaveBeenCalledWith(
+      sharedKey,
+      { ...candidate, accountName: "Alice Mobile" },
+      { purpose: "authenticator-account", payloadType: "totp-configuration", vaultId: "shared-1", keyVersion: 1 },
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/shared-vaults/shared-1/accounts",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(mocks.push).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).not.toHaveBeenCalled();
   });

@@ -5,6 +5,8 @@ import { AuthorizedOfflineBundleTransport, type EncryptedOfflineVaultBundle } fr
 
 const offlineBundles = new AuthorizedOfflineBundleTransport(browserAuthenticatedTransport);
 
-export async function fetchAuthorizedOfflineBundle(cached: EncryptedOfflineVaultBundle | null = null): Promise<EncryptedOfflineVaultBundle> {
+export async function fetchAuthorizedOfflineBundle(
+  cached: EncryptedOfflineVaultBundle | null = null,
+): Promise<EncryptedOfflineVaultBundle> {
   return offlineBundles.fetch(cached);
 }

@@ -1,4 +1,7 @@
-import type { ApplicationRateLimitMetrics, ApplicationRateLimitOutcome } from "../application/check-application-rate-limit";
+import type {
+  ApplicationRateLimitMetrics,
+  ApplicationRateLimitOutcome,
+} from "../application/check-application-rate-limit";
 import type { ApplicationRateLimitPolicyId } from "../domain/application-rate-limit-policy";
 
 const REPORT_INTERVAL_MS = 60_000;
@@ -13,7 +16,7 @@ export class BoundedRateLimitMetrics implements ApplicationRateLimitMetrics {
 
   constructor(
     private readonly now: () => number = Date.now,
-    private readonly report: (line: string) => void = console.info
+    private readonly report: (line: string) => void = console.info,
   ) {
     this.windowStartedAt = now();
   }
@@ -27,12 +30,14 @@ export class BoundedRateLimitMetrics implements ApplicationRateLimitMetrics {
 
   private flush(currentTime: number): void {
     if (this.counts.size > 0) {
-      this.report(JSON.stringify({
-        event: "application_rate_limit_metrics",
-        windowStartedAt: new Date(this.windowStartedAt).toISOString(),
-        windowSeconds: REPORT_INTERVAL_MS / 1_000,
-        counts: Object.fromEntries([...this.counts.entries()].sort(([left], [right]) => left.localeCompare(right)))
-      }));
+      this.report(
+        JSON.stringify({
+          event: "application_rate_limit_metrics",
+          windowStartedAt: new Date(this.windowStartedAt).toISOString(),
+          windowSeconds: REPORT_INTERVAL_MS / 1_000,
+          counts: Object.fromEntries([...this.counts.entries()].sort(([left], [right]) => left.localeCompare(right))),
+        }),
+      );
     }
     this.counts.clear();
     this.windowStartedAt = currentTime;

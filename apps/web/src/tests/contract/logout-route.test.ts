@@ -14,7 +14,7 @@ describe("POST /auth/logout contract", () => {
 
   it("keeps stale-session logout idempotent", async () => {
     const response = await createLogoutHandler({
-      sessionTerminator: { terminateCurrentSession: vi.fn().mockResolvedValue(undefined) }
+      sessionTerminator: { terminateCurrentSession: vi.fn().mockResolvedValue(undefined) },
     })(request());
 
     expect(response.status).toBe(303);
@@ -29,8 +29,8 @@ describe("POST /auth/logout contract", () => {
         origin: "https://vault.example.test",
         host: "internal:3000",
         "x-forwarded-host": "vault.example.test",
-        "x-forwarded-proto": "https"
-      }
+        "x-forwarded-proto": "https",
+      },
     });
     const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
 
@@ -41,7 +41,7 @@ describe("POST /auth/logout contract", () => {
 
   it("redirects to a redacted failure state when termination fails", async () => {
     const response = await createLogoutHandler({
-      sessionTerminator: { terminateCurrentSession: vi.fn().mockRejectedValue(new Error("provider details")) }
+      sessionTerminator: { terminateCurrentSession: vi.fn().mockRejectedValue(new Error("provider details")) },
     })(request());
 
     expect(response.status).toBe(303);
@@ -49,18 +49,21 @@ describe("POST /auth/logout contract", () => {
     expect(response.headers.get("location")).not.toContain("provider");
   });
 
-  it.each([null, "https://attacker.example.test"])("rejects a non-same-origin logout request from %s", async (origin) => {
-    const terminateCurrentSession = vi.fn();
-    const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(request(origin));
+  it.each([null, "https://attacker.example.test"])(
+    "rejects a non-same-origin logout request from %s",
+    async (origin) => {
+      const terminateCurrentSession = vi.fn();
+      const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(request(origin));
 
-    expect(response.status).toBe(403);
-    expect(terminateCurrentSession).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(403);
+      expect(terminateCurrentSession).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function request(origin: string | null = "https://vault.example.test"): NextRequest {
   return new NextRequest("https://vault.example.test/auth/logout", {
     method: "POST",
-    headers: origin ? { origin } : undefined
+    headers: origin ? { origin } : undefined,
   });
 }

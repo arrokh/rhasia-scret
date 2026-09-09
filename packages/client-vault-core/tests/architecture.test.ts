@@ -11,7 +11,8 @@ function sourceFiles(directory: string): string[] {
 
 describe("client-vault-core boundaries", () => {
   it("has no application, server, framework, or platform imports", () => {
-    const forbidden = /next(?:\/|['"]|$)|react(?:-dom|-native)?(?:\/|['"]|$)|expo(?:\/|['"]|$)|@prisma|@supabase|indexedDB|localStorage|sessionStorage|from ["'](?:fs|node:fs|http|https)["']/;
+    const forbidden =
+      /next(?:\/|['"]|$)|react(?:-dom|-native)?(?:\/|['"]|$)|expo(?:\/|['"]|$)|@prisma|@supabase|indexedDB|localStorage|sessionStorage|from ["'](?:fs|node:fs|http|https)["']/;
     for (const path of sourceFiles(join(process.cwd(), "src"))) {
       expect(readFileSync(path, "utf8"), path).not.toMatch(forbidden);
     }

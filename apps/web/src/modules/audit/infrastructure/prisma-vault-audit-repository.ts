@@ -1,7 +1,16 @@
-import { buildCursorPage, DEFAULT_CURSOR_PAGE_SIZE, type CursorPage, type CursorPageRequest } from "@/shared/application/cursor-page";
+import {
+  buildCursorPage,
+  DEFAULT_CURSOR_PAGE_SIZE,
+  type CursorPage,
+  type CursorPageRequest,
+} from "@/shared/application/cursor-page";
 import { timestampKeysetWhere } from "@/shared/infrastructure/prisma-cursor-pagination";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import type { RedactedVaultAuditEvent, VaultAuditFilter, VaultAuditRepository } from "../application/manage-vault-audit";
+import type {
+  RedactedVaultAuditEvent,
+  VaultAuditFilter,
+  VaultAuditRepository,
+} from "../application/manage-vault-audit";
 import { redactedAuditAction } from "../domain/vault-audit-event";
 import { auditPurgeAfter } from "../domain/vault-audit-retention-policy";
 import { appendVaultAuditEvent } from "./prisma-vault-audit-appender";
@@ -16,12 +25,23 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
         userId: actorUserId,
         status: "ACTIVE",
         role: { in: ["OWNER", "VIEWER"] },
-        vault: { type: "SHARED", lifecycle: "ACTIVE", deletedAt: null, accounts: { some: { id: accountId, deletedAt: null } } }
+        vault: {
+          type: "SHARED",
+          lifecycle: "ACTIVE",
+          deletedAt: null,
+          accounts: { some: { id: accountId, deletedAt: null } },
+        },
       },
-      select: { vault: { select: { ownerId: true } } }
+      select: { vault: { select: { ownerId: true } } },
     });
     if (!membership) return false;
-    await appendVaultAuditEvent(prisma, { vaultId, ownerId: membership.vault.ownerId, actorUserId, action: "ACCOUNT_ACCESSED", targetId: accountId });
+    await appendVaultAuditEvent(prisma, {
+      vaultId,
+      ownerId: membership.vault.ownerId,
+      actorUserId,
+      action: "ACCOUNT_ACCESSED",
+      targetId: accountId,
+    });
     return true;
   }
 
@@ -42,7 +62,11 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
     });
   }
 
-  public async recordPersonalAccountCopiesToLocal(ownerId: string, vaultId: string, accountIds: string[]): Promise<boolean> {
+  public async recordPersonalAccountCopiesToLocal(
+    ownerId: string,
+    vaultId: string,
+    accountIds: string[],
+  ): Promise<boolean> {
     if (!accountIds.length || new Set(accountIds).size !== accountIds.length) return false;
     return prisma.$transaction(async (transaction) => {
       const vaults = await transaction.$queryRaw<Array<{ id: string }>>`
@@ -58,7 +82,7 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
       if (!vaults[0]) return false;
       const accounts = await transaction.authenticatorAccount.findMany({
         where: { vaultId, id: { in: accountIds }, deletedAt: null },
-        select: { id: true }
+        select: { id: true },
       });
       if (accounts.length !== accountIds.length) return false;
       for (const accountId of accountIds) {
@@ -67,22 +91,29 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
           ownerId,
           actorUserId: ownerId,
           action: "ACCOUNT_COPIED_TO_LOCAL",
-          targetId: accountId
+          targetId: accountId,
         });
       }
       return true;
     });
   }
 
-  public async listForOwner(ownerId: string, vaultId: string, filter: VaultAuditFilter = {}, request: CursorPageRequest = { cursor: null, limit: DEFAULT_CURSOR_PAGE_SIZE }): Promise<CursorPage<RedactedVaultAuditEvent> | null> {
+  public async listForOwner(
+    ownerId: string,
+    vaultId: string,
+    filter: VaultAuditFilter = {},
+    request: CursorPageRequest = { cursor: null, limit: DEFAULT_CURSOR_PAGE_SIZE },
+  ): Promise<CursorPage<RedactedVaultAuditEvent> | null> {
     const now = this.now();
     const vault = await prisma.vault.findFirst({
       where: { id: vaultId, ownerId, lifecycle: { in: ["ACTIVE", "DELETED"] } },
-      select: { lifecycle: true, deletedAt: true }
+      select: { lifecycle: true, deletedAt: true },
     });
-    const retainedAfterVaultPurge = vault ? false : await prisma.vaultAuditEvent.count({
-      where: { vaultId, ownerId, retentionPurgeAfter: { gt: now } }
-    }) > 0;
+    const retainedAfterVaultPurge = vault
+      ? false
+      : (await prisma.vaultAuditEvent.count({
+          where: { vaultId, ownerId, retentionPurgeAfter: { gt: now } },
+        })) > 0;
     if (!vault && !retainedAfterVaultPurge) return null;
     if (vault?.lifecycle === "DELETED" && (!vault.deletedAt || auditPurgeAfter(vault.deletedAt) <= now)) return null;
 
@@ -95,16 +126,35 @@ export class PrismaVaultAuditRepository implements VaultAuditRepository {
           vault?.lifecycle === "ACTIVE"
             ? { OR: [{ ownerId }, { ownerId: null }] }
             : vault?.lifecycle === "DELETED"
-              ? { OR: [{ ownerId, retentionPurgeAfter: { gt: now } }, { ownerId: null, retentionPurgeAfter: null }] }
+              ? {
+                  OR: [
+                    { ownerId, retentionPurgeAfter: { gt: now } },
+                    { ownerId: null, retentionPurgeAfter: null },
+                  ],
+                }
               : { ownerId, retentionPurgeAfter: { gt: now } },
-          ...(request.cursor ? [timestampKeysetWhere(request.cursor, "id", "descending")] : [])
-        ]
+          ...(request.cursor ? [timestampKeysetWhere(request.cursor, "id", "descending")] : []),
+        ],
       },
-      select: { id: true, eventType: true, targetId: true, actorUserId: true, createdAt: true, actor: { select: { email: true } } },
+      select: {
+        id: true,
+        eventType: true,
+        targetId: true,
+        actorUserId: true,
+        createdAt: true,
+        actor: { select: { email: true } },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: request.limit + 1
+      take: request.limit + 1,
     });
-    const rows = events.map((event) => ({ id: event.id, eventType: redactedAuditAction(event.eventType), targetId: event.targetId, actorUserId: event.actorUserId, actorEmail: event.actor.email, createdAt: event.createdAt }));
+    const rows = events.map((event) => ({
+      id: event.id,
+      eventType: redactedAuditAction(event.eventType),
+      targetId: event.targetId,
+      actorUserId: event.actorUserId,
+      actorEmail: event.actor.email,
+      createdAt: event.createdAt,
+    }));
     return buildCursorPage(rows, request.limit, (event) => ({ createdAt: event.createdAt, key: event.id }));
   }
 }

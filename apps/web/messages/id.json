@@ -42,12 +42,57 @@
     "description": "Data yang ditangani rhasia-scret, data yang hanya berada di client, dan kendali yang menjadi tanggung jawab operator.",
     "fullDocument": "Baca dokumen privasi lengkap",
     "sections": {
-      "scope": { "title": "Batas aplikasi", "description": "Data Local Vault tetap di browser. Workflow Vault hosted mengirim payload terenkripsi dan hanya metadata yang diizinkan untuk operasinya.", "items": { "local": "Data Local Profile dan Local Vault, label, konfigurasi TOTP, rahasia, dan OTP tidak dikirim ke server rhasia-scret.", "hosted": "Client web dan native yang berwenang membuka konten Vault hosted dan membuat OTP; server menyimpan konten terenkripsi serta metadata siklus hidup dan otorisasi yang diizinkan." } },
-      "server": { "title": "Batas yang terlihat server", "description": "Kontrak zero-knowledge secara eksplisit membatasi apa yang boleh diterima server.", "items": { "allowed": "Metadata yang diizinkan meliputi ID buram, ciphertext, versi protokol, revisi, keanggotaan, tenggat penghapusan, aktor audit yang direduksi, jumlah terbatas, dan waktu atau ukuran operasi.", "excluded": "Vault Name, label akun, konfigurasi TOTP, OTP, data QR, passphrase, Vault key, kunci privat, kunci arsip, materi Secure Share Link, dan konten terdekripsi tetap hanya di client." } },
-      "providers": { "title": "Provider", "description": "Provider autentikasi, hosting, database, email, dan analitik opsional memiliki tanggung jawab operasi yang terpisah.", "items": { "auth": "Supabase Auth atau OIDC dapat menangani identitas provider, metadata email atau subject, event autentikasi, dan sesi; provider tidak menerima plaintext Vault dari aplikasi ini.", "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.", "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses Supabase Data API/RLS dari browser bukan bagian dari batas yang didukung.", "analytics": "PostHog dan Cloudflare Web Analytics bersifat opsional dan default-nya nonaktif. Saat diaktifkan, allowlist dan tinjauan payload operator berlaku." } },
-      "retention": { "title": "Retensi dan penghapusan", "description": "Periode penghapusan berlaku untuk record aplikasi, bukan semua provider eksternal atau salinan client.", "items": { "vault": "Authenticator Account yang dihapus sementara dan konten Shared Vault yang dihapus dapat dipurge permanen setelah 30 hari.", "audit": "Vault Audit History yang direduksi disimpan selama satu tahun kalender setelah Vault dihapus; pemulihan menghapus purge audit yang tertunda.", "limits": "Destructive Personal Vault Reset bukan pemulihan, dan rahasia atau plaintext yang sudah diperoleh client lain tidak dapat dihapus dari jarak jauh." } },
-      "responsibility": { "title": "Demo hosted dan self-hosting", "description": "Operator setiap deployment mengendalikan kontrak provider dan bukti operasi.", "items": { "hosted": "Operator demo hosted bertanggung jawab atas autentikasi, hosting, database, email, analitik, dukungan, penghapusan, dan pemberitahuan pengguna pada deployment tersebut.", "selfHosted": "Operator self-hosting bertanggung jawab atas controller, TLS dan callback, log, backup, jadwal purge, respons insiden, dan analitik yang diaktifkan." } },
-      "contact": { "title": "Pertanyaan dan laporan", "description": "Hubungi operator deployment untuk pertanyaan akun dan penghapusan. Gunakan dukungan project untuk dokumentasi publik dan issue yang dapat direproduksi.", "items": { "support": "Gunakan halaman Dukungan dan template issue publik hanya dengan bukti sintetis yang sudah direduksi.", "security": "Laporkan kerentanan secara privat melalui GitHub Security Advisory; jangan menaruh secret, cookie, token, atau materi Vault di issue publik." } }
+      "scope": {
+        "title": "Batas aplikasi",
+        "description": "Data Local Vault tetap di browser. Workflow Vault hosted mengirim payload terenkripsi dan hanya metadata yang diizinkan untuk operasinya.",
+        "items": {
+          "local": "Data Local Profile dan Local Vault, label, konfigurasi TOTP, rahasia, dan OTP tidak dikirim ke server rhasia-scret.",
+          "hosted": "Client web dan native yang berwenang membuka konten Vault hosted dan membuat OTP; server menyimpan konten terenkripsi serta metadata siklus hidup dan otorisasi yang diizinkan."
+        }
+      },
+      "server": {
+        "title": "Batas yang terlihat server",
+        "description": "Kontrak zero-knowledge secara eksplisit membatasi apa yang boleh diterima server.",
+        "items": {
+          "allowed": "Metadata yang diizinkan meliputi ID buram, ciphertext, versi protokol, revisi, keanggotaan, tenggat penghapusan, aktor audit yang direduksi, jumlah terbatas, dan waktu atau ukuran operasi.",
+          "excluded": "Vault Name, label akun, konfigurasi TOTP, OTP, data QR, passphrase, Vault key, kunci privat, kunci arsip, materi Secure Share Link, dan konten terdekripsi tetap hanya di client."
+        }
+      },
+      "providers": {
+        "title": "Provider",
+        "description": "Provider autentikasi, hosting, database, email, dan analitik opsional memiliki tanggung jawab operasi yang terpisah.",
+        "items": {
+          "auth": "Supabase Auth atau OIDC dapat menangani identitas provider, metadata email atau subject, event autentikasi, dan sesi; provider tidak menerima plaintext Vault dari aplikasi ini.",
+          "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.",
+          "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses Supabase Data API/RLS dari browser bukan bagian dari batas yang didukung.",
+          "analytics": "PostHog dan Cloudflare Web Analytics bersifat opsional dan default-nya nonaktif. Saat diaktifkan, allowlist dan tinjauan payload operator berlaku."
+        }
+      },
+      "retention": {
+        "title": "Retensi dan penghapusan",
+        "description": "Periode penghapusan berlaku untuk record aplikasi, bukan semua provider eksternal atau salinan client.",
+        "items": {
+          "vault": "Authenticator Account yang dihapus sementara dan konten Shared Vault yang dihapus dapat dipurge permanen setelah 30 hari.",
+          "audit": "Vault Audit History yang direduksi disimpan selama satu tahun kalender setelah Vault dihapus; pemulihan menghapus purge audit yang tertunda.",
+          "limits": "Destructive Personal Vault Reset bukan pemulihan, dan rahasia atau plaintext yang sudah diperoleh client lain tidak dapat dihapus dari jarak jauh."
+        }
+      },
+      "responsibility": {
+        "title": "Demo hosted dan self-hosting",
+        "description": "Operator setiap deployment mengendalikan kontrak provider dan bukti operasi.",
+        "items": {
+          "hosted": "Operator demo hosted bertanggung jawab atas autentikasi, hosting, database, email, analitik, dukungan, penghapusan, dan pemberitahuan pengguna pada deployment tersebut.",
+          "selfHosted": "Operator self-hosting bertanggung jawab atas controller, TLS dan callback, log, backup, jadwal purge, respons insiden, dan analitik yang diaktifkan."
+        }
+      },
+      "contact": {
+        "title": "Pertanyaan dan laporan",
+        "description": "Hubungi operator deployment untuk pertanyaan akun dan penghapusan. Gunakan dukungan project untuk dokumentasi publik dan issue yang dapat direproduksi.",
+        "items": {
+          "support": "Gunakan halaman Dukungan dan template issue publik hanya dengan bukti sintetis yang sudah direduksi.",
+          "security": "Laporkan kerentanan secara privat melalui GitHub Security Advisory; jangan menaruh secret, cookie, token, atau materi Vault di issue publik."
+        }
+      }
     }
   },
   "Support": {
@@ -56,10 +101,40 @@
     "description": "Pilih jalur aman untuk dokumentasi, bug, permintaan fitur, pertanyaan demo hosted, atau laporan keamanan.",
     "fullDocument": "Baca panduan dukungan lengkap",
     "sections": {
-      "channels": { "title": "Pilih jalur", "description": "Jenis deployment dan laporan yang berbeda memiliki pemilik yang berbeda.", "items": { "docs": "Mulai dari indeks dokumentasi dan panduan self-hosting untuk setup dan operasi.", "bug": "Gunakan template bug publik untuk perilaku yang dapat direproduksi dengan data sintetis.", "feature": "Gunakan template fitur atau dokumentasi untuk permintaan perbaikan yang fokus.", "security": "Gunakan formulir GitHub Security Advisory privat untuk kerentanan; jangan membuka issue publik." } },
-      "safe": { "title": "Laporan aman", "description": "Bukti dukungan harus tetap aman untuk dipublikasikan.", "items": { "include": "Sertakan release atau commit, platform, route, timestamp, kode error aman, identifier sintetis, dan langkah reproduksi yang sudah direduksi.", "exclude": "Jangan pernah menyertakan password, passphrase, OTP, secret TOTP, data QR, fragment Secure Share Link, cookie, authorization header, token provider, URL database, kunci arsip, atau konten terdekripsi." } },
-      "triage": { "title": "Triage dan eskalasi", "description": "Maintainer memberi label, mereproduksi, dan mengarahkan request melalui proses governance project.", "items": { "triage": "Request diberi label bug, fitur, dokumentasi, keamanan, atau pertanyaan dan ditautkan ke ADR atau issue yang relevan.", "escalate": "Insiden keamanan, privasi, otorisasi, retensi, provider, release, dan production dieskalasikan ke maintainer sebelum merge atau deployment." } },
-      "operator": { "title": "Operator deployment", "description": "Project tidak dapat memeriksa atau memulihkan data dari deployment yang dioperasikan secara mandiri.", "items": { "hosted": "Hubungi operator demo hosted untuk pertanyaan akun, penghapusan, provider, dan layanan.", "selfHosted": "Hubungi operator self-hosting Anda untuk database, backup, retensi, analitik, dan infrastrukturnya." } }
+      "channels": {
+        "title": "Pilih jalur",
+        "description": "Jenis deployment dan laporan yang berbeda memiliki pemilik yang berbeda.",
+        "items": {
+          "docs": "Mulai dari indeks dokumentasi dan panduan self-hosting untuk setup dan operasi.",
+          "bug": "Gunakan template bug publik untuk perilaku yang dapat direproduksi dengan data sintetis.",
+          "feature": "Gunakan template fitur atau dokumentasi untuk permintaan perbaikan yang fokus.",
+          "security": "Gunakan formulir GitHub Security Advisory privat untuk kerentanan; jangan membuka issue publik."
+        }
+      },
+      "safe": {
+        "title": "Laporan aman",
+        "description": "Bukti dukungan harus tetap aman untuk dipublikasikan.",
+        "items": {
+          "include": "Sertakan release atau commit, platform, route, timestamp, kode error aman, identifier sintetis, dan langkah reproduksi yang sudah direduksi.",
+          "exclude": "Jangan pernah menyertakan password, passphrase, OTP, secret TOTP, data QR, fragment Secure Share Link, cookie, authorization header, token provider, URL database, kunci arsip, atau konten terdekripsi."
+        }
+      },
+      "triage": {
+        "title": "Triage dan eskalasi",
+        "description": "Maintainer memberi label, mereproduksi, dan mengarahkan request melalui proses governance project.",
+        "items": {
+          "triage": "Request diberi label bug, fitur, dokumentasi, keamanan, atau pertanyaan dan ditautkan ke ADR atau issue yang relevan.",
+          "escalate": "Insiden keamanan, privasi, otorisasi, retensi, provider, release, dan production dieskalasikan ke maintainer sebelum merge atau deployment."
+        }
+      },
+      "operator": {
+        "title": "Operator deployment",
+        "description": "Project tidak dapat memeriksa atau memulihkan data dari deployment yang dioperasikan secara mandiri.",
+        "items": {
+          "hosted": "Hubungi operator demo hosted untuk pertanyaan akun, penghapusan, provider, dan layanan.",
+          "selfHosted": "Hubungi operator self-hosting Anda untuk database, backup, retensi, analitik, dan infrastrukturnya."
+        }
+      }
     }
   },
   "Home": {
@@ -93,34 +168,101 @@
           "device": { "browser": "Browser", "phone": "Ponsel", "desktop": "Aplikasi desktop" },
           "vault": "Brankas Lokal, Pribadi, atau Bersama Anda yang terenkripsi",
           "services": "Layanan terlindungi",
-          "localFirst": { "title": "Local-first", "description": "Mulai dan simpan kode di Brankas Lokal yang dapat diubah di perangkat Anda. Tidak ada yang berpindah sampai Anda memilih." },
-          "zeroKnowledge": { "title": "Zero knowledge", "description": "Konten Hosted Vault dienkripsi sebelum mencapai layanan; nama, label, pengaturan, dan OTP yang dapat dibaca tetap di browser Anda." },
-          "service": { "openai": "OpenAI", "instagram": "Instagram", "x": "X", "github": "GitHub", "google": "Google", "microsoft": "Microsoft", "discord": "Discord", "slack": "Slack", "facebook": "Facebook", "linkedin": "LinkedIn", "reddit": "Reddit", "spotify": "Spotify", "tiktok": "TikTok" },
+          "localFirst": {
+            "title": "Local-first",
+            "description": "Mulai dan simpan kode di Brankas Lokal yang dapat diubah di perangkat Anda. Tidak ada yang berpindah sampai Anda memilih."
+          },
+          "zeroKnowledge": {
+            "title": "Zero knowledge",
+            "description": "Konten Hosted Vault dienkripsi sebelum mencapai layanan; nama, label, pengaturan, dan OTP yang dapat dibaca tetap di browser Anda."
+          },
+          "service": {
+            "openai": "OpenAI",
+            "instagram": "Instagram",
+            "x": "X",
+            "github": "GitHub",
+            "google": "Google",
+            "microsoft": "Microsoft",
+            "discord": "Discord",
+            "slack": "Slack",
+            "facebook": "Facebook",
+            "linkedin": "LinkedIn",
+            "reddit": "Reddit",
+            "spotify": "Spotify",
+            "tiktok": "TikTok"
+          },
           "accountsTitle": "Brankas Anda dalam sekali lihat",
           "accountsDescription": "Tampilan contoh saja; label asli Anda tetap terenkripsi.",
           "copied": "Tersalin!",
           "account": {
-            "local": { "label": "GitHub · nama-Anda", "detail": "Hanya di browser ini", "vault": "Brankas Lokal", "access": "Hanya Anda" },
-            "personal": { "label": "Email · nama-Anda", "detail": "Brankas pribadi Anda yang terenkripsi", "vault": "Brankas Pribadi", "access": "Hanya Anda" },
-            "shared": { "label": "Workspace · tim", "detail": "Untuk keluarga atau rekan kerja", "vault": "Brankas Bersama", "access": "Keluarga atau rekan kerja" }
+            "local": {
+              "label": "GitHub · nama-Anda",
+              "detail": "Hanya di browser ini",
+              "vault": "Brankas Lokal",
+              "access": "Hanya Anda"
+            },
+            "personal": {
+              "label": "Email · nama-Anda",
+              "detail": "Brankas pribadi Anda yang terenkripsi",
+              "vault": "Brankas Pribadi",
+              "access": "Hanya Anda"
+            },
+            "shared": {
+              "label": "Workspace · tim",
+              "detail": "Untuk keluarga atau rekan kerja",
+              "vault": "Brankas Bersama",
+              "access": "Keluarga atau rekan kerja"
+            }
           },
           "note": "Ini bukan jalur sinkronisasi diam-diam: pemindahan akun antarbrankas selalu merupakan tindakan eksplisit."
         },
         "rows": {
-          "codes": { "label": "Kode OTP", "googleAuthenticator": "Kode offline yang tersimpan di aplikasi authenticator.", "otherAuthenticatorApps": "Kode offline dengan alur kerja yang ditentukan tiap aplikasi.", "rhasiaScret": "Kode offline dalam Local Vault yang dapat diubah—tanpa perlu masuk." },
-          "ownership": { "label": "Titik awal", "googleAuthenticator": "Aplikasi di perangkat Anda, dengan cadangan akun opsional.", "otherAuthenticatorApps": "Titik awal dan model cadangan berbeda di setiap aplikasi.", "rhasiaScret": "Vault lokal di browser dengan konten terbuka tetap di sisi klien." },
-          "moving": { "label": "Memindahkan akun", "googleAuthenticator": "Gunakan cadangan akun atau alat transfer perangkat.", "otherAuthenticatorApps": "Opsi cadangan dan transfer bervariasi per aplikasi.", "rhasiaScret": "Salin akun hanya saat diminta; Local Vault tidak pernah sinkron otomatis." },
-          "sharing": { "label": "Berbagi dengan tim", "googleAuthenticator": "Pemakaian pribadi dan transfer antarperangkat.", "otherAuthenticatorApps": "Fitur tim bergantung pada aplikasi dan paketnya.", "rhasiaScret": "Shared Vault menambahkan akses melalui undangan, izin, pencabutan akses, dan riwayat audit pemilik." }
+          "codes": {
+            "label": "Kode OTP",
+            "googleAuthenticator": "Kode offline yang tersimpan di aplikasi authenticator.",
+            "otherAuthenticatorApps": "Kode offline dengan alur kerja yang ditentukan tiap aplikasi.",
+            "rhasiaScret": "Kode offline dalam Local Vault yang dapat diubah—tanpa perlu masuk."
+          },
+          "ownership": {
+            "label": "Titik awal",
+            "googleAuthenticator": "Aplikasi di perangkat Anda, dengan cadangan akun opsional.",
+            "otherAuthenticatorApps": "Titik awal dan model cadangan berbeda di setiap aplikasi.",
+            "rhasiaScret": "Vault lokal di browser dengan konten terbuka tetap di sisi klien."
+          },
+          "moving": {
+            "label": "Memindahkan akun",
+            "googleAuthenticator": "Gunakan cadangan akun atau alat transfer perangkat.",
+            "otherAuthenticatorApps": "Opsi cadangan dan transfer bervariasi per aplikasi.",
+            "rhasiaScret": "Salin akun hanya saat diminta; Local Vault tidak pernah sinkron otomatis."
+          },
+          "sharing": {
+            "label": "Berbagi dengan tim",
+            "googleAuthenticator": "Pemakaian pribadi dan transfer antarperangkat.",
+            "otherAuthenticatorApps": "Fitur tim bergantung pada aplikasi dan paketnya.",
+            "rhasiaScret": "Shared Vault menambahkan akses melalui undangan, izin, pencabutan akses, dan riwayat audit pemilik."
+          }
         }
       },
       "flow": {
         "eyebrow": "Jalur yang disengaja",
         "title": "Tetap lokal. Pindah hanya saat bermanfaat.",
         "description": "Produk yang sama mendukung kepemilikan pribadi, encrypted hosting opsional, dan akses tim yang berkelanjutan—tanpa silent sync di antaranya.",
-        "client": { "title": "Mulai di perangkat Anda", "description": "Buat, ubah, impor, ekspor, dan buat OTP secara offline dalam Local Vault yang writable." },
-        "encrypted": { "title": "Pilih transisi ke cloud", "description": "Salin akun ke Hosted Vault hanya saat Anda meminta. Tidak ada upload atau tautan otomatis." },
-        "authorized": { "title": "Berbagi dengan governance", "description": "Shared Vault mendukung membership berkelanjutan, permissions, revocation, dan access audit history." },
-        "mobilePwa": { "title": "Simpan di ponsel Anda", "description": "Instal rhasia-scret sebagai PWA seluler untuk akses cepat tanpa app store." }
+        "client": {
+          "title": "Mulai di perangkat Anda",
+          "description": "Buat, ubah, impor, ekspor, dan buat OTP secara offline dalam Local Vault yang writable."
+        },
+        "encrypted": {
+          "title": "Pilih transisi ke cloud",
+          "description": "Salin akun ke Hosted Vault hanya saat Anda meminta. Tidak ada upload atau tautan otomatis."
+        },
+        "authorized": {
+          "title": "Berbagi dengan governance",
+          "description": "Shared Vault mendukung membership berkelanjutan, permissions, revocation, dan access audit history."
+        },
+        "mobilePwa": {
+          "title": "Simpan di ponsel Anda",
+          "description": "Instal rhasia-scret sebagai PWA seluler untuk akses cepat tanpa app store."
+        }
       },
       "boundary": {
         "eyebrow": "Batas yang dapat Anda verifikasi",
@@ -128,21 +270,42 @@
         "description": "Layanan dapat mengelola akses tanpa memegang Vault Names, rahasia, atau OTP di dalam Vault Anda.",
         "browser": {
           "title": "Browser Anda",
-          "authenticatorMaterial": { "title": "Kendali lokal Anda", "description": "Local Vault bekerja tanpa masuk atau koneksi ke server." },
-          "decryptedContent": { "title": "Konten Vault terbuka", "description": "Vault Names, Account Labels, pengaturan TOTP, dan OTP tetap client-only." }
+          "authenticatorMaterial": {
+            "title": "Kendali lokal Anda",
+            "description": "Local Vault bekerja tanpa masuk atau koneksi ke server."
+          },
+          "decryptedContent": {
+            "title": "Konten Vault terbuka",
+            "description": "Vault Names, Account Labels, pengaturan TOTP, dan OTP tetap client-only."
+          }
         },
         "service": {
           "title": "Layanan opsional",
-          "encryptedContent": { "title": "Hanya encrypted content", "description": "Konten Hosted Vault dienkripsi sebelum mencapai layanan." },
-          "accessMetadata": { "title": "Governed sharing", "description": "Authorization dan lifecycle metadata terbatas memungkinkan akses tim yang aman." }
+          "encryptedContent": {
+            "title": "Hanya encrypted content",
+            "description": "Konten Hosted Vault dienkripsi sebelum mencapai layanan."
+          },
+          "accessMetadata": {
+            "title": "Governed sharing",
+            "description": "Authorization dan lifecycle metadata terbatas memungkinkan akses tim yang aman."
+          }
         },
         "note": "Tidak ada silent upload, automatic synchronization, atau deletion propagation antara Local Vault dan Hosted Vault."
       },
       "principles": {
         "label": "Mengapa rhasia-scret",
-        "control": { "title": "Local adalah produk utuh", "description": "Simpan Local Vault offline yang writable di perangkat Anda—bukan versi uji coba dari layanan hosted." },
-        "privacy": { "title": "Cloud selalu eksplisit", "description": "Anda menentukan kapan akun disalin ke Personal Vault atau Shared Vault, tanpa koneksi tersembunyi setelahnya." },
-        "collaboration": { "title": "Tim tetap portabel", "description": "Gunakan provider-neutral sign-in, encrypted archive, dan hosted sharing opsional tanpa menyatukan OTP dengan kata sandi." }
+        "control": {
+          "title": "Local adalah produk utuh",
+          "description": "Simpan Local Vault offline yang writable di perangkat Anda—bukan versi uji coba dari layanan hosted."
+        },
+        "privacy": {
+          "title": "Cloud selalu eksplisit",
+          "description": "Anda menentukan kapan akun disalin ke Personal Vault atau Shared Vault, tanpa koneksi tersembunyi setelahnya."
+        },
+        "collaboration": {
+          "title": "Tim tetap portabel",
+          "description": "Gunakan provider-neutral sign-in, encrypted archive, dan hosted sharing opsional tanpa menyatukan OTP dengan kata sandi."
+        }
       }
     },
     "signIn": {

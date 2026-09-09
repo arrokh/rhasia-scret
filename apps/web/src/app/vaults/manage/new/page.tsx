@@ -7,7 +7,17 @@ export const dynamic = "force-dynamic";
 
 export default async function NewSharedVaultPage() {
   const t = await getTranslations("VaultManagement.pages");
-  return <VaultPageFrame backHref="/vaults/manage" backLabel={t("backDirectory")} title={t("newSharedTitle")} description={t("newSharedDescription")} contentLabel={t("newSharedLabel")}><NewSharedVaultContent /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults/manage"
+      backLabel={t("backDirectory")}
+      title={t("newSharedTitle")}
+      description={t("newSharedDescription")}
+      contentLabel={t("newSharedLabel")}
+    >
+      <NewSharedVaultContent />
+    </VaultPageFrame>
+  );
 }
 
 async function NewSharedVaultContent() {

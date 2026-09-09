@@ -10,7 +10,7 @@ describe("Vault", () => {
 
   it("rejects an uninitialized Shared Vault", () => {
     expect(() => new Vault("vault-1", "SHARED", "user-1", "UNINITIALIZED")).toThrow(
-      "Only a Personal Vault may be uninitialized."
+      "Only a Personal Vault may be uninitialized.",
     );
   });
 });

@@ -32,13 +32,15 @@ describe("MobilePersonalVaultRepository", () => {
     const salt = Uint8Array.from({ length: 16 }, (_, index) => index);
     const wrapped = Uint8Array.from({ length: 30 }, (_, index) => index + 1);
     const encryptedVaultKey = Uint8Array.from({ length: 30 }, (_, index) => index + 31);
-    const transport = new StubTransport([jsonResponse(200, {
-      vaultUnlockSalt: bytesToBase64(salt),
-      wrappedUserRootKey: bytesToBase64(wrapped),
-      encryptedPersonalVaultKey: bytesToBase64(encryptedVaultKey),
-      encryptionVersion: 1,
-      userEncryptionPublicKey: { kty: "EC" },
-    })]);
+    const transport = new StubTransport([
+      jsonResponse(200, {
+        vaultUnlockSalt: bytesToBase64(salt),
+        wrappedUserRootKey: bytesToBase64(wrapped),
+        encryptedPersonalVaultKey: bytesToBase64(encryptedVaultKey),
+        encryptionVersion: 1,
+        userEncryptionPublicKey: { kty: "EC" },
+      }),
+    ]);
     const repository = new MobilePersonalVaultRepository(transport);
 
     await expect(repository.loadCryptoProfile()).resolves.toEqual({
@@ -77,7 +79,9 @@ describe("MobilePersonalVaultRepository", () => {
   });
 
   it("rejects malformed lifecycle responses", async () => {
-    const repository = new MobilePersonalVaultRepository(new StubTransport([jsonResponse(200, { id: "vault-1", lifecycle: "DELETED" })]));
+    const repository = new MobilePersonalVaultRepository(
+      new StubTransport([jsonResponse(200, { id: "vault-1", lifecycle: "DELETED" })]),
+    );
 
     await expect(repository.load()).rejects.toMatchObject({ code: "invalid_response" });
   });

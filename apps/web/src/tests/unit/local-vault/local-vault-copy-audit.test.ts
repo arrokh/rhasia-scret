@@ -9,15 +9,15 @@ const mocks = vi.hoisted(() => ({
   auditCopiesToLocal: vi.fn(),
   createPersonalAccount: vi.fn(),
   refreshUnlockedLocalVault: vi.fn(),
-  unlockLocalVault: vi.fn()
+  unlockLocalVault: vi.fn(),
 }));
 
 vi.mock("@/modules/authenticator-account", () => ({
   encryptAccountConfiguration: vi.fn(async () => new Uint8Array([1, 2, 3])),
-  useCreateEncryptedAuthenticatorAccountMutation: () => ({ mutateAsync: mocks.createPersonalAccount })
+  useCreateEncryptedAuthenticatorAccountMutation: () => ({ mutateAsync: mocks.createPersonalAccount }),
 }));
 vi.mock("@/modules/local-vault", () => ({
-  addLocalAccount: mocks.addLocalAccount
+  addLocalAccount: mocks.addLocalAccount,
 }));
 vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-repository", () => ({
   BrowserLocalVaultRepository: class {
@@ -25,7 +25,7 @@ vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-repository", (
     create = vi.fn(async () => undefined);
     clear = vi.fn(async () => undefined);
   },
-  browserLocalVaultCapabilities: { isAvailable: () => true }
+  browserLocalVaultCapabilities: { isAvailable: () => true },
 }));
 vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-workflow", () => ({
   clearUnlockedLocalVault: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-workflow", () 
   LocalVaultMigrationRequiredError: class extends Error {},
   migrateLegacyLocalVault: vi.fn(),
   refreshUnlockedLocalVault: mocks.refreshUnlockedLocalVault,
-  unlockLocalVault: mocks.unlockLocalVault
+  unlockLocalVault: mocks.unlockLocalVault,
 }));
 vi.mock("@/modules/audit", () => ({ recordPersonalVaultAccountCopiesToLocal: mocks.auditCopiesToLocal }));
 
@@ -41,9 +41,36 @@ import { LocalVaultCopyPanel } from "@/modules/local-vault/presentation/local-va
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
-const localAccount = { id: "local-account-1", revision: 1, issuer: "Local issuer", accountName: "local@example.test", secret: new Uint8Array([1, 2, 3]), algorithm: "SHA-1" as const, digits: 6 as const, period: 30 };
-const personalAccount = { id: "personal-account-1", revision: 1, vaultId: "personal-vault-1", vaultName: "Personal", vaultType: "PERSONAL" as const, issuer: "Personal issuer", accountName: "personal@example.test", secret: new Uint8Array([4, 5, 6]), algorithm: "SHA-1" as const, digits: 6 as const, period: 30 };
-const unlockedLocalVault = { profileId: "local-profile-1", name: "Device", rootKey: new Uint8Array(32), vaultKey: new Uint8Array(32), accounts: [localAccount] };
+const localAccount = {
+  id: "local-account-1",
+  revision: 1,
+  issuer: "Local issuer",
+  accountName: "local@example.test",
+  secret: new Uint8Array([1, 2, 3]),
+  algorithm: "SHA-1" as const,
+  digits: 6 as const,
+  period: 30,
+};
+const personalAccount = {
+  id: "personal-account-1",
+  revision: 1,
+  vaultId: "personal-vault-1",
+  vaultName: "Personal",
+  vaultType: "PERSONAL" as const,
+  issuer: "Personal issuer",
+  accountName: "personal@example.test",
+  secret: new Uint8Array([4, 5, 6]),
+  algorithm: "SHA-1" as const,
+  digits: 6 as const,
+  period: 30,
+};
+const unlockedLocalVault = {
+  profileId: "local-profile-1",
+  name: "Device",
+  rootKey: new Uint8Array(32),
+  vaultKey: new Uint8Array(32),
+  accounts: [localAccount],
+};
 
 let root: Root | undefined;
 afterEach(async () => {
@@ -64,13 +91,17 @@ describe("Local and Personal Vault copy audit", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(LocalVaultCopyPanel, {
-      personalVaultId: "personal-vault-1",
-      personalVaultName: "Personal",
-      personalVaultKey: new Uint8Array(32),
-      personalAccounts: [personalAccount],
-      onPersonalAccountsCopied: vi.fn()
-    })));
+    await act(async () =>
+      root?.render(
+        createElement(LocalVaultCopyPanel, {
+          personalVaultId: "personal-vault-1",
+          personalVaultName: "Personal",
+          personalVaultKey: new Uint8Array(32),
+          personalAccounts: [personalAccount],
+          onPersonalAccountsCopied: vi.fn(),
+        }),
+      ),
+    );
     await vi.waitFor(() => expect(container.querySelector("#copy-local-vault-passphrase")).not.toBeNull());
     await fill(container.querySelector<HTMLInputElement>("#copy-local-vault-passphrase"), "local-passphrase");
     await act(async () => findButton(container, "Buka untuk menyalin").click());
@@ -79,11 +110,13 @@ describe("Local and Personal Vault copy audit", () => {
     await act(async () => container.querySelector<HTMLElement>("#copy-local-account-1")?.click());
     await act(async () => findButton(container, "Salin pilihan ke Brankas Pribadi").click());
     await vi.waitFor(() => expect(mocks.createPersonalAccount).toHaveBeenCalled());
-    expect(mocks.createPersonalAccount).toHaveBeenCalledWith(expect.objectContaining({
-      vaultId: "personal-vault-1",
-      vaultType: "PERSONAL",
-      source: "LOCAL_VAULT_COPY"
-    }));
+    expect(mocks.createPersonalAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vaultId: "personal-vault-1",
+        vaultType: "PERSONAL",
+        source: "LOCAL_VAULT_COPY",
+      }),
+    );
 
     await act(async () => container.querySelector<HTMLElement>("#copy-personal-account-1")?.click());
     await act(async () => findButton(container, "Salin pilihan ke Brankas Lokal").click());
@@ -100,13 +133,17 @@ describe("Local and Personal Vault copy audit", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(LocalVaultCopyPanel, {
-      personalVaultId: "personal-vault-1",
-      personalVaultName: "Personal",
-      personalVaultKey: new Uint8Array(32),
-      personalAccounts: [personalAccount],
-      onPersonalAccountsCopied: vi.fn()
-    })));
+    await act(async () =>
+      root?.render(
+        createElement(LocalVaultCopyPanel, {
+          personalVaultId: "personal-vault-1",
+          personalVaultName: "Personal",
+          personalVaultKey: new Uint8Array(32),
+          personalAccounts: [personalAccount],
+          onPersonalAccountsCopied: vi.fn(),
+        }),
+      ),
+    );
     await vi.waitFor(() => expect(container.querySelector("#copy-local-vault-passphrase")).not.toBeNull());
     await fill(container.querySelector<HTMLInputElement>("#copy-local-vault-passphrase"), "local-passphrase");
     await act(async () => findButton(container, "Buka untuk menyalin").click());
@@ -128,7 +165,9 @@ async function fill(input: HTMLInputElement | null, value: string): Promise<void
 }
 
 function findButton(container: ParentNode, name: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.includes(name));
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) =>
+    candidate.textContent?.includes(name),
+  );
   if (!button) throw new Error(`Expected button: ${name}`);
   return button;
 }

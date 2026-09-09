@@ -1,10 +1,20 @@
 "use client";
 
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse, PlatformHttpHeaders, PortDisposer } from "@rhasia-scret/client-vault-core";
+import type {
+  AuthenticatedTransport,
+  PlatformHttpRequest,
+  PlatformHttpResponse,
+  PlatformHttpHeaders,
+  PortDisposer,
+} from "@rhasia-scret/client-vault-core";
 import { assertBrowserMutationAllowed } from "./browser-write-policy";
 
 export class BrowserApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
     super(message);
     this.name = "BrowserApiError";
   }
@@ -18,7 +28,8 @@ export class BrowserApiClient {
   }
 
   async requestPlatform(request: PlatformHttpRequest): Promise<PlatformHttpResponse> {
-    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") assertBrowserMutationAllowed();
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS")
+      assertBrowserMutationAllowed();
     const adaptedSignal = request.signal ? toAbortSignal(request.signal) : undefined;
     try {
       const response = await fetch(request.url, {
@@ -26,7 +37,7 @@ export class BrowserApiClient {
         headers: request.headers,
         body: typeof request.body === "string" ? request.body : request.body ? request.body.slice() : undefined,
         cache: request.cache,
-        signal: adaptedSignal?.signal
+        signal: adaptedSignal?.signal,
       });
       return new BrowserPlatformResponse(response);
     } finally {
@@ -86,7 +97,7 @@ export class BrowserApiClient {
     if (response.ok) return;
     let code: string | undefined;
     try {
-      const body = await response.json() as unknown;
+      const body = (await response.json()) as unknown;
       if (body && typeof body === "object" && typeof (body as Record<string, unknown>).error === "string") {
         code = (body as Record<string, string>).error;
       }
@@ -129,7 +140,10 @@ class BrowserPlatformResponse implements PlatformHttpResponse {
   }
 }
 
-function toAbortSignal(signal: { readonly aborted: boolean; subscribe(listener: () => void): PortDisposer }): { signal: AbortSignal; dispose: PortDisposer } {
+function toAbortSignal(signal: { readonly aborted: boolean; subscribe(listener: () => void): PortDisposer }): {
+  signal: AbortSignal;
+  dispose: PortDisposer;
+} {
   const controller = new AbortController();
   const dispose = signal.aborted ? () => undefined : signal.subscribe(() => controller.abort());
   if (signal.aborted) controller.abort();
@@ -138,5 +152,5 @@ function toAbortSignal(signal: { readonly aborted: boolean; subscribe(listener: 
 
 export const browserApiClient = new BrowserApiClient();
 export const browserAuthenticatedTransport: AuthenticatedTransport = {
-  request: (request) => browserApiClient.requestPlatform(request)
+  request: (request) => browserApiClient.requestPlatform(request),
 };

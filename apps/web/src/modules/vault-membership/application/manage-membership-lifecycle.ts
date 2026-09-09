@@ -5,7 +5,12 @@ export interface MembershipLifecycleRepository {
   leave(viewerId: string, vaultId: string): Promise<void>;
 }
 
-export function revokeVaultMembership(ownerId: string, vaultId: string, memberUserId: string, repository: MembershipLifecycleRepository) {
+export function revokeVaultMembership(
+  ownerId: string,
+  vaultId: string,
+  memberUserId: string,
+  repository: MembershipLifecycleRepository,
+) {
   return repository.revoke(ownerId, vaultId, memberUserId);
 }
 

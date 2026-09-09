@@ -4,22 +4,26 @@ import { PrismaSharedVaultAccessRepository } from "./infrastructure/prisma-share
 import { PrismaSharedVaultAccountPermissionRepository } from "./infrastructure/prisma-shared-vault-account-permission-repository";
 import { PrismaVaultParticipantRepository } from "./infrastructure/prisma-vault-participant-repository";
 
-export { leaveVaultMembership, MembershipUnavailableError, revokeVaultMembership } from "./application/manage-membership-lifecycle";
+export {
+  leaveVaultMembership,
+  MembershipUnavailableError,
+  revokeVaultMembership,
+} from "./application/manage-membership-lifecycle";
 export {
   createSecureShareLinkInvitation,
   findSecureShareLinkForRecipient,
-  redeemSecureShareLinkForRecipient
+  redeemSecureShareLinkForRecipient,
 } from "./application/manage-secure-share-link";
 export {
   loadSharedVaultMemberPermissionDefaults,
   updateSharedVaultMemberPermissionOverrides,
-  updateSharedVaultMemberPermissionDefaults
+  updateSharedVaultMemberPermissionDefaults,
 } from "./application/manage-shared-vault-account-permissions";
 export { cancelPendingVaultInvitation, listVaultParticipantsForOwner } from "./application/manage-vault-participants";
 export {
   InvitationConflictError,
   InvitationRecipientUnavailableError,
-  SecureShareLinkUnavailableError
+  SecureShareLinkUnavailableError,
 } from "./application/secure-share-link-repository";
 export type { SharedVaultAccessRepository } from "./application/shared-vault-access-repository";
 export { parseVaultParticipantCursorKey } from "./application/vault-participant-repository";

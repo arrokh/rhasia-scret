@@ -8,7 +8,7 @@ const requiredOidc = {
   OIDC_CLIENT_ID: "client-id",
   OIDC_CLIENT_SECRET: "server-secret",
   OIDC_REDIRECT_URI: "http://localhost:3000/auth/oidc/callback",
-  OIDC_SESSION_SECRET: "12345678901234567890123456789012"
+  OIDC_SESSION_SECRET: "12345678901234567890123456789012",
 };
 
 afterEach(() => vi.unstubAllEnvs());
@@ -26,8 +26,12 @@ describe("authentication backend configuration", () => {
 
   it("requires all server-only OIDC settings and a strong session secret", () => {
     vi.stubEnv("AUTH_BACKEND", "oidc");
-    expect(readAuthConfiguration({ ...requiredOidc, OIDC_REDIRECT_URI: "http://127.0.0.1:3000/auth/oidc/callback" }).backend).toBe("oidc");
-    expect(() => readAuthConfiguration({ ...requiredOidc, OIDC_SESSION_SECRET: "short" })).toThrow("OIDC_SESSION_SECRET");
+    expect(
+      readAuthConfiguration({ ...requiredOidc, OIDC_REDIRECT_URI: "http://127.0.0.1:3000/auth/oidc/callback" }).backend,
+    ).toBe("oidc");
+    expect(() => readAuthConfiguration({ ...requiredOidc, OIDC_SESSION_SECRET: "short" })).toThrow(
+      "OIDC_SESSION_SECRET",
+    );
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "oidc", NODE_ENV: "test" })).toThrow("OIDC_ISSUER");
   });
 

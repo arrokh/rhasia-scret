@@ -18,30 +18,49 @@ describe("i18n architecture boundaries", () => {
     const imports = sourceFiles(sourceRoot)
       .filter((path) => readFileSync(path, "utf8").includes("next-intl"))
       .map((path) => relative(root, path));
-    const forbidden = imports.filter((path) => !/^(?:src\/(?:app|i18n|shared\/presentation|types|tests)|src\/modules\/[^/]+\/presentation)\//.test(path));
+    const forbidden = imports.filter(
+      (path) =>
+        !/^(?:src\/(?:app|i18n|shared\/presentation|types|tests)|src\/modules\/[^/]+\/presentation)\//.test(path),
+    );
     expect(forbidden).toEqual([]);
   });
 
   it("centralizes explicit formatting locales and forbids rendered lower-layer error messages", () => {
-    const runtime = sourceFiles(sourceRoot).filter((path) => !path.includes("/tests/") && !path.endsWith("src/i18n/config.ts"));
-    const localeLeaks = runtime.filter((path) => /["'](?:id-ID|en-US)["']|\.toLocaleString\(/.test(readFileSync(path, "utf8"))).map((path) => relative(root, path));
+    const runtime = sourceFiles(sourceRoot).filter(
+      (path) => !path.includes("/tests/") && !path.endsWith("src/i18n/config.ts"),
+    );
+    const localeLeaks = runtime
+      .filter((path) => /["'](?:id-ID|en-US)["']|\.toLocaleString\(/.test(readFileSync(path, "utf8")))
+      .map((path) => relative(root, path));
     expect(localeLeaks).toEqual([]);
 
     const presentation = runtime.filter((path) => path.includes("/presentation/") || path.includes("/app/"));
-    const rawMessages = presentation.filter((path) => /set(?:Error|Message)\([^\n;]*\.message|\{\s*(?:error|reason)\.message\s*\}/.test(readFileSync(path, "utf8"))).map((path) => relative(root, path));
+    const rawMessages = presentation
+      .filter((path) =>
+        /set(?:Error|Message)\([^\n;]*\.message|\{\s*(?:error|reason)\.message\s*\}/.test(readFileSync(path, "utf8")),
+      )
+      .map((path) => relative(root, path));
     expect(rawMessages).toEqual([]);
   });
 
   it("contains no untranslated literal JSX copy outside approved technical and brand values", () => {
-    const candidates = [join(sourceRoot, "app"), join(sourceRoot, "modules"), join(sourceRoot, "shared", "presentation")]
+    const candidates = [
+      join(sourceRoot, "app"),
+      join(sourceRoot, "modules"),
+      join(sourceRoot, "shared", "presentation"),
+    ]
       .flatMap(sourceFiles)
       .filter((path) => path.endsWith(".tsx") && !path.includes("/app/api/"));
     const literals = candidates.flatMap(userFacingJsxLiterals);
     expect(literals).toEqual([
       { path: "src/app/page.tsx", kind: "alt", value: "" },
       { path: "src/app/page.tsx", kind: "alt", value: "" },
-      { path: "src/modules/authenticator-account/presentation/qr-import-input.tsx", kind: "placeholder", value: "otpauth://totp/…" },
-      { path: "src/shared/presentation/app-ui.tsx", kind: "alt", value: "" }
+      {
+        path: "src/modules/authenticator-account/presentation/qr-import-input.tsx",
+        kind: "placeholder",
+        value: "otpauth://totp/…",
+      },
+      { path: "src/shared/presentation/app-ui.tsx", kind: "alt", value: "" },
     ]);
   });
 
@@ -62,14 +81,28 @@ function userFacingJsxLiterals(path: string): Array<{ path: string; kind: string
   const source = readFileSync(path, "utf8");
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const found: Array<{ path: string; kind: string; value: string }> = [];
-  const userAttributes = new Set(["alt", "aria-label", "backLabel", "confirmLabel", "description", "placeholder", "title"]);
+  const userAttributes = new Set([
+    "alt",
+    "aria-label",
+    "backLabel",
+    "confirmLabel",
+    "description",
+    "placeholder",
+    "title",
+  ]);
 
   function visit(node: ts.Node) {
     if (ts.isJsxText(node)) {
       const value = node.text.replace(/\s+/g, " ").trim();
-      if (/[A-Za-zÀ-ž]/.test(value) && !["arrokh", "rhasia-", "scret"].includes(value)) found.push({ path: relativePath, kind: "text", value });
+      if (/[A-Za-zÀ-ž]/.test(value) && !["arrokh", "rhasia-", "scret"].includes(value))
+        found.push({ path: relativePath, kind: "text", value });
     }
-    if (ts.isJsxAttribute(node) && userAttributes.has(node.name.getText(sourceFile)) && node.initializer && ts.isStringLiteral(node.initializer)) {
+    if (
+      ts.isJsxAttribute(node) &&
+      userAttributes.has(node.name.getText(sourceFile)) &&
+      node.initializer &&
+      ts.isStringLiteral(node.initializer)
+    ) {
       found.push({ path: relativePath, kind: node.name.getText(sourceFile), value: node.initializer.text });
     }
     ts.forEachChild(node, visit);

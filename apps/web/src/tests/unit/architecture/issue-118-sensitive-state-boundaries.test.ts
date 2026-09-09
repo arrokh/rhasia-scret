@@ -8,7 +8,9 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 describe("issue 118 architecture and sensitive-state boundaries", () => {
   it("keeps the Local Vault session application seam platform-neutral", () => {
     const session = read("src/modules/local-vault/application/local-vault-session.ts");
-    expect(session).not.toMatch(/from ["'](?:next|react|react-native|expo|@prisma|@supabase)|\bwindow\b|\bdocument\b|\bnavigator\b|indexedDB|localStorage|sessionStorage/);
+    expect(session).not.toMatch(
+      /from ["'](?:next|react|react-native|expo|@prisma|@supabase)|\bwindow\b|\bdocument\b|\bnavigator\b|indexedDB|localStorage|sessionStorage/,
+    );
   });
 
   it("keeps Local Vault plaintext state outside Query and persistent caches", () => {
@@ -18,7 +20,9 @@ describe("issue 118 architecture and sensitive-state boundaries", () => {
       "src/modules/local-vault/presentation/use-local-vault-session.ts",
       "src/modules/local-vault/presentation/local-vault-page.tsx",
       "src/modules/local-vault/presentation/local-vault-copy-panel.tsx",
-    ].map(read).join("\n");
+    ]
+      .map(read)
+      .join("\n");
     expect(localVaultSources).not.toMatch(/@tanstack\/react-query|useQuery|useMutation|queryClient/i);
     expect(localVaultSources).not.toMatch(/localStorage|sessionStorage|CacheStorage|caches\.|console\./i);
   });
@@ -30,8 +34,12 @@ describe("issue 118 architecture and sensitive-state boundaries", () => {
       "src/modules/local-vault/presentation/local-vault-copy-panel.tsx",
       "../mobile/src/presentation/mobile-personal-vault.tsx",
       "../mobile/src/presentation/mobile-authenticator-accounts.tsx",
-    ].map(read).join("\n");
-    expect(presentationSources).not.toMatch(/\.request\s*\(|browserApiClient\.(?:get|post|put|patch|delete)\s*\(|\bfetch\s*\(/);
+    ]
+      .map(read)
+      .join("\n");
+    expect(presentationSources).not.toMatch(
+      /\.request\s*\(|browserApiClient\.(?:get|post|put|patch|delete)\s*\(|\bfetch\s*\(/,
+    );
   });
 
   it("keeps lifecycle and Local Vault cleanup explicit", () => {

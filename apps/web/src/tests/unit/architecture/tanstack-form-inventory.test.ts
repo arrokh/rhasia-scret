@@ -39,7 +39,7 @@ describe("TanStack Form inventory", () => {
       { path: "src/modules/vault-management/presentation/personal-vault-setup-form.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/shared-vault-creator.tsx", count: 1 },
       { path: "src/modules/vault-management/presentation/shared-vault-manager.tsx", count: 1 },
-      { path: "src/modules/vault-membership/presentation/vault-membership-owner-panel.tsx", count: 3 }
+      { path: "src/modules/vault-membership/presentation/vault-membership-owner-panel.tsx", count: 3 },
     ]);
     for (const form of forms) {
       expect(form.source, form.path).toContain("@tanstack/react-form");
@@ -48,7 +48,9 @@ describe("TanStack Form inventory", () => {
   });
 
   it("does not retain legacy event-owned form submission handlers", () => {
-    const legacyFiles = sourceFiles(sourceRoot).filter((path) => /FormEvent<HTMLFormElement>|React\.FormEvent<HTMLFormElement>/.test(readFileSync(path, "utf8")));
+    const legacyFiles = sourceFiles(sourceRoot).filter((path) =>
+      /FormEvent<HTMLFormElement>|React\.FormEvent<HTMLFormElement>/.test(readFileSync(path, "utf8")),
+    );
     expect(legacyFiles).toEqual([]);
   });
 });

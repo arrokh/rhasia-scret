@@ -6,7 +6,7 @@ export class ApplicationUser {
     public readonly issuer: string,
     public readonly subject: string,
     public readonly email: string,
-    public readonly status: ApplicationUserStatus
+    public readonly status: ApplicationUserStatus,
   ) {
     if (!id || !issuer || !subject || !email) throw new Error("Application user identity is required.");
   }

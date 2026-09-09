@@ -1,5 +1,8 @@
 import { purgeExpiredVaultAuditEvents, type ExpiredVaultAuditRepository } from "@/modules/audit/server";
-import { purgeExpiredAuthenticatorAccounts, type ExpiredAccountPurgeRepository } from "@/modules/authenticator-account/server";
+import {
+  purgeExpiredAuthenticatorAccounts,
+  type ExpiredAccountPurgeRepository,
+} from "@/modules/authenticator-account/server";
 import { purgeExpiredSharedVaults, type ExpiredVaultRetentionRepository } from "@/modules/vault-management/server";
 
 export type RetentionPurgeReport = {
@@ -17,7 +20,7 @@ export async function runRetentionPurge({
   audit,
   now,
   batchSize = 100,
-  maxBatches = 10
+  maxBatches = 10,
 }: {
   accounts: ExpiredAccountPurgeRepository;
   vaults: ExpiredVaultRetentionRepository;
@@ -26,9 +29,14 @@ export async function runRetentionPurge({
   batchSize?: number;
   maxBatches?: number;
 }): Promise<RetentionPurgeReport> {
-  if (!Number.isSafeInteger(maxBatches) || maxBatches < 1 || maxBatches > 20) throw new Error("Retention purge max batches must be between 1 and 20.");
+  if (!Number.isSafeInteger(maxBatches) || maxBatches < 1 || maxBatches > 20)
+    throw new Error("Retention purge max batches must be between 1 and 20.");
 
-  const accountResult = await drain((size) => purgeExpiredAuthenticatorAccounts(accounts, now, size), batchSize, maxBatches);
+  const accountResult = await drain(
+    (size) => purgeExpiredAuthenticatorAccounts(accounts, now, size),
+    batchSize,
+    maxBatches,
+  );
   const vaultResult = await drain((size) => purgeExpiredSharedVaults(vaults, now, size), batchSize, maxBatches);
   const auditResult = await drain((size) => purgeExpiredVaultAuditEvents(audit, now, size), batchSize, maxBatches);
   return {
@@ -37,14 +45,14 @@ export async function runRetentionPurge({
     auditEventIds: auditResult.ids,
     accountBacklogRemaining: accountResult.backlogRemaining,
     vaultBacklogRemaining: vaultResult.backlogRemaining,
-    auditBacklogRemaining: auditResult.backlogRemaining
+    auditBacklogRemaining: auditResult.backlogRemaining,
   };
 }
 
 async function drain(
   purge: (batchSize: number) => Promise<{ purgedIds: string[] }>,
   batchSize: number,
-  maxBatches: number
+  maxBatches: number,
 ): Promise<{ ids: string[]; backlogRemaining: boolean }> {
   const ids: string[] = [];
   let lastBatchSize = 0;

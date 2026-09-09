@@ -152,12 +152,15 @@ export function createClientCryptoPort(primitives: CryptoPrimitivePort): ClientC
     },
     encryptPayload: (key, plaintext, additionalData) => encrypt(legacyVersion, key, plaintext, additionalData),
     decryptPayload: (key, envelope, additionalData) => {
-      if (envelope.version !== legacyVersion) throw new Error("Context-bound envelope requires an authenticated context.");
+      if (envelope.version !== legacyVersion)
+        throw new Error("Context-bound envelope requires an authenticated context.");
       return decrypt(key, envelope, additionalData);
     },
-    encryptPayloadWithContext: (key, plaintext, context) => encrypt(currentVersion, key, plaintext, serializeCryptoEnvelopeContext(context)),
+    encryptPayloadWithContext: (key, plaintext, context) =>
+      encrypt(currentVersion, key, plaintext, serializeCryptoEnvelopeContext(context)),
     decryptPayloadWithContext: (key, envelope, context) => {
-      if (envelope.version !== currentVersion) throw new Error("Legacy envelope requires an explicit migration before use.");
+      if (envelope.version !== currentVersion)
+        throw new Error("Legacy envelope requires an explicit migration before use.");
       return decrypt(key, envelope, serializeCryptoEnvelopeContext(context));
     },
     serializeEncryptedEnvelope,
@@ -169,15 +172,18 @@ export function createClientCryptoPort(primitives: CryptoPrimitivePort): ClientC
       return { publicKey: { ...pair.publicKey }, privateKey: { ...pair.privateKey } };
     },
     wrapKeyForRecipient: (vaultKey, recipientPublicKey) => wrapKey(vaultKey, recipientPublicKey),
-    wrapKeyForRecipientWithContext: (vaultKey, recipientPublicKey, context) => wrapKey(vaultKey, recipientPublicKey, context),
+    wrapKeyForRecipientWithContext: (vaultKey, recipientPublicKey, context) =>
+      wrapKey(vaultKey, recipientPublicKey, context),
     serializeKeyWrapEnvelope,
     deserializeKeyWrapEnvelope,
     unwrapKeyForRecipient: (envelope, recipientPrivateKey) => {
-      if (envelope.version !== legacyVersion) throw new Error("Context-bound key package requires an authenticated context.");
+      if (envelope.version !== legacyVersion)
+        throw new Error("Context-bound key package requires an authenticated context.");
       return unwrapKey(envelope, recipientPrivateKey);
     },
     unwrapKeyForRecipientWithContext: (envelope, recipientPrivateKey, context) => {
-      if (envelope.version !== currentVersion) throw new Error("Legacy key package requires an explicit migration before use.");
+      if (envelope.version !== currentVersion)
+        throw new Error("Legacy key package requires an explicit migration before use.");
       return unwrapKey(envelope, recipientPrivateKey, context);
     },
   };
@@ -193,7 +199,10 @@ export function serializeEncryptedEnvelope(envelope: EncryptedEnvelope): Uint8Ar
 }
 
 export function deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelope {
-  if (bytes.length <= 1 + nonceBytes + authenticationTagBytes || (bytes[0] !== legacyVersion && bytes[0] !== currentVersion)) {
+  if (
+    bytes.length <= 1 + nonceBytes + authenticationTagBytes ||
+    (bytes[0] !== legacyVersion && bytes[0] !== currentVersion)
+  ) {
     throw new Error("Unsupported encrypted envelope.");
   }
   return {
@@ -205,12 +214,14 @@ export function deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelo
 
 export function serializeKeyWrapEnvelope(envelope: KeyWrapEnvelope): Uint8Array {
   validateKeyWrapEnvelope(envelope);
-  return new TextEncoder().encode(JSON.stringify({
-    version: envelope.version,
-    nonce: bytesToBase64(envelope.nonce),
-    ciphertext: bytesToBase64(envelope.ciphertext),
-    ephemeralPublicKey: envelope.ephemeralPublicKey,
-  }));
+  return new TextEncoder().encode(
+    JSON.stringify({
+      version: envelope.version,
+      nonce: bytesToBase64(envelope.nonce),
+      ciphertext: bytesToBase64(envelope.ciphertext),
+      ephemeralPublicKey: envelope.ephemeralPublicKey,
+    }),
+  );
 }
 
 export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
@@ -224,8 +235,13 @@ export function deserializeKeyWrapEnvelope(bytes: Uint8Array): KeyWrapEnvelope {
   if (!isRecord(parsed) || !hasExactKeys(parsed, ["ciphertext", "ephemeralPublicKey", "nonce", "version"])) {
     throw new Error("Encrypted key package is invalid.");
   }
-  if (parsed.version !== legacyVersion && parsed.version !== currentVersion) throw new Error("Encrypted key package is invalid.");
-  if (typeof parsed.nonce !== "string" || typeof parsed.ciphertext !== "string" || !isRecord(parsed.ephemeralPublicKey)) {
+  if (parsed.version !== legacyVersion && parsed.version !== currentVersion)
+    throw new Error("Encrypted key package is invalid.");
+  if (
+    typeof parsed.nonce !== "string" ||
+    typeof parsed.ciphertext !== "string" ||
+    !isRecord(parsed.ephemeralPublicKey)
+  ) {
     throw new Error("Encrypted key package is invalid.");
   }
   try {
@@ -268,9 +284,9 @@ function validateKey(key: Uint8Array): void {
 
 function validateEnvelope(envelope: EncryptedEnvelope): void {
   if (
-    (envelope.version !== legacyVersion && envelope.version !== currentVersion)
-    || envelope.nonce.length !== nonceBytes
-    || envelope.ciphertext.length < authenticationTagBytes
+    (envelope.version !== legacyVersion && envelope.version !== currentVersion) ||
+    envelope.nonce.length !== nonceBytes ||
+    envelope.ciphertext.length < authenticationTagBytes
   ) {
     throw new Error("Unsupported encrypted envelope.");
   }
@@ -282,7 +298,13 @@ function validateKeyWrapEnvelope(envelope: KeyWrapEnvelope): void {
 }
 
 function validatePublicKey(value: PortableJsonWebKey): void {
-  if (value.kty !== "EC" || value.crv !== "P-256" || typeof value.x !== "string" || typeof value.y !== "string" || "d" in value) {
+  if (
+    value.kty !== "EC" ||
+    value.crv !== "P-256" ||
+    typeof value.x !== "string" ||
+    typeof value.y !== "string" ||
+    "d" in value
+  ) {
     throw new Error("ECDH public key is invalid.");
   }
   validateCoordinate(value.x);
@@ -321,7 +343,13 @@ function validateContext(context: CryptoEnvelopeContext): void {
   if (context.protocolVersion !== undefined && context.protocolVersion !== 1) {
     throw new Error("Encrypted context protocol version is invalid.");
   }
-  for (const value of [context.payloadType, context.vaultId, context.accountId, context.recipientId, context.profileId]) {
+  for (const value of [
+    context.payloadType,
+    context.vaultId,
+    context.accountId,
+    context.recipientId,
+    context.profileId,
+  ]) {
     if (value !== undefined && (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,256}$/.test(value))) {
       throw new Error("Encrypted context identifier is invalid.");
     }

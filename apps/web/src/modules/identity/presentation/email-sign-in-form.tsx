@@ -23,15 +23,22 @@ export function EmailSignInForm() {
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
       setStatus("sending");
-      const result = await requestEmailSignInLink(createBrowserSupabaseClient(), value.email, authConfirmationRedirectUrl(window.location.origin));
+      const result = await requestEmailSignInLink(
+        createBrowserSupabaseClient(),
+        value.email,
+        authConfirmationRedirectUrl(window.location.origin),
+      );
       if (result === "rate_limited") setRetrySeconds(60);
       if (result === "sent") {
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });
       } else {
-        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequestFailed, { method: "email", failure_code: result === "rate_limited" ? "rate_limited" : "provider_error" });
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequestFailed, {
+          method: "email",
+          failure_code: result === "rate_limited" ? "rate_limited" : "provider_error",
+        });
       }
       setStatus(result);
-    }
+    },
   });
 
   useEffect(() => {
@@ -41,17 +48,51 @@ export function EmailSignInForm() {
   }, [retrySeconds]);
 
   return (
-    <form noValidate className="grid gap-4" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-      <form.Field name="email" validators={{ onBlur: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")), onSubmit: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")) }}>
+    <form
+      noValidate
+      className="grid gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void form.handleSubmit();
+      }}
+    >
+      <form.Field
+        name="email"
+        validators={{
+          onBlur: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")),
+          onSubmit: ({ value }) => validateEmail(value, t("emailRequired"), t("emailInvalid")),
+        }}
+      >
         {(field) => (
           <div className="grid gap-2">
-            <Label htmlFor="email" className="sr-only">{t("emailLabel")}</Label>
+            <Label htmlFor="email" className="sr-only">
+              {t("emailLabel")}
+            </Label>
             <div className="relative">
-              <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input id="email" name={field.name} className="pl-10" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} required value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} aria-invalid={field.state.meta.errors.length > 0} aria-describedby={field.state.meta.errors.length ? "email-error" : "email-description"} />
+              <Mail
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="email"
+                name={field.name}
+                className="pl-10"
+                type="email"
+                autoComplete="email"
+                placeholder={t("emailPlaceholder")}
+                required
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                aria-invalid={field.state.meta.errors.length > 0}
+                aria-describedby={field.state.meta.errors.length ? "email-error" : "email-description"}
+              />
             </div>
             <FormFieldError id="email-error" errors={field.state.meta.errors} />
-            <p id="email-description" className="text-xs leading-5 text-muted-foreground">{t("emailDescription")}</p>
+            <p id="email-description" className="text-xs leading-5 text-muted-foreground">
+              {t("emailDescription")}
+            </p>
           </div>
         )}
       </form.Field>
@@ -66,13 +107,23 @@ export function EmailSignInForm() {
             onClick={status === "sent" ? () => window.location.reload() : undefined}
           >
             {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {isSubmitting ? t("sending") : status === "sent" ? t("retryPage") : retrySeconds > 0 ? t("retryIn", { seconds: retrySeconds }) : t("sendLink")}
+            {isSubmitting
+              ? t("sending")
+              : status === "sent"
+                ? t("retryPage")
+                : retrySeconds > 0
+                  ? t("retryIn", { seconds: retrySeconds })
+                  : t("sendLink")}
           </Button>
         )}
       </form.Subscribe>
       {status === "sent" && <StatusBanner tone="success">{t("sent")}</StatusBanner>}
       {status === "rate_limited" && <StatusBanner tone="warning">{t("rateLimited")}</StatusBanner>}
-      {status === "error" && <StatusBanner tone="danger" role="alert">{t("error")}</StatusBanner>}
+      {status === "error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("error")}
+        </StatusBanner>
+      )}
     </form>
   );
 }

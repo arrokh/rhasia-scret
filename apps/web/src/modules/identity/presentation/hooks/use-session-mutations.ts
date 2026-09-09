@@ -6,6 +6,6 @@ import { terminateBrowserSession } from "../../infrastructure/browser-session-cl
 export function useTerminateSessionMutation() {
   return useMutation({
     mutationKey: ["identity", "terminate-session"],
-    mutationFn: terminateBrowserSession
+    mutationFn: terminateBrowserSession,
   });
 }

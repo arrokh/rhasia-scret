@@ -9,13 +9,17 @@ describe("offline sync state machine", () => {
     ["SYNCING", "SYNC_SUCCEEDED", "CURRENT"],
     ["SYNCING", "AUTHENTICATION_FAILED", "AUTH_REQUIRED"],
     ["SYNCING", "SYNC_FAILED", "STALE"],
-    ["SYNCING", "LOCAL_STORAGE_FAILED", "LOCAL_STORAGE_ERROR"]
+    ["SYNCING", "LOCAL_STORAGE_FAILED", "LOCAL_STORAGE_ERROR"],
   ])("transitions %s through %s to %s", (state, event, expected) => {
     expect(nextOfflineSyncState(state, event)).toBe(expected);
   });
 
   it("keeps every non-current state read-only", () => {
-    expect(["OFFLINE", "STALE", "SYNCING", "AUTH_REQUIRED", "ERROR", "LOCAL_STORAGE_ERROR"].every((state) => isReadOnlySyncState(state as OfflineSyncState))).toBe(true);
+    expect(
+      ["OFFLINE", "STALE", "SYNCING", "AUTH_REQUIRED", "ERROR", "LOCAL_STORAGE_ERROR"].every((state) =>
+        isReadOnlySyncState(state as OfflineSyncState),
+      ),
+    ).toBe(true);
     expect(isReadOnlySyncState("CURRENT")).toBe(false);
   });
 });

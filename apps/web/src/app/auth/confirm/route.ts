@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
 
   const cookieStore = await cookies();
   const result = await completeSupabaseCallback(code, tokenHash, cookieStore);
-  return result === "success" ? NextResponse.redirect(new URL("/vaults", request.url)) : redirectToSignIn(request, result);
+  return result === "success"
+    ? NextResponse.redirect(new URL("/vaults", request.url))
+    : redirectToSignIn(request, result);
 }
 
 function redirectToSignIn(request: NextRequest, reason: string) {

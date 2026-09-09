@@ -12,7 +12,7 @@ const IMAGE_MEDIA_TYPES_BY_EXTENSION: Readonly<Record<string, string>> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
 };
 
 export class BrowserQrImportPort implements QrImportPort {
@@ -32,7 +32,7 @@ export function decodeQrImage(file: File): Promise<string> {
     name: file.name,
     mediaType: file.type,
     size: file.size,
-    readBytes: async () => new Uint8Array(await file.arrayBuffer())
+    readBytes: async () => new Uint8Array(await file.arrayBuffer()),
   });
 }
 
@@ -120,7 +120,8 @@ function findDarkContentBounds(imageData: RgbaPixels): DarkContentBounds | null 
   for (let y = 0; y < imageData.height; y += 1) {
     for (let x = 0; x < imageData.width; x += 1) {
       const index = (y * imageData.width + x) * 4;
-      if (imageData.data[index] >= 200 && imageData.data[index + 1] >= 200 && imageData.data[index + 2] >= 200) continue;
+      if (imageData.data[index] >= 200 && imageData.data[index + 1] >= 200 && imageData.data[index + 2] >= 200)
+        continue;
       left = Math.min(left, x);
       top = Math.min(top, y);
       right = Math.max(right, x);
@@ -147,7 +148,12 @@ async function loadQrImage(file: Blob): Promise<LoadedQrImage> {
   const url = URL.createObjectURL(file);
   try {
     const image = await loadQrImageElement(url);
-    return { source: image, width: image.naturalWidth, height: image.naturalHeight, release: () => URL.revokeObjectURL(url) };
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      release: () => URL.revokeObjectURL(url),
+    };
   } catch (error) {
     URL.revokeObjectURL(url);
     throw error;
@@ -167,10 +173,13 @@ function resolveImageMediaType(file: PlatformFile): string {
   const mediaType = file.mediaType.trim().toLowerCase().split(";", 1)[0] ?? "";
   if (mediaType.startsWith("image/")) return mediaType === "image/jpg" ? "image/jpeg" : mediaType;
   const extension = file.name.toLowerCase().match(/\.[a-z0-9]+$/)?.[0];
-  return extension ? IMAGE_MEDIA_TYPES_BY_EXTENSION[extension] ?? "" : "";
+  return extension ? (IMAGE_MEDIA_TYPES_BY_EXTENSION[extension] ?? "") : "";
 }
 
-export async function scanQrCamera(video: HTMLVideoElement, onValue: (value: string) => void): Promise<IScannerControls> {
+export async function scanQrCamera(
+  video: HTMLVideoElement,
+  onValue: (value: string) => void,
+): Promise<IScannerControls> {
   const { BrowserQRCodeReader } = await import("@zxing/browser");
   const reader = new BrowserQRCodeReader();
   return reader.decodeFromVideoDevice(undefined, video, (result) => {

@@ -1,7 +1,7 @@
 import type {
   EffectiveSharedVaultAccountPermissions,
   SharedVaultAccountPermissionOverrides,
-  SharedVaultAccountPermissions
+  SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
 
 export type VaultMemberPermissionDefaults = Readonly<{
@@ -16,9 +16,7 @@ export type VaultMemberPermissionState = Readonly<{
 }>;
 
 export type PermissionUpdateResult<T> =
-  | { status: "UPDATED"; value: T }
-  | { status: "STALE" }
-  | { status: "UNAVAILABLE" };
+  { status: "UPDATED"; value: T } | { status: "STALE" } | { status: "UNAVAILABLE" };
 
 export interface SharedVaultAccountPermissionDefaultsReader {
   readVaultDefaults(ownerId: string, vaultId: string): Promise<VaultMemberPermissionDefaults | null>;
@@ -29,7 +27,7 @@ export interface SharedVaultAccountPermissionRepository {
     ownerId: string,
     vaultId: string,
     expectedRevision: number,
-    permissions: SharedVaultAccountPermissions
+    permissions: SharedVaultAccountPermissions,
   ): Promise<PermissionUpdateResult<VaultMemberPermissionDefaults>>;
 
   updateMemberOverrides(
@@ -37,14 +35,14 @@ export interface SharedVaultAccountPermissionRepository {
     vaultId: string,
     memberUserId: string,
     expectedRevision: number,
-    overrides: SharedVaultAccountPermissionOverrides
+    overrides: SharedVaultAccountPermissionOverrides,
   ): Promise<PermissionUpdateResult<VaultMemberPermissionState>>;
 }
 
 export function loadSharedVaultMemberPermissionDefaults(
   ownerId: string,
   vaultId: string,
-  reader: SharedVaultAccountPermissionDefaultsReader
+  reader: SharedVaultAccountPermissionDefaultsReader,
 ): Promise<VaultMemberPermissionDefaults | null> {
   return reader.readVaultDefaults(ownerId, vaultId);
 }
@@ -54,7 +52,7 @@ export function updateSharedVaultMemberPermissionDefaults(
   vaultId: string,
   expectedRevision: number,
   permissions: SharedVaultAccountPermissions,
-  repository: SharedVaultAccountPermissionRepository
+  repository: SharedVaultAccountPermissionRepository,
 ): Promise<PermissionUpdateResult<VaultMemberPermissionDefaults>> {
   return repository.updateVaultDefaults(ownerId, vaultId, expectedRevision, permissions);
 }
@@ -65,7 +63,7 @@ export function updateSharedVaultMemberPermissionOverrides(
   memberUserId: string,
   expectedRevision: number,
   overrides: SharedVaultAccountPermissionOverrides,
-  repository: SharedVaultAccountPermissionRepository
+  repository: SharedVaultAccountPermissionRepository,
 ): Promise<PermissionUpdateResult<VaultMemberPermissionState>> {
   return repository.updateMemberOverrides(ownerId, vaultId, memberUserId, expectedRevision, overrides);
 }

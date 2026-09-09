@@ -16,12 +16,15 @@ export type AuthenticatedApplicationResult =
 export type AuthenticatedApplicationDependencies = {
   verifySession(assurance: SessionAssurance): Promise<VerifiedPrincipal | null>;
   provisionApplicationUser(principal: VerifiedPrincipal): Promise<ApplicationUser | null>;
-  checkApplicationRateLimit(operation: ApplicationRateLimitPolicyId, userId: string): Promise<ApplicationRateLimitOutcome>;
+  checkApplicationRateLimit(
+    operation: ApplicationRateLimitPolicyId,
+    userId: string,
+  ): Promise<ApplicationRateLimitOutcome>;
 };
 
 export function createAuthenticatedApplicationExecutor(dependencies: AuthenticatedApplicationDependencies) {
   return async function executeAuthenticatedApplicationRequest(
-    request: AuthenticatedApplicationRequest
+    request: AuthenticatedApplicationRequest,
   ): Promise<AuthenticatedApplicationResult> {
     const principal = await dependencies.verifySession(request.assurance);
     if (!principal) return { status: "unauthenticated" };
@@ -35,7 +38,7 @@ export function createAuthenticatedApplicationExecutor(dependencies: Authenticat
     if (rateLimit.status === "allowed") return { status: "allowed", user };
     return {
       status: rateLimit.status === "limited" ? "rate_limited" : "rate_limit_unavailable",
-      retryAfterSeconds: rateLimit.retryAfterSeconds
+      retryAfterSeconds: rateLimit.retryAfterSeconds,
     };
   };
 }

@@ -20,8 +20,10 @@ const source = (path: string) => readFileSync(join(root, path), "utf8");
 
 describe("architecture review boundaries", () => {
   it("keeps App Router directories limited to Next.js convention files", () => {
-    const nextConvention = /^(?:default|error|forbidden|global-error|layout|loading|manifest|not-found|page|robots|route|sitemap|template|unauthorized)\.(?:js|jsx|mdx|ts|tsx)$/;
-    const staticMetadata = /^(?:apple-icon|icon|opengraph-image|twitter-image)\d*\.(?:avif|gif|ico|jpeg|jpg|png|svg|webp)$|^(?:favicon\.ico|manifest\.(?:json|webmanifest)|robots\.txt|sitemap\.xml)$/;
+    const nextConvention =
+      /^(?:default|error|forbidden|global-error|layout|loading|manifest|not-found|page|robots|route|sitemap|template|unauthorized)\.(?:js|jsx|mdx|ts|tsx)$/;
+    const staticMetadata =
+      /^(?:apple-icon|icon|opengraph-image|twitter-image)\d*\.(?:avif|gif|ico|jpeg|jpg|png|svg|webp)$|^(?:favicon\.ico|manifest\.(?:json|webmanifest)|robots\.txt|sitemap\.xml)$/;
     const violations = files(appRoot)
       .filter((path) => !nextConvention.test(basename(path)) && !staticMetadata.test(basename(path)))
       .map((path) => relative(root, path));
@@ -41,7 +43,9 @@ describe("architecture review boundaries", () => {
   it("routes compose contexts only through public server seams", () => {
     const routeFiles = files(routesRoot).filter((path) => path.endsWith("route.ts"));
     const violations = routeFiles.flatMap((path) => {
-      const imports = [...readFileSync(path, "utf8").matchAll(/from\s+["'](@\/modules\/[^"']+)["']/g)].map((match) => match[1]);
+      const imports = [...readFileSync(path, "utf8").matchAll(/from\s+["'](@\/modules\/[^"']+)["']/g)].map(
+        (match) => match[1],
+      );
       return imports
         .filter((specifier) => /\/(?:application|domain|infrastructure|presentation)\//.test(specifier))
         .map((specifier) => `${relative(root, path)} -> ${specifier}`);
@@ -66,7 +70,9 @@ describe("architecture review boundaries", () => {
     expect(online).toContain("useWorkspaceLifecycle");
     expect(offline).toContain("useWorkspaceLifecycle");
     expect(existsSync(join(modulesRoot, "sync/application/workspace-lifecycle.ts"))).toBe(false);
-    expect(source("../../packages/client-vault-core/src/modules/sync/application/workspace-lifecycle.ts")).toContain("export class WorkspaceLifecycle");
+    expect(source("../../packages/client-vault-core/src/modules/sync/application/workspace-lifecycle.ts")).toContain(
+      "export class WorkspaceLifecycle",
+    );
   });
 
   it("owns membership interaction behavior in Vault Membership", () => {
@@ -90,20 +96,22 @@ describe("architecture review boundaries", () => {
       "src/modules/audit/application/purge-expired-vault-audit-events.ts",
       "src/modules/audit/infrastructure/prisma-vault-audit-appender.ts",
       "src/modules/audit/infrastructure/prisma-vault-audit-repository.ts",
-      "src/modules/audit/presentation/vault-audit-history.tsx"
-    ]) expect(existsSync(join(root, path)), path).toBe(true);
+      "src/modules/audit/presentation/vault-audit-history.tsx",
+    ])
+      expect(existsSync(join(root, path)), path).toBe(true);
 
     const directAppendsOutsideAudit = files(modulesRoot)
       .filter((path) => !path.includes("/audit/") && /\.(?:ts|tsx)$/.test(path))
       .filter((path) => /vaultAuditEvent\.(?:create|createMany)\s*\(/.test(readFileSync(path, "utf8")))
       .map((path) => relative(root, path));
     expect(directAppendsOutsideAudit).toEqual([]);
-    expect(source("src/modules/audit/infrastructure/prisma-vault-audit-repository.ts")).toContain("redactedAuditAction");
+    expect(source("src/modules/audit/infrastructure/prisma-vault-audit-repository.ts")).toContain(
+      "redactedAuditAction",
+    );
   });
 
   it("mirrors domain-specific unit tests instead of keeping a flat unit directory", () => {
-    const flatTests = readdirSync(unitRoot)
-      .filter((name) => name.endsWith(".test.ts") || name.endsWith(".test.tsx"));
+    const flatTests = readdirSync(unitRoot).filter((name) => name.endsWith(".test.ts") || name.endsWith(".test.tsx"));
     expect(flatTests).toEqual([]);
     const groups = readdirSync(unitRoot)
       .filter((name) => statSync(join(unitRoot, name)).isDirectory())
@@ -123,7 +131,7 @@ describe("architecture review boundaries", () => {
       "sync",
       "vault-archive",
       "vault-management",
-      "vault-membership"
+      "vault-membership",
     ]);
   });
 });

@@ -14,7 +14,7 @@ export function browserE2eTestSession(alias: string | undefined): VerifiedSessio
     email: configured.email,
     emailVerified: configured.emailVerified ?? true,
     assurance: "active-session",
-    sessionId: `e2e:${alias}`
+    sessionId: `e2e:${alias}`,
   };
 }
 
@@ -26,18 +26,27 @@ function configuredSessions(): Record<string, ConfiguredSession> {
   const raw = process.env.E2E_BROWSER_TEST_USERS;
   if (!raw || raw.length > 16_384) return {};
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { return {}; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
   const sessions: Record<string, ConfiguredSession> = {};
   for (const [alias, value] of Object.entries(parsed)) {
     if (!/^[a-z0-9-]{1,80}$/.test(alias) || !value || typeof value !== "object" || Array.isArray(value)) continue;
     const candidate = value as Record<string, unknown>;
     if (typeof candidate.subject !== "string" || !/^[a-z0-9:-]{1,128}$/.test(candidate.subject)) continue;
-    if (typeof candidate.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.email) || candidate.email.length > 254) continue;
+    if (
+      typeof candidate.email !== "string" ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.email) ||
+      candidate.email.length > 254
+    )
+      continue;
     sessions[alias] = {
       subject: candidate.subject,
       email: candidate.email.toLowerCase(),
-      emailVerified: candidate.emailVerified !== false
+      emailVerified: candidate.emailVerified !== false,
     };
   }
   return sessions;

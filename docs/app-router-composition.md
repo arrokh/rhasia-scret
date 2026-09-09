@@ -10,16 +10,16 @@ Do not add arbitrary support modules, route-local component directories, infrast
 
 ## Ownership
 
-| Concern | Location |
-| --- | --- |
-| Domain or use-case presentation | `src/modules/<context>/presentation/` |
-| Context preview harnesses | Owning context presentation, exposed through `modules/<context>/preview.ts` |
-| Next page composition shared by one context | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
-| Shared presentation mechanics and global styles | `src/shared/presentation/` |
-| Reusable UI primitives | `src/components/ui/` |
-| Server adapter composition for route handlers | `modules/<context>/server.ts` |
-| Static favicon, icon, image, and media assets | `public/assets/` or a capability-specific `public` directory |
-| Next route, layout, loading, error, and generated-metadata conventions | `src/app/` |
+| Concern                                                                | Location                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Domain or use-case presentation                                        | `src/modules/<context>/presentation/`                                                                  |
+| Context preview harnesses                                              | Owning context presentation, exposed through `modules/<context>/preview.ts`                            |
+| Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
+| Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                             |
+| Reusable UI primitives                                                 | `src/components/ui/`                                                                                   |
+| Server adapter composition for route handlers                          | `modules/<context>/server.ts`                                                                          |
+| Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                           |
+| Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                             |
 
 App Router convention files resolve framework concerns such as route parameters, localization, redirects, streaming boundaries, and HTTP request/response mapping, then compose behavior through owning module entry points. They must not become an alternate home for domain behavior or presentation implementations.
 

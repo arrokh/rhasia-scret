@@ -5,7 +5,7 @@ import { PrismaSharedAccountRepository } from "./infrastructure/prisma-shared-ac
 export {
   purgeExpiredAuthenticatorAccounts,
   type AccountPurgeBatch,
-  type ExpiredAccountPurgeRepository
+  type ExpiredAccountPurgeRepository,
 } from "./application/purge-expired-accounts";
 export type { PersonalAccountRepository } from "./application/personal-account-repository";
 export type { SharedAccountMutationResult, SharedAccountRepository } from "./application/shared-account-repository";

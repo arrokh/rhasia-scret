@@ -8,7 +8,7 @@ const source = (path: string) => readFileSync(join(root, path), "utf8");
 describe("navigation and interaction performance boundaries", () => {
   it("keeps protected routes behind request-cached fresh authorization context", () => {
     const loader = source("src/modules/vault-management/presentation/load-vault-page-context.ts");
-    expect(loader).toContain("cache(() => resolveVaultPageContext");
+    expect(loader).toMatch(/cache\(\(\)\s*=>\s*resolveVaultPageContext/);
     expect(loader).toContain('context.user.status !== "ACTIVE"');
     expect(loader).not.toMatch(/use cache/);
   });
@@ -31,13 +31,17 @@ describe("navigation and interaction performance boundaries", () => {
   it("loads the QR decoder only after a scan action", () => {
     const importer = source("src/modules/authenticator-account/infrastructure/browser-qr-importer.ts");
     expect(importer).toContain('import("@zxing/browser")');
-    expect(importer).not.toContain('import { BrowserQRCodeReader');
+    expect(importer).not.toContain("import { BrowserQRCodeReader");
   });
 
   it("fully prefetches only the two high-probability Vault directory transitions", () => {
-    expect(source("src/modules/authenticator-account/presentation/personal-vault-accounts.tsx")).toContain('<Link href="/vaults/manage" prefetch={true}');
+    expect(source("src/modules/authenticator-account/presentation/personal-vault-accounts.tsx")).toContain(
+      '<Link href="/vaults/manage" prefetch={true}',
+    );
     expect(source("src/app/vaults/manage/page.tsx")).toContain("backPrefetch");
-    expect(source("src/modules/vault-management/presentation/shared-vault-manager.tsx")).not.toContain("prefetch={true}");
+    expect(source("src/modules/vault-management/presentation/shared-vault-manager.tsx")).not.toContain(
+      "prefetch={true}",
+    );
   });
 
   it("keeps Cache Components and dynamic stale-time caching disabled for sensitive forms", () => {

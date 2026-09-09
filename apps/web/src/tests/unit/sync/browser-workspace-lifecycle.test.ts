@@ -5,7 +5,9 @@ import { classifyBrowserWorkspaceRefreshFailure } from "@/modules/sync/infrastru
 
 describe("classifyBrowserWorkspaceRefreshFailure", () => {
   it("maps the hosted offline-bundle authentication response to an authentication failure", () => {
-    expect(classifyBrowserWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(401, "unauthenticated"))).toBe("AUTHENTICATION");
+    expect(
+      classifyBrowserWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(401, "unauthenticated")),
+    ).toBe("AUTHENTICATION");
   });
 
   it("retains legacy browser API authentication and generic failure mappings", () => {

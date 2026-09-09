@@ -13,15 +13,23 @@ export function NativeCryptoValidation() {
   useEffect(() => {
     let active = true;
     void validateNativeCrypto().then(
-      () => { if (active) setStatus("passed"); },
-      () => { if (active) setStatus("failed"); },
+      () => {
+        if (active) setStatus("passed");
+      },
+      () => {
+        if (active) setStatus("failed");
+      },
     );
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
     <View style={styles.page}>
-      <Text accessibilityRole="header" style={styles.title}>{id.nativeValidationTitle} / {en.nativeValidationTitle}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {id.nativeValidationTitle} / {en.nativeValidationTitle}
+      </Text>
       <Text accessibilityLiveRegion="assertive" style={status === "failed" ? styles.failed : styles.status}>
         {status === "running"
           ? `${id.nativeValidationRunning} / ${en.nativeValidationRunning}`
@@ -29,21 +37,28 @@ export function NativeCryptoValidation() {
             ? `${id.nativeValidationPassed} / ${en.nativeValidationPassed}`
             : `${id.nativeValidationFailed} / ${en.nativeValidationFailed}`}
       </Text>
-      <Text style={styles.description}>{id.nativeValidationDescription} / {en.nativeValidationDescription}</Text>
+      <Text style={styles.description}>
+        {id.nativeValidationDescription} / {en.nativeValidationDescription}
+      </Text>
     </View>
   );
 }
 
 async function validateNativeCrypto(): Promise<void> {
   const random = nativeCryptoPrimitives.randomBytes(32);
-  if (random.length !== 32 || random.every((value) => value === 0)) throw new Error("Native secure random validation failed.");
+  if (random.length !== 32 || random.every((value) => value === 0))
+    throw new Error("Native secure random validation failed.");
   random.fill(0);
-  const actual = await nativeArgon2idPort.deriveArgon2id(ARGON2ID_PROTOCOL_VECTOR.secret, ARGON2ID_PROTOCOL_VECTOR.salt, {
-    memoryKiB: ARGON2ID_PROTOCOL_VECTOR.memoryKiB,
-    iterations: ARGON2ID_PROTOCOL_VECTOR.iterations,
-    parallelism: ARGON2ID_PROTOCOL_VECTOR.parallelism,
-    outputBytes: ARGON2ID_PROTOCOL_VECTOR.outputBytes,
-  });
+  const actual = await nativeArgon2idPort.deriveArgon2id(
+    ARGON2ID_PROTOCOL_VECTOR.secret,
+    ARGON2ID_PROTOCOL_VECTOR.salt,
+    {
+      memoryKiB: ARGON2ID_PROTOCOL_VECTOR.memoryKiB,
+      iterations: ARGON2ID_PROTOCOL_VECTOR.iterations,
+      parallelism: ARGON2ID_PROTOCOL_VECTOR.parallelism,
+      outputBytes: ARGON2ID_PROTOCOL_VECTOR.outputBytes,
+    },
+  );
   try {
     const hex = Array.from(actual, (value) => value.toString(16).padStart(2, "0")).join("");
     if (hex !== ARGON2ID_PROTOCOL_VECTOR.expectedHex) throw new Error("Native Argon2id vector mismatch.");

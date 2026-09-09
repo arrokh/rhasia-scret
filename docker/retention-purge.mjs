@@ -19,7 +19,7 @@ async function runPurge() {
   try {
     const response = await fetch(targetUrl, {
       headers: { authorization: `Bearer ${secret}` },
-      signal: AbortSignal.timeout(requestTimeoutMs)
+      signal: AbortSignal.timeout(requestTimeoutMs),
     });
 
     if (!response.ok) {

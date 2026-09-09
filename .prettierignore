@@ -1,0 +1,13 @@
+node_modules/
+.next/
+apps/web/.next/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/dist/
+coverage/
+playwright-report/
+test-results/
+apps/web/test-results/
+apps/web/playwright-report/
+artifacts/
+pnpm-lock.yaml

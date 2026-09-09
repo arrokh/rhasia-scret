@@ -8,6 +8,12 @@ describe("redeemSecureShareLinkMaterial", () => {
     const ownerLink = await createSecureShareLinkMaterial(vaultKey);
     const userRootKey = generateSymmetricKey();
     const redeemed = await redeemSecureShareLinkMaterial(ownerLink.secret, ownerLink.encryptedPackage, userRootKey);
-    await expect(decryptPayloadWithContext(userRootKey, deserializeEncryptedEnvelope(redeemed.encryptedVaultKey), { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 })).resolves.toEqual(vaultKey);
+    await expect(
+      decryptPayloadWithContext(userRootKey, deserializeEncryptedEnvelope(redeemed.encryptedVaultKey), {
+        purpose: "vault-key-wrap",
+        payloadType: "vault-encryption-key",
+        keyVersion: 1,
+      }),
+    ).resolves.toEqual(vaultKey);
   });
 });

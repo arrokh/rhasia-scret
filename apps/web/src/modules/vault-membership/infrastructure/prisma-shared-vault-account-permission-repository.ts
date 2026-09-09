@@ -4,12 +4,12 @@ import type {
   PermissionUpdateResult,
   SharedVaultAccountPermissionRepository,
   VaultMemberPermissionDefaults,
-  VaultMemberPermissionState
+  VaultMemberPermissionState,
 } from "../application/manage-shared-vault-account-permissions";
 import {
   effectiveSharedVaultAccountPermissions,
   type SharedVaultAccountPermissionOverrides,
-  type SharedVaultAccountPermissions
+  type SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
 
 export class PrismaSharedVaultAccountPermissionRepository implements SharedVaultAccountPermissionRepository {
@@ -20,8 +20,8 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
         membersCanAddAccounts: true,
         membersCanEditAccounts: true,
         membersCanDeleteAccounts: true,
-        memberPermissionsRevision: true
-      }
+        memberPermissionsRevision: true,
+      },
     });
     return vault ? { permissions: vaultPermissions(vault), revision: vault.memberPermissionsRevision } : null;
   }
@@ -30,7 +30,7 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
     ownerId: string,
     vaultId: string,
     expectedRevision: number,
-    permissions: SharedVaultAccountPermissions
+    permissions: SharedVaultAccountPermissions,
   ): Promise<PermissionUpdateResult<VaultMemberPermissionDefaults>> {
     return prisma.$transaction(async (transaction) => {
       const updated = await transaction.vault.updateMany({
@@ -40,19 +40,19 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
           type: "SHARED",
           lifecycle: "ACTIVE",
           deletedAt: null,
-          memberPermissionsRevision: expectedRevision
+          memberPermissionsRevision: expectedRevision,
         },
         data: {
           membersCanAddAccounts: permissions.canAddAccounts,
           membersCanEditAccounts: permissions.canEditAccounts,
           membersCanDeleteAccounts: permissions.canDeleteAccounts,
-          memberPermissionsRevision: { increment: 1 }
-        }
+          memberPermissionsRevision: { increment: 1 },
+        },
       });
       if (updated.count !== 1) {
         const available = await transaction.vault.findFirst({
           where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
-          select: { id: true }
+          select: { id: true },
         });
         return { status: available ? "STALE" : "UNAVAILABLE" };
       }
@@ -63,21 +63,21 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
           membersCanAddAccounts: true,
           membersCanEditAccounts: true,
           membersCanDeleteAccounts: true,
-          memberPermissionsRevision: true
-        }
+          memberPermissionsRevision: true,
+        },
       });
       await appendVaultAuditEvent(transaction, {
         vaultId,
         ownerId,
         actorUserId: ownerId,
-        action: "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED"
+        action: "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED",
       });
       return {
         status: "UPDATED",
         value: {
           permissions: vaultPermissions(vault),
-          revision: vault.memberPermissionsRevision
-        }
+          revision: vault.memberPermissionsRevision,
+        },
       };
     });
   }
@@ -87,7 +87,7 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
     vaultId: string,
     memberUserId: string,
     expectedRevision: number,
-    overrides: SharedVaultAccountPermissionOverrides
+    overrides: SharedVaultAccountPermissionOverrides,
   ): Promise<PermissionUpdateResult<VaultMemberPermissionState>> {
     return prisma.$transaction(async (transaction) => {
       const updated = await transaction.vaultMember.updateMany({
@@ -97,14 +97,14 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
           role: "VIEWER",
           status: "ACTIVE",
           permissionsRevision: expectedRevision,
-          vault: { ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null }
+          vault: { ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
         },
         data: {
           canAddAccountsOverride: overrides.canAddAccounts,
           canEditAccountsOverride: overrides.canEditAccounts,
           canDeleteAccountsOverride: overrides.canDeleteAccounts,
-          permissionsRevision: { increment: 1 }
-        }
+          permissionsRevision: { increment: 1 },
+        },
       });
       if (updated.count !== 1) {
         const available = await transaction.vaultMember.findFirst({
@@ -113,9 +113,9 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
             userId: memberUserId,
             role: "VIEWER",
             status: "ACTIVE",
-            vault: { ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null }
+            vault: { ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
           },
-          select: { userId: true }
+          select: { userId: true },
         });
         return { status: available ? "STALE" : "UNAVAILABLE" };
       }
@@ -132,10 +132,10 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
             select: {
               membersCanAddAccounts: true,
               membersCanEditAccounts: true,
-              membersCanDeleteAccounts: true
-            }
-          }
-        }
+              membersCanDeleteAccounts: true,
+            },
+          },
+        },
       });
       const storedOverrides = memberOverrides(member);
       await appendVaultAuditEvent(transaction, {
@@ -143,15 +143,15 @@ export class PrismaSharedVaultAccountPermissionRepository implements SharedVault
         ownerId,
         actorUserId: ownerId,
         action: "MEMBER_PERMISSIONS_UPDATED",
-        targetId: memberUserId
+        targetId: memberUserId,
       });
       return {
         status: "UPDATED",
         value: {
           overrides: storedOverrides,
           effective: effectiveSharedVaultAccountPermissions("VIEWER", vaultPermissions(member.vault), storedOverrides),
-          revision: member.permissionsRevision
-        }
+          revision: member.permissionsRevision,
+        },
       };
     });
   }
@@ -165,7 +165,7 @@ function vaultPermissions(value: {
   return {
     canAddAccounts: value.membersCanAddAccounts,
     canEditAccounts: value.membersCanEditAccounts,
-    canDeleteAccounts: value.membersCanDeleteAccounts
+    canDeleteAccounts: value.membersCanDeleteAccounts,
   };
 }
 
@@ -177,6 +177,6 @@ function memberOverrides(value: {
   return {
     canAddAccounts: value.canAddAccountsOverride,
     canEditAccounts: value.canEditAccountsOverride,
-    canDeleteAccounts: value.canDeleteAccountsOverride
+    canDeleteAccounts: value.canDeleteAccountsOverride,
   };
 }

@@ -16,7 +16,7 @@ import {
   previewLocalVaultArchive,
   renameLocalVault,
   unlockLocalVault,
-  updateLocalAccount
+  updateLocalAccount,
 } from "@/modules/local-vault";
 
 function account() {
@@ -26,7 +26,7 @@ function account() {
     secret: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
     algorithm: "SHA-1" as const,
     digits: 6 as const,
-    period: 30
+    period: 30,
   };
 }
 
@@ -64,7 +64,12 @@ describe("device-local Local Vault", () => {
     await deleteLocalAccount(unlocked, id);
     expect(unlocked.accounts).toHaveLength(0);
 
-    expect(() => parseLocalVaultRecord({ ...record, accounts: [{ id: "plaintext", encryptedPayload: "secret", encryptionVersion: 1, revision: 1 }] })).toThrow();
+    expect(() =>
+      parseLocalVaultRecord({
+        ...record,
+        accounts: [{ id: "plaintext", encryptedPayload: "secret", encryptionVersion: 1, revision: 1 }],
+      }),
+    ).toThrow();
     clearUnlockedLocalVault(unlocked);
     expect(unlocked.rootKey.every((byte) => byte === 0)).toBe(true);
     expect(unlocked.vaultKey.every((byte) => byte === 0)).toBe(true);

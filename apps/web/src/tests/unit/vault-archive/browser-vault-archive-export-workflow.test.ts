@@ -3,7 +3,7 @@ import { parseDecryptedAccountPayload, serializeDecryptedAccountPayload } from "
 import { openEncryptedVaultExport } from "@/modules/crypto";
 import {
   clearPreparedVaultArchive,
-  prepareEncryptedVaultArchive
+  prepareEncryptedVaultArchive,
 } from "@/modules/vault-archive/infrastructure/browser-vault-archive-export-workflow";
 
 const account = {
@@ -17,7 +17,7 @@ const account = {
   secret: new Uint8Array([1, 2, 3, 4]),
   algorithm: "SHA-1" as const,
   digits: 6 as const,
-  period: 30
+  period: 30,
 };
 
 const ownerVault = { id: "vault-1", name: "Personal", type: "PERSONAL" as const, role: "OWNER" as const };
@@ -25,7 +25,13 @@ const ownerVault = { id: "vault-1", name: "Personal", type: "PERSONAL" as const,
 describe("Vault archive export workflow", () => {
   it("serializes normalized account payloads canonically", () => {
     const plaintext = serializeDecryptedAccountPayload(account);
-    expect(parseDecryptedAccountPayload(plaintext)).toEqual(expect.objectContaining({ issuer: "Example", accountName: "alice@example.test", secret: new Uint8Array([1, 2, 3, 4]) }));
+    expect(parseDecryptedAccountPayload(plaintext)).toEqual(
+      expect.objectContaining({
+        issuer: "Example",
+        accountName: "alice@example.test",
+        secret: new Uint8Array([1, 2, 3, 4]),
+      }),
+    );
     plaintext.fill(0);
   });
 
@@ -36,7 +42,9 @@ describe("Vault archive export workflow", () => {
     expect(prepared.keyMaterial).toMatch(/^[A-Za-z0-9+/]{43}=$/);
     const opened = await openEncryptedVaultExport(prepared.key, prepared.archive);
     expect(opened.vaultName).toBe("Personal");
-    expect(parseDecryptedAccountPayload(opened.accounts[0]!)).toEqual(expect.objectContaining({ issuer: "Example", accountName: "alice@example.test" }));
+    expect(parseDecryptedAccountPayload(opened.accounts[0]!)).toEqual(
+      expect.objectContaining({ issuer: "Example", accountName: "alice@example.test" }),
+    );
     for (const payload of opened.accounts) payload.fill(0);
     clearPreparedVaultArchive(prepared);
     expect(prepared.archive.every((byte) => byte === 0)).toBe(true);
@@ -45,8 +53,17 @@ describe("Vault archive export workflow", () => {
   });
 
   it("rejects Viewer exports, mixed-Vault accounts, and more than 500 accounts", async () => {
-    await expect(prepareEncryptedVaultArchive({ ...ownerVault, role: "VIEWER" }, [account])).rejects.toMatchObject({ code: "owner_required" });
-    await expect(prepareEncryptedVaultArchive(ownerVault, [{ ...account, vaultId: "other-vault" }])).rejects.toMatchObject({ code: "account_mismatch" });
-    await expect(prepareEncryptedVaultArchive(ownerVault, Array.from({ length: 501 }, (_, index) => ({ ...account, id: `account-${index}` })))).rejects.toMatchObject({ code: "too_large" });
+    await expect(prepareEncryptedVaultArchive({ ...ownerVault, role: "VIEWER" }, [account])).rejects.toMatchObject({
+      code: "owner_required",
+    });
+    await expect(
+      prepareEncryptedVaultArchive(ownerVault, [{ ...account, vaultId: "other-vault" }]),
+    ).rejects.toMatchObject({ code: "account_mismatch" });
+    await expect(
+      prepareEncryptedVaultArchive(
+        ownerVault,
+        Array.from({ length: 501 }, (_, index) => ({ ...account, id: `account-${index}` })),
+      ),
+    ).rejects.toMatchObject({ code: "too_large" });
   });
 });

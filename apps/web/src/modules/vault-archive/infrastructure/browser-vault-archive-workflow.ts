@@ -4,7 +4,7 @@ import {
   encryptAccountConfiguration,
   isDuplicateAccount,
   parseDecryptedAccountPayload,
-  type DecryptedAuthenticatorAccount
+  type DecryptedAuthenticatorAccount,
 } from "@/modules/authenticator-account";
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, openEncryptedVaultExport } from "@/modules/crypto";
 import {
@@ -14,7 +14,7 @@ import {
   openAndValidateEncryptedVaultArchive as openArchive,
   VaultArchiveWorkflowError,
   type OpenedVaultArchive,
-  type VaultArchiveWorkflowErrorCode
+  type VaultArchiveWorkflowErrorCode,
 } from "@rhasia-scret/client-vault-core";
 import type { VaultArchiveImportPort } from "@rhasia-scret/client-vault-core";
 
@@ -25,18 +25,28 @@ const browserArchiveImportPort: VaultArchiveImportPort = {
   openEncryptedVaultExport,
   parseDecryptedAccountPayload,
   encryptAccountConfiguration,
-  isDuplicateAccount
+  isDuplicateAccount,
 };
 
-export function openAndValidateEncryptedVaultArchive(archiveKey: Uint8Array, archive: Uint8Array): Promise<OpenedVaultArchive> {
+export function openAndValidateEncryptedVaultArchive(
+  archiveKey: Uint8Array,
+  archive: Uint8Array,
+): Promise<OpenedVaultArchive> {
   return openArchive(archiveKey, archive, browserArchiveImportPort);
 }
 
-export function countDuplicateArchiveAccounts(imported: DecryptedAuthenticatorAccount[], existing: DecryptedAuthenticatorAccount[]): number {
+export function countDuplicateArchiveAccounts(
+  imported: DecryptedAuthenticatorAccount[],
+  existing: DecryptedAuthenticatorAccount[],
+): number {
   return countDuplicates(imported, existing, browserArchiveImportPort);
 }
 
-export function encryptVaultArchiveAccounts(destinationKey: Uint8Array, accounts: DecryptedAuthenticatorAccount[], vaultId?: string): Promise<Uint8Array[]> {
+export function encryptVaultArchiveAccounts(
+  destinationKey: Uint8Array,
+  accounts: DecryptedAuthenticatorAccount[],
+  vaultId?: string,
+): Promise<Uint8Array[]> {
   return encryptAccounts(destinationKey, accounts, vaultId, browserArchiveImportPort);
 }
 

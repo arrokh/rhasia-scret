@@ -36,7 +36,7 @@ export function createRetentionPurgeHandler({ secret, purge, logger, createJobId
         auditEventIds: report.auditEventIds,
         accountBacklogRemaining: report.accountBacklogRemaining,
         vaultBacklogRemaining: report.vaultBacklogRemaining,
-        auditBacklogRemaining: report.auditBacklogRemaining
+        auditBacklogRemaining: report.auditBacklogRemaining,
       });
       return json({
         jobId,
@@ -45,7 +45,7 @@ export function createRetentionPurgeHandler({ secret, purge, logger, createJobId
         auditEventCount: report.auditEventIds.length,
         accountBacklogRemaining: report.accountBacklogRemaining,
         vaultBacklogRemaining: report.vaultBacklogRemaining,
-        auditBacklogRemaining: report.auditBacklogRemaining
+        auditBacklogRemaining: report.auditBacklogRemaining,
       });
     } catch {
       logger.error({ event: "retention_purge_failed", jobId });
@@ -72,6 +72,9 @@ const purgeRetention = createRetentionPurgeService();
 export const GET = createRetentionPurgeHandler({
   secret: process.env.CRON_SECRET,
   purge: () => purgeRetention(new Date()),
-  logger: { info: (event) => console.info(JSON.stringify(event)), error: (event) => console.error(JSON.stringify(event)) },
-  createJobId: randomUUID
+  logger: {
+    info: (event) => console.info(JSON.stringify(event)),
+    error: (event) => console.error(JSON.stringify(event)),
+  },
+  createJobId: randomUUID,
 });

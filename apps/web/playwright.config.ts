@@ -1,6 +1,9 @@
 import { config as loadEnvironment } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-import { configuredPlaywrightFullyParallel, configuredPlaywrightWorkers } from "./src/tests/browser/support/playwright-concurrency";
+import {
+  configuredPlaywrightFullyParallel,
+  configuredPlaywrightWorkers,
+} from "./src/tests/browser/support/playwright-concurrency";
 
 loadEnvironment({ path: "../../.env" });
 
@@ -10,7 +13,7 @@ const browserTestBaseUrl = `http://127.0.0.1:${browserTestPort}`;
 export const supportedBrowserProjects = [
   { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-  { name: "webkit", use: { ...devices["Desktop Safari"] } }
+  { name: "webkit", use: { ...devices["Desktop Safari"] } },
 ];
 
 export default defineConfig({
@@ -25,6 +28,6 @@ export default defineConfig({
     command: `pnpm exec next dev -p ${browserTestPort}`,
     url: browserTestBaseUrl,
     reuseExistingServer: false,
-    timeout: 120_000
-  }
+    timeout: 120_000,
+  },
 });

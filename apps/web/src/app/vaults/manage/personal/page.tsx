@@ -7,7 +7,17 @@ export const dynamic = "force-dynamic";
 
 export default async function PersonalVaultManagementPage() {
   const t = await getTranslations("VaultManagement.pages");
-  return <VaultPageFrame backHref="/vaults/manage" backLabel={t("backDirectory")} title={t("personalTitle")} description={t("personalDescription")} contentLabel={t("personalLabel")}><PersonalVaultContent /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults/manage"
+      backLabel={t("backDirectory")}
+      title={t("personalTitle")}
+      description={t("personalDescription")}
+      contentLabel={t("personalLabel")}
+    >
+      <PersonalVaultContent />
+    </VaultPageFrame>
+  );
 }
 
 async function PersonalVaultContent() {

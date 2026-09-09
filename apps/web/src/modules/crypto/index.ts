@@ -1,31 +1,98 @@
 export { redactSensitiveData } from "./application/redact-sensitive-data";
-export type { Argon2idParameters, ClientCryptoPort, CryptoPrimitivePort, DeviceBoundCapability, DeviceBoundEnrollment, DeviceBoundEnrollmentRequest, DeviceBoundRecoveryRequest, DeviceBoundVerificationPort, KeyDerivationPort, PortableEcdhKeyPair, PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
+export type {
+  Argon2idParameters,
+  ClientCryptoPort,
+  CryptoPrimitivePort,
+  DeviceBoundCapability,
+  DeviceBoundEnrollment,
+  DeviceBoundEnrollmentRequest,
+  DeviceBoundRecoveryRequest,
+  DeviceBoundVerificationPort,
+  KeyDerivationPort,
+  PortableEcdhKeyPair,
+  PortableJsonWebKey,
+} from "@rhasia-scret/client-vault-core";
 export { createClientCryptoPort } from "@rhasia-scret/client-vault-core";
 export { createVaultArchiveProtocol } from "@rhasia-scret/client-vault-core";
 export { UnlockedVaultSession } from "./application/unlocked-vault-session";
-export { decryptPayload, decryptPayloadWithContext, deserializeEncryptedEnvelope, deserializeKeyWrapEnvelope, encryptPayload, encryptPayloadWithContext, generateSymmetricKey, generateUserEncryptionKeyPair, migrateLegacyEncryptedPayload, serializeCryptoEnvelopeContext, serializeEncryptedEnvelope, serializeKeyWrapEnvelope, unwrapKeyForRecipient, unwrapKeyForRecipientWithContext, wrapKeyForRecipient, wrapKeyForRecipientWithContext } from "./infrastructure/browser-crypto-envelope";
-export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./infrastructure/browser-crypto-envelope";
+export {
+  decryptPayload,
+  decryptPayloadWithContext,
+  deserializeEncryptedEnvelope,
+  deserializeKeyWrapEnvelope,
+  encryptPayload,
+  encryptPayloadWithContext,
+  generateSymmetricKey,
+  generateUserEncryptionKeyPair,
+  migrateLegacyEncryptedPayload,
+  serializeCryptoEnvelopeContext,
+  serializeEncryptedEnvelope,
+  serializeKeyWrapEnvelope,
+  unwrapKeyForRecipient,
+  unwrapKeyForRecipientWithContext,
+  wrapKeyForRecipient,
+  wrapKeyForRecipientWithContext,
+} from "./infrastructure/browser-crypto-envelope";
+export type {
+  CryptoEnvelopeContext,
+  EncryptedEnvelope,
+  KeyWrapEnvelope,
+} from "./infrastructure/browser-crypto-envelope";
 export { browserClientCryptoPort } from "./infrastructure/browser-client-crypto-port";
 export { browserCryptoPrimitives } from "./infrastructure/browser-crypto-primitives";
 export { browserArgon2idPort } from "./infrastructure/browser-vault-unlock-key";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
-export { unlockPersonalVault, unlockPersonalVaultWithUserRootKey } from "./infrastructure/browser-personal-vault-unlock";
-export type { EncryptedPersonalVaultProfile, PersonalVaultUnlockResult } from "./infrastructure/browser-personal-vault-unlock";
-export { changeVaultUnlockSecret, wrapUserRootKeyWithVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-secret-change";
+export {
+  unlockPersonalVault,
+  unlockPersonalVaultWithUserRootKey,
+} from "./infrastructure/browser-personal-vault-unlock";
+export type {
+  EncryptedPersonalVaultProfile,
+  PersonalVaultUnlockResult,
+} from "./infrastructure/browser-personal-vault-unlock";
+export {
+  changeVaultUnlockSecret,
+  wrapUserRootKeyWithVaultUnlockSecret,
+} from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
 export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "./infrastructure/vault-unlock-key-parameters";
-export { createUserEncryptionIdentity, recoverUserEncryptionPrivateKey } from "./infrastructure/browser-user-encryption-identity";
+export {
+  createUserEncryptionIdentity,
+  recoverUserEncryptionPrivateKey,
+} from "./infrastructure/browser-user-encryption-identity";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
-export { BrowserDeviceBoundVerificationPort, browserDeviceBoundVerificationPort, enrollRememberedBrowser, forgetRememberedBrowser, hasRememberedBrowserForPersonalVault, rememberedBrowserEnrollment, recoverUserRootKeyWithRememberedBrowser, supportsLocalVerification } from "./infrastructure/browser-local-verification";
+export {
+  BrowserDeviceBoundVerificationPort,
+  browserDeviceBoundVerificationPort,
+  enrollRememberedBrowser,
+  forgetRememberedBrowser,
+  hasRememberedBrowserForPersonalVault,
+  rememberedBrowserEnrollment,
+  recoverUserRootKeyWithRememberedBrowser,
+  supportsLocalVerification,
+} from "./infrastructure/browser-local-verification";
 export { generateVaultUnlockSecret } from "./presentation/generate-vault-unlock-secret";
 export { PasskeyRecoveryEnrollment } from "./presentation/passkey-recovery-enrollment";
 export { PasskeyRecoveryReset } from "./presentation/passkey-recovery-reset";
 export { RememberedBrowserEnrollment } from "./presentation/remembered-browser-enrollment";
 export { rotateVaultKey } from "./infrastructure/browser-vault-key-rotation";
-export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "./infrastructure/browser-vault-key-rotation";
-export { createEncryptedVaultArchive, createEncryptedVaultExport, MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES, MAX_VAULT_ARCHIVE_ACCOUNTS, openEncryptedVaultExport } from "./infrastructure/browser-vault-export";
-export { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./infrastructure/browser-passkey-recovery-package";
+export type {
+  EncryptedVaultRotationInput,
+  EncryptedVaultRotationResult,
+} from "./infrastructure/browser-vault-key-rotation";
+export {
+  createEncryptedVaultArchive,
+  createEncryptedVaultExport,
+  MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES,
+  MAX_VAULT_ARCHIVE_ACCOUNTS,
+  openEncryptedVaultExport,
+} from "./infrastructure/browser-vault-export";
+export {
+  createPasskeyRecoveryPackage,
+  passkeyRecoverySalt,
+  recoverUserRootKeyFromPasskeyPackage,
+} from "./infrastructure/browser-passkey-recovery-package";
 export { authenticatePasskey, createPasskeyCredential, evaluatePasskeyPrf } from "./infrastructure/browser-passkey-prf";
 export { recoverUserRootKeyWithPasskey } from "./infrastructure/browser-passkey-recovery-workflow";
 export { rewrapUserCryptoProfile } from "./infrastructure/browser-passkey-recovery-client";

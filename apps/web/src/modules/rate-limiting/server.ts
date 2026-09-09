@@ -7,5 +7,5 @@ export type { ApplicationRateLimitPolicyId } from "./domain/application-rate-lim
 
 export const checkApplicationRateLimit = createApplicationRateLimitChecker(
   new PrismaApplicationRateLimitRepository(),
-  new BoundedRateLimitMetrics()
+  new BoundedRateLimitMetrics(),
 );

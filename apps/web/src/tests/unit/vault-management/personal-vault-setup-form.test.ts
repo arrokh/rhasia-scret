@@ -12,7 +12,7 @@ const cryptoMocks = vi.hoisted(() => ({
   initializePersonalVaultInBrowser: vi.fn(),
   validateVaultUnlockSecret: vi.fn((secret: string) => {
     if (secret.trim().length < 3) throw new Error("At least three characters are required.");
-  })
+  }),
 }));
 const navigationMocks = vi.hoisted(() => ({ refresh: vi.fn() }));
 
@@ -35,7 +35,11 @@ describe("PersonalVaultSetupForm", () => {
       .mockReturnValueOnce("canvas rabbit antenna volcano winter velvet");
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
-    const form = createElement(StrictMode, null, createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
+    const form = createElement(
+      StrictMode,
+      null,
+      createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)),
+    );
     container.innerHTML = renderToString(form);
 
     expect(cryptoMocks.generateVaultUnlockSecret).not.toHaveBeenCalled();
@@ -44,7 +48,7 @@ describe("PersonalVaultSetupForm", () => {
     let root: Root | undefined;
     await act(async () => {
       root = hydrateRoot(container, form, {
-        onRecoverableError: (error) => recoverableErrors.push(error)
+        onRecoverableError: (error) => recoverableErrors.push(error),
       });
     });
 
@@ -52,7 +56,9 @@ describe("PersonalVaultSetupForm", () => {
     expect(cryptoMocks.generateVaultUnlockSecret).toHaveBeenCalledTimes(1);
     expect(container.querySelector("output")?.textContent).toBe("picnic trophy sheriff coin wire ocean");
 
-    const regenerate = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Buat passphrase lain"));
+    const regenerate = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+      button.textContent?.includes("Buat passphrase lain"),
+    );
     await act(async () => regenerate?.click());
 
     expect(cryptoMocks.generateVaultUnlockSecret).toHaveBeenCalledTimes(2);
@@ -70,7 +76,7 @@ describe("PersonalVaultSetupForm", () => {
       wrappedUserRootKey: new Uint8Array(13),
       encryptedPersonalVaultKey: new Uint8Array(13),
       encryptedVaultName: new Uint8Array(13),
-      encryptionVersion: 1
+      encryptionVersion: 1,
     });
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -92,8 +98,12 @@ describe("PersonalVaultSetupForm", () => {
     const customSecret = container.querySelector<HTMLInputElement>("#custom-unlock-secret");
     const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
     const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
-    const showCustomSecret = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Passphrase Brankas Anda"]');
-    const showConfirmation = container.querySelector<HTMLButtonElement>('[aria-label="Tampilkan Konfirmasi Passphrase Brankas"]');
+    const showCustomSecret = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Tampilkan Passphrase Brankas Anda"]',
+    );
+    const showConfirmation = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Tampilkan Konfirmasi Passphrase Brankas"]',
+    );
 
     expect(customSecret?.type).toBe("password");
     expect(confirmation?.type).toBe("password");
@@ -110,7 +120,9 @@ describe("PersonalVaultSetupForm", () => {
       setInputValue(confirmation, "abd");
     });
     expect(confirmation?.getAttribute("aria-invalid")).toBe("true");
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("tidak cocok dengan Passphrase Brankas Anda");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "tidak cocok dengan Passphrase Brankas Anda",
+    );
 
     await act(async () => {
       setInputValue(customSecret, "ab");
@@ -129,11 +141,11 @@ describe("PersonalVaultSetupForm", () => {
     });
     await act(async () => form?.requestSubmit());
 
-    expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith(
-      "abc",
-      "Brankas Pribadi"
+    expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abc", "Brankas Pribadi");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/personal-vault/initialize",
+      expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/initialize", expect.objectContaining({ method: "POST" }));
     expect(container.querySelector('[role="alert"]')).toBeNull();
 
     await act(async () => root?.unmount());
@@ -147,7 +159,7 @@ describe("PersonalVaultSetupForm", () => {
       wrappedUserRootKey: new Uint8Array(13),
       encryptedPersonalVaultKey: new Uint8Array(13),
       encryptedVaultName: new Uint8Array(13),
-      encryptionVersion: 1
+      encryptionVersion: 1,
     });
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -175,9 +187,12 @@ describe("PersonalVaultSetupForm", () => {
 
     expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith(
       "picnic trophy sheriff coin wire ocean",
-      "Brankas Pribadi"
+      "Brankas Pribadi",
     );
-    expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/initialize", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/personal-vault/initialize",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(navigationMocks.refresh).toHaveBeenCalledOnce();
     expect(container.querySelector('[role="alert"]')).toBeNull();
 

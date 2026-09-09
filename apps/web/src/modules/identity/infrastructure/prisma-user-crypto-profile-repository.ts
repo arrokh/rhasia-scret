@@ -1,6 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import type { EncryptedUserCryptoProfile, UserCryptoProfileRepository, UserEncryptionIdentity, UserRootKeyRewrap } from "../application/user-crypto-profile-repository";
+import type {
+  EncryptedUserCryptoProfile,
+  UserCryptoProfileRepository,
+  UserEncryptionIdentity,
+  UserRootKeyRewrap,
+} from "../application/user-crypto-profile-repository";
 
 export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepository {
   public async get(userId: string): Promise<EncryptedUserCryptoProfile | null> {
@@ -11,8 +16,10 @@ export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepos
       wrappedUserRootKey: copyBytes(profile.wrappedUserRootKey),
       encryptedPersonalVaultKey: copyBytes(profile.encryptedPersonalVaultKey),
       encryptionVersion: profile.rootKeyWrappingVersion,
-      userEncryptionPublicKey: profile.userEncryptionPublicKey ? profile.userEncryptionPublicKey as JsonWebKey : undefined,
-      encryptedUserPrivateKey: profile.encryptedUserPrivateKey ? copyBytes(profile.encryptedUserPrivateKey) : undefined
+      userEncryptionPublicKey: profile.userEncryptionPublicKey
+        ? (profile.userEncryptionPublicKey as JsonWebKey)
+        : undefined,
+      encryptedUserPrivateKey: profile.encryptedUserPrivateKey ? copyBytes(profile.encryptedUserPrivateKey) : undefined,
     };
   }
 
@@ -22,8 +29,8 @@ export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepos
       data: {
         userEncryptionPublicKey: identity.publicKey as Prisma.InputJsonValue,
         encryptedUserPrivateKey: copyBytes(identity.encryptedPrivateKey),
-        userEncryptionKeyVersion: identity.encryptionVersion
-      }
+        userEncryptionKeyVersion: identity.encryptionVersion,
+      },
     });
     if (updated.count !== 1) throw new Error("User crypto profile does not exist.");
   }
@@ -35,11 +42,13 @@ export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepos
         vaultUnlockSalt: copyBytes(rewrap.vaultUnlockSalt),
         wrappedUserRootKey: copyBytes(rewrap.wrappedUserRootKey),
         rootKeyWrappingVersion: rewrap.encryptionVersion,
-        ...(rewrap.encryptedPersonalVaultKey ? {
-          encryptedPersonalVaultKey: copyBytes(rewrap.encryptedPersonalVaultKey),
-          personalVaultKeyEncryptionVersion: rewrap.encryptionVersion
-        } : {})
-      }
+        ...(rewrap.encryptedPersonalVaultKey
+          ? {
+              encryptedPersonalVaultKey: copyBytes(rewrap.encryptedPersonalVaultKey),
+              personalVaultKeyEncryptionVersion: rewrap.encryptionVersion,
+            }
+          : {}),
+      },
     });
     if (updated.count !== 1) throw new Error("User crypto profile does not exist.");
   }

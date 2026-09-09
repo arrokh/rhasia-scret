@@ -10,7 +10,7 @@ export function VaultPageFrame({
   title,
   description,
   contentLabel,
-  children
+  children,
 }: {
   backHref?: string;
   backLabel?: string;
@@ -22,9 +22,26 @@ export function VaultPageFrame({
 }) {
   return (
     <AppPage>
-      <PageHeader backHref={backHref} backLabel={backLabel} backPrefetch={backPrefetch} title={title} description={description} action={<Suspense fallback={<ActionLoadingPlaceholder />}><VaultPageLogoutAction /></Suspense>} />
+      <PageHeader
+        backHref={backHref}
+        backLabel={backLabel}
+        backPrefetch={backPrefetch}
+        title={title}
+        description={description}
+        action={
+          <Suspense fallback={<ActionLoadingPlaceholder />}>
+            <VaultPageLogoutAction />
+          </Suspense>
+        }
+      />
       <SurfaceCard aria-label={contentLabel}>
-        <Suspense fallback={<div className="p-5 sm:p-6"><SectionLoadingPlaceholder rows={3} /></div>}>
+        <Suspense
+          fallback={
+            <div className="p-5 sm:p-6">
+              <SectionLoadingPlaceholder rows={3} />
+            </div>
+          }
+        >
           {children}
         </Suspense>
       </SurfaceCard>

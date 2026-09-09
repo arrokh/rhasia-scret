@@ -22,7 +22,11 @@ export function extractSecureShareLinkSecret(rawUrl: string, webOrigin: string):
   return secret.length >= 16 && secret.length <= 4_096 ? secret : null;
 }
 
-export async function completeAuthCallback(rawUrl: string, auth: MobileAuthCallbackPort, webOrigin: string): Promise<AuthCallbackResult> {
+export async function completeAuthCallback(
+  rawUrl: string,
+  auth: MobileAuthCallbackPort,
+  webOrigin: string,
+): Promise<AuthCallbackResult> {
   if (classifyIncomingLink(rawUrl, webOrigin) !== "auth_callback") return "invalid";
   const url = safeUrl(rawUrl);
   if (!url) return "invalid";

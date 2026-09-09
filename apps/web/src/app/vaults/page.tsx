@@ -10,18 +10,36 @@ import { ActionLoadingPlaceholder } from "@/shared/presentation/loading-placehol
 export const dynamic = "force-dynamic";
 
 export default async function VaultsPage() {
-  const [t, { personalVault }] = await Promise.all([getTranslations("VaultManagement.vaultsPage"), loadVaultPageContext()]);
+  const [t, { personalVault }] = await Promise.all([
+    getTranslations("VaultManagement.vaultsPage"),
+    loadVaultPageContext(),
+  ]);
   const uninitialized = personalVault.lifecycle === "UNINITIALIZED";
   return (
     <AppPage>
-      <PageHeader title={t("title")} description={uninitialized ? t("setupDescription") : t("accountsDescription")} action={<Suspense fallback={<ActionLoadingPlaceholder />}><VaultPageLogoutAction /></Suspense>} />
+      <PageHeader
+        title={t("title")}
+        description={uninitialized ? t("setupDescription") : t("accountsDescription")}
+        action={
+          <Suspense fallback={<ActionLoadingPlaceholder />}>
+            <VaultPageLogoutAction />
+          </Suspense>
+        }
+      />
       <SurfaceCard aria-label={uninitialized ? t("setupLabel") : t("accountsLabel")}>
         {uninitialized ? (
           <div className="grid gap-6 p-5 sm:p-6">
-            <SectionHeading icon={LockKeyhole} eyebrow={t("personal")} title={t("setupTitle")} description={t("setupIntro")} />
+            <SectionHeading
+              icon={LockKeyhole}
+              eyebrow={t("personal")}
+              title={t("setupTitle")}
+              description={t("setupIntro")}
+            />
             <PersonalVaultSetupForm />
           </div>
-        ) : <PersonalVaultAccounts vaultId={personalVault.id} />}
+        ) : (
+          <PersonalVaultAccounts vaultId={personalVault.id} />
+        )}
       </SurfaceCard>
     </AppPage>
   );

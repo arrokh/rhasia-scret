@@ -17,18 +17,23 @@ export class PrismaSharedVaultRepository implements SharedVaultRepository {
             userId: ownerId,
             role: "OWNER",
             encryptedVaultKey: copyBytes(vault.encryptedOwnerVaultKey),
-            keyVersion: vault.encryptionVersion
-          }
-        }
-      }
+            keyVersion: vault.encryptionVersion,
+          },
+        },
+      },
     });
     return new Vault(created.id, "SHARED", created.ownerId, "ACTIVE");
   }
 
-  public async rename(ownerId: string, vaultId: string, encryptedName: Uint8Array, encryptionVersion: number): Promise<boolean> {
+  public async rename(
+    ownerId: string,
+    vaultId: string,
+    encryptedName: Uint8Array,
+    encryptionVersion: number,
+  ): Promise<boolean> {
     const result = await prisma.vault.updateMany({
       where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
-      data: { encryptedName: copyBytes(encryptedName), encryptionVersion }
+      data: { encryptedName: copyBytes(encryptedName), encryptionVersion },
     });
     return result.count === 1;
   }

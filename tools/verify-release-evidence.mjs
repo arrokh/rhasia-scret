@@ -56,7 +56,9 @@ export function parseReadinessRecord(source, recordPath = defaultRecord) {
     failures.push(`${recordPath} must contain an Evidence owner.`);
   }
   if (!/\bNot Verifiable\b/.test(source) && decision === "HOLD") {
-    failures.push(`${recordPath} must identify unavailable external evidence as Not Verifiable when the decision is HOLD.`);
+    failures.push(
+      `${recordPath} must identify unavailable external evidence as Not Verifiable when the decision is HOLD.`,
+    );
   }
 
   return { valid: failures.length === 0, failures, decision, candidateVersion };
@@ -75,21 +77,32 @@ export async function verifyRepositoryPolicy(root = repositoryRoot) {
   }
 
   const secretScan = contents.get(".github/workflows/secret-scan.yml") ?? "";
-  if (!/fetch-depth:\s*0/.test(secretScan)) failures.push("The secret-scan workflow must check out full history with fetch-depth: 0.");
-  if (!/gitleaks\/gitleaks-action@[0-9a-f]{40}/.test(secretScan)) failures.push("The secret scanner must use an immutable action commit.");
-  if (!/schedule:\s*\n\s+- cron:/.test(secretScan)) failures.push("The secret-scan workflow must include scheduled coverage.");
+  if (!/fetch-depth:\s*0/.test(secretScan))
+    failures.push("The secret-scan workflow must check out full history with fetch-depth: 0.");
+  if (!/gitleaks\/gitleaks-action@[0-9a-f]{40}/.test(secretScan))
+    failures.push("The secret scanner must use an immutable action commit.");
+  if (!/schedule:\s*\n\s+- cron:/.test(secretScan))
+    failures.push("The secret-scan workflow must include scheduled coverage.");
 
   const releaseEvidence = contents.get(".github/workflows/release-evidence.yml") ?? "";
-  for (const command of ["pnpm install --frozen-lockfile", "pnpm run verify:release-evidence", "pnpm run verify:version-alignment", "pnpm run test:full"]) {
+  for (const command of [
+    "pnpm install --frozen-lockfile",
+    "pnpm run verify:release-evidence",
+    "pnpm run verify:version-alignment",
+    "pnpm run test:full",
+  ]) {
     if (!releaseEvidence.includes(command)) failures.push(`The release-evidence workflow must run ${command}.`);
   }
 
   const packageJson = contents.get("package.json") ?? "";
-  if (!packageJson.includes('"verify:release-evidence"')) failures.push("package.json must expose verify:release-evidence.");
-  if (!packageJson.includes('"test:release-evidence"')) failures.push("package.json must expose test:release-evidence.");
+  if (!packageJson.includes('"verify:release-evidence"'))
+    failures.push("package.json must expose verify:release-evidence.");
+  if (!packageJson.includes('"test:release-evidence"'))
+    failures.push("package.json must expose test:release-evidence.");
 
   const dependencyExceptions = contents.get("docs/security/dependency-audit-exceptions.md") ?? "";
-  if (!/\| Owner \| Review by \|/.test(dependencyExceptions)) failures.push("Dependency exceptions must include an owner and review date.");
+  if (!/\|\s*Owner\s*\|\s*Review by\s*\|/.test(dependencyExceptions))
+    failures.push("Dependency exceptions must include an owner and review date.");
 
   for (const [relativePath, source] of contents) {
     if (!relativePath.startsWith(".github/workflows/")) continue;

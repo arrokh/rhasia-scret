@@ -21,15 +21,26 @@ export class BrowserOfflineVaultRepository implements ClientStoragePort {
   async listProfiles(): Promise<OfflineProfileSummary[]> {
     const database = await this.openDatabase();
     try {
-      const records = await request<unknown[]>(database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).getAll());
-      return records.flatMap((record) => {
-        try {
-          const bundle = parseEncryptedOfflineVaultBundle(record);
-          return [{ profileId: bundle.profileId, personalVaultId: bundle.personalVault.vaultId, synchronizedAt: bundle.synchronizedAt, sharedVaultCount: bundle.sharedVaults.length }];
-        } catch {
-          return [];
-        }
-      }).sort((left, right) => right.synchronizedAt.localeCompare(left.synchronizedAt));
+      const records = await request<unknown[]>(
+        database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).getAll(),
+      );
+      return records
+        .flatMap((record) => {
+          try {
+            const bundle = parseEncryptedOfflineVaultBundle(record);
+            return [
+              {
+                profileId: bundle.profileId,
+                personalVaultId: bundle.personalVault.vaultId,
+                synchronizedAt: bundle.synchronizedAt,
+                sharedVaultCount: bundle.sharedVaults.length,
+              },
+            ];
+          } catch {
+            return [];
+          }
+        })
+        .sort((left, right) => right.synchronizedAt.localeCompare(left.synchronizedAt));
     } finally {
       database.close();
     }
@@ -38,7 +49,9 @@ export class BrowserOfflineVaultRepository implements ClientStoragePort {
   async read(profileId: string): Promise<EncryptedOfflineVaultBundle | null> {
     const database = await this.openDatabase();
     try {
-      const value = await request<unknown>(database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).get(profileId));
+      const value = await request<unknown>(
+        database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).get(profileId),
+      );
       return value === undefined ? null : parseEncryptedOfflineVaultBundle(value);
     } finally {
       database.close();
@@ -48,12 +61,16 @@ export class BrowserOfflineVaultRepository implements ClientStoragePort {
   async readByPersonalVaultId(personalVaultId: string): Promise<EncryptedOfflineVaultBundle | null> {
     const database = await this.openDatabase();
     try {
-      const values = await request<unknown[]>(database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).getAll());
+      const values = await request<unknown[]>(
+        database.transaction(SNAPSHOT_STORE, "readonly").objectStore(SNAPSHOT_STORE).getAll(),
+      );
       for (const value of values) {
         try {
           const bundle = parseEncryptedOfflineVaultBundle(value);
           if (bundle.personalVault.vaultId === personalVaultId) return bundle;
-        } catch { /* Ignore malformed records while looking for a valid encrypted snapshot. */ }
+        } catch {
+          /* Ignore malformed records while looking for a valid encrypted snapshot. */
+        }
       }
       return null;
     } finally {
@@ -138,7 +155,9 @@ export class BrowserOfflineVaultRepository implements ClientStoragePort {
   async readRememberedBrowser(profileId: string): Promise<RememberedBrowserPackage | null> {
     const database = await this.openDatabase();
     try {
-      const value = await request<unknown>(database.transaction(REMEMBERED_STORE, "readonly").objectStore(REMEMBERED_STORE).get(profileId));
+      const value = await request<unknown>(
+        database.transaction(REMEMBERED_STORE, "readonly").objectStore(REMEMBERED_STORE).get(profileId),
+      );
       return value === undefined ? null : parseRememberedBrowserPackage(value);
     } finally {
       database.close();
@@ -158,12 +177,31 @@ export class BrowserOfflineVaultRepository implements ClientStoragePort {
 }
 
 export function parseRememberedBrowserPackage(value: unknown): RememberedBrowserPackage {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Remembered Browser package is invalid.");
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Remembered Browser package is invalid.");
   const record = value as Record<string, unknown>;
-  const expected = ["credentialId", "encryptedUserRootKeyPackage", "enrolledAt", "origin", "profileId", "rpId", "version"];
+  const expected = [
+    "credentialId",
+    "encryptedUserRootKeyPackage",
+    "enrolledAt",
+    "origin",
+    "profileId",
+    "rpId",
+    "version",
+  ];
   const keys = Object.keys(record).sort();
-  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) throw new Error("Remembered Browser package is invalid.");
-  if (record.version !== 1 || !opaque(record.profileId) || !host(record.rpId) || !httpOrigin(record.origin) || !base64(record.credentialId) || !base64(record.encryptedUserRootKeyPackage) || !isoTimestamp(record.enrolledAt)) throw new Error("Remembered Browser package is invalid.");
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index]))
+    throw new Error("Remembered Browser package is invalid.");
+  if (
+    record.version !== 1 ||
+    !opaque(record.profileId) ||
+    !host(record.rpId) ||
+    !httpOrigin(record.origin) ||
+    !base64(record.credentialId) ||
+    !base64(record.encryptedUserRootKeyPackage) ||
+    !isoTimestamp(record.enrolledAt)
+  )
+    throw new Error("Remembered Browser package is invalid.");
   return record as RememberedBrowserPackage;
 }
 
@@ -177,8 +215,10 @@ function openOfflineDatabase(): Promise<IDBDatabase> {
     const openRequest = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     openRequest.onupgradeneeded = () => {
       const database = openRequest.result;
-      if (!database.objectStoreNames.contains(SNAPSHOT_STORE)) database.createObjectStore(SNAPSHOT_STORE, { keyPath: "profileId" });
-      if (!database.objectStoreNames.contains(REMEMBERED_STORE)) database.createObjectStore(REMEMBERED_STORE, { keyPath: "profileId" });
+      if (!database.objectStoreNames.contains(SNAPSHOT_STORE))
+        database.createObjectStore(SNAPSHOT_STORE, { keyPath: "profileId" });
+      if (!database.objectStoreNames.contains(REMEMBERED_STORE))
+        database.createObjectStore(REMEMBERED_STORE, { keyPath: "profileId" });
     };
     openRequest.onerror = () => reject(openRequest.error ?? new Error("Could not open offline Vault storage."));
     openRequest.onblocked = () => reject(new Error("Offline Vault storage upgrade is blocked by another tab."));
@@ -197,12 +237,38 @@ function completed(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error ?? new Error("Offline Vault storage transaction failed."));
-    transaction.onabort = () => reject(transaction.error ?? new Error("Offline Vault storage transaction was aborted."));
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("Offline Vault storage transaction was aborted."));
   });
 }
 
-function opaque(value: unknown): value is string { return typeof value === "string" && /^[A-Za-z0-9_-]{1,256}$/.test(value); }
-function host(value: unknown): value is string { return typeof value === "string" && /^(?:[A-Za-z0-9-]+\.)*[A-Za-z0-9-]+$/.test(value) && value.length <= 253; }
-function httpOrigin(value: unknown): value is string { if (typeof value !== "string") return false; try { const url = new URL(value); return url.origin === value && (url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))); } catch { return false; } }
-function base64(value: unknown): value is string { return typeof value === "string" && value.length >= 4 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value); }
-function isoTimestamp(value: unknown): value is string { return typeof value === "string" && Number.isFinite(new Date(value).getTime()) && new Date(value).toISOString() === value; }
+function opaque(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,256}$/.test(value);
+}
+function host(value: unknown): value is string {
+  return typeof value === "string" && /^(?:[A-Za-z0-9-]+\.)*[A-Za-z0-9-]+$/.test(value) && value.length <= 253;
+}
+function httpOrigin(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === value &&
+      (url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
+    );
+  } catch {
+    return false;
+  }
+}
+function base64(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 4 &&
+    /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)
+  );
+}
+function isoTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" && Number.isFinite(new Date(value).getTime()) && new Date(value).toISOString() === value
+  );
+}

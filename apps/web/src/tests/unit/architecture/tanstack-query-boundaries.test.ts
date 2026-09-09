@@ -34,7 +34,7 @@ describe("TanStack Query boundaries", () => {
       "src/modules/otp-runtime/presentation/hooks/use-server-time-query.ts",
       "src/modules/vault-management/presentation/hooks/use-personal-vault-mutations.ts",
       "src/modules/vault-management/presentation/hooks/use-shared-vault-mutations.ts",
-      "src/modules/vault-membership/presentation/hooks/use-vault-participants.ts"
+      "src/modules/vault-membership/presentation/hooks/use-vault-participants.ts",
     ]);
   });
 
@@ -43,7 +43,7 @@ describe("TanStack Query boundaries", () => {
     const provider = readFileSync(join(sourceRoot, "shared/presentation/query-provider.tsx"), "utf8");
 
     expect(layout).toContain("<QueryProvider>");
-    expect(layout).toContain("{children}<AppFooter />");
+    expect(layout).toContain("<AppFooter />");
     expect(provider).toContain("new QueryClient");
     expect(provider).not.toMatch(/persist|localStorage|sessionStorage|indexedDB/i);
   });

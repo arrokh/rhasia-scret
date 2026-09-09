@@ -19,13 +19,22 @@ export function NavigationProgress() {
 
   useEffect(() => {
     function start(event: MouseEvent) {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
       const link = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
       if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
 
       const destination = new URL(link.href, window.location.href);
       if (destination.origin !== window.location.origin || destination.protocol !== window.location.protocol) return;
-      if (`${destination.pathname}${destination.search}` === `${window.location.pathname}${window.location.search}`) return;
+      if (`${destination.pathname}${destination.search}` === `${window.location.pathname}${window.location.search}`)
+        return;
 
       if (finishTimer.current) clearTimeout(finishTimer.current);
       if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
@@ -54,10 +63,13 @@ export function NavigationProgress() {
     }, remaining);
   }, [route]);
 
-  useEffect(() => () => {
-    if (finishTimer.current) clearTimeout(finishTimer.current);
-    if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (finishTimer.current) clearTimeout(finishTimer.current);
+      if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+    },
+    [],
+  );
 
   return visible ? <PageProgressBar /> : null;
 }

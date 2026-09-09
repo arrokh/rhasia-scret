@@ -24,8 +24,12 @@ describe("browser-delivery security boundaries", () => {
 
   it("avoids preloading non-critical analytics and font resources", () => {
     const layout = read("src/app/layout.tsx");
-    expect(layout).toContain('const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });');
-    expect(layout).toContain('const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });');
+    expect(layout).toContain(
+      'const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });',
+    );
+    expect(layout).toContain(
+      'const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });',
+    );
     expect(layout).toContain('strategy="lazyOnload"');
   });
 
@@ -63,7 +67,7 @@ describe("browser-delivery security boundaries", () => {
 
     const secretScan = read("../../.github/workflows/secret-scan.yml");
     expect(secretScan).toContain("fetch-depth: 0");
-    expect(secretScan).toContain("GITLEAKS_ENABLE_COMMENTS: \"false\"");
+    expect(secretScan).toContain('GITLEAKS_ENABLE_COMMENTS: "false"');
   });
 
   it("does not expose the browser smoke fixture in production", () => {
@@ -83,7 +87,9 @@ describe("browser-delivery security boundaries", () => {
 
   it("accepts messages only from the application origin", () => {
     expect(read("public/sw.js")).toContain("if (event.origin !== self.location.origin) return;");
-    expect(read("src/modules/crypto/infrastructure/browser-vault-unlock-key-worker.ts")).toContain("if (event.origin && event.origin !== self.location.origin) return;");
+    expect(read("src/modules/crypto/infrastructure/browser-vault-unlock-key-worker.ts")).toContain(
+      "if (event.origin && event.origin !== self.location.origin) return;",
+    );
   });
 
   it("reads each route bundle once before measuring it", () => {

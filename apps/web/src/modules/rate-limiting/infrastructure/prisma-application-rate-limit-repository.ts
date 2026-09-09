@@ -1,6 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/shared/infrastructure/prisma-client";
-import type { ApplicationRateLimitDecision, ApplicationRateLimitRepository } from "../application/application-rate-limit-repository";
+import type {
+  ApplicationRateLimitDecision,
+  ApplicationRateLimitRepository,
+} from "../application/application-rate-limit-repository";
 import type { ApplicationRateLimitPolicy, ApplicationRateLimitPolicyId } from "../domain/application-rate-limit-policy";
 
 type ConsumptionRow = { request_count: number; retry_after_seconds: number };
@@ -10,7 +13,11 @@ type RateLimitDatabase = Pick<PrismaClient, "$transaction">;
 export class PrismaApplicationRateLimitRepository implements ApplicationRateLimitRepository {
   constructor(private readonly database: RateLimitDatabase = prisma) {}
 
-  async consume(userId: string, operation: ApplicationRateLimitPolicyId, policy: ApplicationRateLimitPolicy): Promise<ApplicationRateLimitDecision> {
+  async consume(
+    userId: string,
+    operation: ApplicationRateLimitPolicyId,
+    policy: ApplicationRateLimitPolicy,
+  ): Promise<ApplicationRateLimitDecision> {
     const rows = await this.database.$transaction(async (transaction) => {
       await transaction.$executeRaw`
         DELETE FROM application_rate_limit_windows

@@ -13,25 +13,36 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(brandLink).toBeVisible();
   const brandIcon = brandLink.locator("img");
   await expect(brandIcon).toHaveAttribute("src", /icon512_rounded\.png/);
-  expect(await brandIcon.locator("..").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  expect(await brandIcon.locator("..").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
+    "rgba(0, 0, 0, 0)",
+  );
   await expect(page.getByRole("heading", { name: /Autentikator Anda, sesuai ketentuan Anda/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Apa itu rhasia-scret?" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tetap lokal. Pindah hanya saat bermanfaat." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   const landingHeader = page.locator("main > header");
   await expect(landingHeader.getByRole("link", { name: "Masuk" })).toHaveCount(0);
-  await expect(landingHeader.getByRole("link", { name: "Repositori GitHub" })).toHaveAttribute("href", "https://github.com/arrokh/rhasia-scret");
+  await expect(landingHeader.getByRole("link", { name: "Repositori GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/arrokh/rhasia-scret",
+  );
   const localVaultLink = page.locator('a[href="/local?from=landing"]').first();
   await expect(localVaultLink).toBeVisible();
   await expect(localVaultLink).toHaveAttribute("href", "/local?from=landing");
-  const landingFooter = page.locator("main.landing-page").locator("footer").filter({
-    has: page.locator('a[href*="sign-in"]'),
-  });
+  const landingFooter = page
+    .locator("main.landing-page")
+    .locator("footer")
+    .filter({
+      has: page.locator('a[href*="sign-in"]'),
+    });
   await expect(landingFooter).toBeVisible();
   const signInLink = landingFooter.locator('a[href*="sign-in"]').first();
   await expect(signInLink).toBeVisible();
   await expect(signInLink).toHaveAttribute("href", /(^https:\/\/rhasia-scret\.vercel\.app)?\/sign-in$/);
-  await expect(landingFooter.locator('a[href="https://github.com/arrokh"]').first()).toHaveAttribute("href", "https://github.com/arrokh");
+  await expect(landingFooter.locator('a[href="https://github.com/arrokh"]').first()).toHaveAttribute(
+    "href",
+    "https://github.com/arrokh",
+  );
   await page.evaluate(() => {
     const heroEnd = document.getElementById("landing-hero-end");
     const fallback = document.body.scrollHeight;
@@ -41,29 +52,45 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   });
   const stickyHeader = page.getByTestId("landing-sticky-header");
   await expect(stickyHeader).toHaveAttribute("aria-hidden", "false", { timeout: 10_000 });
-  await expect(stickyHeader.getByRole("link", { name: "Coba Local Vault" })).toHaveAttribute("href", "/local?from=landing");
+  await expect(stickyHeader.getByRole("link", { name: "Coba Local Vault" })).toHaveAttribute(
+    "href",
+    "/local?from=landing",
+  );
   await expect(stickyHeader.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   await expect(stickyHeader.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
 });
 
 test("keeps every Vault flow connector straight at mobile and desktop widths", async ({ page }) => {
-  for (const viewport of [{ width: 430, height: 932 }, { width: 1280, height: 800 }]) {
+  for (const viewport of [
+    { width: 430, height: 932 },
+    { width: 1280, height: 800 },
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
 
-    const connectorGeometry = await page.locator(".comparison-flow-device, .comparison-flow-service").evaluateAll((cards) => cards.map((card) => {
-      const connector = card.querySelector<HTMLElement>(".comparison-flow-device-connector, .comparison-flow-service-connector");
-      const cardBox = card.getBoundingClientRect();
-      const connectorBox = connector?.getBoundingClientRect();
-      return {
-        connectorHeight: connectorBox?.height ?? Number.POSITIVE_INFINITY,
-        centerDelta: Math.abs((connectorBox?.top ?? 0) + (connectorBox?.height ?? 0) / 2 - (cardBox.top + cardBox.height / 2)),
-      };
-    }));
+    const connectorGeometry = await page
+      .locator(".comparison-flow-device, .comparison-flow-service")
+      .evaluateAll((cards) =>
+        cards.map((card) => {
+          const connector = card.querySelector<HTMLElement>(
+            ".comparison-flow-device-connector, .comparison-flow-service-connector",
+          );
+          const cardBox = card.getBoundingClientRect();
+          const connectorBox = connector?.getBoundingClientRect();
+          return {
+            connectorHeight: connectorBox?.height ?? Number.POSITIVE_INFINITY,
+            centerDelta: Math.abs(
+              (connectorBox?.top ?? 0) + (connectorBox?.height ?? 0) / 2 - (cardBox.top + cardBox.height / 2),
+            ),
+          };
+        }),
+      );
 
     expect(connectorGeometry).toHaveLength(6);
-    expect(connectorGeometry.every(({ connectorHeight, centerDelta }) => connectorHeight <= 1.5 && centerDelta <= 1)).toBe(true);
+    expect(
+      connectorGeometry.every(({ connectorHeight, centerDelta }) => connectorHeight <= 1.5 && centerDelta <= 1),
+    ).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
@@ -91,7 +118,13 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.getByText("Sign in or create an account with a verified email address.")).toBeVisible();
 
   const manifest = await page.evaluate(async () => fetch("/manifest.webmanifest").then((response) => response.json()));
-  expect(manifest).toMatchObject({ lang: "en-US", description: "Zero-knowledge shared authenticator", id: "/vaults", start_url: "/vaults", scope: "/" });
+  expect(manifest).toMatchObject({
+    lang: "en-US",
+    description: "Zero-knowledge shared authenticator",
+    id: "/vaults",
+    start_url: "/vaults",
+    scope: "/",
+  });
 
   await page.goto("/vaults");
   await expect(page).toHaveURL(/\/sign-in\?auth=required$/);
@@ -118,9 +151,12 @@ test("renders representative English OTP, Shared Vault, validation, and recovery
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
 
   await page.goto("/ui-preview/archive-import");
-  await page.getByRole("button", { name: "Preview archive" }).click();
-  await expect(page.getByText("Archive file is required.")).toBeVisible();
-  await expect(page.getByText("Archive key is required.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Open encrypted archive" })).toBeVisible();
+  const previewArchiveButton = page.getByRole("button", { name: "Preview archive" });
+  await expect(previewArchiveButton).toBeEnabled();
+  await previewArchiveButton.click();
+  await expect(page.getByText("Archive file is required.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Archive key is required.")).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/ui-preview/archive-backup");
   await expect(page.getByRole("heading", { name: "Vault backup" })).toBeVisible();
@@ -140,14 +176,22 @@ test("redirects unauthenticated users away from protected pages", async ({ page 
   }
 });
 
-async function switchLanguage(page: import("@playwright/test").Page, language: "Bahasa Indonesia" | "English", locale: "id" | "en") {
+async function switchLanguage(
+  page: import("@playwright/test").Page,
+  language: "Bahasa Indonesia" | "English",
+  locale: "id" | "en",
+) {
   const isPreview = new URL(page.url()).pathname === "/ui-preview";
   if (isPreview) {
     await page.getByLabel(/Pengaturan akun|Account settings/).click();
     await page.locator('[data-slot="dropdown-menu-sub-trigger"]').click();
   } else {
-    const languageTrigger = await page.locator("main.landing-page").count()
-      ? page.locator('main.landing-page > header button[aria-label="Pilih bahasa"], main.landing-page > header button[aria-label="Choose language"]').first()
+    const languageTrigger = (await page.locator("main.landing-page").count())
+      ? page
+          .locator(
+            'main.landing-page > header button[aria-label="Pilih bahasa"], main.landing-page > header button[aria-label="Choose language"]',
+          )
+          .first()
       : page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
     await expect(languageTrigger).toBeVisible();
     await languageTrigger.click();
@@ -156,7 +200,9 @@ async function switchLanguage(page: import("@playwright/test").Page, language: "
   await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
   if (!isPreview) {
-    await expect(page.getByRole("button", { name: locale === "en" ? "Choose language" : "Pilih bahasa" })).toContainText(language, { timeout: 15_000 });
+    await expect(
+      page.getByRole("button", { name: locale === "en" ? "Choose language" : "Pilih bahasa" }),
+    ).toContainText(language, { timeout: 15_000 });
   }
   if (isPreview) {
     const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });

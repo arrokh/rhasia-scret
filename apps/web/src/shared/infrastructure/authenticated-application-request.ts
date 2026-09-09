@@ -5,7 +5,7 @@ import { authenticatedApplicationFailureResponse } from "./authenticated-applica
 import type { NextResponse } from "next/server";
 
 export async function authenticateApplicationReader(
-  assurance: SessionAssurance
+  assurance: SessionAssurance,
 ): Promise<ApplicationUser | NextResponse> {
   const result = await executeAuthenticatedApplicationRequest({ assurance, access: "reader" });
   return result.status === "allowed" ? result.user : authenticatedApplicationFailureResponse(result);
@@ -13,7 +13,7 @@ export async function authenticateApplicationReader(
 
 export async function authenticateApplicationMutation(
   operation: ApplicationRateLimitPolicyId,
-  assurance: SessionAssurance
+  assurance: SessionAssurance,
 ): Promise<ApplicationUser | NextResponse> {
   const result = await executeAuthenticatedApplicationRequest({ assurance, access: "mutation", operation });
   return result.status === "allowed" ? result.user : authenticatedApplicationFailureResponse(result);

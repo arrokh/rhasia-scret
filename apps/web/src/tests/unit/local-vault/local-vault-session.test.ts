@@ -38,11 +38,15 @@ function harness() {
     isAvailable: () => true,
     readRecord: vi.fn(async () => stored),
     createRecord: vi.fn(async () => record()),
-    persistCreatedRecord: vi.fn(async (next) => { stored = next; }),
+    persistCreatedRecord: vi.fn(async (next) => {
+      stored = next;
+    }),
     unlockRecord: vi.fn(async () => vault()),
     migrateRecord: vi.fn(async () => record()),
     refreshVault: vi.fn(async () => vault(3)),
-    clearRecord: vi.fn(async () => { stored = null; }),
+    clearRecord: vi.fn(async () => {
+      stored = null;
+    }),
     clearVault: vi.fn((current) => {
       if (!current) return;
       cleared.push(current);
@@ -52,7 +56,14 @@ function harness() {
     }),
     isMigrationRequired: (error) => error instanceof Error && error.message === "migration",
   };
-  return { cleared, ports, session: new LocalVaultSession(ports), setStored: (next: LocalVaultRecord | null) => { stored = next; } };
+  return {
+    cleared,
+    ports,
+    session: new LocalVaultSession(ports),
+    setStored: (next: LocalVaultRecord | null) => {
+      stored = next;
+    },
+  };
 }
 
 describe("LocalVaultSession", () => {
@@ -150,10 +161,14 @@ describe("LocalVaultSession", () => {
     let release: (() => void) | undefined;
     const first = test.session.mutate(async () => {
       order.push("first-start");
-      await new Promise<void>((resolve) => { release = resolve; });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
       order.push("first-end");
     });
-    const second = test.session.mutate(async (owned) => { order.push(`second-${owned.name}`); });
+    const second = test.session.mutate(async (owned) => {
+      order.push(`second-${owned.name}`);
+    });
     await vi.waitFor(() => expect(order).toEqual(["first-start"]));
     release?.();
     await Promise.all([first, second]);

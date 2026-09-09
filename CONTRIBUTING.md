@@ -6,7 +6,9 @@ decisions before opening a change.
 
 ## Before you start
 
-1. Use Node.js `24.19.0` and pnpm `11.17.0` through mise.
+1. Use Node.js `24.19.0` and pnpm `11.17.0` through mise. `mise run setup`
+   also enables the tracked Git hooks; manually enable them with
+   `git config core.hooksPath .githooks` when needed.
 2. Read [`CONTEXT.md`](CONTEXT.md), [`AGENTS.md`](AGENTS.md), the relevant
    `docs/adr/` records, and the [documentation index](docs/README.md).
 3. Use synthetic data only. Never commit Vault material, credentials, OTPs,
@@ -75,6 +77,7 @@ before merge or PR handoff, the complete gate:
 mise install
 mise run setup
 mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm run format:check
 mise exec -- pnpm run lint
 mise exec -- pnpm run typecheck
 mise exec -- pnpm test

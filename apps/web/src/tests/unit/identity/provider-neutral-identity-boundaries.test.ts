@@ -5,16 +5,17 @@ import { describe, expect, it } from "vitest";
 const approvedProviderPaths = [
   join(process.cwd(), "src/modules/identity"),
   join(process.cwd(), "src/app/auth/confirm"),
-  join(process.cwd(), "src/app/auth/oidc")
+  join(process.cwd(), "src/app/auth/oidc"),
 ];
-const forbiddenProviderImports = /from ["'](?:@supabase|openid-client|jose)|require\(["'](?:@supabase|openid-client|jose)/;
+const forbiddenProviderImports =
+  /from ["'](?:@supabase|openid-client|jose)|require\(["'](?:@supabase|openid-client|jose)/;
 
 describe("provider-neutral identity boundaries", () => {
   it("keeps provider SDK and protocol imports in Identity infrastructure or auth entry points", () => {
     const violations: string[] = [];
     for (const root of ["src/app", "src/modules", "src/proxy.ts"].map((path) => join(process.cwd(), path))) {
       for (const file of sourceFiles(root)) {
-      if (approvedProviderPaths.some((allowed) => file.startsWith(`${allowed}/`))) continue;
+        if (approvedProviderPaths.some((allowed) => file.startsWith(`${allowed}/`))) continue;
         if (forbiddenProviderImports.test(readFileSync(file, "utf8"))) violations.push(file);
       }
     }

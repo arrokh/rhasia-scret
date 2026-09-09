@@ -7,7 +7,17 @@ export const dynamic = "force-dynamic";
 
 export default async function VaultArchiveImportPage() {
   const t = await getTranslations("VaultArchive.page");
-  return <VaultPageFrame backHref="/vaults/manage" backLabel={t("back")} title={t("title")} description={t("description")} contentLabel={t("label")}><VaultArchiveImportContent /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults/manage"
+      backLabel={t("back")}
+      title={t("title")}
+      description={t("description")}
+      contentLabel={t("label")}
+    >
+      <VaultArchiveImportContent />
+    </VaultPageFrame>
+  );
 }
 
 async function VaultArchiveImportContent() {

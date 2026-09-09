@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createMembershipLifecycleRepository, createSharedVaultAccountPermissionRepository, MembershipUnavailableError, revokeVaultMembership, updateSharedVaultMemberPermissionOverrides } from "@/modules/vault-membership/server";
+import {
+  createMembershipLifecycleRepository,
+  createSharedVaultAccountPermissionRepository,
+  MembershipUnavailableError,
+  revokeVaultMembership,
+  updateSharedVaultMemberPermissionOverrides,
+} from "@/modules/vault-membership/server";
 import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
-const overridesSchema = z.object({
-  expectedRevision: z.number().int().positive(),
-  canAddAccounts: z.boolean().nullable(),
-  canEditAccounts: z.boolean().nullable(),
-  canDeleteAccounts: z.boolean().nullable()
-}).strict();
+const overridesSchema = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    canAddAccounts: z.boolean().nullable(),
+    canEditAccounts: z.boolean().nullable(),
+    canDeleteAccounts: z.boolean().nullable(),
+  })
+  .strict();
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ vaultId: string; userId: string }> }) {
   const user = await authenticateApplicationMutation("membership_mutation", "fresh-provider-user");
@@ -24,16 +32,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
     {
       canAddAccounts: parsed.data.canAddAccounts,
       canEditAccounts: parsed.data.canEditAccounts,
-      canDeleteAccounts: parsed.data.canDeleteAccounts
+      canDeleteAccounts: parsed.data.canDeleteAccounts,
     },
-    createSharedVaultAccountPermissionRepository()
+    createSharedVaultAccountPermissionRepository(),
   );
   if (result.status === "UNAVAILABLE") return NextResponse.json({ error: "member_unavailable" }, { status: 404 });
   if (result.status === "STALE") return NextResponse.json({ error: "stale_permissions_revision" }, { status: 409 });
   return NextResponse.json({
     permissionOverrides: result.value.overrides,
     effectiveAccountPermissions: result.value.effective,
-    permissionsRevision: result.value.revision
+    permissionsRevision: result.value.revision,
   });
 }
 
@@ -45,7 +53,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await revokeVaultMembership(user.id, vaultId, userId, createMembershipLifecycleRepository());
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (error instanceof MembershipUnavailableError) return NextResponse.json({ error: "member_unavailable" }, { status: 404 });
+    if (error instanceof MembershipUnavailableError)
+      return NextResponse.json({ error: "member_unavailable" }, { status: 404 });
     throw error;
   }
 }

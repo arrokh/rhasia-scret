@@ -15,14 +15,18 @@ describe("application rate-limit checker", () => {
   });
 
   it("returns a bounded retry signal after exhaustion", async () => {
-    const repository: ApplicationRateLimitRepository = { consume: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 12.2 }) };
+    const repository: ApplicationRateLimitRepository = {
+      consume: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 12.2 }),
+    };
     const check = createApplicationRateLimitChecker(repository, { record: vi.fn() });
 
     await expect(check("membership_mutation", "user_1")).resolves.toEqual({ status: "limited", retryAfterSeconds: 13 });
   });
 
   it("fails closed with a short retry signal when the backend is unavailable", async () => {
-    const repository: ApplicationRateLimitRepository = { consume: vi.fn().mockRejectedValue(new Error("database unavailable")) };
+    const repository: ApplicationRateLimitRepository = {
+      consume: vi.fn().mockRejectedValue(new Error("database unavailable")),
+    };
     const record = vi.fn();
     const check = createApplicationRateLimitChecker(repository, { record });
 
@@ -31,8 +35,14 @@ describe("application rate-limit checker", () => {
   });
 
   it("never changes admission when operational metric reporting fails", async () => {
-    const repository: ApplicationRateLimitRepository = { consume: vi.fn().mockResolvedValue({ allowed: true, retryAfterSeconds: 1 }) };
-    const check = createApplicationRateLimitChecker(repository, { record: () => { throw new Error("metrics unavailable"); } });
+    const repository: ApplicationRateLimitRepository = {
+      consume: vi.fn().mockResolvedValue({ allowed: true, retryAfterSeconds: 1 }),
+    };
+    const check = createApplicationRateLimitChecker(repository, {
+      record: () => {
+        throw new Error("metrics unavailable");
+      },
+    });
 
     await expect(check("audit_event", "user_1")).resolves.toEqual({ status: "allowed" });
   });
@@ -42,7 +52,10 @@ describe("bounded rate-limit metrics", () => {
   it("emits only aggregate operation outcomes in a bounded time window", () => {
     let now = Date.parse("2026-07-26T00:00:00.000Z");
     const reports: string[] = [];
-    const metrics = new BoundedRateLimitMetrics(() => now, (line) => reports.push(line));
+    const metrics = new BoundedRateLimitMetrics(
+      () => now,
+      (line) => reports.push(line),
+    );
     metrics.record("account_mutation", "allowed");
     metrics.record("account_mutation", "limited");
     now += 60_000;
@@ -53,7 +66,7 @@ describe("bounded rate-limit metrics", () => {
       event: "application_rate_limit_metrics",
       windowStartedAt: "2026-07-26T00:00:00.000Z",
       windowSeconds: 60,
-      counts: { "account_mutation:allowed": 1, "account_mutation:limited": 1 }
+      counts: { "account_mutation:allowed": 1, "account_mutation:limited": 1 },
     });
     expect(reports[0]).not.toMatch(/user|email|payload|credential|key/i);
   });

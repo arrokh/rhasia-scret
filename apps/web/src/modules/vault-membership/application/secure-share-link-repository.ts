@@ -20,7 +20,20 @@ export class SecureShareLinkUnavailableError extends Error {}
 
 export interface SecureShareLinkRepository {
   create(ownerId: string, vaultId: string, link: NewSecureShareLink): Promise<CreatedSecureShareLink>;
-  createForEmail(ownerId: string, vaultId: string, recipientEmail: string, link: Omit<NewSecureShareLink, "recipientUserId">): Promise<CreatedSecureShareLink>;
-  findForRecipient(recipient: SecureShareLinkRecipient, linkVerifier: Uint8Array): Promise<RedeemableSecureShareLink | null>;
-  redeem(recipient: SecureShareLinkRecipient, invitationId: string, encryptedVaultKey: Uint8Array, keyVersion: number): Promise<void>;
+  createForEmail(
+    ownerId: string,
+    vaultId: string,
+    recipientEmail: string,
+    link: Omit<NewSecureShareLink, "recipientUserId">,
+  ): Promise<CreatedSecureShareLink>;
+  findForRecipient(
+    recipient: SecureShareLinkRecipient,
+    linkVerifier: Uint8Array,
+  ): Promise<RedeemableSecureShareLink | null>;
+  redeem(
+    recipient: SecureShareLinkRecipient,
+    invitationId: string,
+    encryptedVaultKey: Uint8Array,
+    keyVersion: number,
+  ): Promise<void>;
 }

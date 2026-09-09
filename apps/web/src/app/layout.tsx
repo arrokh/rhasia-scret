@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
-      title: "rhasia-scret"
+      title: "rhasia-scret",
     },
     icons: {
       icon: [
@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
         { url: "/pwa/android/launchericon-48x48.png", sizes: "48x48", type: "image/png" },
         { url: "/pwa/android/launchericon-96x96.png", sizes: "96x96", type: "image/png" },
         { url: "/pwa/android/launchericon-192x192.png", sizes: "192x192", type: "image/png" },
-        { url: "/assets/icon.png", sizes: "512x512", type: "image/png" }
+        { url: "/assets/icon.png", sizes: "512x512", type: "image/png" },
       ],
       apple: [
         { url: "/pwa/ios/16.png", sizes: "16x16", type: "image/png" },
@@ -63,18 +63,18 @@ export async function generateMetadata(): Promise<Metadata> {
         { url: "/pwa/ios/192.png", sizes: "192x192", type: "image/png" },
         { url: "/pwa/ios/256.png", sizes: "256x256", type: "image/png" },
         { url: "/pwa/ios/512.png", sizes: "512x512", type: "image/png" },
-        { url: "/pwa/ios/1024.png", sizes: "1024x1024", type: "image/png" }
-      ]
+        { url: "/pwa/ios/1024.png", sizes: "1024x1024", type: "image/png" },
+      ],
     },
     other: {
       "msapplication-config": "/pwa/browserconfig.xml",
-      "msapplication-TileColor": "#E5A72E"
-    }
+      "msapplication-TileColor": "#E5A72E",
+    },
   };
 }
 
 export const viewport: Viewport = {
-  themeColor: "#F8F4ED"
+  themeColor: "#F8F4ED",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -87,8 +87,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <QueryProvider>
             <BrowserAnalyticsBootstrap />
             <ServiceWorkerRegistration />
-            <Suspense fallback={null}><NavigationProgress /></Suspense>
-            <div className="min-h-dvh">{children}<AppFooter /></div>
+            <Suspense fallback={null}>
+              <NavigationProgress />
+            </Suspense>
+            <div className="min-h-dvh">
+              {children}
+              <AppFooter />
+            </div>
           </QueryProvider>
         </NextIntlClientProvider>
         {cloudflareAnalyticsToken ? (

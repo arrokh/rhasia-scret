@@ -15,8 +15,10 @@ export interface IdentityLinkRepository {
 export async function linkIdentity(repository: IdentityLinkRepository, request: IdentityLinkRequest): Promise<void> {
   requireAssurance(request.existing, "existing");
   requireAssurance(request.proposed, "proposed");
-  if (!request.existingReauthenticated || !request.proposedReauthenticated) throw new Error("Identity linking requires reauthentication.");
-  if (request.existing.issuer === request.proposed.issuer && request.existing.subject === request.proposed.subject) throw new Error("Identity is already linked.");
+  if (!request.existingReauthenticated || !request.proposedReauthenticated)
+    throw new Error("Identity linking requires reauthentication.");
+  if (request.existing.issuer === request.proposed.issuer && request.existing.subject === request.proposed.subject)
+    throw new Error("Identity is already linked.");
   await repository.link(request);
 }
 

@@ -33,14 +33,23 @@ describe("Local Vault account import", () => {
     root = createRoot(container);
     await act(async () => root?.render(createElement(AddLocalAccountForm, { onAdd })));
 
-    await enterManualUri(container, "otpauth://totp/Example:alice%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example");
+    await enterManualUri(
+      container,
+      "otpauth://totp/Example:alice%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+    );
 
     expect(container.textContent).toContain("Tinjau akun lokal");
     expect(container.querySelector<HTMLInputElement>("#local-account-label")?.value).toBe("alice@example.com");
     await act(async () => findButton(container, "Simpan ke Brankas Lokal").click());
 
     expect(onAdd).toHaveBeenCalledOnce();
-    expect(onAdd.mock.calls[0]?.[0]).toMatchObject({ issuer: "Example", accountName: "alice@example.com", algorithm: "SHA-1", digits: 6, period: 30 });
+    expect(onAdd.mock.calls[0]?.[0]).toMatchObject({
+      issuer: "Example",
+      accountName: "alice@example.com",
+      algorithm: "SHA-1",
+      digits: 6,
+      period: 30,
+    });
     expect(container.querySelector("#local-account-label")).toBeNull();
   });
 });
@@ -63,7 +72,9 @@ function mount(): HTMLDivElement {
 }
 
 function findButton(container: ParentNode, name: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent?.includes(name));
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find((candidate) =>
+    candidate.textContent?.includes(name),
+  );
   if (!button) throw new Error(`Expected button: ${name}`);
   return button;
 }

@@ -4,7 +4,7 @@ import {
   canPerformSharedVaultAccountOperation,
   effectiveSharedVaultAccountPermissions,
   type SharedVaultAccountPermissionOverrides,
-  type SharedVaultAccountPermissions
+  type SharedVaultAccountPermissions,
 } from "@/modules/vault-membership";
 
 const values = [false, true] as const;
@@ -12,43 +12,53 @@ const overrides = [null, false, true] as const;
 
 describe("Shared Vault account permissions", () => {
   it("gives an owner every capability regardless of defaults and member overrides", () => {
-    expect(effectiveSharedVaultAccountPermissions("OWNER", {
-      canAddAccounts: false,
-      canEditAccounts: false,
-      canDeleteAccounts: false
-    }, {
-      canAddAccounts: false,
-      canEditAccounts: false,
-      canDeleteAccounts: false
-    })).toEqual({
+    expect(
+      effectiveSharedVaultAccountPermissions(
+        "OWNER",
+        {
+          canAddAccounts: false,
+          canEditAccounts: false,
+          canDeleteAccounts: false,
+        },
+        {
+          canAddAccounts: false,
+          canEditAccounts: false,
+          canDeleteAccounts: false,
+        },
+      ),
+    ).toEqual({
       permissions: ALL_ACCOUNT_PERMISSIONS,
-      sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" }
+      sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
     });
   });
 
   it("resolves every member capability independently across all default and override combinations", () => {
-    for (const canAddAccounts of values) for (const canEditAccounts of values) for (const canDeleteAccounts of values) {
-      const defaults: SharedVaultAccountPermissions = { canAddAccounts, canEditAccounts, canDeleteAccounts };
-      for (const addOverride of overrides) for (const editOverride of overrides) for (const deleteOverride of overrides) {
-        const memberOverrides: SharedVaultAccountPermissionOverrides = {
-          canAddAccounts: addOverride,
-          canEditAccounts: editOverride,
-          canDeleteAccounts: deleteOverride
-        };
-        expect(effectiveSharedVaultAccountPermissions("VIEWER", defaults, memberOverrides)).toEqual({
-          permissions: {
-            canAddAccounts: addOverride ?? canAddAccounts,
-            canEditAccounts: editOverride ?? canEditAccounts,
-            canDeleteAccounts: deleteOverride ?? canDeleteAccounts
-          },
-          sources: {
-            canAddAccounts: addOverride === null ? "VAULT" : "MEMBER",
-            canEditAccounts: editOverride === null ? "VAULT" : "MEMBER",
-            canDeleteAccounts: deleteOverride === null ? "VAULT" : "MEMBER"
-          }
-        });
-      }
-    }
+    for (const canAddAccounts of values)
+      for (const canEditAccounts of values)
+        for (const canDeleteAccounts of values) {
+          const defaults: SharedVaultAccountPermissions = { canAddAccounts, canEditAccounts, canDeleteAccounts };
+          for (const addOverride of overrides)
+            for (const editOverride of overrides)
+              for (const deleteOverride of overrides) {
+                const memberOverrides: SharedVaultAccountPermissionOverrides = {
+                  canAddAccounts: addOverride,
+                  canEditAccounts: editOverride,
+                  canDeleteAccounts: deleteOverride,
+                };
+                expect(effectiveSharedVaultAccountPermissions("VIEWER", defaults, memberOverrides)).toEqual({
+                  permissions: {
+                    canAddAccounts: addOverride ?? canAddAccounts,
+                    canEditAccounts: editOverride ?? canEditAccounts,
+                    canDeleteAccounts: deleteOverride ?? canDeleteAccounts,
+                  },
+                  sources: {
+                    canAddAccounts: addOverride === null ? "VAULT" : "MEMBER",
+                    canEditAccounts: editOverride === null ? "VAULT" : "MEMBER",
+                    canDeleteAccounts: deleteOverride === null ? "VAULT" : "MEMBER",
+                  },
+                });
+              }
+        }
   });
 
   it("maps operations to only their matching capability", () => {

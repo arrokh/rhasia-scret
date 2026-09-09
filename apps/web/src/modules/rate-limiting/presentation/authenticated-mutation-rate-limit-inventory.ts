@@ -33,11 +33,13 @@ export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
   "POST /api/vaults/[vaultId]/accounts": "account_mutation",
   "PATCH /api/vaults/[vaultId]/accounts": "account_mutation",
   "DELETE /api/vaults/[vaultId]/accounts": "account_mutation",
-  "PUT /api/vaults/[vaultId]/accounts": "account_mutation"
+  "PUT /api/vaults/[vaultId]/accounts": "account_mutation",
 } as const satisfies Record<string, ApplicationRateLimitPolicyId>;
 
 export const STATE_CHANGING_ROUTE_RATE_LIMIT_EXCLUSIONS = {
-  "GET /api/internal/retention-purge": "Machine-authenticated retention cron uses Vercel Cron GET; no application user exists.",
-  "GET /auth/confirm": "Supabase Auth callback exchange has no authenticated Application User and remains governed by Supabase.",
-  "POST /auth/logout": "Idempotent session termination must remain available without an application user."
+  "GET /api/internal/retention-purge":
+    "Machine-authenticated retention cron uses Vercel Cron GET; no application user exists.",
+  "GET /auth/confirm":
+    "Supabase Auth callback exchange has no authenticated Application User and remains governed by Supabase.",
+  "POST /auth/logout": "Idempotent session termination must remain available without an application user.",
 } as const;

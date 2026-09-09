@@ -10,15 +10,23 @@ import {
 class MemoryBlob implements EncryptedBlobPersistence {
   public bytes: Uint8Array | null = null;
   read = async () => this.bytes?.slice() ?? null;
-  replace = async (bytes: Uint8Array) => { this.bytes = bytes.slice(); };
-  remove = async () => { this.bytes = null; };
+  replace = async (bytes: Uint8Array) => {
+    this.bytes = bytes.slice();
+  };
+  remove = async () => {
+    this.bytes = null;
+  };
 }
 
 class MemoryKeys implements SecureKeyValueStorage {
   public values = new Map<string, string>();
   get = async (key: string) => this.values.get(key) ?? null;
-  set = async (key: string, value: string) => { this.values.set(key, value); };
-  remove = async (key: string) => { this.values.delete(key); };
+  set = async (key: string, value: string) => {
+    this.values.set(key, value);
+  };
+  remove = async (key: string) => {
+    this.values.delete(key);
+  };
 }
 
 describe("EncryptedOfflineVaultStore", () => {
@@ -36,12 +44,14 @@ describe("EncryptedOfflineVaultStore", () => {
     expect(persistedText).not.toContain(bundle.personalVault.vaultId);
     expect(await store.read(bundle.profileId)).toEqual(bundle);
     expect(await store.readByPersonalVaultId(bundle.personalVault.vaultId)).toEqual(bundle);
-    expect(await store.listProfiles()).toEqual([{
-      profileId: bundle.profileId,
-      personalVaultId: bundle.personalVault.vaultId,
-      synchronizedAt: bundle.synchronizedAt,
-      sharedVaultCount: 0,
-    }]);
+    expect(await store.listProfiles()).toEqual([
+      {
+        profileId: bundle.profileId,
+        personalVaultId: bundle.personalVault.vaultId,
+        synchronizedAt: bundle.synchronizedAt,
+        sharedVaultCount: 0,
+      },
+    ]);
   });
 
   it("rejects synchronization-time regression and clears file and device-bound storage key", async () => {

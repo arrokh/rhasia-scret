@@ -14,5 +14,5 @@ export function createGetMeHandler({ authenticate }: Dependencies) {
 }
 
 export const GET = createGetMeHandler({
-  authenticate: authenticateApplicationReader
+  authenticate: authenticateApplicationReader,
 });

@@ -4,7 +4,7 @@ export {
   loadVaultAuditEvents,
   recordPersonalVaultAccountCopiesToLocal,
   recordSharedVaultAccountAccess,
-  recordVaultArchiveExport
+  recordVaultArchiveExport,
 } from "./infrastructure/browser-vault-audit-client";
 export type { VaultAuditEvent, VaultAuditFilter, VaultAuditPage } from "./infrastructure/browser-vault-audit-client";
 export { useVaultAuditQuery } from "./presentation/hooks/use-vault-audit-query";

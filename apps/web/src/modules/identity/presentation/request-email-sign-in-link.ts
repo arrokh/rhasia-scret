@@ -16,11 +16,11 @@ export function authConfirmationRedirectUrl(origin: string): string {
 export async function requestEmailSignInLink(
   client: PasswordlessSignInClient,
   email: string,
-  redirectTo: string
+  redirectTo: string,
 ): Promise<EmailSignInRequestResult> {
   const { error } = await client.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true, emailRedirectTo: redirectTo }
+    options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
   });
   if (error === null) return "sent";
   return isRateLimited(error) ? "rate_limited" : "error";

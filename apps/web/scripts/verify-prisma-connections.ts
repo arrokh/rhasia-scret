@@ -21,7 +21,9 @@ if (runtime.host === migration.host && runtime.port === migration.port) {
   throw new Error("DATABASE_URL and DIRECT_URL must not use the same connection endpoint.");
 }
 
-console.log(JSON.stringify({
-  runtime: { ...runtime, role: "pooled runtime" },
-  migrations: { ...migration, role: "provider-supplied migration connection" },
-}));
+console.log(
+  JSON.stringify({
+    runtime: { ...runtime, role: "pooled runtime" },
+    migrations: { ...migration, role: "provider-supplied migration connection" },
+  }),
+);

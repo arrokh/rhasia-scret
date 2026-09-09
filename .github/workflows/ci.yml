@@ -61,6 +61,8 @@ jobs:
         run: pnpm run verify:ci-policy
       - name: Verify release version alignment
         run: pnpm run verify:version-alignment
+      - name: Check formatting
+        run: pnpm run format:check
       - name: Verify shared client package
         run: pnpm run test:full:core
       - name: Verify mobile package

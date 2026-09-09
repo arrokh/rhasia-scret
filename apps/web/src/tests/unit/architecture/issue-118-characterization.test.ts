@@ -9,7 +9,7 @@ describe("issue 118 seam characterization", () => {
   it("keeps account routes behind the authenticated execution seam", () => {
     for (const path of [
       "apps/web/src/app/api/vaults/[vaultId]/accounts/route.ts",
-      "apps/web/src/app/api/shared-vaults/[vaultId]/accounts/route.ts"
+      "apps/web/src/app/api/shared-vaults/[vaultId]/accounts/route.ts",
     ]) {
       const route = source(path);
       expect(route).not.toContain("loadApplicationUser");
@@ -20,7 +20,9 @@ describe("issue 118 seam characterization", () => {
   });
 
   it("keeps web and native account adapters behind the shared hosted protocol", () => {
-    const browser = source("apps/web/src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts");
+    const browser = source(
+      "apps/web/src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts",
+    );
     const native = source("apps/mobile/src/infrastructure/mobile-authenticator-account.ts");
     expect(browser).toContain("HostedAuthenticatorAccountTransport");
     expect(native).toContain("HostedAuthenticatorAccountTransport");
@@ -31,7 +33,7 @@ describe("issue 118 seam characterization", () => {
   it("keeps conditional offline-bundle retrieval behind one shared protocol", () => {
     for (const path of [
       "apps/web/src/modules/sync/infrastructure/browser-offline-sync-client.ts",
-      "apps/mobile/src/infrastructure/mobile-vault-workspace.ts"
+      "apps/mobile/src/infrastructure/mobile-vault-workspace.ts",
     ]) {
       const implementation = source(path);
       expect(implementation).toContain("AuthorizedOfflineBundleTransport");
@@ -51,7 +53,7 @@ describe("issue 118 seam characterization", () => {
   it("keeps each Local Vault surface behind an independently scoped session", () => {
     for (const path of [
       "apps/web/src/modules/local-vault/presentation/local-vault-page.tsx",
-      "apps/web/src/modules/local-vault/presentation/local-vault-copy-panel.tsx"
+      "apps/web/src/modules/local-vault/presentation/local-vault-copy-panel.tsx",
     ]) {
       const presentation = source(path);
       expect(presentation).toContain("useLocalVaultSession");

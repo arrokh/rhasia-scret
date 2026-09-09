@@ -21,6 +21,6 @@ export function buildCursorPage<T>(rows: T[], limit: number, cursorFor: (item: T
   const last = items.at(-1);
   return {
     items,
-    nextCursor: rows.length > limit && last ? cursorFor(last) : null
+    nextCursor: rows.length > limit && last ? cursorFor(last) : null,
   };
 }

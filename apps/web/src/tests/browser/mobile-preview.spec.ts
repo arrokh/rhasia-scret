@@ -13,7 +13,9 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByText("preview@local.invalid")).toBeVisible();
   const triggerBox = await accountMenuTrigger.boundingBox();
   const menuBox = await page.locator('[data-slot="dropdown-menu-content"]').boundingBox();
-  expect(Math.abs((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0)))).toBeLessThan(8);
+  expect(
+    Math.abs((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0) - ((menuBox?.x ?? 0) + (menuBox?.width ?? 0))),
+  ).toBeLessThan(8);
   await page.keyboard.press("Escape");
   await expect(page.getByText("preview@local.invalid")).toBeHidden();
   await accountMenuTrigger.click();
@@ -24,24 +26,35 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeVisible();
   const languageMenu = page.locator('[data-slot="dropdown-menu-sub-content"]');
   const viewportWidth = await page.evaluate(() => window.innerWidth);
-  await expect.poll(async () => {
-    const box = await languageMenu.boundingBox();
-    return box ? box.x >= 0 && box.x + box.width <= viewportWidth : false;
-  }, { intervals: [50, 100, 150], timeout: 3_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const box = await languageMenu.boundingBox();
+        return box ? box.x >= 0 && box.x + box.width <= viewportWidth : false;
+      },
+      { intervals: [50, 100, 150], timeout: 3_000 },
+    )
+    .toBe(true);
   const languageMenuBox = await languageMenu.boundingBox();
   const languageMenuWidth = languageMenuBox?.width;
   expect(languageMenuWidth).toBeGreaterThanOrEqual(210);
   expect(languageMenuWidth).toBeLessThanOrEqual(224);
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toHaveCSS("white-space", "nowrap");
   await expect(page.getByRole("menuitemradio", { name: "English" })).toHaveCSS("white-space", "nowrap");
-  expect(await languageMenu.evaluate((menu) => [...menu.querySelectorAll('[role="menuitemradio"]')].every((item) => item.scrollWidth <= item.clientWidth))).toBe(true);
+  expect(
+    await languageMenu.evaluate((menu) =>
+      [...menu.querySelectorAll('[role="menuitemradio"]')].every((item) => item.scrollWidth <= item.clientWidth),
+    ),
+  ).toBe(true);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitemradio", { name: "Bahasa Indonesia" })).toBeHidden();
   await page.keyboard.press("Escape");
   const accountMenu = page.locator('[data-slot="dropdown-menu-content"]');
   if (!(await accountMenu.isVisible().catch(() => false))) await accountMenuTrigger.click();
   await expect(accountMenu).toBeVisible();
-  const accountActions = accountMenu.locator("button, [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='menuitemsubmenu']");
+  const accountActions = accountMenu.locator(
+    "button, [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='menuitemsubmenu']",
+  );
   const signOutActionInMenu = accountActions.filter({ hasText: /Keluar/ }).first();
   await expect(lockAction).toBeVisible();
   await expect(signOutActionInMenu).toBeVisible();
@@ -82,11 +95,15 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   const footer = page.locator("footer");
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
   const [footerBox, footerBrandBox] = await Promise.all([footer.boundingBox(), footer.locator("p").boundingBox()]);
-  expect(Math.abs((footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2))).toBeLessThan(2);
+  expect(
+    Math.abs(
+      (footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2),
+    ),
+  ).toBeLessThan(2);
   expect(pageErrors).toEqual([]);
 
   const touchTargets = page.locator("main button, main a");
-  for (let index = 0; index < await touchTargets.count(); index += 1) {
+  for (let index = 0; index < (await touchTargets.count()); index += 1) {
     const box = await touchTargets.nth(index).boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -118,30 +135,134 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   page.on("pageerror", (error) => pageErrors.push(error));
   await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [{ id: nextPage ? "event-2" : "event-1", eventType: "ACCOUNT_ACCESSED", targetId: "opaque-account-1", actorUserId: "viewer-preview", actorEmail: "viewer@local.invalid", createdAt: nextPage ? "2026-07-26T13:27:00.000Z" : "2026-07-26T13:28:00.000Z" }], nextCursor: nextPage ? null : "audit-page-2" }) });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        events: [
+          {
+            id: nextPage ? "event-2" : "event-1",
+            eventType: "ACCOUNT_ACCESSED",
+            targetId: "opaque-account-1",
+            actorUserId: "viewer-preview",
+            actorEmail: "viewer@local.invalid",
+            createdAt: nextPage ? "2026-07-26T13:27:00.000Z" : "2026-07-26T13:28:00.000Z",
+          },
+        ],
+        nextCursor: nextPage ? null : "audit-page-2",
+      }),
+    });
   });
   await page.route("**/api/shared-vaults/shared-preview/participants**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     const participants = nextPage
-      ? [{ key: "invitation:pending-preview", email: "pending@local.invalid", kind: "INVITATION", userId: null, invitationId: "pending-preview", invitationState: "PENDING", invitedAt: "2026-07-26T12:01:00.000Z", expiresAt: "2026-08-02T12:01:00.000Z" }, { key: "invitation:expired-preview", email: "expired-with-a-long-address@local.invalid", kind: "INVITATION", userId: null, invitationId: "expired-preview", invitationState: "EXPIRED", invitedAt: "2026-07-19T12:01:00.000Z", expiresAt: "2026-07-26T12:01:00.000Z" }, ...(createdInvitation ? [{ key: "invitation:invitation-preview", email: "viewer@example.test", kind: "INVITATION", userId: null, invitationId: "invitation-preview", invitationState: "PENDING", invitedAt: "2026-07-26T12:02:00.000Z", expiresAt: "2026-08-02T12:02:00.000Z" }] : [])]
-      : [{ key: "member:viewer-preview", email: "viewer@local.invalid", kind: "MEMBER", userId: "viewer-preview", invitationId: null, invitedAt: "2026-07-26T12:00:00.000Z", permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 2 }];
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ owner: { id: "owner-preview", email: "owner@local.invalid" }, vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: 1, participants, nextCursor: nextPage ? null : "participants-page-2" }) });
+      ? [
+          {
+            key: "invitation:pending-preview",
+            email: "pending@local.invalid",
+            kind: "INVITATION",
+            userId: null,
+            invitationId: "pending-preview",
+            invitationState: "PENDING",
+            invitedAt: "2026-07-26T12:01:00.000Z",
+            expiresAt: "2026-08-02T12:01:00.000Z",
+          },
+          {
+            key: "invitation:expired-preview",
+            email: "expired-with-a-long-address@local.invalid",
+            kind: "INVITATION",
+            userId: null,
+            invitationId: "expired-preview",
+            invitationState: "EXPIRED",
+            invitedAt: "2026-07-19T12:01:00.000Z",
+            expiresAt: "2026-07-26T12:01:00.000Z",
+          },
+          ...(createdInvitation
+            ? [
+                {
+                  key: "invitation:invitation-preview",
+                  email: "viewer@example.test",
+                  kind: "INVITATION",
+                  userId: null,
+                  invitationId: "invitation-preview",
+                  invitationState: "PENDING",
+                  invitedAt: "2026-07-26T12:02:00.000Z",
+                  expiresAt: "2026-08-02T12:02:00.000Z",
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            key: "member:viewer-preview",
+            email: "viewer@local.invalid",
+            kind: "MEMBER",
+            userId: "viewer-preview",
+            invitationId: null,
+            invitedAt: "2026-07-26T12:00:00.000Z",
+            permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false },
+            effectiveAccountPermissions: {
+              permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false },
+              sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" },
+            },
+            permissionsRevision: 2,
+          },
+        ];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        owner: { id: "owner-preview", email: "owner@local.invalid" },
+        vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+        vaultDefaultAccountPermissionsRevision: 1,
+        participants,
+        nextCursor: nextPage ? null : "participants-page-2",
+      }),
+    });
   });
   await page.route("**/api/shared-vaults/shared-preview/member-permissions", async (route) => {
     const isUpdate = route.request().method() === "PATCH";
     if (isUpdate) defaultPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ vaultDefaultAccountPermissions: { canAddAccounts: isUpdate, canEditAccounts: false, canDeleteAccounts: false }, vaultDefaultAccountPermissionsRevision: isUpdate ? 2 : 1 }) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        vaultDefaultAccountPermissions: { canAddAccounts: isUpdate, canEditAccounts: false, canDeleteAccounts: false },
+        vaultDefaultAccountPermissionsRevision: isUpdate ? 2 : 1,
+      }),
+    });
   });
   await page.route("**/api/shared-vaults/shared-preview/members/viewer-preview", async (route) => {
     memberPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true }, effectiveAccountPermissions: { permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: true }, sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" } }, permissionsRevision: 3 }) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true },
+        effectiveAccountPermissions: {
+          permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: true },
+          sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" },
+        },
+        permissionsRevision: 3,
+      }),
+    });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     const reinviting = body.recipientEmail === "expired-with-a-long-address@local.invalid";
     if (reinviting) reinvitationBody = body;
-    else { invitationBody = body; createdInvitation = true; }
-    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: reinviting ? "replacement-preview" : "invitation-preview", expiresAt: "2026-08-05T12:00:00.000Z" }) });
+    else {
+      invitationBody = body;
+      createdInvitation = true;
+    }
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: reinviting ? "replacement-preview" : "invitation-preview",
+        expiresAt: "2026-08-05T12:00:00.000Z",
+      }),
+    });
   });
   await page.route("**/api/shared-vaults/shared-preview/share-links/pending-preview", async (route) => {
     cancelledInvitation = true;
@@ -163,8 +284,18 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(backupAction.locator(".lucide-database-backup")).toBeVisible();
   await expect(importAction).toHaveText("");
   await expect(importAction.locator(".lucide-import")).toBeVisible();
-  expect(await backupAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
-  expect(await importAction.evaluate((action, shared) => action.parentElement === (shared as Node).parentElement, await createSharedAction.elementHandle())).toBe(true);
+  expect(
+    await backupAction.evaluate(
+      (action, shared) => action.parentElement === (shared as Node).parentElement,
+      await createSharedAction.elementHandle(),
+    ),
+  ).toBe(true);
+  expect(
+    await importAction.evaluate(
+      (action, shared) => action.parentElement === (shared as Node).parentElement,
+      await createSharedAction.elementHandle(),
+    ),
+  ).toBe(true);
   await expect(createSharedAction).toHaveAttribute("data-size", "default");
   const vaultLinks = page.locator('[aria-label="Daftar brankas"] li > a');
   await expect(vaultLinks.nth(0)).toContainText("Brankas Pribadi");
@@ -179,7 +310,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await waitForStableBoundingBox(addAccountsCheckbox);
   await addAccountsCheckbox.click();
   await page.getByRole("button", { name: "Simpan bawaan anggota" }).click();
-  await expect.poll(() => defaultPermissionsBody).toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
+  await expect
+    .poll(() => defaultPermissionsBody)
+    .toEqual({ expectedRevision: 1, canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false });
   await page.getByLabel("Lihat audit Layanan contoh viewer@local.invalid").click();
   await expect(page.getByText("Filter: Layanan contoh · viewer@local.invalid")).toBeVisible();
   await expect(page.getByText("Akun autentikator disalin")).toBeVisible();
@@ -199,7 +332,9 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await page.getByLabel("Hapus akun").click();
   await page.getByRole("option", { name: "Izinkan" }).click();
   await page.getByRole("button", { name: "Simpan izin anggota" }).click();
-  await expect.poll(() => memberPermissionsBody).toEqual({ expectedRevision: 2, canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true });
+  await expect
+    .poll(() => memberPermissionsBody)
+    .toEqual({ expectedRevision: 2, canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: true });
   await expect(page.getByText("pending@local.invalid")).toHaveCount(0);
   await page.getByRole("button", { name: "Muat lebih banyak pengguna" }).click();
   await expect(page.getByText("pending@local.invalid")).toBeVisible();
@@ -208,21 +343,35 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByText("Semua pengguna telah dimuat.")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const participantActions = page.locator('[aria-labelledby="invited-users-title"] li button');
-  for (let index = 0; index < await participantActions.count(); index += 1) {
+  for (let index = 0; index < (await participantActions.count()); index += 1) {
     const box = await participantActions.nth(index).boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
   await page.getByRole("button", { name: "Undang kembali" }).click();
-  await expect.poll(() => reinvitationBody).toEqual({ recipientEmail: "expired-with-a-long-address@local.invalid", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
+  await expect
+    .poll(() => reinvitationBody)
+    .toEqual({
+      recipientEmail: "expired-with-a-long-address@local.invalid",
+      linkVerifier: expect.any(String),
+      encryptedPackage: expect.any(String),
+    });
   await expect(page.getByLabel("Tautan undangan aman")).toBeVisible();
   await page.getByLabel("Tautan undangan tidak tersedia untuk pending@local.invalid").click();
   await expect(page.getByText(/Tautan aman asli hanya tersedia saat undangan dibuat/)).toBeVisible();
   await page.getByLabel("Email penerima").fill("viewer@example.test");
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const secureLink = page.getByLabel("Tautan undangan aman").last();
-  await expect(secureLink).toHaveText(new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`));
-  await expect.poll(() => invitationBody).toEqual({ recipientEmail: "viewer@example.test", linkVerifier: expect.any(String), encryptedPackage: expect.any(String) });
+  await expect(secureLink).toHaveText(
+    new RegExp(`^http://127\\.0\\.0\\.1:${browserTestPort}/vaults/invitations/redeem#[A-Za-z0-9_-]+$`),
+  );
+  await expect
+    .poll(() => invitationBody)
+    .toEqual({
+      recipientEmail: "viewer@example.test",
+      linkVerifier: expect.any(String),
+      encryptedPackage: expect.any(String),
+    });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();
   await page.getByLabel("Lihat audit viewer@local.invalid").click();
@@ -263,17 +412,22 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
 
 async function waitForStableBoundingBox(locator: Locator): Promise<void> {
   let previous: string | undefined;
-  await expect.poll(async () => {
-    const box = await locator.boundingBox();
-    if (!box) {
-      previous = undefined;
-      return false;
-    }
-    const current = [box.x, box.y, box.width, box.height].map((value) => value.toFixed(2)).join(":");
-    const stable = current === previous;
-    previous = current;
-    return stable;
-  }, { intervals: [50, 100, 150], timeout: 3_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const box = await locator.boundingBox();
+        if (!box) {
+          previous = undefined;
+          return false;
+        }
+        const current = [box.x, box.y, box.width, box.height].map((value) => value.toFixed(2)).join(":");
+        const stable = current === previous;
+        previous = current;
+        return stable;
+      },
+      { intervals: [50, 100, 150], timeout: 3_000 },
+    )
+    .toBe(true);
 }
 
 test("aligns the shared header action and sticky footer on desktop", async ({ page }) => {
@@ -289,7 +443,11 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
   const footerBrandBox = await footer.locator("p").boundingBox();
-  expect(Math.abs((footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2))).toBeLessThan(2);
+  expect(
+    Math.abs(
+      (footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2),
+    ),
+  ).toBeLessThan(2);
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {

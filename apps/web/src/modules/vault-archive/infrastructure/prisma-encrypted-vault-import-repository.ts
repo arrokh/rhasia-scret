@@ -3,7 +3,11 @@ import { appendVaultAuditEvent } from "@/modules/audit/server";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core";
 import type { EncryptedVaultImportRepository } from "../application/import-encrypted-vault-archive";
-import { hasDuplicateImportedAccountIds, type EncryptedVaultImport, type EncryptedVaultImportResult } from "../domain/encrypted-vault-import";
+import {
+  hasDuplicateImportedAccountIds,
+  type EncryptedVaultImport,
+  type EncryptedVaultImportResult,
+} from "../domain/encrypted-vault-import";
 
 type LockedDestination = {
   id: string;
@@ -33,11 +37,22 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
         }
 
         const existingAccounts = request.accounts.length
-          ? await transaction.authenticatorAccount.findMany({ where: { id: { in: request.accounts.map(({ id }) => id) } }, select: { id: true, vaultId: true } })
+          ? await transaction.authenticatorAccount.findMany({
+              where: { id: { in: request.accounts.map(({ id }) => id) } },
+              select: { id: true, vaultId: true },
+            })
           : [];
         if (existingAccounts.length > 0) {
-          if (existingAccounts.length === request.accounts.length && existingAccounts.every(({ vaultId }) => vaultId === request.destination.vaultId)) {
-            return { status: "REPLAYED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated: request.destination.kind === "NEW_SHARED" };
+          if (
+            existingAccounts.length === request.accounts.length &&
+            existingAccounts.every(({ vaultId }) => vaultId === request.destination.vaultId)
+          ) {
+            return {
+              status: "REPLAYED",
+              vaultId: request.destination.vaultId,
+              accountIds: request.accounts.map(({ id }) => id),
+              vaultCreated: request.destination.kind === "NEW_SHARED",
+            };
           }
           return { status: "CONFLICT" };
         }
@@ -51,19 +66,54 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
               lifecycle: "ACTIVE",
               encryptedName: copyBytes(request.destination.encryptedName),
               encryptionVersion: request.destination.encryptionVersion,
-              members: { create: { userId: actorUserId, role: "OWNER", encryptedVaultKey: copyBytes(request.destination.encryptedOwnerVaultKey), keyVersion: 1 } },
-              accounts: { create: request.accounts.map((account) => ({ id: account.id, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion })) }
-            }
+              members: {
+                create: {
+                  userId: actorUserId,
+                  role: "OWNER",
+                  encryptedVaultKey: copyBytes(request.destination.encryptedOwnerVaultKey),
+                  keyVersion: 1,
+                },
+              },
+              accounts: {
+                create: request.accounts.map((account) => ({
+                  id: account.id,
+                  encryptedPayload: copyBytes(account.encryptedPayload),
+                  encryptionVersion: account.encryptionVersion,
+                })),
+              },
+            },
           });
-          await appendVaultAuditEvent(transaction, { vaultId: request.destination.vaultId, ownerId: actorUserId, actorUserId, action: "ARCHIVE_IMPORTED" });
+          await appendVaultAuditEvent(transaction, {
+            vaultId: request.destination.vaultId,
+            ownerId: actorUserId,
+            actorUserId,
+            action: "ARCHIVE_IMPORTED",
+          });
         } else {
           if (!destination) return { status: "DESTINATION_UNAVAILABLE" };
           if (request.accounts.length) {
-            await transaction.authenticatorAccount.createMany({ data: request.accounts.map((account) => ({ id: account.id, vaultId: request.destination.vaultId, encryptedPayload: copyBytes(account.encryptedPayload), encryptionVersion: account.encryptionVersion })) });
+            await transaction.authenticatorAccount.createMany({
+              data: request.accounts.map((account) => ({
+                id: account.id,
+                vaultId: request.destination.vaultId,
+                encryptedPayload: copyBytes(account.encryptedPayload),
+                encryptionVersion: account.encryptionVersion,
+              })),
+            });
           }
-          await appendVaultAuditEvent(transaction, { vaultId: request.destination.vaultId, ownerId: destination.ownerId, actorUserId, action: "ARCHIVE_IMPORTED" });
+          await appendVaultAuditEvent(transaction, {
+            vaultId: request.destination.vaultId,
+            ownerId: destination.ownerId,
+            actorUserId,
+            action: "ARCHIVE_IMPORTED",
+          });
         }
-        return { status: "IMPORTED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated: request.destination.kind === "NEW_SHARED" };
+        return {
+          status: "IMPORTED",
+          vaultId: request.destination.vaultId,
+          accountIds: request.accounts.map(({ id }) => id),
+          vaultCreated: request.destination.kind === "NEW_SHARED",
+        };
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -74,21 +124,32 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
     }
   }
 
-  private async readReplay(actorUserId: string, request: EncryptedVaultImport): Promise<EncryptedVaultImportResult | null> {
+  private async readReplay(
+    actorUserId: string,
+    request: EncryptedVaultImport,
+  ): Promise<EncryptedVaultImportResult | null> {
     const authorized = await isCurrentlyAuthorized(actorUserId, request);
     if (!authorized) return null;
     const accounts = request.accounts.length
-      ? await prisma.authenticatorAccount.findMany({ where: { id: { in: request.accounts.map(({ id }) => id) }, vaultId: request.destination.vaultId }, select: { id: true } })
+      ? await prisma.authenticatorAccount.findMany({
+          where: { id: { in: request.accounts.map(({ id }) => id) }, vaultId: request.destination.vaultId },
+          select: { id: true },
+        })
       : [];
     if (accounts.length !== request.accounts.length) return null;
-    return { status: "REPLAYED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated: request.destination.kind === "NEW_SHARED" };
+    return {
+      status: "REPLAYED",
+      vaultId: request.destination.vaultId,
+      accountIds: request.accounts.map(({ id }) => id),
+      vaultCreated: request.destination.kind === "NEW_SHARED",
+    };
   }
 }
 
 async function lockAuthorizedDestination(
   transaction: Prisma.TransactionClient,
   actorUserId: string,
-  request: EncryptedVaultImport
+  request: EncryptedVaultImport,
 ): Promise<LockedDestination | undefined> {
   const expectedType = request.destination.kind === "NEW_SHARED" ? "SHARED" : request.destination.vaultType;
   const rows = await transaction.$queryRaw<LockedDestination[]>`
@@ -130,13 +191,13 @@ async function lockAuthorizedDestination(
     {
       canAddAccounts: destination.membersCanAddAccounts,
       canEditAccounts: destination.membersCanEditAccounts,
-      canDeleteAccounts: destination.membersCanDeleteAccounts
+      canDeleteAccounts: destination.membersCanDeleteAccounts,
     },
     {
       canAddAccounts: membership.canAddAccountsOverride,
       canEditAccounts: membership.canEditAccountsOverride,
-      canDeleteAccounts: membership.canDeleteAccountsOverride
-    }
+      canDeleteAccounts: membership.canDeleteAccountsOverride,
+    },
   );
   return effective.permissions.canAddAccounts ? destination : undefined;
 }
@@ -155,11 +216,11 @@ async function isCurrentlyAuthorized(actorUserId: string, request: EncryptedVaul
         select: {
           canAddAccountsOverride: true,
           canEditAccountsOverride: true,
-          canDeleteAccountsOverride: true
+          canDeleteAccountsOverride: true,
         },
-        take: 1
-      }
-    }
+        take: 1,
+      },
+    },
   });
   if (!vault) return false;
   if (vault.ownerId === actorUserId) return true;
@@ -171,26 +232,34 @@ async function isCurrentlyAuthorized(actorUserId: string, request: EncryptedVaul
     {
       canAddAccounts: vault.membersCanAddAccounts,
       canEditAccounts: vault.membersCanEditAccounts,
-      canDeleteAccounts: vault.membersCanDeleteAccounts
+      canDeleteAccounts: vault.membersCanDeleteAccounts,
     },
     {
       canAddAccounts: membership.canAddAccountsOverride,
       canEditAccounts: membership.canEditAccountsOverride,
-      canDeleteAccounts: membership.canDeleteAccountsOverride
-    }
+      canDeleteAccounts: membership.canDeleteAccountsOverride,
+    },
   ).permissions.canAddAccounts;
 }
 
 async function replayResult(
   transaction: Prisma.TransactionClient,
   request: EncryptedVaultImport,
-  vaultCreated: boolean
+  vaultCreated: boolean,
 ): Promise<EncryptedVaultImportResult> {
   const accounts = request.accounts.length
-    ? await transaction.authenticatorAccount.findMany({ where: { id: { in: request.accounts.map(({ id }) => id) }, vaultId: request.destination.vaultId }, select: { id: true } })
+    ? await transaction.authenticatorAccount.findMany({
+        where: { id: { in: request.accounts.map(({ id }) => id) }, vaultId: request.destination.vaultId },
+        select: { id: true },
+      })
     : [];
   return accounts.length === request.accounts.length
-    ? { status: "REPLAYED", vaultId: request.destination.vaultId, accountIds: request.accounts.map(({ id }) => id), vaultCreated }
+    ? {
+        status: "REPLAYED",
+        vaultId: request.destination.vaultId,
+        accountIds: request.accounts.map(({ id }) => id),
+        vaultCreated,
+      }
     : { status: "CONFLICT" };
 }
 

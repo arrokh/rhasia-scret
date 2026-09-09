@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createPersonalVaultRepository, ensurePersonalVault, type PersonalVaultRepository } from "@/modules/vault-management/server";
+import {
+  createPersonalVaultRepository,
+  ensurePersonalVault,
+  type PersonalVaultRepository,
+} from "@/modules/vault-management/server";
 import { authenticateApplicationReader } from "@/shared/infrastructure/authenticated-application-request";
 
 type Dependencies = {
@@ -18,5 +22,5 @@ export function createGetPersonalVaultHandler({ authenticate, personalVaults }: 
 
 export const GET = createGetPersonalVaultHandler({
   authenticate: authenticateApplicationReader,
-  personalVaults: createPersonalVaultRepository()
+  personalVaults: createPersonalVaultRepository(),
 });

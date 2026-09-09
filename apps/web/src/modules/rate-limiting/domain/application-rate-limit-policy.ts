@@ -8,7 +8,7 @@ export const APPLICATION_RATE_LIMIT_POLICIES = {
   membership_mutation: { limit: 30, windowSeconds: 60 },
   recovery_authentication: { limit: 30, windowSeconds: 300 },
   recovery_mutation: { limit: 10, windowSeconds: 600 },
-  vault_mutation: { limit: 30, windowSeconds: 60 }
+  vault_mutation: { limit: 30, windowSeconds: 60 },
 } as const;
 
 export type ApplicationRateLimitPolicyId = keyof typeof APPLICATION_RATE_LIMIT_POLICIES;

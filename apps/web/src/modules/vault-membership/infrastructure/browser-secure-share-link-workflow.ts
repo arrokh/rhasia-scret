@@ -10,8 +10,8 @@ export function redeemSecureShareLink(secret: string, userRootKey: Uint8Array): 
   return redeemWorkflow(secret, userRootKey, {
     crypto: {
       digestSha256: async (value) => new Uint8Array(await crypto.subtle.digest("SHA-256", value.slice())),
-      redeemMaterial: redeemSecureShareLinkMaterial
+      redeemMaterial: redeemSecureShareLinkMaterial,
     },
-    transport: secureShareLinks
+    transport: secureShareLinks,
   });
 }

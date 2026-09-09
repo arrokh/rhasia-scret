@@ -39,7 +39,9 @@ export async function migrateLegacyEncryptedPayload(
   if (legacy.version !== 1) throw new Error("Only legacy envelopes can enter the migration path.");
   const plaintext = await browserClientCryptoPort.decryptPayload(keyBytes, legacy);
   try {
-    return browserClientCryptoPort.serializeEncryptedEnvelope(await browserClientCryptoPort.encryptPayloadWithContext(keyBytes, plaintext, context));
+    return browserClientCryptoPort.serializeEncryptedEnvelope(
+      await browserClientCryptoPort.encryptPayloadWithContext(keyBytes, plaintext, context),
+    );
   } finally {
     plaintext.fill(0);
   }

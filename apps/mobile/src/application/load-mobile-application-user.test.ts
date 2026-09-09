@@ -15,17 +15,27 @@ function transport(status: number, body: unknown): AuthenticatedTransport {
 
 describe("loadMobileApplicationUser", () => {
   it("loads only a typed admitted application user through authenticated transport", async () => {
-    await expect(loadMobileApplicationUser(transport(200, { id: "opaque-user", email: "owner@example.test" }))).resolves.toEqual({
+    await expect(
+      loadMobileApplicationUser(transport(200, { id: "opaque-user", email: "owner@example.test" })),
+    ).resolves.toEqual({
       status: "active",
       user: { id: "opaque-user", email: "owner@example.test" },
     });
   });
 
-  it.each([[401, "unauthenticated"], [403, "inactive"], [500, "unavailable"]] as const)("maps HTTP %s without leaking response details", async (status, expected) => {
-    await expect(loadMobileApplicationUser(transport(status, { error: "server-code" }))).resolves.toEqual({ status: expected });
+  it.each([
+    [401, "unauthenticated"],
+    [403, "inactive"],
+    [500, "unavailable"],
+  ] as const)("maps HTTP %s without leaking response details", async (status, expected) => {
+    await expect(loadMobileApplicationUser(transport(status, { error: "server-code" }))).resolves.toEqual({
+      status: expected,
+    });
   });
 
   it("rejects malformed success bodies", async () => {
-    await expect(loadMobileApplicationUser(transport(200, { id: "opaque-user" }))).resolves.toEqual({ status: "unavailable" });
+    await expect(loadMobileApplicationUser(transport(200, { id: "opaque-user" }))).resolves.toEqual({
+      status: "unavailable",
+    });
   });
 });

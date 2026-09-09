@@ -24,9 +24,13 @@ describe("locked Vault session", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })));
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
 
-    const link = [...container.querySelectorAll("a")].find((candidate) => candidate.textContent === "Buka Brankas Lokal");
+    const link = [...container.querySelectorAll("a")].find(
+      (candidate) => candidate.textContent === "Buka Brankas Lokal",
+    );
     expect(container.textContent).toContain("Brankas Anda terkunci");
     expect(container.textContent).toContain("Brankas Lokal independen");
     expect(link?.getAttribute("href")).toBe("/local");

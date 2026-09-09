@@ -10,12 +10,18 @@ export class PrismaSharedVaultRecoveryRepository {
     return prisma.$transaction(async (transaction) => {
       const result = await transaction.vault.updateMany({
         where: { id: vaultId, ownerId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
-        data: { lifecycle: "DELETED", deletedAt, purgeAfter: vaultPurgeAfter(deletedAt) }
+        data: { lifecycle: "DELETED", deletedAt, purgeAfter: vaultPurgeAfter(deletedAt) },
       });
       if (result.count !== 1) return false;
       const retentionPurgeAfter = auditPurgeAfter(deletedAt);
       await setVaultAuditRetention(transaction, vaultId, ownerId, retentionPurgeAfter);
-      await appendVaultAuditEvent(transaction, { vaultId, ownerId, actorUserId: ownerId, action: "VAULT_DELETED", retentionPurgeAfter });
+      await appendVaultAuditEvent(transaction, {
+        vaultId,
+        ownerId,
+        actorUserId: ownerId,
+        action: "VAULT_DELETED",
+        retentionPurgeAfter,
+      });
       return true;
     });
   }
@@ -31,9 +37,9 @@ export class PrismaSharedVaultRecoveryRepository {
           type: "SHARED",
           lifecycle: "DELETED",
           deletedAt: { not: null },
-          OR: [{ purgeAfter: { gt: now } }, { purgeAfter: null, deletedAt: { gt: legacyRecoveryCutoff } }]
+          OR: [{ purgeAfter: { gt: now } }, { purgeAfter: null, deletedAt: { gt: legacyRecoveryCutoff } }],
         },
-        data: { lifecycle: "ACTIVE", deletedAt: null, purgeAfter: null }
+        data: { lifecycle: "ACTIVE", deletedAt: null, purgeAfter: null },
       });
       if (result.count !== 1) return false;
       await setVaultAuditRetention(transaction, vaultId, ownerId, null);

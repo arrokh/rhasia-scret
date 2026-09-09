@@ -7,7 +7,7 @@ const posthogMocks = vi.hoisted(() => ({
   capture: vi.fn(),
   identify: vi.fn(),
   init: vi.fn(),
-  reset: vi.fn()
+  reset: vi.fn(),
 }));
 
 vi.mock("posthog-js/dist/module.full.no-external", () => ({ default: posthogMocks }));
@@ -25,18 +25,22 @@ type AnalyticsInitOptions = {
   capture_pageleave?: boolean;
   capture_dead_clicks?: boolean;
   capture_heatmaps?: boolean;
-  capture_performance?: boolean | {
-    web_vitals?: boolean;
-    web_vitals_allowed_metrics?: string[];
-    web_vitals_delayed_flush_ms?: number;
-    web_vitals_attribution?: boolean;
-    network_timing?: boolean;
-  };
-  capture_exceptions?: boolean | {
-    capture_unhandled_errors?: boolean;
-    capture_unhandled_rejections?: boolean;
-    capture_console_errors?: boolean;
-  };
+  capture_performance?:
+    | boolean
+    | {
+        web_vitals?: boolean;
+        web_vitals_allowed_metrics?: string[];
+        web_vitals_delayed_flush_ms?: number;
+        web_vitals_attribution?: boolean;
+        network_timing?: boolean;
+      };
+  capture_exceptions?:
+    | boolean
+    | {
+        capture_unhandled_errors?: boolean;
+        capture_unhandled_rejections?: boolean;
+        capture_console_errors?: boolean;
+      };
   error_tracking?: {
     captureExtensionExceptions?: boolean;
     exception_steps?: { enabled?: boolean };
@@ -87,7 +91,7 @@ describe("browser analytics", () => {
     expect(options.autocapture).toMatchObject({
       dom_event_allowlist: ["click", "submit"],
       element_allowlist: ["a", "button"],
-      capture_copied_text: false
+      capture_copied_text: false,
     });
     expect(options).toMatchObject({
       capture_pageview: "history_change",
@@ -99,12 +103,12 @@ describe("browser analytics", () => {
         web_vitals_allowed_metrics: ["LCP", "CLS", "FCP", "INP"],
         web_vitals_delayed_flush_ms: 5_000,
         web_vitals_attribution: false,
-        network_timing: false
+        network_timing: false,
       },
       capture_exceptions: {
         capture_unhandled_errors: true,
         capture_unhandled_rejections: true,
-        capture_console_errors: false
+        capture_console_errors: false,
       },
       error_tracking: { captureExtensionExceptions: false, exception_steps: { enabled: false } },
       disable_session_recording: true,
@@ -125,7 +129,7 @@ describe("browser analytics", () => {
       disable_product_tours: true,
       disable_conversations: true,
       disable_external_dependency_loading: true,
-      logs: { captureConsoleLogs: false }
+      logs: { captureConsoleLogs: false },
     });
     expect(options.loaded).toBeTypeOf("function");
     expect(options.before_send).toBeTypeOf("function");
@@ -143,13 +147,13 @@ describe("browser analytics", () => {
       properties: {
         token: "phc_test_project_token",
         distinct_id: "anonymous-test-id",
-        email: "alice@example.test"
-      }
+        email: "alice@example.test",
+      },
     });
 
     expect(capture?.properties).toEqual({
       token: "phc_test_project_token",
-      distinct_id: "anonymous-test-id"
+      distinct_id: "anonymous-test-id",
     });
   });
 
@@ -168,13 +172,13 @@ describe("browser analytics", () => {
         operation: "unlock",
         participant_type: "member",
         email: "alice@example.test",
-        vault_id: "vault-private-id"
-      }
+        vault_id: "vault-private-id",
+      },
     });
 
     expect(capture?.properties).toEqual({
       method: "passkey",
-      failure_code: "passkey_error"
+      failure_code: "passkey_error",
     });
   });
 
@@ -185,8 +189,8 @@ describe("browser analytics", () => {
       properties: {
         error_name: "Error: alice@example.test",
         error_digest: "https://example.test/?secret=private",
-        safe_number: 1
-      }
+        safe_number: 1,
+      },
     });
     expect(automaticException?.properties).toEqual({});
 
@@ -195,8 +199,8 @@ describe("browser analytics", () => {
       event: ANALYTICS_EVENTS.clientError,
       properties: {
         error_name: "Error: alice@example.test",
-        error_digest: "https://example.test/?secret=private"
-      }
+        error_digest: "https://example.test/?secret=private",
+      },
     });
     expect(explicitError?.properties).toEqual({ error_name: "Error", error_digest: "unknown" });
   });
@@ -209,8 +213,8 @@ describe("browser analytics", () => {
         $current_url: "https://vault.example.test/vaults/cuid-private?tab=accounts#secret",
         $el_text: "Alice",
         email: "alice@example.test",
-        safe_number: 1
-      }
+        safe_number: 1,
+      },
     });
     expect(privateCapture).toBeNull();
 
@@ -221,12 +225,12 @@ describe("browser analytics", () => {
         $current_url: "https://vault.example.test/vaults/cuid-private?tab=accounts#secret",
         $pathname: "/vaults/cuid-private",
         title: "Private Account Label",
-        safe_number: 1
-      }
+        safe_number: 1,
+      },
     });
     expect(privatePageview?.properties).toEqual({
       $current_url: "https://vault.example.test/vaults/[redacted]",
-      $pathname: "/vaults/[redacted]"
+      $pathname: "/vaults/[redacted]",
     });
 
     const publicCapture = sanitizeAnalyticsCapture({
@@ -237,11 +241,11 @@ describe("browser analytics", () => {
         $el_text: "Landing",
         email: "alice@example.test",
         $exception: "secret exception details",
-        safe_number: 1
-      }
+        safe_number: 1,
+      },
     });
     expect(publicCapture?.properties).toEqual({
-      $current_url: "https://vault.example.test/"
+      $current_url: "https://vault.example.test/",
     });
   });
 
@@ -256,15 +260,15 @@ describe("browser analytics", () => {
         $web_vitals_INP_value: 80,
         $web_vitals_LCP_event: { name: "LCP", navigationURL: "https://vault.example.test/vaults/private-id" },
         email: "alice@example.test",
-        $web_vitals_FCP_value: "private"
-      }
+        $web_vitals_FCP_value: "private",
+      },
     });
 
     expect(capture?.properties).toEqual({
       $current_url: "https://vault.example.test/vaults",
       $web_vitals_LCP_value: 1234,
       $web_vitals_CLS_value: 0.04,
-      $web_vitals_INP_value: 80
+      $web_vitals_INP_value: 80,
     });
   });
 
@@ -274,13 +278,19 @@ describe("browser analytics", () => {
       event: "$exception",
       properties: {
         $current_url: "https://vault.example.test/",
-        $exception_list: [{ type: "TypeError", value: "alice@example.test", stacktrace: { frames: [{ filename: "https://vault.example.test/private" }] } }]
-      }
+        $exception_list: [
+          {
+            type: "TypeError",
+            value: "alice@example.test",
+            stacktrace: { frames: [{ filename: "https://vault.example.test/private" }] },
+          },
+        ],
+      },
     });
 
     expect(capture?.properties).toEqual({
       $current_url: "https://vault.example.test/",
-      $exception_list: [{ type: "TypeError" }]
+      $exception_list: [{ type: "TypeError" }],
     });
   });
 
@@ -289,7 +299,7 @@ describe("browser analytics", () => {
     const capture = sanitizeAnalyticsCapture({
       uuid: "explicit-redaction-test",
       event: ANALYTICS_EVENTS.vaultUnlocked,
-      properties: { method: "passkey", account_count: 1, email: "alice@example.test" }
+      properties: { method: "passkey", account_count: 1, email: "alice@example.test" },
     });
     expect(capture?.properties).toEqual({ method: "passkey" });
   });
@@ -311,9 +321,15 @@ describe("browser analytics", () => {
     ["/auth/oidc/callback", "/auth/oidc/callback"],
     ["/ui-preview/vaults", "/ui-preview/vaults"],
     ["/unknown-user-value", "/[redacted]"],
-    ["/vaults/manage/new/", "/vaults/manage/new/"]
+    ["/vaults/manage/new/", "/vaults/manage/new/"],
   ])("records safe route structure for %s", (path, expected) => {
-    for (const event of ["$pageview", "$pageleave", "$web_vitals", "$performance_event", ANALYTICS_EVENTS.applicationOpened]) {
+    for (const event of [
+      "$pageview",
+      "$pageleave",
+      "$web_vitals",
+      "$performance_event",
+      ANALYTICS_EVENTS.applicationOpened,
+    ]) {
       const capture = sanitizeAnalyticsCapture({
         uuid: "route-test-uuid",
         event,
@@ -321,28 +337,29 @@ describe("browser analytics", () => {
           $current_url: `https://vault.example.test${path}?secret=hidden#key`,
           $referrer: `https://vault.example.test${path}?secret=hidden#key`,
           $initial_referrer: `https://vault.example.test${path}?secret=hidden#key`,
-          $pathname: path
-        }
+          $pathname: path,
+        },
       });
       expect(capture?.properties).toEqual({
         $current_url: `https://vault.example.test${expected}`,
         $referrer: `https://vault.example.test${expected}`,
         $initial_referrer: `https://vault.example.test${expected}`,
-        $pathname: expected
+        $pathname: expected,
       });
     }
   });
 
   it("preserves every current static App Router page", () => {
-    const pages = readdirSync("src/app", { recursive: true, encoding: "utf8" })
-      .filter((path) => /(?:^|\/)page\.tsx$/.test(path) && !path.includes("["));
+    const pages = readdirSync("src/app", { recursive: true, encoding: "utf8" }).filter(
+      (path) => /(?:^|\/)page\.tsx$/.test(path) && !path.includes("["),
+    );
     expect(pages.length).toBeGreaterThan(0);
     for (const page of pages) {
       const path = `/${page.replace(/(?:^|\/)page\.tsx$/, "")}`;
       const capture = sanitizeAnalyticsCapture({
         uuid: "static-route-inventory-test",
         event: "$pageview",
-        properties: { $pathname: path }
+        properties: { $pathname: path },
       });
       expect(capture?.properties.$pathname, page).toBe(path);
     }
@@ -356,19 +373,30 @@ describe("browser analytics", () => {
         $current_url: "https://alice:secret@vault.example.test/vaults?secret=hidden#key",
         $referrer: "mailto:alice@example.test",
         $initial_referrer: "not a URL",
-        $pathname: "//alice:secret@vault.example.test"
-      }
+        $pathname: "//alice:secret@vault.example.test",
+      },
     });
     expect(capture?.properties).toEqual({ $current_url: "https://vault.example.test/vaults" });
   });
 
-  it.each(["/vaults", "/vaults/manage/personal", "/vaults/manage/private-id", "/local", "/offline", "/sign-in", "/totp", "/auth/confirm"])("still suppresses private interactions on %s", (path) => {
+  it.each([
+    "/vaults",
+    "/vaults/manage/personal",
+    "/vaults/manage/private-id",
+    "/local",
+    "/offline",
+    "/sign-in",
+    "/totp",
+    "/auth/confirm",
+  ])("still suppresses private interactions on %s", (path) => {
     for (const event of ["$autocapture", "$dead_click", "$exception", "$heatmaps"]) {
-      expect(sanitizeAnalyticsCapture({
-        uuid: "private-interaction-test",
-        event,
-        properties: { $current_url: `https://vault.example.test${path}`, $el_text: "private content" }
-      })).toBeNull();
+      expect(
+        sanitizeAnalyticsCapture({
+          uuid: "private-interaction-test",
+          event,
+          properties: { $current_url: `https://vault.example.test${path}`, $el_text: "private content" },
+        }),
+      ).toBeNull();
     }
   });
 
@@ -377,7 +405,11 @@ describe("browser analytics", () => {
 
     captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountCreated, { vault_type: "PERSONAL" });
 
-    await vi.waitFor(() => expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticatorAccountCreated, { vault_type: "PERSONAL" }));
+    await vi.waitFor(() =>
+      expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.authenticatorAccountCreated, {
+        vault_type: "PERSONAL",
+      }),
+    );
     expect(posthogMocks.init).toHaveBeenCalledOnce();
   });
 
@@ -397,12 +429,17 @@ describe("browser analytics", () => {
     const { captureAnalyticsError } = await import("@/shared/infrastructure/browser-analytics");
     const error = Object.assign(new Error("private details"), {
       name: "Error: alice@example.test",
-      digest: "https://example.test/?secret=private"
+      digest: "https://example.test/?secret=private",
     });
 
     captureAnalyticsError(error);
 
-    await vi.waitFor(() => expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.clientError, { error_name: "Error", error_digest: "unknown" }));
+    await vi.waitFor(() =>
+      expect(posthogMocks.capture).toHaveBeenCalledWith(ANALYTICS_EVENTS.clientError, {
+        error_name: "Error",
+        error_digest: "unknown",
+      }),
+    );
   });
 
   it("does not identify an email-shaped identifier", async () => {

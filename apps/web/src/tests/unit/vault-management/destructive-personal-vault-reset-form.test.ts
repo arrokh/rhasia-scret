@@ -10,10 +10,13 @@ const mocks = vi.hoisted(() => ({
   clearAllOfflineVaultData: vi.fn(),
   requestLocalVaultLock: vi.fn(),
   replace: vi.fn(),
-  refresh: vi.fn()
+  refresh: vi.fn(),
 }));
 
-vi.mock("@/modules/sync", () => ({ clearAllOfflineVaultData: mocks.clearAllOfflineVaultData, requestLocalVaultLock: mocks.requestLocalVaultLock }));
+vi.mock("@/modules/sync", () => ({
+  clearAllOfflineVaultData: mocks.clearAllOfflineVaultData,
+  requestLocalVaultLock: mocks.requestLocalVaultLock,
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }) }));
 
 import { DestructivePersonalVaultResetForm } from "@/modules/vault-management/presentation/destructive-personal-vault-reset-form";
@@ -36,19 +39,28 @@ describe("DestructivePersonalVaultResetForm", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
+    await act(async () =>
+      root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))),
+    );
     expect(container.textContent).toContain("Brankas Bersama milik orang lain dan data anggotanya tidak akan dihapus");
-    await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
+    await act(async () =>
+      setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"),
+    );
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
     expect(fetchMock).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("Atur ulang Brankas Pribadi?");
-    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Hapus dan atur ulang",
+    );
     await act(async () => confirm?.click());
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/personal-vault/destructive-reset", expect.objectContaining({
-      method: "POST",
-      body: JSON.stringify({ confirmation: "HAPUS DATA BRANKAS" })
-    }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/personal-vault/destructive-reset",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ confirmation: "HAPUS DATA BRANKAS" }),
+      }),
+    );
     expect(mocks.clearAllOfflineVaultData).toHaveBeenCalledOnce();
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
     expect(mocks.replace).toHaveBeenCalledWith("/vaults");
@@ -62,10 +74,16 @@ describe("DestructivePersonalVaultResetForm", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
-    await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"));
+    await act(async () =>
+      root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector("#destructive-reset-confirmation"), "HAPUS DATA BRANKAS"),
+    );
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
-    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Hapus dan atur ulang");
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Hapus dan atur ulang",
+    );
     await act(async () => confirm?.click());
 
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
@@ -80,8 +98,12 @@ describe("DestructivePersonalVaultResetForm", () => {
     document.body.append(container);
     root = createRoot(container);
 
-    await act(async () => root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))));
-    await act(async () => setInputValue(container.querySelector("#destructive-reset-confirmation"), "hapus data brankas"));
+    await act(async () =>
+      root?.render(createElement(TestQueryProvider, null, createElement(DestructivePersonalVaultResetForm))),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector("#destructive-reset-confirmation"), "hapus data brankas"),
+    );
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(fetchMock).not.toHaveBeenCalled();

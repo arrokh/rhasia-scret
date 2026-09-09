@@ -19,11 +19,11 @@ release version.
 
 Use SemVer:
 
-| Change | Version rule | Compatibility requirement |
-| --- | --- | --- |
-| Patch | `x.y.Z` | Security fixes, bug fixes, and dependency updates with no protocol or migration contract change. |
-| Minor | `x.Y.z` | Backward-compatible product capabilities and additive API/database changes. Existing released clients continue to read their permitted data. |
-| Major | `X.y.z` | Breaking API, encrypted-protocol, authentication, database, or client behavior. Publish migration and upgrade guidance before the tag. |
+| Change | Version rule | Compatibility requirement                                                                                                                    |
+| ------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Patch  | `x.y.Z`      | Security fixes, bug fixes, and dependency updates with no protocol or migration contract change.                                             |
+| Minor  | `x.Y.z`      | Backward-compatible product capabilities and additive API/database changes. Existing released clients continue to read their permitted data. |
+| Major  | `X.y.z`      | Breaking API, encrypted-protocol, authentication, database, or client behavior. Publish migration and upgrade guidance before the tag.       |
 
 Protocol/envelope versions are separate from the product version. A crypto or
 wire-format change requires an ADR, explicit reader/writer compatibility,
@@ -84,6 +84,7 @@ review. Never infer protocol compatibility from a matching package version.
    Add signed-device, verified-link, store metadata, and real-device results
    to the release evidence record. Simulator or JavaScript bundle evidence does
    not substitute for those checks.
+
 5. Build from the tagged commit in a clean runner. Record the commit SHA,
    dependency lockfile digest, web build output digest, native artifact
    digests, toolchain versions, and the exact command exit statuses. Keep

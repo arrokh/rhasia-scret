@@ -15,9 +15,14 @@ describe("Vault status model", () => {
     ["AUTH_REQUIRED", "AUTH_REQUIRED", "READ_ONLY"],
     ["STALE", "STALE", "READ_ONLY"],
     ["ERROR", "ERROR", "READ_ONLY"],
-    ["LOCAL_STORAGE_ERROR", "LOCAL_STORAGE_ERROR", "READ_ONLY"]
+    ["LOCAL_STORAGE_ERROR", "LOCAL_STORAGE_ERROR", "READ_ONLY"],
   ] as const)("maps %s only after server state evidence", (syncState, kind, capability) => {
-    const status = resolveVaultStatus({ origin: "PERSONAL", syncState, onlineHint: true, lastSynchronizedAt: "2026-01-01T00:00:00.000Z" });
+    const status = resolveVaultStatus({
+      origin: "PERSONAL",
+      syncState,
+      onlineHint: true,
+      lastSynchronizedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(status.kind).toBe(kind);
     expect(status.capability).toBe(capability);
     expect(canMutateVault(status)).toBe(capability !== "READ_ONLY");

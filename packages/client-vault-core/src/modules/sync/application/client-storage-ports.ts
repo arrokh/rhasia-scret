@@ -12,7 +12,9 @@ export type RememberedBrowserPackage = {
 };
 
 export interface OfflineVaultSnapshotStore {
-  listProfiles(): Promise<Array<{ profileId: string; personalVaultId: string; synchronizedAt: string; sharedVaultCount: number }>>;
+  listProfiles(): Promise<
+    Array<{ profileId: string; personalVaultId: string; synchronizedAt: string; sharedVaultCount: number }>
+  >;
   read(profileId: string): Promise<EncryptedOfflineVaultBundle | null>;
   readByPersonalVaultId(personalVaultId: string): Promise<EncryptedOfflineVaultBundle | null>;
   replace(bundle: EncryptedOfflineVaultBundle): Promise<void>;

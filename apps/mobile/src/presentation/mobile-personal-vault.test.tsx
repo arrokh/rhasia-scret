@@ -17,18 +17,25 @@ const uninitializedResponse: PlatformHttpResponse = {
 };
 
 const transport: AuthenticatedTransport = { request: async () => uninitializedResponse };
-const activeTransport: AuthenticatedTransport = { request: async () => ({
-  ...uninitializedResponse,
-  json: async <Value,>() => ({ id: "personal-vault-1", lifecycle: "ACTIVE" }) as Value,
-  text: async () => JSON.stringify({ id: "personal-vault-1", lifecycle: "ACTIVE" }),
-}) };
+const activeTransport: AuthenticatedTransport = {
+  request: async () => ({
+    ...uninitializedResponse,
+    json: async <Value,>() => ({ id: "personal-vault-1", lifecycle: "ACTIVE" }) as Value,
+    text: async () => JSON.stringify({ id: "personal-vault-1", lifecycle: "ACTIVE" }),
+  }),
+};
 
 describe("MobilePersonalVault", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("renders complete Indonesian setup copy and form-owned validation", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("id")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} webOrigin="https://vault.example.test" />,
+      <MobilePersonalVault
+        copy={translate("id")}
+        repository={new MobilePersonalVaultRepository(transport)}
+        transport={transport}
+        webOrigin="https://vault.example.test"
+      />,
     );
 
     expect(await screen.findByRole("header", { name: "Amankan Brankas Pribadi" })).toBeVisible();
@@ -40,7 +47,12 @@ describe("MobilePersonalVault", () => {
 
   it("renders the active Vault unlock ceremony in English", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} webOrigin="https://vault.example.test" />,
+      <MobilePersonalVault
+        copy={translate("en")}
+        repository={new MobilePersonalVaultRepository(activeTransport)}
+        transport={activeTransport}
+        webOrigin="https://vault.example.test"
+      />,
     );
 
     expect(await screen.findByRole("header", { name: "Personal Vault ready" })).toBeVisible();
@@ -58,7 +70,12 @@ describe("MobilePersonalVault", () => {
     });
     jest.spyOn(workspaceModule, "loadMobileVaultWorkspace").mockResolvedValue(workspace);
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(activeTransport)} transport={activeTransport} webOrigin="https://vault.example.test" />,
+      <MobilePersonalVault
+        copy={translate("en")}
+        repository={new MobilePersonalVaultRepository(activeTransport)}
+        transport={activeTransport}
+        webOrigin="https://vault.example.test"
+      />,
     );
     await screen.findByRole("header", { name: "Personal Vault ready" });
     await fireEvent.changeText(screen.getByLabelText("Vault Passphrase"), "valid-passphrase");
@@ -74,7 +91,12 @@ describe("MobilePersonalVault", () => {
 
   it("renders equivalent English labels without changing server contracts", async () => {
     const screen = await render(
-      <MobilePersonalVault copy={translate("en")} repository={new MobilePersonalVaultRepository(transport)} transport={transport} webOrigin="https://vault.example.test" />,
+      <MobilePersonalVault
+        copy={translate("en")}
+        repository={new MobilePersonalVaultRepository(transport)}
+        transport={transport}
+        webOrigin="https://vault.example.test"
+      />,
     );
 
     expect(await screen.findByRole("header", { name: "Secure your Personal Vault" })).toBeVisible();
@@ -91,17 +113,19 @@ function unlockedWorkspace(): UnlockedVaultWorkspace {
     synchronizationToken: "sync_1",
     syncState: "CURRENT",
     userRootKey: new Uint8Array(32).fill(1),
-    vaults: [{
-      id: "personal-vault-1",
-      name: "Personal Vault",
-      type: "PERSONAL",
-      role: "OWNER",
-      effectiveAccountPermissions: {
-        permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
-        sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
+    vaults: [
+      {
+        id: "personal-vault-1",
+        name: "Personal Vault",
+        type: "PERSONAL",
+        role: "OWNER",
+        effectiveAccountPermissions: {
+          permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
+          sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
+        },
+        key: new Uint8Array(32).fill(2),
       },
-      key: new Uint8Array(32).fill(2),
-    }],
+    ],
     accounts: [],
     unavailableAccounts: [],
     unavailableSharedVaults: 0,

@@ -1,5 +1,16 @@
 export type TotpAlgorithm = "SHA-1" | "SHA-256" | "SHA-512";
-export type TotpConfigurationErrorCode = "invalidUri" | "totpOnly" | "missingSecret" | "missingIssuer" | "issuerMismatch" | "invalidLabel" | "missingAccount" | "unsupportedAlgorithm" | "unsupportedDigits" | "invalidPeriod" | "invalidSecret";
+export type TotpConfigurationErrorCode =
+  | "invalidUri"
+  | "totpOnly"
+  | "missingSecret"
+  | "missingIssuer"
+  | "issuerMismatch"
+  | "invalidLabel"
+  | "missingAccount"
+  | "unsupportedAlgorithm"
+  | "unsupportedDigits"
+  | "invalidPeriod"
+  | "invalidSecret";
 
 export class TotpConfigurationError extends Error {
   public constructor(public readonly code: TotpConfigurationErrorCode) {

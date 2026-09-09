@@ -19,8 +19,8 @@ export function authenticatedApplicationFailureResponse(result: DeniedResult): N
       status: result.status === "rate_limited" ? 429 : 503,
       headers: {
         "cache-control": "no-store",
-        "retry-after": String(result.retryAfterSeconds)
-      }
-    }
+        "retry-after": String(result.retryAfterSeconds),
+      },
+    },
   );
 }

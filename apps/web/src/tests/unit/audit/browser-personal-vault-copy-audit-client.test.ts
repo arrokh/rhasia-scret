@@ -13,7 +13,7 @@ describe("Personal Vault copy audit client", () => {
 
     expect(mocks.postEmpty).toHaveBeenCalledWith("/api/vaults/vault%2F1/audit-events", {
       eventType: "ACCOUNT_COPIED_TO_LOCAL",
-      accountIds: ["account-1", "account-2"]
+      accountIds: ["account-1", "account-2"],
     });
   });
 });

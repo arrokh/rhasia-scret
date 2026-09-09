@@ -21,12 +21,12 @@ rhasia-scret memiliki dua jalur yang berbeda:
   membuka konten Vault dan membuat OTP.
 
 Aplikasi dapat menangani identitas akun dan data operasional seperti alamat
-  email dari penyedia autentikasi, ID Application User yang buram, ID Vault
-  dan akun buram, hubungan keanggotaan dan undangan, revisi, versi protokol,
-  tenggat penghapusan, aktor audit yang direduksi, status pembatasan laju,
-  waktu permintaan, dan ukuran ciphertext yang dibatasi. Provider dan
-  deployment menentukan metadata jaringan atau operasi tambahan yang dicatat
-  di luar aplikasi.
+email dari penyedia autentikasi, ID Application User yang buram, ID Vault
+dan akun buram, hubungan keanggotaan dan undangan, revisi, versi protokol,
+tenggat penghapusan, aktor audit yang direduksi, status pembatasan laju,
+waktu permintaan, dan ukuran ciphertext yang dibatasi. Provider dan
+deployment menentukan metadata jaringan atau operasi tambahan yang dicatat
+di luar aplikasi.
 
 ## Data yang tidak boleh diterima server
 
@@ -39,14 +39,14 @@ metadata siklus hidup tidak disembunyikan oleh model ini.
 
 ## Provider dan batas tanggung jawab
 
-| Provider atau komponen | Data yang mungkin ditangani | Batas tanggung jawab |
-| --- | --- | --- |
-| Supabase Auth atau provider autentikasi OIDC | Email atau subject provider, peristiwa autentikasi, materi sesi, dan metadata provider untuk memverifikasi principal | Provider mengautentikasi pengguna. Provider tidak menerima plaintext Vault dari aplikasi ini. Atur retensi, kontrol akses, dan pemberitahuan privasinya sendiri. |
-| Pengiriman email provider autentikasi | Alamat penerima, metadata tautan masuk/verifikasi, serta data pengiriman dan bounce | Provider mengendalikan log dan retensi pengiriman. Aplikasi tidak menerima rahasia email. |
-| Host Vercel referensi, CDN, atau reverse proxy self-hosted | Request, metadata IP/jaringan, header, waktu, log deployment dan error, serta trafik API terenkripsi | Pengelola demo hosted atau operator self-hosting mengendalikan konfigurasi host, akses dan retensi log, TLS, serta pengelolaan secret. |
-| Provider PostgreSQL | Konten terenkripsi, ID buram, metadata yang diizinkan, serta log koneksi/operasi database | Database harus tetap diakses melalui Prisma di server. Jangan mengaktifkan akses Supabase Data API/RLS dari browser. Operator bertanggung jawab atas backup, restore, purge, dan akses database. |
-| Analitik browser PostHog (opsional) | Event produk agregat yang diizinkan, path statis yang direduksi, web vitals terbatas, dan ID browser dari hash SHA-256 | Nonaktif kecuali `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` dan `NEXT_PUBLIC_POSTHOG_HOST` diisi. Sanitizer menghapus konten Vault, label, email, URL dengan query/fragment, teks DOM, dan properti yang tidak diizinkan. |
-| Cloudflare Web Analytics (opsional) | Data beacon analitik web sesuai provider untuk deployment yang dikonfigurasi | Nonaktif kecuali `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` diisi. Operator harus meninjau konfigurasi dan ketentuan provider sebelum mengaktifkannya. |
+| Provider atau komponen                                     | Data yang mungkin ditangani                                                                                            | Batas tanggung jawab                                                                                                                                                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Supabase Auth atau provider autentikasi OIDC               | Email atau subject provider, peristiwa autentikasi, materi sesi, dan metadata provider untuk memverifikasi principal   | Provider mengautentikasi pengguna. Provider tidak menerima plaintext Vault dari aplikasi ini. Atur retensi, kontrol akses, dan pemberitahuan privasinya sendiri.                                                   |
+| Pengiriman email provider autentikasi                      | Alamat penerima, metadata tautan masuk/verifikasi, serta data pengiriman dan bounce                                    | Provider mengendalikan log dan retensi pengiriman. Aplikasi tidak menerima rahasia email.                                                                                                                          |
+| Host Vercel referensi, CDN, atau reverse proxy self-hosted | Request, metadata IP/jaringan, header, waktu, log deployment dan error, serta trafik API terenkripsi                   | Pengelola demo hosted atau operator self-hosting mengendalikan konfigurasi host, akses dan retensi log, TLS, serta pengelolaan secret.                                                                             |
+| Provider PostgreSQL                                        | Konten terenkripsi, ID buram, metadata yang diizinkan, serta log koneksi/operasi database                              | Database harus tetap diakses melalui Prisma di server. Jangan mengaktifkan akses Supabase Data API/RLS dari browser. Operator bertanggung jawab atas backup, restore, purge, dan akses database.                   |
+| Analitik browser PostHog (opsional)                        | Event produk agregat yang diizinkan, path statis yang direduksi, web vitals terbatas, dan ID browser dari hash SHA-256 | Nonaktif kecuali `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` dan `NEXT_PUBLIC_POSTHOG_HOST` diisi. Sanitizer menghapus konten Vault, label, email, URL dengan query/fragment, teks DOM, dan properti yang tidak diizinkan. |
+| Cloudflare Web Analytics (opsional)                        | Data beacon analitik web sesuai provider untuk deployment yang dikonfigurasi                                           | Nonaktif kecuali `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` diisi. Operator harus meninjau konfigurasi dan ketentuan provider sebelum mengaktifkannya.                                                           |
 
 Aplikasi native saat ini tidak memiliki integrasi analitik. Operator self-hosting
 tidak boleh menambahkan SDK provider, penerusan event server, atau telemetri

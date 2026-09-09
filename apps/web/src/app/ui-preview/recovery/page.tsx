@@ -9,5 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function RecoveryPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
   const t = await getTranslations("Preview.recovery");
-  return <AppPage><PageHeader title={t("title")} description={t("description")} /><SurfaceCard className="p-5 sm:p-6" aria-label={t("label")}><DestructivePersonalVaultResetForm /></SurfaceCard></AppPage>;
+  return (
+    <AppPage>
+      <PageHeader title={t("title")} description={t("description")} />
+      <SurfaceCard className="p-5 sm:p-6" aria-label={t("label")}>
+        <DestructivePersonalVaultResetForm />
+      </SurfaceCard>
+    </AppPage>
+  );
 }

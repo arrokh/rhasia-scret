@@ -9,6 +9,7 @@
 ## Test Plan
 
 - [ ] Focused tests and checks for the changed bounded context pass.
+- [ ] `mise exec -- pnpm run format:check` passes.
 - [ ] `mise exec -- pnpm run lint` passes.
 - [ ] `mise exec -- pnpm run typecheck` passes.
 - [ ] `mise exec -- pnpm test` passes.

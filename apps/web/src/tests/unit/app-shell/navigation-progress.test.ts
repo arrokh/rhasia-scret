@@ -8,7 +8,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const navigation = vi.hoisted(() => ({ pathname: "/vaults", search: "" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
-  useSearchParams: () => new URLSearchParams(navigation.search)
+  useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 

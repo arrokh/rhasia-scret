@@ -18,16 +18,16 @@ The original progress indicator improved feedback in its unit test, but its bubb
 
 All applicable slices below are implemented. Versioned baselines live under [`performance/`](./performance/); fresh reports are generated under ignored `test-results/performance/`.
 
-| Measure | Latest-main baseline | Implementation | Result |
-| --- | ---: | ---: | --- |
-| Warm navigation click-to-usable p75 | 41.7 ms | 48.4 ms | 6.7 ms local-run variance; far below 300 ms budget |
-| High-probability prefetched paths p75 | 48.8 ms | 48.5 ms | Baseline-equivalent while streaming a stable shell |
-| Visible-response p75 | 41.7 ms | 30.4 ms | 27.1% faster feedback |
-| Navigation visible-response coverage | 92.9% | 100% | Meets budget |
-| Maximum navigation RSC requests | 1 | 1 (0 on fully prefetched paths) | Meets budget |
-| `/vaults` client JavaScript, gzip | 312,594 B | 193,739 B | 38.0% smaller |
-| Other measured Vault routes, gzip | 310,093 B | 191,238 B | 38.3% smaller |
-| Cold unlock click-to-usable | 199.2 ms | 195.9 ms | 1.7% faster; zero measured long tasks |
+| Measure                               | Latest-main baseline |                  Implementation | Result                                             |
+| ------------------------------------- | -------------------: | ------------------------------: | -------------------------------------------------- |
+| Warm navigation click-to-usable p75   |              41.7 ms |                         48.4 ms | 6.7 ms local-run variance; far below 300 ms budget |
+| High-probability prefetched paths p75 |              48.8 ms |                         48.5 ms | Baseline-equivalent while streaming a stable shell |
+| Visible-response p75                  |              41.7 ms |                         30.4 ms | 27.1% faster feedback                              |
+| Navigation visible-response coverage  |                92.9% |                            100% | Meets budget                                       |
+| Maximum navigation RSC requests       |                    1 | 1 (0 on fully prefetched paths) | Meets budget                                       |
+| `/vaults` client JavaScript, gzip     |            312,594 B |                       193,739 B | 38.0% smaller                                      |
+| Other measured Vault routes, gzip     |            310,093 B |                       191,238 B | 38.3% smaller                                      |
+| Cold unlock click-to-usable           |             199.2 ms |                        195.9 ms | 1.7% faster; zero measured long tasks              |
 
 The implementation also proves that 100 mounted accounts sign once per TOTP period rather than once per second, existing protected-page reads avoid provisioning writes and Personal Vault advisory locks, the full participant list stays idle until its tab opens, and unchanged encrypted snapshots can be server-authorized with a `304` before local ciphertext reuse.
 
@@ -199,14 +199,14 @@ Keep each slice independently releasable. Re-run the baseline after every slice 
 
 ## Completion mapping
 
-| Slice | Implemented evidence |
-| --- | --- |
-| Measurement | `playwright.performance.config.ts`, `navigation-performance.spec.ts`, `report-route-bundles.ts`, server/client timing helpers, and baseline/current JSON artifacts |
-| Protected page context | `load-vault-page-context.ts`, `vault-page-context.ts`, `PrismaVaultPageContextReader`, claims/fresh-user verifier modes, integration and contract tests |
+| Slice                  | Implemented evidence                                                                                                                                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Measurement            | `playwright.performance.config.ts`, `navigation-performance.spec.ts`, `report-route-bundles.ts`, server/client timing helpers, and baseline/current JSON artifacts                                                                                                     |
+| Protected page context | `load-vault-page-context.ts`, `vault-page-context.ts`, `PrismaVaultPageContextReader`, claims/fresh-user verifier modes, integration and contract tests                                                                                                                |
 | Streaming and prefetch | stable protected page frames with granular Suspense boundaries for identity actions and protected content, accessible form/list/action placeholders, route-level auth-safe fallback, capture-phase navigation feedback, and two explicitly bounded full-prefetch links |
-| Interaction work | `useTotpClock`, 100-account and visibility tests, deferred participant query, dynamic ZXing import, removal of redundant refreshes |
-| Unlock | module Worker with unchanged Argon2id parameters, concurrent ciphertext persistence, bounded decryption, stable ETag authorization, encrypted local reuse, cleanup tests |
-| Bundle/render | enforced route budgets, 38.0–38.3% gzip reduction, production long-task measurements, desktop/mobile unlocked and locked screenshots |
+| Interaction work       | `useTotpClock`, 100-account and visibility tests, deferred participant query, dynamic ZXing import, removal of redundant refreshes                                                                                                                                     |
+| Unlock                 | module Worker with unchanged Argon2id parameters, concurrent ciphertext persistence, bounded decryption, stable ETag authorization, encrypted local reuse, cleanup tests                                                                                               |
+| Bundle/render          | enforced route budgets, 38.0–38.3% gzip reduction, production long-task measurements, desktop/mobile unlocked and locked screenshots                                                                                                                                   |
 
 No domain language changed, no migration was required, and no plaintext/key/query-cache boundary changed. Secure Share Link email matching intentionally keeps the fresh Auth-user lookup while ordinary page reads use verified claims.
 

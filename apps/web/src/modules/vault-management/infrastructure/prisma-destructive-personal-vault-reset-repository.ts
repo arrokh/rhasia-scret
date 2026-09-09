@@ -3,7 +3,7 @@ import {
   ActiveOwnedSharedVaultsPreventResetError,
   PasskeyRecoveryAlreadyEnrolledError,
   type DestructivePersonalVaultResetEligibility,
-  type DestructivePersonalVaultResetRepository
+  type DestructivePersonalVaultResetRepository,
 } from "../application/destructive-personal-vault-reset";
 
 export class PrismaDestructivePersonalVaultResetRepository implements DestructivePersonalVaultResetRepository {
@@ -13,13 +13,13 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
       prisma.vault.findMany({
         where: { ownerId: userId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
         select: { id: true },
-        orderBy: { createdAt: "asc" }
-      })
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
     return {
       passkeyRecoveryEnrolled: Boolean(passkeyRecoveryCredential),
       activeOwnedSharedVaults: activeOwnedSharedVaults.length,
-      activeOwnedSharedVaultIds: activeOwnedSharedVaults.map(({ id }) => id)
+      activeOwnedSharedVaultIds: activeOwnedSharedVaults.map(({ id }) => id),
     };
   }
 
@@ -28,12 +28,12 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       const passkeyRecoveryCredential = await transaction.passkeyRecoveryCredential.findUnique({
         where: { userId },
-        select: { userId: true }
+        select: { userId: true },
       });
       if (passkeyRecoveryCredential) throw new PasskeyRecoveryAlreadyEnrolledError("Passkey recovery is available.");
 
       const activeOwnedSharedVaults = await transaction.vault.count({
-        where: { ownerId: userId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null }
+        where: { ownerId: userId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
       });
       if (activeOwnedSharedVaults > 0) throw new ActiveOwnedSharedVaultsPreventResetError(activeOwnedSharedVaults);
 
@@ -41,9 +41,9 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
         transaction.vault.findFirst({
           where: { ownerId: userId, type: "PERSONAL" },
           orderBy: { createdAt: "asc" },
-          select: { id: true }
+          select: { id: true },
         }),
-        transaction.applicationUser.findUnique({ where: { id: userId }, select: { email: true } })
+        transaction.applicationUser.findUnique({ where: { id: userId }, select: { email: true } }),
       ]);
       if (!personalVault || !resettingUser) throw new Error("Personal Vault owner does not exist.");
 
@@ -53,15 +53,12 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
       await transaction.vaultInvitation.deleteMany({
         where: {
           status: "PENDING",
-          OR: [
-            { recipientUserId: userId },
-            { recipientEmail: { equals: resettingUser.email, mode: "insensitive" } }
-          ]
-        }
+          OR: [{ recipientUserId: userId }, { recipientEmail: { equals: resettingUser.email, mode: "insensitive" } }],
+        },
       });
       await transaction.vaultMember.updateMany({
         where: { userId, role: "VIEWER", status: "ACTIVE", vault: { type: "SHARED" } },
-        data: { status: "LEFT", encryptedVaultKey: null, keyVersion: null, revokedAt: new Date() }
+        data: { status: "LEFT", encryptedVaultKey: null, keyVersion: null, revokedAt: new Date() },
       });
       await transaction.vault.update({
         where: { id: personalVault.id },
@@ -70,8 +67,8 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
           encryptedName: null,
           encryptionVersion: 1,
           deletedAt: null,
-          purgeAfter: null
-        }
+          purgeAfter: null,
+        },
       });
     });
   }

@@ -12,7 +12,7 @@ const clientWorkflowModuleBarrels = new Set([
   "@/modules/otp-runtime",
   "@/modules/sync",
   "@/modules/vault-archive",
-  "@/modules/vault-membership"
+  "@/modules/vault-membership",
 ]);
 
 const serverSafeClientVaultCoreSymbols = new Set([
@@ -23,7 +23,7 @@ const serverSafeClientVaultCoreSymbols = new Set([
   "SharedVaultAccountPermissions",
   "canPerformSharedVaultAccountOperation",
   "effectiveSharedVaultAccountPermissions",
-  "parseEncryptedOfflineVaultBundle"
+  "parseEncryptedOfflineVaultBundle",
 ]);
 
 function sourceFiles(directory: string): string[] {
@@ -71,7 +71,13 @@ function resolveLocalModule(importer: string, moduleName: string): string | null
 
   const candidates = extname(unresolved)
     ? [unresolved]
-    : [unresolved, `${unresolved}.ts`, `${unresolved}.tsx`, join(unresolved, "index.ts"), join(unresolved, "index.tsx")];
+    : [
+        unresolved,
+        `${unresolved}.ts`,
+        `${unresolved}.tsx`,
+        join(unresolved, "index.ts"),
+        join(unresolved, "index.tsx"),
+      ];
   return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile()) ?? null;
 }
 
@@ -188,13 +194,11 @@ describe("server access to client-vault-core", () => {
         "modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts",
         "modules/vault-membership/infrastructure/prisma-shared-vault-access-repository.ts",
         "modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository.ts",
-        "modules/vault-membership/infrastructure/prisma-vault-participant-repository.ts"
-      ])
+        "modules/vault-membership/infrastructure/prisma-vault-participant-repository.ts",
+      ]),
     );
 
-    const findings = serverSources.flatMap((path) =>
-      serverBoundaryFindings(path, readFileSync(path, "utf8"))
-    );
+    const findings = serverSources.flatMap((path) => serverBoundaryFindings(path, readFileSync(path, "utf8")));
     expect(findings).toEqual([]);
   });
 
@@ -207,13 +211,11 @@ describe("server access to client-vault-core", () => {
       expect.arrayContaining([
         "modules/retention/application/run-retention-purge.ts",
         "modules/sync/infrastructure/prisma-offline-sync-bundle-reader.ts",
-        "modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts"
-      ])
+        "modules/vault-archive/infrastructure/prisma-encrypted-vault-import-repository.ts",
+      ]),
     );
 
-    const findings = runtimeSources.flatMap((path) =>
-      serverBoundaryFindings(path, readFileSync(path, "utf8"))
-    );
+    const findings = runtimeSources.flatMap((path) => serverBoundaryFindings(path, readFileSync(path, "utf8")));
     expect(findings).toEqual([]);
   });
 
@@ -222,21 +224,21 @@ describe("server access to client-vault-core", () => {
     const source = [
       `import { generateTotp } from "${clientVaultCorePackage}";`,
       `import * as clientVaultCore from "${clientVaultCorePackage}";`,
-      `const workflow = import("${clientVaultCorePackage}");`
+      `const workflow = import("${clientVaultCorePackage}");`,
     ].join("\n");
 
     expect(serverBoundaryFindings(fixturePath, source)).toEqual([
       "app/api/fixture/route.ts: generateTotp",
       "app/api/fixture/route.ts: namespace import",
-      "app/api/fixture/route.ts: dynamic package import"
+      "app/api/fixture/route.ts: dynamic package import",
     ]);
 
     const barrelSource = [
       'import type { OfflineSyncBundleReader } from "@/modules/sync";',
-      'import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive";'
+      'import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive";',
     ].join("\n");
     expect(serverBoundaryFindings(fixturePath, barrelSource)).toEqual([
-      "app/api/fixture/route.ts: runtime client barrel @/modules/vault-archive"
+      "app/api/fixture/route.ts: runtime client barrel @/modules/vault-archive",
     ]);
   });
 });

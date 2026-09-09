@@ -4,7 +4,7 @@ import { deterministicTimeZone, localeCookieName, resolveLocale, type AppLocale 
 
 const messageLoaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
   id: () => import("../../messages/id.json"),
-  en: () => import("../../messages/en.json")
+  en: () => import("../../messages/en.json"),
 };
 
 export default getRequestConfig(async () => {
@@ -13,6 +13,6 @@ export default getRequestConfig(async () => {
   return {
     locale,
     messages: (await messageLoaders[locale]()).default,
-    timeZone: deterministicTimeZone
+    timeZone: deterministicTimeZone,
   };
 });

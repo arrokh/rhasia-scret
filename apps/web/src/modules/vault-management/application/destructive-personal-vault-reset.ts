@@ -22,7 +22,7 @@ export class ActiveOwnedSharedVaultsPreventResetError extends Error {
 export async function destructivelyResetPersonalVault(
   userId: string,
   confirmation: string,
-  repository: DestructivePersonalVaultResetRepository
+  repository: DestructivePersonalVaultResetRepository,
 ): Promise<void> {
   if (!userId) throw new Error("An application user is required for destructive reset.");
   if (confirmation !== DESTRUCTIVE_RESET_CONFIRMATION) {

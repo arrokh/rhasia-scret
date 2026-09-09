@@ -9,7 +9,10 @@ export type MobileVaultAuditEvent = {
   createdAt: string;
 };
 
-export async function loadMobileVaultAuditEvents(vaultId: string, transport: AuthenticatedTransport): Promise<MobileVaultAuditEvent[]> {
+export async function loadMobileVaultAuditEvents(
+  vaultId: string,
+  transport: AuthenticatedTransport,
+): Promise<MobileVaultAuditEvent[]> {
   const response = await transport.request({
     url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
     method: "GET",
@@ -26,7 +29,16 @@ export async function loadMobileVaultAuditEvents(vaultId: string, transport: Aut
 function parseEvent(value: unknown): MobileVaultAuditEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
   const record = value as Record<string, unknown>;
-  if (typeof record.id !== "string" || typeof record.eventType !== "string" || (record.targetId !== null && typeof record.targetId !== "string") || typeof record.actorUserId !== "string" || typeof record.actorEmail !== "string" || typeof record.createdAt !== "string" || !Number.isFinite(new Date(record.createdAt).getTime())) invalid();
+  if (
+    typeof record.id !== "string" ||
+    typeof record.eventType !== "string" ||
+    (record.targetId !== null && typeof record.targetId !== "string") ||
+    typeof record.actorUserId !== "string" ||
+    typeof record.actorEmail !== "string" ||
+    typeof record.createdAt !== "string" ||
+    !Number.isFinite(new Date(record.createdAt).getTime())
+  )
+    invalid();
   return record as MobileVaultAuditEvent;
 }
 

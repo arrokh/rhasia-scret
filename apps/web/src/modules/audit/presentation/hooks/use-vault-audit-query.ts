@@ -10,6 +10,6 @@ export function useVaultAuditQuery(vaultId: string, filter: VaultAuditFilter, en
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
-    staleTime: 5_000
+    staleTime: 5_000,
   });
 }

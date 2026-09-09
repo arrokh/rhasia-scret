@@ -54,31 +54,70 @@ export function MobilePersonalVault({
         }
       },
       () => {
-        void mobileOfflineVaultStore.listProfiles().then((profiles) => {
-          if (!mounted) return;
-          if (profiles[0]) {
-            setOfflineProfileId(profiles[0].profileId);
-            setState("offline");
-          } else setState("error");
-        }, () => { if (mounted) setState("error"); });
+        void mobileOfflineVaultStore.listProfiles().then(
+          (profiles) => {
+            if (!mounted) return;
+            if (profiles[0]) {
+              setOfflineProfileId(profiles[0].profileId);
+              setState("offline");
+            } else setState("error");
+          },
+          () => {
+            if (mounted) setState("error");
+          },
+        );
       },
     );
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [repository]);
 
-  if (state === "loading") return <Text accessibilityLiveRegion="polite" style={styles.notice}>{copy.personalVaultLoading}</Text>;
+  if (state === "loading")
+    return (
+      <Text accessibilityLiveRegion="polite" style={styles.notice}>
+        {copy.personalVaultLoading}
+      </Text>
+    );
   if (state === "error") {
     return (
       <View style={styles.panel}>
-        <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.personalVaultLoadError}</Text>
-        <Pressable accessibilityRole="button" onPress={() => { setState("loading"); void load(); }} style={styles.secondaryButton}>
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {copy.personalVaultLoadError}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            setState("loading");
+            void load();
+          }}
+          style={styles.secondaryButton}
+        >
           <Text style={styles.secondaryButtonText}>{copy.retry}</Text>
         </Pressable>
       </View>
     );
   }
-  if (state === "active" && vaultId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "online", personalVaultId: vaultId }} transport={transport} webOrigin={webOrigin} />;
-  if (state === "offline" && offlineProfileId) return <PersonalVaultUnlock consumeSecureShareSecret={consumeSecureShareSecret} copy={copy} mode={{ kind: "offline", profileId: offlineProfileId }} transport={transport} webOrigin={webOrigin} />;
+  if (state === "active" && vaultId)
+    return (
+      <PersonalVaultUnlock
+        consumeSecureShareSecret={consumeSecureShareSecret}
+        copy={copy}
+        mode={{ kind: "online", personalVaultId: vaultId }}
+        transport={transport}
+        webOrigin={webOrigin}
+      />
+    );
+  if (state === "offline" && offlineProfileId)
+    return (
+      <PersonalVaultUnlock
+        consumeSecureShareSecret={consumeSecureShareSecret}
+        copy={copy}
+        mode={{ kind: "offline", profileId: offlineProfileId }}
+        transport={transport}
+        webOrigin={webOrigin}
+      />
+    );
   return <PersonalVaultSetup copy={copy} repository={repository} onInitialized={() => setState("active")} />;
 }
 
@@ -95,7 +134,8 @@ function PersonalVaultUnlock({
   webOrigin: string;
   consumeSecureShareSecret?: () => string | null;
 }) {
-  const { workspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } = useMobileWorkspaceLifecycle(transport);
+  const { workspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } =
+    useMobileWorkspaceLifecycle(transport);
   const [status, setStatus] = useState<"locked" | "unlocked" | "error">("locked");
   const [shareStatus, setShareStatus] = useState<"idle" | "redeemed" | "redeemed_refresh_error" | "error">("idle");
   const form = useForm({
@@ -103,9 +143,10 @@ function PersonalVaultUnlock({
     onSubmit: async ({ value }) => {
       setStatus("locked");
       try {
-        const result = mode.kind === "online"
-          ? await loadMobileVaultWorkspace(value.passphrase, mode.personalVaultId, transport)
-          : await loadOfflineMobileVaultWorkspace(mode.profileId, value.passphrase, transport);
+        const result =
+          mode.kind === "online"
+            ? await loadMobileVaultWorkspace(value.passphrase, mode.personalVaultId, transport)
+            : await loadOfflineMobileVaultWorkspace(mode.profileId, value.passphrase, transport);
         replaceWorkspace(result);
         const shareSecret = mode.kind === "online" ? consumeSecureShareSecret?.() : null;
         if (shareSecret) {
@@ -141,11 +182,25 @@ function PersonalVaultUnlock({
   if (status === "unlocked") {
     return (
       <View style={styles.panel}>
-        <Text accessibilityRole="header" style={styles.panelTitle}>{copy.personalVaultUnlocked}</Text>
+        <Text accessibilityRole="header" style={styles.panelTitle}>
+          {copy.personalVaultUnlocked}
+        </Text>
         <Text style={styles.notice}>{copy.personalVaultUnlockedDescription}</Text>
-        {shareStatus === "redeemed" ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{copy.secureShareLinkRedeemed}</Text> : null}
-        {shareStatus === "redeemed_refresh_error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.secureShareLinkRefreshError}</Text> : null}
-        {shareStatus === "error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.secureShareLinkError}</Text> : null}
+        {shareStatus === "redeemed" ? (
+          <Text accessibilityLiveRegion="polite" style={styles.notice}>
+            {copy.secureShareLinkRedeemed}
+          </Text>
+        ) : null}
+        {shareStatus === "redeemed_refresh_error" ? (
+          <Text accessibilityLiveRegion="assertive" style={styles.error}>
+            {copy.secureShareLinkRefreshError}
+          </Text>
+        ) : null}
+        {shareStatus === "error" ? (
+          <Text accessibilityLiveRegion="assertive" style={styles.error}>
+            {copy.secureShareLinkError}
+          </Text>
+        ) : null}
         {workspace ? (
           <MobileAuthenticatorAccounts
             copy={copy}
@@ -165,10 +220,24 @@ function PersonalVaultUnlock({
 
   return (
     <View style={styles.panel}>
-      <Text accessibilityRole="header" style={styles.panelTitle}>{copy.personalVaultReady}</Text>
-      <Text style={styles.guidance}>{mode.kind === "offline" ? copy.personalVaultOfflineUnlockDescription : copy.personalVaultUnlockDescription}</Text>
-      <form.Field name="passphrase" validators={{ onSubmit: ({ value }) => value.trim().length >= 3 ? undefined : copy.passphraseInvalid }}>
-        {(field) => <MobileTextField field={field} label={copy.vaultPassphrase} errorId="unlock-vault-passphrase-error" secureTextEntry />}
+      <Text accessibilityRole="header" style={styles.panelTitle}>
+        {copy.personalVaultReady}
+      </Text>
+      <Text style={styles.guidance}>
+        {mode.kind === "offline" ? copy.personalVaultOfflineUnlockDescription : copy.personalVaultUnlockDescription}
+      </Text>
+      <form.Field
+        name="passphrase"
+        validators={{ onSubmit: ({ value }) => (value.trim().length >= 3 ? undefined : copy.passphraseInvalid) }}
+      >
+        {(field) => (
+          <MobileTextField
+            field={field}
+            label={copy.vaultPassphrase}
+            errorId="unlock-vault-passphrase-error"
+            secureTextEntry
+          />
+        )}
       </form.Field>
       <form.Subscribe<[boolean, boolean]> selector={(formState) => [formState.canSubmit, formState.isSubmitting]}>
         {([canSubmit, isSubmitting]: [boolean, boolean]) => (
@@ -179,11 +248,17 @@ function PersonalVaultUnlock({
             onPress={() => void form.handleSubmit()}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>{isSubmitting ? copy.personalVaultUnlocking : copy.unlockVault}</Text>
+            <Text style={styles.primaryButtonText}>
+              {isSubmitting ? copy.personalVaultUnlocking : copy.unlockVault}
+            </Text>
           </Pressable>
         )}
       </form.Subscribe>
-      {status === "error" ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.personalVaultUnlockError}</Text> : null}
+      {status === "error" ? (
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {copy.personalVaultUnlockError}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -214,21 +289,48 @@ function PersonalVaultSetup({
 
   return (
     <View style={styles.panel}>
-      <Text accessibilityRole="header" style={styles.panelTitle}>{copy.personalVaultSetupTitle}</Text>
+      <Text accessibilityRole="header" style={styles.panelTitle}>
+        {copy.personalVaultSetupTitle}
+      </Text>
       <Text style={styles.guidance}>{copy.personalVaultSetupDescription}</Text>
-      <form.Field name="vaultName" validators={{ onSubmit: ({ value }) => value.trim() ? undefined : copy.vaultNameRequired }}>
+      <form.Field
+        name="vaultName"
+        validators={{ onSubmit: ({ value }) => (value.trim() ? undefined : copy.vaultNameRequired) }}
+      >
         {(field) => <MobileTextField field={field} label={copy.vaultName} errorId="vault-name-error" />}
       </form.Field>
-      <form.Field name="passphrase" validators={{ onSubmit: ({ value }) => value.trim().length >= 3 ? undefined : copy.passphraseInvalid }}>
-        {(field) => <MobileTextField field={field} label={copy.vaultPassphrase} errorId="vault-passphrase-error" secureTextEntry />}
+      <form.Field
+        name="passphrase"
+        validators={{ onSubmit: ({ value }) => (value.trim().length >= 3 ? undefined : copy.passphraseInvalid) }}
+      >
+        {(field) => (
+          <MobileTextField
+            field={field}
+            label={copy.vaultPassphrase}
+            errorId="vault-passphrase-error"
+            secureTextEntry
+          />
+        )}
       </form.Field>
       <form.Field
         name="confirmation"
-        validators={{ onSubmit: ({ value }) => value === form.state.values.passphrase ? undefined : copy.passphraseMismatch }}
+        validators={{
+          onSubmit: ({ value }) => (value === form.state.values.passphrase ? undefined : copy.passphraseMismatch),
+        }}
       >
-        {(field) => <MobileTextField field={field} label={copy.confirmVaultPassphrase} errorId="vault-passphrase-confirmation-error" secureTextEntry />}
+        {(field) => (
+          <MobileTextField
+            field={field}
+            label={copy.confirmVaultPassphrase}
+            errorId="vault-passphrase-confirmation-error"
+            secureTextEntry
+          />
+        )}
       </form.Field>
-      <form.Field name="acknowledged" validators={{ onSubmit: ({ value }) => value ? undefined : copy.passphraseAcknowledgementRequired }}>
+      <form.Field
+        name="acknowledged"
+        validators={{ onSubmit: ({ value }) => (value ? undefined : copy.passphraseAcknowledgementRequired) }}
+      >
         {(field) => (
           <View style={styles.field}>
             <Pressable
@@ -240,7 +342,11 @@ function PersonalVaultSetup({
               <View style={[styles.checkbox, field.state.value ? styles.checkboxChecked : null]} />
               <Text style={styles.checkboxLabel}>{copy.passphraseAcknowledgement}</Text>
             </Pressable>
-            {field.state.meta.errors[0] ? <Text accessibilityLiveRegion="polite" style={styles.error}>{String(field.state.meta.errors[0])}</Text> : null}
+            {field.state.meta.errors[0] ? (
+              <Text accessibilityLiveRegion="polite" style={styles.error}>
+                {String(field.state.meta.errors[0])}
+              </Text>
+            ) : null}
           </View>
         )}
       </form.Field>
@@ -254,11 +360,17 @@ function PersonalVaultSetup({
             onPress={() => void form.handleSubmit()}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>{isSubmitting ? copy.personalVaultCreating : copy.personalVaultCreate}</Text>
+            <Text style={styles.primaryButtonText}>
+              {isSubmitting ? copy.personalVaultCreating : copy.personalVaultCreate}
+            </Text>
           </Pressable>
         )}
       </form.Subscribe>
-      {submissionError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{copy.personalVaultSetupError}</Text> : null}
+      {submissionError ? (
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {copy.personalVaultSetupError}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -297,7 +409,11 @@ function MobileTextField({
         style={[styles.input, error ? styles.inputInvalid : null]}
         value={field.state.value}
       />
-      {error ? <Text nativeID={errorId} accessibilityLiveRegion="polite" style={styles.error}>{String(error)}</Text> : null}
+      {error ? (
+        <Text nativeID={errorId} accessibilityLiveRegion="polite" style={styles.error}>
+          {String(error)}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -318,18 +434,54 @@ const styles = StyleSheet.create({
   panelTitle: { color: colors.ink, textAlign: "center", fontSize: 20, lineHeight: 26, fontWeight: "800" },
   guidance: { color: colors.muted, textAlign: "center", lineHeight: 21 },
   notice: { color: colors.notice, textAlign: "center", lineHeight: 21, fontWeight: "700" },
-  warning: { color: colors.warning, backgroundColor: colors.warningSurface, borderRadius: 10, padding: 12, lineHeight: 20 },
+  warning: {
+    color: colors.warning,
+    backgroundColor: colors.warningSurface,
+    borderRadius: 10,
+    padding: 12,
+    lineHeight: 20,
+  },
   error: { color: colors.danger, textAlign: "center", lineHeight: 21, fontWeight: "700" },
   field: { gap: 7 },
   label: { color: colors.ink, fontSize: 14, fontWeight: "700" },
-  input: { minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", color: colors.ink, paddingHorizontal: 14, fontSize: 16 },
+  input: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#FFFFFF",
+    color: colors.ink,
+    paddingHorizontal: 14,
+    fontSize: 16,
+  },
   inputInvalid: { borderColor: colors.danger },
   checkboxRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 10 },
-  checkbox: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: colors.border, backgroundColor: "#FFFFFF" },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "#FFFFFF",
+  },
   checkboxChecked: { borderColor: colors.primary, backgroundColor: colors.primary },
   checkboxLabel: { flex: 1, color: colors.ink, lineHeight: 20 },
-  primaryButton: { minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18 },
+  primaryButton: {
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+  },
   primaryButtonText: { color: "#211704", fontSize: 16, fontWeight: "800" },
-  secondaryButton: { minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  secondaryButton: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   secondaryButtonText: { color: colors.ink, fontWeight: "800" },
 });

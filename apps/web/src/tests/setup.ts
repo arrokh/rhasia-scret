@@ -6,7 +6,8 @@ vi.mock("next-intl", async () => {
   return {
     ...actual,
     useLocale: () => "id",
-    useTranslations: (namespace?: string) => actual.createTranslator({ locale: "id", messages: idMessages, namespace: namespace as never })
+    useTranslations: (namespace?: string) =>
+      actual.createTranslator({ locale: "id", messages: idMessages, namespace: namespace as never }),
   };
 });
 
@@ -17,7 +18,8 @@ vi.mock("next-intl/server", async () => {
     ...actual,
     getLocale: async () => "id",
     getMessages: async () => idMessages,
-    getTranslations: async (namespace?: string) => core.createTranslator({ locale: "id", messages: idMessages, namespace: namespace as never })
+    getTranslations: async (namespace?: string) =>
+      core.createTranslator({ locale: "id", messages: idMessages, namespace: namespace as never }),
   };
 });
 
@@ -37,5 +39,14 @@ if (typeof HTMLElement !== "undefined") {
 }
 
 if (typeof window !== "undefined" && !window.matchMedia) {
-  window.matchMedia = () => ({ matches: false, media: "", onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
+  window.matchMedia = () => ({
+    matches: false,
+    media: "",
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  });
 }

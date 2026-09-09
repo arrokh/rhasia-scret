@@ -7,7 +7,7 @@ export const localeCookieMaxAge = 60 * 60 * 24 * 365;
 
 export const formattingLocales: Record<AppLocale, string> = {
   id: "id-ID",
-  en: "en-US"
+  en: "en-US",
 };
 export const deterministicTimeZone = "UTC";
 

@@ -7,12 +7,12 @@ const routeManifests = {
   "/vaults": "server/app/vaults/page_client-reference-manifest.js",
   "/vaults/manage": "server/app/vaults/manage/page_client-reference-manifest.js",
   "/vaults/manage/[vaultId]": "server/app/vaults/manage/[vaultId]/page_client-reference-manifest.js",
-  "/vaults/accounts/new": "server/app/vaults/accounts/new/page_client-reference-manifest.js"
+  "/vaults/accounts/new": "server/app/vaults/accounts/new/page_client-reference-manifest.js",
 } as const;
 
 const budgets = {
   rawBytes: 750_000,
-  gzipBytes: 225_000
+  gzipBytes: 225_000,
 } as const;
 
 type ClientReferenceManifest = {
@@ -45,30 +45,56 @@ const enforce = process.argv.includes("--enforce");
 const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const dirty = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0;
 
-const routes = Object.fromEntries(Object.entries(routeManifests).map(([route, manifestPath]) => {
-  const manifest = parseManifest(join(buildDirectory, manifestPath));
-  const chunks = [...new Set(Object.values(manifest.clientModules).flatMap((module) => module.chunks ?? []))].sort();
-  const files = chunks.map((publicPath) => {
-    const path = chunkPath(buildDirectory, publicPath);
-    const contents = readFileSync(path);
-    const bytes = contents.byteLength;
-    const gzipBytes = gzipSync(contents).byteLength;
-    return { path: publicPath, bytes, gzipBytes };
-  });
-  const rawBytes = files.reduce((total, file) => total + file.bytes, 0);
-  const gzipBytes = files.reduce((total, file) => total + file.gzipBytes, 0);
-  return [route, {
-    rawBytes,
-    gzipBytes,
-    chunks: files.length,
-    withinBudget: rawBytes <= budgets.rawBytes && gzipBytes <= budgets.gzipBytes,
-    files
-  }];
-}));
+const routes = Object.fromEntries(
+  Object.entries(routeManifests).map(([route, manifestPath]) => {
+    const manifest = parseManifest(join(buildDirectory, manifestPath));
+    const chunks = [...new Set(Object.values(manifest.clientModules).flatMap((module) => module.chunks ?? []))].sort();
+    const files = chunks.map((publicPath) => {
+      const path = chunkPath(buildDirectory, publicPath);
+      const contents = readFileSync(path);
+      const bytes = contents.byteLength;
+      const gzipBytes = gzipSync(contents).byteLength;
+      return { path: publicPath, bytes, gzipBytes };
+    });
+    const rawBytes = files.reduce((total, file) => total + file.bytes, 0);
+    const gzipBytes = files.reduce((total, file) => total + file.gzipBytes, 0);
+    return [
+      route,
+      {
+        rawBytes,
+        gzipBytes,
+        chunks: files.length,
+        withinBudget: rawBytes <= budgets.rawBytes && gzipBytes <= budgets.gzipBytes,
+        files,
+      },
+    ];
+  }),
+);
 
 const report = { schemaVersion: 1, label, commit, dirty, budgets, routes };
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`);
-console.log(JSON.stringify({ output, label, commit, routes: Object.fromEntries(Object.entries(routes).map(([route, value]) => [route, { rawBytes: value.rawBytes, gzipBytes: value.gzipBytes, chunks: value.chunks, withinBudget: value.withinBudget }])) }, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      output,
+      label,
+      commit,
+      routes: Object.fromEntries(
+        Object.entries(routes).map(([route, value]) => [
+          route,
+          {
+            rawBytes: value.rawBytes,
+            gzipBytes: value.gzipBytes,
+            chunks: value.chunks,
+            withinBudget: value.withinBudget,
+          },
+        ]),
+      ),
+    },
+    null,
+    2,
+  ),
+);
 
 if (enforce && Object.values(routes).some((route) => !route.withinBudget)) process.exitCode = 1;

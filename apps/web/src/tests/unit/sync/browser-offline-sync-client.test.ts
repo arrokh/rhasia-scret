@@ -11,9 +11,20 @@ const bundle: EncryptedOfflineVaultBundle = {
   profileId: "profile-1",
   synchronizedAt: "2026-01-01T00:00:00.000Z",
   synchronizationToken: "stable-token",
-  cryptoProfile: { vaultUnlockSalt: salt, wrappedUserRootKey: ciphertext, encryptedPersonalVaultKey: ciphertext, encryptionVersion: 1 },
-  personalVault: { vaultId: "personal-1", lifecycle: "ACTIVE", encryptedName: ciphertext, encryptionVersion: 1, accounts: [] },
-  sharedVaults: []
+  cryptoProfile: {
+    vaultUnlockSalt: salt,
+    wrappedUserRootKey: ciphertext,
+    encryptedPersonalVaultKey: ciphertext,
+    encryptionVersion: 1,
+  },
+  personalVault: {
+    vaultId: "personal-1",
+    lifecycle: "ACTIVE",
+    encryptedName: ciphertext,
+    encryptionVersion: 1,
+    accounts: [],
+  },
+  sharedVaults: [],
 };
 
 afterEach(() => {
@@ -29,7 +40,10 @@ describe("authorized offline synchronization client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchAuthorizedOfflineBundle(bundle)).resolves.toEqual({ ...bundle, synchronizedAt: "2026-01-02T00:00:00.000Z" });
+    await expect(fetchAuthorizedOfflineBundle(bundle)).resolves.toEqual({
+      ...bundle,
+      synchronizedAt: "2026-01-02T00:00:00.000Z",
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 

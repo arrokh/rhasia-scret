@@ -12,7 +12,7 @@ export interface SharedAccountRepository {
     actorUserId: string,
     vaultId: string,
     encryptedPayload: Uint8Array,
-    encryptionVersion: number
+    encryptionVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>>;
 
   update(
@@ -21,19 +21,15 @@ export interface SharedAccountRepository {
     accountId: string,
     expectedRevision: number,
     encryptedPayload: Uint8Array,
-    encryptionVersion: number
+    encryptionVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>>;
 
   delete(
     actorUserId: string,
     vaultId: string,
     accountId: string,
-    expectedRevision: number
+    expectedRevision: number,
   ): Promise<SharedAccountMutationResult<undefined>>;
 
-  restore(
-    actorUserId: string,
-    vaultId: string,
-    accountId: string
-  ): Promise<SharedAccountMutationResult<undefined>>;
+  restore(actorUserId: string, vaultId: string, accountId: string): Promise<SharedAccountMutationResult<undefined>>;
 }

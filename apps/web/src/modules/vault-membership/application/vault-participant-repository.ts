@@ -2,7 +2,7 @@ import type { CursorPage, CursorPageRequest } from "@/shared/application/cursor-
 import type {
   EffectiveSharedVaultAccountPermissions,
   SharedVaultAccountPermissionOverrides,
-  SharedVaultAccountPermissions
+  SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
 
 export type VaultParticipant = {

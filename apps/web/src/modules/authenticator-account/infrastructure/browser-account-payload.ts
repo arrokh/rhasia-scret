@@ -14,8 +14,12 @@ export type { DecryptedAuthenticatorAccount } from "@rhasia-scret/client-vault-c
 export { isDuplicateAccount, parseDecryptedAccountPayload, serializeDecryptedAccountPayload };
 
 export const browserAccountPayloadPort = {
-  encryptAccountConfiguration: (...args: Parameters<ReturnType<typeof createBrowserAccountPayloadPort>["encryptAccountConfiguration"]>) => createBrowserAccountPayloadPort().encryptAccountConfiguration(...args),
-  decryptAccountConfiguration: (...args: Parameters<ReturnType<typeof createBrowserAccountPayloadPort>["decryptAccountConfiguration"]>) => createBrowserAccountPayloadPort().decryptAccountConfiguration(...args),
+  encryptAccountConfiguration: (
+    ...args: Parameters<ReturnType<typeof createBrowserAccountPayloadPort>["encryptAccountConfiguration"]>
+  ) => createBrowserAccountPayloadPort().encryptAccountConfiguration(...args),
+  decryptAccountConfiguration: (
+    ...args: Parameters<ReturnType<typeof createBrowserAccountPayloadPort>["decryptAccountConfiguration"]>
+  ) => createBrowserAccountPayloadPort().decryptAccountConfiguration(...args),
   serializeDecryptedAccountPayload,
   parseDecryptedAccountPayload,
   isDuplicateAccount,
@@ -42,5 +46,7 @@ export function decryptAccountConfiguration(
 }
 
 export function sortAccounts(accounts: DecryptedAuthenticatorAccount[]): DecryptedAuthenticatorAccount[] {
-  return [...accounts].sort((left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName));
+  return [...accounts].sort(
+    (left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName),
+  );
 }

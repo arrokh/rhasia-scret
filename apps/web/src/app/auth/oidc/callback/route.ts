@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { completeOidcAuthorization } from "@/modules/identity/infrastructure/oidc-client";
-import { OIDC_NONCE_COOKIE, OIDC_SESSION_COOKIE, OIDC_STATE_COOKIE, OIDC_VERIFIER_COOKIE, signOidcSession } from "@/modules/identity/infrastructure/oidc-session-verifier";
+import {
+  OIDC_NONCE_COOKIE,
+  OIDC_SESSION_COOKIE,
+  OIDC_STATE_COOKIE,
+  OIDC_VERIFIER_COOKIE,
+  signOidcSession,
+} from "@/modules/identity/infrastructure/oidc-session-verifier";
 
 export async function GET(request: Request): Promise<Response> {
   try {
@@ -13,7 +19,8 @@ export async function GET(request: Request): Promise<Response> {
     const nonce = cookieStore.get(OIDC_NONCE_COOKIE)?.value;
     const verifier = cookieStore.get(OIDC_VERIFIER_COOKIE)?.value;
     const callbackUrl = new URL(request.url);
-    if (!state || !nonce || !verifier || callbackUrl.searchParams.has("error")) return redirect(request, "verification_failed");
+    if (!state || !nonce || !verifier || callbackUrl.searchParams.has("error"))
+      return redirect(request, "verification_failed");
     const result = await completeOidcAuthorization(configuration.oidc, callbackUrl, state, nonce, verifier);
     const token = await signOidcSession(configuration.oidc, result.principal, result.expiresAt);
     cookieStore.set(OIDC_SESSION_COOKIE, token, {
@@ -21,7 +28,7 @@ export async function GET(request: Request): Promise<Response> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: Math.max(1, result.expiresAt - Math.floor(Date.now() / 1000)),
-      path: "/"
+      path: "/",
     });
     clearCallbackCookies(cookieStore);
     return NextResponse.redirect(new URL("/vaults", request.url));
@@ -32,7 +39,13 @@ export async function GET(request: Request): Promise<Response> {
 
 function clearCallbackCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
   for (const name of [OIDC_STATE_COOKIE, OIDC_NONCE_COOKIE, OIDC_VERIFIER_COOKIE]) {
-    cookieStore.set(name, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0, path: "/" });
+    cookieStore.set(name, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    });
   }
 }
 

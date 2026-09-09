@@ -13,7 +13,7 @@ export const VAULT_AUDIT_ACTIONS = [
   "ARCHIVE_EXPORTED",
   "ARCHIVE_IMPORTED",
   "VAULT_DELETED",
-  "VAULT_RESTORED"
+  "VAULT_RESTORED",
 ] as const;
 
 export type AuditAction = (typeof VAULT_AUDIT_ACTIONS)[number];

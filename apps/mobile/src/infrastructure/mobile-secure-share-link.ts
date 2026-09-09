@@ -19,12 +19,8 @@ export function createMobileSecureShareLink(
   const secureShareLinks = new SecureShareLinkHttpTransport(transport);
   return createSecureShareLink(vault.id, recipientEmail, vault.key, {
     crypto: {
-      createMaterial: (vaultKey, vaultId) => createSecureShareLinkMaterialWithCrypto(
-        vaultKey,
-        vaultId,
-        nativeClientCrypto,
-        async (value) => sha256(value),
-      ),
+      createMaterial: (vaultKey, vaultId) =>
+        createSecureShareLinkMaterialWithCrypto(vaultKey, vaultId, nativeClientCrypto, async (value) => sha256(value)),
     },
     transport: secureShareLinks,
     delivery: {
@@ -45,14 +41,15 @@ export function redeemMobileSecureShareLink(
   return redeemSecureShareLink(secret, userRootKey, {
     crypto: {
       digestSha256: async (value) => sha256(value),
-      redeemMaterial: (linkSecret, encryptedPackage, rootKey, vaultId) => redeemSecureShareLinkMaterialWithCrypto(
-        linkSecret,
-        encryptedPackage,
-        rootKey,
-        vaultId,
-        nativeClientCrypto,
-        async (value) => sha256(value),
-      ),
+      redeemMaterial: (linkSecret, encryptedPackage, rootKey, vaultId) =>
+        redeemSecureShareLinkMaterialWithCrypto(
+          linkSecret,
+          encryptedPackage,
+          rootKey,
+          vaultId,
+          nativeClientCrypto,
+          async (value) => sha256(value),
+        ),
     },
     transport: secureShareLinks,
   });

@@ -3,7 +3,13 @@ import { footerLanguageIsInSettings } from "@/shared/presentation/app-footer-loc
 
 describe("footer language placement", () => {
   it("uses header Settings only on routes that actually render the account menu", () => {
-    for (const pathname of ["/vaults", "/vaults/accounts/new", "/vaults/invitations/redeem", "/ui-preview", "/ui-preview/vaults"]) {
+    for (const pathname of [
+      "/vaults",
+      "/vaults/accounts/new",
+      "/vaults/invitations/redeem",
+      "/ui-preview",
+      "/ui-preview/vaults",
+    ]) {
       expect(footerLanguageIsInSettings(pathname)).toBe(true);
     }
 

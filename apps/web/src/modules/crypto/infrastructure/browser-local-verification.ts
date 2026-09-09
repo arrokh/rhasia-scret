@@ -1,10 +1,19 @@
 "use client";
 
-import type { DeviceBoundVerificationPort, DeviceBoundCapability, DeviceBoundEnrollmentRequest, DeviceBoundRecoveryRequest } from "@rhasia-scret/client-vault-core";
+import type {
+  DeviceBoundVerificationPort,
+  DeviceBoundCapability,
+  DeviceBoundEnrollmentRequest,
+  DeviceBoundRecoveryRequest,
+} from "@rhasia-scret/client-vault-core";
 import { BrowserOfflineVaultRepository } from "@/modules/sync";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { evaluatePasskeyPrf } from "./browser-passkey-prf";
-import { createPasskeyRecoveryPackage, passkeyRecoverySalt, recoverUserRootKeyFromPasskeyPackage } from "./browser-passkey-recovery-package";
+import {
+  createPasskeyRecoveryPackage,
+  passkeyRecoverySalt,
+  recoverUserRootKeyFromPasskeyPackage,
+} from "./browser-passkey-recovery-package";
 
 export class RememberedBrowserBindingError extends Error {
   public constructor() {
@@ -14,10 +23,16 @@ export class RememberedBrowserBindingError extends Error {
 }
 
 export function supportsLocalVerification(): boolean {
-  return typeof window !== "undefined" && window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials;
+  return (
+    typeof window !== "undefined" && window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials
+  );
 }
 
-export async function enrollRememberedBrowser(profileId: string, userRootKey: Uint8Array, signal?: AbortSignal): Promise<void> {
+export async function enrollRememberedBrowser(
+  profileId: string,
+  userRootKey: Uint8Array,
+  signal?: AbortSignal,
+): Promise<void> {
   if (!supportsLocalVerification()) throw new Error("Local Verification is unavailable in this browser.");
   if (userRootKey.length !== 32) throw new Error("User Root Key is invalid.");
   const rpId = window.location.hostname;
@@ -27,13 +42,17 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
       challenge: randomBytes(32),
       rp: { id: rpId, name: "rhasia-scret" },
       user: { id: randomBytes(32), name: `offline-${profileId}`, displayName: "rhasia-scret" },
-      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      pubKeyCredParams: [
+        { type: "public-key", alg: -7 },
+        { type: "public-key", alg: -257 },
+      ],
       authenticatorSelection: { userVerification: "required", residentKey: "preferred" },
       timeout: 60_000,
-      extensions: { prf: {} } as AuthenticationExtensionsClientInputs
-    }
+      extensions: { prf: {} } as AuthenticationExtensionsClientInputs,
+    },
   });
-  if (!(credential instanceof PublicKeyCredential)) throw new DOMException("Local Verification enrollment was cancelled.", "NotAllowedError");
+  if (!(credential instanceof PublicKeyCredential))
+    throw new DOMException("Local Verification enrollment was cancelled.", "NotAllowedError");
   throwIfAborted(signal);
   const retainedUserRootKey = userRootKey.slice();
   const prfSalt = randomBytes(32);
@@ -51,7 +70,7 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
       origin: window.location.origin,
       credentialId: bytesToBase64(new Uint8Array(credential.rawId)),
       encryptedUserRootKeyPackage: bytesToBase64(encryptedPackage),
-      enrolledAt: new Date().toISOString()
+      enrolledAt: new Date().toISOString(),
     });
   } finally {
     retainedUserRootKey.fill(0);
@@ -61,7 +80,10 @@ export async function enrollRememberedBrowser(profileId: string, userRootKey: Ui
   }
 }
 
-export async function recoverUserRootKeyWithRememberedBrowser(profileId: string, signal?: AbortSignal): Promise<Uint8Array> {
+export async function recoverUserRootKeyWithRememberedBrowser(
+  profileId: string,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
   if (!supportsLocalVerification()) throw new Error("Local Verification is unavailable in this browser.");
   const browserPackage = await new BrowserOfflineVaultRepository().readRememberedBrowser(profileId);
   if (!browserPackage) throw new Error("No Remembered Browser package exists for this profile.");
@@ -76,7 +98,11 @@ export async function recoverUserRootKeyWithRememberedBrowser(profileId: string,
     prfOutput = await evaluatePasskeyPrf(base64ToBytes(browserPackage.credentialId), browserPackage.rpId, prfSalt);
     throwIfAborted(signal);
     const recovered = await recoverUserRootKeyFromPasskeyPackage(prfOutput, encryptedPackage);
-    if (signal?.aborted) { recovered.userRootKey.fill(0); recovered.prfSalt.fill(0); throwIfAborted(signal); }
+    if (signal?.aborted) {
+      recovered.userRootKey.fill(0);
+      recovered.prfSalt.fill(0);
+      throwIfAborted(signal);
+    }
     recovered.prfSalt.fill(0);
     return recovered.userRootKey;
   } finally {
@@ -117,8 +143,10 @@ export async function forgetRememberedBrowser(profileId: string): Promise<void> 
 
 export class BrowserDeviceBoundVerificationPort implements DeviceBoundVerificationPort {
   async capability(): Promise<DeviceBoundCapability> {
-    if (typeof window === "undefined" || !window.isSecureContext) return { supported: false, kind: "unsupported", reason: "secure-context-required" };
-    if (!window.PublicKeyCredential || !navigator.credentials) return { supported: false, kind: "unsupported", reason: "user-verification-unavailable" };
+    if (typeof window === "undefined" || !window.isSecureContext)
+      return { supported: false, kind: "unsupported", reason: "secure-context-required" };
+    if (!window.PublicKeyCredential || !navigator.credentials)
+      return { supported: false, kind: "unsupported", reason: "user-verification-unavailable" };
     try {
       const capabilities = await window.PublicKeyCredential.getClientCapabilities();
       if (capabilities.prf !== true) return { supported: false, kind: "unsupported", reason: "prf-unavailable" };

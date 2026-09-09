@@ -6,14 +6,14 @@ The authorized web or native client alone handles plaintext TOTP secrets, raw QR
 
 ## Threats and controls
 
-| Threat | Control |
-| --- | --- |
-| Server/database disclosure | Client-side authenticated encryption; opaque encrypted key packages; redacted audit events. |
+| Threat                       | Control                                                                                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server/database disclosure   | Client-side authenticated encryption; opaque encrypted key packages; redacted audit events.                                                                                                                               |
 | Stolen web or native session | Provider session verification, configured Application Admission (verified email in Supabase mode), application-user status checks, bearer/cookie transport boundaries, and re-unlock before access to decrypted material. |
-| Lost device | Encrypted User Root Key profile can be unlocked only using the User's passphrase; no server-held recovery secret exists. |
-| Compromised member | Authorization-only revocation blocks future fetches. It cannot revoke already copied secrets or offline ciphertext; reset affected original-service TOTP credentials and re-add them. |
-| Stale/conflicting mutations | Optimistic Account Revision checks reject stale writes. |
-| Deleted data | Encrypted accounts and Shared Vaults are recoverable only during their 30-day soft-delete window. |
+| Lost device                  | Encrypted User Root Key profile can be unlocked only using the User's passphrase; no server-held recovery secret exists.                                                                                                  |
+| Compromised member           | Authorization-only revocation blocks future fetches. It cannot revoke already copied secrets or offline ciphertext; reset affected original-service TOTP credentials and re-add them.                                     |
+| Stale/conflicting mutations  | Optimistic Account Revision checks reject stale writes.                                                                                                                                                                   |
+| Deleted data                 | Encrypted accounts and Shared Vaults are recoverable only during their 30-day soft-delete window.                                                                                                                         |
 
 ## Device lifecycle
 

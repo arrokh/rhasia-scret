@@ -1,14 +1,23 @@
 "use client";
 
-import { AuthorizedOfflineBundleTransportError, type UnlockedVaultWorkspace, type WorkspaceLifecyclePorts, type WorkspaceRefreshFailure } from "@rhasia-scret/client-vault-core";
+import {
+  AuthorizedOfflineBundleTransportError,
+  type UnlockedVaultWorkspace,
+  type WorkspaceLifecyclePorts,
+  type WorkspaceRefreshFailure,
+} from "@rhasia-scret/client-vault-core";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { browserApplicationLifecycle, browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
 import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-policy";
 import { browserVaultLockPort } from "./browser-vault-lock";
-import { clearUnlockedVaultWorkspace, LocalStorageSyncError, refreshUnlockedVaultWorkspace } from "./browser-vault-workspace";
+import {
+  clearUnlockedVaultWorkspace,
+  LocalStorageSyncError,
+  refreshUnlockedVaultWorkspace,
+} from "./browser-vault-workspace";
 
 export function createBrowserWorkspaceLifecyclePorts(
-  onCleared?: (workspace: UnlockedVaultWorkspace) => void
+  onCleared?: (workspace: UnlockedVaultWorkspace) => void,
 ): WorkspaceLifecyclePorts<UnlockedVaultWorkspace> {
   return {
     network: browserNetworkStatus,
@@ -22,8 +31,8 @@ export function createBrowserWorkspaceLifecyclePorts(
         if (workspace) onCleared?.(workspace);
       },
       classifyFailure: classifyBrowserWorkspaceRefreshFailure,
-      readOnlyReason: (workspace) => `Vault workspace is ${workspace.syncState.toLowerCase()}.`
-    }
+      readOnlyReason: (workspace) => `Vault workspace is ${workspace.syncState.toLowerCase()}.`,
+    },
   };
 }
 

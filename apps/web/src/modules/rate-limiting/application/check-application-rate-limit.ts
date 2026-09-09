@@ -1,4 +1,7 @@
-import { APPLICATION_RATE_LIMIT_POLICIES, type ApplicationRateLimitPolicyId } from "../domain/application-rate-limit-policy";
+import {
+  APPLICATION_RATE_LIMIT_POLICIES,
+  type ApplicationRateLimitPolicyId,
+} from "../domain/application-rate-limit-policy";
 import type { ApplicationRateLimitRepository } from "./application-rate-limit-repository";
 
 export type ApplicationRateLimitOutcome =
@@ -10,8 +13,14 @@ export interface ApplicationRateLimitMetrics {
   record(operation: ApplicationRateLimitPolicyId, outcome: ApplicationRateLimitOutcome["status"]): void;
 }
 
-export function createApplicationRateLimitChecker(repository: ApplicationRateLimitRepository, metrics: ApplicationRateLimitMetrics) {
-  return async function checkApplicationRateLimit(operation: ApplicationRateLimitPolicyId, userId: string): Promise<ApplicationRateLimitOutcome> {
+export function createApplicationRateLimitChecker(
+  repository: ApplicationRateLimitRepository,
+  metrics: ApplicationRateLimitMetrics,
+) {
+  return async function checkApplicationRateLimit(
+    operation: ApplicationRateLimitPolicyId,
+    userId: string,
+  ): Promise<ApplicationRateLimitOutcome> {
     try {
       const decision = await repository.consume(userId, operation, APPLICATION_RATE_LIMIT_POLICIES[operation]);
       const outcome: ApplicationRateLimitOutcome = decision.allowed
@@ -27,8 +36,16 @@ export function createApplicationRateLimitChecker(repository: ApplicationRateLim
   };
 }
 
-function safeRecord(metrics: ApplicationRateLimitMetrics, operation: ApplicationRateLimitPolicyId, outcome: ApplicationRateLimitOutcome["status"]): void {
-  try { metrics.record(operation, outcome); } catch { /* Metrics must never change request admission. */ }
+function safeRecord(
+  metrics: ApplicationRateLimitMetrics,
+  operation: ApplicationRateLimitPolicyId,
+  outcome: ApplicationRateLimitOutcome["status"],
+): void {
+  try {
+    metrics.record(operation, outcome);
+  } catch {
+    /* Metrics must never change request admission. */
+  }
 }
 
 function safeRetryAfter(value: number): number {

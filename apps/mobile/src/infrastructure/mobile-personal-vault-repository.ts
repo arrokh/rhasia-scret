@@ -20,7 +20,11 @@ export class MobilePersonalVaultRepository {
   }
 
   public async loadCryptoProfile(): Promise<EncryptedPersonalVaultProfile> {
-    const response = await this.transport.request({ url: "/api/user-crypto-profile", method: "GET", cache: "no-store" });
+    const response = await this.transport.request({
+      url: "/api/user-crypto-profile",
+      method: "GET",
+      cache: "no-store",
+    });
     if (!response.ok) throw new MobilePersonalVaultRepositoryError(classifyStatus(response.status));
     const body = await response.json<unknown>();
     if (!isCryptoProfile(body)) throw new MobilePersonalVaultRepositoryError("invalid_response");
@@ -31,7 +35,11 @@ export class MobilePersonalVaultRepository {
         encryptedPersonalVaultKey: base64ToBytes(body.encryptedPersonalVaultKey),
         encryptionVersion: body.encryptionVersion,
       };
-      if (profile.vaultUnlockSalt.length !== 16 || profile.wrappedUserRootKey.length < 30 || profile.encryptedPersonalVaultKey.length < 30) {
+      if (
+        profile.vaultUnlockSalt.length !== 16 ||
+        profile.wrappedUserRootKey.length < 30 ||
+        profile.encryptedPersonalVaultKey.length < 30
+      ) {
         throw new Error("Invalid profile material.");
       }
       return profile;
@@ -58,13 +66,7 @@ export class MobilePersonalVaultRepository {
 }
 
 export type MobilePersonalVaultRepositoryErrorCode =
-  | "unauthenticated"
-  | "inactive"
-  | "rate_limited"
-  | "conflict"
-  | "invalid_request"
-  | "invalid_response"
-  | "unavailable";
+  "unauthenticated" | "inactive" | "rate_limited" | "conflict" | "invalid_request" | "invalid_response" | "unavailable";
 
 export class MobilePersonalVaultRepositoryError extends Error {
   public constructor(public readonly code: MobilePersonalVaultRepositoryErrorCode) {
@@ -76,9 +78,11 @@ export class MobilePersonalVaultRepositoryError extends Error {
 function isPersonalVault(value: unknown): value is MobilePersonalVault {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return typeof record.id === "string"
-    && record.id.length > 0
-    && (record.lifecycle === "UNINITIALIZED" || record.lifecycle === "ACTIVE");
+  return (
+    typeof record.id === "string" &&
+    record.id.length > 0 &&
+    (record.lifecycle === "UNINITIALIZED" || record.lifecycle === "ACTIVE")
+  );
 }
 
 function isCryptoProfile(value: unknown): value is {
@@ -89,10 +93,12 @@ function isCryptoProfile(value: unknown): value is {
 } {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return typeof record.vaultUnlockSalt === "string"
-    && typeof record.wrappedUserRootKey === "string"
-    && typeof record.encryptedPersonalVaultKey === "string"
-    && record.encryptionVersion === 1;
+  return (
+    typeof record.vaultUnlockSalt === "string" &&
+    typeof record.wrappedUserRootKey === "string" &&
+    typeof record.encryptedPersonalVaultKey === "string" &&
+    record.encryptionVersion === 1
+  );
 }
 
 function classifyStatus(status: number): MobilePersonalVaultRepositoryErrorCode {

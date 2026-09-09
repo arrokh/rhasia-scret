@@ -6,17 +6,17 @@ Every state-changing route under `apps/web/src/app/api/` has an explicit operati
 
 Budgets are shared by authenticated Application User and operation class, so alternate routes for the same use case cannot multiply a budget:
 
-| Operation class | Limit | Window |
-| --- | ---: | ---: |
-| Account mutation | 120 | 60 seconds |
-| Vault mutation | 30 | 60 seconds |
-| Membership / Secure Share Link mutation | 30 | 60 seconds |
-| Audit access event | 120 | 60 seconds |
-| Key material registration, rewrap, or rotation | 10 | 5 minutes |
-| Passkey recovery authentication | 30 | 5 minutes |
-| Passkey recovery enrollment or removal | 10 | 10 minutes |
-| Destructive mutation | 5 | 1 hour |
-| Encrypted archive import | 10 | 1 hour |
+| Operation class                                | Limit |     Window |
+| ---------------------------------------------- | ----: | ---------: |
+| Account mutation                               |   120 | 60 seconds |
+| Vault mutation                                 |    30 | 60 seconds |
+| Membership / Secure Share Link mutation        |    30 | 60 seconds |
+| Audit access event                             |   120 | 60 seconds |
+| Key material registration, rewrap, or rotation |    10 |  5 minutes |
+| Passkey recovery authentication                |    30 |  5 minutes |
+| Passkey recovery enrollment or removal         |    10 | 10 minutes |
+| Destructive mutation                           |     5 |     1 hour |
+| Encrypted archive import                       |    10 |     1 hour |
 
 Rate limiting happens after authentication and active-user checks but before body parsing, authorization-sensitive repository work, or mutation. It does not replace owner/member authorization, Account Revision checks, one-time link consumption, or any domain conflict.
 

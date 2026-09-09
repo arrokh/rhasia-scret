@@ -32,7 +32,11 @@ export class SecureSupabaseSessionStorage {
     const baseKey = assertSafeKey(key);
     const manifest = parseManifest(await this.driver.getItem(manifestKey(baseKey)));
     if (!manifest) return null;
-    const chunks = await Promise.all(Array.from({ length: manifest.count }, (_, index) => this.driver.getItem(chunkKey(baseKey, manifest.slot, index))));
+    const chunks = await Promise.all(
+      Array.from({ length: manifest.count }, (_, index) =>
+        this.driver.getItem(chunkKey(baseKey, manifest.slot, index)),
+      ),
+    );
     return chunks.some((chunk) => chunk === null) ? null : chunks.join("");
   }
 
@@ -43,7 +47,10 @@ export class SecureSupabaseSessionStorage {
     const nextSlot = previous?.slot === "a" ? "b" : "a";
     await this.removeSlot(baseKey, nextSlot);
     await Promise.all(chunks.map((chunk, index) => this.driver.setItem(chunkKey(baseKey, nextSlot, index), chunk)));
-    await this.driver.setItem(manifestKey(baseKey), JSON.stringify({ slot: nextSlot, count: chunks.length } satisfies ChunkManifest));
+    await this.driver.setItem(
+      manifestKey(baseKey),
+      JSON.stringify({ slot: nextSlot, count: chunks.length } satisfies ChunkManifest),
+    );
     if (previous) await this.removeSlot(baseKey, previous.slot);
   }
 
@@ -54,12 +61,16 @@ export class SecureSupabaseSessionStorage {
   }
 
   private async removeSlot(baseKey: string, slot: ChunkManifest["slot"]): Promise<void> {
-    await Promise.all(Array.from({ length: maximumChunks }, (_, index) => this.driver.removeItem(chunkKey(baseKey, slot, index))));
+    await Promise.all(
+      Array.from({ length: maximumChunks }, (_, index) => this.driver.removeItem(chunkKey(baseKey, slot, index))),
+    );
   }
 }
 
 function splitSession(value: string): string[] {
-  const chunks = Array.from({ length: Math.ceil(value.length / chunkSize) || 1 }, (_, index) => value.slice(index * chunkSize, (index + 1) * chunkSize));
+  const chunks = Array.from({ length: Math.ceil(value.length / chunkSize) || 1 }, (_, index) =>
+    value.slice(index * chunkSize, (index + 1) * chunkSize),
+  );
   if (chunks.length > maximumChunks) throw new Error("Secure session package exceeds the supported size.");
   return chunks;
 }
@@ -68,7 +79,12 @@ function parseManifest(value: string | null): ChunkManifest | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as Partial<ChunkManifest>;
-    if ((parsed.slot === "a" || parsed.slot === "b") && Number.isInteger(parsed.count) && (parsed.count ?? 0) >= 1 && (parsed.count ?? 0) <= maximumChunks) {
+    if (
+      (parsed.slot === "a" || parsed.slot === "b") &&
+      Number.isInteger(parsed.count) &&
+      (parsed.count ?? 0) >= 1 &&
+      (parsed.count ?? 0) <= maximumChunks
+    ) {
       return { slot: parsed.slot, count: parsed.count as number };
     }
   } catch {

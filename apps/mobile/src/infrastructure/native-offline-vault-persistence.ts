@@ -10,7 +10,7 @@ const secureStoreOptions: SecureStore.SecureStoreOptions = {
 };
 
 export const nativeOfflineVaultPersistence: EncryptedBlobPersistence = {
-  read: async () => snapshot.exists ? snapshot.bytes() : null,
+  read: async () => (snapshot.exists ? snapshot.bytes() : null),
   replace: async (bytes) => {
     if (!directory.exists) directory.create({ intermediates: true, idempotent: true });
     if (temporarySnapshot.exists) temporarySnapshot.delete();

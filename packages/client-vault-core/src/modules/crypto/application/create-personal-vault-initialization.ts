@@ -31,7 +31,8 @@ export async function createPersonalVaultInitialization(
   if (!vaultName.trim()) throw new Error("A Vault Name is required.");
 
   const vaultUnlockSalt = ports.crypto.randomBytes(vaultUnlockSaltBytes);
-  if (vaultUnlockSalt.length !== vaultUnlockSaltBytes) throw new Error("Crypto provider returned an invalid Vault Unlock salt.");
+  if (vaultUnlockSalt.length !== vaultUnlockSaltBytes)
+    throw new Error("Crypto provider returned an invalid Vault Unlock salt.");
   const vaultUnlockKey = await ports.keyDerivation.deriveArgon2id(vaultUnlockSecret, vaultUnlockSalt, {
     memoryKiB: ARGON2_MEMORY_KIB,
     iterations: ARGON2_ITERATIONS,
@@ -44,21 +45,27 @@ export async function createPersonalVaultInitialization(
   try {
     return {
       vaultUnlockSalt,
-      wrappedUserRootKey: ports.crypto.serializeEncryptedEnvelope(await ports.crypto.encryptPayloadWithContext(
-        vaultUnlockKey,
-        userRootKey,
-        { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
-      )),
-      encryptedPersonalVaultKey: ports.crypto.serializeEncryptedEnvelope(await ports.crypto.encryptPayloadWithContext(
-        userRootKey,
-        personalVaultKey,
-        { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
-      )),
-      encryptedVaultName: ports.crypto.serializeEncryptedEnvelope(await ports.crypto.encryptPayloadWithContext(
-        personalVaultKey,
-        nameBytes,
-        { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
-      )),
+      wrappedUserRootKey: ports.crypto.serializeEncryptedEnvelope(
+        await ports.crypto.encryptPayloadWithContext(vaultUnlockKey, userRootKey, {
+          purpose: "user-root-key-wrap",
+          payloadType: "user-root-key",
+          keyVersion: 1,
+        }),
+      ),
+      encryptedPersonalVaultKey: ports.crypto.serializeEncryptedEnvelope(
+        await ports.crypto.encryptPayloadWithContext(userRootKey, personalVaultKey, {
+          purpose: "vault-key-wrap",
+          payloadType: "vault-encryption-key",
+          keyVersion: 1,
+        }),
+      ),
+      encryptedVaultName: ports.crypto.serializeEncryptedEnvelope(
+        await ports.crypto.encryptPayloadWithContext(personalVaultKey, nameBytes, {
+          purpose: "vault-name",
+          payloadType: "vault-name",
+          keyVersion: 1,
+        }),
+      ),
       encryptionVersion,
     };
   } finally {

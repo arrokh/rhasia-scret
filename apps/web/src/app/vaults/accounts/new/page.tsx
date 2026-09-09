@@ -5,9 +5,23 @@ import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management
 
 export const dynamic = "force-dynamic";
 
-export default async function NewAuthenticatorAccountPage({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {
+export default async function NewAuthenticatorAccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vaultId?: string }>;
+}) {
   const t = await getTranslations("VaultManagement.pages");
-  return <VaultPageFrame backHref="/vaults" backLabel={t("backVaults")} title={t("newAccountTitle")} description={t("newAccountDescription")} contentLabel={t("newAccountLabel")}><NewAccountContent searchParams={searchParams} /></VaultPageFrame>;
+  return (
+    <VaultPageFrame
+      backHref="/vaults"
+      backLabel={t("backVaults")}
+      title={t("newAccountTitle")}
+      description={t("newAccountDescription")}
+      contentLabel={t("newAccountLabel")}
+    >
+      <NewAccountContent searchParams={searchParams} />
+    </VaultPageFrame>
+  );
 }
 
 async function NewAccountContent({ searchParams }: { searchParams: Promise<{ vaultId?: string }> }) {

@@ -1,5 +1,9 @@
 import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
-import type { AuthenticatedTransport, PlatformHttpRequest, PlatformHttpResponse } from "@rhasia-scret/client-vault-core";
+import type {
+  AuthenticatedTransport,
+  PlatformHttpRequest,
+  PlatformHttpResponse,
+} from "@rhasia-scret/client-vault-core";
 import { base64ToBytes } from "@rhasia-scret/client-vault-core";
 import { generateMobileTotp, MobileAuthenticatorAccountRepository } from "./mobile-authenticator-account";
 import { nativeClientCrypto } from "./native-client-crypto";
@@ -77,19 +81,22 @@ describe("MobileAuthenticatorAccountRepository", () => {
 
   it("generates the RFC 6238 code entirely offline", async () => {
     const secret = new TextEncoder().encode("12345678901234567890");
-    const code = await generateMobileTotp({
-      id: "account_1",
-      vaultId: "vault_1",
-      vaultName: "Personal",
-      vaultType: "PERSONAL",
-      revision: 1,
-      issuer: "RFC",
-      accountName: "vector",
-      secret,
-      algorithm: "SHA-1",
-      digits: 8,
-      period: 30,
-    }, new Date(59_000));
+    const code = await generateMobileTotp(
+      {
+        id: "account_1",
+        vaultId: "vault_1",
+        vaultName: "Personal",
+        vaultType: "PERSONAL",
+        revision: 1,
+        issuer: "RFC",
+        accountName: "vector",
+        secret,
+        algorithm: "SHA-1",
+        digits: 8,
+        period: 30,
+      },
+      new Date(59_000),
+    );
     expect(code.value).toBe("94287082");
     expect(code.validUntil.toISOString()).toBe("1970-01-01T00:01:00.000Z");
     secret.fill(0);
@@ -110,7 +117,7 @@ function response(status: number, body: unknown): PlatformHttpResponse {
     status,
     ok: status >= 200 && status < 300,
     headers: { get: () => null },
-    json: async <Value,>() => body as Value,
+    json: async <Value>() => body as Value,
     bytes: async () => new Uint8Array(),
     text: async () => JSON.stringify(body),
   };

@@ -91,7 +91,8 @@ export function createNativeWorkspaceLifecyclePorts(
     lock,
     writes: adapters.writes ?? new NativeWorkspaceWriteGate(),
     workspace: {
-      refresh: (userRootKey, profileId, cancellation) => refreshNativeWorkspace(userRootKey, profileId, cancellation, transport),
+      refresh: (userRootKey, profileId, cancellation) =>
+        refreshNativeWorkspace(userRootKey, profileId, cancellation, transport),
       clear: clearUnlockedVaultWorkspace,
       classifyFailure: classifyNativeWorkspaceRefreshFailure,
       readOnlyReason: (workspace) => `Vault workspace is ${workspace.syncState.toLowerCase()}.`,
@@ -101,7 +102,8 @@ export function createNativeWorkspaceLifecyclePorts(
 
 export function classifyNativeWorkspaceRefreshFailure(error: unknown): WorkspaceRefreshFailure {
   if (error instanceof AuthorizedOfflineBundleTransportError && error.status === 401) return "AUTHENTICATION";
-  if (error instanceof Error && /Native encrypted Vault storage|Local Vault Snapshot/.test(error.message)) return "LOCAL_STORAGE";
+  if (error instanceof Error && /Native encrypted Vault storage|Local Vault Snapshot/.test(error.message))
+    return "LOCAL_STORAGE";
   return "SYNC";
 }
 

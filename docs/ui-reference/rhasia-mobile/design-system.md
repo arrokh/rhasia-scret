@@ -30,14 +30,14 @@ The application UI should use the same emotional language without becoming overl
 
 ## 2. Brand Personality
 
-| Attribute | Meaning in the Product |
-|---|---|
-| **Trusted** | Security states are explicit, consistent, and understandable. |
-| **Friendly** | Language and visuals are approachable for family members. |
-| **Protective** | Sensitive actions require clear confirmation and re-authentication. |
-| **Calm** | Screens avoid visual noise, excessive warnings, and aggressive colors. |
-| **Helpful** | The UI explains sharing, expiration, sync, and access limitations clearly. |
-| **Dependable** | OTP codes remain prominent and accessible, including offline. |
+| Attribute      | Meaning in the Product                                                     |
+| -------------- | -------------------------------------------------------------------------- |
+| **Trusted**    | Security states are explicit, consistent, and understandable.              |
+| **Friendly**   | Language and visuals are approachable for family members.                  |
+| **Protective** | Sensitive actions require clear confirmation and re-authentication.        |
+| **Calm**       | Screens avoid visual noise, excessive warnings, and aggressive colors.     |
+| **Helpful**    | The UI explains sharing, expiration, sync, and access limitations clearly. |
+| **Dependable** | OTP codes remain prominent and accessible, including offline.              |
 
 ## 3. Logo and Mascot Usage
 
@@ -97,50 +97,50 @@ The palette is derived from the latest owl icon.
 
 ### 4.1 Brand colors
 
-| Token | Hex | Usage |
-|---|---:|---|
-| `brand.ink` | `#273039` | Primary text, shield, navigation icons |
-| `brand.inkStrong` | `#171D22` | High-emphasis text, lock keyhole, dark states |
-| `brand.gold` | `#E5A72E` | Primary brand accent, selected states, highlights |
-| `brand.goldStrong` | `#C88717` | Pressed state, stronger emphasis |
-| `brand.goldSoft` | `#F5D998` | Soft badge and highlighted surface |
-| `brand.taupe` | `#91867E` | Owl wings, secondary illustration details |
-| `brand.stone` | `#B9ADA3` | Owl body, neutral visual accents |
-| `brand.cream` | `#F8F4ED` | Main app background |
-| `brand.surface` | `#FFFDF9` | Cards, dialogs, bottom sheets |
-| `brand.border` | `#DED8D0` | Borders and separators |
+| Token              |       Hex | Usage                                             |
+| ------------------ | --------: | ------------------------------------------------- |
+| `brand.ink`        | `#273039` | Primary text, shield, navigation icons            |
+| `brand.inkStrong`  | `#171D22` | High-emphasis text, lock keyhole, dark states     |
+| `brand.gold`       | `#E5A72E` | Primary brand accent, selected states, highlights |
+| `brand.goldStrong` | `#C88717` | Pressed state, stronger emphasis                  |
+| `brand.goldSoft`   | `#F5D998` | Soft badge and highlighted surface                |
+| `brand.taupe`      | `#91867E` | Owl wings, secondary illustration details         |
+| `brand.stone`      | `#B9ADA3` | Owl body, neutral visual accents                  |
+| `brand.cream`      | `#F8F4ED` | Main app background                               |
+| `brand.surface`    | `#FFFDF9` | Cards, dialogs, bottom sheets                     |
+| `brand.border`     | `#DED8D0` | Borders and separators                            |
 
 ### 4.2 Neutral scale
 
-| Token | Hex | Recommended usage |
-|---|---:|---|
-| `neutral.950` | `#171D22` | Maximum emphasis text |
-| `neutral.900` | `#273039` | Primary text |
-| `neutral.800` | `#3B444C` | Secondary headings |
-| `neutral.700` | `#586169` | Secondary text |
-| `neutral.600` | `#737B81` | Metadata |
+| Token         |       Hex | Recommended usage             |
+| ------------- | --------: | ----------------------------- |
+| `neutral.950` | `#171D22` | Maximum emphasis text         |
+| `neutral.900` | `#273039` | Primary text                  |
+| `neutral.800` | `#3B444C` | Secondary headings            |
+| `neutral.700` | `#586169` | Secondary text                |
+| `neutral.600` | `#737B81` | Metadata                      |
 | `neutral.500` | `#90969B` | Placeholder and disabled icon |
-| `neutral.400` | `#B1B5B8` | Disabled border |
-| `neutral.300` | `#D1D3D4` | Divider |
-| `neutral.200` | `#E5E3DF` | Border |
-| `neutral.100` | `#F1EEE9` | Subtle background |
-| `neutral.50` | `#F8F4ED` | App canvas |
-| `neutral.0` | `#FFFDF9` | Elevated surface |
+| `neutral.400` | `#B1B5B8` | Disabled border               |
+| `neutral.300` | `#D1D3D4` | Divider                       |
+| `neutral.200` | `#E5E3DF` | Border                        |
+| `neutral.100` | `#F1EEE9` | Subtle background             |
+| `neutral.50`  | `#F8F4ED` | App canvas                    |
+| `neutral.0`   | `#FFFDF9` | Elevated surface              |
 
 ### 4.3 Semantic colors
 
 Semantic colors should be muted and used sparingly.
 
-| Token | Hex | Usage |
-|---|---:|---|
-| `success.default` | `#3D7452` | Synced, completed, active |
-| `success.surface` | `#EAF3EC` | Success banner background |
-| `warning.default` | `#A5661B` | Expiring OTP, pending sync |
-| `warning.surface` | `#FFF2D8` | Warning banner background |
-| `danger.default` | `#A4433D` | Remove member, delete vault |
-| `danger.surface` | `#F9E9E6` | Destructive warning |
-| `info.default` | `#526D82` | General information |
-| `info.surface` | `#EAF0F4` | Information banner |
+| Token             |       Hex | Usage                       |
+| ----------------- | --------: | --------------------------- |
+| `success.default` | `#3D7452` | Synced, completed, active   |
+| `success.surface` | `#EAF3EC` | Success banner background   |
+| `warning.default` | `#A5661B` | Expiring OTP, pending sync  |
+| `warning.surface` | `#FFF2D8` | Warning banner background   |
+| `danger.default`  | `#A4433D` | Remove member, delete vault |
+| `danger.surface`  | `#F9E9E6` | Destructive warning         |
+| `info.default`    | `#526D82` | General information         |
+| `info.surface`    | `#EAF0F4` | Information banner          |
 
 ### 4.4 Color usage rules
 
@@ -159,38 +159,38 @@ Semantic colors should be muted and used sparingly.
 ### 5.1 Background and surface
 
 ```css
---color-bg-app: #F8F4ED;
---color-bg-surface: #FFFDF9;
---color-bg-muted: #F1EEE9;
---color-bg-selected: #FFF2D8;
+--color-bg-app: #f8f4ed;
+--color-bg-surface: #fffdf9;
+--color-bg-muted: #f1eee9;
+--color-bg-selected: #fff2d8;
 ```
 
 ### 5.2 Text
 
 ```css
 --color-text-primary: #273039;
---color-text-strong: #171D22;
+--color-text-strong: #171d22;
 --color-text-secondary: #586169;
---color-text-muted: #737B81;
---color-text-disabled: #90969B;
---color-text-on-accent: #171D22;
+--color-text-muted: #737b81;
+--color-text-disabled: #90969b;
+--color-text-on-accent: #171d22;
 ```
 
 ### 5.3 Border
 
 ```css
---color-border-default: #DED8D0;
---color-border-subtle: #E5E3DF;
---color-border-strong: #B1B5B8;
---color-border-focus: #C88717;
+--color-border-default: #ded8d0;
+--color-border-subtle: #e5e3df;
+--color-border-strong: #b1b5b8;
+--color-border-focus: #c88717;
 ```
 
 ### 5.4 Action
 
 ```css
---color-action-primary: #E5A72E;
---color-action-primary-hover: #D49722;
---color-action-primary-pressed: #C88717;
+--color-action-primary: #e5a72e;
+--color-action-primary-hover: #d49722;
+--color-action-primary-pressed: #c88717;
 --color-action-secondary: #273039;
 ```
 
@@ -216,17 +216,17 @@ Avoid highly playful fonts in operational screens.
 
 ### 6.2 Type scale
 
-| Style | Size | Weight | Line height |
-|---|---:|---:|---:|
-| Display | 32 px | 700 | 40 px |
-| Page title | 24 px | 700 | 32 px |
-| Section title | 18 px | 700 | 26 px |
-| Card title | 16 px | 650 | 24 px |
-| Body | 16 px | 400 | 24 px |
-| Body small | 14 px | 400 | 20 px |
-| Label | 13 px | 600 | 18 px |
-| Caption | 12 px | 500 | 16 px |
-| OTP code | 32–36 px | 650 | 40 px |
+| Style         |     Size | Weight | Line height |
+| ------------- | -------: | -----: | ----------: |
+| Display       |    32 px |    700 |       40 px |
+| Page title    |    24 px |    700 |       32 px |
+| Section title |    18 px |    700 |       26 px |
+| Card title    |    16 px |    650 |       24 px |
+| Body          |    16 px |    400 |       24 px |
+| Body small    |    14 px |    400 |       20 px |
+| Label         |    13 px |    600 |       18 px |
+| Caption       |    12 px |    500 |       16 px |
+| OTP code      | 32–36 px |    650 |       40 px |
 
 ### 6.3 OTP typography
 
@@ -241,23 +241,20 @@ Avoid highly playful fonts in operational screens.
 
 ### 7.1 Radius
 
-| Token | Value | Usage |
-|---|---:|---|
-| `radius.sm` | 8 px | Small controls |
-| `radius.md` | 12 px | Inputs and badges |
-| `radius.lg` | 16 px | Cards and bottom sheets |
-| `radius.xl` | 24 px | Empty-state illustration containers |
-| `radius.full` | 999 px | Pills, avatars, countdown circles |
+| Token         |  Value | Usage                               |
+| ------------- | -----: | ----------------------------------- |
+| `radius.sm`   |   8 px | Small controls                      |
+| `radius.md`   |  12 px | Inputs and badges                   |
+| `radius.lg`   |  16 px | Cards and bottom sheets             |
+| `radius.xl`   |  24 px | Empty-state illustration containers |
+| `radius.full` | 999 px | Pills, avatars, countdown circles   |
 
 ### 7.2 Shadows
 
 ```css
---shadow-card:
-  0 1px 2px rgba(23, 29, 34, 0.04),
-  0 8px 24px rgba(23, 29, 34, 0.06);
+--shadow-card: 0 1px 2px rgba(23, 29, 34, 0.04), 0 8px 24px rgba(23, 29, 34, 0.06);
 
---shadow-sheet:
-  0 -8px 30px rgba(23, 29, 34, 0.10);
+--shadow-sheet: 0 -8px 30px rgba(23, 29, 34, 0.1);
 ```
 
 Avoid bright colored shadows, glowing effects, and strong skeuomorphic bevels in operational UI.
@@ -268,15 +265,15 @@ The mascot illustration may retain soft 3D depth, while the application interfac
 
 Use a 4 px spacing grid.
 
-| Token | Value |
-|---|---:|
-| `space.1` | 4 px |
-| `space.2` | 8 px |
-| `space.3` | 12 px |
-| `space.4` | 16 px |
-| `space.5` | 20 px |
-| `space.6` | 24 px |
-| `space.8` | 32 px |
+| Token      | Value |
+| ---------- | ----: |
+| `space.1`  |  4 px |
+| `space.2`  |  8 px |
+| `space.3`  | 12 px |
+| `space.4`  | 16 px |
+| `space.5`  | 20 px |
+| `space.6`  | 24 px |
+| `space.8`  | 32 px |
 | `space.10` | 40 px |
 | `space.12` | 48 px |
 

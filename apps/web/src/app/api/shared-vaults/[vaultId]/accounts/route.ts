@@ -1,7 +1,10 @@
 import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createSharedAccountRepository, type SharedAccountMutationResult } from "@/modules/authenticator-account/server";
+import {
+  createSharedAccountRepository,
+  type SharedAccountMutationResult,
+} from "@/modules/authenticator-account/server";
 import { authenticateApplicationMutation } from "@/shared/infrastructure/authenticated-application-request";
 
 const MAX_ENCRYPTED_ACCOUNT_BYTES = 16 * 1024 + 29;
@@ -10,7 +13,9 @@ const encryptedAccountPayload = z.base64().refine((value) => {
   return bytes.length >= 29 && bytes.length <= MAX_ENCRYPTED_ACCOUNT_BYTES && (bytes[0] === 1 || bytes[0] === 2);
 });
 const payload = z.object({ encryptedPayload: encryptedAccountPayload, encryptionVersion: z.literal(1) }).strict();
-const updateSchema = payload.extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict();
+const updateSchema = payload
+  .extend({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() })
+  .strict();
 const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict();
 const restoreSchema = z.object({ accountId: z.string().min(1) }).strict();
 
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       user.id,
       vaultId,
       Buffer.from(parsed.data.encryptedPayload, "base64"),
-      parsed.data.encryptionVersion
+      parsed.data.encryptionVersion,
     );
     if (result.status !== "SUCCESS") return mutationError(result);
     return NextResponse.json({ id: result.value.id, revision: result.value.revision }, { status: 201 });
@@ -47,7 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       parsed.data.accountId,
       parsed.data.expectedRevision,
       Buffer.from(parsed.data.encryptedPayload, "base64"),
-      parsed.data.encryptionVersion
+      parsed.data.encryptionVersion,
     );
     if (result.status !== "SUCCESS") return mutationError(result);
     return NextResponse.json({ id: result.value.id, revision: result.value.revision });
@@ -67,7 +72,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       user.id,
       vaultId,
       parsed.data.accountId,
-      parsed.data.expectedRevision
+      parsed.data.expectedRevision,
     );
     return result.status === "SUCCESS" ? new NextResponse(null, { status: 204 }) : mutationError(result);
   } catch (error) {

@@ -38,12 +38,14 @@ export async function createSecureShareLinkMaterialWithCrypto(
       return {
         secret,
         linkVerifier,
-        encryptedPackage: crypto.serializeEncryptedEnvelope(await crypto.encryptPayloadWithContext(linkKey, vaultKey, {
-          purpose: "secure-share-link",
-          payloadType: "vault-encryption-key",
-          ...(vaultId ? { vaultId } : {}),
-          keyVersion: 1,
-        })),
+        encryptedPackage: crypto.serializeEncryptedEnvelope(
+          await crypto.encryptPayloadWithContext(linkKey, vaultKey, {
+            purpose: "secure-share-link",
+            payloadType: "vault-encryption-key",
+            ...(vaultId ? { vaultId } : {}),
+            keyVersion: 1,
+          }),
+        ),
       };
     } finally {
       linkKey.fill(0);

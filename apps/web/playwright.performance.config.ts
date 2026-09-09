@@ -21,19 +21,21 @@ export default defineConfig({
   globalTeardown: "./src/tests/browser/support/global-teardown.ts",
   projects: [{ name: "chromium-performance", use: { ...devices["Desktop Chrome"] } }],
   use: { baseURL, trace: "off", screenshot: "off", video: "off" },
-  webServer: externalServer ? undefined : {
-    command: "pnpm exec next dev -p 3001",
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      ...process.env,
-      E2E_BROWSER_TESTS: "1",
-      E2E_BROWSER_TEST_USERS: JSON.stringify(configuredE2eBrowserUsers()),
-      NEXT_PUBLIC_E2E_BROWSER_TESTS: "1",
-      PERFORMANCE_DIAGNOSTICS: "1",
-      PASSKEY_ORIGIN: baseURL,
-      PASSKEY_RP_ID: new URL(baseURL).hostname
-    }
-  }
+  webServer: externalServer
+    ? undefined
+    : {
+        command: "pnpm exec next dev -p 3001",
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 120_000,
+        env: {
+          ...process.env,
+          E2E_BROWSER_TESTS: "1",
+          E2E_BROWSER_TEST_USERS: JSON.stringify(configuredE2eBrowserUsers()),
+          NEXT_PUBLIC_E2E_BROWSER_TESTS: "1",
+          PERFORMANCE_DIAGNOSTICS: "1",
+          PASSKEY_ORIGIN: baseURL,
+          PASSKEY_RP_ID: new URL(baseURL).hostname,
+        },
+      },
 });

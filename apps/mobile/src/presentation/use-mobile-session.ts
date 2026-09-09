@@ -5,7 +5,17 @@ import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { classifyIncomingLink, completeAuthCallback, extractSecureShareLinkSecret } from "../application/incoming-link";
 import { loadMobileApplicationUser } from "../application/load-mobile-application-user";
 
-export type MobileSessionStatus = "idle" | "sending" | "link_sent" | "verifying" | "authenticated" | "inactive" | "session_unavailable" | "request_error" | "callback_error" | "share_link_ready";
+export type MobileSessionStatus =
+  | "idle"
+  | "sending"
+  | "link_sent"
+  | "verifying"
+  | "authenticated"
+  | "inactive"
+  | "session_unavailable"
+  | "request_error"
+  | "callback_error"
+  | "share_link_ready";
 
 const MOBILE_AUTH_REQUEST_TIMEOUT_MS = 15_000;
 
@@ -16,22 +26,30 @@ export function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promi
   });
 }
 
-export function useMobileSession(supabase: SupabaseClient, authRedirectUrl: string, webOrigin: string, transport: AuthenticatedTransport) {
+export function useMobileSession(
+  supabase: SupabaseClient,
+  authRedirectUrl: string,
+  webOrigin: string,
+  transport: AuthenticatedTransport,
+) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<MobileSessionStatus>("idle");
   const secureShareSecret = useRef<string | null>(null);
 
-  const handleUrl = useCallback(async (url: string) => {
-    const kind = classifyIncomingLink(url, webOrigin);
-    if (kind === "secure_share_link") {
-      secureShareSecret.current = extractSecureShareLinkSecret(url, webOrigin);
-      setStatus(secureShareSecret.current ? "share_link_ready" : "callback_error");
-      return;
-    }
-    if (kind !== "auth_callback") return;
-    const result = await completeAuthCallback(url, supabase.auth, webOrigin);
-    setStatus(result === "authenticated" ? "verifying" : "callback_error");
-  }, [supabase, webOrigin]);
+  const handleUrl = useCallback(
+    async (url: string) => {
+      const kind = classifyIncomingLink(url, webOrigin);
+      if (kind === "secure_share_link") {
+        secureShareSecret.current = extractSecureShareLinkSecret(url, webOrigin);
+        setStatus(secureShareSecret.current ? "share_link_ready" : "callback_error");
+        return;
+      }
+      if (kind !== "auth_callback") return;
+      const result = await completeAuthCallback(url, supabase.auth, webOrigin);
+      setStatus(result === "authenticated" ? "verifying" : "callback_error");
+    },
+    [supabase, webOrigin],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -77,26 +95,31 @@ export function useMobileSession(supabase: SupabaseClient, authRedirectUrl: stri
       .catch(() => {
         if (mounted) setStatus("session_unavailable");
       });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [session, transport]);
 
-  const requestSignInLink = useCallback(async (email: string) => {
-    setStatus("sending");
-    try {
-      const result = await withTimeout(
-        supabase.auth.signInWithOtp({
-          email: email.trim().toLowerCase(),
-          options: { emailRedirectTo: authRedirectUrl, shouldCreateUser: true },
-        }),
-        MOBILE_AUTH_REQUEST_TIMEOUT_MS,
-      );
-      setStatus(result.error ? "request_error" : "link_sent");
-    } catch {
-      // A native network request can remain pending when connectivity or TLS fails.
-      // Never leave the form in its indefinite "sending" state.
-      setStatus("request_error");
-    }
-  }, [authRedirectUrl, supabase]);
+  const requestSignInLink = useCallback(
+    async (email: string) => {
+      setStatus("sending");
+      try {
+        const result = await withTimeout(
+          supabase.auth.signInWithOtp({
+            email: email.trim().toLowerCase(),
+            options: { emailRedirectTo: authRedirectUrl, shouldCreateUser: true },
+          }),
+          MOBILE_AUTH_REQUEST_TIMEOUT_MS,
+        );
+        setStatus(result.error ? "request_error" : "link_sent");
+      } catch {
+        // A native network request can remain pending when connectivity or TLS fails.
+        // Never leave the form in its indefinite "sending" state.
+        setStatus("request_error");
+      }
+    },
+    [authRedirectUrl, supabase],
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut({ scope: "local" });

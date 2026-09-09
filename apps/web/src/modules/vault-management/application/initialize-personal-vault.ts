@@ -13,7 +13,7 @@ export interface PersonalVaultInitializer {
 export async function initializePersonalVault(
   ownerId: string,
   initialization: PersonalVaultInitialization,
-  vaults: PersonalVaultInitializer
+  vaults: PersonalVaultInitializer,
 ): Promise<void> {
   if (!ownerId) throw new Error("An application user is required to initialize a Personal Vault.");
   if (initialization.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");

@@ -1,10 +1,17 @@
 import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../shared/application/platform-ports";
-import type { CreatedSecureShareLink, SecureShareLinkCreationTransportPort, SecureShareLinkLookup } from "./secure-share-link-workflow-ports";
+import type {
+  CreatedSecureShareLink,
+  SecureShareLinkCreationTransportPort,
+  SecureShareLinkLookup,
+} from "./secure-share-link-workflow-ports";
 
 export type { CreatedSecureShareLink } from "./secure-share-link-workflow-ports";
 
 export class SecureShareLinkHttpTransportError extends Error {
-  public constructor(public readonly status: number, public readonly code: string) {
+  public constructor(
+    public readonly status: number,
+    public readonly code: string,
+  ) {
     super(`Secure Share Link request failed with ${status} (${code}).`);
     this.name = "SecureShareLinkHttpTransportError";
   }
@@ -15,7 +22,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
 
   public async create(
     vaultId: string,
-    request: Readonly<{ recipientEmail: string; linkVerifier: string; encryptedPackage: string }>
+    request: Readonly<{ recipientEmail: string; linkVerifier: string; encryptedPackage: string }>,
   ): Promise<CreatedSecureShareLink> {
     validateIdentifier(vaultId);
     validateVerifier(request.linkVerifier);
@@ -27,9 +34,9 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
       body: JSON.stringify({
         recipientEmail: normalizeEmail(request.recipientEmail),
         linkVerifier: request.linkVerifier,
-        encryptedPackage: request.encryptedPackage
+        encryptedPackage: request.encryptedPackage,
       }),
-      cache: "no-store"
+      cache: "no-store",
     });
     if (response.status !== 201) throw await requestError(response);
     return parseCreated(await response.json<unknown>());
@@ -40,13 +47,15 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
     const response = await this.transport.request({
       url: `/api/secure-share-links?verifier=${encodeURIComponent(verifier)}`,
       method: "GET",
-      cache: "no-store"
+      cache: "no-store",
     });
     if (response.status !== 200) throw await requestError(response);
     return parseLookup(await response.json<unknown>());
   }
 
-  public async redeem(request: Readonly<{ invitationId: string; encryptedVaultKey: string; keyVersion: 1 }>): Promise<void> {
+  public async redeem(
+    request: Readonly<{ invitationId: string; encryptedVaultKey: string; keyVersion: 1 }>,
+  ): Promise<void> {
     validateIdentifier(request.invitationId);
     validateCiphertext(request.encryptedVaultKey);
     if (request.keyVersion !== 1) invalidResponse();
@@ -57,9 +66,9 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
       body: JSON.stringify({
         invitationId: request.invitationId,
         encryptedVaultKey: request.encryptedVaultKey,
-        keyVersion: request.keyVersion
+        keyVersion: request.keyVersion,
       }),
-      cache: "no-store"
+      cache: "no-store",
     });
     if (response.status !== 204) throw await requestError(response);
   }
@@ -70,7 +79,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
     const response = await this.transport.request({
       url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links/${encodeURIComponent(invitationId)}`,
       method: "DELETE",
-      cache: "no-store"
+      cache: "no-store",
     });
     if (response.status !== 204) throw await requestError(response);
   }
@@ -86,7 +95,8 @@ function parseCreated(value: unknown): CreatedSecureShareLink {
 
 function parseLookup(value: unknown): SecureShareLinkLookup {
   if (!isExactRecord(value, ["encryptedPackage", "id", "vaultId"])) invalidResponse();
-  if (typeof value.id !== "string" || typeof value.vaultId !== "string" || typeof value.encryptedPackage !== "string") invalidResponse();
+  if (typeof value.id !== "string" || typeof value.vaultId !== "string" || typeof value.encryptedPackage !== "string")
+    invalidResponse();
   validateIdentifier(value.id);
   validateIdentifier(value.vaultId);
   validateCiphertext(value.encryptedPackage);
@@ -97,7 +107,12 @@ async function requestError(response: PlatformHttpResponse): Promise<SecureShare
   let code = "request_failed";
   try {
     const value = await response.json<unknown>();
-    if (isExactRecord(value, ["error"]) && typeof value.error === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(value.error)) code = value.error;
+    if (
+      isExactRecord(value, ["error"]) &&
+      typeof value.error === "string" &&
+      /^[a-z][a-z0-9_]{0,63}$/.test(value.error)
+    )
+      code = value.error;
   } catch {
     // Normalize malformed failure bodies without retaining their contents.
   }
@@ -131,7 +146,12 @@ function base64ByteLength(value: string): number {
 }
 
 function isExactRecord(value: unknown, keys: string[]): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === [...keys].sort().join(",")
+  );
 }
 
 function invalidResponse(): never {
