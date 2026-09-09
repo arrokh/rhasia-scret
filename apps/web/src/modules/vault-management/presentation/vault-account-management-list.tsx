@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { KeyRound, Plus, ScrollText, Trash2 } from "lucide-react";
+import { KeyRound, MoreVertical, Plus, ScrollText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
@@ -24,7 +24,9 @@ export function VaultAccountManagementList({
   vaultType,
   accounts,
   canAddAccounts = true,
+  canEditAccounts = true,
   canDeleteAccounts = true,
+  onAccountEdit,
   onAudit,
   onAccountDeleted,
 }: {
@@ -33,7 +35,9 @@ export function VaultAccountManagementList({
   vaultType: "PERSONAL" | "SHARED";
   accounts: ManagedVaultAccountSummary[];
   canAddAccounts?: boolean;
+  canEditAccounts?: boolean;
   canDeleteAccounts?: boolean;
+  onAccountEdit?: (account: ManagedVaultAccountSummary) => void;
   onAudit?: (account: ManagedVaultAccountSummary) => void;
   onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void>;
 }) {
@@ -98,8 +102,20 @@ export function VaultAccountManagementList({
                   {account.unavailable ? t("unavailableId", { id: account.id }) : account.accountName}
                 </span>
               </span>
-              {(onAudit || canDeleteAccounts) && (
+              {(onAccountEdit && canEditAccounts && !account.unavailable) || onAudit || canDeleteAccounts ? (
                 <span className="flex items-center">
+                  {onAccountEdit && canEditAccounts && !account.unavailable && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      type="button"
+                      aria-label={t("manageLabel", { issuer: account.issuer, account: account.accountName })}
+                      title={t("manageTitle")}
+                      onClick={() => onAccountEdit(account)}
+                    >
+                      <MoreVertical />
+                    </Button>
+                  )}
                   {onAudit && (
                     <Button
                       variant="ghost"
@@ -132,7 +148,7 @@ export function VaultAccountManagementList({
                     </Button>
                   )}
                 </span>
-              )}
+              ) : null}
             </li>
           ))}
         </ul>

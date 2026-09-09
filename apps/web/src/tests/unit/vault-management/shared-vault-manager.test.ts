@@ -196,12 +196,18 @@ describe("dedicated Vault management", () => {
     };
     const container = mount();
     root = createRoot(container);
+    const onAccountEdit = vi.fn();
     await act(async () =>
       root?.render(
         createElement(
           TestQueryProvider,
           null,
-          createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+          createElement(SharedVaultDetails, {
+            vault: viewerVault,
+            onRenamed: vi.fn(),
+            onAccountEdit,
+            onAccountDeleted: vi.fn(),
+          }),
         ),
       ),
     );
@@ -209,6 +215,12 @@ describe("dedicated Vault management", () => {
     expect(container.querySelector('[role="tablist"]')).toBeNull();
     expect(container.querySelector('[role="tab"]')).toBeNull();
     expect(container.textContent).toContain("Akun autentikator");
+    expect(
+      [...container.querySelectorAll("button")].some((button) =>
+        button.getAttribute("aria-label")?.startsWith("Kelola"),
+      ),
+    ).toBe(false);
+    expect(onAccountEdit).not.toHaveBeenCalled();
   });
 
   it("shows only the independently authorized account controls for a Viewer", async () => {
@@ -216,14 +228,15 @@ describe("dedicated Vault management", () => {
       ...vaults()[0]!,
       role: "VIEWER" as const,
       effectiveAccountPermissions: {
-        permissions: { canAddAccounts: true, canEditAccounts: false, canDeleteAccounts: false },
+        permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: false },
         sources: {
           canAddAccounts: "VAULT" as const,
-          canEditAccounts: "VAULT" as const,
+          canEditAccounts: "MEMBER" as const,
           canDeleteAccounts: "MEMBER" as const,
         },
       },
     };
+    const onAccountEdit = vi.fn();
     const container = mount();
     root = createRoot(container);
     await act(async () =>
@@ -231,7 +244,12 @@ describe("dedicated Vault management", () => {
         createElement(
           TestQueryProvider,
           null,
-          createElement(SharedVaultDetails, { vault: viewerVault, onRenamed: vi.fn(), onAccountDeleted: vi.fn() }),
+          createElement(SharedVaultDetails, {
+            vault: viewerVault,
+            onRenamed: vi.fn(),
+            onAccountEdit,
+            onAccountDeleted: vi.fn(),
+          }),
         ),
       ),
     );
@@ -242,6 +260,8 @@ describe("dedicated Vault management", () => {
         button.getAttribute("aria-label")?.startsWith("Hapus Example"),
       ),
     ).toBe(false);
+    await act(async () => findButton(container, "Kelola Example person@example.test").click());
+    expect(onAccountEdit).toHaveBeenCalledWith(viewerVault.accounts[0]);
     expect(container.textContent).toContain("Dapat menambah");
   });
 

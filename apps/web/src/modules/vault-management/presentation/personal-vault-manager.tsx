@@ -11,10 +11,12 @@ export type PersonalVaultSummary = { id: string; name: string; accounts: Managed
 export function PersonalVaultDetails({
   vault,
   ownerEmail,
+  onAccountEdit,
   onAccountDeleted,
 }: {
   vault: PersonalVaultSummary;
   ownerEmail: string;
+  onAccountEdit?: (account: ManagedVaultAccountSummary) => void;
   onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void>;
 }) {
   const t = useTranslations("VaultManagement.personal");
@@ -43,6 +45,7 @@ export function PersonalVaultDetails({
             vaultName={vault.name}
             vaultType="PERSONAL"
             accounts={vault.accounts}
+            onAccountEdit={onAccountEdit}
             onAccountDeleted={onAccountDeleted}
           />
         </TabsContent>

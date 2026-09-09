@@ -141,6 +141,7 @@ export function SharedVaultDetails({
   ownerEmail,
   initialDefaultAccountPermissions,
   onRenamed,
+  onAccountEdit,
   onAccountDeleted,
   onDeleted,
 }: {
@@ -148,6 +149,7 @@ export function SharedVaultDetails({
   ownerEmail: string;
   initialDefaultAccountPermissions?: { permissions: SharedVaultAccountPermissions; revision: number };
   onRenamed: (vaultId: string, name: string) => void;
+  onAccountEdit?: (account: ManagedVaultAccountSummary) => void;
   onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void>;
   onDeleted?: (vaultId: string) => void;
 }) {
@@ -270,7 +272,9 @@ export function SharedVaultDetails({
             vaultType="SHARED"
             accounts={vault.accounts}
             canAddAccounts={vault.effectiveAccountPermissions.permissions.canAddAccounts}
+            canEditAccounts={vault.effectiveAccountPermissions.permissions.canEditAccounts}
             canDeleteAccounts={vault.effectiveAccountPermissions.permissions.canDeleteAccounts}
+            onAccountEdit={onAccountEdit}
             onAudit={
               vault.role === "OWNER"
                 ? (account) =>
