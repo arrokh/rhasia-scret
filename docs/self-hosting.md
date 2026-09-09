@@ -4,11 +4,31 @@ This guide describes the supported deployment contract for operators running the
 
 The application is zero-knowledge with respect to Vault content. The web server and database may handle encrypted content and permitted authorization/lifecycle metadata, but must never receive or log Vault Names, authenticator labels, TOTP configuration, OTPs, QR data, Vault keys, passphrases, private keys, or decrypted content.
 
+## Contents
+
+- [Supported deployment matrix](#supported-deployment-matrix)
+- [Prerequisites and boundaries](#prerequisites-and-boundaries)
+- [Environment contract](#environment-contract)
+  - [Web and server variables](#web-and-server-variables)
+  - [Native client variables](#native-client-variables)
+- [Deployment procedure](#deployment-procedure)
+  - [1. Provision the web host](#1-provision-the-web-host)
+  - [2. Provision PostgreSQL and apply schema changes](#2-provision-postgresql-and-apply-schema-changes)
+  - [3. Configure authentication](#3-configure-authentication)
+    - [Supabase mode](#supabase-mode)
+    - [OIDC mode](#oidc-mode)
+    - [Local-only mode](#local-only-mode)
+  - [4. Configure HTTPS, passkeys, and mobile verified links](#4-configure-https-passkeys-and-mobile-verified-links)
+  - [5. Schedule retention purge](#5-schedule-retention-purge)
+- [Minimal local database path](#minimal-local-database-path)
+- [Clean deployment smoke test](#clean-deployment-smoke-test)
+- [Operational handoff checklist](#operational-handoff-checklist)
+
 ## Supported deployment matrix
 
 | Layer | Supported reference | Supported alternatives | Unsupported or unverified combinations |
 | --- | --- | --- | --- |
-| Web host | Vercel project rooted at the repository root, using Node.js `24.x` and the checked-in `vercel.json` | A Node.js host that can run `pnpm build` and `pnpm start` behind an HTTPS reverse proxy | Static export, an edge-only runtime, or a host that cannot run the Next.js server/API routes |
+| Web host | Vercel project rooted at the repository root, using Node.js `24.x` and the checked-in `vercel.json` | The checked-in Docker Compose stack, or a Node.js host that can run `pnpm build` and `pnpm start` behind an HTTPS reverse proxy | Static export, an edge-only runtime, or a host that cannot run the Next.js server/API routes |
 | Database | Supabase-managed PostgreSQL project for the reference hosted shape; CI's compatibility reference is the official `postgres:16` image | A managed or operator-run PostgreSQL provider with TLS and separate pooled runtime and direct migration endpoints | SQLite, MySQL, browser Supabase Data API/RLS access, or production deployments with no direct migration connection |
 | Web authentication | `supabase` (default adapter) or `oidc` (provider-neutral OIDC Authorization Code + PKCE) | A future adapter that preserves the Identity bounded-context contract after a separate security review | Auth.js/NextAuth as a second identity authority, password-based application auth, or an unvalidated custom provider |
 | Local-only web mode | `none`, which exposes the browser Local Profile/Local Vault path only | A development or isolated deployment with no remote authentication | Hosted Vault, membership, recovery, audit, or synchronization APIs while `AUTH_BACKEND=none` |
@@ -23,10 +43,11 @@ Install the pinned toolchain before running repository commands:
 - Node.js `24.19.0` through mise (`24.x` is the supported host range).
 - pnpm `11.17.0`.
 - PostgreSQL 16 or a compatible PostgreSQL service.
+- Docker Engine with the Compose plugin when using the containerized deployment.
 - A supported browser and Playwright browsers for browser verification.
 - Java 21 and native platform tooling only when compiling the Expo clients.
 
-The repository intentionally does **not** ship a Dockerfile or Compose file. Docker is not a supported setup contract. Operators must either install PostgreSQL locally or provision a PostgreSQL service and must document their own infrastructure and secret-management process.
+The repository ships a Dockerfile and Compose reference for a single-node self-hosted deployment. The stack provisions PostgreSQL 16, runs Prisma migrations before the web process, publishes only the web port, and runs the bounded retention purge at 03:00 UTC each day. Operators still own HTTPS termination, authentication-provider configuration, backups/PITR, monitoring, host hardening, and secret management.
 
 The web deployment is a Node server, not a static site. Keep Prisma, authentication, retention, and all other server routes on the server. Do not add browser database access or replace server-side Prisma with the Supabase Data API; that boundary is deliberate.
 
@@ -35,6 +56,8 @@ The web deployment is a Node server, not a static site. Keep Prisma, authenticat
 Copy the root `.env.example` for the web/server contract. `apps/web/.env.example` is the equivalent app-local example. Examples contain placeholders only. Never commit a real URL containing credentials, provider secret, database password, session secret, cron secret, token, or key.
 
 The web process loads the root `.env`, then app-local `.env`/`.env.local` where applicable. The deployment platform should set production values through its secret/environment manager, with separate Preview and Production scopes. `NEXT_PUBLIC_*` values are embedded in browser-visible output; they must be public values only.
+
+For Docker Compose, copy `.env.example` to `.env`. Compose consumes the `POSTGRES_*` and `APP_PORT` values from that file, constructs private in-network `DATABASE_URL` and `DIRECT_URL` values for the `db` service, and passes only the application variables required by the `web` service. Use a URL-safe database password because it is embedded in those internal connection URLs. Set `COMMIT_SHA` to the current short Git SHA when invoking Compose; it tags both application images and is recorded in their OCI revision label. The bundled single PostgreSQL service intentionally uses one endpoint for runtime and migrations; use separately provisioned pooled/direct endpoints for a production provider topology that requires that distinction. The web package keeps Prisma CLI in `dependencies` because the production-only migration image invokes it; Next's standalone runtime tracing does not include the CLI unless application code imports it.
 
 ### Web and server variables
 
@@ -105,6 +128,25 @@ pnpm start
 ```
 
 Run `pnpm start` behind a reverse proxy or load balancer that terminates HTTPS, forwards the original host correctly, and applies deployment-level access controls. Keep the process on a Node runtime compatible with the repository's `24.x` engine range.
+
+For the containerized single-node deployment:
+
+```bash
+cp .env.example .env
+# Set the provider, passkey, CRON_SECRET, and POSTGRES_PASSWORD values in .env.
+# Use a URL-safe password, for example: openssl rand -hex 32
+COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml config --quiet
+COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml up --build -d
+```
+
+The `web` service does not start until `migrate` completes successfully. Check the public health contract without sending credentials or Vault data:
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:${APP_PORT:-3000}/api/health
+COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml ps
+```
+
+Put the stack behind an HTTPS reverse proxy before enabling hosted use. Do not publish the `db` service port. `COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml down` preserves the named database volume; use an explicit, operator-reviewed backup and volume-retirement procedure before removing it.
 
 ### 2. Provision PostgreSQL and apply schema changes
 
@@ -201,7 +243,7 @@ The application does not perform database backups. The database operator must co
 
 ## Minimal local database path
 
-Because the repository does not provide Docker support, use a local PostgreSQL 16 installation or an operator-provided PostgreSQL service:
+For a non-containerized local setup, use a local PostgreSQL 16 installation or an operator-provided PostgreSQL service:
 
 ```bash
 createdb shared_totp_vault

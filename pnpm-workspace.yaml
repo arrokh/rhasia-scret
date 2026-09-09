@@ -65,6 +65,7 @@ minimumReleaseAgeExclude:
   - expo-secure-store@57.0.3
   - expo-sharing@57.0.17
   - '@expo/metro-file-map@57.0.3'
+  - obug@2.2.1
 auditConfig: { ignoreGhsas: [ GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq ] }
 patchedDependencies:
   expo-modules-jsi@57.1.0: patches/expo-modules-jsi@57.1.0.patch

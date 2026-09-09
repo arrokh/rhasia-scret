@@ -40,6 +40,7 @@ const securityHeaders = [
 ];
 
 const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
+const isSelfHostedDockerBuild = process.env.SELF_HOSTED_DOCKER_BUILD === "1";
 const configuredPasskeyHost = hostnameFromOrigin(process.env.PASSKEY_ORIGIN);
 const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter((origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index);
 
@@ -47,6 +48,7 @@ const nextConfig: NextConfig = {
   distDir: nextDistDir,
   // Repository-level agent instructions are authoritative; keep dev startup side-effect free.
   agentRules: false,
+  output: isSelfHostedDockerBuild ? "standalone" : undefined,
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,

@@ -1,0 +1,121 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shared_totp_vault}
+      POSTGRES_USER: ${POSTGRES_USER:-rhasia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: migration
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret:migrate-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    restart: "no"
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
+      DIRECT_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
+      NODE_ENV: production
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      AUTH_BACKEND: ${AUTH_BACKEND:-supabase}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:-}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
+      NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN:-}
+      MOBILE_APPLE_TEAM_ID: ${MOBILE_APPLE_TEAM_ID:-}
+      MOBILE_ANDROID_CERT_SHA256: ${MOBILE_ANDROID_CERT_SHA256:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_SESSION_SECRET: ${OIDC_SESSION_SECRET:-}
+      AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
+      PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
+      DIRECT_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - backend
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  retention-purge:
+    image: rhasia-scret:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    restart: unless-stopped
+    init: true
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set in .env}
+      RETENTION_PURGE_URL: http://web:3000/api/internal/retention-purge
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["node", "/usr/local/bin/retention-purge.mjs"]
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres-data:
