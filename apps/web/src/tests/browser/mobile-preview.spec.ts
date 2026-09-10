@@ -443,9 +443,65 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
   const footerBrandBox = await footer.locator("p").boundingBox();
-  expect((footerBrandBox?.x ?? Number.POSITIVE_INFINITY) + (footerBrandBox?.width ?? 0) / 2).toBeLessThan(
-    (footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2,
-  );
+  expect(
+    Math.abs(
+      (footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2),
+    ),
+  ).toBeLessThan(2);
+});
+
+test("aligns every shared footer item across mobile and desktop viewports", async ({ page }) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 600, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/offline");
+
+    const alignment = await page.locator("footer > div").evaluate((footer) => {
+      const footerBox = footer.getBoundingClientRect();
+      const center = footerBox.x + footerBox.width / 2;
+      const items = [...footer.children].map((item) => {
+        const box = item.getBoundingClientRect();
+        return { center: box.x + box.width / 2 };
+      });
+      return {
+        center,
+        items,
+        display: getComputedStyle(footer).display,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(alignment.display).toBe("flex");
+    expect(alignment.items.every(({ center }) => Math.abs(center - alignment.center) < 2)).toBe(true);
+    expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/offline");
+  const desktopAlignment = await page.locator("footer > div").evaluate((footer) => {
+    const footerBox = footer.getBoundingClientRect();
+    const [brand, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+    return {
+      center: footerBox.x + footerBox.width / 2,
+      left: footerBox.x,
+      right: footerBox.right,
+      brandCenter: brand.x + brand.width / 2,
+      navigationRight: navigation.right,
+      languageLeft: language.x,
+      display: getComputedStyle(footer).display,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(desktopAlignment.display).toBe("grid");
+  expect(Math.abs(desktopAlignment.brandCenter - desktopAlignment.center)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.languageLeft - desktopAlignment.left)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
+  expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {
