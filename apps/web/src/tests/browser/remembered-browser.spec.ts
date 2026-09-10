@@ -21,7 +21,7 @@ test.describe("production Remembered Browser UI", () => {
     );
     await page.goto("/ui-preview/remembered-browser");
     await clearBrowserStorage(page);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
   });
 
   test("enrolls explicitly with required user verification, stores ciphertext only, and removes local material", async ({
