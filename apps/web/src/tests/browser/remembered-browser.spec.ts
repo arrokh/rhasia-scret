@@ -19,9 +19,9 @@ test.describe("production Remembered Browser UI", () => {
     await page.route("**/api/passkey-recovery/status", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ enrolled: false }) }),
     );
-    await page.goto("/ui-preview/remembered-browser");
+    await page.goto("/api/health");
     await clearBrowserStorage(page);
-    await page.reload({ waitUntil: "commit" });
+    await page.goto("/ui-preview/remembered-browser");
     await page.getByRole("heading", { name: "Browser yang Diingat", exact: true }).last().waitFor();
   });
 
