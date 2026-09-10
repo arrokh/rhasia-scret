@@ -21,7 +21,8 @@ test.describe("production Remembered Browser UI", () => {
     );
     await page.goto("/ui-preview/remembered-browser");
     await clearBrowserStorage(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "commit" });
+    await page.getByRole("heading", { name: "Browser yang Diingat", exact: true }).last().waitFor();
   });
 
   test("enrolls explicitly with required user verification, stores ciphertext only, and removes local material", async ({
@@ -30,7 +31,6 @@ test.describe("production Remembered Browser UI", () => {
     const emitted: string[] = [];
     page.on("request", (request) => emitted.push(`${request.url()} ${request.postData() ?? ""}`));
     page.on("console", (message) => emitted.push(message.text()));
-    await page.goto("/ui-preview/remembered-browser");
     const enrollment = page
       .locator("div.border-t")
       .filter({ has: page.getByRole("heading", { name: "Browser yang Diingat", exact: true }) });
@@ -71,7 +71,6 @@ test.describe("production Remembered Browser UI", () => {
   });
 
   test("does not enroll after cancellation and keeps the Vault Unlock Secret fallback", async ({ page }) => {
-    await page.goto("/ui-preview/remembered-browser");
     await page.evaluate(() => {
       (window as unknown as { __webauthnMode: string }).__webauthnMode = "cancel-create";
     });
@@ -89,7 +88,6 @@ test.describe("production Remembered Browser UI", () => {
     await page.route("**/api/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
     );
-    await page.goto("/ui-preview/remembered-browser");
     await page.getByRole("button", { name: "Ingat browser ini" }).click();
     await seedSnapshot(page, bundle);
     const persisted = await rememberedState(page);
@@ -120,7 +118,6 @@ test.describe("production Remembered Browser UI", () => {
     await page.route("**/api/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
     );
-    await page.goto("/ui-preview/remembered-browser");
     await page.evaluate(() => {
       Object.defineProperty(window, "PublicKeyCredential", { configurable: true, value: undefined });
     });
