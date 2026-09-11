@@ -1090,6 +1090,11 @@
       "stateCurrent": "Snapshot terkini",
       "stateAuthRequired": "Masuk kembali diperlukan",
       "stateError": "Kesalahan sinkronisasi"
+    },
+    "offlinePrompt": {
+      "title": "Buka akses luring?",
+      "description": "Koneksi tidak tersedia. Buka snapshot baca-saja yang tersimpan di perangkat ini?",
+      "confirm": "Buka brankas luring"
     }
   },
   "VaultArchive": {

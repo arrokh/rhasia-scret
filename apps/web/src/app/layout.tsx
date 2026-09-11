@@ -9,6 +9,7 @@ import { QueryProvider } from "@/shared/presentation/query-provider";
 import { AppFooter } from "@/shared/presentation/app-ui";
 import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
+import { OfflineAccessPrompt } from "@/modules/sync/presentation/offline-access-prompt";
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
 import { cn } from "@/lib/utils";
 import "@/shared/presentation/styles/globals.css";
@@ -87,6 +88,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <QueryProvider>
             <BrowserAnalyticsBootstrap />
             <ServiceWorkerRegistration />
+            <OfflineAccessPrompt />
             <Suspense fallback={null}>
               <NavigationProgress />
             </Suspense>

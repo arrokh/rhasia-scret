@@ -91,6 +91,28 @@ test.describe("encrypted read-only offline PWA", () => {
     });
   });
 
+  test("asks before opening offline access from an active page", async ({ page, context, browserName }) => {
+    await page.goto("/");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await context.setOffline(true);
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+
+    if (browserName === "webkit") {
+      test.info().annotations.push({
+        type: "capability",
+        description:
+          "Playwright WebKit offline emulation cannot verify top-level service-worker navigation; the confirmation prompt is covered here.",
+      });
+      return;
+    }
+    await page.getByRole("button", { name: "Buka brankas luring" }).click();
+    await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
+    await expect(page).toHaveURL(/\/offline\/?$/);
+  });
+
   test("refreshes and boots the public offline shell in the selected English locale", async ({
     page,
     context,

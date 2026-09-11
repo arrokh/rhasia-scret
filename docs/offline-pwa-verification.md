@@ -10,7 +10,7 @@ Run the production service-worker suite and all supported Playwright engines wit
 pnpm run test:browser
 ```
 
-The PWA suite builds and starts the production application separately from the development browser tests. It verifies the configured manifest, public-shell navigation fallback, static-cache allowlist, API/auth cache denial, offline reload, and preservation of IndexedDB during service-worker activation.
+The PWA suite builds and starts the production application separately from the development browser tests. It verifies the configured manifest, the confirmation prompt shown when the active landing page loses connectivity, the public-shell navigation fallback used for a hard offline reload, static-cache allowlist, API/auth cache denial, offline reload, and preservation of IndexedDB during service-worker activation. The landing page stays on `/` until the user confirms opening `/offline`; other application routes keep their own offline/read-only behavior. A top-level navigation that cannot load a document still falls back to the cached public offline shell because the browser has no active document in which to display a modal.
 
 ## Real-device WebAuthn checks
 

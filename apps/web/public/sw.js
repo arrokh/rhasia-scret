@@ -1,6 +1,7 @@
-const CACHE_VERSION = "rhasia-scret-static-v3";
+const CACHE_VERSION = "rhasia-scret-static-v4";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
 const OFFLINE_SHELL = "/offline";
+const OFFLINE_NAVIGATION_DETECTED = "RHSIA_OFFLINE_NAVIGATION_DETECTED";
 const PRECACHE = [OFFLINE_SHELL, "/manifest.webmanifest", "/pwa/icon512_rounded.png"];
 
 self.addEventListener("install", (event) => {
@@ -83,10 +84,16 @@ async function networkFirstNavigation(request) {
   try {
     return await fetch(request, { signal: controller.signal });
   } catch {
+    if (new URL(request.url).pathname !== OFFLINE_SHELL) await notifyOfflineClients();
     return (await caches.match(OFFLINE_SHELL)) || Response.error();
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function notifyOfflineClients() {
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const client of clients) client.postMessage({ type: OFFLINE_NAVIGATION_DETECTED });
 }
 
 function isCacheableStatic(pathname) {

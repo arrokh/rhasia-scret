@@ -66,10 +66,12 @@ describe("offline PWA architecture boundaries", () => {
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
-    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v3"');
+    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v4"');
     expect(worker).toContain("/_next/static/");
     expect(worker).toContain("caches.match(request)");
     expect(worker).toContain("networkFirstNavigation(request)");
+    expect(worker).toContain("OFFLINE_NAVIGATION_DETECTED");
+    expect(worker).toContain("notifyOfflineClients()");
     expect(worker).toContain("controller.abort(), 2000");
     expect(worker).toContain('!pathname.endsWith(".map")');
     expect(worker).toContain('response.headers.get("content-type")?.startsWith("text/html")');
