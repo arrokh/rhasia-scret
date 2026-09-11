@@ -23,6 +23,7 @@
   },
   "Locale": {
     "switcher": "Pilih bahasa",
+    "footerLabel": "Bahasa",
     "indonesian": "Bahasa Indonesia",
     "english": "English",
     "selected": "Bahasa saat ini: {language}",
