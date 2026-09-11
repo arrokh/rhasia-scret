@@ -62,14 +62,17 @@ describe("offline PWA architecture boundaries", () => {
       join(sourceRoot, "modules/sync/presentation/service-worker-registration.tsx"),
       "utf8",
     );
+    expect(worker).toContain('const LANDING_SHELL = "/"');
     expect(worker).toContain('const OFFLINE_SHELL = "/offline"');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
-    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v4"');
+    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v5"');
     expect(worker).toContain("/_next/static/");
     expect(worker).toContain("caches.match(request)");
     expect(worker).toContain("networkFirstNavigation(request)");
+    expect(worker).toContain("cacheNavigationShell(cache, LANDING_SHELL)");
+    expect(worker).toContain("pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL");
     expect(worker).toContain("OFFLINE_NAVIGATION_DETECTED");
     expect(worker).toContain("notifyOfflineClients()");
     expect(worker).toContain("controller.abort(), 2000");

@@ -56,6 +56,7 @@ test.describe("encrypted read-only offline PWA", () => {
           .map((request) => new URL(request.url).pathname);
       });
       expect(cachedUrls).toContain("/offline");
+      expect(cachedUrls).toContain("/");
       expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
       expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
     }
@@ -111,6 +112,26 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.getByRole("button", { name: "Buka brankas luring" }).click();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
     await expect(page).toHaveURL(/\/offline\/?$/);
+  });
+
+  test("keeps the landing page and asks before offline access on a direct reload", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== "chromium",
+      "Playwright Firefox and WebKit offline emulation cannot verify top-level service-worker navigation.",
+    );
+    await page.goto("/");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await context.setOffline(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toHaveCount(0);
   });
 
   test("refreshes and boots the public offline shell in the selected English locale", async ({
