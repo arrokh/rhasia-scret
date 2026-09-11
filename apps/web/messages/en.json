@@ -1090,6 +1090,11 @@
       "stateCurrent": "Snapshot current",
       "stateAuthRequired": "Sign-in required",
       "stateError": "Synchronization error"
+    },
+    "offlinePrompt": {
+      "title": "Open offline access?",
+      "description": "The connection is unavailable. Open the read-only snapshot stored on this device?",
+      "confirm": "Open offline vault"
     }
   },
   "VaultArchive": {

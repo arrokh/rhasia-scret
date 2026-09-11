@@ -10,7 +10,7 @@ Run the production service-worker suite and all supported Playwright engines wit
 pnpm run test:browser
 ```
 
-The PWA suite builds and starts the production application separately from the development browser tests. It verifies the configured manifest, public-shell navigation fallback, static-cache allowlist, API/auth cache denial, offline reload, and preservation of IndexedDB during service-worker activation.
+The PWA suite builds and starts the production application separately from the development browser tests. It verifies the configured manifest, the confirmation prompt shown when the active landing page loses connectivity, the cached landing-shell behavior used for a direct offline reload, the public-shell navigation fallback used for other hard offline navigations, static-cache allowlist, API/auth cache denial, offline reload, and preservation of IndexedDB during service-worker activation. The landing page stays on `/` until the user confirms opening `/offline`; other application routes keep their own offline/read-only behavior. A top-level navigation that cannot load a document still falls back to a cached public shell because the browser has no active document in which to display a modal.
 
 ## Real-device WebAuthn checks
 
@@ -29,6 +29,6 @@ Firefox or Safari without usable PRF is conformant when the Vault Unlock Secret 
 
 ## Storage inspection
 
-Use deterministic non-production fixtures. Inspect Cache Storage and the `rhasia-scret-offline-vault` IndexedDB database and confirm they contain no plaintext Vault/account names, TOTP secrets, OTP values, raw QR or `otpauth` data, User Root Keys, Vault Encryption Keys, Vault Unlock Secrets, or decrypted private keys. Cache Storage may contain only `/offline`, manifest/icon resources, and same-origin versioned `/_next/static/` resources.
+Use deterministic non-production fixtures. Inspect Cache Storage and the `rhasia-scret-offline-vault` IndexedDB database and confirm they contain no plaintext Vault/account names, TOTP secrets, OTP values, raw QR or `otpauth` data, User Root Keys, Vault Encryption Keys, Vault Unlock Secrets, or decrypted private keys. Cache Storage may contain only `/`, `/offline`, manifest/icon resources, and same-origin versioned `/_next/static/` resources.
 
 Revocation cannot erase ciphertext or secrets already obtained while a member was offline. A revoked or deleted Vault is removed locally only after the next successful authenticated complete synchronization; authentication, network, or validation failure retains the last valid stale read-only bundle.

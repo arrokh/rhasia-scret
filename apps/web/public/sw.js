@@ -1,23 +1,26 @@
-const CACHE_VERSION = "rhasia-scret-static-v3";
+const CACHE_VERSION = "rhasia-scret-static-v5";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
+const LANDING_SHELL = "/";
 const OFFLINE_SHELL = "/offline";
-const PRECACHE = [OFFLINE_SHELL, "/manifest.webmanifest", "/pwa/icon512_rounded.png"];
+const OFFLINE_NAVIGATION_DETECTED = "RHSIA_OFFLINE_NAVIGATION_DETECTED";
+const PRECACHE = ["/manifest.webmanifest", "/pwa/icon512_rounded.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(precacheOfflineShell().then(() => self.skipWaiting()));
+  event.waitUntil(precachePublicShells().then(() => self.skipWaiting()));
 });
 
-async function precacheOfflineShell() {
+async function precachePublicShells() {
   const cache = await caches.open(CACHE_VERSION);
-  await cache.addAll(PRECACHE.slice(1));
-  await cacheOfflineShell(cache);
+  await cache.addAll(PRECACHE);
+  await cacheNavigationShell(cache, LANDING_SHELL);
+  await cacheNavigationShell(cache, OFFLINE_SHELL);
 }
 
-async function cacheOfflineShell(cache) {
-  const response = await fetch(OFFLINE_SHELL, { cache: "reload", credentials: "include" });
+async function cacheNavigationShell(cache, pathname) {
+  const response = await fetch(pathname, { cache: "reload", credentials: "include" });
   if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html"))
-    throw new Error("Offline shell could not be cached.");
-  await cache.put(OFFLINE_SHELL, response.clone());
+    throw new Error(`Navigation shell could not be cached: ${pathname}`);
+  await cache.put(pathname, response.clone());
   const html = await response.text();
   const resources = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
     .map((match) => new URL(match[1], self.location.origin))
@@ -46,7 +49,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.origin !== self.location.origin) return;
   if (event.data?.type !== "RHSIA_REFRESH_OFFLINE_SHELL") return;
-  event.waitUntil(caches.open(CACHE_VERSION).then(cacheOfflineShell));
+  event.waitUntil(precachePublicShells());
 });
 
 self.addEventListener("fetch", (event) => {
@@ -83,10 +86,18 @@ async function networkFirstNavigation(request) {
   try {
     return await fetch(request, { signal: controller.signal });
   } catch {
-    return (await caches.match(OFFLINE_SHELL)) || Response.error();
+    const pathname = new URL(request.url).pathname;
+    if (pathname !== OFFLINE_SHELL) await notifyOfflineClients();
+    const fallbackShell = pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL;
+    return (await caches.match(fallbackShell)) || (await caches.match(OFFLINE_SHELL)) || Response.error();
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function notifyOfflineClients() {
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const client of clients) client.postMessage({ type: OFFLINE_NAVIGATION_DETECTED });
 }
 
 function isCacheableStatic(pathname) {

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+export const offlineNavigationDetectedMessage = "RHSIA_OFFLINE_NAVIGATION_DETECTED";
+
 export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
