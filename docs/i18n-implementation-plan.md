@@ -10,11 +10,10 @@ A complete implementation includes visible copy, accessibility text, validation 
 
 - `apps/web/src/app/layout.tsx` resolves `<html lang>` and localized metadata.
 - `apps/web/src/app/manifest.ts` resolves the localized `lang` and description.
-- Copy is embedded across 22 App Router page/layout/metadata files, 38 context presentation files, and 7 shared presentation files.
-- Date formatting is fixed to `id-ID` in synchronization, account, crypto, and vault-management presentation code. Audit timestamps additionally use `Asia/Jakarta`.
-- Some user-visible messages currently cross the presentation boundary as localized `Error.message` values, notably TOTP parsing, QR import, passkey recovery, workspace loading, and archive import.
-- Browser and component tests generally locate elements through Indonesian accessible names and copy.
-- The web implementation has a `next-intl` resolver and typed `apps/web/messages/id.json` / `apps/web/messages/en.json` catalogs. The native Expo client has a separate typed Indonesian/English catalog in `apps/mobile/src/localization.ts`; native locale state is presentation-only and is not stored in the web cookie, Prisma, encrypted content, or offline snapshots.
+- The web app uses `next-intl` in the permitted composition and presentation layers, with typed `apps/web/messages/id.json` / `apps/web/messages/en.json` catalogs at exact key parity.
+- The native Expo client maintains a separate typed Indonesian/English catalog in `apps/mobile/src/localization.ts`; native locale state is presentation-only and is not stored in the web cookie, Prisma, encrypted content, or offline snapshots.
+- Localized metadata, manifest fields, accessibility text, validation/errors, development previews, browser coverage, and read-only offline surfaces are part of the current parity contract.
+- The embedded-copy counts and unimplemented-surface statements from the original plan are historical planning context. Any remaining gaps should be recorded as focused issues and verified against the current catalog-parity, hard-coded-copy, architecture, contract, browser, and offline tests.
 
 ## Implemented decisions
 
@@ -119,7 +118,9 @@ Do not render `reason.message` directly. Introduce stable classifications where 
 
 This refactor changes presentation mechanics, not encryption, authorization, or server-visible data.
 
-## Implementation sequence
+## Historical implementation sequence and maintenance checklist
+
+The sequence below records how the completed implementation was originally staged. Keep it as a maintenance checklist for new surfaces rather than reading it as evidence that the initial migration is still pending.
 
 Each step should leave both catalogs at exact key parity and keep lint, typecheck, and the affected test projects green.
 

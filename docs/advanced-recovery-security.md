@@ -23,6 +23,8 @@ Remembered-browser verification and encrypted Local Vault Snapshots are client-i
 
 Normal Vault Encryption Key rotation must create a fresh key client-side, re-encrypt all active account ciphertext and vault name locally, then wrap the replacement key independently for every active member. User-key rotation must create a new user encryption key pair client-side and re-wrap affected Vault Encryption Keys locally. These operations require a complete transactional protocol and independent recovery-device/passkey enrollment UI; they are not safely representable as a server-side fallback.
 
+The current repository includes the client-only protocol and server endpoint/persistence seams for these operations, but the complete browser/native user-facing ceremonies and recovery-device enrollment are not shipped. Track completion in [#186](https://github.com/arrokh/rhasia-scret/issues/186).
+
 Export/import uses an explicitly user-initiated, client-side Encrypted Vault Archive as defined by ADR 0033. Import authenticates, validates, previews, duplicate-checks, and re-encrypts all content in web or native client memory before one atomic ciphertext-only write; unencrypted export/import is prohibited. Passkey-assisted recovery may protect a client-held recovery wrapping key but must never give the service a key capable of decrypting Vault Encryption Keys or user private keys. Native clients do not currently provide Passkey-Assisted Recovery or Remembered Browser PRF equivalence.
 
 ## Current compromise playbook

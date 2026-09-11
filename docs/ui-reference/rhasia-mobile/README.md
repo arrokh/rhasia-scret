@@ -2,6 +2,8 @@
 
 This directory is the development reference extracted from `/Users/arrokh/Downloads/rhasiaimage.png`. Each numbered PNG is a standalone mobile-screen slice with a same-named Markdown analysis covering UI, style, layout, components, expected behaviour, and flow. [`design-system.md`](design-system.md) is the canonical shared styling and component contract; `design-system-footer.png` and `design-system-footer.md` preserve the source image's design notes and component specimens. Use these assets for visual hierarchy, layout, states, and component composition—not as a source of product or security requirements.
 
+These assets remain a target reference: the current native app has partial Shared Vault and Authenticator Account surfaces, so the create/edit/member-management paths shown here are not all shipped. The current support boundary is documented in the repository README and native release configuration; remaining work is tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183) and [#184](https://github.com/arrokh/rhasia-scret/issues/184).
+
 ## Screens
 
 | Asset                          | Reference screen                     | Analysis                                                   | MVP-plan coverage                                                       |
