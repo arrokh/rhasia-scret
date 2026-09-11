@@ -3,10 +3,10 @@
 import { usePathname } from "next/navigation";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 
-export function footerLanguageIsInSettings(pathname: string) {
+export function footerLanguageIsInSettings(pathname: string | null) {
   return (
     pathname === "/vaults" ||
-    pathname.startsWith("/vaults/") ||
+    pathname?.startsWith("/vaults/") === true ||
     pathname === "/ui-preview" ||
     pathname === "/ui-preview/vaults"
   );

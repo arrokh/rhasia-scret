@@ -63,6 +63,74 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
 });
 
+test("aligns the landing footer as brand, language, and legal navigation", async ({ page }) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 600, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const alignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
+      const footerBox = footer.getBoundingClientRect();
+      const [, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+      const brandChildren = footer.querySelectorAll("p > *");
+      const firstBrandChild = brandChildren[0]?.getBoundingClientRect();
+      const lastBrandChild = brandChildren[brandChildren.length - 1]?.getBoundingClientRect();
+      const brandContent = {
+        left: firstBrandChild?.left ?? Number.POSITIVE_INFINITY,
+        right: lastBrandChild?.right ?? Number.NEGATIVE_INFINITY,
+      };
+      return {
+        display: getComputedStyle(footer).display,
+        childCount: footer.children.length,
+        footerCenter: footerBox.x + footerBox.width / 2,
+        brandCenter: (brandContent.left + brandContent.right) / 2,
+        languageCenter: language ? language.x + language.width / 2 : Number.NaN,
+        navigationCenter: navigation ? navigation.x + navigation.width / 2 : Number.NaN,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(alignment.display).toBe("flex");
+    expect(alignment.childCount).toBe(3);
+    expect(Math.abs(alignment.brandCenter - alignment.footerCenter)).toBeLessThan(2);
+    expect(Math.abs(alignment.languageCenter - alignment.footerCenter)).toBeLessThan(2);
+    expect(Math.abs(alignment.navigationCenter - alignment.footerCenter)).toBeLessThan(2);
+    expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
+    await expect(
+      page.locator("main.landing-page > footer").getByRole("button", { name: /Pilih bahasa|Choose language/ }),
+    ).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  const desktopAlignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
+    const footerBox = footer.getBoundingClientRect();
+    const [brand, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+    return {
+      display: getComputedStyle(footer).display,
+      childCount: footer.children.length,
+      left: footerBox.x,
+      center: footerBox.x + footerBox.width / 2,
+      right: footerBox.right,
+      brandLeft: brand.x,
+      languageCenter: language.x + language.width / 2,
+      navigationRight: navigation.right,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(desktopAlignment.display).toBe("grid");
+  expect(desktopAlignment.childCount).toBe(3);
+  expect(Math.abs(desktopAlignment.brandLeft - desktopAlignment.left)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.languageCenter - desktopAlignment.center)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
+  expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
+});
+
 test("keeps every Vault flow connector straight at mobile and desktop widths", async ({ page }) => {
   for (const viewport of [
     { width: 430, height: 932 },
@@ -108,7 +176,11 @@ test("switches to English without changing routes and persists through redirects
   await page.goto("/");
   await switchLanguage(page, "English", "en");
 
-  await expect(page.getByRole("button", { name: "Choose language" })).toContainText("English");
+  await expect(
+    page.locator('main.landing-page > header:not([data-testid="landing-sticky-header"])').getByRole("button", {
+      name: "Choose language",
+    }),
+  ).toContainText("English");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Use Hosted Vault" })).toBeVisible();
   await page.reload();
@@ -202,9 +274,14 @@ async function switchLanguage(
   await page.getByRole("button", { name: locale === "en" ? "Ganti bahasa" : "Change language" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
   if (!isPreview) {
-    await expect(
-      page.getByRole("button", { name: locale === "en" ? "Choose language" : "Pilih bahasa" }),
-    ).toContainText(language, { timeout: 15_000 });
+    const languageButton = (await page.locator("main.landing-page").count())
+      ? page
+          .locator(
+            'main.landing-page > header:not([data-testid="landing-sticky-header"]) button[aria-label="Pilih bahasa"], main.landing-page > header:not([data-testid="landing-sticky-header"]) button[aria-label="Choose language"]',
+          )
+          .first()
+      : page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
+    await expect(languageButton).toContainText(language, { timeout: 15_000 });
   }
   if (isPreview) {
     const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });

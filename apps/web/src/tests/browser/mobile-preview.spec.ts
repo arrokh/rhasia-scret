@@ -442,12 +442,9 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   const footerBox = await footer.boundingBox();
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
+  const footerContentBox = await footer.locator("> div").boundingBox();
   const footerBrandBox = await footer.locator("p").boundingBox();
-  expect(
-    Math.abs(
-      (footerBrandBox?.x ?? 0) + (footerBrandBox?.width ?? 0) / 2 - ((footerBox?.x ?? 0) + (footerBox?.width ?? 0) / 2),
-    ),
-  ).toBeLessThan(2);
+  expect(Math.abs((footerBrandBox?.x ?? 0) - (footerContentBox?.x ?? 0))).toBeLessThan(2);
 });
 
 test("aligns every shared footer item across mobile and desktop viewports", async ({ page }) => {
@@ -488,9 +485,9 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
       center: footerBox.x + footerBox.width / 2,
       left: footerBox.x,
       right: footerBox.right,
-      brandCenter: brand.x + brand.width / 2,
+      brandLeft: brand.x,
       navigationRight: navigation.right,
-      languageLeft: language.x,
+      languageCenter: language.x + language.width / 2,
       display: getComputedStyle(footer).display,
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
@@ -498,8 +495,8 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
   });
 
   expect(desktopAlignment.display).toBe("grid");
-  expect(Math.abs(desktopAlignment.brandCenter - desktopAlignment.center)).toBeLessThan(2);
-  expect(Math.abs(desktopAlignment.languageLeft - desktopAlignment.left)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.brandLeft - desktopAlignment.left)).toBeLessThan(2);
+  expect(Math.abs(desktopAlignment.languageCenter - desktopAlignment.center)).toBeLessThan(2);
   expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
   expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
 });
