@@ -34,6 +34,7 @@ import {
   FaXTwitter,
 } from "react-icons/fa6";
 import { LandingHeader, LandingMobileCta, LandingVaultPreviews } from "@/modules/landing";
+import { AppFooterContent } from "@/shared/presentation/app-ui";
 
 const flowIcons = [Laptop, FileLock2, UserRoundCheck, Smartphone] as const;
 const browserIcons = [LockKeyhole, EyeOff] as const;
@@ -43,7 +44,6 @@ type LandingTranslator = Awaited<ReturnType<typeof getTranslations<"Home.landing
 
 export default async function LandingPage() {
   const t = await getTranslations("Home.landing");
-  const common = await getTranslations("Common");
   const flowSteps = ["client", "encrypted", "authorized", "mobilePwa"] as const;
   const browserItems = ["authenticatorMaterial", "decryptedContent"] as const;
   const serviceItems = ["encryptedContent", "accessMetadata"] as const;
@@ -279,39 +279,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mx-auto grid min-h-14 max-w-3xl grid-cols-1 items-center gap-y-1 py-2 text-center sm:grid-cols-[1fr_auto_1fr]">
-          <p className="flex items-baseline gap-1.5 whitespace-nowrap text-sm text-muted-foreground sm:col-start-1 sm:justify-self-start">
-            <a
-              href="/sign-in"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-base font-bold tracking-tight underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="text-foreground">{t("footerProductPrefix")}</span>
-              <span className="text-primary">{t("footerProductSuffix")}</span>
-            </a>
-            <span>{common("by")}</span>
-            <a
-              href="https://nooroctavian.id/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t("footerAuthor")}
-            </a>
-          </p>
-          <nav
-            aria-label={common("footerNavigation")}
-            className="flex items-center justify-center gap-3 text-xs font-bold text-muted-foreground sm:col-start-3 sm:justify-self-end"
-          >
-            <Link href="/privacy" className="underline-offset-4 hover:text-primary hover:underline">
-              {common("privacy")}
-            </Link>
-            <Link href="/support" className="underline-offset-4 hover:text-primary hover:underline">
-              {common("support")}
-            </Link>
-          </nav>
-        </div>
+        <AppFooterContent brandHref="/sign-in" brandTarget="_blank" brandRel="noopener noreferrer" />
       </footer>
 
       <LandingMobileCta localVaultLabel={t("localVault")} hostedVaultLabel={t("hostedVault")} />
