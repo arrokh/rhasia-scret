@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-07-29
 - Deciders: rhasia-scret maintainers
-- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0035, ADR-0043, issues #74, #76, #77
+- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0043, issues #74, #76, #77
 
 ## Decision
 
@@ -36,6 +36,10 @@ An adapter that cannot satisfy a requested assurance fails closed. Offline Local
 There is no automatic email-based linking. Explicit linking requires reauthentication of both existing and proposed identities in one server-owned ceremony, verifies issuer/subject and admission policy, writes a redacted security event, and does not touch Vault key material. Provider migration first creates/validates the new External Identity, preserves the Application User ID, and only then retires the old identity through an auditable rollback-safe operation. A partially completed migration leaves the original identity active.
 
 The Prisma CLI-generated migration adds External Identity and makes the legacy `application_users.supabase_user_id` column nullable without changing Application User IDs. Deployment immediately runs the Prisma-backed `prisma:backfill-external-identities` step, which copies every existing legacy subject into an External Identity with the canonical Supabase issuer and verifies that no legacy user is missing a mapping. The legacy column is a migration ledger and is not read for new provider identities; a later reviewed cleanup migration may remove it after operator evidence confirms the backfill. Existing Vault foreign keys continue to reference the unchanged Application User ID.
+
+## Implementation status
+
+The provider-neutral contracts, External Identity persistence, and legacy backfill seams exist. The complete user-facing identity-linking and provider-migration ceremonies described above are not yet shipped: there is no route/UI flow for dual reauthentication, migration state, old-identity retirement, rollback, or completion audit. Track the remaining work in [#185](https://github.com/arrokh/rhasia-scret/issues/185).
 
 ## Failure behavior
 

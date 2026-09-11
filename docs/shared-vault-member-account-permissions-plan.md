@@ -91,7 +91,7 @@ This implementation replaces those scattered account-mutation role checks with o
 
 ### 1. Resolve domain language and record the security decision
 
-1. Add an ADR, for example `docs/adr/0035-granular-shared-vault-account-permissions.md`, covering:
+1. Add an ADR, for example `docs/adr/0047-granular-shared-vault-account-permissions.md`, covering:
    - Vault-wide defaults with independent per-capability member overrides rather than an `EDITOR` role;
    - field-by-field fallback semantics, deny-by-default migration, and owner bypass;
    - server-visible permission metadata;

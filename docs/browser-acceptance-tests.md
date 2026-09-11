@@ -1,6 +1,6 @@
 # Encrypted Vault browser acceptance tests
 
-The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows.
+The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows. It uses synthetic fixtures and a deterministic test-only authentication seam for authenticated scenarios; no production account, Vault, secret, OTP, or key is required. The ordinary unauthenticated smoke scenario still renders the hosted sign-in form, so when the selected backend is Supabase the public Supabase URL and publishable key must be configured, even though no real account is used.
 
 ## Local setup
 

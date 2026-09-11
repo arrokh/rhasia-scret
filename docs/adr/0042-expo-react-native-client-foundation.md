@@ -2,12 +2,12 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-11
-- **Related:** ADR-0035, ADR-0037, ADR-0041
+- **Related:** ADR-0037, ADR-0041, ADR-0047
 - **Issue:** #96
 
 ## Decision
 
-The iOS and Android client is an Expo SDK 57 React Native application with generated native projects under `apps/mobile`. Expo supplies reproducible native configuration and maintained adapters for Keychain/Android Keystore-backed secure storage, linking, localization, lifecycle, camera, clipboard, document, and sharing facilities. The application remains a separate presentation/composition target while consuming the platform-neutral ports and protocol contracts introduced by ADR-0041. Its current hosted scope includes Personal Vault setup/unlock, Authenticator Accounts, Shared Vault access and permissions, Secure Share Links, audit history, archives, and read-only encrypted offline snapshots; it does not implement the browser-only Local Profile/Local Vault.
+The iOS and Android client is an Expo SDK 57 React Native application with generated native projects under `apps/mobile`. Expo supplies reproducible native configuration and maintained adapters for Keychain/Android Keystore-backed secure storage, linking, localization, lifecycle, camera, clipboard, document, and sharing facilities. The application remains a separate presentation/composition target while consuming the platform-neutral ports and protocol contracts introduced by ADR-0041. Its current hosted scope includes Personal Vault setup/unlock, Authenticator Accounts, partial Shared Vault access/permissions and Secure Share Link flows, audit history, archives, and read-only encrypted offline snapshots; full native Shared Vault management and Authenticator Account lifecycle/TOTP UX remain incomplete under [#183](https://github.com/arrokh/rhasia-scret/issues/183) and [#184](https://github.com/arrokh/rhasia-scret/issues/184). It does not implement the browser-only Local Profile/Local Vault.
 
 The initial native authentication transport uses Supabase Auth passwordless email links with PKCE. Production callbacks use verified iOS Associated Domains and Android App Links on the HTTPS origin configured by `EXPO_PUBLIC_WEB_ORIGIN`; a registered custom scheme exists only for development. Supabase sessions persist only through `expo-secure-store`. Application API calls receive the access token at the `BearerTokenTransport` boundary, while the Next.js Supabase verifier accepts either its existing cookie credential or one well-formed bearer credential. A malformed Authorization header fails closed and never falls back to browser cookies. Provider-neutral OIDC remains a server identity boundary and is not a claim that the current mobile UI supports every provider flow.
 

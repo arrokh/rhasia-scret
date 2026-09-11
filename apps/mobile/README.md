@@ -1,6 +1,6 @@
 # rhasia-scret mobile
 
-Expo SDK 57 / React Native client for iOS and Android. This project is the native composition layer for the platform-neutral application ports introduced by ADR-0041. It supports hosted Personal and Shared Vault workflows, archives, QR import, and read-only encrypted offline snapshots; it does not implement the browser-only Local Profile/Local Vault or WebAuthn PRF-equivalent recovery.
+Expo SDK 57 / React Native client for iOS and Android. This project is the native composition layer for the platform-neutral application ports introduced by ADR-0041. It supports hosted Personal Vault workflows, archives, QR import, and read-only encrypted offline snapshots, and contains partial implementations of Shared Vault access and invitation flows. Full native Shared Vault management and the remaining native Authenticator Account lifecycle/TOTP UX are tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183) and [#184](https://github.com/arrokh/rhasia-scret/issues/184); it does not implement the browser-only Local Profile/Local Vault or WebAuthn PRF-equivalent recovery.
 
 ## Configure
 

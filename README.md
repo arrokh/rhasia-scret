@@ -10,17 +10,17 @@ rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaul
 
 ## Product and support matrix
 
-| Capability                             | Web       | iOS/Android   | Notes                                                                               |
-| -------------------------------------- | --------- | ------------- | ----------------------------------------------------------------------------------- |
-| Local Profile and writable Local Vault | Supported | Not supported | Browser-only, client-owned storage; no sign-in or automatic synchronization.        |
-| Hosted Personal Vault                  | Supported | Supported     | Encrypted content is prepared on the authorized client.                             |
-| Hosted Shared Vault                    | Supported | Supported     | Invite-only membership, permissions, revocation, and owner audit history.           |
-| Read-only encrypted offline snapshot   | Supported | Supported     | OTP generation remains client-side; offline mutations are not queued or replayed.   |
-| Passkey-Assisted Unlock/Recovery       | Supported | Not supported | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server. |
-| Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.             |
-| TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.  |
+| Capability                             | Web       | iOS/Android   | Notes                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------- | --------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local Profile and writable Local Vault | Supported | Not supported | Browser-only, client-owned storage; no sign-in or automatic synchronization.                                                                                                                                                                                                                                                 |
+| Hosted Personal Vault                  | Supported | Supported     | Encrypted content is prepared on the authorized client.                                                                                                                                                                                                                                                                      |
+| Hosted Shared Vault                    | Supported | Partial       | Web supports the full lifecycle and member administration. Native contains partial implementations for existing Shared Vault access, owner audit/default permissions, and Secure Share Link invitation; full native lifecycle/member administration is tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183). |
+| Read-only encrypted offline snapshot   | Supported | Supported     | OTP generation remains client-side; offline mutations are not queued or replayed.                                                                                                                                                                                                                                            |
+| Passkey-Assisted Unlock/Recovery       | Supported | Not supported | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server.                                                                                                                                                                                                                                          |
+| Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.                                                                                                                                                                                                                                                      |
+| TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.                                                                                                                                                                                                                                           |
 
-The web application can run in local-only mode without remote authentication, or in hosted mode with the configured Supabase or OIDC Authentication Provider. The native client consumes hosted Personal/Shared Vault workflows and does not implement the browser-only Local Profile/Local Vault.
+The web application can run in local-only mode without remote authentication, or in hosted mode with the configured Supabase or OIDC Authentication Provider. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ pnpm run prisma:migrate:deploy
 
 For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
 
-The repository's tests use synthetic data and local services. Never put a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository does not provide Docker/Compose support; use a local or operator-provided PostgreSQL service as described in the [self-hosting guide](docs/self-hosting.md).
+The repository's tests use synthetic data and local services. Never put a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 
 ## Run and verify
 
@@ -127,7 +127,7 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-`pnpm run test:full` is the required repository gate. It runs the shared package, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service.
+`pnpm run test:full` is the required repository gate. It runs the shared package, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service; the ordinary browser smoke stage also requires the public Supabase URL and publishable key when hosted authentication is selected.
 
 Focused and release commands:
 

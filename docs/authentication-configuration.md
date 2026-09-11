@@ -11,6 +11,10 @@ The web and native clients always send `shouldCreateUser: true` when requesting 
 
 A verified server-side session is the only input to application-user provisioning. Supabase-mode provisioning creates an Application User for a new verified principal; existing External Identity and Application User records are reused idempotently. Shared Vault invitations still bind to the exact invited email and do not grant access until the recipient redeems the one-time Secure Share Link. No `allowed_emails` table, separate registration-invitation endpoint, or in-app user-management UI is required for registration.
 
+## Configuration failure behavior
+
+Hosted deployments must treat missing or invalid authentication configuration as a deployment failure. The current web composition validates the selected backend and the Supabase session adapter rejects missing public Supabase values, but some page/proxy paths currently catch those errors and fall back to the `none` session boundary instead of rendering a localized configuration error. That behavior is an implementation gap, not a supported hosted-mode bypass; explicit fail-closed configuration errors are tracked in [#187](https://github.com/arrokh/rhasia-scret/issues/187) and remain required by the MVP acceptance criteria.
+
 ## Route protection and logout
 
 The application continues to use Supabase Auth through `@supabase/ssr`; adding a second Auth.js/NextAuth session system would conflict with the Supabase identity boundary in ADR-0043. The Next.js 16 `proxy.ts` follows the current Supabase SSR guidance: it calls `getClaims()` to refresh and optimistically verify cookie-backed sessions, copies refreshed cookies to the request and response, and redirects unauthenticated protected-page requests to `/sign-in?auth=required`. Page and API authorization checks remain close to their data sources because Proxy is not a sufficient authorization boundary.

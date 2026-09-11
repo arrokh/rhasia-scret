@@ -25,7 +25,7 @@ Captured 2026-08-12 on branch `mobile/feature/native-foundation`.
 4. Native crypto interoperability: shared protocol vectors plus Android JNI and iOS simulator validation passed.
 5. Read-only offline snapshots/no queued mutation: implemented and covered by mobile/browser tests.
 6. QR, clipboard, archives, native sharing: implemented and covered by mobile tests and browser protocol tests.
-7. Shared Vault permissions, invitations, Secure Share Links, audits, archive, recovery boundaries: implemented and covered by mobile/browser tests.
+7. Shared Vault permissions, invitations, Secure Share Links, audits, archive, and recovery boundaries: the repository protocol/infrastructure and the available client slices are covered by mobile/browser tests. Full native Shared Vault lifecycle and member-management UI parity is not yet shipped or proven and is tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183).
 8. Device-bound unlock/recovery: intentionally not declared shipped; requires real iOS and Android hardware validation and an approved native design if PRF parity differs.
 9. Automated unit/integration/device-or-emulator coverage: unit, integration/browser, Android emulator, and iOS simulator evidence present; physical devices unavailable.
 10. Existing web gate and mobile release gate: both pass as recorded above.

@@ -9,11 +9,11 @@ when implementation code is complete.
 - [x] Public README and documentation index — [#143](https://github.com/arrokh/rhasia-scret/issues/143)
 - [x] Pull-request CI and security automation — [#145](https://github.com/arrokh/rhasia-scret/issues/145)
 - [x] Supported self-hosting guide — [#146](https://github.com/arrokh/rhasia-scret/issues/146)
-- [ ] Project license and third-party provenance — [#142](https://github.com/arrokh/rhasia-scret/issues/142)
-- [ ] Privacy and hosted-service disclosures — [#147](https://github.com/arrokh/rhasia-scret/issues/147)
-- [ ] Contributor workflow and governance — [#148](https://github.com/arrokh/rhasia-scret/issues/148)
-- [ ] Versioning and web/mobile release process — [#149](https://github.com/arrokh/rhasia-scret/issues/149)
-- [ ] Public-launch audit and first release — [#150](https://github.com/arrokh/rhasia-scret/issues/150)
+- [x] Project license and third-party provenance — [#142](https://github.com/arrokh/rhasia-scret/issues/142)
+- [x] Privacy and hosted-service disclosures — [#147](https://github.com/arrokh/rhasia-scret/issues/147)
+- [x] Contributor workflow and governance — [#148](https://github.com/arrokh/rhasia-scret/issues/148)
+- [x] Versioning and web/mobile release process — [#149](https://github.com/arrokh/rhasia-scret/issues/149)
+- [ ] Public-launch audit and first release — [#150](https://github.com/arrokh/rhasia-scret/issues/150) (repository audit recorded; public release and external approval remain pending)
 
 ## Priorities
 
