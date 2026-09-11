@@ -474,20 +474,21 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
     expect(alignment.display).toBe("flex");
     expect(alignment.items.every(({ center }) => Math.abs(center - alignment.center) < 2)).toBe(true);
     expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
+    await expect(page.locator("footer").getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
   }
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/offline");
   const desktopAlignment = await page.locator("footer > div").evaluate((footer) => {
     const footerBox = footer.getBoundingClientRect();
-    const [brand, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+    const [brand, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
     return {
       center: footerBox.x + footerBox.width / 2,
       left: footerBox.x,
       right: footerBox.right,
       brandLeft: brand.x,
       navigationRight: navigation.right,
-      languageCenter: language.x + language.width / 2,
+      childCount: footer.children.length,
       display: getComputedStyle(footer).display,
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
@@ -495,10 +496,11 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
   });
 
   expect(desktopAlignment.display).toBe("grid");
+  expect(desktopAlignment.childCount).toBe(2);
   expect(Math.abs(desktopAlignment.brandLeft - desktopAlignment.left)).toBeLessThan(2);
-  expect(Math.abs(desktopAlignment.languageCenter - desktopAlignment.center)).toBeLessThan(2);
   expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
   expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
+  await expect(page.locator("footer").getByRole("button")).toContainText("Bahasa");
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {

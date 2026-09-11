@@ -103,7 +103,11 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.getByRole("button", { name: "Pilih bahasa" }).click();
     await page.getByRole("menuitemradio", { name: "English" }).click();
     await page.getByRole("button", { name: "Ganti bahasa" }).click();
-    await expect(page.getByRole("button", { name: "Choose language" })).toContainText("English");
+    await expect(page.getByRole("button", { name: "Choose language" })).toContainText("Language");
+    await expect(page.getByRole("button", { name: "Choose language" })).toHaveAttribute(
+      "title",
+      "Current language: English",
+    );
     await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect

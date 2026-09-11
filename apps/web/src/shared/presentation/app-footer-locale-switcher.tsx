@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 
-export function footerLanguageIsInSettings(pathname: string | null) {
+export function footerLanguageIsHidden(pathname: string | null) {
   return (
     pathname === "/vaults" ||
     pathname?.startsWith("/vaults/") === true ||
@@ -12,12 +13,20 @@ export function footerLanguageIsInSettings(pathname: string | null) {
   );
 }
 
+export function footerLanguageIsMobileOnly(pathname: string | null) {
+  return pathname === "/";
+}
+
 export function AppFooterLocaleSwitcher() {
   const pathname = usePathname();
+  const t = useTranslations("Locale");
 
-  return footerLanguageIsInSettings(pathname) ? null : (
-    <span data-slot="app-footer-locale-switcher" className="contents">
-      <LocaleSwitcher />
+  return footerLanguageIsHidden(pathname) ? null : (
+    <span
+      data-slot="app-footer-locale-switcher"
+      className={footerLanguageIsMobileOnly(pathname) ? "contents sm:hidden" : "contents"}
+    >
+      <LocaleSwitcher triggerLabel={t("footerLabel")} />
     </span>
   );
 }

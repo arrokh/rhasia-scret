@@ -30,9 +30,11 @@ function persistLocale(nextLocale: AppLocale) {
 export function LocaleSwitcher({
   embedded = false,
   onLocaleRequested,
+  triggerLabel,
 }: {
   embedded?: boolean;
   onLocaleRequested?: (locale: AppLocale) => void;
+  triggerLabel?: string;
 }) {
   const locale = useLocale();
   const t = useTranslations("Locale");
@@ -40,6 +42,7 @@ export function LocaleSwitcher({
   const [nextLocale, setNextLocale] = useState<AppLocale | null>(null);
   const fitEmbeddedMenuRef = useRef<() => void>(() => {});
   const activeLanguage = languageName(locale, t);
+  const visibleTriggerLabel = triggerLabel ?? activeLanguage;
 
   useLayoutEffect(() => {
     // Radix submenus open sideways; shift the embedded language menu when the settings menu leaves no horizontal room.
@@ -187,7 +190,7 @@ export function LocaleSwitcher({
               title={t("selected", { language: activeLanguage })}
             >
               <Languages aria-hidden="true" />
-              <span>{activeLanguage}</span>
+              <span>{visibleTriggerLabel}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent

@@ -127,13 +127,11 @@ export function AppFooterContent({
           {t("footerAuthor")}
         </a>
       </p>
-      <span className="justify-self-center sm:col-start-2 sm:row-start-1">
-        <AppFooterLocaleSwitcher />
-      </span>
       <nav
         aria-label={t("footerNavigation")}
         className="flex items-center justify-self-center gap-3 text-xs font-bold text-muted-foreground sm:col-start-3 sm:row-start-1 sm:justify-self-end"
       >
+        <AppFooterLocaleSwitcher />
         <Link href="/privacy" className="underline-offset-4 hover:text-primary hover:underline">
           {t("privacy")}
         </Link>

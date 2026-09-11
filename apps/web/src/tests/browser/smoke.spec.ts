@@ -63,7 +63,7 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
 });
 
-test("aligns the landing footer as brand, language, and legal navigation", async ({ page }) => {
+test("aligns the landing footer as brand and a right-side utility group", async ({ page }) => {
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 600, height: 844 },
@@ -73,7 +73,7 @@ test("aligns the landing footer as brand, language, and legal navigation", async
 
     const alignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
       const footerBox = footer.getBoundingClientRect();
-      const [, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+      const [brand, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
       const brandChildren = footer.querySelectorAll("p > *");
       const firstBrandChild = brandChildren[0]?.getBoundingClientRect();
       const lastBrandChild = brandChildren[brandChildren.length - 1]?.getBoundingClientRect();
@@ -86,21 +86,21 @@ test("aligns the landing footer as brand, language, and legal navigation", async
         childCount: footer.children.length,
         footerCenter: footerBox.x + footerBox.width / 2,
         brandCenter: (brandContent.left + brandContent.right) / 2,
-        languageCenter: language ? language.x + language.width / 2 : Number.NaN,
-        navigationCenter: navigation ? navigation.x + navigation.width / 2 : Number.NaN,
+        brandColumnCenter: brand.x + brand.width / 2,
+        navigationCenter: navigation.x + navigation.width / 2,
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: window.innerWidth,
       };
     });
 
     expect(alignment.display).toBe("flex");
-    expect(alignment.childCount).toBe(3);
+    expect(alignment.childCount).toBe(2);
     expect(Math.abs(alignment.brandCenter - alignment.footerCenter)).toBeLessThan(2);
-    expect(Math.abs(alignment.languageCenter - alignment.footerCenter)).toBeLessThan(2);
+    expect(Math.abs(alignment.brandColumnCenter - alignment.footerCenter)).toBeLessThan(2);
     expect(Math.abs(alignment.navigationCenter - alignment.footerCenter)).toBeLessThan(2);
     expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
     await expect(
-      page.locator("main.landing-page > footer").getByRole("button", { name: /Pilih bahasa|Choose language/ }),
+      page.locator("main.landing-page > footer").getByRole("button", { name: "Pilih bahasa" }),
     ).toBeVisible();
   }
 
@@ -108,7 +108,7 @@ test("aligns the landing footer as brand, language, and legal navigation", async
   await page.goto("/");
   const desktopAlignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
     const footerBox = footer.getBoundingClientRect();
-    const [brand, language, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
+    const [brand, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
     return {
       display: getComputedStyle(footer).display,
       childCount: footer.children.length,
@@ -116,7 +116,6 @@ test("aligns the landing footer as brand, language, and legal navigation", async
       center: footerBox.x + footerBox.width / 2,
       right: footerBox.right,
       brandLeft: brand.x,
-      languageCenter: language.x + language.width / 2,
       navigationRight: navigation.right,
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
@@ -124,11 +123,11 @@ test("aligns the landing footer as brand, language, and legal navigation", async
   });
 
   expect(desktopAlignment.display).toBe("grid");
-  expect(desktopAlignment.childCount).toBe(3);
+  expect(desktopAlignment.childCount).toBe(2);
   expect(Math.abs(desktopAlignment.brandLeft - desktopAlignment.left)).toBeLessThan(2);
-  expect(Math.abs(desktopAlignment.languageCenter - desktopAlignment.center)).toBeLessThan(2);
   expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
   expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
+  await expect(page.locator("main.landing-page > footer").getByRole("button")).toHaveCount(0);
 });
 
 test("keeps every Vault flow connector straight at mobile and desktop widths", async ({ page }) => {
@@ -206,7 +205,10 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
   await switchLanguage(page, "Bahasa Indonesia", "id");
-  await expect(page.getByRole("button", { name: "Pilih bahasa" })).toContainText("Bahasa Indonesia");
+  await expect(page.getByRole("button", { name: "Pilih bahasa" })).toHaveAttribute(
+    "title",
+    "Bahasa saat ini: Bahasa Indonesia",
+  );
   await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();
 });
 
@@ -281,7 +283,7 @@ async function switchLanguage(
           )
           .first()
       : page.locator('button[aria-label="Pilih bahasa"]:visible, button[aria-label="Choose language"]:visible').first();
-    await expect(languageButton).toContainText(language, { timeout: 15_000 });
+    await expect(languageButton).toHaveAttribute("title", new RegExp(language), { timeout: 15_000 });
   }
   if (isPreview) {
     const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });
