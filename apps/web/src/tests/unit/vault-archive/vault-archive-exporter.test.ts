@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account";
 import {
@@ -73,6 +74,27 @@ describe("VaultArchiveExporter", () => {
     await act(async () => root?.unmount());
     document.body.innerHTML = "";
     vi.clearAllMocks();
+  });
+
+  it("keeps archive controls inert until client hydration", async () => {
+    const form = createElement(VaultArchiveExporter, { workspace });
+    const markup = renderToString(form);
+    const serverDocument = document.implementation.createHTMLDocument();
+    serverDocument.body.innerHTML = markup;
+
+    expect(serverDocument.querySelector("#archive-export-vault")?.hasAttribute("disabled")).toBe(true);
+    expect(serverDocument.querySelector('[role="checkbox"]')?.hasAttribute("disabled")).toBe(true);
+    expect(serverDocument.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(true);
+
+    const container = document.createElement("div");
+    container.innerHTML = markup;
+    document.body.append(container);
+    await act(async () => {
+      root = hydrateRoot(container, form);
+    });
+    expect(container.querySelector("#archive-export-vault")?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('[role="checkbox"]')?.hasAttribute("disabled")).toBe(false);
+    expect(container.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("excludes Viewer Vaults and releases archive/key only after audit succeeds", async () => {
