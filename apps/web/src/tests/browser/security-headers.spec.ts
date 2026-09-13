@@ -22,7 +22,24 @@ test.describe("browser security delivery headers", () => {
   test("allows same-origin Next.js chunks across client-side navigation", async ({ page }) => {
     const response = await page.goto("/", { waitUntil: "domcontentloaded" });
     expect(response?.headers()["content-security-policy"]).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
+    await page.waitForFunction(
+      () => {
+        const heroEnd = document.getElementById("landing-hero-end");
+        const stickyHeader = document.querySelector('[data-testid="landing-sticky-header"]');
+        const pageIsLaidOut =
+          document.body.scrollHeight > window.innerHeight && (heroEnd?.getBoundingClientRect().top ?? 0) > 0;
+        if (pageIsLaidOut) {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: "auto" });
+          window.dispatchEvent(new Event("scroll"));
+        }
+        return stickyHeader?.getAttribute("aria-hidden") === "false";
+      },
+      undefined,
+      {
+        timeout: 10_000,
+      },
+    );
     await page.evaluate(() => {
       const state = window as typeof window & { __cspNavigationMarker?: boolean; __cspChunkViolations?: string[] };
       state.__cspNavigationMarker = true;
