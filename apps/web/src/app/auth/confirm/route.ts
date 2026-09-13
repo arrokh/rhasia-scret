@@ -29,12 +29,6 @@ export async function GET(request: NextRequest) {
   }
   const code = request.nextUrl.searchParams.get("code");
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
-  if (!code && !tokenHash) {
-    if (!cookieStore) return redirectToSignIn(request, "missing_code", nextPath);
-    clearAuthReturnPathCookie(cookieStore);
-    return redirectToSignIn(request, "missing_code", nextPath);
-  }
-
   if (!cookieStore) return redirectToSignIn(request, "configuration_error", nextPath);
   const result = await completeSupabaseCallback(code, tokenHash, cookieStore);
   clearAuthReturnPathCookie(cookieStore);

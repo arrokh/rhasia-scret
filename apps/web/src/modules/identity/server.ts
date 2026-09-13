@@ -27,7 +27,7 @@ export {
 } from "./infrastructure/browser-e2e-passkey-verification";
 export { passkeyRecoveryConfiguration } from "./infrastructure/passkey-recovery-configuration";
 
-export type SupabaseCallbackResult = "success" | "configuration_error" | "verification_failed";
+export type SupabaseCallbackResult = "success" | "configuration_error" | "missing_code" | "verification_failed";
 
 export async function completeSupabaseCallback(
   code: string | null,
@@ -38,9 +38,7 @@ export async function completeSupabaseCallback(
     const configuration = readAuthConfiguration();
     const supabase = readSupabaseCallbackConfiguration();
     if (configuration.backend !== "supabase" || !supabase) return "configuration_error";
-    return (await completeSupabaseCallbackWithAdapter(code, tokenHash, cookieStore, supabase))
-      ? "success"
-      : "verification_failed";
+    return await completeSupabaseCallbackWithAdapter(code, tokenHash, cookieStore, supabase);
   } catch {
     return "verification_failed";
   }
