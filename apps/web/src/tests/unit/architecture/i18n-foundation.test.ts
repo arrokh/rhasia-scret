@@ -173,6 +173,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     name: "name",
     newVault: "no",
     number: 2,
+    position: 2,
     role: "role",
     seconds: 2,
     state: "state",

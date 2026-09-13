@@ -192,8 +192,12 @@ An Authenticator Account whose decrypted TOTP configuration matches another acco
 _Avoid_: Server-side secret fingerprint, invalid account
 
 **Account Order**:
-The presentation order of Authenticator Accounts within a Vault. The MVP derives it locally from decrypted issuer and account name rather than persisting a custom order.
-_Avoid_: Server-side sort metadata, manual ordering
+The presentation order of Authenticator Accounts in the cross-Vault account directory. The default order is derived locally from decrypted issuer, account name, and Vault name. A user may optionally choose a client-only custom order; the browser persists only opaque Vault/Account identifiers, scoped to the Application User, and never sends order metadata to the server or includes it in encrypted content.
+_Avoid_: Server-side sort metadata, plaintext labels in order preferences, pinned groups
+
+**Account Directory Preferences**:
+The client-only presentation settings for the cross-Vault account directory: selected Vault identifiers for filtering, view density, and Account Order. They are profile-scoped browser preferences; only opaque Vault/Account identifiers and a fixed view-mode value are persisted locally, never decrypted labels, TOTP configuration, OTPs, or keys.
+_Avoid_: Server-side display preferences, plaintext Vault labels, filter state in encrypted content
 
 **OTP Copy**:
 An explicit user action that writes the current OTP to the operating system clipboard. The application does not subsequently overwrite or clear that clipboard value.

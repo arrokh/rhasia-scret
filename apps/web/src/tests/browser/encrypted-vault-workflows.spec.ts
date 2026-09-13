@@ -166,6 +166,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
 
   await test.step("edit increments revision and a stale overwrite remains a distinct conflict", async () => {
     await page.getByRole("button", { name: "Kelola image-user" }).first().click();
+    await page.getByRole("menuitem", { name: "Kelola akun" }).click();
     const label = page.getByRole("dialog").getByLabel("Label akun");
     await label.fill("image-user-edited");
     const responsePromise = page.waitForResponse(
@@ -208,6 +209,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   await test.step("delete and restore preserve edited ciphertext while advancing revision", async () => {
     await page.getByRole("button", { name: "Tutup" }).click();
     await page.getByRole("button", { name: "Kelola image-user-edited" }).click();
+    await page.getByRole("menuitem", { name: "Kelola akun" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Hapus akun" }).click();
     const deleteResponse = page.waitForResponse(
       (response) =>

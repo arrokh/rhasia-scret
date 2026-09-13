@@ -67,6 +67,15 @@ describe("SignInPage", () => {
     expect(markup.indexOf('data-slot="separator"')).toBeLessThan(markup.indexOf('href="/offline"'));
   });
 
+  it("shows a clear expired-link notice for the provider error mapping", async () => {
+    mocks.loadApplicationUser.mockResolvedValue(null);
+
+    const page = await SignInPage({ searchParams: Promise.resolve({ auth: "link_expired" }) });
+    const markup = renderToStaticMarkup(createElement("div", null, page));
+
+    expect(markup).toContain("Tautan masuk tidak valid atau sudah kedaluwarsa. Minta tautan baru.");
+  });
+
   it("keeps invitation sign-in scoped to the safe redemption path", async () => {
     mocks.loadApplicationUser.mockResolvedValue(null);
 

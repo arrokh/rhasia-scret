@@ -44,6 +44,7 @@ import { TestQueryProvider } from "@/tests/test-query-provider";
 describe("PersonalVaultAccounts", () => {
   let root: Root | undefined;
   beforeEach(() => {
+    localStorage.clear();
     mocks.loadUnlockedVaultWorkspace.mockReset();
     mocks.loadUnlockedVaultWorkspaceWithPasskey.mockReset();
     mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
@@ -53,6 +54,7 @@ describe("PersonalVaultAccounts", () => {
     await act(async () => root?.unmount());
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     document.body.innerHTML = "";
+    localStorage.clear();
   });
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
@@ -200,6 +202,36 @@ describe("PersonalVaultAccounts", () => {
     expect(container.querySelector("#vault-unlock-secret")).toBeNull();
   });
 
+  it("does not expose Vault management links from a read-only snapshot", async () => {
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            { initialWorkspace: workspace() },
+            createElement(PersonalVaultAccounts, { vaultId: "personal-1" }),
+          ),
+        ),
+      ),
+    );
+    const originalOnline = navigator.onLine;
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      await act(async () => window.dispatchEvent(new Event("offline")));
+
+      expect(
+        container.querySelector('a[aria-label="Buka detail Brankas untuk Example, personal@example.test"]'),
+      ).toBeNull();
+      expect(container.querySelector('a[aria-label="Buka detail Brankas untuk Work, work@example.test"]')).toBeNull();
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: originalOnline });
+    }
+  });
+
   it("renders only the aggregated account list with vault provenance and a dedicated add-page link", async () => {
     mocks.loadUnlockedVaultWorkspace.mockResolvedValue(workspace());
     const container = document.createElement("div");
@@ -231,6 +263,51 @@ describe("PersonalVaultAccounts", () => {
     expect(container.querySelector<HTMLAnchorElement>('a[aria-label="Tambahkan akun autentikator"]')?.pathname).toBe(
       "/vaults/accounts/new",
     );
+    expect(container.querySelector('[data-slot="account-directory-menu"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="account-directory-list"]')?.getAttribute("data-view-mode")).toBe(
+      "normal",
+    );
+    const personalVaultMenuTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Kelola personal@example.test"]',
+    );
+    await act(async () =>
+      personalVaultMenuTrigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })),
+    );
+    const personalVaultLink = [...document.body.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.getAttribute("aria-label") === "Buka detail Brankas untuk Example, personal@example.test",
+    );
+    expect(personalVaultLink?.pathname).toBe("/vaults/manage/personal");
+    await act(async () =>
+      personalVaultMenuTrigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })),
+    );
+    const sharedVaultMenuTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Kelola work@example.test"]',
+    );
+    await act(async () =>
+      sharedVaultMenuTrigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })),
+    );
+    const sharedVaultLink = [...document.body.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.getAttribute("aria-label") === "Buka detail Brankas untuk Work, work@example.test",
+    );
+    expect(sharedVaultLink?.pathname).toBe("/vaults/manage/shared-1");
+    await act(async () =>
+      sharedVaultMenuTrigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })),
+    );
+    const directoryMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-menu"]');
+    await act(async () => directoryMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const reorderAction = [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === "Urutkan akun",
+    );
+    await act(async () => reorderAction?.click());
+    const moveDown = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.getAttribute("aria-label") === "Pindahkan personal@example.test ke bawah",
+    );
+    await act(async () => moveDown?.click());
+    expect(
+      [...container.querySelectorAll<HTMLElement>("[data-account-key]")].map((element) => element.dataset.accountKey),
+    ).toEqual(["shared-1:account-2", "personal-1:account-1"]);
+    expect(container.querySelector('section > span[aria-live="polite"]')?.textContent).toContain("posisi 2");
+    expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).toContain("shared-1:account-2");
     expect(container.querySelector("#account-uri")).toBeNull();
   });
 });

@@ -184,9 +184,11 @@ Set `AUTH_BACKEND=supabase`, the public project URL, and the publishable key. In
 
 - Enable public email signup.
 - Require email confirmation.
-- Set the Site URL to the exact deployed web origin.
+- Set the Site URL to the exact deployed web origin. Keep this as the bare origin; it is Supabase's fallback/default, not the callback path.
 - Allow the exact web callback `https://app.example.com/auth/confirm` and the native callback `https://app.example.com/auth/mobile` when native builds are used; replace `app.example.com` with the operator's exact origin.
 - Use the callback template documented in [`authentication-configuration.md`](authentication-configuration.md); do not hardcode a production Site URL into a shared template.
+
+Supabase matches redirect URLs including the path. An entry for only `https://app.example.com` does not allow `https://app.example.com/auth/confirm`; likewise, local hosted-flow development requires `http://localhost:3000/auth/confirm`, not only `http://localhost:3000`. If the requested callback is not allowlisted, Supabase falls back to the Site URL, so a local request can unexpectedly produce a production link. Request a new email after changing these settings because existing links retain their original redirect.
 
 Verify the provider settings without logging credentials:
 
@@ -261,7 +263,7 @@ AUTH_BACKEND=none pnpm run verify:deployment-config
 AUTH_BACKEND=none pnpm run build
 ```
 
-For local-only browser development, set `AUTH_BACKEND=none`. For hosted-flow development, configure a development Supabase project and its exact localhost callback (`http://localhost:3000/auth/confirm`); never use production provider credentials or Vault material in local files.
+For local-only browser development, set `AUTH_BACKEND=none`. For hosted-flow development, configure a development Supabase project and allow its exact localhost callback (`http://localhost:3000/auth/confirm`) in Supabase Authentication → URL Configuration. The bare `http://localhost:3000` entry is insufficient; if `/auth/confirm` is absent, Supabase uses the project's Site URL fallback. Never use production provider credentials or Vault material in local files.
 
 ## Clean deployment smoke test
 
