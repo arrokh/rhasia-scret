@@ -39,22 +39,30 @@ describe("browser test gate inventory", () => {
     expect(runner).toContain("portOffset: 1");
     expect(runner).toContain("PLAYWRIGHT_SMOKE_WORKERS");
     expect(runner).toContain("PLAYWRIGHT_E2E_WORKERS");
+    expect(runner).toContain("...process.argv.slice(3)");
     expect(gate).toContain('runStage("smoke"');
     expect(gate).toContain('runStage("e2e"');
     expect(gate).toContain('runStage("pwa"');
   });
 
-  it("serializes development suites on constrained CI runners", () => {
+  it("distributes every development suite and browser across independent CI jobs", () => {
     const workflow = readFileSync(resolve(process.cwd(), "../../.github/workflows/ci.yml"), "utf8");
     const gate = readFileSync(resolve(process.cwd(), "scripts/run-browser-gate.ts"), "utf8");
 
-    expect(workflow).toContain("BROWSER_TEST_SEQUENTIAL: 1");
+    expect(workflow).toContain("suite: [smoke, e2e]");
+    expect(workflow).toContain("browser: [chromium, firefox, webkit]");
+    expect(workflow).toContain('pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"');
+    expect(workflow).toContain("PLAYWRIGHT_WORKERS: 1");
+    expect(workflow).toContain("restore-keys:");
+    expect(workflow).toContain("pnpm run test:browser:pwa");
+    expect(workflow).not.toContain("BROWSER_TEST_SEQUENTIAL: 1");
     expect(gate).toContain('process.env.BROWSER_TEST_SEQUENTIAL === "1"');
     expect(gate).toContain('"sequential-dev-suites-then-production-pwa"');
   });
 
-  it("keeps navigation performance as the explicit CI performance command", () => {
+  it("keeps the complete web gate deterministic while allowing an explicit parallel override", () => {
     const packageJson = readFileSync(resolve(process.cwd(), "package.json"), "utf8");
     expect(packageJson).toContain('"performance": "playwright test --config playwright.performance.config.ts"');
+    expect(packageJson).toContain('BROWSER_TEST_SEQUENTIAL=\\"${BROWSER_TEST_SEQUENTIAL:-1}\\"');
   });
 });

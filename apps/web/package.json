@@ -20,7 +20,7 @@
     "test:integration": "vitest run --project integration",
     "test:contract": "vitest run --project contract",
     "test:architecture": "dependency-cruiser --config .dependency-cruiser.cjs src",
-    "test:full": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build && pnpm run performance:bundles:verify && BROWSER_TEST_REUSE_BUILD=1 pnpm run test:browser",
+    "test:full": "pnpm run prisma:validate && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:architecture && pnpm run build && pnpm run performance:bundles:verify && BROWSER_TEST_REUSE_BUILD=1 BROWSER_TEST_SEQUENTIAL=\"${BROWSER_TEST_SEQUENTIAL:-1}\" pnpm run test:browser",
     "test:browser": "tsx scripts/run-browser-gate.ts",
     "test:browser:smoke": "tsx scripts/run-browser-suite.ts smoke",
     "test:browser:e2e": "tsx scripts/run-browser-suite.ts e2e",
