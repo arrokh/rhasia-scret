@@ -26,12 +26,7 @@ const secretScan = read(".github/workflows/secret-scan.yml");
 const dependabot = read(".github/dependabot.yml");
 const monorepo = read("docs/monorepo.md");
 
-requireText(
-  ".github/workflows/ci.yml",
-  ci,
-  /\n\s+push:\s*\n\s+branches:\s+\[main, infra\/chore\/enable-ci-feature-branch\]/,
-  "run for main and the explicitly enabled implementation branch",
-);
+requireText(".github/workflows/ci.yml", ci, /\n\s+push:\s*\n\s+branches:\s+\[main\]/, "run for pushes to main");
 requireText(
   ".github/workflows/ci.yml",
   ci,

@@ -50,9 +50,9 @@ describe("browser-delivery security boundaries", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
   });
 
-  it("runs quality and browser CI for main pushes, the implementation branch, and pull requests", () => {
+  it("runs quality and browser CI for main pushes and pull requests", () => {
     const workflow = read("../../.github/workflows/ci.yml");
-    expect(workflow).toContain("on:\n  push:\n    branches: [main, infra/chore/enable-ci-feature-branch]");
+    expect(workflow).toContain("on:\n  push:\n    branches: [main]");
     expect(workflow).toContain("pull_request:\n    branches: [main]");
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("name: Quality and database test suite");

@@ -65,7 +65,7 @@ test("wires package selection to every consuming job without cancelling a differ
   assert.ok(workflow.includes("pull_request:\n    branches: [main]"));
   assert.ok(changes.includes("group: ci-changes-${{ github.workflow }}-${{ github.ref_name }}"));
   assert.match(changes, /cancel-in-progress: true/);
-  assert.ok(workflow.includes("branches: [main, infra/chore/enable-ci-feature-branch]"));
+  assert.ok(workflow.includes("branches: [main]"));
   for (const [name, scope, timeout, concurrencyGroup] of [
     ["core", "core", 8, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
     ["quality", "web", 8, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],

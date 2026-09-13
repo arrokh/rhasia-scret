@@ -1,10 +1,10 @@
 # Continuous integration and security automation
 
-GitHub Actions provides main-push and pull-request quality gates, an explicitly enabled implementation-branch quality gate, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
+GitHub Actions provides main-push and pull-request quality gates, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
 
 ## Events and permissions
 
-The quality and browser verification workflow runs for pushes to `main`, the explicitly enabled implementation branch `infra/chore/enable-ci-feature-branch`, and pull requests targeting `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
+The quality and browser verification workflow runs for pushes to `main` and pull requests targeting `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
 
 - format check: pull requests targeting `main` and pushes to `main`;
 - CodeQL and secret scanning: pull requests targeting `main`, pushes to `main`, manual dispatch, and (for secret scanning) the weekly schedule;
@@ -13,11 +13,11 @@ The quality and browser verification workflow runs for pushes to `main`, the exp
 
 Workflows declare least-privilege read access by default. CodeQL receives `security-events: write` only for its analysis job so results can be uploaded when GitHub permits it; fork pull requests still execute analysis but do not receive repository secrets or write access.
 
-Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the protected main push, the explicitly enabled implementation branch, and pull requests targeting `main`.
+Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the protected main push and pull requests targeting `main`.
 
 ## Required verification coverage
 
-The main-push, implementation-branch, and pull-request workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
+The main-push and pull-request workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
 
 - **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
@@ -81,4 +81,4 @@ CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --repo
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
 
-The policy verifier checks the main, implementation-branch, and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.
+The policy verifier checks the main and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.
