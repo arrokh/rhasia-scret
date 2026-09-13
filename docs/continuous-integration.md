@@ -1,10 +1,10 @@
 # Continuous integration and security automation
 
-GitHub Actions provides a main-push quality gate, an explicitly enabled implementation-branch quality gate, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
+GitHub Actions provides main-push and pull-request quality gates, an explicitly enabled implementation-branch quality gate, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
 
 ## Events and permissions
 
-The quality and browser verification workflow runs for pushes to `main` and the explicitly enabled implementation branch `infra/chore/enable-ci-feature-branch`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
+The quality and browser verification workflow runs for pushes to `main`, the explicitly enabled implementation branch `infra/chore/enable-ci-feature-branch`, and pull requests targeting `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
 
 - format check: pull requests targeting `main` and pushes to `main`;
 - CodeQL and secret scanning: pull requests targeting `main`, pushes to `main`, manual dispatch, and (for secret scanning) the weekly schedule;
@@ -13,11 +13,11 @@ The quality and browser verification workflow runs for pushes to `main` and the 
 
 Workflows declare least-privilege read access by default. CodeQL receives `security-events: write` only for its analysis job so results can be uploaded when GitHub permits it; fork pull requests still execute analysis but do not receive repository secrets or write access.
 
-Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the protected main push and the explicitly enabled implementation branch.
+Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the protected main push, the explicitly enabled implementation branch, and pull requests targeting `main`.
 
 ## Required verification coverage
 
-The main-push and implementation-branch workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
+The main-push, implementation-branch, and pull-request workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
 
 - **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
@@ -25,7 +25,7 @@ The main-push and implementation-branch workflow targets a sub-five-minute criti
 - **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
-Every CI job has a five-minute hard timeout. This is enforced after the work is distributed; it is not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
+Every CI job has an eight-minute hard timeout. This is enforced after the work is distributed; it is not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
 JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
@@ -51,7 +51,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - one pull-request approval before merge;
 - stale approval dismissal after new commits;
-- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, and `Secret scan`; quality and browser verification run on pushes to `main` and the explicitly enabled implementation branch;
+- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, `Secret scan`, and all CI jobs (`Detect affected packages`, `Repository policy and dependencies`, `Shared client package verification`, `Quality and database test suite`, `Mobile verification`, `Browser smoke (chromium)`, `Browser e2e (chromium)`, and `Production PWA and navigation performance`);
 - strict up-to-date-branch checks and required conversation resolution;
 - linear history enforcement;
 - force-push and branch-deletion restrictions; and
@@ -81,4 +81,4 @@ CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --repo
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
 
-The policy verifier checks the main and explicitly enabled implementation-branch quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.
+The policy verifier checks the main, implementation-branch, and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.

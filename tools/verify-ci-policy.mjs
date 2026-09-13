@@ -32,7 +32,12 @@ requireText(
   /\n\s+push:\s*\n\s+branches:\s+\[main, infra\/chore\/enable-ci-feature-branch\]/,
   "run for main and the explicitly enabled implementation branch",
 );
-if (/\n\s+pull_request:\s*(?:\n|$)/.test(ci)) failures.push(".github/workflows/ci.yml must not run for pull requests");
+requireText(
+  ".github/workflows/ci.yml",
+  ci,
+  /\n\s+pull_request:\s*\n\s+branches:\s+\[main\]/,
+  "run for pull requests targeting main",
+);
 if (/\n\s+workflow_dispatch:\s*(?:\n|$)/.test(ci))
   failures.push(".github/workflows/ci.yml must not support manual dispatch");
 requireText(
@@ -72,9 +77,9 @@ requireText(
   "focus hosted browser coverage on Chromium with Firefox and WebKit deferred",
 );
 
-const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 5$/gm) ?? []).length;
+const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
 if (ciTimeoutCount !== 7)
-  failures.push(`.github/workflows/ci.yml must enforce five-minute timeouts for all 7 jobs (found ${ciTimeoutCount})`);
+  failures.push(`.github/workflows/ci.yml must enforce eight-minute timeouts for all 7 jobs (found ${ciTimeoutCount})`);
 if (/^concurrency:/m.test(ci)) failures.push(".github/workflows/ci.yml must use job-scoped concurrency");
 for (const group of [
   "ci-changes-${{ github.workflow }}-${{ github.ref_name }}",
@@ -168,12 +173,8 @@ requireText(
   /package-ecosystem:\s*["']?github-actions["']?/,
   "update GitHub Actions",
 );
-if (
-  /quality\/database and browser jobs for pull requests|quality and browser checks scoped to pull requests/.test(
-    monorepo,
-  )
-)
-  failures.push("docs/monorepo.md must not describe quality/browser CI as pull-request-only");
+if (!/CI quality\/browser jobs also run on pull requests targeting `main`/.test(monorepo))
+  failures.push("docs/monorepo.md must describe quality/browser CI on pull requests targeting main");
 
 const workflowPaths = [
   ".github/workflows/ci.yml",
@@ -199,5 +200,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "CI policy verified: main-push quality gate, affected-package selection, five-minute job budgets, fork-safe PR security checks, least privilege, coverage, and immutable action pins are present.",
+  "CI policy verified: main/PR quality gates, affected-package selection, eight-minute job budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
 );

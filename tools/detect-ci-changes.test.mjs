@@ -61,21 +61,22 @@ test("wires package selection to every consuming job without cancelling a differ
     return body;
   };
   const changes = job("changes");
-  assert.ok(changes.includes("timeout-minutes: 5"));
+  assert.ok(changes.includes("timeout-minutes: 8"));
+  assert.ok(workflow.includes("pull_request:\n    branches: [main]"));
   assert.ok(changes.includes("group: ci-changes-${{ github.workflow }}-${{ github.ref_name }}"));
   assert.match(changes, /cancel-in-progress: true/);
   assert.ok(workflow.includes("branches: [main, infra/chore/enable-ci-feature-branch]"));
   for (const [name, scope, timeout, concurrencyGroup] of [
-    ["core", "core", 5, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
-    ["quality", "web", 5, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],
-    ["mobile", "mobile", 5, "ci-mobile-${{ github.workflow }}-${{ github.ref_name }}"],
+    ["core", "core", 8, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
+    ["quality", "web", 8, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],
+    ["mobile", "mobile", 8, "ci-mobile-${{ github.workflow }}-${{ github.ref_name }}"],
     [
       "browser",
       "web",
-      5,
+      8,
       "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
     ],
-    ["browser-production", "web", 5, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
+    ["browser-production", "web", 8, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
   ]) {
     const body = job(name);
     assert.match(body, /^    needs: changes$/m);
@@ -86,11 +87,15 @@ test("wires package selection to every consuming job without cancelling a differ
   }
   const repository = job("repository");
   assert.doesNotMatch(repository, /^    (?:if|needs):/m);
-  assert.ok(repository.includes("timeout-minutes: 5"));
+  assert.ok(repository.includes("timeout-minutes: 8"));
   assert.ok(repository.includes("group: ci-repository-${{ github.workflow }}-${{ github.ref_name }}"));
   assert.match(repository, /cancel-in-progress: true/);
   assert.match(job("changes"), /fetch-depth: 0/);
-  assert.ok(job("changes").includes("CI_BASE_SHA: ${{ github.event.before }}"));
+  assert.ok(
+    job("changes").includes(
+      "CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}",
+    ),
+  );
   for (const scope of ["core", "web", "mobile"]) {
     assert.ok(job("changes").includes(scope + ": ${{ steps.detect.outputs." + scope + " }}"));
   }

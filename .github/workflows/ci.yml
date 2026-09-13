@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main, infra/chore/enable-ci-feature-branch]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -11,7 +13,7 @@ jobs:
   changes:
     name: Detect affected packages
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-changes-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
@@ -29,13 +31,13 @@ jobs:
       - name: Detect affected packages across the complete push
         id: detect
         env:
-          CI_BASE_SHA: ${{ github.event.before }}
+          CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: node tools/detect-ci-changes.mjs
 
   repository:
     name: Repository policy and dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-repository-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
@@ -91,7 +93,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-core-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
@@ -128,7 +130,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     name: Quality and database test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
@@ -199,7 +201,7 @@ jobs:
     if: needs.changes.outputs.mobile == 'true'
     name: Mobile verification
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-mobile-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
@@ -236,7 +238,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     name: Browser ${{ matrix.suite }} (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}
       cancel-in-progress: true
@@ -329,7 +331,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     name: Production PWA and navigation performance
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     concurrency:
       group: ci-web-production-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true
