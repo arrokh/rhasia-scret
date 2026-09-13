@@ -23,7 +23,7 @@ The main-push and implementation-branch workflow targets a sub-five-minute criti
 - **Core:** shared client package typecheck and tests when shared code changes.
 - **Quality:** Prisma generation/schema/migration/backfill, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
 - **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
-- **Browser matrix:** smoke and encrypted workflows for each supported engine, plus a production PWA/navigation job, when web code changes.
+- **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
 Every CI job has a five-minute hard timeout. This is enforced after the work is distributed; it is not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
@@ -72,11 +72,11 @@ pnpm run verify:ci-policy
 pnpm run test:full
 ```
 
-For the browser topology used in CI, run one suite/engine cell at a time. The hosted workflow uses a six-cell matrix so the three engines do not serialize behind one runner:
+For the browser topology used in CI, run one suite/engine cell at a time. The hosted workflow uses a two-cell Chromium matrix so its suites do not serialize behind one runner; Firefox and WebKit are intentionally commented out:
 
 ```bash
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=firefox --reporter=list
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=firefox --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --reporter=list
 ```
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.

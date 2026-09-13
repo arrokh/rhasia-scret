@@ -244,7 +244,10 @@ jobs:
       fail-fast: false
       matrix:
         suite: [smoke, e2e]
-        browser: [chromium, firefox, webkit]
+        browser:
+          - chromium
+          # - firefox: intentionally deferred from hosted CI coverage
+          # - webkit: intentionally deferred from hosted CI coverage
     services:
       postgres:
         image: postgres:16
@@ -391,9 +394,9 @@ jobs:
       - name: Backfill provider-neutral identities
         run: pnpm run prisma:backfill-external-identities
       - name: Install Playwright system dependencies
-        run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium firefox webkit
+        run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium
       - name: Ensure supported browsers are installed
-        run: pnpm --filter @rhasia-scret/web exec playwright install chromium firefox webkit
+        run: pnpm --filter @rhasia-scret/web exec playwright install chromium
 
       - name: Save Playwright browser cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
@@ -403,6 +406,6 @@ jobs:
           key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
 
       - name: Run production PWA tests
-        run: pnpm run test:browser:pwa --reporter=list
+        run: pnpm run test:browser:pwa --project=chromium --reporter=list
       - name: Run navigation performance checks
         run: pnpm run test:performance

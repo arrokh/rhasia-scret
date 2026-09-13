@@ -4,13 +4,15 @@
 
 `pnpm run test:browser` preserves the existing three-stage merge gate:
 
-1. Smoke coverage: `playwright.config.ts`, all browser smoke/preview/security/archive specs, Chromium + Firefox + WebKit.
-2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium + Firefox + WebKit.
-3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and all supported browser projects (with its existing capability skips).
+1. Smoke coverage: `playwright.config.ts`, all browser smoke/preview/security/archive specs, Chromium in hosted CI.
+2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium in hosted CI.
+3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and the Chromium project used by hosted CI.
 
-The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with one worker and its own PostgreSQL service. The six development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (12 workflow jobs total).
+Firefox and WebKit are intentionally deferred and commented out of both the CI workflow matrix and Playwright project configuration. No Firefox or WebKit test is expected for this support focus.
 
-CI retains its existing capability skips: the two data-heavy WebKit encrypted-workflow cases remain skipped; Chromium and Firefox retain those scenarios, while WebKit retains lighter Personal Vault and passkey coverage. No test or browser project was removed by the CI distribution change.
+The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with one worker and its own PostgreSQL service. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
+
+CI and the required local gate focus on Chromium. Firefox and WebKit are commented out of the hosted matrix and Playwright project configuration, and no non-Chromium coverage is expected.
 
 | Stage               |                                 Port | Next output           | Specs                                                                                                                                   |
 | ------------------- | -----------------------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,17 +46,17 @@ The browser gate spent 554.6s (92% of its 602.1s stage total) in the two develop
 
 Changes in this checkout:
 
-- Run smoke and encrypted workflows in a `suite: [smoke, e2e]` × `browser: [chromium, firefox, webkit]` matrix. Preserve one worker per runner and separate databases to avoid prior CPU contention and global E2E fixture cleanup collisions.
+- Run smoke and encrypted workflows in a `suite: [smoke, e2e]` × `browser: [chromium]` matrix, with Firefox and WebKit commented out. Preserve one worker per runner and separate databases to avoid prior CPU contention and global E2E fixture cleanup collisions.
 - Forward Playwright CLI arguments through the suite runner so `--project` actually selects one engine. Use the list reporter in CI for individual test durations; the previous dot reporter buffered output and did not expose per-test timings.
 - Run mobile verification independently. Keep full core verification in quality; scope later lint/typecheck/tests to web, retain release-evidence tests, and remove the extra client-output verification already invoked by `build`.
 - Run production dependency/license checks once in quality. Install/cache only the selected browser for each matrix job. PWA still installs all supported engines and verifies a production build.
 - Set a five-minute timeout on every CI job as a hard failure ceiling. This is enforced after the work is distributed; GitHub runner queue time is outside that ceiling.
 
-The E2E log boundaries put Chromium at approximately 135s, Firefox at 144s, and WebKit at 25s, excluding shared startup/teardown. These are engine-level approximations from worker transition timestamps, not individual test measurements. With approximately 100s of existing setup, the longest engine suggests a roughly four-minute job. Fresh compilation on every runner, cold downloads, and runner availability can change that result. **A successful hosted run below five minutes remains unverified until this workflow runs on `main`.**
+The E2E log boundaries put Chromium at approximately 135s, excluding shared startup/teardown. This is an engine-level approximation from worker transition timestamps, not individual test measurements. With approximately 100s of existing setup, the Chromium target suggests a roughly four-minute job. Fresh compilation on every runner, cold downloads, and runner availability can change that result. **A successful hosted run below five minutes remains unverified until this workflow runs on `main`.**
 
-Local matrix-cell validation on the current checkout passed: core `1.7s`, mobile `21.4s`, Chromium smoke `33.5s`, Chromium encrypted workflows `111.5s`, and Firefox smoke `43.9s`. These timings exclude hosted-runner queue time and are not a substitute for the hosted measurement. The workflow is enabled on `main` and the explicitly enabled implementation branch; do not use a merge as a substitute for the required local full gate.
+Local matrix-cell validation on the current checkout passed: core `1.7s`, mobile `21.4s`, Chromium smoke `33.5s`, and Chromium encrypted workflows `111.5s`. These timings exclude hosted-runner queue time and are not a substitute for the hosted measurement. The workflow is enabled on `main` and the explicitly enabled implementation branch; do not use a merge as a substitute for the required local full gate.
 
-This approach spends more aggregate runner time and browser-cache storage to reduce elapsed time. Eleven runner slots avoid queueing the repository/package/browser checks; twelve jobs run when change detection is included. If a hosted job exceeds the budget, use its individual timings to split the slowest check further or investigate its specific slow scenario. Do not reduce KDF work factors, enable E2E authentication in production, disable test isolation, or remove cross-browser encryption/authorization coverage to reach a timing target. Playwright also recommends [one CI worker and distribution across machines](https://playwright.dev/docs/ci) for stability.
+This approach spends more aggregate runner time and browser-cache storage to reduce elapsed time. Eight jobs run when change detection is included. If a hosted job exceeds the budget, use its individual timings to split the slowest check further or investigate its specific slow scenario. Do not reduce KDF work factors, enable E2E authentication in production, disable test isolation, or remove Chromium encryption and authorization coverage to reach a timing target. Playwright also recommends [one CI worker and distribution across machines](https://playwright.dev/docs/ci) for stability.
 
 ## Historical timing evidence
 
@@ -97,8 +99,8 @@ pnpm run test:browser
 Run exactly one development matrix cell (CI preserves existing capability skips):
 
 ```bash
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=firefox --reporter=list
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=firefox --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --reporter=list
 ```
 
 `PLAYWRIGHT_WORKERS` remains the general worker override; `PLAYWRIGHT_SMOKE_WORKERS` and `PLAYWRIGHT_E2E_WORKERS` optionally override it for local suite runners. `PLAYWRIGHT_FULLY_PARALLEL` retains its existing configuration contract. GitHub Actions uses one worker for each development matrix cell and two for PWA. The complete `test:full` gate defaults to sequential development suites for deterministic constrained-machine results; set `BROWSER_TEST_SEQUENTIAL=0` to opt into concurrent local suites. Encrypted workflows deliberately use `next dev`: their controlled authentication and passkey seams must remain disabled in production. PWA continues to exercise `next start` production output.

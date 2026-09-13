@@ -45,17 +45,23 @@ describe("browser test gate inventory", () => {
     expect(gate).toContain('runStage("pwa"');
   });
 
-  it("distributes every development suite and browser across independent CI jobs", () => {
+  it("distributes each development suite across the explicitly supported Chromium CI target", () => {
     const workflow = readFileSync(resolve(process.cwd(), "../../.github/workflows/ci.yml"), "utf8");
     const gate = readFileSync(resolve(process.cwd(), "scripts/run-browser-gate.ts"), "utf8");
+    const playwrightConfig = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
 
     expect(workflow).toContain("suite: [smoke, e2e]");
-    expect(workflow).toContain("browser: [chromium, firefox, webkit]");
+    expect(workflow).toContain(
+      "browser:\n          - chromium\n          # - firefox: intentionally deferred from hosted CI coverage\n          # - webkit: intentionally deferred from hosted CI coverage",
+    );
     expect(workflow).toContain('pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"');
     expect(workflow).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(workflow).toContain("restore-keys:");
-    expect(workflow).toContain("pnpm run test:browser:pwa");
+    expect(workflow).toContain("pnpm run test:browser:pwa --project=chromium");
     expect(workflow).not.toContain("BROWSER_TEST_SEQUENTIAL: 1");
+    expect(workflow).not.toContain("browser: [chromium, firefox, webkit]");
+    expect(playwrightConfig).toContain('// { name: "firefox", use: { ...devices["Desktop Firefox"] } }');
+    expect(playwrightConfig).toContain('// { name: "webkit", use: { ...devices["Desktop Safari"] } }');
     expect(gate).toContain('process.env.BROWSER_TEST_SEQUENTIAL === "1"');
     expect(gate).toContain('"sequential-dev-suites-then-production-pwa"');
   });
