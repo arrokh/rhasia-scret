@@ -44,17 +44,20 @@ describe("browser-delivery security boundaries", () => {
     expect(workflow).not.toMatch(/uses:\s+[^\s]+@v\d/);
     expect(workflow).toContain("pnpm audit --prod --audit-level=high");
     expect(workflow).toContain("pnpm run verify:dependency-licenses");
-    expect(workflow).toContain("verify:build-output");
+    expect(workflow).toContain("pnpm run build");
+    const webPackage = JSON.parse(read("package.json")) as { scripts: { postbuild: string } };
+    expect(webPackage.scripts.postbuild).toContain("pnpm run verify:build-output");
     expect(workflow).toContain("permissions:\n  contents: read");
   });
 
-  it("runs quality and browser CI only for pushes to main", () => {
+  it("runs quality and browser CI for main pushes and pull requests", () => {
     const workflow = read("../../.github/workflows/ci.yml");
     expect(workflow).toContain("on:\n  push:\n    branches: [main]");
-    expect(workflow).not.toContain("pull_request:");
+    expect(workflow).toContain("pull_request:\n    branches: [main]");
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("name: Quality and database test suite");
-    expect(workflow).toContain("name: Browser smoke test");
+    expect(workflow).toContain("name: Browser ${{ matrix.suite }} (${{ matrix.browser }})");
+    expect(workflow).toContain("name: Production PWA and navigation performance");
 
     const codeql = read("../../.github/workflows/codeql.yml");
     expect(codeql).toContain("pull_request:");

@@ -1,10 +1,10 @@
 # Continuous integration and security automation
 
-GitHub Actions provides a main-push quality gate, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
+GitHub Actions provides main-push and pull-request quality gates, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
 
 ## Events and permissions
 
-The quality and browser verification workflow runs only for pushes to `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
+The quality and browser verification workflow runs for pushes to `main` and pull requests targeting `main`. The formatting workflow runs on pull requests and pushes to `main`; the security workflows run on their appropriate public events:
 
 - format check: pull requests targeting `main` and pushes to `main`;
 - CodeQL and secret scanning: pull requests targeting `main`, pushes to `main`, manual dispatch, and (for secret scanning) the weekly schedule;
@@ -13,21 +13,19 @@ The quality and browser verification workflow runs only for pushes to `main`. Th
 
 Workflows declare least-privilege read access by default. CodeQL receives `security-events: write` only for its analysis job so results can be uploaded when GitHub permits it; fork pull requests still execute analysis but do not receive repository secrets or write access.
 
-Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the subsequent push to `main`.
+Do not add secrets to pull-request jobs. GitHub does not expose repository secrets to fork workflows, and the formatting and security jobs must continue to work without provider, deployment, signing, or database secrets. Full quality and browser verification runs on the protected main push and pull requests targeting `main`.
 
 ## Required verification coverage
 
-The quality job covers:
+The main-push and pull-request workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
 
-1. frozen-lockfile installation with Node.js `24.19.0` and pnpm `11.17.0`;
-2. product-version alignment across the root, web, mobile, core, and Expo configuration;
-3. shared client package verification;
-4. Expo mobile JavaScript verification;
-5. production dependency audit and dependency-license review;
-6. Prisma generation, schema validation, migrations, and provider-neutral identity backfill;
-7. lint, strict typechecking, unit/integration/contract tests, architecture checks, and production build;
-8. client build-output and route-bundle checks.
-9. repository formatting through `pnpm run format:check`.
+- **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, formatting, production dependency audit, and license review.
+- **Core:** shared client package typecheck and tests when shared code changes.
+- **Quality:** Prisma generation/schema/migration/backfill, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
+- **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
+- **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
+
+Every CI job has an eight-minute hard timeout. This is enforced after the work is distributed; it is not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
 JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
@@ -35,8 +33,6 @@ repository schema. Prisma-generated SQL migrations are not rewritten after
 generation. The vendored Argon2 C/C++ implementation and native platform
 adapters remain outside this automatic formatter until the project adopts
 dedicated, compatible formatters for those languages.
-
-The browser job covers Playwright smoke, encrypted workflow, PWA, security-header, localization, archive, and performance coverage through `pnpm run test:browser` and `pnpm run test:performance`. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
 The dependency-review job runs on pull requests and rejects newly introduced dependencies with a high or critical advisory. `pnpm audit --prod --audit-level=high` and the repository license policy remain required main-push quality steps.
 
@@ -55,7 +51,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - one pull-request approval before merge;
 - stale approval dismissal after new commits;
-- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, and `Secret scan`; quality and browser verification run on pushes to `main`;
+- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, `Secret scan`, and all CI jobs (`Detect affected packages`, `Repository policy and dependencies`, `Shared client package verification`, `Quality and database test suite`, `Mobile verification`, `Browser smoke (chromium)`, `Browser e2e (chromium)`, and `Production PWA and navigation performance`);
 - strict up-to-date-branch checks and required conversation resolution;
 - linear history enforcement;
 - force-push and branch-deletion restrictions; and
@@ -76,14 +72,13 @@ pnpm run verify:ci-policy
 pnpm run test:full
 ```
 
-For the browser topology used in CI:
+For the browser topology used in CI, run one suite/engine cell at a time. The hosted workflow uses a two-cell Chromium matrix so its suites do not serialize behind one runner; Firefox and WebKit are intentionally commented out:
 
 ```bash
-CI=true \
-BROWSER_TEST_SEQUENTIAL=1 \
-PLAYWRIGHT_SMOKE_WORKERS=1 \
-PLAYWRIGHT_E2E_WORKERS=1 \
-pnpm run test:browser
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e --project=chromium --reporter=list
 ```
 
-The policy verifier checks the main-push quality trigger, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.
+`BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
+
+The policy verifier checks the main and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.

@@ -23,17 +23,21 @@ const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const suiteWorkers =
   suiteName === "smoke" ? process.env.PLAYWRIGHT_SMOKE_WORKERS?.trim() : process.env.PLAYWRIGHT_E2E_WORKERS?.trim();
 rmSync(absoluteDistDir, { recursive: true, force: true });
-const child = spawn(command, ["exec", "playwright", "test", "--config", suite.config, "--max-failures=1"], {
-  cwd: process.cwd(),
-  env: {
-    ...process.env,
-    BROWSER_TEST_PORT: String(port),
-    NEXT_DIST_DIR: distDir,
-    ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {}),
+const child = spawn(
+  command,
+  ["exec", "playwright", "test", "--config", suite.config, "--max-failures=1", ...process.argv.slice(3)],
+  {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      BROWSER_TEST_PORT: String(port),
+      NEXT_DIST_DIR: distDir,
+      ...(suiteWorkers ? { PLAYWRIGHT_WORKERS: suiteWorkers } : {}),
+    },
+    stdio: "inherit",
+    detached: process.platform !== "win32",
   },
-  stdio: "inherit",
-  detached: process.platform !== "win32",
-});
+);
 
 let cleaned = false;
 function cleanDistDir(): void {

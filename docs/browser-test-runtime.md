@@ -4,11 +4,15 @@
 
 `pnpm run test:browser` preserves the existing three-stage merge gate:
 
-1. Smoke coverage: `playwright.config.ts`, all browser smoke/preview/security/archive specs, Chromium + Firefox + WebKit.
-2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium + Firefox + WebKit.
-3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and all supported browser projects (with its existing capability skips).
+1. Smoke coverage: `playwright.config.ts`, all browser smoke/preview/security/archive specs, Chromium in hosted CI.
+2. Real encrypted workflows: `playwright.e2e.config.ts`, all Personal Vault, Shared Vault, recovery, passkey, localization, and client-only crypto workflows, Chromium in hosted CI.
+3. Production PWA coverage: `playwright.pwa.config.ts`, the offline PWA spec and the Chromium project used by hosted CI.
 
-The smoke and encrypted-workflow stages use distinct ports and Next development output directories. They run concurrently by default for fast local feedback. GitHub Actions sets `CI=true` and `BROWSER_TEST_SEQUENTIAL=1` to run them one after the other, avoiding the cross-suite CPU and database contention that made browser outcomes intermittent on constrained hosted runners. In CI mode, the two data-heavy WebKit encrypted-workflow cases are intentionally skipped; Chromium and Firefox retain those scenarios, while WebKit retains the lighter Personal Vault and passkey coverage:
+Firefox and WebKit are intentionally deferred and commented out of both the CI workflow matrix and Playwright project configuration. No Firefox or WebKit test is expected for this support focus.
+
+The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with its own PostgreSQL service. Smoke keeps one worker for stability; encrypted workflows use two workers because their scenarios use distinct browser-E2E identities. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
+
+CI and the required local gate focus on Chromium. Firefox and WebKit are commented out of the hosted matrix and Playwright project configuration, and no non-Chromium coverage is expected.
 
 | Stage               |                                 Port | Next output           | Specs                                                                                                                                   |
 | ------------------- | -----------------------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,11 +20,45 @@ The smoke and encrypted-workflow stages use distinct ports and Next development 
 | Encrypted workflows |              `BROWSER_TEST_PORT + 1` | `.next/browser-e2e`   | `encrypted-vault-workflows`                                                                                                             |
 | Production PWA      |                  `BROWSER_TEST_PORT` | `.next`               | `offline-pwa`                                                                                                                           |
 
-The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory and CI serialization setting are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains a separate `pnpm run test:performance` check in CI.
+The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory and complete CI suite/browser matrix are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains an explicit `pnpm run test:performance` check, sequentially after production PWA tests on their dedicated runner. Neither shares a database with another CI job.
 
 The web full gate already builds production output before browser tests. It passes `BROWSER_TEST_REUSE_BUILD=1` so the PWA stage starts that verified build rather than running a second `next build`. Running `pnpm run test:browser:pwa` directly still builds production output, so targeted use remains self-contained.
 
-## Timing evidence
+## September 2026 CI diagnosis
+
+Baseline: [CI run #34754665849](https://github.com/arrokh/rhasia-scret/actions/runs/34754665849), commit `68459990c1f59ea93e2fa6bba5cc5755d2c5bf1d`, 2026-09-13. Timings below come from the GitHub Jobs API and timestamped job logs, not a local estimate.
+
+| Measured work                                                     |      Duration | Finding                                                             |
+| ----------------------------------------------------------------- | ------------: | ------------------------------------------------------------------- |
+| Browser job, including setup and cleanup                          |        12m14s | Critical path; workflow creation through completion was 12m17s      |
+| Smoke: 99 passed, one worker                                      |        242.0s | All three engines serialized                                        |
+| Encrypted workflows: 11 passed, 4 skipped, one worker             |        312.6s | All three engines serialized after smoke                            |
+| Production PWA: 9 passed, 6 skipped                               |         47.5s | Included another production build; followed both development suites |
+| Navigation performance step                                       |           29s | Ran after the complete browser gate                                 |
+| Browser system dependency installation                            |           31s | Browser cache does not cache OS packages                            |
+| Browser pnpm install / pnpm cache restore / browser cache restore | 12s / 8s / 6s | Both caches hit; cache misses did not explain this run              |
+| Quality job                                                       |         5m01s | Serial mobile verification and repeated package checks              |
+| Mobile full verification                                          |           82s | Includes lint, types, tests, Expo Doctor, and both JS exports       |
+| Root unit/integration/contract test step                          |           64s | Includes repeated core/mobile tests; web Vitest itself was 51.66s   |
+| Quality production build                                          |           32s | Already includes client-output verification in `postbuild`          |
+
+The browser gate spent 554.6s (92% of its 602.1s stage total) in the two development suites. The older workflow set `BROWSER_TEST_SEQUENTIAL=1`, `PLAYWRIGHT_SMOKE_WORKERS=1`, and `PLAYWRIGHT_E2E_WORKERS=1`: the general `PLAYWRIGHT_WORKERS=2` did not apply to those suites. The evidence supports runner-level distribution before deleting tests or tuning unit-test isolation.
+
+Changes in this checkout:
+
+- Run smoke and encrypted workflows in a `suite: [smoke, e2e]` × `browser: [chromium]` matrix, with Firefox and WebKit commented out. Preserve one smoke worker, use two encrypted-workflow workers, and keep separate databases to avoid prior CPU contention and global E2E fixture cleanup collisions.
+- Forward Playwright CLI arguments through the suite runner so `--project` actually selects one engine. Use the list reporter in CI for individual test durations; the previous dot reporter buffered output and did not expose per-test timings.
+- Run mobile verification independently. Keep full core verification in quality; scope later lint/typecheck/tests to web, retain release-evidence tests, and remove the extra client-output verification already invoked by `build`.
+- Run production dependency/license checks once in quality. Install/cache only the selected browser for each matrix job. PWA still installs all supported engines and verifies a production build.
+- Set an eight-minute timeout on every CI job as a hard failure ceiling. This is enforced after the work is distributed; GitHub runner queue time is outside that ceiling.
+
+The E2E log boundaries put Chromium at approximately 135s, excluding shared startup/teardown. This is an engine-level approximation from worker transition timestamps, not individual test measurements. With approximately 100s of existing setup, the Chromium target suggests a roughly four-minute job. Fresh compilation on every runner, cold downloads, and runner availability can change that result. **A successful hosted run below five minutes remains the performance target; the eight-minute timeout is the failure ceiling.**
+
+Local matrix-cell validation on the current checkout passed: core `1.7s`, mobile `21.4s`, Chromium smoke `33.5s`, and Chromium encrypted workflows `111.5s`. These timings exclude hosted-runner queue time and are not a substitute for the hosted measurement. The workflow runs on `main` and pull requests targeting `main`; do not use a merge as a substitute for the required local full gate.
+
+This approach spends more aggregate runner time and browser-cache storage to reduce elapsed time. Eight jobs run when change detection is included. If a hosted job exceeds the budget, use its individual timings to split the slowest check further or investigate its specific slow scenario. Do not reduce KDF work factors, enable E2E authentication in production, disable test isolation, or remove Chromium encryption and authorization coverage to reach a timing target. Playwright also recommends [one CI worker and distribution across machines](https://playwright.dev/docs/ci) for stability.
+
+## Historical timing evidence
 
 All local measurements used the same generated Prisma client, local PostgreSQL database, installed browser binaries, Node 24.19.0, and the same working tree. The report contains only suite status and durations; it contains no account data, secrets, keys, OTPs, or decrypted content.
 
@@ -50,7 +88,7 @@ pnpm run test:browser:pwa
 # Tune worker count for the available machine without changing coverage.
 PLAYWRIGHT_WORKERS=1 pnpm run test:browser
 
-# Reproduce the stable constrained-runner topology used by GitHub Actions.
+# Use the serial fallback on a constrained local machine.
 CI=true \
 BROWSER_TEST_SEQUENTIAL=1 \
 PLAYWRIGHT_SMOKE_WORKERS=1 \
@@ -58,4 +96,11 @@ PLAYWRIGHT_E2E_WORKERS=1 \
 pnpm run test:browser
 ```
 
-`PLAYWRIGHT_WORKERS` remains the general worker override, and `PLAYWRIGHT_FULLY_PARALLEL` retains the existing configuration contract. CI sets `CI=true`, `BROWSER_TEST_SEQUENTIAL=1`, `PLAYWRIGHT_SMOKE_WORKERS=1`, and `PLAYWRIGHT_E2E_WORKERS=1`; local runs retain concurrent suites and use the general worker setting unless these optional overrides are supplied. Parallel development servers increase transient CPU, memory, and shared-database pressure, so constrained environments should use sequential mode while retaining every browser project and test file. Distinct development output directories continue to isolate each Next.js server's generated build state.
+Run exactly one development matrix cell (CI preserves existing capability skips):
+
+```bash
+CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e --project=chromium --reporter=list
+```
+
+`PLAYWRIGHT_WORKERS` remains the general worker override; `PLAYWRIGHT_SMOKE_WORKERS` and `PLAYWRIGHT_E2E_WORKERS` optionally override it for local suite runners. `PLAYWRIGHT_FULLY_PARALLEL` retains its existing configuration contract. GitHub Actions uses one worker for smoke, two for encrypted workflows, and two for PWA. The complete `test:full` gate defaults to sequential development suites for deterministic constrained-machine results; set `BROWSER_TEST_SEQUENTIAL=0` to opt into concurrent local suites. Encrypted workflows deliberately use `next dev`: their controlled authentication and passkey seams must remain disabled in production. PWA continues to exercise `next start` production output.

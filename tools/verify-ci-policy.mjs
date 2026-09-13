@@ -26,8 +26,13 @@ const secretScan = read(".github/workflows/secret-scan.yml");
 const dependabot = read(".github/dependabot.yml");
 const monorepo = read("docs/monorepo.md");
 
-requireText(".github/workflows/ci.yml", ci, /\n\s+push:\s*\n\s+branches:\s+\[main\]/, "run only for pushes to main");
-if (/\n\s+pull_request:\s*(?:\n|$)/.test(ci)) failures.push(".github/workflows/ci.yml must not run for pull requests");
+requireText(".github/workflows/ci.yml", ci, /\n\s+push:\s*\n\s+branches:\s+\[main\]/, "run for pushes to main");
+requireText(
+  ".github/workflows/ci.yml",
+  ci,
+  /\n\s+pull_request:\s*\n\s+branches:\s+\[main\]/,
+  "run for pull requests targeting main",
+);
 if (/\n\s+workflow_dispatch:\s*(?:\n|$)/.test(ci))
   failures.push(".github/workflows/ci.yml must not support manual dispatch");
 requireText(
@@ -42,12 +47,14 @@ for (const command of [
   "pnpm audit --prod --audit-level=high",
   "pnpm run verify:dependency-licenses",
   "pnpm run format:check",
-  "pnpm run lint",
-  "pnpm run typecheck",
-  "pnpm run test",
+  "pnpm --filter @rhasia-scret/web run lint",
+  "pnpm run typecheck:web",
+  "pnpm run test:release-evidence",
+  "pnpm run test:web",
   "pnpm run test:architecture",
   "pnpm run build",
-  "pnpm run test:browser",
+  'pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"',
+  "pnpm run test:browser:pwa",
   "pnpm run test:performance",
 ])
   requireText(
@@ -56,6 +63,30 @@ for (const command of [
     new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
     `run ${command}`,
   );
+
+requireText(".github/workflows/ci.yml", ci, /suite: \[smoke, e2e\]/, "cover both development browser suites");
+requireText(
+  ".github/workflows/ci.yml",
+  ci,
+  /browser:\s*\n\s+- chromium\s*\n\s+# - firefox:\s+intentionally deferred from hosted CI coverage\s*\n\s+# - webkit:\s+intentionally deferred from hosted CI coverage/,
+  "focus hosted browser coverage on Chromium with Firefox and WebKit deferred",
+);
+
+const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
+if (ciTimeoutCount !== 7)
+  failures.push(`.github/workflows/ci.yml must enforce eight-minute timeouts for all 7 jobs (found ${ciTimeoutCount})`);
+if (/^concurrency:/m.test(ci)) failures.push(".github/workflows/ci.yml must use job-scoped concurrency");
+for (const group of [
+  "ci-changes-${{ github.workflow }}-${{ github.ref_name }}",
+  "ci-repository-${{ github.workflow }}-${{ github.ref_name }}",
+  "ci-core-${{ github.workflow }}-${{ github.ref_name }}",
+  "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}",
+  "ci-mobile-${{ github.workflow }}-${{ github.ref_name }}",
+  "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
+  "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}",
+]) {
+  if (!ci.includes(`group: ${group}`)) failures.push(`.github/workflows/ci.yml must scope concurrency to ${group}`);
+}
 
 requireText(
   ".github/workflows/format.yml",
@@ -137,12 +168,8 @@ requireText(
   /package-ecosystem:\s*["']?github-actions["']?/,
   "update GitHub Actions",
 );
-if (
-  /quality\/database and browser jobs for pull requests|quality and browser checks scoped to pull requests/.test(
-    monorepo,
-  )
-)
-  failures.push("docs/monorepo.md must describe quality/browser CI as main-push-only");
+if (!/CI quality\/browser jobs also run on pull requests targeting `main`/.test(monorepo))
+  failures.push("docs/monorepo.md must describe quality/browser CI on pull requests targeting main");
 
 const workflowPaths = [
   ".github/workflows/ci.yml",
@@ -168,5 +195,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "CI policy verified: main-push quality gate, fork-safe PR security checks, least privilege, coverage, and immutable action pins are present.",
+  "CI policy verified: main/PR quality gates, affected-package selection, eight-minute job budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
 );

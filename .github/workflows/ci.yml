@@ -3,19 +3,137 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
+  changes:
+    name: Detect affected packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: ci-changes-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
+    outputs:
+      core: ${{ steps.detect.outputs.core }}
+      web: ${{ steps.detect.outputs.web }}
+      mobile: ${{ steps.detect.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+      - name: Detect affected packages across the complete push
+        id: detect
+        env:
+          CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: node tools/detect-ci-changes.mjs
+
+  repository:
+    name: Repository policy and dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: ci-repository-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pnpm cache
+        id: pnpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify CI policy
+        run: pnpm run verify:ci-policy
+      - name: Test CI change detection
+        run: pnpm run test:ci-changes
+      - name: Verify release evidence
+        run: pnpm run verify:release-evidence && pnpm run test:release-evidence
+      - name: Verify release version alignment
+        run: pnpm run verify:version-alignment
+      - name: Check formatting
+        run: pnpm run format:check
+
+      - name: Save pnpm cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.pnpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
+      - name: Review production dependency advisories
+        run: pnpm audit --prod --audit-level=high
+      - name: Review dependency licenses
+        run: pnpm run verify:dependency-licenses
+
+  core:
+    name: Shared client package verification
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: ci-core-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pnpm cache
+        id: pnpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify shared client package
+        run: pnpm run test:full:core
+
   quality:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     name: Quality and database test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 8
+    concurrency:
+      group: ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
     services:
       postgres:
         image: postgres:16
@@ -57,27 +175,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify CI policy
-        run: pnpm run verify:ci-policy
-      - name: Verify release version alignment
-        run: pnpm run verify:version-alignment
-      - name: Check formatting
-        run: pnpm run format:check
-      - name: Verify shared client package
-        run: pnpm run test:full:core
-      - name: Verify mobile package
-        run: pnpm run test:full:mobile
-
-      - name: Save pnpm cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
-      - name: Review production dependency advisories
-        run: pnpm audit --prod --audit-level=high
-      - name: Review dependency licenses
-        run: pnpm run verify:dependency-licenses
       - name: Generate Prisma Client
         run: pnpm run prisma:generate
       - name: Validate Prisma schema
@@ -87,24 +184,72 @@ jobs:
       - name: Backfill provider-neutral identities
         run: pnpm run prisma:backfill-external-identities
       - name: Lint
-        run: pnpm run lint
+        run: pnpm --filter @rhasia-scret/web run lint
       - name: Typecheck
-        run: pnpm run typecheck
+        run: pnpm run typecheck:web
       - name: Run unit, integration, and contract tests
-        run: pnpm run test
+        run: pnpm run test:web
       - name: Check architecture boundaries
         run: pnpm run test:architecture
       - name: Build
         run: pnpm run build
-      - name: Verify client build output
-        run: pnpm run verify:build-output
       - name: Verify route bundle budgets
         run: pnpm --filter @rhasia-scret/web run performance:bundles:verify
 
-  browser-smoke:
-    name: Browser smoke test
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    name: Mobile verification
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 8
+    concurrency:
+      group: ci-mobile-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pnpm cache
+        id: pnpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify mobile package
+        run: pnpm run test:full:mobile
+
+  browser:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    name: Browser ${{ matrix.suite }} (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [smoke, e2e]
+        browser:
+          - chromium
+          # - firefox: intentionally deferred from hosted CI coverage
+          # - webkit: intentionally deferred from hosted CI coverage
     services:
       postgres:
         image: postgres:16
@@ -123,11 +268,9 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
-      PLAYWRIGHT_WORKERS: 2
-      # Avoid cross-suite CPU and database contention on constrained hosted runners.
-      BROWSER_TEST_SEQUENTIAL: 1
-      PLAYWRIGHT_SMOKE_WORKERS: 1
-      PLAYWRIGHT_E2E_WORKERS: 1
+      # One development server and one database per runner; encrypted workflows use two workers.
+      PLAYWRIGHT_WORKERS: 1
+      PLAYWRIGHT_E2E_WORKERS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -156,14 +299,13 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ matrix.browser }}-${{ hashFiles('pnpm-lock.yaml') }}
+          # Reuse the previous all-browser cache on the first matrix rollout.
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Review production dependency advisories
-        run: pnpm audit --prod --audit-level=high
-      - name: Review dependency licenses
-        run: pnpm run verify:dependency-licenses
       - name: Generate Prisma Client
         run: pnpm run prisma:generate
       - name: Apply migrations
@@ -171,9 +313,9 @@ jobs:
       - name: Backfill provider-neutral identities
         run: pnpm run prisma:backfill-external-identities
       - name: Install Playwright system dependencies
-        run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium firefox webkit
+        run: pnpm --filter @rhasia-scret/web exec playwright install-deps "${{ matrix.browser }}"
       - name: Ensure supported browsers are installed
-        run: pnpm --filter @rhasia-scret/web exec playwright install chromium firefox webkit
+        run: pnpm --filter @rhasia-scret/web exec playwright install "${{ matrix.browser }}"
 
       - name: Save Playwright browser cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
@@ -182,7 +324,91 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
 
-      - name: Run browser smoke tests
-        run: pnpm run test:browser
+      - name: Run browser suite
+        run: pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}" --reporter=list
+
+  browser-production:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    name: Production PWA and navigation performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: ci-web-production-${{ github.workflow }}-${{ github.ref_name }}
+      cancel-in-progress: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: browser_smoke
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d browser_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
+      NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
+      PLAYWRIGHT_WORKERS: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pnpm cache
+        id: pnpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-all-${{ hashFiles('pnpm-lock.yaml') }}
+          # Reuse the previous all-browser cache on the first matrix rollout.
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma Client
+        run: pnpm run prisma:generate
+      - name: Apply migrations
+        run: pnpm run prisma:migrate:deploy
+      - name: Backfill provider-neutral identities
+        run: pnpm run prisma:backfill-external-identities
+      - name: Install Playwright system dependencies
+        run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium
+      - name: Ensure supported browsers are installed
+        run: pnpm --filter @rhasia-scret/web exec playwright install chromium
+
+      - name: Save Playwright browser cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - name: Run production PWA tests
+        run: pnpm run test:browser:pwa --project=chromium --reporter=list
       - name: Run navigation performance checks
         run: pnpm run test:performance

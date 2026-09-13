@@ -101,7 +101,6 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   context,
   browserName,
 }) => {
-  skipDataHeavyWebKitCi(browserName);
   const alias = scenarioAlias(browserName, "accounts");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias);
@@ -273,7 +272,6 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   browser,
   browserName,
 }) => {
-  skipDataHeavyWebKitCi(browserName);
   const ownerAlias = scenarioAlias(browserName, "shared", "owner");
   const leaveAlias = scenarioAlias(browserName, "shared", "viewer-leave");
   const revokeAlias = scenarioAlias(browserName, "shared", "viewer-revoke");
@@ -638,10 +636,6 @@ test("English setup, unlock, account creation, and OTP smoke use the real stack"
   context,
   browserName,
 }) => {
-  test.skip(
-    browserName !== "chromium",
-    "One Chromium scenario provides the English real-stack smoke while every browser keeps the Indonesian security baseline.",
-  );
   const alias = scenarioAlias(browserName, "english");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias);
@@ -788,20 +782,18 @@ async function openSharedManagement(
 
   const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
   await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
   if (await lockHeading.isVisible()) {
     await unlockVault(page, secret);
   }
   if (sharedVaultId) {
     await page.goto(`/vaults/manage/${sharedVaultId}`, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
-    await page.waitForLoadState("networkidle");
     const initialState = await sharedManagementState(page, tabBar, passphraseInput, 30_000);
     if (initialState === "locked") {
       await unlockVault(page, secret);
       await page.goto(`/vaults/manage/${sharedVaultId}`, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
       });
     }
     await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));
@@ -932,13 +924,6 @@ function scenarioAlias(
   role: (typeof E2E_BROWSER_ROLES)[number] = "owner",
 ): string {
   return e2eUserAlias(browserName, scenario, role);
-}
-
-function skipDataHeavyWebKitCi(browserName: string): void {
-  test.skip(
-    process.env.CI === "true" && browserName === "webkit",
-    "Linux WebKit on constrained CI cannot reliably repeat the production-strength Argon2 workflow after data-heavy browser operations; Chromium and Firefox retain complete scenario coverage, while WebKit retains Personal Vault and passkey coverage.",
-  );
 }
 
 async function authenticate(context: BrowserContext, alias: string): Promise<void> {

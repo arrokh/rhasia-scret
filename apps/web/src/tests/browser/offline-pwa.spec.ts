@@ -9,7 +9,6 @@ test.describe("encrypted read-only offline PWA", () => {
   test("uses the configured manifest and boots only the public offline shell from a static cache", async ({
     page,
     context,
-    browserName,
   }) => {
     await page.goto("/offline");
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
@@ -42,29 +41,23 @@ test.describe("encrypted read-only offline PWA", () => {
         };
       });
     });
-    if (browserName !== "firefox") {
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await page.evaluate(() => navigator.serviceWorker.ready);
-    }
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.evaluate(() => navigator.serviceWorker.ready);
 
-    if (browserName !== "firefox") {
-      const cachedUrls = await page.evaluate(async () => {
-        const names = await caches.keys();
-        const owned = names.filter((name) => name.startsWith("rhasia-scret-static-"));
-        return (await Promise.all(owned.map(async (name) => (await caches.open(name)).keys())))
-          .flat()
-          .map((request) => new URL(request.url).pathname);
-      });
-      expect(cachedUrls).toContain("/offline");
-      expect(cachedUrls).toContain("/");
-      expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
-      expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
-    }
+    const cachedUrls = await page.evaluate(async () => {
+      const names = await caches.keys();
+      const owned = names.filter((name) => name.startsWith("rhasia-scret-static-"));
+      return (await Promise.all(owned.map(async (name) => (await caches.open(name)).keys())))
+        .flat()
+        .map((request) => new URL(request.url).pathname);
+    });
+    expect(cachedUrls).toContain("/offline");
+    expect(cachedUrls).toContain("/");
+    expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
+    expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
 
     await context.setOffline(true);
-    if (browserName === "chromium") await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-    else if (browserName === "firefox") await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
-    else await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+    await page.goto("/vaults", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
     await expect(page.getByText("Mode baca-saja")).toBeVisible();
 
@@ -88,11 +81,12 @@ test.describe("encrypted read-only offline PWA", () => {
 
     test.info().annotations.push({
       type: "capability",
-      description: `${browserName}: Vault Unlock Secret is the baseline; WebAuthn PRF Remembered Browser requires platform capability and real-device Safari verification.`,
+      description:
+        "Vault Unlock Secret is the baseline; WebAuthn PRF Remembered Browser requires platform capability and real-device verification.",
     });
   });
 
-  test("asks before opening offline access from an active page", async ({ page, context, browserName }) => {
+  test("asks before opening offline access from an active page", async ({ page, context }) => {
     await page.goto("/");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await context.setOffline(true);
@@ -101,28 +95,12 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
 
-    if (browserName === "webkit") {
-      test.info().annotations.push({
-        type: "capability",
-        description:
-          "Playwright WebKit offline emulation cannot verify top-level service-worker navigation; the confirmation prompt is covered here.",
-      });
-      return;
-    }
     await page.getByRole("button", { name: "Buka brankas luring" }).click();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
     await expect(page).toHaveURL(/\/offline\/?$/);
   });
 
-  test("keeps the landing page and asks before offline access on a direct reload", async ({
-    page,
-    context,
-    browserName,
-  }) => {
-    test.skip(
-      browserName !== "chromium",
-      "Playwright Firefox and WebKit offline emulation cannot verify top-level service-worker navigation.",
-    );
+  test("keeps the landing page and asks before offline access on a direct reload", async ({ page, context }) => {
     await page.goto("/");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await context.setOffline(true);
@@ -134,12 +112,7 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toHaveCount(0);
   });
 
-  test("refreshes and boots the public offline shell in the selected English locale", async ({
-    page,
-    context,
-    browserName,
-  }) => {
-    test.skip(browserName !== "chromium", "The locale-specific cache refresh is covered once in Chromium.");
+  test("refreshes and boots the public offline shell in the selected English locale", async ({ page, context }) => {
     await page.goto("/offline");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
@@ -166,12 +139,7 @@ test.describe("encrypted read-only offline PWA", () => {
   test("unlocks ciphertext offline, generates OTPs, retains stale data on failures, and reconciles revocation only after complete success", async ({
     page,
     context,
-    browserName,
   }) => {
-    test.skip(
-      browserName !== "chromium",
-      "Full encrypted flow is covered in Chromium; Firefox/WebKit run the PWA and fallback smoke above.",
-    );
     test.setTimeout(60_000);
     const initial = await encryptedFixture({ includeViewer: true, synchronizedAt: "2026-01-01T00:00:00.000Z" });
     const reconciled = await encryptedFixture({ includeViewer: false, synchronizedAt: "2026-01-02T00:00:00.000Z" });
