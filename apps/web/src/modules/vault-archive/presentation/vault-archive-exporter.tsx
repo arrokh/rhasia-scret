@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
@@ -27,6 +27,10 @@ import {
   type PreparedVaultArchive,
   type VaultArchiveExportErrorCode,
 } from "../infrastructure/browser-vault-archive-export-workflow";
+
+const subscribeToHydration = () => () => undefined;
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
 
 type ExportMessageKey =
   | "offlineUnavailable"
@@ -56,6 +60,7 @@ export function VaultArchiveExportWorkspace({ personalVaultId }: { personalVault
 export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWorkspace }) {
   const t = useTranslations("VaultArchive.exporter");
   const online = useOnlineStatus();
+  const isHydrated = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
   const ownedVaults = workspace.vaults.filter((vault) => vault.role === "OWNER");
   const [prepared, setPreparedState] = useState<PreparedVaultArchive | null>(null);
   const preparedRef = useRef<PreparedVaultArchive | null>(null);
@@ -216,6 +221,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
                 <SelectTrigger
                   id="archive-export-vault"
                   className="h-12 w-full"
+                  disabled={!isHydrated}
                   aria-invalid={field.state.meta.errors.length > 0}
                   aria-describedby={field.state.meta.errors.length ? "archive-export-vault-error" : undefined}
                 >
@@ -246,6 +252,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
                 <Checkbox
                   id="archive-key-acknowledgement"
                   checked={field.state.value}
+                  disabled={!isHydrated}
                   onCheckedChange={(value) => field.handleChange(value === true)}
                   aria-invalid={field.state.meta.errors.length > 0}
                   aria-describedby={field.state.meta.errors.length ? "archive-key-acknowledgement-error" : undefined}
@@ -260,7 +267,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
         </form.Field>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(pending) => (
-            <Button type="submit" disabled={!online || pending} aria-busy={pending}>
+            <Button type="submit" disabled={!isHydrated || !online || pending} aria-busy={pending}>
               {pending && <LoaderCircle className="animate-spin" />}
               {pending ? t("creating") : t("create")}
             </Button>
