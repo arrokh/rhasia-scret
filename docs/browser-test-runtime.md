@@ -10,7 +10,7 @@
 
 Firefox and WebKit are intentionally deferred and commented out of both the CI workflow matrix and Playwright project configuration. No Firefox or WebKit test is expected for this support focus.
 
-The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with one worker and its own PostgreSQL service. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
+The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with its own PostgreSQL service. Smoke keeps one worker for stability; encrypted workflows use two workers because their scenarios use distinct browser-E2E identities. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
 
 CI and the required local gate focus on Chromium. Firefox and WebKit are commented out of the hosted matrix and Playwright project configuration, and no non-Chromium coverage is expected.
 
@@ -46,7 +46,7 @@ The browser gate spent 554.6s (92% of its 602.1s stage total) in the two develop
 
 Changes in this checkout:
 
-- Run smoke and encrypted workflows in a `suite: [smoke, e2e]` × `browser: [chromium]` matrix, with Firefox and WebKit commented out. Preserve one worker per runner and separate databases to avoid prior CPU contention and global E2E fixture cleanup collisions.
+- Run smoke and encrypted workflows in a `suite: [smoke, e2e]` × `browser: [chromium]` matrix, with Firefox and WebKit commented out. Preserve one smoke worker, use two encrypted-workflow workers, and keep separate databases to avoid prior CPU contention and global E2E fixture cleanup collisions.
 - Forward Playwright CLI arguments through the suite runner so `--project` actually selects one engine. Use the list reporter in CI for individual test durations; the previous dot reporter buffered output and did not expose per-test timings.
 - Run mobile verification independently. Keep full core verification in quality; scope later lint/typecheck/tests to web, retain release-evidence tests, and remove the extra client-output verification already invoked by `build`.
 - Run production dependency/license checks once in quality. Install/cache only the selected browser for each matrix job. PWA still installs all supported engines and verifies a production build.
@@ -100,7 +100,7 @@ Run exactly one development matrix cell (CI preserves existing capability skips)
 
 ```bash
 CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e --project=chromium --reporter=list
 ```
 
-`PLAYWRIGHT_WORKERS` remains the general worker override; `PLAYWRIGHT_SMOKE_WORKERS` and `PLAYWRIGHT_E2E_WORKERS` optionally override it for local suite runners. `PLAYWRIGHT_FULLY_PARALLEL` retains its existing configuration contract. GitHub Actions uses one worker for each development matrix cell and two for PWA. The complete `test:full` gate defaults to sequential development suites for deterministic constrained-machine results; set `BROWSER_TEST_SEQUENTIAL=0` to opt into concurrent local suites. Encrypted workflows deliberately use `next dev`: their controlled authentication and passkey seams must remain disabled in production. PWA continues to exercise `next start` production output.
+`PLAYWRIGHT_WORKERS` remains the general worker override; `PLAYWRIGHT_SMOKE_WORKERS` and `PLAYWRIGHT_E2E_WORKERS` optionally override it for local suite runners. `PLAYWRIGHT_FULLY_PARALLEL` retains its existing configuration contract. GitHub Actions uses one worker for smoke, two for encrypted workflows, and two for PWA. The complete `test:full` gate defaults to sequential development suites for deterministic constrained-machine results; set `BROWSER_TEST_SEQUENTIAL=0` to opt into concurrent local suites. Encrypted workflows deliberately use `next dev`: their controlled authentication and passkey seams must remain disabled in production. PWA continues to exercise `next start` production output.

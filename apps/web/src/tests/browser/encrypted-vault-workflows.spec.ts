@@ -782,20 +782,18 @@ async function openSharedManagement(
 
   const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
   await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
   if (await lockHeading.isVisible()) {
     await unlockVault(page, secret);
   }
   if (sharedVaultId) {
     await page.goto(`/vaults/manage/${sharedVaultId}`, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
-    await page.waitForLoadState("networkidle");
     const initialState = await sharedManagementState(page, tabBar, passphraseInput, 30_000);
     if (initialState === "locked") {
       await unlockVault(page, secret);
       await page.goto(`/vaults/manage/${sharedVaultId}`, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
       });
     }
     await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));

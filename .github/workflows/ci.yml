@@ -268,8 +268,9 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
-      # One development server, one browser worker, and one database per runner.
+      # One development server and one database per runner; encrypted workflows use two workers.
       PLAYWRIGHT_WORKERS: 1
+      PLAYWRIGHT_E2E_WORKERS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

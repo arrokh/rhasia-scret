@@ -76,7 +76,7 @@ For the browser topology used in CI, run one suite/engine cell at a time. The ho
 
 ```bash
 CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
-CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:e2e --project=chromium --reporter=list
+CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e --project=chromium --reporter=list
 ```
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.

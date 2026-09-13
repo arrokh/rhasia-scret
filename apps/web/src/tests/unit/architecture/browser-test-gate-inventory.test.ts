@@ -56,6 +56,7 @@ describe("browser test gate inventory", () => {
     );
     expect(workflow).toContain('pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"');
     expect(workflow).toContain("PLAYWRIGHT_WORKERS: 1");
+    expect(workflow).toContain("PLAYWRIGHT_E2E_WORKERS: 2");
     expect(workflow).toContain("restore-keys:");
     expect(workflow).toContain("pnpm run test:browser:pwa --project=chromium");
     expect(workflow).not.toContain("BROWSER_TEST_SEQUENTIAL: 1");
