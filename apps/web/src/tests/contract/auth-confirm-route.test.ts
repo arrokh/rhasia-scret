@@ -35,6 +35,26 @@ describe("GET /auth/confirm contract", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled();
   });
 
+  it("maps an expired provider callback to a safe sign-in notice", async () => {
+    const response = await GET(
+      request(
+        "/auth/confirm?error=access_denied&error_code=otp_expired&error_description=attacker-controlled-description",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=link_expired");
+    expect(response.headers.get("location")).not.toContain("attacker-controlled-description");
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  it("does not retain an unstructured provider error description in the callback URL", async () => {
+    const response = await GET(request("/auth/confirm?error_description=attacker-controlled-description"));
+
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=verification_failed");
+    expect(response.headers.get("location")).not.toContain("attacker-controlled-description");
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
   it("preserves the invitation return path for malformed callbacks", async () => {
     const response = await GET(request("/auth/confirm?next=%2Fvaults%2Finvitations%2Fredeem"));
 
@@ -62,6 +82,34 @@ describe("GET /auth/confirm contract", () => {
 
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=verification_failed");
     expect(response.headers.get("location")).not.toContain("provider");
+  });
+
+  it("keeps a local callback on the host that owns the PKCE cookie", async () => {
+    mocks.createServerClient.mockReturnValue({
+      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: new Error("provider details") }) },
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost:3100/auth/confirm?code=invalid", {
+        headers: { host: "127.0.0.1:3100" },
+      }),
+    );
+
+    expect(response.headers.get("location")).toBe("http://127.0.0.1:3100/sign-in?auth=verification_failed");
+  });
+
+  it("keeps a successful local callback on the host that owns the new session cookie", async () => {
+    mocks.createServerClient.mockReturnValue({
+      auth: { exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }) },
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost:3100/auth/confirm?code=valid", {
+        headers: { host: "127.0.0.1:3100" },
+      }),
+    );
+
+    expect(response.headers.get("location")).toBe("http://127.0.0.1:3100/vaults");
   });
 
   it("keeps successful authentication directed to vaults", async () => {

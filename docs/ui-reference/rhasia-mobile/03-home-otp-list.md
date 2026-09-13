@@ -6,15 +6,15 @@
 
 ## UI and layout
 
-The authenticated `/vaults` dashboard is account-first: after unlock, its main card contains one locally sorted list of decrypted Authenticator Accounts across the user's Personal Vault and accessible Shared Vaults. Each account identifies its Vault context. Header actions open Shared Vault management and navigate to the dedicated account-creation page; the dashboard does not embed either creation form. The source groups content by `Pinned` and `Shared with you`; the MVP does not introduce pinned grouping.
+The authenticated `/vaults` dashboard is account-first: after unlock, its main card contains one locally sorted list of decrypted Authenticator Accounts across the user's Personal Vault and accessible Shared Vaults. Each account identifies its Vault context. Header actions open Shared Vault management and navigate to the dedicated account-creation page; the dashboard does not embed either creation form. The source groups content by `Pinned` and `Shared with you`; the MVP does not introduce pinned grouping. Users may optionally change the client-only account order; only opaque identifiers are persisted in browser preferences. The Display Options menu contains multi-select Vault filters and view-density choices. Reordering opens a modal with a draggable account list. Each account's edit and Vault-detail actions share one overflow menu.
 
 ## Style and components
 
-Use a quiet neutral background, 12px rounded white cards with a restrained border or elevation, issuer mark, account label, and Vault context. Components: app header, dashboard toolbar, Shared Vault dialog, plus icon, section heading, account card, and dedicated add-account link. The Shared Vault control opens the decrypted Shared Vault list; its top-right plus icon opens the encrypted Shared Vault creation form.
+Use a quiet neutral background, 12px rounded white cards with a restrained border or elevation, issuer mark, account label, and Vault context. Components: app header, dashboard toolbar, Display Options menu, reorder modal, Shared Vault dialog, plus icon, section heading, account card, and dedicated add-account link. The Shared Vault control opens the decrypted Shared Vault list; its top-right plus icon opens the encrypted Shared Vault creation form.
 
 ## Expected behaviour
 
-Decrypt names and configurations only on the client after unlock; locally generate and refresh OTPs. Copy only after an explicit user action. Search operates over decrypted local content. Do not implement a pinned ordering in the MVP: account order is locally derived from issuer and account name.
+Decrypt names and configurations only on the client after unlock; locally generate and refresh OTPs. Copy only after an explicit user action. Search operates over decrypted local content. The default account order is locally derived from issuer, account name, and Vault name; an optional client-only custom order may override it without server persistence or pinned grouping. The selected Vault filters, view mode, and custom order survive reloads through profile-scoped browser preferences; no plaintext account or Vault labels are stored.
 
 ## Flow
 

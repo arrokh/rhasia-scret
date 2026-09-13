@@ -36,8 +36,36 @@ describe("TotpAccountButton", () => {
     );
     const manage = container.querySelector<HTMLButtonElement>('[aria-label="Kelola Alice"]');
     expect(manage).not.toBeNull();
-    await act(async () => manage?.click());
+    await act(async () => manage?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const manageAction = [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === "Kelola akun",
+    );
+    expect(manageAction).not.toBeUndefined();
+    await act(async () => manageAction?.click());
     expect(onManage).toHaveBeenCalledOnce();
+  });
+
+  it("groups Vault navigation and account management in one action menu", async () => {
+    const onManage = vi.fn();
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(TotpAccountButton, {
+          configuration: configuration(),
+          vaultName: "Brankas Pribadi",
+          onManage,
+          vaultDetailHref: "/vaults/manage/personal",
+          vaultDetailLabel: "Buka detail Brankas untuk OTPAuth, Alice",
+        }),
+      ),
+    );
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Kelola Alice"]');
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const menu = document.body.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
+    expect(menu?.textContent).toContain("Buka detail Brankas");
+    expect(menu?.textContent).toContain("Kelola akun");
+    expect(menu?.querySelector('a[href="/vaults/manage/personal"]')).not.toBeNull();
   });
 
   it("generates an OTP locally and copies it from the shadcn account card", async () => {

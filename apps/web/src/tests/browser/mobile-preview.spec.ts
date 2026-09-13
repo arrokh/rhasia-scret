@@ -80,11 +80,76 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   const vaultAccountActions = page.locator('[data-slot="vault-account-actions"]');
+  await expect(vaultAccountActions.locator('[data-slot="account-directory-menu"]')).toHaveAttribute("data-size", "sm");
+  await expect
+    .poll(async () =>
+      vaultAccountActions
+        .locator(":scope > *")
+        .evaluateAll((items) =>
+          items.map(
+            (item) =>
+              item.querySelector<HTMLElement>("[aria-label]")?.getAttribute("aria-label") ??
+              item.getAttribute("aria-label"),
+          ),
+        ),
+    )
+    .toEqual(["Brankas", "Brankas Perangkat", "Keamanan", "Opsi tampilan", "Tambahkan akun autentikator"]);
   expect(await vaultAccountActions.evaluate((actions) => actions.scrollWidth <= actions.clientWidth)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
+  const directoryMenu = page.getByRole("button", { name: "Opsi tampilan" });
+  await directoryMenu.click();
+  const directoryOptions = page.locator('[data-slot="dropdown-menu-content"]');
+  await directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
+  await directoryOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" }).click();
+  await expect(directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(directoryOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByText("Akun kerja")).toBeVisible();
+  await expect(page.getByText("Layanan contoh")).toBeVisible();
+  await directoryOptions.getByRole("menuitemcheckbox", { name: "Semua brankas" }).click();
+  await directoryOptions.getByRole("menuitemradio", { name: "Ringkas" }).click();
+  await expect(page.locator('[data-slot="account-directory-list"]')).toHaveAttribute("data-view-mode", "compact");
+  await page.keyboard.press("Escape");
+  await directoryMenu.click();
+  await directoryOptions.getByRole("menuitem", { name: "Urutkan akun" }).click();
+  const reorderDialog = page.getByRole("dialog");
+  await expect(reorderDialog).toBeVisible();
+  await reorderDialog
+    .getByRole("button", { name: "Seret untuk mengurutkan ulang example@local.invalid" })
+    .dragTo(reorderDialog.locator('[data-account-key="preview-operations:preview-account-operations"]'));
+  await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]').first()).toHaveAttribute(
+    "data-account-key",
+    "preview-operations:preview-account-operations",
+  );
+  await reorderDialog.getByRole("button", { name: "Tutup" }).click();
+  await page.locator('button[aria-label="Tindakan untuk example@local.invalid"]').click();
+  await expect(page.getByRole("menuitem", { name: "Buka detail Brankas Pribadi" })).toHaveAttribute(
+    "href",
+    "/ui-preview/vaults",
+  );
+  await page.keyboard.press("Escape");
+  await directoryMenu.click();
+  await directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
+  await expect(page.getByText("Akun kerja")).toBeVisible();
+  await expect(page.getByText("Layanan contoh")).toBeHidden();
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator('[data-slot="account-directory-list"]')).toHaveAttribute("data-view-mode", "compact");
+  await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(1);
+  await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]').first()).toHaveAttribute(
+    "data-account-key",
+    "preview-operations:preview-account-operations",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretolehnooroctavian\.id/);
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
   const developerLink = page.locator("footer").getByRole("link", { name: "nooroctavian.id" });

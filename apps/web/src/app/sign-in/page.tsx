@@ -26,6 +26,8 @@ type AuthNotice = {
     | "logoutFailed"
     | "missingCode"
     | "configurationError"
+    | "accessDenied"
+    | "linkExpired"
     | "verificationFailed";
   role: "alert" | "status";
   tone: "danger" | "success" | "info";
@@ -107,6 +109,8 @@ function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNot
   if (auth === "logout_failed") return { key: "logoutFailed", role: "alert", tone: "danger" };
   if (auth === "missing_code") return { key: "missingCode", role: "alert", tone: "danger" };
   if (auth === "configuration_error") return { key: "configurationError", role: "alert", tone: "danger" };
+  if (auth === "access_denied") return { key: "accessDenied", role: "alert", tone: "danger" };
+  if (auth === "link_expired") return { key: "linkExpired", role: "alert", tone: "danger" };
   if (auth === "verification_failed") return { key: "verificationFailed", role: "alert", tone: "danger" };
   return null;
 }

@@ -1,10 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, MoreVertical } from "lucide-react";
+import { ArrowUpRight, Check, MoreVertical, Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { TotpConfiguration } from "@rhasia-scret/client-vault-core";
 import { generateTotp } from "@rhasia-scret/client-vault-core";
@@ -17,11 +25,17 @@ export function TotpAccountButton({
   vaultName,
   onManage,
   onAccess,
+  density = "normal",
+  vaultDetailHref,
+  vaultDetailLabel,
 }: {
   configuration: TotpConfiguration;
   vaultName: string;
   onManage?: () => void;
   onAccess?: () => void | Promise<void>;
+  density?: "compact" | "normal" | "wide";
+  vaultDetailHref?: string;
+  vaultDetailLabel?: string;
 }) {
   const t = useTranslations("OtpRuntime.account");
   const now = useTotpClock();
@@ -93,7 +107,14 @@ export function TotpAccountButton({
         disabled={!code}
         aria-label={t("copyLabel", { account: configuration.accountName, issuer: configuration.issuer })}
       />
-      <div className="pointer-events-none relative z-10 grid min-h-32 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-4">
+      <div
+        className={cn(
+          "pointer-events-none relative z-10 grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 transition-[padding,min-height] duration-300 ease-out",
+          density === "compact" && "min-h-24 p-3",
+          density === "normal" && "min-h-32 p-4",
+          density === "wide" && "min-h-36 p-5",
+        )}
+      >
         <span className="grid min-w-0 gap-0.5 self-center">
           <strong className="truncate text-base leading-6 font-bold text-ink-strong">{configuration.issuer}</strong>
           <span className="truncate text-sm text-muted-foreground">{configuration.accountName}</span>
@@ -101,7 +122,12 @@ export function TotpAccountButton({
         <span className="flex items-center gap-3 self-center">
           <span className="grid gap-0.5 text-right">
             <output
-              className="font-mono text-[2rem] leading-10 font-semibold tracking-[0.02em] text-ink-strong"
+              className={cn(
+                "font-mono leading-10 font-semibold tracking-[0.02em] text-ink-strong transition-[font-size] duration-300",
+                density === "compact" && "text-[1.75rem]",
+                density === "normal" && "text-[2rem]",
+                density === "wide" && "text-[2.25rem]",
+              )}
               aria-label={t("current")}
             >
               {code ? formatOtp(code) : "••• •••"}
@@ -140,22 +166,43 @@ export function TotpAccountButton({
           />
         </span>
         <span className="col-span-2 h-px bg-border/70" aria-hidden="true" />
-        <Badge variant="secondary" className="max-w-full self-center truncate bg-muted text-taupe">
-          {vaultName}
-        </Badge>
-        {onManage && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="pointer-events-auto relative justify-self-end after:absolute after:-inset-1.5 after:content-['']"
-            type="button"
-            onClick={onManage}
-            aria-label={t("manage", { account: configuration.accountName })}
-            title={t("manageTitle")}
-          >
-            <MoreVertical />
-          </Button>
-        )}
+        <div className="pointer-events-auto col-span-2 flex min-w-0 items-center gap-1">
+          <Badge variant="secondary" className="mr-auto max-w-full truncate bg-muted text-taupe">
+            {vaultName}
+          </Badge>
+          {(onManage || (vaultDetailHref && vaultDetailLabel)) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  aria-label={t("manage", { account: configuration.accountName })}
+                  title={t("manageTitle")}
+                >
+                  <MoreVertical aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 rounded-md border-border bg-popover p-2 shadow-card">
+                {vaultDetailHref && vaultDetailLabel && (
+                  <DropdownMenuItem asChild>
+                    <Link href={vaultDetailHref} aria-label={vaultDetailLabel}>
+                      <ArrowUpRight aria-hidden="true" />
+                      {t("openVault")}
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {onManage && vaultDetailHref && vaultDetailLabel && <DropdownMenuSeparator />}
+                {onManage && (
+                  <DropdownMenuItem onSelect={onManage}>
+                    <Pencil aria-hidden="true" />
+                    {t("manageTitle")}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
         <span className="sr-only" aria-live="polite">
           {status === "copied"
             ? t("copiedAnnouncement", { account: configuration.accountName })

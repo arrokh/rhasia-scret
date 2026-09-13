@@ -23,7 +23,7 @@ The public browser and native clients do not collect passwords, receive confirma
 
 ## Redirect and provider configuration
 
-Every deployed origin used by the clients must be an explicit Supabase Auth redirect URL. The web callback is `/auth/confirm`; native production and development redirects are configured by the mobile release documentation. Custom email templates must preserve the requested `RedirectTo` value rather than hardcoding the production Site URL.
+Every deployed origin used by the clients must be an explicit Supabase Auth redirect URL, including the callback path. Allowlisting only a bare origin does not allow `/auth/confirm`; when the requested callback is absent from the allowlist, Supabase falls back to the Site URL, which can send local development links to production. The Site URL therefore remains the bare deployed origin, while each environment must allow its exact callback (for example, `https://app.example.com/auth/confirm` and `http://localhost:3000/auth/confirm`). The web callback is `/auth/confirm`; native production and development redirects are configured by the mobile release documentation. Custom email templates must preserve the requested `RedirectTo` value rather than hardcoding the production Site URL. Existing emails are not rewritten after configuration changes, so verification requires requesting a new link.
 
 ## Consequences
 

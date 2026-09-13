@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
   ArrowRight,
@@ -34,6 +35,8 @@ import {
   FaXTwitter,
 } from "react-icons/fa6";
 import { LandingHeader, LandingMobileCta, LandingVaultPreviews } from "@/modules/landing";
+import { resolveAuthCallbackNotice } from "@/modules/identity/application/auth-callback";
+import { DEFAULT_AUTH_RETURN_PATH, resolveAuthReturnPath } from "@/modules/identity/application/auth-return-path";
 import { AppFooterContent } from "@/shared/presentation/app-ui";
 
 const flowIcons = [Laptop, FileLock2, UserRoundCheck, Smartphone] as const;
@@ -41,8 +44,41 @@ const browserIcons = [LockKeyhole, EyeOff] as const;
 const serviceIcons = [FileLock2, Server] as const;
 const principleIcons = [UserRoundCheck, EyeOff, CheckCircle2] as const;
 type LandingTranslator = Awaited<ReturnType<typeof getTranslations<"Home.landing">>>;
+type LandingPageProps = {
+  searchParams?: Promise<{
+    code?: string | string[];
+    token_hash?: string | string[];
+    error?: string | string[];
+    error_code?: string | string[];
+    error_description?: string | string[];
+    next?: string | string[];
+  }>;
+};
 
-export default async function LandingPage() {
+export default async function LandingPage({ searchParams }: LandingPageProps = {}) {
+  const params = searchParams ? await searchParams : {};
+  const callbackNotice = resolveAuthCallbackNotice(
+    firstQueryValue(params.error),
+    firstQueryValue(params.error_code),
+    firstQueryValue(params.error_description),
+  );
+  const nextPath = resolveAuthReturnPath(firstQueryValue(params.next));
+  if (callbackNotice) {
+    const query = new URLSearchParams({ auth: callbackNotice });
+    if (nextPath !== DEFAULT_AUTH_RETURN_PATH) query.set("next", nextPath);
+    redirect(`/sign-in?${query.toString()}`);
+  }
+
+  const code = firstQueryValue(params.code);
+  const tokenHash = firstQueryValue(params.token_hash);
+  if (code || tokenHash) {
+    const callback = new URLSearchParams();
+    if (code) callback.set("code", code);
+    if (tokenHash) callback.set("token_hash", tokenHash);
+    if (nextPath !== DEFAULT_AUTH_RETURN_PATH) callback.set("next", nextPath);
+    redirect(`/auth/confirm?${callback.toString()}`);
+  }
+
   const t = await getTranslations("Home.landing");
   const flowSteps = ["client", "encrypted", "authorized", "mobilePwa"] as const;
   const browserItems = ["authenticatorMaterial", "decryptedContent"] as const;
@@ -285,6 +321,10 @@ export default async function LandingPage() {
       <LandingMobileCta localVaultLabel={t("localVault")} hostedVaultLabel={t("hostedVault")} />
     </main>
   );
+}
+
+function firstQueryValue(value: string | string[] | undefined): string | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
 function ProductName({ prefix, suffix, showIcon = false }: { prefix: string; suffix: string; showIcon?: boolean }) {
