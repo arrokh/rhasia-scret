@@ -13,9 +13,17 @@ import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { createBrowserSupabaseClient } from "./browser-supabase-client";
 import { authConfirmationRedirectUrl, requestEmailSignInLink } from "./request-email-sign-in-link";
+import {
+  AUTH_RETURN_PATH_COOKIE,
+  AUTH_RETURN_PATH_COOKIE_MAX_AGE_SECONDS,
+  DEFAULT_AUTH_RETURN_PATH,
+  INVITATION_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+} from "../application/auth-return-path";
 
-export function EmailSignInForm() {
+export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextPath?: string }) {
   const t = useTranslations("Identity.signIn");
+  const returnPath = resolveAuthReturnPath(nextPath);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error" | "rate_limited">("idle");
   const [retrySeconds, setRetrySeconds] = useState(0);
   const form = useForm({
@@ -23,6 +31,8 @@ export function EmailSignInForm() {
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
       setStatus("sending");
+      rememberAuthReturnPath(returnPath);
+      if (returnPath === INVITATION_AUTH_RETURN_PATH) clearUrlFragment();
       const result = await requestEmailSignInLink(
         createBrowserSupabaseClient(),
         value.email,
@@ -57,6 +67,10 @@ export function EmailSignInForm() {
         void form.handleSubmit();
       }}
     >
+      <div className="grid gap-1">
+        <h2 className="text-base font-bold text-ink-strong">{t("title")}</h2>
+        <p className="text-sm leading-5 text-muted-foreground">{t("description")}</p>
+      </div>
       <form.Field
         name="email"
         validators={{
@@ -91,7 +105,7 @@ export function EmailSignInForm() {
             </div>
             <FormFieldError id="email-error" errors={field.state.meta.errors} />
             <p id="email-description" className="text-xs leading-5 text-muted-foreground">
-              {t("emailDescription")}
+              {t(returnPath === INVITATION_AUTH_RETURN_PATH ? "invitationEmailDescription" : "emailDescription")}
             </p>
           </div>
         )}
@@ -117,7 +131,11 @@ export function EmailSignInForm() {
           </Button>
         )}
       </form.Subscribe>
-      {status === "sent" && <StatusBanner tone="success">{t("sent")}</StatusBanner>}
+      {status === "sent" && (
+        <StatusBanner tone="success">
+          {t(returnPath === INVITATION_AUTH_RETURN_PATH ? "sentInvitation" : "sent")}
+        </StatusBanner>
+      )}
       {status === "rate_limited" && <StatusBanner tone="warning">{t("rateLimited")}</StatusBanner>}
       {status === "error" && (
         <StatusBanner tone="danger" role="alert">
@@ -129,6 +147,23 @@ export function EmailSignInForm() {
 }
 
 function validateEmail(value: string, requiredMessage: string, invalidMessage: string): string | undefined {
-  if (!value.trim()) return requiredMessage;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? undefined : invalidMessage;
+  const normalized = value.trim();
+  if (!normalized) return requiredMessage;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ? undefined : invalidMessage;
+}
+
+function clearUrlFragment(): void {
+  if (!window.location.hash) return;
+  window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
+}
+
+function rememberAuthReturnPath(path: string): void {
+  const attributes = [
+    `${AUTH_RETURN_PATH_COOKIE}=${encodeURIComponent(path)}`,
+    "Path=/",
+    "SameSite=Lax",
+    `Max-Age=${AUTH_RETURN_PATH_COOKIE_MAX_AGE_SECONDS}`,
+  ];
+  if (window.location.protocol === "https:") attributes.push("Secure");
+  document.cookie = attributes.join("; ");
 }

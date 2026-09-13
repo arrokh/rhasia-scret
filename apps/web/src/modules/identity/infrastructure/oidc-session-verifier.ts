@@ -9,6 +9,7 @@ export const OIDC_SESSION_COOKIE = "rhsia-oidc-session";
 export const OIDC_STATE_COOKIE = "rhsia-oidc-state";
 export const OIDC_VERIFIER_COOKIE = "rhsia-oidc-pkce";
 export const OIDC_NONCE_COOKIE = "rhsia-oidc-nonce";
+export const OIDC_RETURN_PATH_COOKIE = "rhsia-oidc-return-path";
 
 export class OidcSessionVerifier implements SessionVerifier {
   public constructor(private readonly configuration: OidcConfiguration) {}

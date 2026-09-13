@@ -322,6 +322,7 @@
       "organizationAccess": "Gunakan masuk organisasi Anda untuk mengakses Hosted Vault.",
       "notice": {
         "required": "Silakan masuk untuk melanjutkan.",
+        "invitationRequired": "Masuk untuk menerima undangan. Biarkan tab ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
         "signedOut": "Anda telah keluar.",
         "logoutFailed": "Proses keluar tidak dapat diselesaikan. Coba lagi.",
         "missingCode": "Tautan masuk tidak lengkap. Minta tautan baru.",
@@ -331,17 +332,26 @@
     }
   },
   "Identity": {
+    "authCompletion": {
+      "title": "Autentikasi selesai",
+      "description": "Kembali ke tab undangan. Proses akan berlanjut otomatis. Jika tidak, buka kembali tautan undangan asli.",
+      "goToVaults": "Ke brankas"
+    },
     "signIn": {
+      "title": "Masuk atau buat akun",
+      "description": "Kami akan mengirim tautan satu kali ke email terverifikasi Anda.",
       "emailLabel": "Alamat email",
       "emailPlaceholder": "nama@keluarga.id",
       "emailRequired": "Alamat email wajib diisi.",
       "emailInvalid": "Masukkan alamat email yang valid.",
       "emailDescription": "Masukkan email untuk masuk atau membuat akun baru.",
+      "invitationEmailDescription": "Gunakan alamat email yang menerima undangan. Akun baru dibuat setelah email diverifikasi.",
       "sending": "Mengirim…",
       "retryPage": "Muat ulang halaman untuk mencoba lagi",
       "retryIn": "Coba lagi dalam {seconds, plural, one {# detik} other {# detik}}",
       "sendLink": "Lanjutkan dengan email",
       "sent": "Periksa kotak masuk untuk tautan masuk. Akun hosted baru tersedia setelah email diverifikasi.",
+      "sentInvitation": "Periksa kotak masuk. Biarkan tab undangan ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
       "rateLimited": "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.",
       "error": "Kami tidak dapat mengirim tautan email. Coba lagi."
     },
@@ -1023,6 +1033,8 @@
       "title": "Terima undangan Brankas Bersama",
       "description": "Kunci brankas dibuka dan dibungkus ulang hanya di browser ini.",
       "missing": "Tautan undangan tidak lengkap.",
+      "missingHelp": "Masuk terlebih dahulu, lalu buka kembali tautan undangan asli. Jika tetap tidak lengkap, minta pemilik mengirim undangan baru.",
+      "backToVaults": "Kembali ke brankas",
       "redeeming": "Menerima undangan…",
       "redeem": "Terima undangan",
       "error": "Undangan tidak dapat digunakan. Tautan mungkin sudah pernah digunakan atau bukan untuk akun ini."

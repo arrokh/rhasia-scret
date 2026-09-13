@@ -14,7 +14,7 @@ describe("requestEmailSignInLink", () => {
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
     const result = await requestEmailSignInLink(
       { auth: { signInWithOtp } },
-      "person@example.test",
+      " Person@Example.Test ",
       "https://vault.example.test/auth/confirm",
     );
     expect(result).toBe("sent");

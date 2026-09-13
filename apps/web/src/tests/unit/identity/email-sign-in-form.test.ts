@@ -81,6 +81,27 @@ describe("EmailSignInForm", () => {
       failure_code: "rate_limited",
     });
   });
+
+  it("passes the invitation return path without carrying the fragment into authentication", async () => {
+    mocks.requestEmailSignInLink.mockResolvedValueOnce("sent");
+    window.history.replaceState(null, "", "/sign-in?auth=required&next=%2Fvaults%2Finvitations%2Fredeem#secret");
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(EmailSignInForm, { nextPath: "/vaults/invitations/redeem" })));
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const input = container.querySelector<HTMLInputElement>("#email");
+    await act(async () => setInputValue(input, "person@example.test"));
+    await act(async () => form?.requestSubmit());
+
+    expect(window.location.hash).toBe("");
+    expect(mocks.requestEmailSignInLink).toHaveBeenCalledWith(
+      mocks.client,
+      "person@example.test",
+      "http://localhost:3000/auth/confirm",
+    );
+    expect(document.cookie).toContain("rhsia-auth-return-path=%2Fvaults%2Finvitations%2Fredeem");
+  });
 });
 
 function setInputValue(input: HTMLInputElement | null, value: string) {

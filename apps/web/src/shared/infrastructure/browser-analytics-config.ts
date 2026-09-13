@@ -171,6 +171,7 @@ const STATIC_ANALYTICS_ROUTES = [
   "/smoke",
   "/totp",
   "/auth/confirm",
+  "/auth/complete",
   "/auth/logout",
   "/auth/oidc/callback",
   "/vaults",

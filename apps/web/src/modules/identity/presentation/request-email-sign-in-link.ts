@@ -19,7 +19,7 @@ export async function requestEmailSignInLink(
   redirectTo: string,
 ): Promise<EmailSignInRequestResult> {
   const { error } = await client.auth.signInWithOtp({
-    email,
+    email: email.trim().toLowerCase(),
     options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
   });
   if (error === null) return "sent";

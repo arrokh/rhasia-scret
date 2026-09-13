@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
@@ -22,7 +23,7 @@ export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8A
     try {
       await redeemSecureShareLink(secret, userRootKey);
       captureAnalyticsEvent(ANALYTICS_EVENTS.secureShareLinkRedeemed);
-      window.location.assign(new URL("/vaults", window.location.origin).toString());
+      window.location.replace(new URL("/vaults", window.location.origin).toString());
     } catch {
       setStatus("error");
     }
@@ -39,9 +40,15 @@ export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8A
         </div>
       </div>
       {!secret && (
-        <StatusBanner tone="danger" role="alert">
-          {t("missing")}
-        </StatusBanner>
+        <>
+          <StatusBanner tone="danger" role="alert">
+            <p>{t("missing")}</p>
+            <p className="mt-1">{t("missingHelp")}</p>
+          </StatusBanner>
+          <Button variant="outline" asChild>
+            <Link href="/vaults">{t("backToVaults")}</Link>
+          </Button>
+        </>
       )}
       <Button
         type="button"
