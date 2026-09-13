@@ -18,7 +18,8 @@ vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
   SupabaseSessionVerifier: class SupabaseSessionVerifier {},
 }));
 vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
-  EmailSignInForm: () => createElement("form", { "aria-label": "Formulir masuk" }),
+  EmailSignInForm: ({ nextPath }: { nextPath: string }) =>
+    createElement("form", { "aria-label": "Formulir masuk", "data-next-path": nextPath }),
 }));
 
 import SignInPage from "@/app/sign-in/page";
@@ -30,6 +31,16 @@ describe("SignInPage", () => {
     await SignInPage({ searchParams: Promise.resolve({}) });
 
     expect(mocks.redirect).toHaveBeenCalledWith("/vaults");
+  });
+
+  it("returns an authenticated invitation recipient to redemption", async () => {
+    mocks.loadApplicationUser.mockResolvedValue({ canAccessApplication: () => true });
+
+    await SignInPage({
+      searchParams: Promise.resolve({ next: "/vaults/invitations/redeem" }),
+    });
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/vaults/invitations/redeem");
   });
 
   it.each([
@@ -54,5 +65,17 @@ describe("SignInPage", () => {
     expect(markup).toContain('href="/offline"');
     expect(markup).toContain("Masuk atau buat akun dengan alamat email terverifikasi.");
     expect(markup.indexOf('data-slot="separator"')).toBeLessThan(markup.indexOf('href="/offline"'));
+  });
+
+  it("keeps invitation sign-in scoped to the safe redemption path", async () => {
+    mocks.loadApplicationUser.mockResolvedValue(null);
+
+    const page = await SignInPage({
+      searchParams: Promise.resolve({ auth: "required", next: "/vaults/invitations/redeem" }),
+    });
+    const markup = renderToStaticMarkup(createElement("div", null, page));
+
+    expect(markup).toContain("Masuk untuk menerima undangan");
+    expect(markup).toContain('data-next-path="/vaults/invitations/redeem"');
   });
 });

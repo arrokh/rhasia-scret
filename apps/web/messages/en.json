@@ -322,6 +322,7 @@
       "organizationAccess": "Use your organization’s sign-in to access the hosted Vault.",
       "notice": {
         "required": "Sign in to continue.",
+        "invitationRequired": "Sign in to accept the invitation. Keep this tab open; it will continue automatically after verification.",
         "signedOut": "You have signed out.",
         "logoutFailed": "Sign-out could not be completed. Try again.",
         "missingCode": "The sign-in link is incomplete. Request a new link.",
@@ -331,17 +332,26 @@
     }
   },
   "Identity": {
+    "authCompletion": {
+      "title": "Authentication complete",
+      "description": "Return to the invitation tab. It should continue automatically. If it does not, reopen the original invitation link.",
+      "goToVaults": "Go to vaults"
+    },
     "signIn": {
+      "title": "Sign in or create an account",
+      "description": "We’ll send a one-time link to your verified email address.",
       "emailLabel": "Email address",
       "emailPlaceholder": "name@example.com",
       "emailRequired": "Email address is required.",
       "emailInvalid": "Enter a valid email address.",
       "emailDescription": "Enter your email to sign in or create a new account.",
+      "invitationEmailDescription": "Use the email address that received the invitation. A new account is created after email verification.",
       "sending": "Sending…",
       "retryPage": "Reload the page to try again",
       "retryIn": "Try again in {seconds, plural, one {# second} other {# seconds}}",
       "sendLink": "Continue with email",
       "sent": "Check your inbox for a sign-in link. A new hosted account becomes available after email verification.",
+      "sentInvitation": "Check your inbox. Keep this invitation tab open; it will continue automatically after verification.",
       "rateLimited": "Too many sign-in requests. Wait one minute, then check your inbox or try again.",
       "error": "We could not send the email link. Try again."
     },
@@ -1023,6 +1033,8 @@
       "title": "Accept Shared Vault invitation",
       "description": "The vault key is unlocked and re-wrapped only in this browser.",
       "missing": "The invitation link is incomplete.",
+      "missingHelp": "Sign in first, then reopen the original invitation link. If it is still incomplete, ask the owner to send a new invitation.",
+      "backToVaults": "Back to vaults",
       "redeeming": "Accepting invitation…",
       "redeem": "Accept invitation",
       "error": "The invitation cannot be used. The link may already have been used or may belong to another account."

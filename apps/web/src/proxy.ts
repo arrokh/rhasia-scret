@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createIdentityProxyVerifier, type SetAuthCookies } from "@/modules/identity/proxy";
+import { DEFAULT_AUTH_RETURN_PATH, INVITATION_AUTH_RETURN_PATH } from "@/modules/identity/application/auth-return-path";
 type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
@@ -101,7 +102,12 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
 }
 
 function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse): NextResponse {
-  const response = NextResponse.redirect(new URL("/sign-in?auth=required", request.url));
+  const destination = new URL("/sign-in", request.url);
+  destination.searchParams.set("auth", "required");
+  const nextPath =
+    request.nextUrl.pathname === INVITATION_AUTH_RETURN_PATH ? INVITATION_AUTH_RETURN_PATH : DEFAULT_AUTH_RETURN_PATH;
+  if (nextPath !== DEFAULT_AUTH_RETURN_PATH) destination.searchParams.set("next", nextPath);
+  const response = NextResponse.redirect(destination);
   for (const cookie of refreshedResponse.cookies.getAll()) response.cookies.set(cookie);
   return response;
 }

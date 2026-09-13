@@ -3,16 +3,26 @@ import { NextRequest } from "next/server";
 import { createAuthProxy, isProtectedPagePath } from "@/proxy";
 
 describe("authentication proxy contract", () => {
-  it.each(["/vaults", "/vaults/shared", "/totp"])("classifies %s as a protected page", (pathname) => {
-    expect(isProtectedPagePath(pathname)).toBe(true);
-  });
-
-  it.each(["/", "/sign-in", "/auth/confirm", "/api/health", "/api/time", "/smoke", "/ui-preview", "/vaultsmith"])(
-    "keeps %s public",
+  it.each(["/vaults", "/vaults/shared", "/vaults/invitations/redeem", "/totp"])(
+    "classifies %s as a protected page",
     (pathname) => {
-      expect(isProtectedPagePath(pathname)).toBe(false);
+      expect(isProtectedPagePath(pathname)).toBe(true);
     },
   );
+
+  it.each([
+    "/",
+    "/sign-in",
+    "/auth/confirm",
+    "/auth/complete",
+    "/api/health",
+    "/api/time",
+    "/smoke",
+    "/ui-preview",
+    "/vaultsmith",
+  ])("keeps %s public", (pathname) => {
+    expect(isProtectedPagePath(pathname)).toBe(false);
+  });
 
   it("allows an authenticated request to a protected page", async () => {
     const verifySession = vi.fn().mockResolvedValue(true);
@@ -39,6 +49,14 @@ describe("authentication proxy contract", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
+  });
+
+  it("preserves the safe invitation return path when access is required", async () => {
+    const response = await createAuthProxy(async () => false)(request("/vaults/invitations/redeem"));
+
+    expect(response.headers.get("location")).toBe(
+      "https://vault.example.test/sign-in?auth=required&next=%2Fvaults%2Finvitations%2Fredeem",
+    );
   });
 
   it("fails closed when stale-session verification throws", async () => {

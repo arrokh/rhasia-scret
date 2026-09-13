@@ -6,26 +6,41 @@ import { Separator } from "@/components/ui/separator";
 import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
 import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import {
+  INVITATION_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+  type AuthReturnPath,
+} from "@/modules/identity/application/auth-return-path";
 import { authBackend, createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
+import { InvitationAuthContinuation } from "@/modules/identity/presentation/invitation-auth-continuation";
 
 export const dynamic = "force-dynamic";
 
-type SignInPageProps = { searchParams: Promise<{ auth?: string | string[] }> };
+type SignInPageProps = { searchParams: Promise<{ auth?: string | string[]; next?: string | string[] }> };
 type AuthNotice = {
-  key: "required" | "signedOut" | "logoutFailed" | "missingCode" | "configurationError" | "verificationFailed";
+  key:
+    | "required"
+    | "invitationRequired"
+    | "signedOut"
+    | "logoutFailed"
+    | "missingCode"
+    | "configurationError"
+    | "verificationFailed";
   role: "alert" | "status";
   tone: "danger" | "success" | "info";
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const t = await getTranslations("Home.signIn");
+  const params = await searchParams;
+  const auth = firstQueryValue(params.auth);
+  const nextPath = resolveAuthReturnPath(firstQueryValue(params.next));
   const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   const backend = authBackend();
-  if (user?.canAccessApplication()) redirect("/vaults");
+  if (user?.canAccessApplication()) redirect(nextPath);
 
-  const auth = (await searchParams).auth;
-  const notice = authNotice(Array.isArray(auth) ? auth[0] : auth);
+  const notice = authNotice(auth, nextPath);
 
   return (
     <AppPage centered>
@@ -37,15 +52,25 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <p className="mt-5 text-center text-sm leading-6 text-muted-foreground">{t("tagline")}</p>
         </div>
         <div className="mt-6 grid gap-5">
+          <InvitationAuthContinuation nextPath={nextPath} />
           {notice && (
             <StatusBanner tone={notice.tone} role={notice.role}>
               {t(`notice.${notice.key}`)}
             </StatusBanner>
           )}
-          {backend === "supabase" && <EmailSignInForm />}
+          {backend === "supabase" && <EmailSignInForm nextPath={nextPath} />}
           {backend === "oidc" && (
             <Button asChild>
-              <Link href="/auth/oidc">{t("oidcSignIn")}</Link>
+              <Link
+                href={
+                  nextPath === INVITATION_AUTH_RETURN_PATH
+                    ? `/auth/oidc?next=${encodeURIComponent(nextPath)}`
+                    : "/auth/oidc"
+                }
+                {...(nextPath === INVITATION_AUTH_RETURN_PATH ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
+                {t("oidcSignIn")}
+              </Link>
             </Button>
           )}
           {backend === "none" && (
@@ -74,7 +99,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   );
 }
 
-function authNotice(auth: string | undefined): AuthNotice | null {
+function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNotice | null {
+  if (auth === "required" && nextPath === INVITATION_AUTH_RETURN_PATH)
+    return { key: "invitationRequired", role: "status", tone: "info" };
   if (auth === "required") return { key: "required", role: "status", tone: "info" };
   if (auth === "signed_out") return { key: "signedOut", role: "status", tone: "success" };
   if (auth === "logout_failed") return { key: "logoutFailed", role: "alert", tone: "danger" };
@@ -82,4 +109,8 @@ function authNotice(auth: string | undefined): AuthNotice | null {
   if (auth === "configuration_error") return { key: "configurationError", role: "alert", tone: "danger" };
   if (auth === "verification_failed") return { key: "verificationFailed", role: "alert", tone: "danger" };
   return null;
+}
+
+function firstQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
