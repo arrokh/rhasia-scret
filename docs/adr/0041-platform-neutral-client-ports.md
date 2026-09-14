@@ -23,7 +23,7 @@ Application workflows must not import Next.js, React presentation code, browser 
 
 ## Authentication and transport
 
-The current web adapter continues to use the existing same-origin cookie session. The native adapter uses `BearerTokenTransport` with the Supabase access token only at the transport boundary. `AuthenticatedTransport` is intentionally credential-neutral. Tokens are never passed into workflows as query data, persisted client state, logs, encrypted content, or server data beyond the provider's request.
+The current web adapter continues to use the existing same-origin cookie session. The native adapter uses `BearerTokenTransport` with the opaque access token only at the transport boundary. `AuthenticatedTransport` is intentionally credential-neutral. Tokens are never passed into workflows as query data, persisted client state, logs, encrypted content, or server data beyond the provider's request.
 
 Authorization checks, revision checks, one-time Secure Share Link semantics, mutation rate limits, audit redaction, and server/client zero-knowledge boundaries are unchanged.
 

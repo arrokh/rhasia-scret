@@ -5,8 +5,6 @@ export type MobileClientConfiguration = {
   apiUrl: string;
   webOrigin: string;
   authRedirectUrl: string;
-  supabaseUrl: string;
-  supabasePublishableKey: string;
 };
 
 type PublicConfiguration = Partial<MobileClientConfiguration>;
@@ -18,22 +16,24 @@ export function parseMobileClientConfiguration(values: PublicConfiguration): Mob
     "https:",
     "rhasia-scret:",
   ]);
-  const supabaseUrl = requiredUrl(values.supabaseUrl, "EXPO_PUBLIC_SUPABASE_URL", ["https:"]);
-  const supabasePublishableKey = required(values.supabasePublishableKey, "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const approvedCallback =
     authRedirectUrl.protocol === "rhasia-scret:"
-      ? authRedirectUrl.hostname === "auth" && authRedirectUrl.pathname === "/callback"
+      ? authRedirectUrl.hostname === "auth" && authRedirectUrl.port === "" && authRedirectUrl.pathname === "/magic-link"
       : authRedirectUrl.origin === webOrigin && authRedirectUrl.pathname === "/auth/mobile";
-  if (!approvedCallback) throw new Error("EXPO_PUBLIC_AUTH_REDIRECT_URL is not an approved callback.");
-  if (apiUrl.username || apiUrl.password || supabaseUrl.username || supabaseUrl.password) {
-    throw new Error("Public service URLs must not contain credentials.");
-  }
+  if (
+    !approvedCallback ||
+    authRedirectUrl.username ||
+    authRedirectUrl.password ||
+    authRedirectUrl.search ||
+    authRedirectUrl.hash
+  )
+    throw new Error("EXPO_PUBLIC_AUTH_REDIRECT_URL is not an approved callback.");
+  if (apiUrl.username || apiUrl.password || apiUrl.pathname !== "/" || apiUrl.search || apiUrl.hash)
+    throw new Error("Public service URLs must contain only an origin and no credentials.");
   return {
     apiUrl: apiUrl.origin,
     webOrigin,
     authRedirectUrl: authRedirectUrl.toString(),
-    supabaseUrl: supabaseUrl.origin,
-    supabasePublishableKey,
   };
 }
 

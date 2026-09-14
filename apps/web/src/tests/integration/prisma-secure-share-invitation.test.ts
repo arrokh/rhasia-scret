@@ -267,7 +267,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
 });
 
 async function user(label: string, email = `${label}-${randomUUID()}@example.test`) {
-  const result = await prisma.applicationUser.create({ data: { supabaseUserId: randomUUID(), email } });
+  const result = await prisma.applicationUser.create({ data: { email } });
   userIds.push(result.id);
   return result;
 }

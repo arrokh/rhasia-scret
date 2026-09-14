@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AuthenticatedTransport,
   BearerTokenProvider,
@@ -6,6 +5,7 @@ import type {
   PlatformHttpResponse,
 } from "@rhasia-scret/client-vault-core";
 import { BearerTokenTransport } from "@rhasia-scret/client-vault-core";
+import type { MobilePasswordlessAuthClient } from "./mobile-passwordless-auth-client";
 
 export class NativeHttpTransport implements AuthenticatedTransport {
   public constructor(private readonly apiUrl: string) {}
@@ -36,16 +36,17 @@ export class NativeHttpTransport implements AuthenticatedTransport {
   }
 }
 
-export class SupabaseBearerTokenProvider implements BearerTokenProvider {
-  public constructor(private readonly supabase: SupabaseClient) {}
+export class NativeBearerTokenProvider implements BearerTokenProvider {
+  public constructor(private readonly auth: MobilePasswordlessAuthClient) {}
 
-  public async getToken(): Promise<string | null> {
-    const { data, error } = await this.supabase.auth.getSession();
-    if (error) return null;
-    return data.session?.access_token ?? null;
+  public getToken(): Promise<string | null> {
+    return this.auth.getAccessToken();
   }
 }
 
-export function createNativeAuthenticatedTransport(apiUrl: string, supabase: SupabaseClient): AuthenticatedTransport {
-  return new BearerTokenTransport(new NativeHttpTransport(apiUrl), new SupabaseBearerTokenProvider(supabase));
+export function createNativeAuthenticatedTransport(
+  apiUrl: string,
+  auth: MobilePasswordlessAuthClient,
+): AuthenticatedTransport {
+  return new BearerTokenTransport(new NativeHttpTransport(apiUrl), new NativeBearerTokenProvider(auth));
 }

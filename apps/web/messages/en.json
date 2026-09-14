@@ -64,9 +64,9 @@
         "title": "Providers",
         "description": "Authentication, hosting, database, email, and optional analytics providers have separate operational responsibilities.",
         "items": {
-          "auth": "Supabase Auth or OIDC may handle provider identity, email or subject metadata, authentication events, and sessions; it does not receive Vault plaintext from this application.",
+          "auth": "The self-managed passwordless service or optional OIDC adapter handles identity metadata, authentication events, and opaque sessions; it does not receive Vault plaintext from this application.",
           "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.",
-          "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser Supabase Data API/RLS access is not part of the supported boundary.",
+          "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser database access is not part of the supported boundary.",
           "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply."
         }
       },
@@ -325,10 +325,7 @@
         "invitationRequired": "Sign in to accept the invitation. Keep this tab open; it will continue automatically after verification.",
         "signedOut": "You have signed out.",
         "logoutFailed": "Sign-out could not be completed. Try again.",
-        "missingCode": "The sign-in link is incomplete. Request a new link.",
         "configurationError": "The sign-in service is not configured. Contact an administrator.",
-        "accessDenied": "The sign-in link was denied. Request a new link.",
-        "linkExpired": "The sign-in link is invalid or has expired. Request a new link.",
         "verificationFailed": "The sign-in link could not be verified. Request a new link."
       }
     }
@@ -338,6 +335,13 @@
       "title": "Authentication complete",
       "description": "Return to the invitation tab. It should continue automatically. If it does not, reopen the original invitation link.",
       "goToVaults": "Go to vaults"
+    },
+    "confirm": {
+      "verifying": "Verifying your sign-in link…",
+      "failed": "This sign-in link is invalid or expired. Request a new link.",
+      "backToSignIn": "Back to sign in",
+      "backToHome": "Back to home",
+      "doNotClose": "This page will continue automatically after verification."
     },
     "signIn": {
       "title": "Sign in or create an account",
@@ -356,6 +360,15 @@
       "sentInvitation": "Check your inbox. Keep this invitation tab open; it will continue automatically after verification.",
       "rateLimited": "Too many sign-in requests. Wait one minute, then check your inbox or try again.",
       "error": "We could not send the email link. Try again."
+    },
+    "magicLinkEmail": {
+      "language": "English",
+      "subject": "rhasia-scret sign-in link",
+      "title": "Sign in to rhasia-scret",
+      "description": "Use the button below to sign in or create your hosted account.",
+      "button": "Sign in",
+      "fallback": "If the button does not work, open this link:",
+      "ignore": "If you did not request this link, you can ignore this email."
     },
     "logout": {
       "settings": "Account settings",
@@ -478,6 +491,9 @@
       "localVaultDescription": "Your independent Local Vault can be opened without unlocking this server Vault session.",
       "openLocalVault": "Open Local Vault",
       "secretError": "The Vault Passphrase could not unlock your vaults.",
+      "authenticationError": "Your sign-in session has expired. Sign in again before unlocking your vaults.",
+      "signInAgain": "Sign in again",
+      "syncError": "Your encrypted vault data could not be loaded. Try again.",
       "passkeyError": "The passkey could not unlock your vaults. Try again or use your Vault Passphrase.",
       "rememberedError": "Local Verification failed or the browser package is invalid. Use your Vault Passphrase; no key was released without verification."
     },

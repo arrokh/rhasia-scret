@@ -5,7 +5,7 @@ import { createAuthenticatedApplicationExecutor } from "./application/authentica
 const applicationUsers = createApplicationUserRepository();
 
 export const executeAuthenticatedApplicationRequest = createAuthenticatedApplicationExecutor({
-  verifySession: async (assurance) => createSessionVerifier(assurance).verify(assurance),
+  verifySession: async (assurance) => createSessionVerifier().verify(assurance),
   provisionApplicationUser: (principal) => applicationUsers.provision(principal),
   checkApplicationRateLimit,
 });

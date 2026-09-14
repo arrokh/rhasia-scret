@@ -16,7 +16,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
     const initialize = vi.fn().mockResolvedValue(undefined);
     const handler = createInitializePersonalVaultHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       personalVaults: { initialize },
     });
     const response = await handler(
@@ -32,7 +32,7 @@ describe("POST /api/personal-vault/initialize contract", () => {
   it("rejects malformed opaque material", async () => {
     const handler = createInitializePersonalVaultHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       personalVaults: { initialize: vi.fn() },
     });
     const response = await handler(

@@ -23,7 +23,7 @@ describe("PrismaVaultAuditRepository", () => {
       const users = await Promise.all(
         ["owner", "viewer", "outsider"].map(async (name) => {
           const user = await prisma.applicationUser.create({
-            data: { supabaseUserId: randomUUID(), email: `${name}-${randomUUID()}@example.test` },
+            data: { email: `${name}-${randomUUID()}@example.test` },
           });
           userIds.push(user.id);
           return user;

@@ -37,13 +37,16 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
   decryptAccountConfiguration: mocks.decryptAccountConfiguration,
 }));
 
+import { AuthorizedOfflineBundleTransportError } from "@rhasia-scret/client-vault-core";
 import {
+  classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
   loadOfflineVaultWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser,
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser,
+  LocalStorageSyncError,
   refreshUnlockedVaultWorkspace,
 } from "@/modules/sync/infrastructure/browser-vault-workspace";
 
@@ -52,6 +55,17 @@ describe("Vault workspace loading", () => {
     vi.resetAllMocks();
     vi.stubGlobal("navigator", { onLine: false });
     mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Brankas Pribadi"));
+  });
+
+  it("classifies authorization, synchronization, storage, and passphrase failures separately", () => {
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new AuthorizedOfflineBundleTransportError(401, "unauthorized")),
+    ).toBe("AUTHENTICATION");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new AuthorizedOfflineBundleTransportError(503, "unavailable")),
+    ).toBe("SYNC");
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new LocalStorageSyncError())).toBe("LOCAL_STORAGE");
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("invalid passphrase"))).toBe("PASSPHRASE");
   });
 
   it("decrypts, orders, and atomically persists one complete authorized online bundle without implicit enrollment writes", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { linkIdentity } from "@/modules/identity/application/identity-linking";
 
 const existing = {
-  issuer: "https://supabase.example.test/auth/v1",
+  issuer: "https://identity.example.test/auth/v1",
   subject: "old",
   email: "person@example.test",
   emailVerified: true,

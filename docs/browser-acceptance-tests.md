@@ -1,12 +1,12 @@
 # Encrypted Vault browser acceptance tests
 
-The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows. It uses synthetic fixtures and a deterministic test-only authentication seam for authenticated scenarios; no production account, Vault, secret, OTP, or key is required. The ordinary unauthenticated smoke scenario still renders the hosted sign-in form, so when the selected backend is Supabase the public Supabase URL and publishable key must be configured, even though no real account is used.
+The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows. It uses synthetic fixtures and a deterministic test-only authentication seam for authenticated scenarios; no production account, Vault, secret, OTP, or key is required. The ordinary unauthenticated smoke scenario still renders the hosted sign-in form, so the passwordless backend's synthetic server secrets and SMTP configuration must be present, even though no real account or email is used.
 
 ## Local setup
 
 1. Install the repository toolchain and dependencies with `mise install && mise run setup`.
 2. Provide the normal local PostgreSQL `DATABASE_URL` and `DIRECT_URL` values.
-3. Apply migrations with `pnpm exec prisma migrate deploy` and backfill existing provider identities with `pnpm run prisma:backfill-external-identities`.
+3. Run `pnpm run prisma:migrate:deploy`; the staged deployment runner applies the additive migration, preflights/seeds/verifies local identities, and then applies guarded cleanup. Verify the final state with `pnpm run verify:passwordless-migration`.
 4. Install the Playwright browsers when needed with `pnpm exec playwright install`.
 5. Run all browser suites with `pnpm run test:browser`. To run only the encrypted Vault matrix, use `pnpm exec playwright test --config playwright.e2e.config.ts`.
 
@@ -20,7 +20,7 @@ The CI workflow runs the smoke and encrypted suites for Chromium in a two-cell m
 
 ## Controlled external seams
 
-Supabase/OIDC provider sessions and WebAuthn attestation cannot be exercised against production providers deterministically in CI. The suite therefore provides narrowly scoped deterministic adapter seams that:
+Passwordless/OIDC provider sessions and WebAuthn attestation cannot be exercised against production providers deterministically in CI. The suite therefore provides narrowly scoped deterministic adapter seams that:
 
 - are enabled only when both `NODE_ENV=development` and `E2E_BROWSER_TESTS=1`;
 - accept only identities listed in `E2E_BROWSER_TEST_USERS`;

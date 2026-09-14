@@ -7,8 +7,7 @@ const approvedProviderPaths = [
   join(process.cwd(), "src/app/auth/confirm"),
   join(process.cwd(), "src/app/auth/oidc"),
 ];
-const forbiddenProviderImports =
-  /from ["'](?:@supabase|openid-client|jose)|require\(["'](?:@supabase|openid-client|jose)/;
+const forbiddenProviderImports = /from ["'](?:openid-client|jose)|require\(["'](?:openid-client|jose)/;
 
 describe("provider-neutral identity boundaries", () => {
   it("keeps provider SDK and protocol imports in Identity infrastructure or auth entry points", () => {

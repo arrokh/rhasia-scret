@@ -1,3 +1,5 @@
+// @supabase is intentionally kept as a negative import guard. The package is
+// not a dependency; this prevents provider-specific runtime code from returning.
 module.exports = {
   forbidden: [
     {

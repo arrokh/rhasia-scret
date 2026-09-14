@@ -14,7 +14,7 @@ describe("PUT /api/user-encryption-identity contract", () => {
     const registerUserEncryptionIdentity = vi.fn().mockResolvedValue(undefined);
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       cryptoProfiles: {
         get: async () => null,
         registerUserEncryptionIdentity,
@@ -37,7 +37,7 @@ describe("PUT /api/user-encryption-identity contract", () => {
   it("rejects a private JWK", async () => {
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       cryptoProfiles: {
         get: async () => null,
         registerUserEncryptionIdentity: async () => undefined,

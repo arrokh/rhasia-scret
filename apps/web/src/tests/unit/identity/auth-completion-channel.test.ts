@@ -1,7 +1,10 @@
+/** @vitest-environment jsdom */
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   announceAuthenticationCompletion,
+  requestInvitationSecret,
   subscribeToAuthenticationCompletion,
 } from "@/modules/identity/presentation/auth-completion-channel";
 
@@ -66,5 +69,18 @@ describe("auth completion channel", () => {
     expect(onComplete).not.toHaveBeenCalled();
     unsubscribe();
     sender.close();
+  });
+
+  it("hands the invitation fragment between open client tabs without persistence", async () => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    vi.stubGlobal("crypto", { randomUUID: () => "request-id" });
+    const unsubscribe = subscribeToAuthenticationCompletion(
+      () => undefined,
+      () => "invitation-secret-value",
+    );
+
+    await expect(requestInvitationSecret()).resolves.toBe("invitation-secret-value");
+
+    unsubscribe();
   });
 });

@@ -9,6 +9,7 @@ const report = {
   accountBacklogRemaining: false,
   vaultBacklogRemaining: false,
   auditBacklogRemaining: false,
+  authRecordsPurged: 0,
 };
 
 describe("GET /api/internal/retention-purge contract", () => {
@@ -67,6 +68,7 @@ describe("GET /api/internal/retention-purge contract", () => {
       accountCount: 1,
       vaultCount: 1,
       auditEventCount: 1,
+      authRecordsPurged: 0,
       accountBacklogRemaining: false,
       vaultBacklogRemaining: false,
       auditBacklogRemaining: false,

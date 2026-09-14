@@ -72,4 +72,28 @@ describe("browser test gate inventory", () => {
     expect(packageJson).toContain('"performance": "playwright test --config playwright.performance.config.ts"');
     expect(packageJson).toContain('BROWSER_TEST_SEQUENTIAL=\\"${BROWSER_TEST_SEQUENTIAL:-1}\\"');
   });
+
+  it("gives the standalone performance server a complete synthetic passwordless configuration", () => {
+    const performanceConfig = readFileSync(resolve(process.cwd(), "playwright.performance.config.ts"), "utf8");
+
+    for (const setting of [
+      'AUTH_BACKEND: "passwordless"',
+      "AUTH_APP_ORIGIN: baseURL",
+      "AUTH_MAGIC_LINK_SECRET:",
+      "AUTH_SESSION_SECRET:",
+      "AUTH_MOBILE_REDIRECT_URL:",
+      "SMTP_HOST:",
+      "SMTP_PORT:",
+      "SMTP_SECURE:",
+      "SMTP_REQUIRE_TLS:",
+      "SMTP_USER:",
+      "SMTP_PASSWORD:",
+      "AUTH_EMAIL_FROM:",
+      "AUTH_EMAIL_FROM_NAME:",
+      'E2E_BROWSER_TESTS: "1"',
+      "E2E_BROWSER_TEST_USERS:",
+    ]) {
+      expect(performanceConfig).toContain(setting);
+    }
+  });
 });

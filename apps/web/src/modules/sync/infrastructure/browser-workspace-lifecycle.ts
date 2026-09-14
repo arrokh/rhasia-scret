@@ -37,8 +37,9 @@ export function createBrowserWorkspaceLifecyclePorts(
 }
 
 export function classifyBrowserWorkspaceRefreshFailure(error: unknown): WorkspaceRefreshFailure {
-  if (error instanceof AuthorizedOfflineBundleTransportError && error.status === 401) return "AUTHENTICATION";
-  if (error instanceof BrowserApiError && error.status === 401) return "AUTHENTICATION";
+  if (error instanceof AuthorizedOfflineBundleTransportError && (error.status === 401 || error.status === 403))
+    return "AUTHENTICATION";
+  if (error instanceof BrowserApiError && (error.status === 401 || error.status === 403)) return "AUTHENTICATION";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
   return "SYNC";
 }

@@ -10,7 +10,8 @@ import {
 
 function handler(reset: () => Promise<void>) {
   return createDestructivePersonalVaultResetHandler({
-    authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+    authenticate: async () =>
+      new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
     resets: { getEligibility: vi.fn(), reset },
   });
 }

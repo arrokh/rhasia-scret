@@ -20,7 +20,7 @@ rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaul
 | Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.                                                                                                                                                                                                                                                      |
 | TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.                                                                                                                                                                                                                                           |
 
-The web application can run in local-only mode without remote authentication, or in hosted mode with the configured Supabase or OIDC Authentication Provider. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
+The web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless or optional OIDC authentication. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ The repository is a pnpm workspace with three bounded application/package areas:
 
 - `apps/web` — Next.js web application, route handlers, Prisma schema/migrations, browser adapters, presentation, localization, and web tests.
 - `apps/mobile` — Expo SDK 57 iOS/Android composition layer, native adapters, native cryptography module, presentation, localization, and mobile tests.
-- `packages/client-vault-core` — platform-neutral client workflows and contracts. It has no dependency on either application, React, Expo, Prisma, Supabase, browser APIs, or platform storage.
+- `packages/client-vault-core` — platform-neutral client workflows and contracts. It has no dependency on either application, React, Expo, Prisma, browser APIs, or platform storage.
 
 ```mermaid
 flowchart TB
@@ -49,7 +49,7 @@ flowchart TB
         routes --> prisma --> database
     end
 
-    auth["Supabase or OIDC<br/>Authentication Provider"] --> routes
+    auth["Passwordless or OIDC<br/>Authentication"] --> routes
     browser -- "Encrypted payloads + opaque metadata" --> routes
     mobile -- "Encrypted payloads + opaque metadata" --> routes
     plaintext["Client-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
@@ -87,7 +87,7 @@ mise run setup
 
 1. Clone the repository and enter its root.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the public Supabase values in `.env` or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require an authentication provider.
+3. If exercising hosted authentication locally, configure the passwordless SMTP/secrets in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
 4. Install and initialize the workspace:
 
 ```bash
@@ -99,7 +99,7 @@ pnpm run prisma:migrate:deploy
 
 For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
 
-The repository's tests use synthetic data and local services. Never put a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
+The repository's tests use synthetic data and local services. Never put authentication credentials, OIDC client secrets, Vault material, OTP, archive keys, or Secure Share Link fragments in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 
 ## Run and verify
 
@@ -127,7 +127,7 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-`pnpm run test:full` is the required repository gate. It runs the shared package, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service; the ordinary browser smoke stage also requires the public Supabase URL and publishable key when hosted authentication is selected.
+`pnpm run test:full` is the required repository gate. It runs the shared package, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected.
 
 Focused and release commands:
 
@@ -174,7 +174,7 @@ For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobil
 ## Authentication modes
 
 - **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
-- **Supabase:** `AUTH_BACKEND=supabase` (the default); configure public passwordless email signup and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md).
+- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure SMTP, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md).
 - **OIDC:** `AUTH_BACKEND=oidc`; configure the provider-neutral OIDC adapter and admitted verified emails using the same document.
 
 Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.
@@ -183,7 +183,7 @@ Authentication authorizes application access; it never unlocks encrypted Vault c
 
 The service is honest-but-curious: it enforces authorization but is not trusted with plaintext Vault content or client-held secrets. The design does not hide permitted ciphertext size/timing or authorization/lifecycle metadata. A malicious host could serve altered client code and is outside the MVP guarantee. No production credentials or real Vault content belong in this repository.
 
-The application currently defers browser Supabase Data API/RLS access in favor of server-side Prisma access. Operators must follow the deployment, retention, backup, authentication, and security checklists rather than treating repository tests as production security evidence.
+The application defers browser database/API access in favor of server-side Prisma access. Operators must follow the deployment, retention, backup, authentication, and security checklists rather than treating repository tests as production security evidence.
 
 ## Contributing and public verification
 

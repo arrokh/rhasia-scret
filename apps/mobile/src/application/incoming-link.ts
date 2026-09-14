@@ -1,45 +1,55 @@
-export type IncomingLinkKind = "auth_callback" | "secure_share_link" | "unknown";
+export type IncomingLinkKind = "magic_link" | "secure_share_link" | "unknown";
 export type AuthCallbackResult = "authenticated" | "invalid" | "provider_error";
 
-export interface MobileAuthCallbackPort {
-  exchangeCodeForSession(code: string): Promise<{ error: unknown }>;
-  setSession(tokens: { access_token: string; refresh_token: string }): Promise<{ error: unknown }>;
+export interface MobilePasswordlessAuthPort {
+  redeemMagicLink(token: string): Promise<unknown>;
 }
 
 export function classifyIncomingLink(rawUrl: string, webOrigin: string): IncomingLinkKind {
   const url = safeUrl(rawUrl);
-  if (!url || !isTrustedOrigin(url, webOrigin)) return "unknown";
+  if (!url || url.username || url.password || url.search || !isTrustedOrigin(url, webOrigin)) return "unknown";
   const path = normalizedPath(url);
-  if (path === "/auth/callback" || path === "/auth/mobile") return "auth_callback";
+  if (path === "/auth/mobile" || (url.protocol === "rhasia-scret:" && path === "/auth/magic-link")) return "magic_link";
   if (path === "/vaults/invitations/redeem") return "secure_share_link";
   return "unknown";
+}
+
+export function extractMagicLinkToken(rawUrl: string, webOrigin: string): string | null {
+  if (classifyIncomingLink(rawUrl, webOrigin) !== "magic_link") return null;
+  const url = safeUrl(rawUrl);
+  const parameters = fragmentParameters(url ?? new URL("https://invalid.example"));
+  const nextPaths = parameters.getAll("next");
+  if (
+    parameters.getAll("token").length !== 1 ||
+    nextPaths.length > 1 ||
+    [...parameters.keys()].some((key) => key !== "token" && key !== "next") ||
+    (nextPaths.length === 1 && nextPaths[0] !== "/vaults" && nextPaths[0] !== "/vaults/invitations/redeem")
+  )
+    return null;
+  const token = parameters.get("token");
+  return token && /^[A-Za-z0-9_-]{43,128}$/.test(token) ? token : null;
 }
 
 export function extractSecureShareLinkSecret(rawUrl: string, webOrigin: string): string | null {
   if (classifyIncomingLink(rawUrl, webOrigin) !== "secure_share_link") return null;
   const url = safeUrl(rawUrl);
   const secret = url?.hash.startsWith("#") ? url.hash.slice(1) : "";
-  return secret.length >= 16 && secret.length <= 4_096 ? secret : null;
+  return /^[A-Za-z0-9_-]{16,4096}$/.test(secret) ? secret : null;
 }
 
-export async function completeAuthCallback(
+export async function completeMagicLink(
   rawUrl: string,
-  auth: MobileAuthCallbackPort,
+  auth: MobilePasswordlessAuthPort,
   webOrigin: string,
 ): Promise<AuthCallbackResult> {
-  if (classifyIncomingLink(rawUrl, webOrigin) !== "auth_callback") return "invalid";
-  const url = safeUrl(rawUrl);
-  if (!url) return "invalid";
-  if (url.searchParams.has("error") || fragmentParameters(url).has("error")) return "provider_error";
-  const code = url.searchParams.get("code");
-  if (code) return (await auth.exchangeCodeForSession(code)).error ? "provider_error" : "authenticated";
-  const fragment = fragmentParameters(url);
-  const accessToken = fragment.get("access_token") ?? url.searchParams.get("access_token");
-  const refreshToken = fragment.get("refresh_token") ?? url.searchParams.get("refresh_token");
-  if (!accessToken || !refreshToken) return "invalid";
-  return (await auth.setSession({ access_token: accessToken, refresh_token: refreshToken })).error
-    ? "provider_error"
-    : "authenticated";
+  const token = extractMagicLinkToken(rawUrl, webOrigin);
+  if (!token) return "invalid";
+  try {
+    await auth.redeemMagicLink(token);
+    return "authenticated";
+  } catch {
+    return "provider_error";
+  }
 }
 
 function safeUrl(rawUrl: string): URL | null {
@@ -51,7 +61,9 @@ function safeUrl(rawUrl: string): URL | null {
 }
 
 function isTrustedOrigin(url: URL, webOrigin: string): boolean {
-  return url.protocol === "rhasia-scret:" || (url.protocol === "https:" && url.origin === webOrigin);
+  return url.protocol === "rhasia-scret:"
+    ? url.hostname === "auth" && url.port === ""
+    : url.protocol === "https:" && url.origin === webOrigin;
 }
 
 function normalizedPath(url: URL): string {

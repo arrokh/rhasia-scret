@@ -11,6 +11,7 @@ function sourceFiles(directory: string): string[] {
 
 describe("client-vault-core boundaries", () => {
   it("has no application, server, framework, or platform imports", () => {
+    // @supabase is a negative assertion only; the core package has no provider dependency.
     const forbidden =
       /next(?:\/|['"]|$)|react(?:-dom|-native)?(?:\/|['"]|$)|expo(?:\/|['"]|$)|@prisma|@supabase|indexedDB|localStorage|sessionStorage|from ["'](?:fs|node:fs|http|https)["']/;
     for (const path of sourceFiles(join(process.cwd(), "src"))) {

@@ -1,7 +1,8 @@
-# Invite-only email OTP authentication
+# Invite-only email authentication (superseded)
 
-- Status: Superseded by ADR-0043 for the Supabase deployment mode; retained as historical context
+- Status: Superseded by ADR-0049; retained as historical context
+- Date: 2026-03-01
 
-The MVP originally used Supabase email OTP or magic-link authentication only for users invited manually by an administrator through Supabase Auth. Supabase public signup was disabled; the application provisioned `application_users` from a verified invited-user session and had no separate `allowed_emails` table. The application had no in-app user-management surface, and the Vault Unlock Secret remained separate from authentication.
+The MVP originally considered administrator-invited email-link authentication. That policy was later replaced by seamless self-managed passwordless sign-in/signup: any user can request a link, while Shared Vault access remains governed by explicit invitations and membership authorization.
 
-ADR-0039 preserved this behavior while moving the application contract to Verified Principal, External Identity, and independent Application Admission. ADR-0043 changes only the Supabase deployment mode to public passwordless email sign-in/signup with Confirm email enabled. OIDC and Local-only deployments do not rely on Supabase signup, and no provider-specific identity may cross the Identity boundary.
+The current system still preserves the important boundaries from this decision: authentication is distinct from the Vault Unlock Secret, there is no password registration or `allowed_emails` table, application-user provisioning is idempotent, and a valid authentication session does not grant Shared Vault membership.

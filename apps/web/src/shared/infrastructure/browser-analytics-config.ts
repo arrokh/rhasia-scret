@@ -113,7 +113,7 @@ type AnalyticsEventProperties = {
   vault_unlocked: { method: AnalyticsVaultUnlockMethod };
   vault_unlock_failed: {
     method: AnalyticsVaultUnlockMethod;
-    failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error";
+    failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error" | "unknown";
   };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
   offline_vault_unlock_failed: {

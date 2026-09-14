@@ -14,8 +14,8 @@ White canvas, deep-indigo primary action, soft slate borders, rounded 8–12px c
 
 ## Expected behaviour
 
-Accept an email address and begin the approved Supabase passwordless email OTP/magic-link flow. Show inline validation, submit progress, and a non-enumerating failure state. New users are created only after the provider verifies the email.
+Accept an email address and begin the approved self-managed passwordless email magic-link flow. Show inline validation, submit progress, and a non-enumerating failure state. New users are created only after the provider verifies the email.
 
 ## Flow
 
-Entry → enter email → continue or request magic link → verify Supabase session → provision/load Application User → secure-vault setup or unlock.
+Entry → enter email → continue or request magic link → redeem the one-time link and create a local session → provision/load Application User → secure-vault setup or unlock.

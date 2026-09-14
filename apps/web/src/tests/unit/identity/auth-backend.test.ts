@@ -1,5 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
+
+const requiredPasswordless = {
+  AUTH_BACKEND: "passwordless",
+  NODE_ENV: "test",
+  AUTH_APP_ORIGIN: "http://localhost:3000",
+  AUTH_MAGIC_LINK_SECRET: "12345678901234567890123456789012",
+  AUTH_SESSION_SECRET: "abcdefghijklmnopqrstuvwxyz123456",
+};
 
 const requiredOidc = {
   AUTH_BACKEND: "oidc",
@@ -11,24 +19,56 @@ const requiredOidc = {
   OIDC_SESSION_SECRET: "12345678901234567890123456789012",
 };
 
-afterEach(() => vi.unstubAllEnvs());
-
 describe("authentication backend configuration", () => {
-  it("defaults to the existing Supabase adapter", () => {
-    vi.stubEnv("AUTH_BACKEND", "supabase");
-    expect(readAuthConfiguration()).toEqual({ backend: "supabase" });
+  it("defaults to self-managed passwordless authentication", () => {
+    expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({ backend: "passwordless" });
   });
 
-  it("supports local-only mode without provider configuration", () => {
-    vi.stubEnv("AUTH_BACKEND", "none");
-    expect(readAuthConfiguration()).toEqual({ backend: "none" });
-  });
-
-  it("requires all server-only OIDC settings and a strong session secret", () => {
-    vi.stubEnv("AUTH_BACKEND", "oidc");
+  it("reads passwordless origins, secrets, and bounded lifetimes", () => {
+    expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({
+      backend: "passwordless",
+      passwordless: {
+        appOrigin: new URL("http://localhost:3000/"),
+        mobileRedirectUrl: new URL("http://localhost:3000/auth/mobile"),
+        magicLinkTtlSeconds: 900,
+        accessTokenTtlSeconds: 900,
+        refreshTokenTtlSeconds: 2_592_000,
+      },
+    });
+    expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_MAGIC_LINK_SECRET: "short" })).toThrow(
+      "AUTH_MAGIC_LINK_SECRET",
+    );
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        AUTH_SESSION_SECRET: requiredPasswordless.AUTH_MAGIC_LINK_SECRET,
+      }),
+    ).toThrow("different values");
+    expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_APP_ORIGIN: "https://host.test/path" })).toThrow(
+      "origin",
+    );
     expect(
-      readAuthConfiguration({ ...requiredOidc, OIDC_REDIRECT_URI: "http://127.0.0.1:3000/auth/oidc/callback" }).backend,
-    ).toBe("oidc");
+      readAuthConfiguration({ ...requiredPasswordless, AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth/magic-link" }),
+    ).toMatchObject({ passwordless: { mobileRedirectUrl: new URL("rhasia-scret://auth/magic-link") } });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        AUTH_APP_ORIGIN: "https://host.test",
+        AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth/magic-link",
+      }),
+    ).toThrow("approved callback");
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth:443/magic-link",
+      }),
+    ).toThrow("approved callback");
+  });
+
+  it("supports local-only mode and the optional OIDC adapter", () => {
+    expect(readAuthConfiguration({ AUTH_BACKEND: "none" })).toEqual({ backend: "none" });
+    expect(readAuthConfiguration(requiredOidc).backend).toBe("oidc");
     expect(() => readAuthConfiguration({ ...requiredOidc, OIDC_SESSION_SECRET: "short" })).toThrow(
       "OIDC_SESSION_SECRET",
     );
@@ -36,7 +76,7 @@ describe("authentication backend configuration", () => {
   });
 
   it("rejects invalid backend and insecure production redirects", () => {
-    expect(() => readAuthConfiguration({ AUTH_BACKEND: "unknown" })).toThrow("AUTH_BACKEND");
+    expect(() => readAuthConfiguration({ AUTH_BACKEND: "rhasia:passwordless" })).toThrow("AUTH_BACKEND");
     expect(() => readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toThrow("OIDC_REDIRECT_URI");
   });
 });

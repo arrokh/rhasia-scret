@@ -11,8 +11,8 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
-import { createBrowserSupabaseClient } from "./browser-supabase-client";
-import { authConfirmationRedirectUrl, requestEmailSignInLink } from "./request-email-sign-in-link";
+import { browserPasswordlessClient } from "../infrastructure/browser-passwordless-client";
+import { requestEmailSignInLink } from "./request-email-sign-in-link";
 import {
   AUTH_RETURN_PATH_COOKIE,
   AUTH_RETURN_PATH_COOKIE_MAX_AGE_SECONDS,
@@ -33,11 +33,7 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
       setStatus("sending");
       rememberAuthReturnPath(returnPath);
       if (returnPath === INVITATION_AUTH_RETURN_PATH) clearUrlFragment();
-      const result = await requestEmailSignInLink(
-        createBrowserSupabaseClient(),
-        value.email,
-        authConfirmationRedirectUrl(window.location.origin),
-      );
+      const result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath);
       if (result === "rate_limited") setRetrySeconds(60);
       if (result === "sent") {
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });

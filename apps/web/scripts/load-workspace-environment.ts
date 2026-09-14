@@ -1,12 +1,8 @@
 import { config as loadDotenv } from "dotenv";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-
-/** Load the repository's shared environment contract for app-local scripts. */
+/** Load the repository-root environment contract for workspace scripts. */
 export function loadWorkspaceEnvironment(): void {
-  loadDotenv({ path: resolve(scriptDirectory, "../../../.env") });
-  loadDotenv({ path: resolve(scriptDirectory, "../.env") });
-  loadDotenv({ path: resolve(scriptDirectory, "../.env.local") });
+  // Web package commands execute with apps/web as their working directory.
+  loadDotenv({ path: resolve(process.cwd(), "../../.env") });
 }

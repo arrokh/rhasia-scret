@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking } from "react-native";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
-import { classifyIncomingLink, completeAuthCallback, extractSecureShareLinkSecret } from "../application/incoming-link";
+import {
+  completeMagicLink,
+  classifyIncomingLink,
+  extractMagicLinkToken,
+  extractSecureShareLinkSecret,
+} from "../application/incoming-link";
 import { loadMobileApplicationUser } from "../application/load-mobile-application-user";
+import type { MobilePasswordlessAuthPort } from "../application/incoming-link";
+import type {
+  MobilePasswordlessAuthClient,
+  NativeMobileSession,
+} from "../infrastructure/mobile-passwordless-auth-client";
 
 export type MobileSessionStatus =
   | "idle"
@@ -17,70 +26,91 @@ export type MobileSessionStatus =
   | "callback_error"
   | "share_link_ready";
 
-const MOBILE_AUTH_REQUEST_TIMEOUT_MS = 15_000;
-
-export function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Mobile authentication request timed out.")), milliseconds);
-    void promise.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
-}
-
 export function useMobileSession(
-  supabase: SupabaseClient,
-  authRedirectUrl: string,
+  auth: MobilePasswordlessAuthClient & MobilePasswordlessAuthPort,
   webOrigin: string,
   transport: AuthenticatedTransport,
 ) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<NativeMobileSession | null>(null);
   const [status, setStatus] = useState<MobileSessionStatus>("idle");
   const secureShareSecret = useRef<string | null>(null);
+  const sessionOperation = useRef(0);
+  const magicLinkHandled = useRef(false);
+  const activeMagicLinkToken = useRef<string | null>(null);
+  const mounted = useRef(false);
 
   const handleUrl = useCallback(
     async (url: string) => {
+      if (!mounted.current) return;
       const kind = classifyIncomingLink(url, webOrigin);
       if (kind === "secure_share_link") {
         secureShareSecret.current = extractSecureShareLinkSecret(url, webOrigin);
         setStatus(secureShareSecret.current ? "share_link_ready" : "callback_error");
         return;
       }
-      if (kind !== "auth_callback") return;
-      const result = await completeAuthCallback(url, supabase.auth, webOrigin);
-      setStatus(result === "authenticated" ? "verifying" : "callback_error");
+      if (kind !== "magic_link") return;
+      const token = extractMagicLinkToken(url, webOrigin);
+      if (!token || magicLinkHandled.current || activeMagicLinkToken.current === token) {
+        if (!token) setStatus("callback_error");
+        return;
+      }
+      activeMagicLinkToken.current = token;
+      const operation = ++sessionOperation.current;
+      try {
+        const result = await completeMagicLink(url, auth, webOrigin);
+        if (result === "authenticated") magicLinkHandled.current = true;
+        const currentSession = await auth.getSession();
+        if (mounted.current && operation === sessionOperation.current) {
+          setSession(currentSession);
+          if (result === "authenticated") {
+            setStatus("verifying");
+          } else {
+            setStatus("callback_error");
+          }
+        }
+      } catch {
+        if (mounted.current && operation === sessionOperation.current) setStatus("callback_error");
+      } finally {
+        if (activeMagicLinkToken.current === token) activeMagicLinkToken.current = null;
+      }
     },
-    [supabase, webOrigin],
+    [auth, webOrigin],
   );
 
   useEffect(() => {
-    let mounted = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session);
-        if (data.session) setStatus("verifying");
+    mounted.current = true;
+    const operation = sessionOperation.current;
+    void auth.getSession().then((storedSession) => {
+      if (mounted.current && operation === sessionOperation.current) {
+        setSession(storedSession);
+        if (storedSession) setStatus("verifying");
       }
     });
-    const authSubscription = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!mounted) return;
-      setSession(nextSession);
-      if (nextSession) setStatus("verifying");
-    }).data.subscription;
     const urlSubscription = Linking.addEventListener("url", ({ url }) => void handleUrl(url));
     void Linking.getInitialURL().then((url) => {
-      if (url && mounted) void handleUrl(url);
+      if (url && mounted.current) void handleUrl(url);
     });
     const appStateSubscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") supabase.auth.startAutoRefresh();
-      else supabase.auth.stopAutoRefresh();
+      if (state === "active") {
+        const operation = ++sessionOperation.current;
+        void auth
+          .refreshIfNeeded()
+          .then((storedSession) => {
+            if (mounted.current && operation === sessionOperation.current) setSession(storedSession);
+          })
+          .catch(() => {
+            // Keep the current session on transient network failures; the next
+            // foreground transition retries refresh without exposing credentials.
+          });
+      }
     });
-    if (AppState.currentState === "active") supabase.auth.startAutoRefresh();
     return () => {
-      mounted = false;
-      authSubscription.unsubscribe();
+      mounted.current = false;
+      sessionOperation.current += 1;
       urlSubscription.remove();
       appStateSubscription.remove();
-      supabase.auth.stopAutoRefresh();
     };
-  }, [handleUrl, supabase]);
+  }, [auth, handleUrl]);
 
   useEffect(() => {
     if (!session) return;
@@ -104,28 +134,28 @@ export function useMobileSession(
     async (email: string) => {
       setStatus("sending");
       try {
-        const result = await withTimeout(
-          supabase.auth.signInWithOtp({
-            email: email.trim().toLowerCase(),
-            options: { emailRedirectTo: authRedirectUrl, shouldCreateUser: true },
-          }),
-          MOBILE_AUTH_REQUEST_TIMEOUT_MS,
-        );
-        setStatus(result.error ? "request_error" : "link_sent");
+        setStatus((await auth.requestMagicLink(email)) ? "link_sent" : "request_error");
       } catch {
-        // A native network request can remain pending when connectivity or TLS fails.
-        // Never leave the form in its indefinite "sending" state.
         setStatus("request_error");
       }
     },
-    [authRedirectUrl, supabase],
+    [auth],
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut({ scope: "local" });
-    setSession(null);
-    setStatus("idle");
-  }, [supabase]);
+    const operation = ++sessionOperation.current;
+    secureShareSecret.current = null;
+    try {
+      await auth.signOut();
+    } finally {
+      secureShareSecret.current = null;
+      magicLinkHandled.current = false;
+    }
+    if (operation === sessionOperation.current) {
+      setSession(null);
+      setStatus("idle");
+    }
+  }, [auth]);
 
   const consumeSecureShareSecret = useCallback(() => {
     const secret = secureShareSecret.current;

@@ -11,7 +11,9 @@ vi.mock("@/modules/identity/application/load-application-user", () => ({
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
   PrismaApplicationUserRepository: class {},
 }));
-vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
+vi.mock("@/modules/identity/infrastructure/passwordless-session-verifier", () => ({
+  PasswordlessSessionVerifier: class {},
+}));
 vi.mock("@/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository", () => ({
   PrismaSharedVaultAccountPermissionRepository: class {
     readVaultDefaults = mocks.readVaultDefaults;

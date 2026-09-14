@@ -36,8 +36,9 @@ describe("Personal Vault accounts API", () => {
       .fn()
       .mockResolvedValue(new EncryptedAuthenticatorAccount("account-1", "vault-1", new Uint8Array([1, 2, 3]), 1, 1));
     const handlers = createPersonalAccountsHandlers({
-      ...authenticationDependencies(new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }), {
-        provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+      ...authenticationDependencies(new FakeSessionVerifier({ subject: "local-1", email: "person@example.test" }), {
+        provision: async () =>
+          new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       }),
       accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() },
     });
@@ -61,8 +62,9 @@ describe("Personal Vault accounts API", () => {
       .fn()
       .mockResolvedValue(new EncryptedAuthenticatorAccount("account-1", "vault-1", new Uint8Array([1, 2, 3]), 1, 1));
     const handlers = createPersonalAccountsHandlers({
-      ...authenticationDependencies(new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }), {
-        provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+      ...authenticationDependencies(new FakeSessionVerifier({ subject: "local-1", email: "person@example.test" }), {
+        provision: async () =>
+          new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       }),
       accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() },
     });
@@ -94,8 +96,9 @@ describe("Personal Vault accounts API", () => {
     const remove = vi.fn().mockResolvedValue(true);
     const restore = vi.fn().mockResolvedValue(true);
     const handlers = createPersonalAccountsHandlers({
-      ...authenticationDependencies(new FakeSessionVerifier({ subject: "supabase-1", email: "person@example.test" }), {
-        provision: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+      ...authenticationDependencies(new FakeSessionVerifier({ subject: "local-1", email: "person@example.test" }), {
+        provision: async () =>
+          new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       }),
       accounts: { create: vi.fn(), list: vi.fn(), update, delete: remove, restore },
     });

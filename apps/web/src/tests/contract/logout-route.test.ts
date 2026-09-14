@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createLogoutHandler } from "@/app/auth/logout/route";
 
 describe("POST /auth/logout contract", () => {
+  beforeEach(() => vi.stubEnv("AUTH_APP_ORIGIN", "https://vault.example.test"));
+  afterEach(() => vi.unstubAllEnvs());
+
   it("terminates the current session and redirects with a success status", async () => {
     const terminateCurrentSession = vi.fn().mockResolvedValue(undefined);
     const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(request());
@@ -47,6 +50,23 @@ describe("POST /auth/logout contract", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=logout_failed");
     expect(response.headers.get("location")).not.toContain("provider");
+  });
+
+  it("does not use the submitted Origin as a redirect base", async () => {
+    vi.stubEnv("AUTH_APP_ORIGIN", "https://vault.example.test");
+    const terminateCurrentSession = vi.fn().mockResolvedValue(undefined);
+    const proxiedRequest = new NextRequest("http://internal:3000/auth/logout", {
+      method: "POST",
+      headers: {
+        origin: "https://vault.example.test",
+        "x-forwarded-host": "attacker.example.test",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
+
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
   });
 
   it.each([null, "https://attacker.example.test"])(

@@ -7,6 +7,11 @@ import {
   OIDC_STATE_COOKIE,
   OIDC_VERIFIER_COOKIE,
 } from "./oidc-session-verifier";
+import {
+  PASSWORDLESS_ACCESS_COOKIE,
+  PASSWORDLESS_ASSERTION_COOKIE,
+  PASSWORDLESS_REFRESH_COOKIE,
+} from "./passwordless-session";
 
 export class OidcSessionTerminator implements SessionTerminator {
   public async terminateCurrentSession(): Promise<void> {
@@ -16,6 +21,9 @@ export class OidcSessionTerminator implements SessionTerminator {
       OIDC_STATE_COOKIE,
       OIDC_NONCE_COOKIE,
       OIDC_VERIFIER_COOKIE,
+      PASSWORDLESS_ACCESS_COOKIE,
+      PASSWORDLESS_REFRESH_COOKIE,
+      PASSWORDLESS_ASSERTION_COOKIE,
       BROWSER_E2E_SESSION_COOKIE,
     ]) {
       cookieStore.set(name, "", {

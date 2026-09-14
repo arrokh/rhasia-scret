@@ -15,6 +15,7 @@ import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-conf
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
 import {
+  classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
@@ -30,7 +31,7 @@ export function VaultWorkspaceUnlock({
   onUnlocked: (workspace: UnlockedVaultWorkspace) => void;
 }) {
   const t = useTranslations("AuthenticatorAccount.unlock");
-  const [status, setStatus] = useState<"idle" | "secret_error" | "passkey_error" | "remembered_error">("idle");
+  const [status, setStatus] = useState<UnlockStatus>("idle");
   const [passkeyUnlocking, setPasskeyUnlocking] = useState(false);
   const [rememberedUnlocking, setRememberedUnlocking] = useState(false);
   const [rememberedAvailable, setRememberedAvailable] = useState(false);
@@ -45,12 +46,13 @@ export function VaultWorkspaceUnlock({
         onUnlocked(await loadUnlockedVaultWorkspace(value.secret, personalVaultId));
         captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "passphrase" });
         form.reset();
-      } catch {
+      } catch (error) {
+        const failure = classifyWorkspaceUnlockFailure(error, "secret_error", "invalid_secret");
         captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, {
           method: "passphrase",
-          failure_code: "invalid_secret",
+          failure_code: failure.failureCode,
         });
-        setStatus("secret_error");
+        setStatus(failure.status);
       }
     },
   });
@@ -85,13 +87,14 @@ export function VaultWorkspaceUnlock({
       onUnlocked(workspace);
       captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "remembered_browser" });
       form.reset();
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted) {
+        const failure = classifyWorkspaceUnlockFailure(error, "remembered_error", "remembered_browser_error");
         captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, {
           method: "remembered_browser",
-          failure_code: "remembered_browser_error",
+          failure_code: failure.failureCode,
         });
-        setStatus("remembered_error");
+        setStatus(failure.status);
       }
     } finally {
       if (rememberedOperationRef.current === controller) rememberedOperationRef.current = null;
@@ -106,9 +109,13 @@ export function VaultWorkspaceUnlock({
       onUnlocked(await loadUnlockedVaultWorkspaceWithPasskey(personalVaultId));
       captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "passkey" });
       form.reset();
-    } catch {
-      captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, { method: "passkey", failure_code: "passkey_error" });
-      setStatus("passkey_error");
+    } catch (error) {
+      const failure = classifyWorkspaceUnlockFailure(error, "passkey_error", "passkey_error");
+      captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlockFailed, {
+        method: "passkey",
+        failure_code: failure.failureCode,
+      });
+      setStatus(failure.status);
     } finally {
       setPasskeyUnlocking(false);
     }
@@ -239,6 +246,37 @@ export function VaultWorkspaceUnlock({
           {t("rememberedError")}
         </StatusBanner>
       )}
+      {status === "authentication_error" && (
+        <>
+          <StatusBanner tone="warning" role="alert">
+            {t("authenticationError")}
+          </StatusBanner>
+          <Button variant="outline" asChild>
+            <Link href="/sign-in?auth=required&next=%2Fvaults">{t("signInAgain")}</Link>
+          </Button>
+        </>
+      )}
+      {status === "sync_error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("syncError")}
+        </StatusBanner>
+      )}
     </form>
   );
+}
+
+type UnlockStatus =
+  "idle" | "secret_error" | "passkey_error" | "remembered_error" | "authentication_error" | "sync_error";
+type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error">;
+type UnlockAnalyticsFailureCode = "invalid_secret" | "remembered_browser_error" | "passkey_error";
+
+function classifyWorkspaceUnlockFailure(
+  error: unknown,
+  fallbackStatus: UnlockFallbackStatus,
+  fallbackCode: UnlockAnalyticsFailureCode,
+): { status: UnlockStatus; failureCode: UnlockAnalyticsFailureCode | "unknown" } {
+  const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
+  if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "unknown" };
+  if (failure === "LOCAL_STORAGE" || failure === "SYNC") return { status: "sync_error", failureCode: "unknown" };
+  return { status: fallbackStatus, failureCode: fallbackCode };
 }

@@ -34,7 +34,15 @@ function exportedRouteMethods(source: string): string[] {
 
 describe("authenticated application mutation rate-limit inventory", () => {
   it("routes every protected API handler through one authenticated entry seam", () => {
-    const unprotectedRoutes = new Set(["/api/health", "/api/time", "/api/internal/retention-purge"]);
+    const unprotectedRoutes = new Set([
+      "/api/health",
+      "/api/time",
+      "/api/internal/retention-purge",
+      "/api/auth/magic-link/request",
+      "/api/auth/magic-link/redeem",
+      "/api/auth/session/refresh",
+      "/api/auth/session/revoke",
+    ]);
     for (const path of routeFiles(appRoot)) {
       const route = routePath(path);
       if (!route.startsWith("/api/") || unprotectedRoutes.has(route)) continue;
@@ -95,7 +103,7 @@ describe("authenticated application mutation rate-limit inventory", () => {
     );
   });
 
-  it("leaves Supabase OTP and magic-link authentication outside application-user limiting", () => {
+  it("leaves Passwordless OTP and magic-link authentication outside application-user limiting", () => {
     const authSources = routeFiles(join(appRoot, "auth"))
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");

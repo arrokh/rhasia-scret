@@ -1,4 +1,8 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+loadRootEnvironment();
 
 const configuredWebOrigin = process.env.EXPO_PUBLIC_WEB_ORIGIN?.trim();
 const productionHost = configuredWebOrigin ? configuredWebHostname(configuredWebOrigin) : undefined;
@@ -60,13 +64,19 @@ const mobileAppConfig = ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
     webOrigin: process.env.EXPO_PUBLIC_WEB_ORIGIN,
     authRedirectUrl: process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL,
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     nativeCryptoValidation: process.env.EXPO_PUBLIC_NATIVE_CRYPTO_VALIDATION === "1",
   },
 });
 
 export default mobileAppConfig;
+
+function loadRootEnvironment(): void {
+  try {
+    process.loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), "../..", ".env"));
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+}
 
 function configuredWebHostname(origin: string): string {
   const parsed = new URL(origin);

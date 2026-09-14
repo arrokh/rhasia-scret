@@ -1,10 +1,19 @@
-# Authenticated application mutation rate limiting
+# Authentication and application rate limiting
 
 ## Scope
 
-Every state-changing route under `apps/web/src/app/api/` has an explicit operation-class assignment in `authenticated-mutation-rate-limit-inventory.ts`; the corresponding budgets live in `application-rate-limit-policy.ts`. The only exclusions are the machine-authenticated retention cron and Supabase-owned authentication session lifecycle (callback exchange and idempotent logout), none of which has an authenticated Application User. Supabase email OTP and magic-link authentication remains governed by Supabase Auth and is intentionally not duplicated by the application limiter.
+Authenticated application mutations under `apps/web/src/app/api/` use the operation-class inventory in `authenticated-mutation-rate-limit-inventory.ts`. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
-Budgets are shared by authenticated Application User and operation class, so alternate routes for the same use case cannot multiply a budget:
+Anonymous passwordless link requests use separate PostgreSQL-backed 15-minute windows:
+
+| Bucket                          | Limit |
+| ------------------------------- | ----: |
+| HMAC bucket of normalized email |     5 |
+| HMAC bucket of source IP        |    20 |
+
+The rate-limit table stores only keyed bucket digests, operation names, window timestamps, expiry, and counts. It does not persist email addresses, IP addresses, link tokens, session credentials, or request bodies. Link redemption is additionally protected by atomic one-time challenge consumption and expiry.
+
+Authenticated budgets:
 
 | Operation class                                | Limit |     Window |
 | ---------------------------------------------- | ----: | ---------: |
@@ -18,29 +27,16 @@ Budgets are shared by authenticated Application User and operation class, so alt
 | Destructive mutation                           |     5 |     1 hour |
 | Encrypted archive import                       |    10 |     1 hour |
 
-Rate limiting happens after authentication and active-user checks but before body parsing, authorization-sensitive repository work, or mutation. It does not replace owner/member authorization, Account Revision checks, one-time link consumption, or any domain conflict.
-
-Authenticated reader and mutation Route Handlers enter through one route-facing authentication adapter, which delegates to the HTTP-neutral server-composition application seam. Each mutation supplies its explicit operation class and assurance requirement; the seam keeps `allowed`, `limited`, and `unavailable` decisions typed until the adapter maps them to HTTP. Read-only execution cannot consume a mutation budget, and Route Handlers retain their use-case-specific validation and outcome mapping.
+Rate limiting occurs after authentication and active-user checks but before body parsing, authorization-sensitive repository work, or mutation. It never replaces authorization, revision checks, one-time-link semantics, or session revocation.
 
 ## Responses
 
-An exhausted budget returns:
+An exhausted budget returns HTTP `429`, `{"error":"rate_limited"}`, bounded `Retry-After`, and `Cache-Control: no-store`. If PostgreSQL cannot make a limiter decision, authenticated mutation fails closed with HTTP `503`, `{"error":"rate_limit_unavailable"}`, `Retry-After: 5`, and `Cache-Control: no-store`. Authentication delivery failures use a generic response and never disclose account existence or provider details.
 
-- HTTP `429`
-- `{"error":"rate_limited"}`
-- `Retry-After` containing bounded whole seconds
-- `Cache-Control: no-store`
+Operational logs contain only operation/outcome counters. Never log user identifiers, email addresses, IP addresses, route bodies, ciphertext, link material, credentials, or keys. Expired application and anonymous windows are removed by the retention purge.
 
-No user, operation, request context, or submitted data appears in the response. Existing authorization and domain responses remain unchanged and distinguishable.
+## Deployment
 
-If PostgreSQL cannot make a limiter decision, the mutation fails closed with HTTP `503`, `{"error":"rate_limit_unavailable"}`, `Retry-After: 5`, and `Cache-Control: no-store`. Reads and Supabase authentication attempts are unaffected.
+Apply the Prisma-generated authentication and application-rate-limit migrations through `DIRECT_URL` before deploying application code. Runtime traffic uses `DATABASE_URL`; production pooled and direct endpoints must be distinct. Atomic database upserts provide cross-instance safety without process memory or client-supplied identity headers.
 
-## Production deployment and operation
-
-1. Apply Prisma migration `20260726193513_authenticated_application_rate_limits` through the direct administrative connection before deploying application code. Runtime limiter traffic uses the normal pooled `DATABASE_URL`; migrations require `DIRECT_URL`.
-2. Keep application instances pointed at the same PostgreSQL database. Atomic upserts and the database clock provide cross-instance concurrency safety without relying on process memory or client-supplied headers.
-3. Treat `rate_limit_unavailable` as a database/backend health signal. Restore database access rather than bypassing or changing the fail-closed policy during an incident.
-4. Aggregate operational logs use event `application_rate_limit_metrics` at most once per warm application process per minute and contain only operation/outcome counters. Never add user identifiers, email addresses, route bodies, ciphertext, link material, credentials, or keys.
-5. The `application_rate_limit_windows` table makes aggregate windows eligible for deletion 24 hours after expiry; subsequent limiter transactions remove up to 1,000 eligible rows at a time through the indexed expiry column. `request_count` saturates at `limit + 1`, bounding per-window counters.
-
-The checked-in policy table is production configuration. Change a budget through a reviewed code change with corresponding tests and documentation rather than ad hoc environment overrides that could differ between instances.
+The checked-in policy table is production configuration. Change budgets through a reviewed code change with matching tests and documentation, not ad hoc per-instance overrides.

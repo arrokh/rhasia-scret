@@ -1,43 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  authConfirmationRedirectUrl,
-  requestEmailSignInLink,
-} from "@/modules/identity/presentation/request-email-sign-in-link";
+import { requestEmailSignInLink } from "@/modules/identity/presentation/request-email-sign-in-link";
 
 describe("requestEmailSignInLink", () => {
-  it("builds callback URLs from the active browser origin", () => {
-    expect(authConfirmationRedirectUrl("http://localhost:3000")).toBe("http://localhost:3000/auth/confirm");
-    expect(authConfirmationRedirectUrl("https://vault.example.test")).toBe("https://vault.example.test/auth/confirm");
-  });
-
-  it("uses passwordless sign-in and allows a new user to be created", async () => {
-    const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
-    const result = await requestEmailSignInLink(
-      { auth: { signInWithOtp } },
-      " Person@Example.Test ",
-      "https://vault.example.test/auth/confirm",
-    );
+  it("normalizes the email and sends a generic passwordless request", async () => {
+    const requestMagicLink = vi.fn().mockResolvedValue({ error: null });
+    const result = await requestEmailSignInLink({ requestMagicLink }, " Person@Example.Test ", "/vaults");
     expect(result).toBe("sent");
-    expect(signInWithOtp).toHaveBeenCalledWith({
-      email: "person@example.test",
-      options: { shouldCreateUser: true, emailRedirectTo: "https://vault.example.test/auth/confirm" },
-    });
+    expect(requestMagicLink).toHaveBeenCalledWith({ email: "person@example.test", returnPath: "/vaults" });
   });
 
-  it("does not expose provider errors", async () => {
+  it("does not expose delivery errors", async () => {
     const result = await requestEmailSignInLink(
-      { auth: { signInWithOtp: vi.fn().mockResolvedValue({ error: new Error("provider failure") }) } },
+      { requestMagicLink: vi.fn().mockResolvedValue({ error: new Error("delivery failure") }) },
       "person@example.test",
-      "https://vault.example.test/auth/confirm",
+      "/vaults",
     );
     expect(result).toBe("error");
   });
 
-  it("classifies provider rate limits without exposing provider details", async () => {
+  it("classifies anonymous rate limits", async () => {
     const result = await requestEmailSignInLink(
-      { auth: { signInWithOtp: vi.fn().mockResolvedValue({ error: { status: 429, message: "rate limit" } }) } },
+      { requestMagicLink: vi.fn().mockResolvedValue({ error: { status: 429 } }) },
       "person@example.test",
-      "https://vault.example.test/auth/confirm",
+      "/vaults",
     );
     expect(result).toBe("rate_limited");
   });

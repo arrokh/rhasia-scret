@@ -1,9 +1,8 @@
-import { config as loadEnvironment } from "dotenv";
-import { resolve } from "node:path";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 
-loadEnvironment({ path: resolve(process.cwd(), "../../.env") });
+loadWorkspaceEnvironment();
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -18,9 +17,7 @@ const staticContentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost]
-    .filter(Boolean)
-    .join(" "),
+  ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",

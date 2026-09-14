@@ -22,7 +22,7 @@ describe("GET /api/personal-vault contract", () => {
   it("returns generic lifecycle metadata without a vault name", async () => {
     const handler = createGetPersonalVaultHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       personalVaults: { ensureForOwner: async () => new Vault("vault-1", "PERSONAL", "user-1", "UNINITIALIZED") },
     });
     const response = await handler();

@@ -19,16 +19,7 @@ export const dynamic = "force-dynamic";
 
 type SignInPageProps = { searchParams: Promise<{ auth?: string | string[]; next?: string | string[] }> };
 type AuthNotice = {
-  key:
-    | "required"
-    | "invitationRequired"
-    | "signedOut"
-    | "logoutFailed"
-    | "missingCode"
-    | "configurationError"
-    | "accessDenied"
-    | "linkExpired"
-    | "verificationFailed";
+  key: "required" | "invitationRequired" | "signedOut" | "logoutFailed" | "configurationError" | "verificationFailed";
   role: "alert" | "status";
   tone: "danger" | "success" | "info";
 };
@@ -60,7 +51,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               {t(`notice.${notice.key}`)}
             </StatusBanner>
           )}
-          {backend === "supabase" && <EmailSignInForm nextPath={nextPath} />}
+          {backend === "passwordless" && <EmailSignInForm nextPath={nextPath} />}
           {backend === "oidc" && (
             <Button asChild>
               <Link
@@ -89,7 +80,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             <Link href="/offline">{t("openOffline")}</Link>
           </Button>
           <p className="text-center text-xs leading-5 text-muted-foreground">
-            {t(backend === "none" ? "localOnly" : backend === "supabase" ? "emailAccess" : "organizationAccess")}
+            {t(backend === "none" ? "localOnly" : backend === "passwordless" ? "emailAccess" : "organizationAccess")}
           </p>
           <Separator />
           <Button variant="ghost" asChild>
@@ -107,10 +98,7 @@ function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNot
   if (auth === "required") return { key: "required", role: "status", tone: "info" };
   if (auth === "signed_out") return { key: "signedOut", role: "status", tone: "success" };
   if (auth === "logout_failed") return { key: "logoutFailed", role: "alert", tone: "danger" };
-  if (auth === "missing_code") return { key: "missingCode", role: "alert", tone: "danger" };
   if (auth === "configuration_error") return { key: "configurationError", role: "alert", tone: "danger" };
-  if (auth === "access_denied") return { key: "accessDenied", role: "alert", tone: "danger" };
-  if (auth === "link_expired") return { key: "linkExpired", role: "alert", tone: "danger" };
   if (auth === "verification_failed") return { key: "verificationFailed", role: "alert", tone: "danger" };
   return null;
 }

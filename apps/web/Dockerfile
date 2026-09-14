@@ -62,6 +62,10 @@ WORKDIR /app
 
 COPY --from=migration-bundle /migration ./
 
+# The staged migration runner performs a bounded metadata query before invoking
+# Prisma Migrate, so the deployed migration image needs a generated client.
+RUN DIRECT_URL=postgresql://build:build@127.0.0.1:5432/build?schema=public node_modules/.bin/prisma generate
+
 FROM node:24.19.0-bookworm-slim AS runtime
 
 ARG COMMIT_SHA

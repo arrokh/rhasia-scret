@@ -4,8 +4,22 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  classifyBrowserVaultWorkspaceUnlockFailure: vi.fn(),
+  loadUnlockedVaultWorkspace: vi.fn(),
+  captureAnalyticsEvent: vi.fn(),
+}));
+
 vi.mock("@/modules/crypto", () => ({ hasRememberedBrowserForPersonalVault: vi.fn().mockResolvedValue(false) }));
 vi.mock("@/modules/identity", () => ({ usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: false } }) }));
+vi.mock("@/modules/sync", () => ({
+  classifyBrowserVaultWorkspaceUnlockFailure: mocks.classifyBrowserVaultWorkspaceUnlockFailure,
+  clearUnlockedVaultWorkspace: vi.fn(),
+  loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
+  loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
+  loadUnlockedVaultWorkspaceWithRememberedBrowser: vi.fn(),
+}));
+vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 
 import { VaultWorkspaceUnlock } from "@/modules/authenticator-account/presentation/vault-workspace-unlock";
 
@@ -16,9 +30,33 @@ afterEach(async () => {
   await act(async () => root?.unmount());
   root = undefined;
   document.body.innerHTML = "";
+  vi.clearAllMocks();
 });
 
 describe("locked Vault session", () => {
+  it("shows a sign-in action when the session expires before the encrypted bundle is loaded", async () => {
+    mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("AUTHENTICATION");
+    mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("session expired"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    const input = container.querySelector<HTMLInputElement>("#vault-unlock-secret");
+    await act(async () => setInputValue(input, "correct passphrase"));
+    await act(async () => {
+      container.querySelector<HTMLFormElement>("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Sesi masuk Anda telah berakhir");
+    const signInLink = [...container.querySelectorAll("a")].find((link) => link.textContent === "Masuk lagi");
+    expect(signInLink?.getAttribute("href")).toBe("/sign-in?auth=required&next=%2Fvaults");
+    expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("Passphrase Brankas tidak dapat");
+  });
+
   it("offers the independent Local Vault as a separate touchpoint", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -36,3 +74,9 @@ describe("locked Vault session", () => {
     expect(link?.getAttribute("href")).toBe("/local");
   });
 });
+
+function setInputValue(input: HTMLInputElement | null, value: string): void {
+  if (!input) throw new Error("Expected Vault Passphrase input.");
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}

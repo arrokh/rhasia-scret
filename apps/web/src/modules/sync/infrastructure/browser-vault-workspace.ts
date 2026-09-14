@@ -15,6 +15,7 @@ import { browserNetworkStatus } from "@/shared/infrastructure/browser-platform-p
 import { unlockSharedVault } from "@/modules/vault-membership";
 import type { CancellationPort } from "@rhasia-scret/client-vault-core";
 import {
+  AuthorizedOfflineBundleTransportError,
   clearUnlockedVaultWorkspace,
   loadOfflineVaultWorkspace as loadOfflineWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser as loadOfflineWorkspaceWithRememberedBrowser,
@@ -30,6 +31,15 @@ import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-cor
 
 export { clearUnlockedVaultWorkspace, LocalStorageSyncError };
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
+
+export type BrowserVaultWorkspaceUnlockFailure = "AUTHENTICATION" | "LOCAL_STORAGE" | "PASSPHRASE" | "SYNC";
+
+export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): BrowserVaultWorkspaceUnlockFailure {
+  if (error instanceof AuthorizedOfflineBundleTransportError)
+    return error.status === 401 || error.status === 403 ? "AUTHENTICATION" : "SYNC";
+  if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
+  return "PASSPHRASE";
+}
 
 function browserPorts(): VaultWorkspacePlatformPorts {
   const snapshotStore = new BrowserOfflineVaultRepository();

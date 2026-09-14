@@ -244,7 +244,7 @@ describe("PrismaEncryptedVaultImportRepository", () => {
 
 async function createUser(label: string) {
   const user = await prisma.applicationUser.create({
-    data: { supabaseUserId: randomUUID(), email: `${label}-${randomUUID()}@example.test` },
+    data: { email: `${label}-${randomUUID()}@example.test` },
   });
   userIds.push(user.id);
   return user;

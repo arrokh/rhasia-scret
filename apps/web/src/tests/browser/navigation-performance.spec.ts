@@ -9,7 +9,8 @@ import {
   type Request,
   type Response,
 } from "@playwright/test";
-import { e2eUserAlias } from "./support/e2e-users";
+import { cleanBrowserE2eUsers } from "./support/e2e-database";
+import { e2eUserAlias, e2eUserEmail } from "./support/e2e-users";
 
 const personalSecret = "performance personal vault passphrase";
 const personalName = "Performance Personal Vault";
@@ -48,8 +49,11 @@ test("measures protected navigation and interaction performance without recordin
 }) => {
   if (!baseURL) throw new Error("A performance base URL is required.");
   const alias = e2eUserAlias("chromium", "personal");
+  await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias, baseURL);
   await page.goto("/vaults");
+  await expect(page).toHaveURL(/\/vaults$/);
+  await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible({ timeout: 60_000 });
   await initializePersonalVault(page);
   await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 60_000 });
 

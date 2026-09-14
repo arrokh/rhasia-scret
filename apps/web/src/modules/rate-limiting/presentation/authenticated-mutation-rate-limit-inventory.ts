@@ -39,7 +39,13 @@ export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
 export const STATE_CHANGING_ROUTE_RATE_LIMIT_EXCLUSIONS = {
   "GET /api/internal/retention-purge":
     "Machine-authenticated retention cron uses Vercel Cron GET; no application user exists.",
-  "GET /auth/confirm":
-    "Supabase Auth callback exchange has no authenticated Application User and remains governed by Supabase.",
+  "POST /api/auth/magic-link/request":
+    "Passwordless link requests are governed by the anonymous email and IP rate-limit windows.",
+  "POST /api/auth/magic-link/redeem":
+    "One-time link redemption has no authenticated Application User and is governed by challenge consumption.",
   "POST /auth/logout": "Idempotent session termination must remain available without an application user.",
+  "POST /api/auth/session/refresh":
+    "Native refresh-token rotation and browser session keepalive have no authenticated Application User and are governed by the session family or active browser assertion.",
+  "POST /api/auth/session/revoke":
+    "Idempotent native session termination is authenticated by the bearer session credential.",
 } as const;

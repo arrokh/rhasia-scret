@@ -73,8 +73,12 @@ requireText(
 );
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
-if (ciTimeoutCount !== 7)
-  failures.push(`.github/workflows/ci.yml must enforce eight-minute timeouts for all 7 jobs (found ${ciTimeoutCount})`);
+if (ciTimeoutCount !== 6)
+  failures.push(
+    `.github/workflows/ci.yml must enforce eight-minute timeouts for 6 standard jobs (found ${ciTimeoutCount})`,
+  );
+if (!/^  browser-production:[\s\S]*?^    timeout-minutes: 12$/m.test(ci))
+  failures.push(".github/workflows/ci.yml must give the production PWA/performance job a twelve-minute ceiling");
 if (/^concurrency:/m.test(ci)) failures.push(".github/workflows/ci.yml must use job-scoped concurrency");
 for (const group of [
   "ci-changes-${{ github.workflow }}-${{ github.ref_name }}",
@@ -195,5 +199,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "CI policy verified: main/PR quality gates, affected-package selection, eight-minute job budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
+  "CI policy verified: main/PR quality gates, affected-package selection, bounded job budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
 );

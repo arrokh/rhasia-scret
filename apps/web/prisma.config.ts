@@ -1,13 +1,8 @@
-import { config } from "dotenv";
-import { resolve } from "node:path";
 import { defineConfig, env } from "prisma/config";
+import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 
-// Workspace commands run from apps/web while the repository keeps one root
-// environment contract. The root file supplies a shared local fallback and
-// app-local files can add values without committing credentials.
-config({ path: resolve(process.cwd(), "../../.env") });
-config({ path: resolve(process.cwd(), ".env") });
-config({ path: resolve(process.cwd(), ".env.local") });
+// The repository root owns the single local environment contract.
+loadWorkspaceEnvironment();
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

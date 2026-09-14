@@ -8,13 +8,14 @@ export type ApplicationAdmission = (principal: VerifiedPrincipal) => Promise<boo
 
 type ApplicationUserWithIdentity = {
   id: string;
-  supabaseUserId: string | null;
   email: string;
   status: string;
   externalIdentities: Array<{ issuer: string; subject: string; email: string | null }>;
 };
 
 type ExistingExternalIdentity = {
+  issuer: string;
+  subject: string;
   email: string | null;
   emailVerifiedAt: Date | null;
   applicationUser: ApplicationUserWithIdentity;
@@ -29,25 +30,6 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       include: { applicationUser: { include: { externalIdentities: true } } },
     });
     if (existingIdentity) return this.resolveExistingIdentity(existingIdentity, principal);
-
-    if (isSupabaseIssuer(principal.issuer)) {
-      const legacy = await prisma.applicationUser.findUnique({
-        where: { supabaseUserId: principal.subject },
-        include: { externalIdentities: true },
-      });
-      if (legacy) {
-        await prisma.externalIdentity.create({
-          data: {
-            applicationUserId: legacy.id,
-            issuer: principal.issuer,
-            subject: principal.subject,
-            email: principal.email,
-            emailVerifiedAt: principal.emailVerified ? new Date() : undefined,
-          },
-        });
-        return this.updateExistingIdentity(legacy, principal);
-      }
-    }
 
     if (!principal.emailVerified || !(await this.isAdmitted(principal))) {
       throw new Error("Application admission denied.");
@@ -68,7 +50,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
         },
         include: { externalIdentities: true },
       });
-      return toApplicationUser(created);
+      return toApplicationUser(created, principal);
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) throw error;
       const racedIdentity = await prisma.externalIdentity.findUnique({
@@ -85,7 +67,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
     principal: VerifiedPrincipal,
   ): Promise<ApplicationUser> {
     if (identity.email === principal.email && (identity.emailVerifiedAt !== null || !principal.emailVerified)) {
-      return toApplicationUser(identity.applicationUser);
+      return toApplicationUser(identity.applicationUser, identity);
     }
     return this.updateExistingIdentity(identity.applicationUser, principal);
   }
@@ -98,7 +80,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       await transaction.externalIdentity
         .update({
           where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
-          data: { email: principal.email, emailVerifiedAt: principal.emailVerified ? new Date() : undefined },
+          data: { email: principal.email, emailVerifiedAt: principal.emailVerified ? new Date() : null },
         })
         .catch(async () => {
           await transaction.externalIdentity.create({
@@ -117,7 +99,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
         include: { externalIdentities: true },
       });
     });
-    return toApplicationUser(updated);
+    return toApplicationUser(updated, principal);
   }
 }
 
@@ -125,30 +107,19 @@ function isUniqueConstraintViolation(error: unknown): error is Prisma.PrismaClie
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-function isSupabaseIssuer(issuer: string): boolean {
-  return issuer === "supabase" || issuer === canonicalSupabaseIssuer();
-}
-
-function canonicalSupabaseIssuer(): string {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  return url ? `${url.replace(/\/$/, "")}/auth/v1` : "supabase";
-}
-
-function toApplicationUser(record: ApplicationUserWithIdentity): ApplicationUser {
+function toApplicationUser(
+  record: ApplicationUserWithIdentity,
+  selectedIdentity?: Readonly<{ issuer: string; subject: string }>,
+): ApplicationUser {
   if (record.status !== "ACTIVE" && record.status !== "INACTIVE") {
     throw new Error("Application user has an invalid status.");
   }
-  const identity = record.externalIdentities[0];
-  if (!identity) {
-    if (!record.supabaseUserId) throw new Error("Application user has no external identity.");
-    return new ApplicationUser(
-      record.id,
-      canonicalSupabaseIssuer(),
-      record.supabaseUserId,
-      record.email,
-      record.status as ApplicationUserStatus,
-    );
-  }
+  const identity = selectedIdentity
+    ? record.externalIdentities.find(
+        (candidate) => candidate.issuer === selectedIdentity.issuer && candidate.subject === selectedIdentity.subject,
+      )
+    : record.externalIdentities[0];
+  if (!identity) throw new Error("Application user has no matching external identity.");
   return new ApplicationUser(
     record.id,
     identity.issuer,

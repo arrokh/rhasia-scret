@@ -5,7 +5,7 @@ import { createVaultArchiveExportAuditHandler } from "@/app/api/vaults/[vaultId]
 
 describe("Vault archive export audit route", () => {
   const authenticate = async () =>
-    new ApplicationUser("owner-1", "supabase", "subject-1", "owner@example.test", "ACTIVE");
+    new ApplicationUser("owner-1", "rhasia:passwordless", "subject-1", "owner@example.test", "ACTIVE");
 
   it("records a redacted owner-authorized event for a bodyless request", async () => {
     const audit = { recordArchiveExport: vi.fn(async () => true), recordAccountAccess: vi.fn(), listForOwner: vi.fn() };

@@ -36,8 +36,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/release_evidence?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/release_evidence?schema=public
-      NEXT_PUBLIC_SUPABASE_URL: https://auth-release-evidence.invalid
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: release-evidence-publishable-key
       PLAYWRIGHT_WORKERS: 2
       BROWSER_TEST_SEQUENTIAL: 1
       PLAYWRIGHT_SMOKE_WORKERS: 1

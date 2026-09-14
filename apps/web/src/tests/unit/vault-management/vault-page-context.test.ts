@@ -7,7 +7,7 @@ import {
 } from "@/modules/vault-management/application/vault-page-context";
 
 const session = {
-  issuer: "supabase",
+  issuer: "rhasia:passwordless",
   subject: "subject-1",
   email: "owner@example.test",
   emailVerified: true,
@@ -22,7 +22,9 @@ function dependencies(context: ExistingVaultPageContext | null = existing) {
   return {
     sessions: { verify: vi.fn<() => Promise<typeof session | null>>(async () => session) },
     users: {
-      provision: vi.fn(async () => new ApplicationUser("user-1", "supabase", session.subject, session.email, "ACTIVE")),
+      provision: vi.fn(
+        async () => new ApplicationUser("user-1", "rhasia:passwordless", session.subject, session.email, "ACTIVE"),
+      ),
     },
     vaults: { ensureForOwner: vi.fn(async () => new Vault("vault-1", "PERSONAL", "user-1", "ACTIVE")) },
     contexts: { findByExternalIdentity: vi.fn(async () => context) },
