@@ -29,6 +29,11 @@ export default defineConfig({
         env: {
           ...process.env,
           NODE_ENV: "development",
+          AUTH_BACKEND: "passwordless",
+          AUTH_APP_ORIGIN: baseURL,
+          AUTH_MAGIC_LINK_SECRET: "performance-e2e-magic-link-secret-12345678901234567890",
+          AUTH_SESSION_SECRET: "performance-e2e-session-secret-12345678901234567890",
+          AUTH_MOBILE_REDIRECT_URL: `${baseURL}/auth/mobile`,
           E2E_BROWSER_TESTS: "1",
           E2E_BROWSER_TEST_USERS: JSON.stringify(configuredE2eBrowserUsers()),
           NEXT_PUBLIC_E2E_BROWSER_TESTS: "1",
