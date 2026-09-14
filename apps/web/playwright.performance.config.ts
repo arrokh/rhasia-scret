@@ -28,6 +28,7 @@ export default defineConfig({
         timeout: 120_000,
         env: {
           ...process.env,
+          NODE_ENV: "development",
           E2E_BROWSER_TESTS: "1",
           E2E_BROWSER_TEST_USERS: JSON.stringify(configuredE2eBrowserUsers()),
           NEXT_PUBLIC_E2E_BROWSER_TESTS: "1",
