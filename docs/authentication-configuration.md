@@ -7,6 +7,7 @@ The hosted deployment uses self-managed passwordless email authentication by def
 Set `AUTH_BACKEND=passwordless` and configure:
 
 - `AUTH_APP_ORIGIN`: the exact HTTPS application origin, without path, query, fragment, or credentials. HTTP localhost is allowed outside production.
+- `AUTH_TRUST_PROXY_HEADERS`: optional `false`/`true` switch; enable only when a trusted HTTPS proxy strips and replaces forwarded host, protocol, and client-IP headers.
 - `AUTH_MOBILE_REDIRECT_URL`: optional native callback override. Use the exact web `/auth/mobile` callback, or `rhasia-scret://auth/magic-link` only in development. It may not contain query, fragment, credentials, or an unapproved host/path.
 - `AUTH_MAGIC_LINK_SECRET`: at least 32 random characters used only to HMAC magic-link tokens and anonymous rate-limit buckets.
 - `AUTH_SESSION_SECRET`: a different, independently generated value of at least 32 random characters used only to HMAC session credentials and sign the browser assertion.
@@ -21,7 +22,7 @@ Use implicit TLS on port 465 or STARTTLS on port 587/25 with certificate verific
 
 ## Link and session security
 
-`POST /api/auth/magic-link/request` accepts only `web` or `mobile` and a bounded continuation path. It requires same-origin requests for web clients, applies PostgreSQL-backed anonymous limits of five requests per normalized email and twenty per IP per 15-minute window, and returns a generic result without account enumeration. The database stores only the HMAC token digest, normalized email, client audience, purpose, bounded return path, expiry, and consumption timestamp. It never stores the raw token, IP address, URL, or email-delivery provider payload.
+`POST /api/auth/magic-link/request` accepts only `web` or `mobile` and a bounded continuation path. It requires same-origin requests for web clients, applies PostgreSQL-backed anonymous limits of five requests per normalized email and, when `AUTH_TRUST_PROXY_HEADERS=true` is enabled for a header-rewriting proxy, twenty per forwarded client IP per 15-minute window, and returns a generic result without account enumeration. The database stores only the HMAC token digest, normalized email, client audience, purpose, bounded return path, expiry, and consumption timestamp. It never stores the raw token, IP address, URL, or email-delivery provider payload.
 
 Email links carry the raw one-time token and, for invitation sign-in, a bounded non-sensitive return-path hint in the same URL fragment. The browser confirmation page clears the fragment with `history.replaceState` before exchanging it. The invitation Secure Share Link secret is never added to the magic-link request or email URL; an open invitation tab retains that secret in client memory and receives the authentication-completion announcement. `POST /api/auth/magic-link/redeem` atomically consumes the digest, provisions or loads the local `ExternalIdentity`, and creates a database-backed session. Web sessions use HttpOnly same-site cookies plus a signed browser assertion; native sessions keep opaque access and refresh credentials only in Keychain/Keystore-backed secure storage.
 

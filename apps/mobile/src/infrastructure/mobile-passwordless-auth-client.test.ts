@@ -134,6 +134,57 @@ describe("MobilePasswordlessAuthClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("does not let a stale refresh overwrite a newer magic-link session", async () => {
+    const client = new MobilePasswordlessAuthClient(configuration, new SecureMobileSessionStorage(driver));
+    const latestAccessToken = `0123456789abcdef.${"e".repeat(43)}`;
+    const latestRefreshToken = `0123456789abcdef.${"f".repeat(43)}`;
+    let resolveRefresh!: (response: Response) => void;
+    const refreshResponse = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken,
+          refreshToken,
+          accessExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+          refreshExpiresAt: new Date(Date.now() + 2_592_000_000).toISOString(),
+          email: "person@example.test",
+        }),
+      )
+      .mockReturnValueOnce(refreshResponse)
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken: latestAccessToken,
+          refreshToken: latestRefreshToken,
+          accessExpiresAt: new Date(Date.now() + 900_000).toISOString(),
+          refreshExpiresAt: new Date(Date.now() + 2_592_000_000).toISOString(),
+          email: "person@example.test",
+        }),
+      );
+
+    await client.redeemMagicLink("a".repeat(43));
+    const staleRefresh = client.getAccessToken();
+    await waitForFetchCall(fetchMock, 2);
+    await expect(client.redeemMagicLink("c".repeat(43))).resolves.toEqual({
+      accessExpiresAt: expect.any(Number),
+      refreshExpiresAt: expect.any(Number),
+      user: { email: "person@example.test" },
+    });
+    resolveRefresh(
+      jsonResponse({
+        accessToken: `0123456789abcdef.${"g".repeat(43)}`,
+        refreshToken: `0123456789abcdef.${"h".repeat(43)}`,
+        accessExpiresAt: new Date(Date.now() + 900_000).toISOString(),
+        refreshExpiresAt: new Date(Date.now() + 2_592_000_000).toISOString(),
+        email: "person@example.test",
+      }),
+    );
+
+    await expect(staleRefresh).resolves.toBe(latestAccessToken);
+    await expect(client.getAccessToken()).resolves.toBe(latestAccessToken);
+  });
+
   it("refreshes an expired access credential before remote revocation", async () => {
     const client = new MobilePasswordlessAuthClient(configuration, new SecureMobileSessionStorage(driver));
     const rotatedAccessToken = `0123456789abcdef.${"c".repeat(43)}`;
@@ -199,6 +250,12 @@ describe("MobilePasswordlessAuthClient", () => {
     );
   });
 });
+
+async function waitForFetchCall(fetchMock: jest.MockedFunction<typeof fetch>, count: number): Promise<void> {
+  for (let attempt = 0; attempt < 20 && fetchMock.mock.calls.length < count; attempt += 1)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  expect(fetchMock).toHaveBeenCalledTimes(count);
+}
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });

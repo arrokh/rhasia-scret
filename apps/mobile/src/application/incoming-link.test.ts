@@ -18,6 +18,11 @@ describe("incoming mobile links", () => {
   it("extracts only the approved magic-link token", () => {
     const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK";
     expect(extractMagicLinkToken(`${webOrigin}/auth/mobile#token=${token}`, webOrigin)).toBe(token);
+    expect(extractMagicLinkToken(`${webOrigin}/auth/mobile#token=${token}&next=%2Fvaults`, webOrigin)).toBe(token);
+    expect(
+      extractMagicLinkToken(`${webOrigin}/auth/mobile#token=${token}&next=https%3A%2F%2Fattacker.invalid`, webOrigin),
+    ).toBeNull();
+    expect(extractMagicLinkToken(`${webOrigin}/auth/mobile#token=${token}&secret=unexpected`, webOrigin)).toBeNull();
     expect(extractMagicLinkToken("https://attacker.invalid/auth/mobile#token=" + token, webOrigin)).toBeNull();
   });
 

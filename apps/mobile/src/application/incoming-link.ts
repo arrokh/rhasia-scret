@@ -17,7 +17,16 @@ export function classifyIncomingLink(rawUrl: string, webOrigin: string): Incomin
 export function extractMagicLinkToken(rawUrl: string, webOrigin: string): string | null {
   if (classifyIncomingLink(rawUrl, webOrigin) !== "magic_link") return null;
   const url = safeUrl(rawUrl);
-  const token = fragmentParameters(url ?? new URL("https://invalid.example")).get("token");
+  const parameters = fragmentParameters(url ?? new URL("https://invalid.example"));
+  const nextPaths = parameters.getAll("next");
+  if (
+    parameters.getAll("token").length !== 1 ||
+    nextPaths.length > 1 ||
+    [...parameters.keys()].some((key) => key !== "token" && key !== "next") ||
+    (nextPaths.length === 1 && nextPaths[0] !== "/vaults" && nextPaths[0] !== "/vaults/invitations/redeem")
+  )
+    return null;
+  const token = parameters.get("token");
   return token && /^[A-Za-z0-9_-]{43,128}$/.test(token) ? token : null;
 }
 

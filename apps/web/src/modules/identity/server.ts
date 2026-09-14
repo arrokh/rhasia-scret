@@ -22,7 +22,7 @@ import {
   readPasswordlessConfiguration,
 } from "./infrastructure/passwordless-service";
 import { PrismaAnonymousAuthRateLimiter } from "./infrastructure/prisma-anonymous-auth-rate-limiter";
-import { isSameOrigin, requestClientIp } from "./infrastructure/request-origin";
+import { isSameOrigin, requestClientIp, requestPublicOrigin } from "./infrastructure/request-origin";
 import {
   clearPasswordlessSessionCookies,
   PASSWORDLESS_REFRESH_COOKIE,
@@ -36,6 +36,7 @@ export { isPasswordlessClient, isPasswordlessReturnPath, readPasswordlessConfigu
 export {
   isSameOrigin,
   requestClientIp,
+  requestPublicOrigin,
   clearPasswordlessSessionCookies,
   PASSWORDLESS_REFRESH_COOKIE,
   setPasswordlessSessionCookies,

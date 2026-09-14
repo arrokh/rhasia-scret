@@ -17,7 +17,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     (client === "web" && !isSameOrigin(request)) ||
     (client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
   )
-    return new NextResponse(null, { status: 403 });
+    return new NextResponse(null, { status: 403, headers: noStoreHeaders() });
   if (client === "web") return verifyBrowserSession();
 
   const refreshToken =

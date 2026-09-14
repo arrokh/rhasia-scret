@@ -17,9 +17,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     typeof body.email !== "string"
   )
     return NextResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if (body.client === "web" && !isSameOrigin(request)) return new NextResponse(null, { status: 403 });
+  if (body.client === "web" && !isSameOrigin(request))
+    return new NextResponse(null, { status: 403, headers: noStoreHeaders() });
   if (body.client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
-    return new NextResponse(null, { status: 403 });
+    return new NextResponse(null, { status: 403, headers: noStoreHeaders() });
 
   try {
     const limiter = createAnonymousAuthRateLimiter();

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking } from "react-native";
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
-import { completeMagicLink, classifyIncomingLink, extractSecureShareLinkSecret } from "../application/incoming-link";
+import {
+  completeMagicLink,
+  classifyIncomingLink,
+  extractMagicLinkToken,
+  extractSecureShareLinkSecret,
+} from "../application/incoming-link";
 import { loadMobileApplicationUser } from "../application/load-mobile-application-user";
 import type { MobilePasswordlessAuthPort } from "../application/incoming-link";
 import type {
@@ -29,9 +34,14 @@ export function useMobileSession(
   const [session, setSession] = useState<NativeMobileSession | null>(null);
   const [status, setStatus] = useState<MobileSessionStatus>("idle");
   const secureShareSecret = useRef<string | null>(null);
+  const sessionOperation = useRef(0);
+  const magicLinkHandled = useRef(false);
+  const activeMagicLinkToken = useRef<string | null>(null);
+  const mounted = useRef(false);
 
   const handleUrl = useCallback(
     async (url: string) => {
+      if (!mounted.current) return;
       const kind = classifyIncomingLink(url, webOrigin);
       if (kind === "secure_share_link") {
         secureShareSecret.current = extractSecureShareLinkSecret(url, webOrigin);
@@ -39,35 +49,54 @@ export function useMobileSession(
         return;
       }
       if (kind !== "magic_link") return;
-      const result = await completeMagicLink(url, auth, webOrigin);
-      if (result === "authenticated") {
-        setSession(await auth.getSession());
-        setStatus("verifying");
-      } else {
-        setStatus("callback_error");
+      const token = extractMagicLinkToken(url, webOrigin);
+      if (!token || magicLinkHandled.current || activeMagicLinkToken.current === token) {
+        if (!token) setStatus("callback_error");
+        return;
+      }
+      activeMagicLinkToken.current = token;
+      const operation = ++sessionOperation.current;
+      try {
+        const result = await completeMagicLink(url, auth, webOrigin);
+        if (result === "authenticated") magicLinkHandled.current = true;
+        const currentSession = await auth.getSession();
+        if (mounted.current && operation === sessionOperation.current) {
+          setSession(currentSession);
+          if (result === "authenticated") {
+            setStatus("verifying");
+          } else {
+            setStatus("callback_error");
+          }
+        }
+      } catch {
+        if (mounted.current && operation === sessionOperation.current) setStatus("callback_error");
+      } finally {
+        if (activeMagicLinkToken.current === token) activeMagicLinkToken.current = null;
       }
     },
     [auth, webOrigin],
   );
 
   useEffect(() => {
-    let mounted = true;
+    mounted.current = true;
+    const operation = sessionOperation.current;
     void auth.getSession().then((storedSession) => {
-      if (mounted) {
+      if (mounted.current && operation === sessionOperation.current) {
         setSession(storedSession);
         if (storedSession) setStatus("verifying");
       }
     });
     const urlSubscription = Linking.addEventListener("url", ({ url }) => void handleUrl(url));
     void Linking.getInitialURL().then((url) => {
-      if (url && mounted) void handleUrl(url);
+      if (url && mounted.current) void handleUrl(url);
     });
     const appStateSubscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
+        const operation = ++sessionOperation.current;
         void auth
           .refreshIfNeeded()
           .then((storedSession) => {
-            if (mounted) setSession(storedSession);
+            if (mounted.current && operation === sessionOperation.current) setSession(storedSession);
           })
           .catch(() => {
             // Keep the current session on transient network failures; the next
@@ -76,7 +105,8 @@ export function useMobileSession(
       }
     });
     return () => {
-      mounted = false;
+      mounted.current = false;
+      sessionOperation.current += 1;
       urlSubscription.remove();
       appStateSubscription.remove();
     };
@@ -113,9 +143,18 @@ export function useMobileSession(
   );
 
   const signOut = useCallback(async () => {
-    await auth.signOut();
-    setSession(null);
-    setStatus("idle");
+    const operation = ++sessionOperation.current;
+    secureShareSecret.current = null;
+    try {
+      await auth.signOut();
+    } finally {
+      secureShareSecret.current = null;
+      magicLinkHandled.current = false;
+    }
+    if (operation === sessionOperation.current) {
+      setSession(null);
+      setStatus("idle");
+    }
   }, [auth]);
 
   const consumeSecureShareSecret = useCallback(() => {

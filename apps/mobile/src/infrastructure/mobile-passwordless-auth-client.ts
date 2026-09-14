@@ -30,6 +30,9 @@ export function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promi
 
 export class MobilePasswordlessAuthClient {
   private refreshPromise: Promise<StoredSession | null> | null = null;
+  private activeMagicLinkRedemption: Promise<NativeMobileSession> | null = null;
+  private sessionVersion = 0;
+  private sessionWriteTail: Promise<void> = Promise.resolve();
 
   public constructor(
     private readonly configuration: MobileClientConfiguration,
@@ -51,13 +54,14 @@ export class MobilePasswordlessAuthClient {
   }
 
   public async redeemMagicLink(token: string): Promise<NativeMobileSession> {
-    const response = await this.request("/api/auth/magic-link/redeem", { token, client: "mobile" });
-    if (!response.ok) throw new Error("Magic-link redemption failed.");
+    while (this.activeMagicLinkRedemption) await this.activeMagicLinkRedemption.catch(() => undefined);
+    const version = ++this.sessionVersion;
+    const redemption = this.redeemMagicLinkRequest(token, version);
+    this.activeMagicLinkRedemption = redemption;
     try {
-      return publicSession(await this.saveResponse(await readJson<MagicLinkResponse>(response)));
-    } catch (error: unknown) {
-      await this.storage.removeItem(STORAGE_KEY);
-      throw error;
+      return await redemption;
+    } finally {
+      if (this.activeMagicLinkRedemption === redemption) this.activeMagicLinkRedemption = null;
     }
   }
 
@@ -91,8 +95,16 @@ export class MobilePasswordlessAuthClient {
   }
 
   private async refreshStoredSession(stored: StoredSession): Promise<StoredSession | null> {
+    const redemption = this.activeMagicLinkRedemption;
+    if (redemption) {
+      await redemption.catch(() => undefined);
+      const latest = await this.readStoredSession();
+      if (!latest || latest.refreshToken !== stored.refreshToken) return latest;
+      stored = latest;
+    }
     if (this.refreshPromise) return this.refreshPromise;
-    const refreshPromise = this.rotateStoredSession(stored);
+    const version = this.sessionVersion;
+    const refreshPromise = this.rotateStoredSession(stored, version);
     this.refreshPromise = refreshPromise;
     try {
       return await refreshPromise;
@@ -101,43 +113,64 @@ export class MobilePasswordlessAuthClient {
     }
   }
 
-  private async rotateStoredSession(stored: StoredSession): Promise<StoredSession | null> {
+  private async rotateStoredSession(stored: StoredSession, version: number): Promise<StoredSession | null> {
     const response = await this.request("/api/auth/session/refresh", {
       client: "mobile",
       refreshToken: stored.refreshToken,
     });
-    if (!response.ok) {
-      await this.storage.removeItem(STORAGE_KEY);
-      return null;
-    }
+    if (!response.ok)
+      return this.withSessionWrite(async () => {
+        if (version !== this.sessionVersion) return this.readStoredSession();
+        await this.storage.removeItem(STORAGE_KEY);
+        return null;
+      });
     try {
-      return await this.saveResponse(await readJson<MagicLinkResponse>(response));
+      return await this.saveResponse(await readJson<MagicLinkResponse>(response), version);
     } catch (error: unknown) {
-      await this.storage.removeItem(STORAGE_KEY);
+      if (error instanceof SessionOperationSupersededError) return this.readStoredSession();
+      await this.clearStoredSession(version);
       throw error;
     }
   }
 
-  private async saveResponse(response: MagicLinkResponse): Promise<StoredSession> {
-    if (
-      !isToken(response.accessToken) ||
-      !isToken(response.refreshToken) ||
-      !isEmail(response.email) ||
-      !isDate(response.accessExpiresAt) ||
-      !isDate(response.refreshExpiresAt)
-    )
-      throw new Error("Authentication response is invalid.");
-    const session: StoredSession = {
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-      accessExpiresAt: Date.parse(response.accessExpiresAt),
-      refreshExpiresAt: Date.parse(response.refreshExpiresAt),
-      user: { email: response.email },
-    };
-    if (session.accessExpiresAt <= Date.now() || session.refreshExpiresAt <= session.accessExpiresAt)
-      throw new Error("Authentication response expiry is invalid.");
-    await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
-    return session;
+  private async redeemMagicLinkRequest(token: string, version: number): Promise<NativeMobileSession> {
+    const response = await this.request("/api/auth/magic-link/redeem", { token, client: "mobile" });
+    if (!response.ok) throw new Error("Magic-link redemption failed.");
+    try {
+      return publicSession(await this.saveResponse(await readJson<MagicLinkResponse>(response), version));
+    } catch (error: unknown) {
+      if (!(error instanceof SessionOperationSupersededError)) await this.clearStoredSession(version);
+      throw error;
+    }
+  }
+
+  private async saveResponse(response: MagicLinkResponse, version: number): Promise<StoredSession> {
+    const session = parseResponse(response);
+    return this.withSessionWrite(async () => {
+      if (version !== this.sessionVersion) throw new SessionOperationSupersededError();
+      await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
+      return session;
+    });
+  }
+
+  private async clearStoredSession(version: number): Promise<void> {
+    await this.withSessionWrite(async () => {
+      if (version === this.sessionVersion) await this.storage.removeItem(STORAGE_KEY);
+    });
+  }
+
+  private async withSessionWrite<T>(write: () => Promise<T>): Promise<T> {
+    const previous = this.sessionWriteTail;
+    let release: () => void = () => undefined;
+    this.sessionWriteTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await write();
+    } finally {
+      release();
+    }
   }
 
   private async readStoredSession(): Promise<StoredSession | null> {
@@ -166,6 +199,33 @@ export class MobilePasswordlessAuthClient {
       throw error;
     }
   }
+}
+
+class SessionOperationSupersededError extends Error {
+  public constructor() {
+    super("Mobile authentication operation was superseded.");
+  }
+}
+
+function parseResponse(response: MagicLinkResponse): StoredSession {
+  if (
+    !isToken(response.accessToken) ||
+    !isToken(response.refreshToken) ||
+    !isEmail(response.email) ||
+    !isDate(response.accessExpiresAt) ||
+    !isDate(response.refreshExpiresAt)
+  )
+    throw new Error("Authentication response is invalid.");
+  const session: StoredSession = {
+    accessToken: response.accessToken,
+    refreshToken: response.refreshToken,
+    accessExpiresAt: Date.parse(response.accessExpiresAt),
+    refreshExpiresAt: Date.parse(response.refreshExpiresAt),
+    user: { email: response.email },
+  };
+  if (session.accessExpiresAt <= Date.now() || session.refreshExpiresAt <= session.accessExpiresAt)
+    throw new Error("Authentication response expiry is invalid.");
+  return session;
 }
 
 function publicSession(stored: StoredSession): NativeMobileSession {
