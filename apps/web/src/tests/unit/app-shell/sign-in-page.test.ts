@@ -11,11 +11,16 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/modules/identity/application/load-application-user", () => ({
   loadApplicationUser: mocks.loadApplicationUser,
 }));
+vi.mock("@/modules/identity/server", () => ({
+  authBackend: () => "passwordless",
+  createApplicationUserRepository: () => ({}),
+  createSessionVerifier: () => ({}),
+}));
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
   PrismaApplicationUserRepository: class PrismaApplicationUserRepository {},
 }));
-vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({
-  SupabaseSessionVerifier: class SupabaseSessionVerifier {},
+vi.mock("@/modules/identity/infrastructure/passwordless-session-verifier", () => ({
+  PasswordlessSessionVerifier: class PasswordlessSessionVerifier {},
 }));
 vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
   EmailSignInForm: ({ nextPath }: { nextPath: string }) =>
@@ -65,15 +70,6 @@ describe("SignInPage", () => {
     expect(markup).toContain('href="/offline"');
     expect(markup).toContain("Masuk atau buat akun dengan alamat email terverifikasi.");
     expect(markup.indexOf('data-slot="separator"')).toBeLessThan(markup.indexOf('href="/offline"'));
-  });
-
-  it("shows a clear expired-link notice for the provider error mapping", async () => {
-    mocks.loadApplicationUser.mockResolvedValue(null);
-
-    const page = await SignInPage({ searchParams: Promise.resolve({ auth: "link_expired" }) });
-    const markup = renderToStaticMarkup(createElement("div", null, page));
-
-    expect(markup).toContain("Tautan masuk tidak valid atau sudah kedaluwarsa. Minta tautan baru.");
   });
 
   it("keeps invitation sign-in scoped to the safe redemption path", async () => {

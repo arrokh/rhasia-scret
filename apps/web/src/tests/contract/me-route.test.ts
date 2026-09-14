@@ -16,7 +16,7 @@ describe("GET /api/me contract", () => {
   it("provisions and returns only the application user identity for an active session", async () => {
     const handler = createGetMeHandler({
       authenticate: async () =>
-        new ApplicationUser("application-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("application-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
     });
     const response = await handler();
     expect(response.status).toBe(200);

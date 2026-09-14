@@ -3,8 +3,9 @@ import { join } from "node:path";
 
 const staticDirectory = join(process.cwd(), ".next", "static");
 const forbidden = [
-  /\bSUPABASE_SERVICE_ROLE_KEY\b/i,
-  /\bSUPABASE_SECRET_KEY\b/i,
+  /\bAUTH_MAGIC_LINK_SECRET\b/i,
+  /\bAUTH_SESSION_SECRET\b/i,
+  /\bSMTP_PASSWORD\b/i,
   /\bDATABASE_URL\b/i,
   /\bDIRECT_URL\b/i,
   /postgres(?:ql)?:\/\//i,

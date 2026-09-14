@@ -6,7 +6,7 @@ The repository uses pnpm workspaces as its monorepo boundary. The root `pnpm-loc
 
 - `apps/web` owns the Next.js application, server routes, Prisma schema and migrations, browser adapters, web presentation, localization catalogs, and web-only tests/configuration.
 - `apps/mobile` owns the Expo SDK 57 application, generated-native configuration, repository-owned native modules, native adapters, mobile presentation, mobile localization, and mobile-only tests/configuration. It consumes hosted Personal/Shared Vault workflows and read-only encrypted offline snapshots, not the browser-only Local Profile/Local Vault.
-- `packages/client-vault-core` owns platform-neutral client workflows and contracts. It exposes `src/index.ts` as its public API and has no dependency on either app or on browser, React, Expo, Prisma, Supabase, filesystem, or platform-storage APIs.
+- `packages/client-vault-core` owns platform-neutral client workflows and contracts. It exposes `src/index.ts` as its public API and has no dependency on either app or on browser, React, Expo, Prisma, filesystem, or platform-storage APIs.
 
 Applications may depend on the shared package through `workspace:*`. They must not import the other application or reach into shared-package internals. Browser and native capabilities remain injected ports implemented by the owning app.
 

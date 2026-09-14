@@ -1,26 +1,25 @@
 import {
   classifyIncomingLink,
-  completeAuthCallback,
+  completeMagicLink,
+  extractMagicLinkToken,
   extractSecureShareLinkSecret,
-  type MobileAuthCallbackPort,
 } from "./incoming-link";
-
-function authPort(): jest.Mocked<MobileAuthCallbackPort> {
-  return {
-    exchangeCodeForSession: jest.fn().mockResolvedValue({ error: null }),
-    setSession: jest.fn().mockResolvedValue({ error: null }),
-  };
-}
 
 describe("incoming mobile links", () => {
   const webOrigin = "https://vault.example.test";
 
-  it.each(["rhasia-scret://auth/callback?code=pkce-code", `${webOrigin}/auth/mobile?code=pkce-code`])(
-    "recognizes an approved authentication callback: %s",
-    (url) => {
-      expect(classifyIncomingLink(url, webOrigin)).toBe("auth_callback");
-    },
-  );
+  it.each([
+    "rhasia-scret://auth/magic-link#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+    `${webOrigin}/auth/mobile#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK`,
+  ])("recognizes an approved magic link: %s", (url) => {
+    expect(classifyIncomingLink(url, webOrigin)).toBe("magic_link");
+  });
+
+  it("extracts only the approved magic-link token", () => {
+    const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK";
+    expect(extractMagicLinkToken(`${webOrigin}/auth/mobile#token=${token}`, webOrigin)).toBe(token);
+    expect(extractMagicLinkToken("https://attacker.invalid/auth/mobile#token=" + token, webOrigin)).toBeNull();
+  });
 
   it("recognizes the verified Secure Share Link and extracts its client-only fragment explicitly", () => {
     const url = `${webOrigin}/vaults/invitations/redeem#client-only-secret`;
@@ -32,30 +31,21 @@ describe("incoming mobile links", () => {
   });
 
   it.each([
-    "https://attacker.invalid/auth/mobile?code=stolen",
-    "http://vault.example.test/auth/mobile?code=stolen",
+    "https://attacker.invalid/auth/mobile#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+    "https://user@vault.example.test/auth/mobile#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+    "http://vault.example.test/auth/mobile#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+    "rhasia-scret://auth:443/magic-link#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
     "not-a-url",
-  ])("rejects an untrusted callback: %s", (url) => {
+  ])("rejects an untrusted link: %s", (url) => {
     expect(classifyIncomingLink(url, webOrigin)).toBe("unknown");
   });
 
-  it("exchanges a PKCE code without exposing it in the result", async () => {
-    const auth = authPort();
-    await expect(completeAuthCallback("rhasia-scret://auth/callback?code=pkce-code", auth, webOrigin)).resolves.toBe(
+  it("redeems a magic link without returning its token", async () => {
+    const auth = { redeemMagicLink: jest.fn().mockResolvedValue({}) };
+    const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK";
+    await expect(completeMagicLink(`${webOrigin}/auth/mobile#token=${token}`, auth, webOrigin)).resolves.toBe(
       "authenticated",
     );
-    expect(auth.exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
-    expect(auth.setSession).not.toHaveBeenCalled();
-  });
-
-  it("supports provider token callbacks only when both tokens are present", async () => {
-    const auth = authPort();
-    await expect(
-      completeAuthCallback("rhasia-scret://auth/callback#access_token=access&refresh_token=refresh", auth, webOrigin),
-    ).resolves.toBe("authenticated");
-    expect(auth.setSession).toHaveBeenCalledWith({ access_token: "access", refresh_token: "refresh" });
-    await expect(
-      completeAuthCallback("rhasia-scret://auth/callback#access_token=access", auth, webOrigin),
-    ).resolves.toBe("invalid");
+    expect(auth.redeemMagicLink).toHaveBeenCalledWith(token);
   });
 });

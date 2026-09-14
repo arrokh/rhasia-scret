@@ -8,7 +8,6 @@ datasource db {
 
 model ApplicationUser {
   id                        String                       @id @default(cuid())
-  supabaseUserId            String?                      @unique @map("supabase_user_id")
   email                     String
   status                    String                       @default("ACTIVE")
   createdAt                 DateTime                     @default(now()) @map("created_at")
@@ -23,29 +22,97 @@ model ApplicationUser {
   rateLimitWindows          ApplicationRateLimitWindow[]
   externalIdentities        ExternalIdentity[]
   identitySecurityEvents    IdentitySecurityEvent[]
+  authSessions              AuthSession[]
 
   @@map("application_users")
 }
 
 model ExternalIdentity {
-  id                String          @id @default(cuid())
-  applicationUserId String          @map("application_user_id")
-  issuer            String
-  subject           String
-  email             String?
-  emailVerifiedAt   DateTime?       @map("email_verified_at")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  applicationUser   ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(cuid())
+  applicationUserId    String                @map("application_user_id")
+  issuer               String
+  subject              String
+  email                String?
+  emailVerifiedAt      DateTime?             @map("email_verified_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  applicationUser      ApplicationUser       @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+  passwordlessIdentity PasswordlessIdentity?
 
   @@unique([issuer, subject])
   @@index([applicationUserId])
   @@map("external_identities")
 }
 
+model PasswordlessIdentity {
+  id                 String           @id @default(cuid())
+  externalIdentityId String           @unique @map("external_identity_id")
+  normalizedEmail    String           @unique @map("normalized_email")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  externalIdentity   ExternalIdentity @relation(fields: [externalIdentityId], references: [id], onDelete: Cascade)
+
+  @@map("passwordless_identities")
+}
+
+model MagicLinkChallenge {
+  id              String    @id @default(cuid())
+  normalizedEmail String    @map("normalized_email")
+  purpose         String    @default("sign_in")
+  tokenDigest     Bytes     @unique @map("token_digest")
+  client          String
+  returnPath      String    @map("return_path")
+  expiresAt       DateTime  @map("expires_at")
+  consumedAt      DateTime? @map("consumed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([normalizedEmail, purpose, createdAt])
+  @@index([purpose, expiresAt])
+  @@index([expiresAt])
+  @@map("magic_link_challenges")
+}
+
+model AuthSession {
+  id                 String          @id @default(cuid())
+  applicationUserId  String          @map("application_user_id")
+  accessTokenDigest  Bytes           @unique @map("access_token_digest")
+  refreshTokenDigest Bytes           @unique @map("refresh_token_digest")
+  refreshFamily      String          @map("refresh_family")
+  accessExpiresAt    DateTime        @map("access_expires_at")
+  refreshExpiresAt   DateTime        @map("refresh_expires_at")
+  revokedAt          DateTime?       @map("revoked_at")
+  revocationReason   String?         @map("revocation_reason")
+  refreshRotatedAt   DateTime?       @map("refresh_rotated_at")
+  reuseDetectedAt    DateTime?       @map("reuse_detected_at")
+  lastUsedAt         DateTime?       @map("last_used_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  applicationUser    ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+
+  @@index([applicationUserId, revokedAt])
+  @@index([accessExpiresAt])
+  @@index([refreshExpiresAt])
+  @@index([revokedAt, id])
+  @@index([refreshFamily, revokedAt, refreshExpiresAt])
+  @@map("auth_sessions")
+}
+
+model AnonymousAuthRateLimitWindow {
+  bucketHash      Bytes    @map("bucket_hash")
+  operation       String
+  windowStartedAt DateTime @map("window_started_at")
+  expiresAt       DateTime @map("expires_at")
+  requestCount    Int      @map("request_count")
+
+  @@id([bucketHash, operation, windowStartedAt])
+  @@index([expiresAt])
+  @@map("anonymous_auth_rate_limit_windows")
+}
+
 model IdentitySecurityEvent {
   id                String          @id @default(cuid())
   applicationUserId String          @map("application_user_id")
+  sessionId         String?         @map("session_id")
   eventType         String          @map("event_type")
   createdAt         DateTime        @default(now()) @map("created_at")
   applicationUser   ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)

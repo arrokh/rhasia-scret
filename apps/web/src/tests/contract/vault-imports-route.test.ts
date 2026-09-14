@@ -101,7 +101,8 @@ describe("POST /api/vault-imports contract", () => {
 
 function createHandler(importArchive: EncryptedVaultImportRepository["import"]) {
   return createEncryptedVaultImportHandler({
-    authenticate: async () => new ApplicationUser("user-1", "supabase", "supabase-1", "owner@example.test", "ACTIVE"),
+    authenticate: async () =>
+      new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "owner@example.test", "ACTIVE"),
     imports: { import: importArchive },
   });
 }

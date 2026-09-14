@@ -10,7 +10,7 @@ export class FakeSessionVerifier implements SessionVerifier {
   public constructor(session: TestPrincipal | null) {
     this.normalizedSession = session
       ? {
-          issuer: session.issuer ?? "supabase",
+          issuer: session.issuer ?? "rhasia:passwordless",
           subject: session.subject,
           email: session.email,
           emailVerified: session.emailVerified ?? true,

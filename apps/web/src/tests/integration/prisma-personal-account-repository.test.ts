@@ -19,7 +19,7 @@ describe("PrismaPersonalAccountRepository recovery", () => {
     "atomically audits accounts copied from Local Vault without local identifiers",
     async () => {
       const user = await prisma.applicationUser.create({
-        data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` },
+        data: { email: `${randomUUID()}@example.test` },
       });
       userIds.push(user.id);
       const vault = await prisma.vault.create({
@@ -52,7 +52,7 @@ describe("PrismaPersonalAccountRepository recovery", () => {
     "restores before the 30-day deadline, advances revision, and rejects expiry",
     async () => {
       const user = await prisma.applicationUser.create({
-        data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` },
+        data: { email: `${randomUUID()}@example.test` },
       });
       userIds.push(user.id);
       const vault = await prisma.vault.create({

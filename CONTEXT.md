@@ -92,8 +92,12 @@ The limited server-visible information allowed by the zero-knowledge contract: o
 _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
 **Authentication Provider**:
-A replaceable server-side adapter that verifies an external identity and exposes a provider-neutral Verified Principal. Supabase Auth is one supported adapter; OIDC is the preferred interoperability standard. Provider SDKs, OAuth/OIDC protocol types, provider cookies, tokens, and callback mechanics never cross the Identity bounded-context boundary.
-_Avoid_: Supabase user in domain code, provider-owned Application User, mandatory Auth.js proxy
+A replaceable server-side adapter that verifies an external identity and exposes a provider-neutral Verified Principal. The hosted default is the self-managed passwordless adapter; OIDC remains an optional interoperability adapter. Provider SDKs, OAuth/OIDC protocol types, provider cookies, tokens, and callback mechanics never cross the Identity bounded-context boundary.
+_Avoid_: provider user in domain code, provider-owned Application User, email-based account merge
+
+**Magic-Link Email Delivery**:
+The server-only delivery path for self-managed passwordless sign-in and signup emails. The server creates a one-time random token, persists only its keyed digest, and sends the token plus a validated non-sensitive return-path hint in a transient URL fragment through the configured Nodemailer SMTP transport. Redemption creates or loads the local External Identity and rotates a database-backed session, then announces completion so an open invitation tab can restore its client-only Secure Share Link fragment. Secure Share Link secrets remain client-created, client-held, and out-of-band; they never enter the magic-link request or email service.
+_Avoid_: plaintext token persistence, provider-owned session authority, email-delivered Secure Share Link
 
 **Verified Principal**:
 The normalized result of provider verification: immutable issuer and subject, verified email/contact metadata when available, and provider-independent session assurance. It answers who the provider verified, not whether that principal is admitted to the application.
@@ -101,10 +105,10 @@ _Avoid_: Email as identity, session cookie as principal, provider-specific sessi
 
 **External Identity**:
 A durable identity binding unique by `(issuer, subject)` and associated with exactly one Application User. Email is permitted admission/contact metadata but never silently links identities or merges Application Users.
-_Avoid_: `supabaseUserId`, automatic email linking, provider account row as Application User
+_Avoid_: provider-specific user columns, automatic email linking, provider account row as Application User
 
 **Application Admission**:
-The separate policy decision that determines whether a Verified Principal may use the application. In the Supabase deployment, a verified email principal is admitted to the hosted application; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
+The separate policy decision that determines whether a Verified Principal may use the application. In the passwordless deployment, redemption of a verified email link admits the local principal; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
 _Avoid_: Authentication equals admission, unverified-email access, automatic Shared Vault membership
 
 **Identity Linking**:
@@ -116,11 +120,11 @@ An auditable, rollback-safe change from one Authentication Provider to another t
 _Avoid_: Provider account migration by email, new Application User on provider change, key rotation during migration
 
 **Admitted User**:
-A person admitted by the configured Application Admission policy before they can access the application. In the Supabase deployment, verified-email signup admits a person to the hosted application; an Invitation separately grants access to a Shared Vault after one-time client-side key delivery.
+A person admitted by the configured Application Admission policy before they can access the application. In the passwordless deployment, verified-email link redemption admits a person to the hosted application; an Invitation separately grants access to a Shared Vault after one-time client-side key delivery.
 _Avoid_: Authentication equals Shared Vault membership, unverified signup, separate email allowlist
 
 **Application Mutation Rate Limit**:
-A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or Supabase Auth limits.
+A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or anonymous passwordless abuse controls.
 _Avoid_: Authentication rate limit, per-instance counter, request-body fingerprint
 
 **Key-Wrap Envelope**:
@@ -220,7 +224,7 @@ The Expo SDK 57 React Native application under `apps/mobile` for iOS and Android
 _Avoid_: Mobile webview, browser-equivalent passkey recovery, native Local Vault
 
 **Local Profile**:
-A device/browser-installation-scoped client-owned container that exists without a Supabase session or Application User and owns exactly one writable Local Vault. It is not identified by email, server user ID, or provider identity. A browser installation may have at most one Local Profile, and creating another requires explicitly clearing the existing one.
+A device/browser-installation-scoped client-owned container that exists without an authenticated session or Application User and owns exactly one writable Local Vault. It is not identified by email, server user ID, or provider identity. A browser installation may have at most one Local Profile, and creating another requires explicitly clearing the existing one.
 _Avoid_: Device account, browser user, server profile, Personal Vault
 
 **Local Vault**:

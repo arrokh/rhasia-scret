@@ -295,10 +295,25 @@ describe("PersonalVaultAccounts", () => {
     );
     const directoryMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-menu"]');
     await act(async () => directoryMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const compactView = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === "Ringkas",
+    );
+    const normalView = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === "Normal",
+    );
+    expect(compactView?.querySelector(".lucide-layout-grid")).not.toBeNull();
+    expect(normalView?.querySelector(".lucide-list")).not.toBeNull();
     const reorderAction = [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
       (item) => item.textContent?.trim() === "Urutkan akun",
     );
     await act(async () => reorderAction?.click());
+    const reorderItems = [
+      ...document.body.querySelectorAll<HTMLElement>('[data-slot="account-directory-reorder-list"] > li'),
+    ];
+    expect(reorderItems[0]?.querySelector('button[aria-label*="ke atas"]')).toBeNull();
+    expect(reorderItems[0]?.querySelector('button[aria-label*="ke bawah"]')).not.toBeNull();
+    expect(reorderItems.at(-1)?.querySelector('button[aria-label*="ke atas"]')).not.toBeNull();
+    expect(reorderItems.at(-1)?.querySelector('button[aria-label*="ke bawah"]')).toBeNull();
     const moveDown = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
       (button) => button.getAttribute("aria-label") === "Pindahkan personal@example.test ke bawah",
     );

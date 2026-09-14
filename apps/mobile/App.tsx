@@ -20,7 +20,7 @@ import {
   type MobileClientConfiguration,
 } from "./src/config";
 import { translate, type MobileLocale } from "./src/localization";
-import { createMobileSupabaseClient } from "./src/infrastructure/mobile-supabase-client";
+import { MobilePasswordlessAuthClient } from "./src/infrastructure/mobile-passwordless-auth-client";
 import { createNativeAuthenticatedTransport } from "./src/infrastructure/native-authenticated-transport";
 import { MobilePersonalVaultRepository } from "./src/infrastructure/mobile-personal-vault-repository";
 import { MobilePersonalVault } from "./src/presentation/mobile-personal-vault";
@@ -44,15 +44,14 @@ function tryReadConfiguration(): MobileClientConfiguration | null {
 function ConfiguredApp({ configuration }: { configuration: MobileClientConfiguration }) {
   const [locale, setLocale] = useState<MobileLocale>("id");
   const copy = translate(locale);
-  const supabase = useMemo(() => createMobileSupabaseClient(configuration), [configuration]);
+  const auth = useMemo(() => new MobilePasswordlessAuthClient(configuration), [configuration]);
   const transport = useMemo(
-    () => createNativeAuthenticatedTransport(configuration.apiUrl, supabase),
-    [configuration.apiUrl, supabase],
+    () => createNativeAuthenticatedTransport(configuration.apiUrl, auth),
+    [configuration.apiUrl, auth],
   );
   const personalVaultRepository = useMemo(() => new MobilePersonalVaultRepository(transport), [transport]);
   const { session, status, requestSignInLink, signOut, consumeSecureShareSecret } = useMobileSession(
-    supabase,
-    configuration.authRedirectUrl,
+    auth,
     configuration.webOrigin,
     transport,
   );

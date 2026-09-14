@@ -14,7 +14,7 @@ describe("POST /api/user-crypto-profile/rewrap contract", () => {
     const rewrapUserRootKey = vi.fn().mockResolvedValue(undefined);
     const handler = createRewrapUserRootKeyHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       cryptoProfiles: {
         get: async () => null,
         registerUserEncryptionIdentity: async () => undefined,
@@ -35,7 +35,7 @@ describe("POST /api/user-crypto-profile/rewrap contract", () => {
     const rewrapUserRootKey = vi.fn().mockResolvedValue(undefined);
     const handler = createRewrapUserRootKeyHandler({
       authenticate: async () =>
-        new ApplicationUser("user-1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       cryptoProfiles: {
         get: async () => null,
         registerUserEncryptionIdentity: async () => undefined,

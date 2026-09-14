@@ -3,31 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
-const mocks = vi.hoisted(() => ({ redirect: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/" }));
-
 import LandingPage from "@/app/page";
 
 describe("LandingPage", () => {
-  it("forwards a provider callback that landed on the root page to the auth callback", async () => {
-    await LandingPage({ searchParams: Promise.resolve({ code: "provider-code" }) });
-
-    expect(mocks.redirect).toHaveBeenCalledWith("/auth/confirm?code=provider-code");
-  });
-
-  it("maps an expired provider link to a safe sign-in notice without echoing its description", async () => {
-    await LandingPage({
-      searchParams: Promise.resolve({
-        error: "access_denied",
-        error_code: "otp_expired",
-        error_description: "<script>alert('attacker')</script>",
-        next: "/vaults/invitations/redeem",
-      }),
-    });
-
-    expect(mocks.redirect).toHaveBeenCalledWith("/sign-in?auth=link_expired&next=%2Fvaults%2Finvitations%2Fredeem");
-  });
-
   it("presents the public product landing page with local and hosted Vault calls to action", async () => {
     const page = await LandingPage();
     const markup = renderToStaticMarkup(createElement("div", null, page));

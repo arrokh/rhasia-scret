@@ -9,14 +9,18 @@ export function InvitationAuthContinuation({ nextPath }: { nextPath: string }) {
 
   useEffect(() => {
     if (resolveAuthReturnPath(nextPath) !== INVITATION_AUTH_RETURN_PATH) return;
-    invitationSecret.current = window.location.hash.slice(1);
+    const fragment = window.location.hash.slice(1);
+    invitationSecret.current = /^[A-Za-z0-9_-]{16,4096}$/.test(fragment) ? fragment : "";
     if (!invitationSecret.current) return;
 
-    return subscribeToAuthenticationCompletion(() => {
-      const destination = new URL(INVITATION_AUTH_RETURN_PATH, window.location.origin);
-      destination.hash = invitationSecret.current;
-      window.location.replace(destination.toString());
-    });
+    return subscribeToAuthenticationCompletion(
+      () => {
+        const destination = new URL(INVITATION_AUTH_RETURN_PATH, window.location.origin);
+        destination.hash = invitationSecret.current;
+        window.location.replace(destination.toString());
+      },
+      () => invitationSecret.current,
+    );
   }, [nextPath]);
 
   return null;

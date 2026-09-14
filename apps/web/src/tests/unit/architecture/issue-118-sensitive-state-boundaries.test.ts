@@ -9,7 +9,7 @@ describe("issue 118 architecture and sensitive-state boundaries", () => {
   it("keeps the Local Vault session application seam platform-neutral", () => {
     const session = read("src/modules/local-vault/application/local-vault-session.ts");
     expect(session).not.toMatch(
-      /from ["'](?:next|react|react-native|expo|@prisma|@supabase)|\bwindow\b|\bdocument\b|\bnavigator\b|indexedDB|localStorage|sessionStorage/,
+      /from ["'](?:next|react|react-native|expo|@prisma)|\bwindow\b|\bdocument\b|\bnavigator\b|indexedDB|localStorage|sessionStorage/,
     );
   });
 

@@ -1,12 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createIdentityProxyVerifier, type SetAuthCookies } from "@/modules/identity/proxy";
-import { resolveAuthCallbackNotice } from "@/modules/identity/application/auth-callback";
-import {
-  AUTH_RETURN_PATH_COOKIE,
-  DEFAULT_AUTH_RETURN_PATH,
-  INVITATION_AUTH_RETURN_PATH,
-  resolveAuthReturnPath,
-} from "@/modules/identity/application/auth-return-path";
+import { DEFAULT_AUTH_RETURN_PATH, INVITATION_AUTH_RETURN_PATH } from "@/modules/identity/application/auth-return-path";
 type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
@@ -48,9 +42,7 @@ function createCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    ["connect-src 'self' https://*.supabase.co wss://*.supabase.co", posthogHost, cloudflareAnalyticsEndpointHost]
-      .filter(Boolean)
-      .join(" "),
+    ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -83,8 +75,6 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-nonce", nonce);
     const requestWithNonce = { headers: requestHeaders };
-    const rootAuthCallback = redirectRootAuthCallback(request);
-    if (rootAuthCallback) return applySecurityHeaders(rootAuthCallback, request, nonce);
     let response = NextResponse.next({ request: requestWithNonce });
     let hasSession = false;
     const verificationStartedAt = performance.now();
@@ -107,50 +97,6 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
     response.headers.set("server-timing", serverTiming);
     return applySecurityHeaders(response, request, nonce);
   };
-}
-
-function redirectRootAuthCallback(request: NextRequest): NextResponse | null {
-  if (request.nextUrl.pathname !== "/") return null;
-
-  const callbackNotice = resolveAuthCallbackNotice(
-    request.nextUrl.searchParams.get("error"),
-    request.nextUrl.searchParams.get("error_code"),
-    request.nextUrl.searchParams.get("error_description"),
-  );
-  const nextPath = resolveAuthReturnPath(
-    request.nextUrl.searchParams.get("next") ?? request.cookies.get(AUTH_RETURN_PATH_COOKIE)?.value,
-  );
-  if (callbackNotice) {
-    const destination = new URL("/sign-in", request.url);
-    destination.searchParams.set("auth", callbackNotice);
-    if (nextPath !== DEFAULT_AUTH_RETURN_PATH) destination.searchParams.set("next", nextPath);
-    const response = NextResponse.redirect(destination);
-    response.headers.set("Cache-Control", "no-store, private");
-    clearAuthReturnPathCookie(response);
-    return response;
-  }
-
-  const code = request.nextUrl.searchParams.get("code");
-  const tokenHash = request.nextUrl.searchParams.get("token_hash");
-  if (!code && !tokenHash) return null;
-
-  const destination = new URL("/auth/confirm", request.url);
-  if (code) destination.searchParams.set("code", code);
-  if (tokenHash) destination.searchParams.set("token_hash", tokenHash);
-  if (nextPath !== DEFAULT_AUTH_RETURN_PATH) destination.searchParams.set("next", nextPath);
-  const response = NextResponse.redirect(destination);
-  response.headers.set("Cache-Control", "no-store, private");
-  return response;
-}
-
-function clearAuthReturnPathCookie(response: NextResponse): void {
-  response.cookies.set(AUTH_RETURN_PATH_COOKIE, "", {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
 }
 
 function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse): NextResponse {

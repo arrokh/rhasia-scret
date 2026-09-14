@@ -19,7 +19,7 @@ This index is the public entry point for the repository's product, operating, ar
 
 ## Deployment and operations
 
-- [`authentication-configuration.md`](authentication-configuration.md) — Supabase and OIDC configuration, callbacks, route protection, and logout.
+- [`authentication-configuration.md`](authentication-configuration.md) — passwordless and OIDC configuration, callbacks, route protection, sessions, migration, and logout.
 - [`self-hosting.md`](self-hosting.md) — supported host/database/authentication matrix, environment contract, deployment procedure, local setup, and smoke test.
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.

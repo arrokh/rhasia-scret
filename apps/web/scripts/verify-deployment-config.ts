@@ -1,17 +1,18 @@
 import { loadWorkspaceEnvironment } from "./load-workspace-environment";
 import { readAuthConfiguration } from "../src/modules/identity/infrastructure/auth-backend";
+import { readEmailConfiguration } from "../src/modules/identity/infrastructure/email-configuration";
 
 loadWorkspaceEnvironment();
 
 const production = process.env.NODE_ENV === "production" || process.env.VERIFY_DEPLOYMENT_PRODUCTION === "1";
 const errors: string[] = [];
 const checked = new Set<string>();
-const backend = process.env.AUTH_BACKEND?.trim() || "supabase";
+const backend = process.env.AUTH_BACKEND?.trim() || "passwordless";
 
 if (production && !process.env.AUTH_BACKEND?.trim())
   errors.push("AUTH_BACKEND must be set explicitly for a production deployment.");
-if (!(["none", "supabase", "oidc"] as const).includes(backend as "none" | "supabase" | "oidc")) {
-  errors.push("AUTH_BACKEND must be none, supabase, or oidc.");
+if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc")) {
+  errors.push("AUTH_BACKEND must be none, passwordless, or oidc.");
 }
 
 validatePostgresUrl("DATABASE_URL", true);
@@ -20,9 +21,19 @@ if (production && sameEndpoint(process.env.DATABASE_URL, process.env.DIRECT_URL)
   errors.push("DATABASE_URL and DIRECT_URL must use separate host/port endpoints in production.");
 }
 
-if (backend === "supabase") {
-  validateHttpsOrigin("NEXT_PUBLIC_SUPABASE_URL", true);
-  requireValue("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+if (backend === "passwordless") {
+  try {
+    readAuthConfiguration({ ...process.env, NODE_ENV: production ? "production" : process.env.NODE_ENV });
+    checked.add("Passwordless authentication configuration");
+  } catch (error: unknown) {
+    errors.push(error instanceof Error ? error.message : "Passwordless authentication configuration is invalid.");
+  }
+  try {
+    readEmailConfiguration({ ...process.env, NODE_ENV: production ? "production" : process.env.NODE_ENV });
+    checked.add("Nodemailer email delivery");
+  } catch (error: unknown) {
+    errors.push(error instanceof Error ? error.message : "Nodemailer email delivery configuration is invalid.");
+  }
 }
 
 if (backend === "oidc") {

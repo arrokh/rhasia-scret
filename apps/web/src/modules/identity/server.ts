@@ -1,8 +1,10 @@
 import type { ApplicationUserRepository } from "./application/application-user-repository";
 import { loadApplicationUser } from "./application/load-application-user";
-import type { SessionAssurance, SessionVerifier } from "./application/session-verifier";
+import type { SessionVerifier } from "./application/session-verifier";
 import type { SessionTerminator } from "./application/session-terminator";
 import type { UserCryptoProfileRepository } from "./application/user-crypto-profile-repository";
+import type { PasswordlessAuthService } from "./application/passwordless-authentication";
+import { AUTH_RETURN_PATH_COOKIE } from "./application/auth-return-path";
 import { readAuthConfiguration, type AuthBackend } from "./infrastructure/auth-backend";
 import { NoneSessionVerifier } from "./infrastructure/none-session-verifier";
 import { OidcSessionVerifier } from "./infrastructure/oidc-session-verifier";
@@ -11,38 +13,38 @@ import { PrismaApplicationUserRepository } from "./infrastructure/prisma-applica
 import { PrismaPasskeyRecoveryRepository } from "./infrastructure/prisma-passkey-recovery-repository";
 import { PrismaUserCryptoProfileRepository } from "./infrastructure/prisma-user-crypto-profile-repository";
 import { isOidcPrincipalAdmitted } from "./infrastructure/prisma-application-admission";
+import { PasswordlessSessionTerminator } from "./infrastructure/passwordless-session-terminator";
+import { PasswordlessSessionVerifier } from "./infrastructure/passwordless-session-verifier";
 import {
-  completeSupabaseCallback as completeSupabaseCallbackWithAdapter,
-  readSupabaseCallbackConfiguration,
-  type SupabaseCallbackCookieStore,
-} from "./infrastructure/supabase-auth-callback";
-import { SupabaseSessionTerminator } from "./infrastructure/supabase-session-terminator";
-import { SupabaseSessionVerifier } from "./infrastructure/supabase-session-verifier";
+  createPasswordlessAuthServiceForServer,
+  isPasswordlessClient,
+  isPasswordlessReturnPath,
+  readPasswordlessConfiguration,
+} from "./infrastructure/passwordless-service";
+import { PrismaAnonymousAuthRateLimiter } from "./infrastructure/prisma-anonymous-auth-rate-limiter";
+import { isSameOrigin, requestClientIp } from "./infrastructure/request-origin";
+import {
+  clearPasswordlessSessionCookies,
+  PASSWORDLESS_REFRESH_COOKIE,
+  setPasswordlessSessionCookies,
+} from "./infrastructure/passwordless-session";
 
 export { loadApplicationUser };
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
+export type { PasswordlessAuthService };
+export { isPasswordlessClient, isPasswordlessReturnPath, readPasswordlessConfiguration, AUTH_RETURN_PATH_COOKIE };
+export {
+  isSameOrigin,
+  requestClientIp,
+  clearPasswordlessSessionCookies,
+  PASSWORDLESS_REFRESH_COOKIE,
+  setPasswordlessSessionCookies,
+};
 export {
   browserE2eAuthenticationVerified,
   browserE2eRegistrationCredential,
 } from "./infrastructure/browser-e2e-passkey-verification";
 export { passkeyRecoveryConfiguration } from "./infrastructure/passkey-recovery-configuration";
-
-export type SupabaseCallbackResult = "success" | "configuration_error" | "missing_code" | "verification_failed";
-
-export async function completeSupabaseCallback(
-  code: string | null,
-  tokenHash: string | null,
-  cookieStore: SupabaseCallbackCookieStore,
-): Promise<SupabaseCallbackResult> {
-  try {
-    const configuration = readAuthConfiguration();
-    const supabase = readSupabaseCallbackConfiguration();
-    if (configuration.backend !== "supabase" || !supabase) return "configuration_error";
-    return await completeSupabaseCallbackWithAdapter(code, tokenHash, cookieStore, supabase);
-  } catch {
-    return "verification_failed";
-  }
-}
 
 export function authBackend(): AuthBackend {
   try {
@@ -52,12 +54,23 @@ export function authBackend(): AuthBackend {
   }
 }
 
-export function createSessionVerifier(minimumAssurance: SessionAssurance = "fresh-provider-user"): SessionVerifier {
+export function createPasswordlessAuthService(): PasswordlessAuthService {
+  return createPasswordlessAuthServiceForServer();
+}
+
+export function createAnonymousAuthRateLimiter(): PrismaAnonymousAuthRateLimiter {
+  return new PrismaAnonymousAuthRateLimiter(readPasswordlessConfiguration().magicLinkSecret);
+}
+
+export function createSessionVerifier(): SessionVerifier {
   try {
     const configuration = readAuthConfiguration();
     if (configuration.backend === "none") return new NoneSessionVerifier();
     if (configuration.backend === "oidc") return new OidcSessionVerifier(configuration.oidc);
-    return new SupabaseSessionVerifier(minimumAssurance === "verified-claims" ? "claims" : "fresh-user");
+    return new PasswordlessSessionVerifier(
+      createPasswordlessAuthServiceForServer(undefined, configuration.passwordless),
+      configuration.passwordless,
+    );
   } catch {
     return new NoneSessionVerifier();
   }
@@ -66,10 +79,12 @@ export function createSessionVerifier(minimumAssurance: SessionAssurance = "fres
 export function createSessionTerminator(): SessionTerminator {
   try {
     const configuration = readAuthConfiguration();
-    return configuration.backend === "oidc" ? new OidcSessionTerminator() : new SupabaseSessionTerminator();
+    if (configuration.backend === "oidc") return new OidcSessionTerminator();
+    if (configuration.backend === "passwordless") return new PasswordlessSessionTerminator();
   } catch {
-    return new OidcSessionTerminator();
+    // Invalid authentication configuration fails closed; the fallback only clears browser credential cookies.
   }
+  return new OidcSessionTerminator();
 }
 
 export function createPasskeyRecoveryRepository(): PrismaPasskeyRecoveryRepository {

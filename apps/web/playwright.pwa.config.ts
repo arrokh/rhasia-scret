@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { config as loadEnvironment } from "dotenv";
 import { defineConfig } from "@playwright/test";
+import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 
-loadEnvironment({ path: "../../.env" });
+loadWorkspaceEnvironment();
 import { supportedBrowserProjects } from "./playwright.config";
 import { configuredPlaywrightWorkers } from "./src/tests/browser/support/playwright-concurrency";
 

@@ -22,7 +22,7 @@ describe("PrismaSharedVaultAccessRepository", () => {
     "lists active encrypted Shared Vault material, accounts, and effective permissions for a member",
     async () => {
       const user = await prisma.applicationUser.create({
-        data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` },
+        data: { email: `${randomUUID()}@example.test` },
       });
       userIds.push(user.id);
       const vault = await prisma.vault.create({

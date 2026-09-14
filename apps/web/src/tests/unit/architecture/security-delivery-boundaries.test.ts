@@ -102,7 +102,7 @@ describe("browser-delivery security boundaries", () => {
   });
 
   it("keeps build-output and incident controls committed", () => {
-    expect(read("scripts/verify-build-output.ts")).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(read("scripts/verify-build-output.ts")).toContain("AUTH_MAGIC_LINK_SECRET");
     expect(read("scripts/verify-dependency-licenses.ts")).toContain("Prohibited dependency licenses");
     expect(read("../../docs/security/incident-response.md")).toContain("Stolen session");
     expect(read("../../docs/security/deployment-hardening-checklist.md")).toContain("Not Verifiable");

@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Build installable web and native clients for a zero-knowledge shared authenticator. Users create or access hosted Application Users through verified Supabase email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The web client is a Next.js PWA and the native client is an Expo SDK 57 iOS/Android application; both use the same hosted protocol contracts while keeping platform storage and capability differences explicit. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
+Build installable web and native clients for a zero-knowledge shared authenticator. Users create or access hosted Application Users through verified passwordless email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The web client is a Next.js PWA and the native client is an Expo SDK 57 iOS/Android application; both use the same hosted protocol contracts while keeping platform storage and capability differences explicit. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
 
 This plan is implemented as vertical slices. A slice is complete only with its domain behavior, application use case, persistence/adapter, API contract, usable UI, forbidden-path test, sensitive-data review, and boundary checks.
 
@@ -11,8 +11,8 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 `CONTEXT.md` is the glossary. `docs/adr/` records hard-to-reverse decisions. The most important commitments are:
 
 - The server is **honest-but-curious**. It protects encrypted data at rest and in normal server access, but an actively malicious web host or native application supply chain is outside the MVP threat model.
-- Supabase Auth public passwordless email signup with Confirm email is the hosted registration mechanism. There is no `allowed_emails` table, application admin UI, or application registration API in the MVP; Shared Vault invitations remain separate authorization grants.
-- Authentication and encryption are separate. A user creates a Vault Unlock Secret: a generated multi-word secret is recommended, while a user-created secret accepts a trimmed value of at least three characters under ADR-0029; it is never a PIN, never recoverable through the server, and distinct from Supabase credentials.
+- Self-managed passwordless email sign-in/signup is the hosted registration mechanism. There is no `allowed_emails` table, application admin UI, or application registration API in the MVP; Shared Vault invitations remain separate authorization grants.
+- Authentication and encryption are separate. A user creates a Vault Unlock Secret: a generated multi-word secret is recommended, while a user-created secret accepts a trimmed value of at least three characters under ADR-0029; it is never a PIN, never recoverable through the server, and distinct from authentication credentials.
 - Argon2id derives a Vault Unlock Key. That key wraps a random User Root Key. The User Root Key protects the Personal Vault Encryption Key and encrypted user private key, allowing passphrase changes without re-encrypting accounts.
 - A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. On the web, the vault stays unlocked until explicit lock or logout; there is no automatic timeout. The native client currently uses the Vault Passphrase and locks when AppState leaves active state. Browsers without Local Verification require the Vault Unlock Secret.
 - AES-256-GCM encrypts payloads. P-256 ECDH, HKDF-SHA-256, and AES-256-GCM create versioned Key-Wrap Envelopes.
@@ -27,7 +27,7 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 
 Each context owns `domain/`, `application/`, `infrastructure/`, and, where needed, `presentation/`:
 
-- **Identity**: Supabase session identity, application-user provisioning, user status.
+- **Identity**: passwordless session identity, application-user provisioning, user status.
 - **Vault Management**: Personal/Shared Vault lifecycle, encrypted name payload, ownership, deletion/recovery.
 - **Vault Membership**: Owner/Viewer authorization, invitations, grants, revocation, secure share links.
 - **Authenticator Account**: encrypted normalized configurations, revisions, deletion/recovery, ordering.
@@ -36,7 +36,7 @@ Each context owns `domain/`, `application/`, `infrastructure/`, and, where neede
 - **Synchronization** (client): encrypted local snapshots, online revisions, read-only offline status.
 - **Audit**: redacted security events with opaque identifiers.
 
-Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js route handlers, web React components, and native React Native components are presentation adapters. Domain modules cannot import Next.js, React, React Native, Prisma, Supabase, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
+Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js route handlers, web React components, and native React Native components are presentation adapters. Domain modules cannot import Next.js, React, React Native, Prisma, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
 
 ## Project structure
 
@@ -62,7 +62,7 @@ docs/adr/
 
 Prisma runtime adapters use the pooled `DATABASE_URL`; Prisma CLI migrations and administrative tooling use the direct `DIRECT_URL`. The database retains IDs, ownership/membership role and status, creation/update/deletion timestamps, revisions, opaque encrypted blobs, encryption versions, public keys, Key-Wrap Envelopes, and redacted audit identifiers. It does not retain plaintext vault names, account names/issuers, TOTP configurations, raw URIs, QR images, secrets, OTPs, private keys, Vault Unlock Secrets, Vault Encryption Keys, or User Root Keys.
 
-API contracts validate schemas with Zod. They never accept or return plaintext secrets, generated OTPs, raw QR payloads, plaintext vault keys, or private keys. The MVP uses server-side Prisma for application data access only; Supabase Data API/RLS hardening is explicitly deferred, so no browser or Supabase REST database access may be added before that security work is approved. Authenticated state-changing endpoints (vault/account changes, membership changes, key registration) are rate-limited; Supabase owns authentication-attempt limits. Read paths remain responsive under infrastructure protection.
+API contracts validate schemas with Zod. They never accept or return plaintext secrets, generated OTPs, raw QR payloads, plaintext vault keys, or private keys. The MVP uses server-side Prisma for application data access only; browser database/API access is explicitly deferred, so no browser REST database access may be added before that security work is approved. Authenticated state-changing endpoints (vault/account changes, membership changes, key registration) are rate-limited; The application owns anonymous authentication abuse limits. Read paths remain responsive under infrastructure protection.
 
 ## Mobile UI reference
 
@@ -82,18 +82,18 @@ Create the production-shaped foundation before behavior is implemented.
 - Modular bounded-context directories and public module entry points.
 - ESLint, TypeScript, build, Vitest unit/integration/contract configuration, Playwright browser smoke configuration, and dependency-cruiser architecture checks.
 - Prisma schema, migration workflow, test-database environment contract, and a repository integration-test seam.
-- Supabase server-session adapter port and replaceable fake adapter.
+- Self-managed passwordless session adapter and replaceable fake adapter.
 - A route-contract smoke endpoint and a browser smoke page.
 - CI workflow that runs lint, typecheck, unit/integration/contract tests, browser smoke, architecture checks, Prisma validation/migration check, and build.
 - `AGENTS.md` repository instructions.
 
 ### Acceptance evidence
 
-CI and local commands run lint, typecheck, tests, architecture checks, Prisma validation/migration checks, and build. A sample framework-free domain test, repository integration test, route contract test, and browser smoke test pass. Architecture tests prove forbidden imports fail. Supabase session verification is substitutable with a fake. Missing external Supabase/database credentials must produce explicit configuration errors rather than a bypass.
+CI and local commands run lint, typecheck, tests, architecture checks, Prisma validation/migration checks, and build. A sample framework-free domain test, repository integration test, route contract test, and browser smoke test pass. Architecture tests prove forbidden imports fail. Passwordless session verification is substitutable with a fake. Missing authentication/database credentials must produce explicit configuration errors rather than a bypass.
 
 ## Slice 1 — passwordless email authentication and application user
 
-A user signs up or signs in by Supabase email OTP/magic link with Confirm email enabled. A verified session provisions or loads an Application User idempotently. No password registration, `allowed_emails` table, or in-app user-management exists. Protected routes verify a server session.
+A user signs up or signs in by self-managed passwordless email link. A verified session provisions or loads an Application User idempotently. No password registration, `allowed_emails` table, or in-app user-management exists. Protected routes verify a server session.
 
 ## Slice 2 — default Personal Vault and secure initialization
 

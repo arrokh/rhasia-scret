@@ -4,6 +4,8 @@ apps/web/.next/
 apps/mobile/android/
 apps/mobile/ios/
 apps/mobile/dist/
+apps/mobile/modules/native-argon2id/android/.cxx/
+apps/mobile/modules/native-argon2id/android/build/
 coverage/
 playwright-report/
 test-results/

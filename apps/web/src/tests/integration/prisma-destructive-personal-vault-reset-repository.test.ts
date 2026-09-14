@@ -12,7 +12,7 @@ const userIds: string[] = [];
 
 async function createUser() {
   const user = await prisma.applicationUser.create({
-    data: { supabaseUserId: randomUUID(), email: `${randomUUID()}@example.test` },
+    data: { email: `${randomUUID()}@example.test` },
   });
   userIds.push(user.id);
   return user;

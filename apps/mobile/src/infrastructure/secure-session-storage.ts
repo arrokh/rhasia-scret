@@ -24,8 +24,8 @@ export const nativeSecureStorageDriver: SecureStorageDriver = {
   },
 };
 
-/** Keeps the complete Supabase session in bounded Keychain/Keystore chunks. */
-export class SecureSupabaseSessionStorage {
+/** Keeps the opaque native session credentials in bounded Keychain/Keystore chunks. */
+export class SecureMobileSessionStorage {
   public constructor(private readonly driver: SecureStorageDriver = nativeSecureStorageDriver) {}
 
   public async getItem(key: string): Promise<string | null> {
@@ -88,7 +88,7 @@ function parseManifest(value: string | null): ChunkManifest | null {
       return { slot: parsed.slot, count: parsed.count as number };
     }
   } catch {
-    // Corrupt secure state fails closed and requires a new provider session.
+    // Corrupt secure state fails closed and requires a new authenticated session.
   }
   return null;
 }

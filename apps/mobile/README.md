@@ -4,9 +4,9 @@ Expo SDK 57 / React Native client for iOS and Android. This project is the nativ
 
 ## Configure
 
-Copy `.env.example` to `.env.local` and set only public client values. Never add a Supabase service-role key, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment to Expo environment variables.
+From the repository root, copy `.env.example` to `.env` and set the values in the **Native mobile build** section. `apps/mobile/app.config.ts` reads that root file when Expo evaluates the app configuration; no app-local `.env` or `.env.local` file is supported. Set only public client values for the mobile build. Never add an authentication secret, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment to Expo environment variables.
 
-Production authentication callbacks use the verified universal/app link `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile`, where `EXPO_PUBLIC_WEB_ORIGIN` is the deployed HTTPS web origin. Development builds may use `rhasia-scret://auth/callback`. Configure the same redirect in Supabase Auth. The iOS Associated Domain and Android verified App Link also accept `/vaults/invitations/redeem`; the fragment remains client-only.
+Production authentication callbacks use the verified universal/app link `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile`, where `EXPO_PUBLIC_WEB_ORIGIN` is the deployed HTTPS web origin. Development builds may use `rhasia-scret://auth/magic-link`. The web host creates and redeems the one-time passwordless link. The iOS Associated Domain and Android verified App Link also accept `/vaults/invitations/redeem`; the fragment remains client-only.
 
 ## Run and verify
 
@@ -22,7 +22,7 @@ mise exec -- pnpm --dir apps/mobile run build:ios-simulator
 
 ## Security boundary
 
-- Supabase refresh/access sessions are persisted only through `expo-secure-store` (iOS Keychain or Android Keystore-backed encrypted storage).
+- Opaque refresh/access session credentials are persisted only through `expo-secure-store` (iOS Keychain or Android Keystore-backed encrypted storage).
 - Authenticated application requests add the access token only in the transport adapter. Tokens never enter TanStack Query, logs, analytics, URLs created by the app, or application workflow state.
 - Incoming links are accepted only from the registered custom scheme or verified production host and recognized paths.
 - Plaintext TOTP configuration, OTPs, Vault keys/passphrases, raw QR data, archive keys, Secure Share Link material, private keys, and decrypted Vault content remain client-only.

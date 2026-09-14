@@ -24,7 +24,7 @@ This runbook is intentionally provider- and deployment-neutral. Record only opaq
 
 ## Server credential or provider compromise
 
-- Revoke/rotate Supabase service credentials, database credentials, deployment tokens, and provider keys through the operator-approved channel.
+- Revoke/rotate authentication, database, deployment, and provider credentials through the operator-approved channel.
 - Review database access, RLS/Data API exposure, replication, backups, logs, audit history, and provider Security Advisor evidence. Assume stored ciphertext may be copied but remains protected by client-only key material unless a client/key path was also compromised.
 - Re-run authorization, retention, rate-limit, migration, and redaction checks before restoring writes.
 

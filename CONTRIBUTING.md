@@ -26,7 +26,7 @@ decisions before opening a change.
 - Keep `apps/mobile` as the Expo composition layer. It must not import `apps/web`
   or browser-only APIs.
 - Put cross-platform client workflows in `packages/*` with a public entry point.
-- Keep domain and application code free from React, Next.js, Prisma, Supabase,
+- Keep domain and application code free from React, Next.js, Prisma,
   browser APIs, HTTP types, and localization libraries.
 - Cross bounded-context access must use a public module API; do not reach into
   another context's internals.

@@ -60,7 +60,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
       authenticate: async () =>
-        new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user_1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle },
     });
 
@@ -81,7 +81,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
     const readAuthorizedBundle = vi.fn().mockResolvedValue(bundle);
     const handler = createOfflineSyncBundleHandler({
       authenticate: async () =>
-        new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user_1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle },
     });
 
@@ -109,7 +109,7 @@ describe("GET /api/sync/offline-bundle contract", () => {
   it("reports an initialized-profile miss without returning a partial response", async () => {
     const handler = createOfflineSyncBundleHandler({
       authenticate: async () =>
-        new ApplicationUser("user_1", "supabase", "supabase-1", "person@example.test", "ACTIVE"),
+        new ApplicationUser("user_1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE"),
       bundles: { readAuthorizedBundle: async () => null },
     });
 

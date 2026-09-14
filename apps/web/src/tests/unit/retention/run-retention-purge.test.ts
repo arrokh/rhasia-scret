@@ -25,11 +25,13 @@ describe("runRetentionPurge", () => {
         return { purgedIds: auditBatches.shift() ?? [] };
       }),
     };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => 3) };
 
     const report = await runRetentionPurge({
       accounts,
       vaults,
       audit,
+      auth,
       now: new Date("2026-01-01T00:00:00.000Z"),
       batchSize: 2,
       maxBatches: 3,
@@ -42,6 +44,7 @@ describe("runRetentionPurge", () => {
       accountBacklogRemaining: false,
       vaultBacklogRemaining: false,
       auditBacklogRemaining: false,
+      authRecordsPurged: 3,
     });
     expect(order).toEqual(["accounts", "accounts", "vaults", "audit", "audit"]);
     expect(accounts.purgeExpired).toHaveBeenCalledWith(new Date("2026-01-01T00:00:00.000Z"), 2);
@@ -51,8 +54,17 @@ describe("runRetentionPurge", () => {
     const accounts = { purgeExpired: vi.fn(async () => ({ purgedIds: ["account_1"] })) };
     const vaults = { purgeExpiredVaults: vi.fn(async () => ({ purgedIds: ["vault_1"] })) };
     const audit = { purgeExpiredAuditEvents: vi.fn(async () => ({ purgedIds: ["event_1"] })) };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => 0) };
 
-    const report = await runRetentionPurge({ accounts, vaults, audit, now: new Date(), batchSize: 1, maxBatches: 2 });
+    const report = await runRetentionPurge({
+      accounts,
+      vaults,
+      audit,
+      auth,
+      now: new Date(),
+      batchSize: 1,
+      maxBatches: 2,
+    });
 
     expect(accounts.purgeExpired).toHaveBeenCalledTimes(2);
     expect(vaults.purgeExpiredVaults).toHaveBeenCalledTimes(2);
@@ -70,9 +82,10 @@ describe("runRetentionPurge", () => {
     const accounts = { purgeExpired: vi.fn(async () => ({ purgedIds: [] })) };
     const vaults = { purgeExpiredVaults: vi.fn(async () => ({ purgedIds: [] })) };
     const audit = { purgeExpiredAuditEvents: vi.fn(async () => ({ purgedIds: [] })) };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => 0) };
 
-    const first = await runRetentionPurge({ accounts, vaults, audit, now: new Date() });
-    const second = await runRetentionPurge({ accounts, vaults, audit, now: new Date() });
+    const first = await runRetentionPurge({ accounts, vaults, audit, auth, now: new Date() });
+    const second = await runRetentionPurge({ accounts, vaults, audit, auth, now: new Date() });
 
     expect(first.accountIds).toEqual([]);
     expect(second).toEqual(first);

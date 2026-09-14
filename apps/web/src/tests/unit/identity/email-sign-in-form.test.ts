@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   captureAnalyticsEvent: vi.fn(),
 }));
 
-vi.mock("@/modules/identity/presentation/browser-supabase-client", () => ({
-  createBrowserSupabaseClient: () => mocks.client,
+vi.mock("@/modules/identity/infrastructure/browser-passwordless-client", () => ({
+  browserPasswordlessClient: mocks.client,
 }));
 vi.mock("@/modules/identity/presentation/request-email-sign-in-link", () => ({
   authConfirmationRedirectUrl: (origin: string) => `${origin}/auth/confirm`,
@@ -98,7 +98,7 @@ describe("EmailSignInForm", () => {
     expect(mocks.requestEmailSignInLink).toHaveBeenCalledWith(
       mocks.client,
       "person@example.test",
-      "http://localhost:3000/auth/confirm",
+      "/vaults/invitations/redeem",
     );
     expect(document.cookie).toContain("rhsia-auth-return-path=%2Fvaults%2Finvitations%2Fredeem");
   });

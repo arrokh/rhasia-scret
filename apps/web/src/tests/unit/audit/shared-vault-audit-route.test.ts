@@ -12,7 +12,9 @@ vi.mock("@/modules/identity/application/load-application-user", () => ({
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
   PrismaApplicationUserRepository: class {},
 }));
-vi.mock("@/modules/identity/infrastructure/supabase-session-verifier", () => ({ SupabaseSessionVerifier: class {} }));
+vi.mock("@/modules/identity/infrastructure/passwordless-session-verifier", () => ({
+  PasswordlessSessionVerifier: class {},
+}));
 vi.mock("@/modules/audit/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/modules/audit/server")>()),
   createVaultAuditRepository: () => ({

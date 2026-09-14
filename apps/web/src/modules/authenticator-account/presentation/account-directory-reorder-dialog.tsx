@@ -118,34 +118,36 @@ export function AccountDirectoryReorderDialog({
                   <span className="truncate text-xs text-taupe">{account.vaultName}</span>
                 </span>
                 <span className="flex items-center gap-0.5">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    disabled={index === 0}
-                    aria-label={labels.moveUp(account.accountName)}
-                    title={labels.moveUp(account.accountName)}
-                    onClick={() => {
-                      const target = accounts[index - 1];
-                      if (target) onMove(account.key, target.key, "before");
-                    }}
-                  >
-                    <ArrowUp aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    disabled={index === accounts.length - 1}
-                    aria-label={labels.moveDown(account.accountName)}
-                    title={labels.moveDown(account.accountName)}
-                    onClick={() => {
-                      const target = accounts[index + 1];
-                      if (target) onMove(account.key, target.key, "after");
-                    }}
-                  >
-                    <ArrowDown aria-hidden="true" />
-                  </Button>
+                  {index > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      aria-label={labels.moveUp(account.accountName)}
+                      title={labels.moveUp(account.accountName)}
+                      onClick={() => {
+                        const target = accounts[index - 1];
+                        if (target) onMove(account.key, target.key, "before");
+                      }}
+                    >
+                      <ArrowUp aria-hidden="true" />
+                    </Button>
+                  )}
+                  {index < accounts.length - 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      aria-label={labels.moveDown(account.accountName)}
+                      title={labels.moveDown(account.accountName)}
+                      onClick={() => {
+                        const target = accounts[index + 1];
+                        if (target) onMove(account.key, target.key, "after");
+                      }}
+                    >
+                      <ArrowDown aria-hidden="true" />
+                    </Button>
+                  )}
                 </span>
               </div>
             </li>

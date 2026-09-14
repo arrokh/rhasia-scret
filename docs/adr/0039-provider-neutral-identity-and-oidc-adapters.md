@@ -1,48 +1,48 @@
-# Provider-neutral identity with OIDC adapters
+# Provider-neutral identity with passwordless and OIDC adapters
 
 - Status: Accepted
-- Date: 2026-07-29
+- Date: 2026-07-29 (updated 2026-09-14)
 - Deciders: rhasia-scret maintainers
-- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0043, issues #74, #76, #77
+- Related: ADR-0011, ADR-0023, ADR-0031, ADR-0049
 
 ## Decision
 
-Identity is a provider-neutral application boundary. The Identity bounded context exposes a normalized **Verified Principal** containing an immutable issuer, subject, verified email/contact metadata when available, and provider-independent session assurance. Concrete authentication SDKs and protocol/session types remain in Identity infrastructure and its server-only composition root.
+Identity is a provider-neutral application boundary. The Identity bounded context exposes a normalized **Verified Principal** containing immutable issuer, subject, verified email/contact metadata when available, and provider-independent session assurance. Concrete protocol/session types remain in Identity infrastructure and the server-only composition root.
 
 Supported deployment modes are selected by validated server-only `AUTH_BACKEND` configuration:
 
-- `none`: Local Profile and Local Vault only. Remote authentication, synchronization, membership, server recovery, audit, and Vault APIs fail closed.
-- `supabase`: public passwordless email sign-in/signup through the Supabase adapter, with Confirm email enforced; Shared Vault membership remains invitation-based.
+- `none`: Local Profile and Local Vault only. Remote authentication, synchronization, membership, server recovery, audit, and hosted Vault APIs fail closed.
+- `passwordless`: self-managed email-link authentication. One-time link challenges, local sessions, native refresh rotation, browser assertion keepalive, revocation, and anonymous abuse limits are persisted through the application database; email is delivered by the server-only SMTP adapter.
 - `oidc`: Authorization Code with PKCE against one configured OIDC issuer, using discovery metadata and maintained protocol libraries; tokens and client secrets remain server-only.
 
-OIDC is the preferred interoperability contract because it standardizes issuer/subject identity, discovery, authorization-code PKCE, state, nonce, redirect, audience, and expiry validation across maintained providers. Auth.js/NextAuth is not installed as a mandatory transparent proxy: it creates its own persistence/linking/session model and would become a second identity authority. A future managed-auth framework may be added only as an adapter behind this boundary after separate release/security review.
+OIDC remains the interoperability contract for future external providers. Auth.js/NextAuth is not installed as a transparent proxy because it would introduce a second identity and persistence authority. A future managed-auth framework may be added only as an adapter behind this boundary after separate release and security review.
 
-Authentication and Application Admission are separate. A valid principal does not silently create access unless the configured admission policy permits it. In Supabase mode, a verified email principal is admitted to the hosted application and provisions an Application User idempotently; OIDC remains governed by configured admission. Verified email can satisfy a Shared Vault invitation match but never links two identities or merges Application Users.
+Authentication and Application Admission are separate. Passwordless verification admits the user according to the configured deployment policy and provisions an Application User idempotently; OIDC remains governed by configured admission. Verified email can satisfy a Shared Vault invitation match but never links two identities or merges Application Users.
 
-An External Identity is unique by `(issuer, subject)` and belongs to exactly one Application User. Email is contact/admission metadata only. The Application User identifier, Vault ownership/membership, audit history, rate-limit identity, crypto profile, passkey-recovery enrollment, and all encrypted content survive provider migration unchanged.
+An External Identity is unique by `(issuer, subject)` and belongs to exactly one Application User. Email is contact/admission metadata only. The Application User identifier, Vault ownership/membership, audit history, rate-limit identity, crypto profile, passkey-recovery enrollment, and encrypted content survive authentication-provider changes unchanged.
 
 ## Session assurance
 
 Identity adapters provide explicit assurance levels:
 
-- `verified-claims`: the provider verified the signed/current claims for normal page gating;
-- `fresh-provider-user`: the adapter made a provider-backed current-user verification for online application mutations;
-- `active-session`: the adapter additionally validated active session evidence (including `session_id` where the provider supplies it) for operations that require immediate revocation guarantees.
+- `verified-claims`: signed/current claims or a valid local browser assertion for normal page gating;
+- `fresh-provider-user`: a current adapter-backed identity check for online application mutations;
+- `active-session`: an active database session check with revocation and rotation evidence where immediate revocation guarantees are required.
 
-An adapter that cannot satisfy a requested assurance fails closed. Offline Local Vault and Local Vault Snapshot unlock never require a remote provider.
+An adapter that cannot satisfy a requested assurance fails closed. Offline Local Vault and Local Vault Snapshot unlock never require remote authentication.
 
 ## Linking and migration
 
-There is no automatic email-based linking. Explicit linking requires reauthentication of both existing and proposed identities in one server-owned ceremony, verifies issuer/subject and admission policy, writes a redacted security event, and does not touch Vault key material. Provider migration first creates/validates the new External Identity, preserves the Application User ID, and only then retires the old identity through an auditable rollback-safe operation. A partially completed migration leaves the original identity active.
+There is no automatic email-based linking. Explicit linking requires reauthentication of both existing and proposed identities in one server-owned ceremony, verifies issuer/subject and admission policy, writes a redacted security event, and does not touch Vault key material. Authentication migration first creates and validates the new External Identity, preserves the Application User ID, and only then retires the old identity through an auditable rollback-safe operation. A partially completed migration leaves the original identity active.
 
-The Prisma CLI-generated migration adds External Identity and makes the legacy `application_users.supabase_user_id` column nullable without changing Application User IDs. Deployment immediately runs the Prisma-backed `prisma:backfill-external-identities` step, which copies every existing legacy subject into an External Identity with the canonical Supabase issuer and verifies that no legacy user is missing a mapping. The legacy column is a migration ledger and is not read for new provider identities; a later reviewed cleanup migration may remove it after operator evidence confirms the backfill. Existing Vault foreign keys continue to reference the unchanged Application User ID.
+The staged Prisma-generated migration creates local passwordless identity/challenge/session state while temporarily retaining the legacy provider-subject column. The preflight rejects invalid or colliding normalized emails. The seed creates exactly one local identity for each existing Application User by existing user ID; it never matches or merges by email. After verification, the cleanup migration removes the legacy column. Existing External Identity rows and all Vault foreign keys remain intact.
 
 ## Implementation status
 
-The provider-neutral contracts, External Identity persistence, and legacy backfill seams exist. The complete user-facing identity-linking and provider-migration ceremonies described above are not yet shipped: there is no route/UI flow for dual reauthentication, migration state, old-identity retirement, rollback, or completion audit. Track the remaining work in [#185](https://github.com/arrokh/rhasia-scret/issues/185).
+Passwordless web and native flows, provider-neutral identity persistence, OIDC composition, migration preflight/seed/verification, and local session lifecycle are shipped. A future external provider may be added through the same adapter contract; automatic linking remains prohibited.
 
 ## Failure behavior
 
-Missing/invalid backend configuration, discovery failure, issuer/audience/nonce/state/PKCE mismatch, expired/revoked sessions, unverified email, missing admission, duplicate identity, ambiguous link, or provider outage fails closed with a locale-independent error code. Tokens, authorization codes, client secrets, cookies, and provider error payloads never enter Vault storage, Query caches, URLs, service-worker caches, logs, or client bundles.
+Missing/invalid backend configuration, discovery failure, issuer/audience/nonce/state/PKCE mismatch, expired/revoked sessions, unverified email, missing admission, duplicate identity, ambiguous link, invalid/consumed challenge, malformed credential, or email delivery failure fails closed with a locale-independent error code. Tokens, authorization codes, client secrets, cookies, session credentials, and provider error payloads never enter Vault storage, Query caches, service-worker caches, or logs. Raw authentication tokens are limited to transient URL fragments for their client-side redemption; invitation Secure Share Link secrets never enter authentication requests or server-generated magic-link URLs.
 
-The provider-neutral contract is tested against Supabase and deterministic OIDC adapters. OIDC integration tests use synthetic issuer metadata and authorization responses; they do not claim production provider settings or availability.
+The provider-neutral contract is tested against deterministic passwordless and OIDC adapters. Tests use synthetic identities and SMTP seams; they do not claim production provider settings or availability.

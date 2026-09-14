@@ -30,7 +30,12 @@ describe("PrismaVaultPageContextReader", () => {
         data: {
           email: `${subject}@example.test`,
           externalIdentities: {
-            create: { issuer: "supabase", subject, email: `${subject}@example.test`, emailVerifiedAt: new Date() },
+            create: {
+              issuer: "rhasia:passwordless",
+              subject,
+              email: `${subject}@example.test`,
+              emailVerifiedAt: new Date(),
+            },
           },
         },
       });
@@ -44,7 +49,9 @@ describe("PrismaVaultPageContextReader", () => {
         },
       });
 
-      await expect(new PrismaVaultPageContextReader().findByExternalIdentity("supabase", subject)).resolves.toEqual({
+      await expect(
+        new PrismaVaultPageContextReader().findByExternalIdentity("rhasia:passwordless", subject),
+      ).resolves.toEqual({
         user: { id: user.id, email: user.email, status: "ACTIVE" },
         personalVault: { id: vault.id, lifecycle: "ACTIVE" },
       });

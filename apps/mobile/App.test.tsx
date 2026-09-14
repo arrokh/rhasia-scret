@@ -9,12 +9,9 @@ jest.mock("./src/config", () => ({
   readMobileClientConfiguration: () => ({
     apiUrl: "https://api.example.test",
     webOrigin: "https://vault.example.test",
-    authRedirectUrl: "rhasia-scret://auth/callback",
-    supabaseUrl: "https://project.supabase.co",
-    supabasePublishableKey: "publishable-key",
+    authRedirectUrl: "rhasia-scret://auth/magic-link",
   }),
 }));
-jest.mock("./src/infrastructure/mobile-supabase-client", () => ({ createMobileSupabaseClient: () => ({}) }));
 jest.mock("./src/infrastructure/native-authenticated-transport", () => ({
   createNativeAuthenticatedTransport: () => ({}),
 }));
@@ -24,6 +21,7 @@ jest.mock("./src/presentation/use-mobile-session", () => ({
     status: "idle",
     requestSignInLink: mockRequestSignInLink,
     signOut: mockSignOut,
+    consumeSecureShareSecret: jest.fn(),
   }),
 }));
 

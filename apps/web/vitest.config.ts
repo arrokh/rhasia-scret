@@ -1,8 +1,8 @@
-import { config as loadEnvironment } from "dotenv";
 import { fileURLToPath } from "node:url";
-
-loadEnvironment({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 import { defineConfig } from "vitest/config";
+import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
+
+loadWorkspaceEnvironment();
 
 const resolve = { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } };
 const test = { globals: true, clearMocks: true, restoreMocks: true };

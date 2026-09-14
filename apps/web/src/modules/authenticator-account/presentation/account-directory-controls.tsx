@@ -55,8 +55,8 @@ export function AccountDirectoryControls({
 }) {
   const [reorderOpen, setReorderOpen] = useState(false);
   const viewOptions = [
-    { value: "compact" as const, label: labels.compact, icon: List },
-    { value: "normal" as const, label: labels.normal, icon: LayoutGrid },
+    { value: "compact" as const, label: labels.compact, icon: LayoutGrid },
+    { value: "normal" as const, label: labels.normal, icon: List },
     { value: "wide" as const, label: labels.wide, icon: Rows3 },
   ];
   const allVaultsSelected = vaultFilters.length === 0;

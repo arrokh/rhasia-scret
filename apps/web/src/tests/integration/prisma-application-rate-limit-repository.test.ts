@@ -92,7 +92,7 @@ describe("Prisma application rate-limit repository", () => {
 async function createUser(label: string) {
   const suffix = randomUUID();
   const user = await prisma.applicationUser.create({
-    data: { supabaseUserId: `${label}-${suffix}`, email: `${label}-${suffix}@example.test` },
+    data: { email: `${label}-${suffix}@example.test` },
   });
   userIds.push(user.id);
   return user;

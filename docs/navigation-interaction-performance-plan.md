@@ -45,7 +45,7 @@ Evidence-driven decisions:
 
 Each page under `src/app/vaults/**/page.tsx` currently performs most or all of this sequence:
 
-1. `SupabaseSessionVerifier.verify()` calls `supabase.auth.getUser()`;
+1. the configured passwordless/OIDC session verifier validates the browser assertion or bearer credential;
 2. `PrismaApplicationUserRepository.provision()` performs an `upsert`;
 3. `PrismaPersonalVaultRepository.ensureForOwner()` opens a transaction, acquires a PostgreSQL advisory lock, and reads the Personal Vault; and
 4. the page waits for all of that work before returning any page-specific UI.
@@ -128,12 +128,12 @@ Track cold and warm navigation separately. Record local, preview-deployment, and
 1. Introduce a server-only application/DAL function such as `loadVaultPageContext()` returning only the safe DTO needed by pages: Application User id/email/status plus Personal Vault id/lifecycle.
 2. Wrap it in React `cache()` for request/render-pass deduplication only. Do not use `use cache`, a module-global user cache, or a shared cross-request cache.
 3. Replace unconditional `applicationUser.upsert` on normal reads with:
-   - read by Supabase subject;
+   - read by provider-neutral issuer and subject;
    - create only when absent; and
    - update email only when it changed.
 4. Split Personal Vault creation from normal lookup. `/vaults` may ensure/create an absent Personal Vault; already-initialized child pages should use a read path without an advisory lock or transaction.
 5. Prefer one Prisma projection that resolves the Application User and Personal Vault metadata needed by the page.
-6. Evaluate `getClaims()` for ordinary protected-page identity checks, following current Supabase guidance. Keep `getUser()` on flows that require a freshly fetched email/user record until email-binding and revocation tests prove claims semantics are sufficient.
+6. Use the configured session verifier for ordinary protected-page identity checks, and retain a fresh database-backed session/revocation check for flows that require current assurance or email admission.
 7. Keep authorization checks in every route handler and data repository. A persistent layout or client provider must never become the sole authorization layer.
 
 **Tests:** DAL unit tests, provisioning race integration tests, inactive-user tests, email-change tests, invitation email-binding tests, and a regression test showing an existing-user sibling navigation causes no provisioning write or Personal Vault advisory lock.
@@ -238,4 +238,4 @@ A production build succeeds when supplied non-secret local `DATABASE_URL` and `D
 - [Next.js prefetching: static versus dynamic routes](https://nextjs.org/docs/app/guides/prefetching)
 - [Next.js authentication: request-scoped DAL memoization and layout cautions](https://nextjs.org/docs/app/guides/authentication)
 - [Next.js Cache Components and React Activity state preservation](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheComponents)
-- [Supabase SSR: `getClaims` versus `getUser`](https://supabase.com/docs/guides/auth/server-side/creating-a-client)
+- [`authentication-configuration.md`](authentication-configuration.md) — passwordless/OIDC session and route-boundary configuration

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createAuthProxy, isProtectedPagePath } from "@/proxy";
-import { AUTH_RETURN_PATH_COOKIE } from "@/modules/identity/application/auth-return-path";
 
 describe("authentication proxy contract", () => {
   it.each(["/vaults", "/vaults/shared", "/vaults/invitations/redeem", "/totp"])(
@@ -83,46 +82,6 @@ describe("authentication proxy contract", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
-  });
-
-  it("redirects a root provider error to a safe sign-in notice", async () => {
-    const verifySession = vi.fn().mockResolvedValue(false);
-    const response = await createAuthProxy(verifySession)(
-      request(
-        "/?error=access_denied&error_code=otp_expired&error_description=" +
-          encodeURIComponent("attacker-controlled-description"),
-      ),
-    );
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=link_expired");
-    expect(response.headers.get("location")).not.toContain("attacker-controlled-description");
-    expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(verifySession).not.toHaveBeenCalled();
-  });
-
-  it("preserves and clears the invitation return path for a root provider error", async () => {
-    const response = await createAuthProxy(async () => false)(
-      request(
-        "/?error=access_denied&error_code=otp_expired",
-        undefined,
-        `${AUTH_RETURN_PATH_COOKIE}=%2Fvaults%2Finvitations%2Fredeem`,
-      ),
-    );
-
-    expect(response.headers.get("location")).toBe(
-      "https://vault.example.test/sign-in?auth=link_expired&next=%2Fvaults%2Finvitations%2Fredeem",
-    );
-    expect(response.cookies.get(AUTH_RETURN_PATH_COOKIE)).toMatchObject({ value: "", maxAge: 0 });
-  });
-
-  it("forwards a root provider code to the auth callback", async () => {
-    const verifySession = vi.fn().mockResolvedValue(false);
-    const response = await createAuthProxy(verifySession)(request("/?code=provider-code"));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/auth/confirm?code=provider-code");
-    expect(verifySession).not.toHaveBeenCalled();
   });
 
   it("prevents API and auth responses from being cached", async () => {

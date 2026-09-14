@@ -16,7 +16,7 @@ The server then publishes:
 
 Both endpoints fail with `503 mobile_app_links_not_configured` rather than publishing placeholder trust data. Client intent filters are limited to `/auth/mobile` and `/vaults/invitations/redeem`.
 
-Add `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile` to the Supabase Auth redirect allowlist. Development builds may additionally allow `rhasia-scret://auth/callback`; do not use the custom scheme as production proof of verified links. Mobile sign-in requests surface a localized failure after 15 seconds rather than leaving the form indefinitely busy when native connectivity or TLS is stalled.
+Configure `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile` as the self-managed passwordless native link endpoint. Development builds may additionally use `rhasia-scret://auth/magic-link`; do not use the custom scheme as production proof of verified links. Mobile sign-in requests surface a localized failure after 15 seconds rather than leaving the form indefinitely busy when native connectivity or TLS is stalled.
 
 ## Native cryptography validation build
 
@@ -44,4 +44,4 @@ mise exec -- pnpm --dir apps/mobile run test:android-native
 4. Confirm a malformed host, HTTP URL, unapproved path, and wrong signing certificate do not open the app.
 5. Record no token, code, Secure Share Link fragment, Vault material, OTP, or decrypted content in device or server logs.
 
-Apple Team ID, production Android certificate fingerprint, Supabase redirect-allowlist access, and signed-device validation are release credentials/evidence and are not committed to the repository.
+Apple Team ID, production Android certificate fingerprint, web authentication configuration, and signed-device validation are release credentials/evidence and are not committed to the repository.

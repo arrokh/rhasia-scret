@@ -28,7 +28,7 @@ Issue #102 requires this inventory before extracting workspace packages. It is i
 
 ## Package contract
 
-`packages/client-vault-core` exports all extracted behavior from `src/index.ts`. Both `apps/web` and `apps/mobile` declare a `workspace:*` dependency and import the public package entry point; they do not reach into package internals or import one another. The package has no Next.js, React, React Native, Expo, Prisma, Supabase, filesystem, or platform storage imports. Randomness, crypto primitives, transport, time, storage, download, and UI effects are injected ports.
+`packages/client-vault-core` exports all extracted behavior from `src/index.ts`. Both `apps/web` and `apps/mobile` declare a `workspace:*` dependency and import the public package entry point; they do not reach into package internals or import one another. The package has no Next.js, React, React Native, Expo, Prisma, filesystem, or platform storage imports. Randomness, crypto primitives, transport, time, storage, download, and UI effects are injected ports.
 
 The package boundary is covered by its own typecheck/unit test and by the web/mobile consumer suites. Web architecture tests reject browser-only imports at shared/server boundaries; mobile architecture tests reject browser persistence, query caches, sensitive logging, and native imports in application workflows. pnpm workspace dependency edges keep application-to-package direction one-way.
 

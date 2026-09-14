@@ -181,8 +181,6 @@ jobs:
         run: pnpm run prisma:validate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
-      - name: Backfill provider-neutral identities
-        run: pnpm run prisma:backfill-external-identities
       - name: Lint
         run: pnpm --filter @rhasia-scret/web run lint
       - name: Typecheck
@@ -266,8 +264,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
-      NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
       # One development server and one database per runner; encrypted workflows use two workers.
       PLAYWRIGHT_WORKERS: 1
       PLAYWRIGHT_E2E_WORKERS: 2
@@ -310,8 +306,6 @@ jobs:
         run: pnpm run prisma:generate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
-      - name: Backfill provider-neutral identities
-        run: pnpm run prisma:backfill-external-identities
       - name: Install Playwright system dependencies
         run: pnpm --filter @rhasia-scret/web exec playwright install-deps "${{ matrix.browser }}"
       - name: Ensure supported browsers are installed
@@ -352,8 +346,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
-      NEXT_PUBLIC_SUPABASE_URL: https://auth-browser-test.invalid
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: browser-smoke-publishable-key
       PLAYWRIGHT_WORKERS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -394,8 +386,6 @@ jobs:
         run: pnpm run prisma:generate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
-      - name: Backfill provider-neutral identities
-        run: pnpm run prisma:backfill-external-identities
       - name: Install Playwright system dependencies
         run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium
       - name: Ensure supported browsers are installed

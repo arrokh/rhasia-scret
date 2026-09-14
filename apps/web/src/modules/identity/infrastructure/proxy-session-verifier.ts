@@ -1,32 +1,38 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import type { AuthConfiguration } from "./auth-backend";
 import { BROWSER_E2E_SESSION_COOKIE, browserE2eTestSession } from "./browser-e2e-test-session";
+import {
+  PASSWORDLESS_ASSERTION_AUDIENCE,
+  PASSWORDLESS_ASSERTION_COOKIE,
+  PASSWORDLESS_ASSERTION_ISSUER,
+} from "./passwordless-session";
 import { OIDC_SESSION_COOKIE } from "./oidc-session-verifier";
 
-type CookieToSet = { name: string; value: string; options: CookieOptions };
-export type SetAuthCookies = (cookies: CookieToSet[]) => void;
+export type SetAuthCookies = (
+  cookies: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+) => void;
 export type ProxySessionVerifier = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
 
 export function createProxySessionVerifier(configuration: AuthConfiguration): ProxySessionVerifier {
   if (configuration.backend === "none") return async () => false;
   if (configuration.backend === "oidc") return createOidcProxySessionVerifier(configuration);
-  return createSupabaseProxySessionVerifier();
+  return createPasswordlessProxySessionVerifier(configuration);
 }
 
-function createSupabaseProxySessionVerifier(): ProxySessionVerifier {
-  return async (request, setAuthCookies) => {
+function createPasswordlessProxySessionVerifier(
+  configuration: Extract<AuthConfiguration, { backend: "passwordless" }>,
+): ProxySessionVerifier {
+  return async (request) => {
     if (browserE2eTestSession(request.cookies.get(BROWSER_E2E_SESSION_COOKIE)?.value)) return true;
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    if (!url || !key) return false;
+    const assertion = request.cookies.get(PASSWORDLESS_ASSERTION_COOKIE)?.value;
+    if (!assertion) return false;
     try {
-      const client = createServerClient(url, key, {
-        cookies: { getAll: () => request.cookies.getAll(), setAll: setAuthCookies },
+      const { payload } = await jwtVerify(assertion, configuration.passwordless.sessionSecret, {
+        issuer: PASSWORDLESS_ASSERTION_ISSUER,
+        audience: PASSWORDLESS_ASSERTION_AUDIENCE,
       });
-      const { data, error } = await client.auth.getClaims();
-      return !error && typeof data?.claims?.sub === "string" && typeof data.claims.iss === "string";
+      return typeof payload.session_id === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(payload.session_id);
     } catch {
       return false;
     }

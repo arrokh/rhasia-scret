@@ -1,10 +1,8 @@
-import { config as loadEnvironment } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-
-loadEnvironment({ path: "../../.env" });
-loadEnvironment({ path: ".env" });
-loadEnvironment({ path: ".env.local" });
+import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 import { configuredE2eBrowserUsers } from "./src/tests/browser/support/e2e-users";
+
+loadWorkspaceEnvironment();
 
 const externalServer = process.env.PERFORMANCE_EXTERNAL_SERVER === "1";
 const baseURL = process.env.PERFORMANCE_BASE_URL ?? "http://127.0.0.1:3001";

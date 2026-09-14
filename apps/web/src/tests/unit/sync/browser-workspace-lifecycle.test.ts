@@ -10,7 +10,10 @@ describe("classifyBrowserWorkspaceRefreshFailure", () => {
     ).toBe("AUTHENTICATION");
   });
 
-  it("retains legacy browser API authentication and generic failure mappings", () => {
+  it("maps forbidden authentication responses and generic failures", () => {
+    expect(
+      classifyBrowserWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(403, "inactive_user")),
+    ).toBe("AUTHENTICATION");
     expect(classifyBrowserWorkspaceRefreshFailure(new BrowserApiError("Request failed.", 401))).toBe("AUTHENTICATION");
     expect(classifyBrowserWorkspaceRefreshFailure(new Error("network unavailable"))).toBe("SYNC");
   });

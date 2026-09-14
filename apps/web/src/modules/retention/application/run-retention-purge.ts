@@ -4,6 +4,7 @@ import {
   type ExpiredAccountPurgeRepository,
 } from "@/modules/authenticator-account/server";
 import { purgeExpiredSharedVaults, type ExpiredVaultRetentionRepository } from "@/modules/vault-management/server";
+import { purgeExpiredAuthState, type ExpiredAuthStateRepository } from "./auth-retention";
 
 export type RetentionPurgeReport = {
   accountIds: string[];
@@ -12,12 +13,14 @@ export type RetentionPurgeReport = {
   accountBacklogRemaining: boolean;
   vaultBacklogRemaining: boolean;
   auditBacklogRemaining: boolean;
+  authRecordsPurged: number;
 };
 
 export async function runRetentionPurge({
   accounts,
   vaults,
   audit,
+  auth,
   now,
   batchSize = 100,
   maxBatches = 10,
@@ -25,6 +28,7 @@ export async function runRetentionPurge({
   accounts: ExpiredAccountPurgeRepository;
   vaults: ExpiredVaultRetentionRepository;
   audit: ExpiredVaultAuditRepository;
+  auth: ExpiredAuthStateRepository;
   now: Date;
   batchSize?: number;
   maxBatches?: number;
@@ -39,6 +43,7 @@ export async function runRetentionPurge({
   );
   const vaultResult = await drain((size) => purgeExpiredSharedVaults(vaults, now, size), batchSize, maxBatches);
   const auditResult = await drain((size) => purgeExpiredVaultAuditEvents(audit, now, size), batchSize, maxBatches);
+  const authRecordsPurged = await purgeExpiredAuthState(auth, now);
   return {
     accountIds: accountResult.ids,
     vaultIds: vaultResult.ids,
@@ -46,6 +51,7 @@ export async function runRetentionPurge({
     accountBacklogRemaining: accountResult.backlogRemaining,
     vaultBacklogRemaining: vaultResult.backlogRemaining,
     auditBacklogRemaining: auditResult.backlogRemaining,
+    authRecordsPurged,
   };
 }
 

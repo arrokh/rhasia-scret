@@ -64,9 +64,9 @@
         "title": "Provider",
         "description": "Provider autentikasi, hosting, database, email, dan analitik opsional memiliki tanggung jawab operasi yang terpisah.",
         "items": {
-          "auth": "Supabase Auth atau OIDC dapat menangani identitas provider, metadata email atau subject, event autentikasi, dan sesi; provider tidak menerima plaintext Vault dari aplikasi ini.",
+          "auth": "Layanan passwordless yang dikelola sendiri atau adaptor OIDC opsional menangani metadata identitas, event autentikasi, dan sesi buram; layanan tersebut tidak menerima plaintext Vault dari aplikasi ini.",
           "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.",
-          "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses Supabase Data API/RLS dari browser bukan bagian dari batas yang didukung.",
+          "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses database dari browser bukan bagian dari batas yang didukung.",
           "analytics": "PostHog dan Cloudflare Web Analytics bersifat opsional dan default-nya nonaktif. Saat diaktifkan, allowlist dan tinjauan payload operator berlaku."
         }
       },
@@ -325,10 +325,7 @@
         "invitationRequired": "Masuk untuk menerima undangan. Biarkan tab ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
         "signedOut": "Anda telah keluar.",
         "logoutFailed": "Proses keluar tidak dapat diselesaikan. Coba lagi.",
-        "missingCode": "Tautan masuk tidak lengkap. Minta tautan baru.",
         "configurationError": "Layanan masuk belum dikonfigurasi. Hubungi administrator.",
-        "accessDenied": "Tautan masuk ditolak. Minta tautan baru.",
-        "linkExpired": "Tautan masuk tidak valid atau sudah kedaluwarsa. Minta tautan baru.",
         "verificationFailed": "Tautan masuk tidak dapat diverifikasi. Minta tautan baru."
       }
     }
@@ -338,6 +335,13 @@
       "title": "Autentikasi selesai",
       "description": "Kembali ke tab undangan. Proses akan berlanjut otomatis. Jika tidak, buka kembali tautan undangan asli.",
       "goToVaults": "Ke brankas"
+    },
+    "confirm": {
+      "verifying": "Memverifikasi tautan masuk…",
+      "failed": "Tautan masuk ini tidak valid atau sudah kedaluwarsa. Minta tautan baru.",
+      "backToSignIn": "Kembali ke halaman masuk",
+      "backToHome": "Kembali ke beranda",
+      "doNotClose": "Halaman ini akan melanjutkan secara otomatis setelah verifikasi."
     },
     "signIn": {
       "title": "Masuk atau buat akun",
@@ -356,6 +360,15 @@
       "sentInvitation": "Periksa kotak masuk. Biarkan tab undangan ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
       "rateLimited": "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.",
       "error": "Kami tidak dapat mengirim tautan email. Coba lagi."
+    },
+    "magicLinkEmail": {
+      "language": "Bahasa Indonesia",
+      "subject": "Tautan masuk rhasia-scret",
+      "title": "Masuk ke rhasia-scret",
+      "description": "Gunakan tombol di bawah untuk masuk atau membuat akun hosted Anda.",
+      "button": "Masuk",
+      "fallback": "Jika tombol tidak bekerja, buka tautan ini:",
+      "ignore": "Jika Anda tidak meminta tautan ini, abaikan email ini."
     },
     "logout": {
       "settings": "Pengaturan akun",
@@ -478,6 +491,9 @@
       "localVaultDescription": "Brankas Lokal independen dapat dibuka tanpa membuka sesi Brankas server ini.",
       "openLocalVault": "Buka Brankas Lokal",
       "secretError": "Passphrase Brankas tidak dapat membuka brankas Anda.",
+      "authenticationError": "Sesi masuk Anda telah berakhir. Masuk lagi sebelum membuka brankas.",
+      "signInAgain": "Masuk lagi",
+      "syncError": "Data brankas terenkripsi tidak dapat dimuat. Coba lagi.",
       "passkeyError": "Passkey tidak dapat membuka brankas. Coba lagi atau gunakan Passphrase Brankas.",
       "rememberedError": "Verifikasi Lokal gagal atau paket browser tidak valid. Gunakan Passphrase Brankas; tidak ada kunci yang dilepas tanpa verifikasi."
     },

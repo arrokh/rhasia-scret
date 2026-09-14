@@ -111,7 +111,7 @@ describe("PrismaVaultParticipantRepository", () => {
 
 async function user(label: string) {
   const result = await prisma.applicationUser.create({
-    data: { supabaseUserId: randomUUID(), email: `${label}-${randomUUID()}@example.test` },
+    data: { email: `${label}-${randomUUID()}@example.test` },
   });
   userIds.push(result.id);
   return result;

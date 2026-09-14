@@ -73,5 +73,6 @@ function subscribeToHash(onChange: () => void) {
   return () => window.removeEventListener("hashchange", onChange);
 }
 function readHash() {
-  return window.location.hash.slice(1);
+  const secret = window.location.hash.slice(1);
+  return /^[A-Za-z0-9_-]{16,4096}$/.test(secret) ? secret : "";
 }

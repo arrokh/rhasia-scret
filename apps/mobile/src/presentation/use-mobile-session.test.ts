@@ -1,4 +1,4 @@
-import { withTimeout } from "./use-mobile-session";
+import { withTimeout } from "../infrastructure/mobile-passwordless-auth-client";
 
 describe("withTimeout", () => {
   afterEach(() => jest.useRealTimers());
