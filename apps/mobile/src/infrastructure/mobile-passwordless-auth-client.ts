@@ -31,6 +31,8 @@ export function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promi
 export class MobilePasswordlessAuthClient {
   private refreshPromise: Promise<StoredSession | null> | null = null;
   private activeMagicLinkRedemption: Promise<NativeMobileSession> | null = null;
+  private signOutPromise: Promise<void> | null = null;
+  private signingOut = false;
   private sessionVersion = 0;
   private sessionWriteTail: Promise<void> = Promise.resolve();
 
@@ -40,6 +42,7 @@ export class MobilePasswordlessAuthClient {
   ) {}
 
   public async getSession(): Promise<NativeMobileSession | null> {
+    if (this.signingOut) return null;
     const stored = await this.readStoredSession();
     return stored ? publicSession(stored) : null;
   }
@@ -54,6 +57,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   public async redeemMagicLink(token: string): Promise<NativeMobileSession> {
+    if (this.signingOut) throw new Error("Mobile authentication is signing out.");
     while (this.activeMagicLinkRedemption) await this.activeMagicLinkRedemption.catch(() => undefined);
     const version = ++this.sessionVersion;
     const redemption = this.redeemMagicLinkRequest(token, version);
@@ -66,6 +70,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   public async getAccessToken(): Promise<string | null> {
+    if (this.signingOut) return null;
     const stored = await this.readStoredSession();
     if (!stored) return null;
     if (stored.accessExpiresAt - Date.now() > 60_000) return stored.accessToken;
@@ -74,6 +79,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   public async refreshIfNeeded(): Promise<NativeMobileSession | null> {
+    if (this.signingOut) return null;
     const stored = await this.readStoredSession();
     if (!stored) return null;
     if (stored.accessExpiresAt - Date.now() > 60_000) return publicSession(stored);
@@ -81,16 +87,41 @@ export class MobilePasswordlessAuthClient {
     return refreshed ? publicSession(refreshed) : null;
   }
 
-  public async signOut(): Promise<void> {
+  public signOut(): Promise<void> {
+    if (this.signOutPromise) return this.signOutPromise;
+    this.signingOut = true;
+    const signOutPromise = this.performSignOut();
+    this.signOutPromise = signOutPromise;
+    const cleanup = () => {
+      if (this.signOutPromise === signOutPromise) {
+        this.signOutPromise = null;
+        this.signingOut = false;
+      }
+    };
+    void signOutPromise.then(cleanup, cleanup);
+    return signOutPromise;
+  }
+
+  private async performSignOut(): Promise<void> {
+    const redemption = this.activeMagicLinkRedemption;
+    if (redemption) await redemption.catch(() => undefined);
+    this.sessionVersion += 1;
     try {
-      const accessToken = await this.getAccessToken();
+      const stored = await this.readStoredSession();
+      let accessToken = stored?.accessToken ?? null;
+      if (stored && stored.accessExpiresAt - Date.now() <= 60_000) {
+        const refreshed = await this.refreshStoredSession(stored);
+        accessToken = refreshed?.accessToken ?? null;
+      }
       if (accessToken) {
         await this.request("/api/auth/session/revoke", undefined, {
           Authorization: `Bearer ${accessToken}`,
         });
       }
     } finally {
-      await this.storage.removeItem(STORAGE_KEY);
+      await this.withSessionWrite(async () => {
+        await this.storage.removeItem(STORAGE_KEY);
+      });
     }
   }
 

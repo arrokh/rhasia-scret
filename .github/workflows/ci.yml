@@ -326,7 +326,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     name: Production PWA and navigation performance
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     concurrency:
       group: ci-web-production-${{ github.workflow }}-${{ github.ref_name }}
       cancel-in-progress: true

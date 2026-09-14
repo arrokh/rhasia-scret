@@ -76,7 +76,7 @@ test("wires package selection to every consuming job without cancelling a differ
       8,
       "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
     ],
-    ["browser-production", "web", 8, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
+    ["browser-production", "web", 12, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
   ]) {
     const body = job(name);
     assert.match(body, /^    needs: changes$/m);

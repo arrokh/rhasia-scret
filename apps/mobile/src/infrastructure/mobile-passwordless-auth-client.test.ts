@@ -227,6 +227,33 @@ describe("MobilePasswordlessAuthClient", () => {
     );
   });
 
+  it("prevents a new magic-link session while sign-out is in progress", async () => {
+    const client = new MobilePasswordlessAuthClient(configuration, new SecureMobileSessionStorage(driver));
+    let resolveRevoke!: (response: Response) => void;
+    const revokeResponse = new Promise<Response>((resolve) => {
+      resolveRevoke = resolve;
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken,
+          refreshToken,
+          accessExpiresAt: new Date(Date.now() + 900_000).toISOString(),
+          refreshExpiresAt: new Date(Date.now() + 2_592_000_000).toISOString(),
+          email: "person@example.test",
+        }),
+      )
+      .mockReturnValueOnce(revokeResponse);
+
+    await client.redeemMagicLink("a".repeat(43));
+    const signOut = client.signOut();
+    await waitForFetchCall(fetchMock, 2);
+    await expect(client.redeemMagicLink("b".repeat(43))).rejects.toThrow("signing out");
+    resolveRevoke(new Response(null, { status: 204 }));
+    await expect(signOut).resolves.toBeUndefined();
+    await expect(client.getSession()).resolves.toBeNull();
+  });
+
   it("clears secure storage even when remote revocation fails", async () => {
     const client = new MobilePasswordlessAuthClient(configuration, new SecureMobileSessionStorage(driver));
     fetchMock

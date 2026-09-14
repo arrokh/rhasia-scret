@@ -25,7 +25,7 @@ The main-push and pull-request workflow targets a sub-five-minute critical path 
 - **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
-Every CI job has an eight-minute hard timeout. This is enforced after the work is distributed; it is not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
+Standard CI jobs have an eight-minute hard timeout; the combined production PWA and navigation performance job has a twelve-minute ceiling because it runs two browser stages after cold setup. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
 JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
