@@ -31,6 +31,7 @@ describe("browser-delivery security boundaries", () => {
       'const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });',
     );
     expect(layout).toContain('strategy="lazyOnload"');
+    expect(layout).not.toContain('type="module"');
   });
 
   it("keeps generated test artifacts outside the lint boundary", () => {
