@@ -1,7 +1,7 @@
 import nodemailer, { type SendMailOptions } from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import type { MagicLinkEmail, MagicLinkEmailSender } from "../application/email-delivery";
-import { renderMagicLinkEmail } from "./magic-link-email-template";
+import { renderMagicLinkEmail } from "@/shared/infrastructure/email-templates";
 import type { EmailConfiguration } from "./email-configuration";
 
 type MailTransport = Readonly<{
