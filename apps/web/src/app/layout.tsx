@@ -21,6 +21,8 @@ const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mo
 const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
 const cloudflareAnalyticsScriptProps = {
   src: "https://static.cloudflareinsights.com/beacon.min.js",
+  crossOrigin: "anonymous",
+  "data-cf-beacon": JSON.stringify({ token: cloudflareAnalyticsToken }),
 } as const;
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -105,13 +107,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </QueryProvider>
         </NextIntlClientProvider>
         {cloudflareAnalyticsToken ? (
-          <Script
-            {...cloudflareAnalyticsScriptProps}
-            id="cloudflare-web-analytics"
-            strategy="lazyOnload"
-            crossOrigin="anonymous"
-            data-cf-beacon={JSON.stringify({ token: cloudflareAnalyticsToken })}
-          />
+          <Script {...cloudflareAnalyticsScriptProps} id="cloudflare-web-analytics" strategy="lazyOnload" />
         ) : null}
       </body>
     </html>
