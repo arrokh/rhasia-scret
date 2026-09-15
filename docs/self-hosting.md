@@ -94,18 +94,25 @@ Do not publish the database port. The named volume survives `docker compose down
 
 ### 2. Apply PostgreSQL schema and identity migration
 
-Set `DATABASE_URL` to the pooled runtime endpoint and `DIRECT_URL` to the direct migration endpoint. From a controlled runner:
+Create the ignored `.env.prod` file with `DATABASE_URL` set to the pooled
+runtime endpoint and `DIRECT_URL` set to the direct migration endpoint. From a
+controlled runner:
 
 ```bash
 pnpm run prisma:generate
 pnpm run prisma:validate
 VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config
 pnpm run verify:prisma-connections
-# Applies migrations through the additive auth state, runs preflight,
-# seeds and verifies local identities, then applies guarded cleanup.
-pnpm run prisma:migrate:deploy
-pnpm run verify:passwordless-migration
+# Builds the focused migration image, applies migrations through the additive
+# auth state, runs preflight, seeds/verifies local identities, and applies the
+# guarded cleanup without starting the Compose-local database dependency.
+pnpm prod:db:migrate
 ```
+
+The production command requires typing `yes` before it runs. The validation
+commands above must use the same production environment values as `.env.prod`;
+the migration command loads `.env.prod` itself and performs final migration
+verification.
 
 The authentication deployment runner is staged. It applies only migrations through the additive auth-state migration, runs preflight, seeds one local identity per existing `ApplicationUser` by that existing ID, verifies the staged mapping while the legacy subject column remains available, and only then applies the guarded cleanup and remaining migrations. It is safe to rerun after an interrupted deployment.
 

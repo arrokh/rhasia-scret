@@ -111,10 +111,17 @@ pnpm dev:db
 pnpm dev
 ```
 
-`pnpm dev:db` starts only `db`, publishes PostgreSQL on loopback, and runs the
-existing migration service. Stop the container without deleting its named
-volume with `pnpm dev:db:down`; use `docker compose ... down -v` only when you
-intentionally want to reset the local database.
+`pnpm dev:db` starts only `db` and publishes PostgreSQL on loopback; it does
+not run migrations. Run `pnpm dev:db:migrate` separately when the schema needs
+updating. Stop the development Compose stack without deleting its named volume
+with `pnpm dev:db:down`. Migration and shutdown operations require typing
+`yes`; use `docker compose ... down -v` only when you intentionally want to
+reset the local database.
+
+For a production migration, create the ignored `.env.prod` file with the
+production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
+The command builds and runs the focused migration image, does not start the
+Compose `db` dependency, and requires typing `yes` before applying migrations.
 
 The repository's tests use synthetic data and local services. Never put authentication credentials, OIDC client secrets, Vault material, OTP, archive keys, or Secure Share Link fragments in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 

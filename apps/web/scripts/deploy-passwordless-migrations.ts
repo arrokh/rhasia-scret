@@ -1,6 +1,7 @@
 import { copyFile, cp, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Prisma } from "@prisma/client";
 import { createAdminPrismaClient } from "./admin-prisma-client";
@@ -55,7 +56,7 @@ async function createStagedMigrationConfig(appRoot: string): Promise<{ directory
   if (!migrationNames.includes(ADDITIVE_MIGRATION))
     throw new Error(`Passwordless migration staging requires ${ADDITIVE_MIGRATION}.`);
 
-  const directory = await mkdtemp(join(appRoot, ".prisma-staged-migrations-"));
+  const directory = await mkdtemp(join(tmpdir(), "rhasia-scret-prisma-staged-migrations-"));
   await copyFile(join(sourceMigrations, "migration_lock.toml"), join(directory, "migration_lock.toml"));
   for (const migrationName of migrationNames)
     await cp(join(sourceMigrations, migrationName), join(directory, migrationName), { recursive: true });
