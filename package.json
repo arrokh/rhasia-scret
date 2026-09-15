@@ -10,6 +10,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @rhasia-scret/web dev",
+    "dev:db": "sh -c 'export COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\"; docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db && docker compose -f docker-compose.yml -f docker-compose.dev.yml run --build --rm migrate'",
+    "dev:db:down": "COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\" docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "build": "pnpm --filter @rhasia-scret/web build",
     "start": "pnpm --filter @rhasia-scret/web start",
     "format": "prettier --write --ignore-unknown . && pnpm run format:prisma",

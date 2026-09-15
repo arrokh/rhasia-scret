@@ -99,6 +99,23 @@ pnpm run prisma:migrate:deploy
 
 For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
 
+### Docker-backed local database
+
+To run the web app from the host while using the Compose PostgreSQL container,
+set the root `.env` `DATABASE_URL` and `DIRECT_URL` to the same local URL, using
+`127.0.0.1:${POSTGRES_HOST_PORT:-55432}` and the configured local
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. Then run:
+
+```bash
+pnpm dev:db
+pnpm dev
+```
+
+`pnpm dev:db` starts only `db`, publishes PostgreSQL on loopback, and runs the
+existing migration service. Stop the container without deleting its named
+volume with `pnpm dev:db:down`; use `docker compose ... down -v` only when you
+intentionally want to reset the local database.
+
 The repository's tests use synthetic data and local services. Never put authentication credentials, OIDC client secrets, Vault material, OTP, archive keys, or Secure Share Link fragments in committed files or client environment variables. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 
 ## Run and verify
