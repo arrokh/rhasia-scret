@@ -15,7 +15,7 @@ describe("mobile Secure Share Links", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("creates server-held ciphertext metadata and shares the client secret only through the native share sheet", async () => {
-    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction });
+    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
     await createMobileSecureShareLink({ id: "shared_1", key }, "Recipient@Example.test", transport, webOrigin);
@@ -30,7 +30,7 @@ describe("mobile Secure Share Links", () => {
   });
 
   it("revokes a newly-created invitation when the native share sheet is dismissed", async () => {
-    jest.spyOn(Share, "share").mockResolvedValue({ action: Share.dismissedAction });
+    jest.spyOn(Share, "share").mockResolvedValue({ action: Share.dismissedAction, activityType: undefined });
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
     await expect(

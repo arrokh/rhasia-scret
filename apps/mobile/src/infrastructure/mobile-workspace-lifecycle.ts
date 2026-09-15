@@ -20,7 +20,7 @@ import {
 } from "./mobile-vault-workspace";
 
 type NativeAppState = {
-  readonly currentState: string;
+  readonly currentState: string | null | undefined;
   addEventListener(type: "change", listener: (state: string) => void): { remove(): void };
 };
 
