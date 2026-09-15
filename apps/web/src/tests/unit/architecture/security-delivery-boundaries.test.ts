@@ -18,7 +18,8 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("frame-ancestors 'none'");
     expect(config).toContain("Cache-Control");
     const layout = read("src/app/layout.tsx");
-    expect(layout).toContain('src="https://static.cloudflareinsights.com/beacon.min.js"');
+    expect(layout).toContain('src: "https://static.cloudflareinsights.com/beacon.min.js"');
+    expect(layout).toContain("{...cloudflareAnalyticsScriptProps}");
     expect(layout).toContain('crossOrigin="anonymous"');
   });
 
