@@ -341,7 +341,9 @@
       "failed": "This sign-in link is invalid or expired. Request a new link.",
       "backToSignIn": "Back to sign in",
       "backToHome": "Back to home",
-      "doNotClose": "This page will continue automatically after verification."
+      "doNotClose": "This page will continue automatically after verification.",
+      "pwaCompleted": "The link is verified. rhasia-scret is opening the session in your installed app.",
+      "pwaDoNotClose": "Keep the installed app open until your vault appears."
     },
     "signIn": {
       "title": "Sign in or create an account",
@@ -358,8 +360,11 @@
       "sendLink": "Continue with email",
       "sent": "Check your inbox for a sign-in link. A new hosted account becomes available after email verification.",
       "sentInvitation": "Check your inbox. Keep this invitation tab open; it will continue automatically after verification.",
+      "sentPwa": "Check your inbox. Keep this installed app open; the session will be handed back automatically after you open the link.",
+      "authenticating": "Handing the sign-in session back to the installed app…",
       "rateLimited": "Too many sign-in requests. Wait one minute, then check your inbox or try again.",
-      "error": "We could not send the email link. Try again."
+      "error": "We could not send the email link. Try again.",
+      "handoffError": "The sign-in session could not be handed back to the installed app. Request a new link from this app."
     },
     "magicLinkEmail": {
       "language": "English",
@@ -573,7 +578,11 @@
       "auditError": "The OTP was still copied, but Shared Vault access history could not be recorded.",
       "allVaults": "All vaults",
       "selectedVaults": "{count, plural, one {# vault selected} other {# vaults selected}}",
+      "filterLabel": "Filter accounts",
       "filterByVault": "Filter by vault",
+      "filterByIssuer": "Filter by issuer",
+      "allIssuers": "All issuers",
+      "selectedIssuers": "{count, plural, one {# issuer selected} other {# issuers selected}}",
       "directoryMenu": "Display options",
       "viewLabel": "View",
       "compact": "Compact",
@@ -593,8 +602,8 @@
       "empty": "No authenticator accounts yet",
       "emptyCurrent": "Add your first account by scanning a QR code.",
       "emptySnapshot": "This encrypted snapshot contains no accounts.",
-      "emptyFiltered": "No accounts in this vault yet",
-      "emptyFilteredDescription": "Choose another vault or add an authenticator account to this vault."
+      "emptyFiltered": "No accounts match these filters",
+      "emptyFilteredDescription": "Choose another vault or issuer, or add an authenticator account to this vault."
     },
     "qr": {
       "title": "Import QR code",
@@ -1269,7 +1278,11 @@
       "add": "Add account",
       "allVaults": "All vaults",
       "selectedVaults": "{count, plural, one {# vault selected} other {# vaults selected}}",
+      "filterLabel": "Filter accounts",
       "filterByVault": "Filter by vault",
+      "filterByIssuer": "Filter by issuer",
+      "allIssuers": "All issuers",
+      "selectedIssuers": "{count, plural, one {# issuer selected} other {# issuers selected}}",
       "directoryMenu": "Display options",
       "viewLabel": "View",
       "compact": "Compact",
@@ -1284,7 +1297,8 @@
       "moveDown": "Move {account} down",
       "openVault": "Open {vault} details",
       "accountActions": "Actions for {account}",
-      "emptyFiltered": "No accounts in this vault yet",
+      "empty": "No authenticator accounts yet",
+      "emptyFiltered": "No accounts match these filters",
       "accounts": "Authenticator accounts",
       "personalVault": "Personal Vault",
       "sampleService": "Sample service",

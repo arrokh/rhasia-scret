@@ -171,6 +171,88 @@ test("renders email authentication and signup at sign in", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Buka snapshot luring" })).toHaveAttribute("href", "/offline");
 });
 
+test("hands a passwordless session to a new installed-PWA window", async ({ page, context }) => {
+  let handoffId: string | undefined;
+  let handoffPublished = false;
+  let handoffAccepted = false;
+  let pollSentRefreshCredential = false;
+  await context.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => {
+      if (query === "(display-mode: standalone)")
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        };
+      return nativeMatchMedia(query);
+    };
+  });
+  await context.route("**/api/auth/magic-link/request", async (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    expect(body.client).toBe("pwa");
+    expect(typeof body.handoffId).toBe("string");
+    expect(typeof body.handoffVerifier).toBe("string");
+    handoffId = body.handoffId as string;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sent: true }) });
+  });
+  await context.route("**/api/auth/magic-link/redeem", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        refreshToken: "0123456789abcdef.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+        returnPath: "/vaults/invitations/redeem",
+      }),
+    });
+  });
+  await context.route("**/api/auth/pwa/session", async (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    if (typeof body.refreshToken === "string") {
+      handoffPublished = true;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ published: true }) });
+      return;
+    }
+    pollSentRefreshCredential ||= "refreshToken" in body;
+    handoffAccepted ||= handoffPublished;
+    await route.fulfill({
+      status: handoffPublished ? 200 : 202,
+      contentType: "application/json",
+      body: JSON.stringify(
+        handoffPublished ? { accepted: true, returnPath: "/vaults/invitations/redeem" } : { pending: true },
+      ),
+    });
+  });
+
+  await page.goto("/sign-in?next=%2Fvaults%2Finvitations%2Fredeem");
+  await page.getByLabel("Alamat email").fill("person@example.test");
+  await page.getByRole("button", { name: "Lanjutkan dengan email" }).click();
+  await expect(
+    page.getByText(
+      "Periksa kotak masuk. Biarkan aplikasi terpasang ini tetap terbuka; sesi akan diteruskan otomatis setelah tautan dibuka.",
+    ),
+  ).toBeVisible();
+  expect(handoffId).toBeTruthy();
+
+  const browser = await context.newPage();
+  try {
+    await browser.goto(
+      `/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults%2Finvitations%2Fredeem&handoff=${handoffId}`,
+    );
+    await expect.poll(() => handoffPublished).toBe(true);
+    await expect.poll(() => handoffAccepted).toBe(true);
+    await expect(page.getByText("Meneruskan sesi masuk ke aplikasi terpasang…")).toBeVisible({ timeout: 15_000 });
+    expect(pollSentRefreshCredential).toBe(false);
+  } finally {
+    await browser.close();
+  }
+});
+
 test("switches to English without changing routes and persists through redirects and reloads", async ({ page }) => {
   await page.goto("/");
   await switchLanguage(page, "English", "en");
@@ -286,9 +368,7 @@ async function switchLanguage(
     await expect(languageButton).toHaveAttribute("title", new RegExp(language), { timeout: 15_000 });
   }
   if (isPreview) {
-    const cancelLanguageDialog = page.getByRole("dialog").getByRole("button", { name: /Batal|Cancel/ });
-    await expect(cancelLanguageDialog).toBeEnabled();
-    await cancelLanguageDialog.click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   }
 }
 

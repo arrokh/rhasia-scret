@@ -150,6 +150,7 @@ describe("i18n foundation", () => {
     expect(window.location.hash).toBe("#secure-share-secret");
     expect(document.cookie).toContain(`${localeCookieName}=en`);
     expect(document.documentElement.lang).toBe("en");
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(refresh).toHaveBeenCalledOnce();
   });
 });

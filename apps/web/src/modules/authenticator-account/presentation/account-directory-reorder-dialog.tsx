@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent, type PointerEvent } from "react";
 import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,12 @@ export function AccountDirectoryReorderDialog({
 }) {
   const [draggedKey, setDraggedKey] = useState<string | null>(null);
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+  const reorderListRef = useRef<HTMLUListElement>(null);
+  const pointerDragRef = useRef<{
+    key: string;
+    pointerId: number;
+    targetKey: string | null;
+  } | null>(null);
 
   function handleDragStart(key: string, event: DragEvent<HTMLButtonElement>) {
     event.dataTransfer.effectAllowed = "move";
@@ -51,8 +57,56 @@ export function AccountDirectoryReorderDialog({
   }
 
   function handleDragEnd() {
+    pointerDragRef.current = null;
     setDraggedKey(null);
     setDropTargetKey(null);
+  }
+
+  function getPointerTargetKey(clientX: number, clientY: number): string | null {
+    const item = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-account-key]");
+    if (item?.closest('[data-slot="account-directory-reorder-list"]') !== reorderListRef.current) return null;
+    return item?.dataset.accountKey ?? null;
+  }
+
+  function handlePointerDown(key: string, event: PointerEvent<HTMLButtonElement>) {
+    if (event.pointerType === "mouse" || !event.isPrimary) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointerDragRef.current = { key, pointerId: event.pointerId, targetKey: null };
+    setDraggedKey(key);
+    setDropTargetKey(null);
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const targetKey = getPointerTargetKey(event.clientX, event.clientY);
+    if (drag.targetKey === targetKey) return;
+    drag.targetKey = targetKey;
+    setDropTargetKey(targetKey && targetKey !== drag.key ? targetKey : null);
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const targetKey = getPointerTargetKey(event.clientX, event.clientY) ?? drag.targetKey;
+    if (targetKey && targetKey !== drag.key) {
+      const sourceIndex = accounts.findIndex((account) => account.key === drag.key);
+      const targetIndex = accounts.findIndex((account) => account.key === targetKey);
+      const placement = sourceIndex < targetIndex ? "after" : "before";
+      onMove(drag.key, targetKey, placement);
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    handleDragEnd();
+  }
+
+  function handlePointerCancel(event: PointerEvent<HTMLButtonElement>) {
+    if (pointerDragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    handleDragEnd();
   }
 
   function handleDragOver(key: string, event: DragEvent<HTMLLIElement>) {
@@ -82,6 +136,7 @@ export function AccountDirectoryReorderDialog({
           <DialogDescription>{labels.description}</DialogDescription>
         </DialogHeader>
         <ul
+          ref={reorderListRef}
           data-slot="account-directory-reorder-list"
           className="grid max-h-[55dvh] list-none gap-2 overflow-y-auto p-0"
         >
@@ -108,7 +163,11 @@ export function AccountDirectoryReorderDialog({
                   title={labels.dragAccount(account.accountName)}
                   onDragStart={(event) => handleDragStart(account.key, event)}
                   onDragEnd={handleDragEnd}
-                  className="cursor-grab active:cursor-grabbing"
+                  onPointerDown={(event) => handlePointerDown(account.key, event)}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerCancel}
+                  className="touch-none cursor-grab active:cursor-grabbing"
                 >
                   <GripVertical aria-hidden="true" />
                 </Button>

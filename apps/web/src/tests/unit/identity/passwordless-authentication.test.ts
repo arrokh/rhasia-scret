@@ -9,6 +9,7 @@ import {
 
 const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK";
 const sessionToken = `0123456789abcdef.${token}`;
+const pwaHandoffId = ["pwa", "handoff", 123456].join("-");
 
 function session(): PasswordlessSession {
   const now = new Date("2026-09-14T00:00:00.000Z");
@@ -47,6 +48,8 @@ describe("passwordless authentication application service", () => {
       verifyBrowserSession: vi.fn(),
       rotateRefreshToken: vi.fn(),
       revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
     };
     const sender = { sendMagicLinkEmail: vi.fn().mockResolvedValue(undefined) };
     const buildActionUrl = vi.fn(
@@ -76,6 +79,119 @@ describe("passwordless authentication application service", () => {
     });
   });
 
+  it("builds a PWA-specific link with its transient handoff identifier", async () => {
+    const repository = {
+      createChallenge: vi.fn().mockResolvedValue(undefined),
+      consumeChallenge: vi.fn(),
+      findOrCreateAccount: vi.fn(),
+      createSession: vi.fn(),
+      verifyAccessToken: vi.fn(),
+      verifyBrowserSession: vi.fn(),
+      rotateRefreshToken: vi.fn(),
+      revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
+    };
+    const buildActionUrl = vi.fn(
+      () =>
+        new URL(`https://vault.example.test/auth/pwa-confirm#token=${token}&next=%2Fvaults&handoff=${pwaHandoffId}`),
+    );
+    const service = createPasswordlessAuthService({
+      repository,
+      sender: { sendMagicLinkEmail: vi.fn().mockResolvedValue(undefined) },
+      generateToken: () => ({ rawToken: token, digest: new Uint8Array([1, 2, 3]) }),
+      digestToken: () => new Uint8Array([4, 5, 6]),
+      buildActionUrl,
+      magicLinkTtlSeconds: 900,
+      now: () => new Date("2026-09-14T00:00:00.000Z"),
+    });
+
+    await service.requestLink({
+      email: "person@example.test",
+      client: "pwa",
+      returnPath: "/vaults",
+      handoffId: pwaHandoffId,
+      handoffVerifier: "v".repeat(43),
+    });
+
+    expect(buildActionUrl).toHaveBeenCalledWith("pwa", token, "/vaults", pwaHandoffId);
+    expect(repository.createChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pwaHandoff: {
+          handoffIdDigest: new Uint8Array([4, 5, 6]),
+          verifierDigest: new Uint8Array([4, 5, 6]),
+          expiresAt: new Date("2026-09-14T00:15:00.000Z"),
+        },
+      }),
+    );
+    expect(repository.createChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({ challenge: { email: "person@example.test", client: "pwa", returnPath: "/vaults" } }),
+    );
+  });
+
+  it("rotates and publishes a PWA callback session without exposing it to the client", async () => {
+    const repository = {
+      createChallenge: vi.fn(),
+      consumeChallenge: vi.fn(),
+      findOrCreateAccount: vi.fn(),
+      createSession: vi.fn(),
+      verifyAccessToken: vi.fn(),
+      verifyBrowserSession: vi.fn(),
+      rotateRefreshToken: vi.fn(),
+      revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn().mockResolvedValue(true),
+      redeemPwaHandoff: vi.fn(),
+    };
+    const digestToken = vi.fn(() => new Uint8Array([9]));
+    const service = createPasswordlessAuthService({
+      repository,
+      sender: { sendMagicLinkEmail: vi.fn() },
+      generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
+      digestToken,
+      buildActionUrl: () => new URL("https://vault.example.test/auth/pwa-confirm"),
+      magicLinkTtlSeconds: 900,
+      now: () => new Date("2026-09-14T00:00:00.000Z"),
+    });
+
+    await service.publishPwaHandoff(sessionToken, pwaHandoffId);
+
+    expect(repository.publishPwaHandoff).toHaveBeenCalledWith(
+      new Uint8Array([9]),
+      "0123456789abcdef",
+      new Uint8Array([9]),
+      new Date("2026-09-14T00:00:00.000Z"),
+    );
+    expect(digestToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a PWA link request without a safe handoff verifier", async () => {
+    const repository = {
+      createChallenge: vi.fn(),
+      consumeChallenge: vi.fn(),
+      findOrCreateAccount: vi.fn(),
+      createSession: vi.fn(),
+      verifyAccessToken: vi.fn(),
+      verifyBrowserSession: vi.fn(),
+      rotateRefreshToken: vi.fn(),
+      revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
+    };
+    const service = createPasswordlessAuthService({
+      repository,
+      sender: { sendMagicLinkEmail: vi.fn() },
+      generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
+      digestToken: () => new Uint8Array([9]),
+      buildActionUrl: () => new URL("https://vault.example.test/auth/pwa-confirm"),
+      magicLinkTtlSeconds: 900,
+    });
+
+    await expect(
+      service.requestLink({ email: "person@example.test", client: "pwa", returnPath: "/vaults" }),
+    ).rejects.toThrow("PWA authentication handoff is invalid.");
+    expect(repository.createChallenge).not.toHaveBeenCalled();
+  });
+
   it("atomically consumes a valid challenge, provisions the account, and creates a session", async () => {
     const createdSession = session();
     const repository = {
@@ -96,6 +212,8 @@ describe("passwordless authentication application service", () => {
       verifyBrowserSession: vi.fn(),
       rotateRefreshToken: vi.fn(),
       revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
     };
     const service = createPasswordlessAuthService({
       repository,
@@ -125,6 +243,8 @@ describe("passwordless authentication application service", () => {
       verifyBrowserSession: vi.fn(),
       rotateRefreshToken: vi.fn().mockResolvedValue(null),
       revokeSession: vi.fn().mockResolvedValue(undefined),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
     };
     const service = createPasswordlessAuthService({
       repository,

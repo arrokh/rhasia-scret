@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowDownUp, LayoutGrid, List, ListFilter, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,8 @@ export function AccountDirectoryControls({
   vaults,
   vaultFilters,
   onVaultFiltersChange,
+  issuerFilters,
+  onIssuerFiltersChange,
   view,
   onViewChange,
   reorderAccounts,
@@ -32,6 +34,8 @@ export function AccountDirectoryControls({
   vaults: AccountDirectoryVaultOption[];
   vaultFilters: string[];
   onVaultFiltersChange: (value: string[]) => void;
+  issuerFilters: string[];
+  onIssuerFiltersChange: (value: string[]) => void;
   view: AccountDirectoryView;
   onViewChange: (value: AccountDirectoryView) => void;
   reorderAccounts: AccountDirectoryReorderItem[];
@@ -39,7 +43,10 @@ export function AccountDirectoryControls({
   labels: {
     menuLabel: string;
     filterLabel: string;
+    filterByVault: string;
+    filterByIssuer: string;
     allVaults: string;
+    allIssuers: string;
     viewLabel: string;
     compact: string;
     normal: string;
@@ -59,7 +66,13 @@ export function AccountDirectoryControls({
     { value: "normal" as const, label: labels.normal, icon: List },
     { value: "wide" as const, label: labels.wide, icon: Rows3 },
   ];
+  const ViewIcon = viewOptions.find((option) => option.value === view)?.icon ?? List;
+  const issuerOptions = useMemo(
+    () => [...new Set(reorderAccounts.map((account) => account.issuer))],
+    [reorderAccounts],
+  );
   const allVaultsSelected = vaultFilters.length === 0;
+  const allIssuersSelected = issuerFilters.length === 0;
 
   function toggleVault(vaultId: string, checked: boolean) {
     if (checked) {
@@ -70,46 +83,33 @@ export function AccountDirectoryControls({
     onVaultFiltersChange(vaultFilters.filter((selectedVaultId) => selectedVaultId !== vaultId));
   }
 
+  function toggleIssuer(issuer: string, checked: boolean) {
+    if (checked) {
+      if (issuerFilters.includes(issuer)) return;
+      onIssuerFiltersChange([...issuerFilters, issuer]);
+      return;
+    }
+    onIssuerFiltersChange(issuerFilters.filter((selectedIssuer) => selectedIssuer !== issuer));
+  }
+
   return (
     <>
-      <div className="flex justify-end">
-        <DropdownMenu>
+      <div className="flex shrink-0 items-center gap-1" data-slot="account-directory-controls">
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               type="button"
               data-slot="account-directory-menu"
-              className="min-h-11 min-w-11 px-2 sm:px-3"
+              className="shrink-0"
               aria-label={labels.menuLabel}
               title={labels.menuLabel}
             >
-              <ListFilter aria-hidden="true" />
-              <span className="hidden sm:inline">{labels.menuLabel}</span>
+              <ViewIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72 rounded-md border-border bg-popover p-2 shadow-card">
-            <DropdownMenuLabel>{labels.filterLabel}</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={allVaultsSelected}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => {
-                if (checked) onVaultFiltersChange([]);
-              }}
-            >
-              {labels.allVaults}
-            </DropdownMenuCheckboxItem>
-            {vaults.map((vault) => (
-              <DropdownMenuCheckboxItem
-                key={vault.id}
-                checked={vaultFilters.includes(vault.id)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) => toggleVault(vault.id, checked === true)}
-              >
-                {vault.name}
-              </DropdownMenuCheckboxItem>
-            ))}
-            <DropdownMenuSeparator />
             <DropdownMenuLabel>{labels.viewLabel}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={view}
@@ -134,6 +134,64 @@ export function AccountDirectoryControls({
               <ArrowDownUp aria-hidden="true" />
               {labels.reorder}
             </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              data-slot="account-directory-filter-menu"
+              className="shrink-0"
+              aria-label={labels.filterLabel}
+              title={labels.filterLabel}
+            >
+              <ListFilter aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72 rounded-md border-border bg-popover p-2 shadow-card">
+            <DropdownMenuLabel>{labels.filterByVault}</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={allVaultsSelected}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={(checked) => {
+                if (checked) onVaultFiltersChange([]);
+              }}
+            >
+              {labels.allVaults}
+            </DropdownMenuCheckboxItem>
+            {vaults.map((vault) => (
+              <DropdownMenuCheckboxItem
+                key={vault.id}
+                checked={vaultFilters.includes(vault.id)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={(checked) => toggleVault(vault.id, checked === true)}
+              >
+                {vault.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{labels.filterByIssuer}</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={allIssuersSelected}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={(checked) => {
+                if (checked) onIssuerFiltersChange([]);
+              }}
+            >
+              {labels.allIssuers}
+            </DropdownMenuCheckboxItem>
+            {issuerOptions.map((issuer) => (
+              <DropdownMenuCheckboxItem
+                key={issuer}
+                checked={issuerFilters.includes(issuer)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={(checked) => toggleIssuer(issuer, checked === true)}
+              >
+                {issuer}
+              </DropdownMenuCheckboxItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -27,8 +27,11 @@ function isSafeActionUrl(value: URL): boolean {
     value.hostname === "auth" &&
     value.port === "" &&
     value.pathname === "/magic-link";
+  const isPwaActionUrl = isWebActionUrl && value.pathname === "/auth/pwa-confirm";
+  const isBrowserActionUrl = isWebActionUrl && (value.pathname === "/auth/confirm" || isPwaActionUrl);
+  const isNativeWebActionUrl = isWebActionUrl && value.pathname === "/auth/mobile";
   if (
-    (!isWebActionUrl && !isDevelopmentMobileActionUrl) ||
+    (!isBrowserActionUrl && !isNativeWebActionUrl && !isDevelopmentMobileActionUrl) ||
     value.username ||
     value.password ||
     value.search !== "" ||
@@ -39,12 +42,19 @@ function isSafeActionUrl(value: URL): boolean {
   const fragment = new URLSearchParams(value.hash.slice(1));
   const token = fragment.get("token");
   const nextPaths = fragment.getAll("next");
+  const handoffIds = fragment.getAll("handoff");
   return (
     fragment.getAll("token").length === 1 &&
     nextPaths.length <= 1 &&
-    [...fragment.keys()].every((key) => key === "token" || key === "next") &&
+    handoffIds.length <= 1 &&
+    [...fragment.keys()].every((key) => key === "token" || key === "next" || key === "handoff") &&
     !!token &&
     /^[A-Za-z0-9_-]{43,128}$/.test(token) &&
-    (nextPaths.length === 0 || nextPaths[0] === "/vaults" || nextPaths[0] === "/vaults/invitations/redeem")
+    (nextPaths.length === 0 || nextPaths[0] === "/vaults" || nextPaths[0] === "/vaults/invitations/redeem") &&
+    (isPwaActionUrl ? handoffIds.length === 1 && isSafeHandoffId(handoffIds[0]) : handoffIds.length === 0)
   );
+}
+
+function isSafeHandoffId(value: string | undefined): boolean {
+  return !!value && /^[A-Za-z0-9_-]{16,128}$/.test(value);
 }

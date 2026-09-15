@@ -341,7 +341,9 @@
       "failed": "Tautan masuk ini tidak valid atau sudah kedaluwarsa. Minta tautan baru.",
       "backToSignIn": "Kembali ke halaman masuk",
       "backToHome": "Kembali ke beranda",
-      "doNotClose": "Halaman ini akan melanjutkan secara otomatis setelah verifikasi."
+      "doNotClose": "Halaman ini akan melanjutkan secara otomatis setelah verifikasi.",
+      "pwaCompleted": "Tautan terverifikasi. rhasia-scret sedang membuka sesi di aplikasi terpasang Anda.",
+      "pwaDoNotClose": "Biarkan aplikasi terpasang tetap terbuka sampai brankas tampil."
     },
     "signIn": {
       "title": "Masuk atau buat akun",
@@ -358,8 +360,11 @@
       "sendLink": "Lanjutkan dengan email",
       "sent": "Periksa kotak masuk untuk tautan masuk. Akun hosted baru tersedia setelah email diverifikasi.",
       "sentInvitation": "Periksa kotak masuk. Biarkan tab undangan ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
+      "sentPwa": "Periksa kotak masuk. Biarkan aplikasi terpasang ini tetap terbuka; sesi akan diteruskan otomatis setelah tautan dibuka.",
+      "authenticating": "Meneruskan sesi masuk ke aplikasi terpasang…",
       "rateLimited": "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.",
-      "error": "Kami tidak dapat mengirim tautan email. Coba lagi."
+      "error": "Kami tidak dapat mengirim tautan email. Coba lagi.",
+      "handoffError": "Sesi masuk tidak dapat diteruskan ke aplikasi terpasang. Minta tautan baru dari aplikasi ini."
     },
     "magicLinkEmail": {
       "language": "Bahasa Indonesia",
@@ -573,7 +578,11 @@
       "auditError": "OTP tetap disalin, tetapi riwayat akses Brankas Bersama tidak dapat dicatat.",
       "allVaults": "Semua brankas",
       "selectedVaults": "{count, plural, one {# brankas dipilih} other {# brankas dipilih}}",
+      "filterLabel": "Filter akun",
       "filterByVault": "Filter berdasarkan brankas",
+      "filterByIssuer": "Filter berdasarkan penerbit",
+      "allIssuers": "Semua penerbit",
+      "selectedIssuers": "{count, plural, one {# penerbit dipilih} other {# penerbit dipilih}}",
       "directoryMenu": "Opsi tampilan",
       "viewLabel": "Tampilan",
       "compact": "Ringkas",
@@ -593,8 +602,8 @@
       "empty": "Belum ada akun autentikator",
       "emptyCurrent": "Tambahkan akun pertama dengan memindai kode QR.",
       "emptySnapshot": "Snapshot terenkripsi ini tidak berisi akun.",
-      "emptyFiltered": "Belum ada akun di brankas ini",
-      "emptyFilteredDescription": "Pilih brankas lain atau tambahkan akun autentikator ke brankas ini."
+      "emptyFiltered": "Tidak ada akun yang cocok dengan filter ini",
+      "emptyFilteredDescription": "Pilih brankas atau penerbit lain, atau tambahkan akun autentikator ke brankas ini."
     },
     "qr": {
       "title": "Impor kode QR",
@@ -1269,7 +1278,11 @@
       "add": "Tambah akun",
       "allVaults": "Semua brankas",
       "selectedVaults": "{count, plural, one {# brankas dipilih} other {# brankas dipilih}}",
+      "filterLabel": "Filter akun",
       "filterByVault": "Filter berdasarkan brankas",
+      "filterByIssuer": "Filter berdasarkan penerbit",
+      "allIssuers": "Semua penerbit",
+      "selectedIssuers": "{count, plural, one {# penerbit dipilih} other {# penerbit dipilih}}",
       "directoryMenu": "Opsi tampilan",
       "viewLabel": "Tampilan",
       "compact": "Ringkas",
@@ -1284,7 +1297,8 @@
       "moveDown": "Pindahkan {account} ke bawah",
       "openVault": "Buka detail {vault}",
       "accountActions": "Tindakan untuk {account}",
-      "emptyFiltered": "Belum ada akun di brankas ini",
+      "empty": "Belum ada akun autentikator",
+      "emptyFiltered": "Tidak ada akun yang cocok dengan filter ini",
       "accounts": "Akun autentikator",
       "personalVault": "Brankas Pribadi",
       "sampleService": "Layanan contoh",

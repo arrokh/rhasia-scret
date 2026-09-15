@@ -9,6 +9,24 @@ describe("requestEmailSignInLink", () => {
     expect(requestMagicLink).toHaveBeenCalledWith({ email: "person@example.test", returnPath: "/vaults" });
   });
 
+  it("passes the installed-PWA handoff without exposing the email", async () => {
+    const requestMagicLink = vi.fn().mockResolvedValue({ error: null });
+    const result = await requestEmailSignInLink({ requestMagicLink }, "person@example.test", "/vaults", {
+      client: "pwa",
+      handoffId: "pwa-handoff-123456",
+      handoffVerifier: "v".repeat(43),
+    });
+
+    expect(result).toBe("sent");
+    expect(requestMagicLink).toHaveBeenCalledWith({
+      email: "person@example.test",
+      returnPath: "/vaults",
+      client: "pwa",
+      handoffId: "pwa-handoff-123456",
+      handoffVerifier: "v".repeat(43),
+    });
+  });
+
   it("does not expose delivery errors", async () => {
     const result = await requestEmailSignInLink(
       { requestMagicLink: vi.fn().mockResolvedValue({ error: new Error("delivery failure") }) },
