@@ -111,10 +111,10 @@ pnpm dev:db
 pnpm dev
 ```
 
-`pnpm dev:db` starts only `db`, publishes PostgreSQL on loopback, and prompts
-before running the migration service. Re-run the migration with
-`pnpm dev:db:migrate`; stop the development Compose stack without deleting its
-named volume with `pnpm dev:db:down`. Each database operation requires typing
+`pnpm dev:db` starts only `db` and publishes PostgreSQL on loopback; it does
+not run migrations. Run `pnpm dev:db:migrate` separately when the schema needs
+updating. Stop the development Compose stack without deleting its named volume
+with `pnpm dev:db:down`. Migration and shutdown operations require typing
 `yes`; use `docker compose ... down -v` only when you intentionally want to
 reset the local database.
 

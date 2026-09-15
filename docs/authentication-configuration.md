@@ -54,7 +54,9 @@ registration with the same identity.
 
 Local passwordless identities use issuer `rhasia:passwordless` and a random subject. `ExternalIdentity` remains unique by `(issuer, subject)` and remains the only identity-to-`ApplicationUser` binding. Future Firebase, OIDC, or other providers create separate identity rows. Linking requires explicit reauthentication; email similarity never performs an automatic merge.
 
-The migration is intentionally staged. Run `pnpm run prisma:migrate:deploy`; its passwordless deployment runner applies all migrations through the additive authentication migration, runs preflight, seeds one local identity per existing Application User by that existing user ID, performs staged verification while the legacy column is retained, and only then applies the guarded cleanup migration and remaining migrations. It is safe to rerun after an interrupted deployment. Finish with `pnpm run verify:passwordless-migration` and record counts only, never emails, tokens, or database values.
+The migration is intentionally staged. For production, put the pooled `DATABASE_URL` and direct `DIRECT_URL` in the ignored `.env.prod` file and run `pnpm prod:db:migrate`. It builds the focused migration image, applies all migrations through the additive authentication migration, runs preflight, seeds one local identity per existing Application User by that existing user ID, performs staged verification while the legacy column is retained, and only then applies the guarded cleanup migration and remaining migrations. It does not start the Compose-local database dependency. The command is safe to rerun after an interrupted deployment and performs final migration verification; record counts only, never emails, tokens, or database values.
+
+For a local non-container database, `pnpm run prisma:migrate:deploy` remains the lower-level migration command.
 
 If preflight, seeding, or staged verification fails, the runner stops before the destructive migration. There is no dual-auth fallback or compatibility session path; rollback after the final migration requires restoring the database backup and deploying the previous application version.
 
