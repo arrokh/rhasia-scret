@@ -106,7 +106,7 @@ function GitHubButton({ label }: { label: string }) {
         aria-label={label}
         title={label}
       >
-        <FaGithub className="size-5" aria-hidden="true" />
+        <FaGithub aria-hidden="true" />
       </a>
     </Button>
   );

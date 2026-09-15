@@ -680,8 +680,12 @@ async function waitForStableBoundingBox(locator: Locator): Promise<void> {
 test("aligns the shared header action and sticky footer on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/ui-preview/vaults");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("main > header")).toHaveCSS("display", "flex");
   const headerLead = page.locator("main > header > div").first();
   const settings = page.getByLabel("Pengaturan akun");
+  await waitForStableBoundingBox(headerLead);
+  await waitForStableBoundingBox(settings);
   const leadBox = await headerLead.boundingBox();
   const settingsBox = await settings.boundingBox();
   expect(Math.abs((leadBox?.y ?? 0) - (settingsBox?.y ?? 0))).toBeLessThan(2);

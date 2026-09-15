@@ -91,7 +91,7 @@ export function SharedVaultCreator({
           {t(status)}
         </StatusBanner>
       )}
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <Button type="submit" disabled={!online || isSubmitting} aria-busy={isSubmitting}>
             {isSubmitting ? t("creating") : t("create")}

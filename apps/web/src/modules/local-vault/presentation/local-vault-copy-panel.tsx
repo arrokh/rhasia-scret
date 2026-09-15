@@ -272,7 +272,7 @@ function LocalVaultUnlockForm({ onUnlock }: { onUnlock: (passphrase: string) => 
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(submitting) => (
           <Button type="submit" disabled={submitting}>
             {submitting ? t("unlocking") : t("unlock")}

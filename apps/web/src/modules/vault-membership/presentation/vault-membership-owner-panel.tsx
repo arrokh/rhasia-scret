@@ -784,7 +784,7 @@ function InvitationForm({
             </div>
           )}
         </form.Field>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
+        <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
           {(pending) => (
             <Button className="w-full sm:w-auto" type="submit" disabled={pending}>
               {pending ? t("creating") : t("create")}

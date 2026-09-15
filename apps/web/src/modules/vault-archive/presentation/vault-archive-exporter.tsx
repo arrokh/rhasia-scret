@@ -265,7 +265,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
             </div>
           )}
         </form.Field>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
+        <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
           {(pending) => (
             <Button type="submit" disabled={!isHydrated || !online || pending} aria-busy={pending}>
               {pending && <LoaderCircle className="animate-spin" />}

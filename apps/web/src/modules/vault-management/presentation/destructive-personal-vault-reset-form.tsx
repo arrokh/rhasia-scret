@@ -105,7 +105,7 @@ export function DestructivePersonalVaultResetForm() {
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <Button
             variant="destructive"

@@ -207,7 +207,7 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(formState) => formState.isSubmitting}>
+      <form.Subscribe<boolean> selector={(formState) => formState.isSubmitting}>
         {(isSubmitting) => (
           <Button
             type={status === "sent" ? "button" : "submit"}

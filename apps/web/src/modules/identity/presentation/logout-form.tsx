@@ -106,7 +106,7 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
               void form.handleSubmit();
             }}
           >
-            <form.Subscribe selector={(state) => state.isSubmitting}>
+            <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <Button
                   variant="ghost"
