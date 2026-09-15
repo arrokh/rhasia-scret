@@ -9,15 +9,23 @@ const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
 const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
 const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
+const cloudflareTurnstileHost = "https://challenges.cloudflare.com";
 
 const staticContentSecurityPolicy = [
   "default-src 'self'",
-  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
-  ["script-src-elem 'self'", posthogAssetsHost, cloudflareAnalyticsScriptHost].filter(Boolean).join(" "),
+  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost, cloudflareAnalyticsScriptHost, cloudflareTurnstileHost]
+    .filter(Boolean)
+    .join(" "),
+  ["script-src-elem 'self'", posthogAssetsHost, cloudflareAnalyticsScriptHost, cloudflareTurnstileHost]
+    .filter(Boolean)
+    .join(" "),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
+  ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost, cloudflareTurnstileHost]
+    .filter(Boolean)
+    .join(" "),
+  `frame-src 'self' ${cloudflareTurnstileHost}`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",

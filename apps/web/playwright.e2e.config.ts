@@ -41,6 +41,8 @@ export default defineConfig({
       AUTH_APP_ORIGIN: browserTestBaseUrl,
       AUTH_MAGIC_LINK_SECRET: "browser-e2e-magic-link-secret-12345678901234567890",
       AUTH_SESSION_SECRET: "browser-e2e-session-secret-12345678901234567890",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       SMTP_HOST: "smtp.browser-e2e.invalid",
       SMTP_PORT: "587",
       SMTP_SECURE: "false",

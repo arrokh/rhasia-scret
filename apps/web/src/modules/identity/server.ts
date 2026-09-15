@@ -26,6 +26,11 @@ import {
   readPasswordlessConfiguration,
 } from "./infrastructure/passwordless-service";
 import { PrismaAnonymousAuthRateLimiter } from "./infrastructure/prisma-anonymous-auth-rate-limiter";
+import {
+  CloudflareTurnstileValidator,
+  isSafeTurnstileToken,
+  type TurnstileValidationResult,
+} from "./infrastructure/turnstile";
 import { isSameOrigin, requestClientIp, requestPublicOrigin } from "./infrastructure/request-origin";
 import {
   clearPasswordlessSessionCookies,
@@ -41,6 +46,8 @@ export {
 };
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
 export type { PasswordlessAuthService };
+export type { TurnstileValidationResult };
+export { isSafeTurnstileToken };
 export {
   isPasswordlessClient,
   isPasswordlessReturnPath,
@@ -77,6 +84,10 @@ export function createPasswordlessAuthService(): PasswordlessAuthService {
 
 export function createAnonymousAuthRateLimiter(): PrismaAnonymousAuthRateLimiter {
   return new PrismaAnonymousAuthRateLimiter(readPasswordlessConfiguration().magicLinkSecret);
+}
+
+export function createTurnstileValidator(): CloudflareTurnstileValidator {
+  return new CloudflareTurnstileValidator(readPasswordlessConfiguration().turnstile.secretKey);
 }
 
 export function createSessionVerifier(): SessionVerifier {

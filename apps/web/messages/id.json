@@ -362,6 +362,9 @@
       "sentInvitation": "Periksa kotak masuk. Biarkan tab undangan ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
       "sentPwa": "Periksa kotak masuk. Biarkan aplikasi terpasang ini tetap terbuka; sesi akan diteruskan otomatis setelah tautan dibuka.",
       "authenticating": "Meneruskan sesi masuk ke aplikasi terpasang…",
+      "securityCheck": "Verifikasi keamanan",
+      "turnstileRequired": "Selesaikan verifikasi keamanan sebelum melanjutkan.",
+      "turnstileError": "Verifikasi keamanan tidak dapat dimuat. Coba lagi.",
       "rateLimited": "Terlalu banyak permintaan masuk. Tunggu satu menit, lalu periksa kotak masuk atau coba lagi.",
       "error": "Kami tidak dapat mengirim tautan email. Coba lagi.",
       "handoffError": "Sesi masuk tidak dapat diteruskan ke aplikasi terpasang. Minta tautan baru dari aplikasi ini."

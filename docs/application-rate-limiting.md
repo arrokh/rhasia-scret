@@ -4,14 +4,14 @@
 
 Authenticated application mutations under `apps/web/src/app/api/` use the operation-class inventory in `authenticated-mutation-rate-limit-inventory.ts`. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
-Anonymous passwordless link requests use separate PostgreSQL-backed 15-minute windows:
+Anonymous passwordless link requests use two layers: browser and installed-PWA requests first pass Cloudflare Turnstile validation, then all clients use separate PostgreSQL-backed 15-minute windows:
 
 | Bucket                          | Limit |
 | ------------------------------- | ----: |
 | HMAC bucket of normalized email |     5 |
 | HMAC bucket of source IP        |    20 |
 
-The rate-limit table stores only keyed bucket digests, operation names, window timestamps, expiry, and counts. It does not persist email addresses, IP addresses, link tokens, session credentials, or request bodies. Link redemption is additionally protected by atomic one-time challenge consumption and expiry.
+The rate-limit table stores only keyed bucket digests, operation names, window timestamps, expiry, and counts. It does not persist email addresses, IP addresses, Turnstile tokens, link tokens, session credentials, or request bodies. Turnstile validation sends the token only to Cloudflare's server-side verification endpoint and does not persist the response. Link redemption is additionally protected by atomic one-time challenge consumption and expiry.
 
 Authenticated budgets:
 
@@ -31,7 +31,7 @@ Rate limiting occurs after authentication and active-user checks but before body
 
 ## Responses
 
-An exhausted budget returns HTTP `429`, `{"error":"rate_limited"}`, bounded `Retry-After`, and `Cache-Control: no-store`. If PostgreSQL cannot make a limiter decision, authenticated mutation fails closed with HTTP `503`, `{"error":"rate_limit_unavailable"}`, `Retry-After: 5`, and `Cache-Control: no-store`. Authentication delivery failures use a generic response and never disclose account existence or provider details.
+An exhausted budget returns HTTP `429`, `{"error":"rate_limited"}`, bounded `Retry-After`, and `Cache-Control: no-store`. Invalid browser Turnstile tokens return a generic HTTP `403`; Turnstile or PostgreSQL limiter outages fail closed with HTTP `503` and bounded `Retry-After`. Authentication delivery failures use a generic response and never disclose account existence or provider details.
 
 Operational logs contain only operation/outcome counters. Never log user identifiers, email addresses, IP addresses, route bodies, ciphertext, link material, credentials, or keys. Expired application and anonymous windows are removed by the retention purge.
 

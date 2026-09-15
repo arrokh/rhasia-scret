@@ -8,6 +8,7 @@ const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
 const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
 const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
+const cloudflareTurnstileHost = "https://challenges.cloudflare.com";
 const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Content-Type-Options": "nosniff",
@@ -26,6 +27,7 @@ function createCsp(nonce: string): string {
     `script-src-elem 'self' 'nonce-${nonce}'`,
     posthogAssetsHost,
     cloudflareAnalyticsScriptHost,
+    cloudflareTurnstileHost,
   ]
     .filter(Boolean)
     .join(" ");
@@ -35,6 +37,7 @@ function createCsp(nonce: string): string {
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`,
       posthogAssetsHost,
       cloudflareAnalyticsScriptHost,
+      cloudflareTurnstileHost,
     ]
       .filter(Boolean)
       .join(" "),
@@ -42,7 +45,10 @@ function createCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost].filter(Boolean).join(" "),
+    ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost, cloudflareTurnstileHost]
+      .filter(Boolean)
+      .join(" "),
+    `frame-src 'self' ${cloudflareTurnstileHost}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",

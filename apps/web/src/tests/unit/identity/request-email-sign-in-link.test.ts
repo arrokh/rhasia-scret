@@ -27,6 +27,20 @@ describe("requestEmailSignInLink", () => {
     });
   });
 
+  it("passes the one-time Turnstile token without retaining it in the result", async () => {
+    const requestMagicLink = vi.fn().mockResolvedValue({ error: null });
+    const result = await requestEmailSignInLink({ requestMagicLink }, "person@example.test", "/vaults", {
+      turnstileToken: "XXXX.DUMMY.TOKEN.XXXX",
+    });
+
+    expect(result).toBe("sent");
+    expect(requestMagicLink).toHaveBeenCalledWith({
+      email: "person@example.test",
+      returnPath: "/vaults",
+      turnstileToken: "XXXX.DUMMY.TOKEN.XXXX",
+    });
+  });
+
   it("does not expose delivery errors", async () => {
     const result = await requestEmailSignInLink(
       { requestMagicLink: vi.fn().mockResolvedValue({ error: new Error("delivery failure") }) },

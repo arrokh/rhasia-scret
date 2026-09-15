@@ -362,6 +362,9 @@
       "sentInvitation": "Check your inbox. Keep this invitation tab open; it will continue automatically after verification.",
       "sentPwa": "Check your inbox. Keep this installed app open; the session will be handed back automatically after you open the link.",
       "authenticating": "Handing the sign-in session back to the installed app…",
+      "securityCheck": "Security verification",
+      "turnstileRequired": "Complete the security verification before continuing.",
+      "turnstileError": "The security verification could not be loaded. Try again.",
       "rateLimited": "Too many sign-in requests. Wait one minute, then check your inbox or try again.",
       "error": "We could not send the email link. Try again.",
       "handoffError": "The sign-in session could not be handed back to the installed app. Request a new link from this app."

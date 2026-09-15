@@ -15,6 +15,8 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("script-src-elem 'self'");
     expect(config).toContain("https://static.cloudflareinsights.com");
     expect(config).toContain("https://cloudflareinsights.com");
+    expect(config).toContain("https://challenges.cloudflare.com");
+    expect(config).toContain("frame-src 'self'");
     expect(config).toContain("frame-ancestors 'none'");
     expect(config).toContain("Cache-Control");
     const layout = read("src/app/layout.tsx");

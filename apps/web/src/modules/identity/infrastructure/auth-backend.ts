@@ -1,10 +1,16 @@
 export type AuthBackend = "none" | "passwordless" | "oidc";
 
+export type TurnstileConfiguration = {
+  siteKey: string;
+  secretKey: string;
+};
+
 export type PasswordlessConfiguration = {
   appOrigin: URL;
   mobileRedirectUrl: URL;
   magicLinkSecret: Uint8Array;
   sessionSecret: Uint8Array;
+  turnstile: TurnstileConfiguration;
   magicLinkTtlSeconds: number;
   accessTokenTtlSeconds: number;
   refreshTokenTtlSeconds: number;
@@ -61,11 +67,13 @@ function readPasswordlessConfiguration(env: Readonly<Record<string, string | und
   if (sessionSecretText.length < 32) throw new Error("AUTH_SESSION_SECRET must contain at least 32 characters.");
   if (magicLinkSecretText === sessionSecretText)
     throw new Error("AUTH_MAGIC_LINK_SECRET and AUTH_SESSION_SECRET must be different values.");
+  const turnstile = readTurnstileConfiguration(env, env.NODE_ENV);
   return {
     appOrigin,
     mobileRedirectUrl,
     magicLinkSecret: new TextEncoder().encode(magicLinkSecretText),
     sessionSecret: new TextEncoder().encode(sessionSecretText),
+    turnstile,
     magicLinkTtlSeconds: readInteger(env.AUTH_MAGIC_LINK_TTL_SECONDS, "AUTH_MAGIC_LINK_TTL_SECONDS", 900, 60, 3_600),
     accessTokenTtlSeconds: readInteger(
       env.AUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -82,6 +90,20 @@ function readPasswordlessConfiguration(env: Readonly<Record<string, string | und
       31_536_000,
     ),
   };
+}
+
+function readTurnstileConfiguration(
+  env: Readonly<Record<string, string | undefined>>,
+  nodeEnv: string | undefined,
+): TurnstileConfiguration {
+  const siteKey = readRequired(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+  const secretKey = readRequired(env.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
+  if (
+    nodeEnv === "production" &&
+    (siteKey === "1x00000000000000000000AA" || secretKey === "1x0000000000000000000000000000000AA")
+  )
+    throw new Error("Cloudflare Turnstile testing keys are not allowed in production.");
+  return { siteKey, secretKey };
 }
 
 function readRequired(value: string | undefined, name: string): string {

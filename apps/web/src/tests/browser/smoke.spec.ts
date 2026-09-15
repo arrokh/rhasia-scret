@@ -198,6 +198,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
     expect(body.client).toBe("pwa");
     expect(typeof body.handoffId).toBe("string");
     expect(typeof body.handoffVerifier).toBe("string");
+    expect(typeof body.turnstileToken).toBe("string");
     handoffId = body.handoffId as string;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sent: true }) });
   });
@@ -230,6 +231,15 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
   });
 
   await page.goto("/sign-in?next=%2Fvaults%2Finvitations%2Fredeem");
+  const turnstileWidget = page.getByLabel("Verifikasi keamanan");
+  await expect(turnstileWidget).toBeVisible();
+  const widgetBox = await turnstileWidget.boundingBox();
+  const formBox = await page.locator("form").boundingBox();
+  expect(widgetBox).not.toBeNull();
+  expect(formBox).not.toBeNull();
+  expect(
+    Math.abs((widgetBox?.x ?? 0) + (widgetBox?.width ?? 0) / 2 - ((formBox?.x ?? 0) + (formBox?.width ?? 0) / 2)),
+  ).toBeLessThan(2);
   await page.getByLabel("Alamat email").fill("person@example.test");
   await page.getByRole("button", { name: "Lanjutkan dengan email" }).click();
   await expect(

@@ -6,7 +6,7 @@ import { isPwaDisplayMode, type PendingPwaAuthenticationHandoff } from "./pwa-au
 import type { PasswordlessSignInClient } from "../presentation/request-email-sign-in-link";
 
 export const browserPasswordlessClient: PasswordlessSignInClient = {
-  async requestMagicLink({ email, returnPath, client, handoffId, handoffVerifier }) {
+  async requestMagicLink({ email, returnPath, client, handoffId, handoffVerifier, turnstileToken }) {
     const resolvedClient: PasswordlessClient = client ?? (isPwaDisplayMode() ? "pwa" : "web");
     try {
       await browserApiClient.postJson<{ sent: true }>("/api/auth/magic-link/request", {
@@ -14,6 +14,7 @@ export const browserPasswordlessClient: PasswordlessSignInClient = {
         client: resolvedClient,
         returnPath,
         ...(resolvedClient === "pwa" ? { handoffId, handoffVerifier } : {}),
+        ...(turnstileToken ? { turnstileToken } : {}),
       });
       return { error: null };
     } catch (error) {
