@@ -171,11 +171,12 @@ test("renders email authentication and signup at sign in", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Buka snapshot luring" })).toHaveAttribute("href", "/offline");
 });
 
-test("hands a passwordless session from the email browser back to the installed PWA", async ({ page, context }) => {
+test("hands a passwordless session to a new installed-PWA window", async ({ page, context }) => {
   let handoffId: string | undefined;
   let handoffPublished = false;
+  let handoffAccepted = false;
   let pollSentRefreshCredential = false;
-  await page.addInitScript(() => {
+  await context.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia;
     window.matchMedia = (query) => {
       if (query === "(display-mode: standalone)")
@@ -218,6 +219,7 @@ test("hands a passwordless session from the email browser back to the installed 
       return;
     }
     pollSentRefreshCredential ||= "refreshToken" in body;
+    handoffAccepted ||= handoffPublished;
     await route.fulfill({
       status: handoffPublished ? 200 : 202,
       contentType: "application/json",
@@ -242,7 +244,8 @@ test("hands a passwordless session from the email browser back to the installed 
     await browser.goto(
       `/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults%2Finvitations%2Fredeem&handoff=${handoffId}`,
     );
-    await expect(browser.getByText("rhasia-scret sedang membuka sesi di aplikasi terpasang Anda.")).toBeVisible();
+    await expect.poll(() => handoffPublished).toBe(true);
+    await expect.poll(() => handoffAccepted).toBe(true);
     await expect(page.getByText("Meneruskan sesi masuk ke aplikasi terpasang…")).toBeVisible({ timeout: 15_000 });
     expect(pollSentRefreshCredential).toBe(false);
   } finally {

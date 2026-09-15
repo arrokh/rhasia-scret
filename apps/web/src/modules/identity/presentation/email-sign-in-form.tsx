@@ -17,6 +17,8 @@ import {
   createPwaAuthenticationHandoff,
   isPwaDisplayMode,
   readPwaAuthenticationHandoff,
+  subscribeToPwaAuthenticationCompletion,
+  subscribeToPwaAuthenticationVerifierRequests,
   type PendingPwaAuthenticationHandoff,
 } from "../infrastructure/pwa-authentication";
 import { announceAuthenticationCompletion } from "./auth-completion-channel";
@@ -40,6 +42,25 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
   const [pendingPwaHandoff, setPendingPwaHandoff] = useState<PendingPwaAuthenticationHandoff | null>(() =>
     pwaMode ? readPwaAuthenticationHandoff() : null,
   );
+
+  useEffect(() => {
+    if (!pwaMode) return;
+    return subscribeToPwaAuthenticationVerifierRequests((handoffId) => {
+      const pending = readPwaAuthenticationHandoff();
+      return pending?.handoffId === handoffId ? pending.verifier : null;
+    });
+  }, [pwaMode]);
+
+  useEffect(() => {
+    if (!pwaMode) return;
+    return subscribeToPwaAuthenticationCompletion((handoffId) => {
+      const pending = readPwaAuthenticationHandoff();
+      if (pending?.handoffId !== handoffId) return;
+      clearPwaAuthenticationHandoff();
+      setPendingPwaHandoff(null);
+      setStatus("authenticating");
+    });
+  }, [pwaMode]);
 
   useEffect(() => {
     if (!pwaMode || !pendingPwaHandoff) return;

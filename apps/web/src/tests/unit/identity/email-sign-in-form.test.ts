@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   pollPwaAuthenticationHandoff: vi.fn(),
   readPwaAuthenticationHandoff: vi.fn(() => null),
   requestEmailSignInLink: vi.fn(),
+  subscribeToPwaAuthenticationCompletion: vi.fn(() => () => undefined),
+  subscribeToPwaAuthenticationVerifierRequests: vi.fn(() => () => undefined),
 }));
 
 vi.mock("@/modules/identity/infrastructure/browser-passwordless-client", () => ({
@@ -31,6 +33,8 @@ vi.mock("@/modules/identity/infrastructure/pwa-authentication", () => ({
   createPwaAuthenticationHandoff: mocks.createPwaAuthenticationHandoff,
   isPwaDisplayMode: mocks.isPwaDisplayMode,
   readPwaAuthenticationHandoff: mocks.readPwaAuthenticationHandoff,
+  subscribeToPwaAuthenticationCompletion: mocks.subscribeToPwaAuthenticationCompletion,
+  subscribeToPwaAuthenticationVerifierRequests: mocks.subscribeToPwaAuthenticationVerifierRequests,
 }));
 vi.mock("@/modules/identity/presentation/auth-completion-channel", () => ({
   announceAuthenticationCompletion: mocks.announceAuthenticationCompletion,

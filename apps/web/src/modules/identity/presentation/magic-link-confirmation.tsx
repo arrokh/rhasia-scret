@@ -16,9 +16,12 @@ import {
   redeemPwaMagicLink,
 } from "../infrastructure/browser-passwordless-client";
 import {
+  announcePwaAuthenticationCompletion,
   clearPwaAuthenticationHandoff,
   isPwaDisplayMode,
   readPwaAuthenticationHandoff,
+  requestPwaAuthenticationVerifier,
+  type PendingPwaAuthenticationHandoff,
 } from "../infrastructure/pwa-authentication";
 
 type MagicLinkConfirmationProps = { client?: "web" | "pwa"; navigate?: (path: string) => void };
@@ -53,15 +56,18 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
       try {
         if (client === "pwa") {
           if (!fragment.handoffId || !isSafePwaHandoffId(fragment.handoffId)) throw new Error("Invalid PWA handoff.");
+          const pwaDisplayMode = isPwaDisplayMode();
+          const pending = pwaDisplayMode ? await resolvePwaAuthenticationHandoff(fragment.handoffId) : null;
+          if (pwaDisplayMode && !pending) throw new Error("PWA handoff is unavailable.");
           const result = await redeemPwaMagicLink(fragment.token);
           if (!isSessionToken(result.refreshToken)) throw new Error("Invalid PWA session handoff.");
           await publishPwaAuthenticationHandoff(fragment.handoffId, result.refreshToken);
-          if (isPwaDisplayMode()) {
-            const pending = readPwaAuthenticationHandoff();
-            if (!pending || pending.handoffId !== fragment.handoffId) throw new Error("PWA handoff is unavailable.");
+          if (pwaDisplayMode) {
+            if (!pending) throw new Error("PWA handoff is unavailable.");
             const accepted = await pollPwaAuthenticationHandoff(pending);
             if (!("accepted" in accepted)) throw new Error("PWA handoff is pending.");
             clearPwaAuthenticationHandoff();
+            announcePwaAuthenticationCompletion(fragment.handoffId);
             announceAuthenticationCompletion();
             if (mounted.current) goTo(accepted.returnPath);
             return;
@@ -128,6 +134,13 @@ function buildAuthenticatedDestination(returnPath: string, invitationSecret: str
   const destination = new URL(returnPath, window.location.origin);
   destination.hash = invitationSecret;
   return `${destination.pathname}${destination.search}${destination.hash}`;
+}
+
+async function resolvePwaAuthenticationHandoff(handoffId: string): Promise<PendingPwaAuthenticationHandoff | null> {
+  const pending = readPwaAuthenticationHandoff();
+  if (pending?.handoffId === handoffId) return pending;
+  const verifier = await requestPwaAuthenticationVerifier(handoffId);
+  return verifier ? { handoffId, verifier } : null;
 }
 
 function readAndClearFragment(): Readonly<{ token: string | null; handoffId: string | null }> {
