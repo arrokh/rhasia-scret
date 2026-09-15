@@ -243,7 +243,11 @@ function sessionIdFromCredential(credential: string): string | null {
   return isSafeSessionId(sessionId) ? sessionId : null;
 }
 
-export function passwordlessPrincipal(account: PasswordlessAccount, assurance: SessionAssurance): VerifiedPrincipal {
+export function passwordlessPrincipal(
+  account: PasswordlessAccount,
+  assurance: SessionAssurance,
+  issuedAt?: Date,
+): VerifiedPrincipal {
   return {
     issuer: account.issuer,
     subject: account.subject,
@@ -251,5 +255,6 @@ export function passwordlessPrincipal(account: PasswordlessAccount, assurance: S
     emailVerified: true,
     assurance,
     sessionId: undefined,
+    issuedAt,
   };
 }

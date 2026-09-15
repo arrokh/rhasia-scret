@@ -19,6 +19,7 @@ describe("offline PWA architecture boundaries", () => {
       .map((path) => relative(root, path))
       .sort();
     expect(mutationCallers).toEqual([
+      "src/modules/account-deletion/infrastructure/browser-account-deletion-client.ts",
       "src/modules/audit/infrastructure/browser-vault-audit-client.ts",
       "src/modules/crypto/infrastructure/browser-passkey-recovery-client.ts",
       "src/modules/identity/infrastructure/browser-passkey-recovery-status-client.ts",

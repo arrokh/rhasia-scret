@@ -1,6 +1,6 @@
 # Privacy and hosted-service disclosure
 
-**Published:** 2026-09-08
+**Published:** 2026-09-15
 
 This document describes the data boundary for rhasia-scret and the
 responsibilities of the hosted-demo maintainer, self-hosting operators, and
@@ -55,6 +55,25 @@ telemetry without a separate privacy and security review.
 
 ## Retention, deletion, and recovery limits
 
+- A hosted Application User may use the web-only Account Deletion workflow for
+  immediate, permanent hard deletion. Fresh reauthentication, the exact
+  `HAPUS AKUN` confirmation, and explicit acknowledgement are required. Every
+  owned Shared Vault must be permanently deleted or transferred to an eligible
+  active Viewer; unresolved ownership blocks deletion.
+- The browser may export one client-generated Encrypted Vault Archive per
+  owned Vault before deletion. Archive keys, Vault Names, TOTP configuration,
+  and decrypted content never enter the server, email, logs, or analytics.
+- Account Deletion removes hosted Personal/Shared Vault data, Authenticator
+  Accounts, memberships, invitations, crypto/recovery material, identities,
+  sessions, and rate-limit records synchronously. It clears hosted browser
+  workspace, offline snapshots, and Remembered Browser data, but never removes
+  the independent Local Profile or Local Vault.
+- The application retains a limited non-user-linked deletion ledger and
+  identity tombstones containing an opaque receipt and bounded operational
+  counts. Completion email, when delivery succeeds, contains only the receipt
+  ID. External provider, hosting, email, analytics, operating-system, client
+  backup, and self-hosted database backup retention remains outside this
+  application deletion guarantee.
 - A soft-deleted Authenticator Account is eligible for permanent purge after
   30 days.
 - A deleted Shared Vault and its encrypted content are eligible for permanent

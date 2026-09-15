@@ -1,5 +1,8 @@
 import type { ApplicationUser } from "../domain/application-user";
-import type { ApplicationUserRepository } from "./application-user-repository";
+import {
+  ApplicationUserCredentialInvalidatedError,
+  type ApplicationUserRepository,
+} from "./application-user-repository";
 import type { SessionVerifier } from "./session-verifier";
 
 export async function loadApplicationUser(
@@ -7,5 +10,11 @@ export async function loadApplicationUser(
   applicationUsers: ApplicationUserRepository,
 ): Promise<ApplicationUser | null> {
   const session = await sessionVerifier.verify();
-  return session ? applicationUsers.provision(session) : null;
+  if (!session) return null;
+  try {
+    return await applicationUsers.provision(session);
+  } catch (error) {
+    if (error instanceof ApplicationUserCredentialInvalidatedError) return null;
+    throw error;
+  }
 }

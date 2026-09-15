@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { ApplicationUser, type ApplicationUserStatus } from "../domain/application-user";
-import type { ApplicationUserRepository } from "../application/application-user-repository";
+import {
+  ApplicationUserCredentialInvalidatedError,
+  type ApplicationUserRepository,
+} from "../application/application-user-repository";
 import type { VerifiedPrincipal } from "../application/session-verifier";
 import { prisma } from "@/shared/infrastructure/prisma-client";
 
@@ -25,6 +28,7 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
   public constructor(private readonly isAdmitted: ApplicationAdmission = async () => true) {}
 
   public async provision(principal: VerifiedPrincipal): Promise<ApplicationUser> {
+    await this.assertCredentialWasIssuedAfterDeletion(principal);
     const existingIdentity = await prisma.externalIdentity.findUnique({
       where: { issuer_subject: { issuer: principal.issuer, subject: principal.subject } },
       include: { applicationUser: { include: { externalIdentities: true } } },
@@ -60,6 +64,16 @@ export class PrismaApplicationUserRepository implements ApplicationUserRepositor
       if (!racedIdentity) throw error;
       return this.resolveExistingIdentity(racedIdentity, principal);
     }
+  }
+
+  private async assertCredentialWasIssuedAfterDeletion(principal: VerifiedPrincipal): Promise<void> {
+    const deletion = await prisma.accountDeletionIdentity.findFirst({
+      where: { issuer: principal.issuer, subject: principal.subject },
+      orderBy: { deletedAt: "desc" },
+      select: { deletedAt: true },
+    });
+    if (deletion && (!principal.issuedAt || principal.issuedAt.getTime() <= deletion.deletedAt.getTime()))
+      throw new ApplicationUserCredentialInvalidatedError();
   }
 
   private async resolveExistingIdentity(

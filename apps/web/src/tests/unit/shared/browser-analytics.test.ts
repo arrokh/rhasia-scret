@@ -93,6 +93,7 @@ describe("browser analytics", () => {
       element_allowlist: ["a", "button"],
       capture_copied_text: false,
     });
+    expect(options.autocapture?.url_ignorelist?.some((pattern) => pattern.test("/account/delete"))).toBe(true);
     expect(options).toMatchObject({
       capture_pageview: "history_change",
       capture_pageleave: true,

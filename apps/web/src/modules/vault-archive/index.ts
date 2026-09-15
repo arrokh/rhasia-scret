@@ -27,5 +27,10 @@ export {
 } from "@rhasia-scret/client-vault-core";
 export type { PreparedVaultArchive, VaultArchiveExportErrorCode } from "@rhasia-scret/client-vault-core";
 export type { OpenedVaultArchive, VaultArchiveWorkflowErrorCode } from "@rhasia-scret/client-vault-core";
+export {
+  prepareEncryptedVaultArchive as prepareBrowserEncryptedVaultArchive,
+  clearPreparedVaultArchive as clearBrowserPreparedVaultArchive,
+  downloadPreparedVaultArchive,
+} from "./infrastructure/browser-vault-archive-export-workflow";
 export { VaultArchiveExportWorkspace } from "./presentation/vault-archive-exporter";
 export { VaultArchiveImportWorkspace } from "./presentation/vault-archive-importer";

@@ -4,11 +4,14 @@ import { PrismaPasswordlessAuthRepository } from "@/modules/identity/infrastruct
 import { prisma } from "@/shared/infrastructure/prisma-client";
 
 const applicationUserIds: string[] = [];
+const deletionRecordIds: string[] = [];
+const magicLinkDigests: Uint8Array<ArrayBuffer>[] = [];
 const sessionSecret = new TextEncoder().encode("integration-passwordless-session-secret-1234567890");
+const magicLinkSecret = new TextEncoder().encode("integration-passwordless-magic-link-secret-1234567890");
 const configuration = {
   appOrigin: new URL("http://localhost:3000"),
   mobileRedirectUrl: new URL("http://localhost:3000/auth/mobile"),
-  magicLinkSecret: new TextEncoder().encode("integration-passwordless-magic-link-secret-1234567890"),
+  magicLinkSecret,
   sessionSecret,
   magicLinkTtlSeconds: 900,
   accessTokenTtlSeconds: 900,
@@ -16,12 +19,90 @@ const configuration = {
 };
 
 afterEach(async () => {
+  if (magicLinkDigests.length > 0)
+    await prisma.magicLinkChallenge.deleteMany({ where: { tokenDigest: { in: magicLinkDigests.splice(0) } } });
+  if (deletionRecordIds.length > 0)
+    await prisma.accountDeletionRecord.deleteMany({ where: { id: { in: deletionRecordIds.splice(0) } } });
   if (applicationUserIds.length > 0) {
     await prisma.applicationUser.deleteMany({ where: { id: { in: applicationUserIds.splice(0) } } });
   }
 });
 
 describe("PrismaPasswordlessAuthRepository", () => {
+  it.skipIf(!process.env.DATABASE_URL)(
+    "rejects a passwordless link created before deletion and admits a fresh link afterward",
+    async () => {
+      const repository = new PrismaPasswordlessAuthRepository(configuration);
+      const email = `deletion-link-${randomUUID()}@example.test`;
+      const account = await repository.findOrCreateAccount(email, new Date());
+      applicationUserIds.push(account.applicationUserId);
+      const oldDigest = digestWith(magicLinkSecret, `old-${randomUUID()}`);
+      magicLinkDigests.push(databaseBytes(oldDigest));
+      await repository.createChallenge({
+        tokenDigest: oldDigest,
+        challenge: { email, client: "web", returnPath: "/vaults" },
+        expiresAt: new Date(Date.now() + 900_000),
+      });
+      const oldChallenge = await prisma.magicLinkChallenge.findUniqueOrThrow({
+        where: { tokenDigest: Buffer.from(oldDigest) },
+        select: { createdAt: true },
+      });
+      const deletedAt = new Date(oldChallenge.createdAt.getTime() + 1);
+      const deletion = await prisma.accountDeletionRecord.create({
+        data: {
+          applicationUserId: account.applicationUserId,
+          email,
+          authBackend: "passwordless",
+          requestedAt: deletedAt,
+          completedAt: deletedAt,
+          emailDeliveryStatus: "SENT",
+          personalVaultCount: 0,
+          sharedVaultDeletedCount: 0,
+          sharedVaultTransferredCount: 0,
+          authenticatorAccountCount: 0,
+          identities: {
+            create: {
+              issuer: account.issuer,
+              subject: account.subject,
+              normalizedEmail: email,
+              deletedAt,
+            },
+          },
+        },
+        select: { id: true },
+      });
+      deletionRecordIds.push(deletion.id);
+
+      await expect(
+        repository.consumeChallenge(oldDigest, "web", new Date(deletedAt.getTime() + 1)),
+      ).resolves.toBeNull();
+      await prisma.applicationUser.delete({ where: { id: account.applicationUserId } });
+      applicationUserIds.splice(applicationUserIds.indexOf(account.applicationUserId), 1);
+
+      const freshDigest = digestWith(magicLinkSecret, `fresh-${randomUUID()}`);
+      magicLinkDigests.push(databaseBytes(freshDigest));
+      await repository.createChallenge({
+        tokenDigest: freshDigest,
+        challenge: { email, client: "web", returnPath: "/vaults" },
+        expiresAt: new Date(Date.now() + 900_000),
+      });
+      await prisma.magicLinkChallenge.update({
+        where: { tokenDigest: Buffer.from(freshDigest) },
+        data: { createdAt: new Date(deletedAt.getTime() + 10) },
+      });
+      await expect(
+        repository.consumeChallenge(freshDigest, "web", new Date(deletedAt.getTime() + 11)),
+      ).resolves.toEqual({
+        email,
+        client: "web",
+        returnPath: "/vaults",
+      });
+      const freshAccount = await repository.findOrCreateAccount(email, new Date());
+      applicationUserIds.push(freshAccount.applicationUserId);
+      expect(freshAccount.applicationUserId).not.toBe(account.applicationUserId);
+    },
+  );
+
   it.skipIf(!process.env.DATABASE_URL)("rotates refresh credentials and revokes a replay", async () => {
     const repository = new PrismaPasswordlessAuthRepository(configuration);
     const account = await repository.findOrCreateAccount(`rotation-${randomUUID()}@example.test`, new Date());
@@ -139,5 +220,15 @@ describe("PrismaPasswordlessAuthRepository", () => {
 });
 
 function digest(token: string): Uint8Array {
-  return new Uint8Array(createHmac("sha256", sessionSecret).update(token, "utf8").digest());
+  return digestWith(sessionSecret, token);
+}
+
+function digestWith(secret: Uint8Array, value: string): Uint8Array {
+  return new Uint8Array(createHmac("sha256", secret).update(value, "utf8").digest());
+}
+
+function databaseBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(value);
+  return copy;
 }

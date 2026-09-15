@@ -1,6 +1,6 @@
 # Pengungkapan privasi dan layanan yang di-host
 
-**Diterbitkan:** 2026-09-08
+**Diterbitkan:** 2026-09-15
 
 Dokumen ini menjelaskan batas data rhasia-scret serta tanggung jawab pengelola
 demo hosted, operator self-hosting, dan penyedia eksternal. Ini adalah
@@ -54,6 +54,26 @@ khusus tanpa tinjauan privasi dan keamanan terpisah.
 
 ## Retensi, penghapusan, dan batas pemulihan
 
+- Application User hosted dapat memakai alur Account Deletion khusus web untuk
+  penghapusan permanen dan segera. Reautentikasi baru, konfirmasi persis
+  `HAPUS AKUN`, dan pengakuan eksplisit wajib diberikan. Setiap Shared Vault
+  milik pengguna harus dihapus permanen atau dialihkan kepada Viewer aktif yang
+  memenuhi syarat; kepemilikan yang belum diselesaikan memblokir penghapusan.
+- Browser dapat mengekspor satu Encrypted Vault Archive yang dibuat client
+  untuk setiap Vault milik pengguna sebelum penghapusan. Kunci arsip, Vault
+  Name, konfigurasi TOTP, dan konten terdekripsi tidak pernah masuk ke server,
+  email, log, atau analitik.
+- Account Deletion menghapus data Personal/Shared Vault hosted, Authenticator
+  Account, keanggotaan, undangan, materi crypto/recovery, identitas, sesi, dan
+  catatan pembatasan laju secara sinkron. Alur ini menghapus workspace browser,
+  snapshot offline, dan data Remembered Browser hosted, tetapi tidak pernah
+  menghapus Local Profile atau Local Vault yang terpisah.
+- Aplikasi menyimpan ledger penghapusan terbatas yang tidak tertaut ke pengguna
+  aktif serta tombstone identitas yang berisi receipt buram dan hitungan
+  operasional terbatas. Email selesai, bila berhasil dikirim, hanya berisi ID
+  receipt. Retensi provider eksternal, hosting, email, analitik, sistem operasi,
+  backup client, dan backup database self-hosted berada di luar jaminan
+  penghapusan aplikasi ini.
 - Authenticator Account yang dihapus sementara dapat dihapus permanen setelah
   30 hari.
 - Shared Vault yang dihapus dan konten terenkripsinya dapat dihapus permanen

@@ -1,3 +1,4 @@
+import { ApplicationUserCredentialInvalidatedError } from "./application/application-user-repository";
 import type { ApplicationUserRepository } from "./application/application-user-repository";
 import { loadApplicationUser } from "./application/load-application-user";
 import type { SessionVerifier } from "./application/session-verifier";
@@ -6,6 +7,7 @@ import type { UserCryptoProfileRepository } from "./application/user-crypto-prof
 import type { PasswordlessAuthService } from "./application/passwordless-authentication";
 import { AUTH_RETURN_PATH_COOKIE } from "./application/auth-return-path";
 import { readAuthConfiguration, type AuthBackend } from "./infrastructure/auth-backend";
+import { readEmailConfiguration } from "./infrastructure/email-configuration";
 import { NoneSessionVerifier } from "./infrastructure/none-session-verifier";
 import { OidcSessionVerifier } from "./infrastructure/oidc-session-verifier";
 import { OidcSessionTerminator } from "./infrastructure/oidc-session-terminator";
@@ -31,7 +33,12 @@ import {
   setPasswordlessSessionCookies,
 } from "./infrastructure/passwordless-session";
 
-export { loadApplicationUser };
+export {
+  loadApplicationUser,
+  ApplicationUserCredentialInvalidatedError,
+  readAuthConfiguration,
+  readEmailConfiguration,
+};
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
 export type { PasswordlessAuthService };
 export {

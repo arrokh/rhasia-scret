@@ -52,6 +52,15 @@ PostHog receives explicit product events from the web browser through the typed 
 - `vault_archive_export_prepared` — `vault_type`
 - `vault_archive_import_completed` — `account_count`, `destination_type`, `created_new_vault`
 
+### Account deletion
+
+Account deletion is intentionally absent from the browser/PostHog event catalog. The
+server records only a non-user-linked aggregate metric with authentication
+backend and bounded counts for deleted or transferred Shared Vaults and
+Authenticator Accounts. It never stores an Application User ID, email,
+provider subject, receipt ID, Vault ID, Vault Name, or TOTP data in the metric,
+and it never resets analytics identity or emits an identified deletion event.
+
 ### Local Vault
 
 - `local_vault_created`

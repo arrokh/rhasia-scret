@@ -7,8 +7,9 @@ Vercel Cron invokes `GET /api/internal/retention-purge` every day at 03:00 UTC, 
 The job uses server-side Prisma only. Each run drains at most 10 batches of 100 records for each category:
 
 1. expired soft-deleted Authenticator Accounts;
-2. expired Shared Vaults and their encrypted accounts, memberships, and invitations; and
-3. expired retained Vault Audit events.
+2. expired Shared Vaults and their encrypted accounts, memberships, and invitations;
+3. expired retained Vault Audit events; and
+4. expired authentication state, including passwordless challenges, deletion authorization challenges, sessions, PWA handoffs, and anonymous rate-limit windows.
 
 Account and Vault selection uses PostgreSQL row locks with `SKIP LOCKED`, so concurrent workers do not process the same record. Deadline predicates remain part of the atomic delete. A restore that commits first clears the purge deadline and cannot then be deleted; if purge commits first, restore reports that the record is unavailable. Repeated or overlapping runs are safe and idempotent.
 
@@ -20,6 +21,7 @@ Account and Vault selection uses PostgreSQL row locks with `SKIP LOCKED`, so con
 - Before the Vault row is removed, audit events are detached from encrypted Vault content and retain only the opaque Vault ID, owner ID, actor ID, event type, optional opaque target ID, timestamps, and actor relation needed by the existing owner-only view.
 - Audit events are eligible one calendar year after Vault deletion. Restoring a Vault within 30 days clears their audit purge deadline; a later deletion starts a new one-year period.
 - Cleanup never selects, decrypts, returns, or logs encrypted names, encrypted account payloads, key packages, TOTP configuration, OTPs, or plaintext Vault content.
+- Account Deletion authorization challenges are removed after their 10-minute expiry, including the hashed retry authorization retained for deletion idempotency.
 
 ## Observability and recovery
 

@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Lock, LogOut, Settings, UserRound } from "lucide-react";
+import { Lock, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -73,6 +74,17 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
             }}
           />
           <DropdownMenuSeparator />
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-danger-surface hover:text-destructive"
+            type="button"
+            asChild
+          >
+            <Link href="/account/delete" onClick={() => setMenuOpen(false)}>
+              <Trash2 aria-hidden="true" />
+              {t("deleteAccount")}
+            </Link>
+          </Button>
           {lockLabel && onLock && (
             <Button
               variant="ghost"
