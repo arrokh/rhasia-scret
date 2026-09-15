@@ -1,0 +1,6 @@
+# Local host-development override. The production Compose file intentionally
+# does not publish PostgreSQL; this override binds it to loopback for `pnpm dev`.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"

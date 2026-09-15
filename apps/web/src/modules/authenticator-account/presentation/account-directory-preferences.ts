@@ -22,6 +22,18 @@ export function accountDirectoryStorageKey(profileId: string): string {
   return `${STORAGE_PREFIX}:${profileId}`;
 }
 
+export function clearAccountDirectoryPreferences(): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(`${STORAGE_PREFIX}:`)) window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Local preference storage is best effort and never blocks account cleanup.
+  }
+}
+
 export function accountDirectoryAccountKey(account: { vaultId: string; id: string }): string {
   return `${account.vaultId}:${account.id}`;
 }

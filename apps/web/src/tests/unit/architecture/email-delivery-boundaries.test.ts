@@ -17,7 +17,10 @@ describe("magic-link email delivery boundaries", () => {
     for (const path of clientSources)
       expect(read(path)).not.toMatch(/nodemailer|SMTP_PASSWORD|AUTH_MAGIC_LINK_SECRET|AUTH_SESSION_SECRET/i);
 
-    expect(read("src/modules/identity/infrastructure/nodemailer-email-sender.ts")).toContain('from "nodemailer"');
+    expect(read("src/shared/infrastructure/nodemailer-transport.ts")).toContain('from "nodemailer"');
+    expect(read("src/modules/account-deletion/infrastructure/nodemailer-account-deletion-email-sender.ts")).not.toMatch(
+      /console\.(log|error)/i,
+    );
     expect(read("src/app/api/auth/magic-link/request/route.ts")).not.toMatch(/console\.(log|error).*email/i);
   });
 });

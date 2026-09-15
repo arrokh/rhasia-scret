@@ -1,34 +1,13 @@
-import nodemailer, { type SendMailOptions } from "nodemailer";
-import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import type { MagicLinkEmail, MagicLinkEmailSender } from "../application/email-delivery";
 import { renderMagicLinkEmail } from "@/shared/infrastructure/email-templates";
 import type { EmailConfiguration } from "./email-configuration";
-
-type MailTransport = Readonly<{
-  sendMail(options: SendMailOptions): Promise<unknown>;
-}>;
-
-type TransportFactory = (options: SMTPTransport.Options) => MailTransport;
+import { createNodemailerTransport, type TransportFactory } from "@/shared/infrastructure/nodemailer-transport";
 
 export function createNodemailerEmailSender(
   configuration: EmailConfiguration,
-  createTransport: TransportFactory = (options) => nodemailer.createTransport(options),
+  createTransport?: TransportFactory,
 ): MagicLinkEmailSender {
-  const transporter = createTransport({
-    host: configuration.smtp.host,
-    port: configuration.smtp.port,
-    secure: configuration.smtp.secure,
-    requireTLS: configuration.smtp.requireTls && !configuration.smtp.secure,
-    auth: { user: configuration.smtp.user, pass: configuration.smtp.password },
-    disableFileAccess: true,
-    disableUrlAccess: true,
-    maxRecipients: 1,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-    tls: { minVersion: "TLSv1.2" },
-  });
-
+  const transporter = createNodemailerTransport(configuration.smtp, createTransport);
   return {
     async sendMagicLinkEmail(email: MagicLinkEmail): Promise<void> {
       const content = renderMagicLinkEmail(email.actionUrl);

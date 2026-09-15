@@ -41,6 +41,26 @@ describe("OIDC server session", () => {
     await expect(new OidcSessionVerifier(configuration).verify()).resolves.toBeNull();
   });
 
+  it("preserves provider issuance time for deletion invalidation", async () => {
+    const providerIssuedAt = new Date("2026-09-14T23:59:00.000Z");
+    const token = await signOidcSession(
+      configuration,
+      {
+        issuer: configuration.issuer.href.replace(/\/$/, ""),
+        subject: "subject-1",
+        email: "person@example.test",
+        emailVerified: true,
+        assurance: "active-session",
+        issuedAt: providerIssuedAt,
+      },
+      Math.floor(Date.now() / 1000) + 60,
+    );
+    cookies.get.mockReturnValue({ value: token });
+    await expect(new OidcSessionVerifier(configuration).verify()).resolves.toMatchObject({
+      issuedAt: providerIssuedAt,
+    });
+  });
+
   it("rejects an expired provider session", async () => {
     const token = await signOidcSession(
       configuration,

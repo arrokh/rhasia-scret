@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { completeOidcAuthorization } from "@/modules/identity/infrastructure/oidc-client";
 import {
+  ACCOUNT_DELETION_OIDC_RETURN_PATH,
   AUTH_COMPLETION_PATH,
   DEFAULT_AUTH_RETURN_PATH,
   INVITATION_AUTH_RETURN_PATH,
@@ -16,6 +17,11 @@ import {
   OIDC_VERIFIER_COOKIE,
   signOidcSession,
 } from "@/modules/identity/infrastructure/oidc-session-verifier";
+import {
+  ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
+  createAccountDeletionRepository,
+  setDeletionAuthorizationCookie,
+} from "@/modules/account-deletion/server";
 
 export async function GET(request: Request): Promise<Response> {
   const nextPathFromRequest = resolveAuthReturnPath(new URL(request.url).searchParams.get("next"));
@@ -33,6 +39,19 @@ export async function GET(request: Request): Promise<Response> {
       return redirect(request, "verification_failed", nextPath);
     const result = await completeOidcAuthorization(configuration.oidc, callbackUrl, state, nonce, verifier);
     const token = await signOidcSession(configuration.oidc, result.principal, result.expiresAt);
+    let deletionAuthorizationToken: string | null = null;
+    if (nextPath === ACCOUNT_DELETION_OIDC_RETURN_PATH) {
+      const challengeId = cookieStore.get(ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE)?.value;
+      if (!challengeId) throw new Error("Account deletion reauthentication challenge is missing.");
+      deletionAuthorizationToken = (
+        await createAccountDeletionRepository().completeOidcReauthentication(
+          challengeId,
+          result.principal.issuer,
+          result.principal.subject,
+          new Date(),
+        )
+      ).authorizationToken;
+    }
     cookieStore.set(OIDC_SESSION_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -41,6 +60,7 @@ export async function GET(request: Request): Promise<Response> {
       path: "/",
     });
     clearCallbackCookies(cookieStore);
+    if (deletionAuthorizationToken) setDeletionAuthorizationCookie(cookieStore, deletionAuthorizationToken, 600);
     return NextResponse.redirect(
       new URL(nextPath === INVITATION_AUTH_RETURN_PATH ? AUTH_COMPLETION_PATH : nextPath, request.url),
     );
@@ -50,7 +70,13 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 function clearCallbackCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
-  for (const name of [OIDC_STATE_COOKIE, OIDC_NONCE_COOKIE, OIDC_VERIFIER_COOKIE, OIDC_RETURN_PATH_COOKIE]) {
+  for (const name of [
+    OIDC_STATE_COOKIE,
+    OIDC_NONCE_COOKIE,
+    OIDC_VERIFIER_COOKIE,
+    OIDC_RETURN_PATH_COOKIE,
+    ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
+  ]) {
     cookieStore.set(name, "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

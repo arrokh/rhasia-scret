@@ -67,6 +67,7 @@ describe("i18n foundation", () => {
         "VaultMembership",
         "Sync",
         "VaultArchive",
+        "AccountDeletion",
       ]),
     );
   });
@@ -171,6 +172,8 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     issuer: "issuer",
     label: "label",
     language: "language",
+    phrase: "HAPUS AKUN",
+    receiptId: "receipt-id",
     name: "name",
     newVault: "no",
     number: 2,

@@ -16,7 +16,7 @@ const e2eAuthBackend = process.env.E2E_AUTH_BACKEND ?? "passwordless";
 
 export default defineConfig({
   testDir: "src/tests/browser",
-  testMatch: "encrypted-vault-workflows.spec.ts",
+  testMatch: ["encrypted-vault-workflows.spec.ts", "account-deletion.spec.ts"],
   fullyParallel: configuredPlaywrightFullyParallel(true),
   workers: configuredPlaywrightWorkers(3),
   timeout: 600_000,

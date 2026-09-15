@@ -34,6 +34,8 @@ import {
 export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextPath?: string }) {
   const t = useTranslations("Identity.signIn");
   const returnPath = resolveAuthReturnPath(nextPath);
+  const passwordlessReturnPath =
+    returnPath === INVITATION_AUTH_RETURN_PATH ? INVITATION_AUTH_RETURN_PATH : DEFAULT_AUTH_RETURN_PATH;
   const pwaMode = isPwaDisplayMode();
   const [status, setStatus] = useState<
     "idle" | "sending" | "sent" | "authenticating" | "error" | "handoff_error" | "rate_limited"
@@ -120,14 +122,14 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
       if (pwaMode) {
         const handoff = createPwaAuthenticationHandoff();
         setPendingPwaHandoff(handoff);
-        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath, {
+        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, passwordlessReturnPath, {
           client: "pwa",
           handoffId: handoff.handoffId,
           handoffVerifier: handoff.verifier,
         });
       } else {
         setPendingPwaHandoff(null);
-        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath);
+        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, passwordlessReturnPath);
       }
       if (pwaMode && result !== "sent") {
         clearPwaAuthenticationHandoff();

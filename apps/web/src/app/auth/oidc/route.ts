@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { createOidcAuthorizationRequest } from "@/modules/identity/infrastructure/oidc-client";
-import { DEFAULT_AUTH_RETURN_PATH, resolveAuthReturnPath } from "@/modules/identity/application/auth-return-path";
+import {
+  ACCOUNT_DELETION_OIDC_RETURN_PATH,
+  DEFAULT_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+} from "@/modules/identity/application/auth-return-path";
 import {
   OIDC_NONCE_COOKIE,
   OIDC_RETURN_PATH_COOKIE,
@@ -15,7 +19,9 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const configuration = readAuthConfiguration();
     if (configuration.backend !== "oidc") return redirect(request, "configuration_error", nextPath);
-    const authorization = await createOidcAuthorizationRequest(configuration.oidc);
+    const authorization = await createOidcAuthorizationRequest(configuration.oidc, {
+      reauthenticate: nextPath === ACCOUNT_DELETION_OIDC_RETURN_PATH,
+    });
     const cookieStore = await cookies();
     const options = {
       httpOnly: true,

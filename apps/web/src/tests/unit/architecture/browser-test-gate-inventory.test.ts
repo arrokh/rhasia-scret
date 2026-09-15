@@ -11,7 +11,7 @@ const smokeSpecs = [
   "vault-archive-backup.spec.ts",
   "vault-archive-import.spec.ts",
 ] as const;
-const e2eSpecs = ["encrypted-vault-workflows.spec.ts"] as const;
+const e2eSpecs = ["account-deletion.spec.ts", "encrypted-vault-workflows.spec.ts"] as const;
 const pwaSpecs = ["offline-pwa.spec.ts"] as const;
 const separatelyRunSpecs = ["navigation-performance.spec.ts"] as const;
 

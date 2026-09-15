@@ -29,7 +29,15 @@ export function createAuthenticatedApplicationExecutor(dependencies: Authenticat
     const principal = await dependencies.verifySession(request.assurance);
     if (!principal) return { status: "unauthenticated" };
 
-    const user = await dependencies.provisionApplicationUser(principal);
+    let user: ApplicationUser | null;
+    try {
+      user = await dependencies.provisionApplicationUser(principal);
+    } catch (error) {
+      // Keep this boundary name-based: importing the identity public barrel would pull client presentation code into APIs.
+      if (error instanceof Error && error.name === "ApplicationUserCredentialInvalidatedError")
+        return { status: "unauthenticated" };
+      throw error;
+    }
     if (!user) return { status: "application_user_unavailable" };
     if (!user.canAccessApplication()) return { status: "inactive_user" };
     if (request.access === "reader") return { status: "allowed", user };

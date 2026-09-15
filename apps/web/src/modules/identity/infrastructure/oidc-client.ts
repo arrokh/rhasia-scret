@@ -14,6 +14,7 @@ import type { VerifiedPrincipal } from "../application/session-verifier";
 
 export async function createOidcAuthorizationRequest(
   configuration: OidcConfiguration,
+  options: Readonly<{ reauthenticate?: boolean }> = {},
 ): Promise<{ url: URL; state: string; nonce: string; verifier: string }> {
   const client = await discover(configuration);
   const state = randomState();
@@ -29,6 +30,7 @@ export async function createOidcAuthorizationRequest(
     state,
     nonce,
     ...(configuration.audience ? { audience: configuration.audience } : {}),
+    ...(options.reauthenticate ? { prompt: "login", max_age: "0" } : {}),
   });
   return { url, state, nonce, verifier };
 }
@@ -59,7 +61,13 @@ export async function completeOidcAuthorization(
     claims.iss.replace(/\/$/, "") !== configuration.issuer.href.replace(/\/$/, "")
   )
     throw new Error("OIDC issuer claim is invalid.");
-  if (typeof claims.sub !== "string" || typeof claims.email !== "string" || claims.email_verified !== true)
+  if (
+    typeof claims.sub !== "string" ||
+    typeof claims.email !== "string" ||
+    claims.email_verified !== true ||
+    typeof claims.iat !== "number" ||
+    !Number.isFinite(claims.iat)
+  )
     throw new Error("OIDC claims are not admitted.");
   const expiresIn = tokens.expiresIn();
   if (!expiresIn || expiresIn <= 0) throw new Error("OIDC token is expired.");
@@ -71,6 +79,7 @@ export async function completeOidcAuthorization(
       emailVerified: true,
       assurance: "active-session",
       sessionId: typeof claims.sid === "string" ? claims.sid : undefined,
+      issuedAt: new Date(claims.iat * 1_000),
     },
     expiresAt: Math.floor(Date.now() / 1000) + expiresIn,
   };

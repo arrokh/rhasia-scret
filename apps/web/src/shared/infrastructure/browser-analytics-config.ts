@@ -168,6 +168,9 @@ const STATIC_ANALYTICS_ROUTES = [
   "/local",
   "/offline",
   "/sign-in",
+  "/account/delete",
+  "/account/delete/reauth",
+  "/account/delete/complete",
   "/smoke",
   "/totp",
   "/auth/confirm",
@@ -191,7 +194,7 @@ const STATIC_ANALYTICS_ROUTES = [
   "/ui-preview/remembered-browser",
   "/ui-preview/vaults",
 ] as const;
-const PRIVATE_ROUTE_PREFIXES = ["/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
+const PRIVATE_ROUTE_PREFIXES = ["/account", "/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 const SAFE_ERROR_DIGEST_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 // The SDK adds `token` to every capture as a required ingestion property. It is
@@ -441,7 +444,7 @@ export const BROWSER_ANALYTICS_CONFIG = {
   defaults: "2026-01-30",
   ui_host: "https://us.posthog.com",
   autocapture: {
-    url_ignorelist: [/\/(?:auth|local|offline|sign-in|totp|vaults)(?:\/|$)/],
+    url_ignorelist: [/\/(?:account|auth|local|offline|sign-in|totp|vaults)(?:\/|$)/],
     dom_event_allowlist: ["click", "submit"],
     element_allowlist: ["a", "button"],
     css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]"],

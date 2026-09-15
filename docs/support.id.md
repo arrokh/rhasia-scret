@@ -15,7 +15,11 @@
   dan ikuti [`SECURITY.md`](../SECURITY.md).
 - **Akun demo hosted atau permintaan penghapusan:** hubungi operator
   deployment. Maintainer repository tidak dapat memeriksa database operator
-  self-hosted atau memulihkan konten Vault.
+  self-hosted atau memulihkan konten Vault. Pengguna hosted juga dapat
+  memulai alur Account Deletion khusus web dari menu akun setelah masuk. Alur
+  ini segera dan permanen: ekspor setiap Vault beserta kunci terpisah yang
+  hanya ada di client, atau nyatakan secara eksplisit bahwa backup dilewati.
+  Email selesai hanya berisi ID receipt buram dan tidak dapat memulihkan data.
 
 ## Laporan dukungan yang aman
 

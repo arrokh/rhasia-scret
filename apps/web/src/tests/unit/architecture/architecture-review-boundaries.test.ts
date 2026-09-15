@@ -117,6 +117,7 @@ describe("architecture review boundaries", () => {
       .filter((name) => statSync(join(unitRoot, name)).isDirectory())
       .sort();
     expect(groups).toEqual([
+      "account-deletion",
       "app-shell",
       "architecture",
       "audit",

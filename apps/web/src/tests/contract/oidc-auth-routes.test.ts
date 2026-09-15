@@ -67,6 +67,21 @@ describe("OIDC authentication route contract", () => {
     );
   });
 
+  it("requests prompt=login reauthentication for account deletion", async () => {
+    const cookieStore = { get: vi.fn(), set: vi.fn() };
+    mocks.cookies.mockResolvedValue(cookieStore);
+    mocks.createOidcAuthorizationRequest.mockResolvedValue({
+      url: new URL("https://issuer.example.test/authorize?state=state"),
+      state: "state",
+      nonce: "nonce",
+      verifier: "verifier",
+    });
+
+    await beginOidc(new Request("https://vault.example.test/auth/oidc?next=%2Faccount%2Fdelete%2Freauth"));
+
+    expect(mocks.createOidcAuthorizationRequest).toHaveBeenCalledWith(configuration.oidc, { reauthenticate: true });
+  });
+
   it("returns an authenticated invitation recipient to redemption", async () => {
     const cookieValues = new Map([
       ["rhsia-oidc-state", "state"],

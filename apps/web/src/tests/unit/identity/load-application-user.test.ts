@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadApplicationUser } from "@/modules/identity";
+import { ApplicationUserCredentialInvalidatedError, loadApplicationUser } from "@/modules/identity";
 import { ApplicationUser } from "@/modules/identity/domain/application-user";
 import { FakeSessionVerifier } from "@/modules/identity/infrastructure/fake-session-verifier";
 
@@ -11,6 +11,16 @@ describe("loadApplicationUser", () => {
       },
     };
     await expect(loadApplicationUser(new FakeSessionVerifier(null), applicationUsers)).resolves.toBeNull();
+  });
+
+  it("treats a credential invalidated by account deletion as signed out", async () => {
+    const session = { subject: "subject-1", email: "person@example.test" };
+    const applicationUsers = {
+      provision: async () => {
+        throw new ApplicationUserCredentialInvalidatedError();
+      },
+    };
+    await expect(loadApplicationUser(new FakeSessionVerifier(session), applicationUsers)).resolves.toBeNull();
   });
 
   it("provisions an application user from the verified Passwordless identity", async () => {

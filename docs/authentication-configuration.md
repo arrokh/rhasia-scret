@@ -28,6 +28,28 @@ Email links carry the raw one-time token and bounded routing hints in the URL fr
 
 Access and refresh credentials are stored as keyed digests. Native refresh credentials rotate atomically. Browser session keepalive validates the signed browser assertion without consuming or rotating the refresh credential, so React Strict Mode and concurrent browser loads cannot race the rotation protocol; the browser assertion and database session retain the configured refresh lifetime. Reuse of an already rotated credential revokes that session, records a redacted security event, and never reveals whether the credential belonged to a live account. Logout revokes only the current session and is idempotent. The retention job removes expired challenges, revoked/expired sessions, and anonymous rate-limit windows; redacted identity security events remain available for their normal retention policy.
 
+## Hosted account deletion
+
+The web-only Account Deletion workflow uses `GET /api/me/deletion/preview`,
+`POST /api/me/deletion/otp/request` and `/otp/verify` for passwordless
+reauthentication, `POST /api/me/deletion/oidc/start` for OIDC reauthentication,
+and `DELETE /api/me` for the final synchronous hard deletion. All mutation
+routes require a same-origin browser request and authenticated application
+mutation rate limits. Passwordless deletion OTPs are six digits, expire after
+10 minutes, are single-use, and lock after five failed attempts. OIDC starts
+with `prompt=login` and `max_age=0` and does not add an OTP.
+
+The final request must include fresh authorization, exact `HAPUS AKUN`, an
+acknowledgement, and a decision for every owned Shared Vault. A selected
+client-generated archive failure blocks deletion; skipping backup requires a
+separate acknowledgement. The server stores no archive bytes or keys. A
+successful deletion removes all hosted user data and sessions in one
+transaction, retains only the documented non-FK ledger/tombstones and
+aggregate metric, and sends a best-effort completion email containing only the
+opaque receipt ID. Identity tombstones preserve timestamp-aware invalidation of
+pre-deletion OIDC sessions and passwordless links while allowing a fresh
+registration with the same identity.
+
 ## Identity and migration
 
 Local passwordless identities use issuer `rhasia:passwordless` and a random subject. `ExternalIdentity` remains unique by `(issuer, subject)` and remains the only identity-to-`ApplicationUser` binding. Future Firebase, OIDC, or other providers create separate identity rows. Linking requires explicit reauthentication; email similarity never performs an automatic merge.

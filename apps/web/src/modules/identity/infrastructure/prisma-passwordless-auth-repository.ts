@@ -68,6 +68,15 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
         candidate.expiresAt.getTime() <= now.getTime()
       )
         return null;
+      const deletion = await transaction.accountDeletionIdentity.findFirst({
+        where: {
+          normalizedEmail: candidate.normalizedEmail,
+          deletionRecord: { completedAt: { gte: candidate.createdAt } },
+        },
+        orderBy: { deletedAt: "desc" },
+        select: { deletedAt: true },
+      });
+      if (deletion && deletion.deletedAt.getTime() >= candidate.createdAt.getTime()) return null;
       const consumed = await transaction.magicLinkChallenge.updateMany({
         where: {
           id: candidate.id,
@@ -309,6 +318,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       emailVerified: identity.emailVerifiedAt !== null,
       assurance: "active-session",
       sessionId: session.id,
+      issuedAt: session.createdAt,
     };
   }
 
@@ -339,6 +349,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       emailVerified: identity.emailVerifiedAt !== null,
       assurance: "active-session",
       sessionId: session.id,
+      issuedAt: session.createdAt,
     };
   }
 
@@ -411,7 +422,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       refreshToken,
       accessExpiresAt,
       refreshExpiresAt: session.refreshExpiresAt,
-      principal: { ...passwordlessPrincipal(account, "active-session"), sessionId: session.id },
+      principal: { ...passwordlessPrincipal(account, "active-session", session.createdAt), sessionId: session.id },
     };
   }
 
@@ -449,7 +460,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       refreshToken,
       accessExpiresAt,
       refreshExpiresAt,
-      principal: { ...passwordlessPrincipal(account, "active-session"), sessionId },
+      principal: { ...passwordlessPrincipal(account, "active-session", now), sessionId },
     };
   }
 

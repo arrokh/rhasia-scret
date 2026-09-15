@@ -23,6 +23,7 @@ export {
 } from "./infrastructure/browser-account-payload";
 export type { DecryptedAuthenticatorAccount } from "./infrastructure/browser-account-payload";
 export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
+export { clearAccountDirectoryPreferences } from "./presentation/account-directory-preferences";
 export { AuthenticatorAccountDirectoryPreview } from "./presentation/authenticator-account-directory-preview";
 export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";
 export {

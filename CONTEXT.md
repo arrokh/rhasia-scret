@@ -111,6 +111,14 @@ _Avoid_: Email as identity, session cookie as principal, provider-specific sessi
 A durable identity binding unique by `(issuer, subject)` and associated with exactly one Application User. Email is permitted admission/contact metadata but never silently links identities or merges Application Users.
 _Avoid_: provider-specific user columns, automatic email linking, provider account row as Application User
 
+**Application User Deletion**:
+The web-only, immediate and permanent destruction of one hosted Application User and all user-owned hosted data. It requires fresh reauthentication, exact `HAPUS AKUN` confirmation, acknowledgement, and an explicit action for every owned Shared Vault. A Shared Vault is either hard-deleted or transferred to an existing active Viewer with usable current access; unresolved ownership blocks deletion. The browser may create one client-only Encrypted Vault Archive per owned Vault before deletion, but archive keys and decrypted content never cross the client boundary. The independent Local Profile and Local Vault are never affected.
+_Avoid_: Authenticator Account reset, Local Profile deletion, soft-delete recovery window, email-based identity deletion
+
+**Account Deletion Ledger**:
+The intentionally retained, non-foreign-key record of a completed Application User Deletion. It contains an opaque receipt ID, email, former Application User ID, issuer/subject identity tombstones, timestamps, authentication backend, delivery status, and bounded deletion counts so old stateless OIDC sessions and pre-deletion passwordless links cannot resurrect access. It is not a Vault audit record and never contains archive keys, Vault Names, TOTP configuration, or decrypted content.
+_Avoid_: preserved user account, retained Vault audit history, deletion backup
+
 **Application Admission**:
 The separate policy decision that determines whether a Verified Principal may use the application. In the passwordless deployment, redemption of a verified email link admits the local principal; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
 _Avoid_: Authentication equals admission, unverified-email access, automatic Shared Vault membership

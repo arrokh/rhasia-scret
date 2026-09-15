@@ -51,6 +51,7 @@ export async function signOidcSession(
     email_verified: principal.emailVerified,
     assurance: principal.assurance,
     session_id: principal.sessionId,
+    provider_issued_at: principal.issuedAt?.getTime(),
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuer("rhasia:oidc-session")
@@ -70,6 +71,11 @@ function parsePrincipal(payload: Record<string, unknown>): VerifiedPrincipal | n
     return null;
   if (assurance !== "verified-claims" && assurance !== "fresh-provider-user" && assurance !== "active-session")
     return null;
+  const providerIssuedAt = payload.provider_issued_at;
+  const issuedAt = providerIssuedAt === undefined ? payload.iat : providerIssuedAt;
+  if (typeof issuedAt !== "number" || !Number.isFinite(issuedAt)) return null;
+  const issuedAtDate = new Date(providerIssuedAt === undefined ? issuedAt * 1_000 : issuedAt);
+  if (!Number.isFinite(issuedAtDate.getTime())) return null;
   return {
     issuer,
     subject,
@@ -77,5 +83,6 @@ function parsePrincipal(payload: Record<string, unknown>): VerifiedPrincipal | n
     emailVerified,
     assurance,
     sessionId: typeof payload.session_id === "string" ? payload.session_id : undefined,
+    issuedAt: issuedAtDate,
   };
 }

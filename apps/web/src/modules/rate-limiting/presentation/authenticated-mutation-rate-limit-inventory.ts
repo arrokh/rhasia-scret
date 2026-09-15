@@ -1,6 +1,10 @@
 import type { ApplicationRateLimitPolicyId } from "../domain/application-rate-limit-policy";
 
 export const AUTHENTICATED_MUTATION_RATE_LIMIT_POLICIES = {
+  "POST /api/me/deletion/otp/request": "account_deletion_authentication",
+  "POST /api/me/deletion/otp/verify": "account_deletion_authentication",
+  "POST /api/me/deletion/oidc/start": "account_deletion_authentication",
+  "DELETE /api/me": "destructive_mutation",
   "POST /api/passkey-recovery/authentication/options": "recovery_authentication",
   "POST /api/passkey-recovery/authentication/verify": "recovery_authentication",
   "POST /api/passkey-recovery/registration/options": "recovery_mutation",

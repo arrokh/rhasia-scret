@@ -15,7 +15,11 @@
   and follow [`SECURITY.md`](../SECURITY.md).
 - **Hosted-demo account or deletion request:** contact the operator of the
   deployment. Repository maintainers cannot inspect a self-hosted operator's
-  database or recover Vault content.
+  database or recover Vault content. Hosted users can also start the web-only
+  Account Deletion workflow from the signed-in account menu. It is immediate
+  and permanent: export each Vault and its separate client-only key first, or
+  explicitly acknowledge skipping backup. The completion email contains only
+  an opaque receipt ID; it cannot restore deleted data.
 
 ## Safe support reports
 

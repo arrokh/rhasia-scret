@@ -300,3 +300,70 @@ model AuthenticatorAccount {
   @@index([purgeAfter, id])
   @@map("authenticator_accounts")
 }
+
+model AccountDeletionRecord {
+  id                          String                    @id @default(cuid())
+  applicationUserId           String                    @map("application_user_id")
+  email                       String
+  authBackend                 String                    @map("auth_backend")
+  requestedAt                 DateTime                  @map("requested_at")
+  completedAt                 DateTime                  @map("completed_at")
+  emailDeliveryStatus         String                    @map("email_delivery_status")
+  personalVaultCount          Int                       @map("personal_vault_count")
+  sharedVaultDeletedCount     Int                       @map("shared_vault_deleted_count")
+  sharedVaultTransferredCount Int                       @map("shared_vault_transferred_count")
+  authenticatorAccountCount   Int                       @map("authenticator_account_count")
+  identities                  AccountDeletionIdentity[]
+  createdAt                   DateTime                  @default(now()) @map("created_at")
+
+  @@index([applicationUserId, completedAt])
+  @@index([email, completedAt])
+  @@map("account_deletion_records")
+}
+
+model AccountDeletionIdentity {
+  id               String                @id @default(cuid())
+  deletionRecordId String                @map("deletion_record_id")
+  issuer           String
+  subject          String
+  normalizedEmail  String?               @map("normalized_email")
+  deletedAt        DateTime              @map("deleted_at")
+  deletionRecord   AccountDeletionRecord @relation(fields: [deletionRecordId], references: [id], onDelete: Cascade)
+
+  @@index([issuer, subject, deletedAt])
+  @@index([normalizedEmail, deletedAt])
+  @@map("account_deletion_identities")
+}
+
+model AccountDeletionChallenge {
+  id                  String    @id @default(cuid())
+  applicationUserId   String    @map("application_user_id")
+  sessionId           String?   @map("session_id")
+  purpose             String
+  otpDigest           Bytes?    @unique @map("otp_digest")
+  authorizationDigest Bytes?    @unique @map("authorization_digest")
+  attemptCount        Int       @default(0) @map("attempt_count")
+  expiresAt           DateTime  @map("expires_at")
+  verifiedAt          DateTime? @map("verified_at")
+  consumedAt          DateTime? @map("consumed_at")
+  completedDeletionId String?   @map("completed_deletion_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@index([applicationUserId, purpose, expiresAt])
+  @@index([expiresAt])
+  @@index([completedDeletionId])
+  @@map("account_deletion_challenges")
+}
+
+model AccountDeletionMetric {
+  id                          String   @id @default(cuid())
+  authBackend                 String   @map("auth_backend")
+  personalVaultCount          Int      @map("personal_vault_count")
+  sharedVaultDeletedCount     Int      @map("shared_vault_deleted_count")
+  sharedVaultTransferredCount Int      @map("shared_vault_transferred_count")
+  authenticatorAccountCount   Int      @map("authenticator_account_count")
+  occurredAt                  DateTime @map("occurred_at")
+
+  @@index([occurredAt, authBackend])
+  @@map("account_deletion_metrics")
+}
