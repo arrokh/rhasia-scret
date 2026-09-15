@@ -10,9 +10,9 @@
 Create a separately deployable `apps/api` service implemented with Hono and deployed to Cloudflare Workers at:
 
 - Web: `https://rhasia-scret.nooroctavian.id/`
-- API: `https://api-rhasia-scret.nooroctavian.id/`
+- API: `https://api.rhasia-scret.nooroctavian.id/`
 
-Move the implementation of every current `apps/web/src/app/api/**/route.ts` endpoint into the Hono service. Preserve the `/api` namespace while adding the explicit version segment after it: all target public operations use `/api/v1/**`. Web `/api/v1/**` URLs remain thin same-origin proxies to the API service, and native clients point directly at the versioned API service. There is no unversioned `/api/**` target alias.
+Move the implementation of every current `apps/web/src/app/api/**/route.ts` endpoint into the Hono service. The API service owns the canonical versioned `/v1/**` routes with no `/api` prefix. Browser clients continue using thin same-origin `/api/v1/**` proxy URLs on the web origin; the proxy strips the web-only `/api` segment before forwarding to the API's `/v1/**` route. Native clients and web SSR call the API origin directly at `/v1/**`. There is no unversioned target alias.
 
 After the migration, `apps/web` must have no Prisma dependency, database connection, or direct backend-module import. Web SSR/page composition will call API read endpoints through a small server-side API gateway. Hono routes, server domain/application logic, Prisma schema, generated client ownership, database factories, and repositories will be owned by `apps/api`, with Cloudflare and Bun runtime adapters sharing that service code. Web composition does not import those backend modules.
 
@@ -108,12 +108,12 @@ The repository currently has:
 - `apps/web/prisma/schema.prisma` and all migrations under the web app.
 - A Node/Postgres Prisma client at `apps/web/src/shared/infrastructure/prisma-client.ts` using `@prisma/adapter-pg` and `process.env.DATABASE_URL`.
 - Browser clients using same-origin paths such as `/api/v1/vaults/...`.
-- Native clients using `EXPO_PUBLIC_API_URL` and bearer-token transport, but still requesting the pre-versioned `/api/...` paths that must be updated to `/api/v1/...`.
+- Native clients using `EXPO_PUBLIC_API_URL` and bearer-token transport, but still requesting the pre-versioned `/api/...` paths that must be updated to `/v1/...`.
 - Passwordless browser sessions represented by HttpOnly cookies and native sessions represented by bearer credentials in native secure storage.
 - Web-only OIDC callback routes and page middleware outside `app/api`.
 - Web SSR pages that still directly load database-backed page context and recovery eligibility.
 - Nodemailer/SMTP email delivery, which is not a safe assumption for a Cloudflare Worker runtime.
-- A Vercel cron entry for the pre-versioned `/api/internal/retention-purge`, which becomes `/api/v1/internal/retention-purge` in the API service.
+- A Vercel cron entry for the pre-versioned `/api/internal/retention-purge`, which becomes `/v1/internal/retention-purge` in the API service.
 
 The migration therefore is not a mechanical conversion from `NextResponse` to `c.json()`. It requires explicit runtime ports for request context, cookies, authentication, database construction, email delivery, scheduling, and response-cookie forwarding.
 
@@ -184,30 +184,37 @@ Cloudflare/Prisma feasibility is a release gate, not an assumption. Prisma's cur
 
 ### 5.3 API route composition
 
-The API preserves the existing `/api` namespace and adds the explicit `v1` segment after it, so the target public contract uses `/api/v1/**`:
+The API service uses the explicit `v1` segment at its origin, so the canonical API contract uses `/v1/**`:
 
 ```text
-https://api-rhasia-scret.nooroctavian.id/api/v1/health
-https://api-rhasia-scret.nooroctavian.id/api/v1/vaults/...
+https://api.rhasia-scret.nooroctavian.id/v1/health
+https://api.rhasia-scret.nooroctavian.id/v1/vaults/...
+```
+
+The web origin retains `/api/v1/**` only as its same-origin browser proxy boundary:
+
+```text
+https://rhasia-scret.nooroctavian.id/api/v1/health
+  -> https://api.rhasia-scret.nooroctavian.id/v1/health
 ```
 
 Suggested Hono route groups under the version root:
 
 ```text
-/api/v1/auth
-/api/v1/passkey-recovery
-/api/v1/personal-vault
-/api/v1/shared-vaults
-/api/v1/vaults
-/api/v1/secure-share-links
-/api/v1/user-crypto-profile
-/api/v1/user-encryption-identity
-/api/v1/vault-imports
-/api/v1/sync
-/api/v1/me
-/api/v1/health
-/api/v1/time
-/api/v1/internal
+/v1/auth
+/v1/passkey-recovery
+/v1/personal-vault
+/v1/shared-vaults
+/v1/vaults
+/v1/secure-share-links
+/v1/user-crypto-profile
+/v1/user-encryption-identity
+/v1/vault-imports
+/v1/sync
+/v1/me
+/v1/health
+/v1/time
+/v1/internal
 ```
 
 Each group is a Hono sub-app mounted with `app.route()`. Domain code stays grouped by bounded context inside `apps/api/src/modules`, for example:
@@ -220,16 +227,16 @@ apps/api/src/modules/vault-membership/
 └── transport/                 # Hono route handlers and validators
 ```
 
-The `transport` layer maps HTTP to application use cases; it must not contain Prisma queries or domain policy. `infrastructure` owns repository implementations and adapters for that context. The route tree will retain existing HTTP methods, statuses, locale-independent error codes, body shapes, cache behavior, ETags, and encrypted payload encoding unless an explicit approved contract change is recorded; only the public path gains the `/v1` segment under the preserved `/api` namespace. One read operation is intentionally added to replace a web-only Prisma page read: `GET /api/v1/personal-vault/destructive-reset` returns the existing recovery eligibility shape (`passkeyRecoveryEnrolled`, `activeOwnedSharedVaults`, and `activeOwnedSharedVaultIds`) with permitted metadata only.
+The `transport` layer maps HTTP to application use cases; it must not contain Prisma queries or domain policy. `infrastructure` owns repository implementations and adapters for that context. The route tree will retain existing HTTP methods, statuses, locale-independent error codes, body shapes, cache behavior, ETags, and encrypted payload encoding unless an explicit approved contract change is recorded; the canonical API path is `/v1/**`, while the web-only browser proxy path is `/api/v1/**`. One read operation is intentionally added to replace a web-only Prisma page read: `GET /v1/personal-vault/destructive-reset` returns the existing recovery eligibility shape (`passkeyRecoveryEnrolled`, `activeOwnedSharedVaults`, and `activeOwnedSharedVaultIds`) with permitted metadata only.
 
-The public route tree is a declared `const app = createApiApp()` value in `apps/api/src/app.ts`, mounted under `/api/v1`, with a typed Hono environment/dependency context, so `AppType = typeof app` remains stable and RPC-inferable. Worker middleware constructs request-neutral use-case/repository dependencies from typed `c.env`/request context, including a request-scoped Hyperdrive Prisma client, and disposes the scope using the Worker execution context where required. The `scheduled()` entry point constructs the same dependency graph directly from `env`/execution context rather than requiring an HTTP loopback. Isolated Hono tests install a typed test dependency context. No route module may create a module-global Prisma client, read `process.env`, or retain user/session state across requests. The root app defines `onError`/`notFound` mappings to the existing locale-independent error contract, includes a request ID in safe responses/logs, and never serializes unknown exception messages or causes.
+The public route tree is a declared `const app = createApiApp()` value in `apps/api/src/app.ts`, mounted under `/v1`, with a typed Hono environment/dependency context, so `AppType = typeof app` remains stable and RPC-inferable. Worker middleware constructs request-neutral use-case/repository dependencies from typed `c.env`/request context, including a request-scoped Hyperdrive Prisma client, and disposes the scope using the Worker execution context where required. The `scheduled()` entry point constructs the same dependency graph directly from `env`/execution context rather than requiring an HTTP loopback. Isolated Hono tests install a typed test dependency context. No route module may create a module-global Prisma client, read `process.env`, or retain user/session state across requests. The root app defines `onError`/`notFound` mappings to the existing locale-independent error contract, includes a request ID in safe responses/logs, and never serializes unknown exception messages or causes.
 
 ### 5.4 Typed API contract and client boundary
 
 `apps/api/src/app.ts` exports the inferred `AppType` for API-internal tests and server entrypoints. Web and mobile must not import `apps/api` or its private source, because the repository forbids app-to-app dependencies. Instead:
 
 - `packages/api-contract` owns client-safe request/response schemas and types. API routes import these schemas for `zValidator`/response mapping, and client code imports only this package.
-- `packages/api-client` owns web/mobile adapters for the existing platform-neutral `AuthenticatedTransport`: web requests target same-origin `/api/v1/**` proxy paths with browser cookies, native requests target the API origin with bearer credentials and `/api/v1/**` paths, and server SSR uses a fixed-origin fetch adapter with the proxy marker.
+- `packages/api-client` owns web/mobile adapters for the existing platform-neutral `AuthenticatedTransport`: web requests target same-origin `/api/v1/**` proxy paths with browser cookies, native requests target the API origin with bearer credentials and `/v1/**` paths, and server SSR uses a fixed-origin fetch adapter with the proxy marker and `/v1/**` paths.
 - The initial implementation uses typed `api-contract` fetch helpers as the normative client boundary. `hc` is permitted only after a separate app-independent declaration is generated from `AppType`, checked against the route tree in CI, and proven not to import or bundle `apps/api`; it must not be an unresolved implementation choice.
 - `api-contract` owns the request/response schemas, locale-independent error codes, status/body discriminants, and encrypted-byte encodings needed by clients. API handlers validate incoming requests with `zValidator` and construct only schema-conforming responses; contract tests parse every success/error response. `api-client` owns transport and response parsing; it must not retain credentials, decrypted content, or sensitive payloads in caches. New client calls must use this boundary rather than duplicating untyped path/response definitions.
 - `api-contract` and `api-client` contain no server runtime imports, Prisma, bindings, secrets, or crypto implementation. Add compile-time and dependency-graph tests proving client packages cannot import `apps/api`, Prisma, `pg`, API persistence, or client-secret/crypto implementations.
@@ -255,7 +262,7 @@ Hono middleware should set typed context variables such as the verified principa
 
 ### 6.2 Passwordless and browser-cookie behavior
 
-The API remains the owner of passwordless challenge/session persistence. Browser passwordless requests use the web's same-origin `/api/v1/**` URLs, which the web proxy forwards to the API. The API's session-revoke handler must accept the existing native bearer credential or the forwarded browser access/assertion cookies according to the credential-selection rule above; revocation is idempotent so logout still succeeds when no current session can be verified. Tests must cover missing credentials, malformed credentials, both matching credentials, both conflicting credentials, expired credentials, and repeated revocation.
+The API remains the owner of passwordless challenge/session persistence. Browser passwordless requests use the web's same-origin `/api/v1/**` URLs, which the web proxy maps to the API's `/v1/**` routes. Native and SSR requests use the API origin directly at `/v1/**`. The API's session-revoke handler must accept the existing native bearer credential or the forwarded browser access/assertion cookies according to the credential-selection rule above; revocation is idempotent so logout still succeeds when no current session can be verified. Tests must cover missing credentials, malformed credentials, both matching credentials, both conflicting credentials, expired credentials, and repeated revocation.
 
 The proxy must forward the incoming browser `Cookie` and `Authorization` headers to the API and must replay every upstream `Set-Cookie` header onto the web response. This is required for:
 
@@ -345,7 +352,7 @@ The current Vercel cron invokes a Next route. The Worker target should use Cloud
 - Remove or update the Vercel cron entry so production does not accidentally run both schedulers.
 - Test duplicate/concurrent invocation behavior, bounded batches, failure logging, and backlog reporting.
 - Make the scheduled use case idempotent/lease-safe so a retry or overlapping invocation cannot double-apply destructive work; retain the existing bounded batch and audit semantics.
-- Keep `GET /api/v1/internal/retention-purge` for authenticated/manual diagnostics only, with the same authorization and redaction rules; do not let a public request trigger an unbounded purge.
+- Keep `GET /v1/internal/retention-purge` for authenticated/manual diagnostics only, with the same authorization and redaction rules; do not let a public request trigger an unbounded purge. The web-facing manual path, when used, is `/api/v1/internal/retention-purge` through the proxy.
 
 No migration command or database operation is authorized by this plan. Any generated/applied Prisma migration still requires explicit human confirmation under repository policy.
 
@@ -362,7 +369,7 @@ The catch-all route will:
 - Forward only `/api/v1/**` paths (including the exact versioned operations in the parity manifest); return a safe 404/410 for `/api` and unversioned `/api/**` requests rather than creating a compatibility alias.
 - Accept the supported methods, including `HEAD` as a transport dispatch to Hono's derived behavior and `OPTIONS` where the browser contract requires it; reject unsupported methods consistently. `HEAD` adds no separate API business handler.
 - Validate the incoming host/origin against the configured web origin for state-changing browser requests before forwarding; fail closed for cookie-authenticated mutations with a missing/unverifiable origin signal.
-- Build the upstream URL from a validated fixed `API_ORIGIN` and the original versioned path/query; preserve `/api/v1` exactly once (never `/api/v1/api/v1` and never an unversioned `/api` alias), and reject any request header or query value that attempts to select the upstream host.
+- Build the upstream URL from a validated fixed `API_ORIGIN` and the original versioned path/query; map the web-only `/api/v1` prefix to API `/v1` exactly once (never `/v1/v1`, `/api/v1/api/v1`, or an unversioned alias), and reject any request header or query value that attempts to select the upstream host.
 - Forward only an explicit allow-list of end-to-end headers, strip any client-supplied `X-Rhasia-Proxy-Secret`, and add the server-held marker.
 - Forward request bodies as streams where supported; do not log or unnecessarily materialize sensitive bodies. Route-specific body/decoded-byte limits remain enforced by the API validator/use case, with proxy and Worker transport limits tested so the proxy does not silently truncate or impose an incompatible lower limit. If Node `fetch` requires it for a streamed request body, set `duplex: "half"` and test abort/backpressure behavior.
 - Forward cookies, bearer credentials, content negotiation, ETags, cache validators, and request origin as required by the API contract.
@@ -377,19 +384,19 @@ The existing Next route files must be deleted rather than left as alternate impl
 
 `apps/web` will have no database connectivity after extraction. Server-rendered pages remain server-rendered, but their data access goes through a small server-only API gateway in web infrastructure:
 
-- The gateway calls the fixed `API_ORIGIN` directly from the Next server, never through the web catch-all route (which would create a loop).
+- The gateway calls the fixed `API_ORIGIN` directly from the Next server using `/v1/**`, never through the web catch-all route (which would create a loop).
 - It forwards the incoming `Cookie`, `Authorization`, locale-independent request headers, and cancellation signal; it sends the same server-held proxy marker and canonical web origin as the catch-all proxy; it uses `cache: "no-store"` for authenticated data and a bounded timeout.
 - It maps API transport failures to the existing safe page fallback/redirect behavior, never exposing upstream URLs or exception text.
 - It validates the API response against the shared client contract, maps only safe API error codes to page behavior, and never logs response bodies or credentials.
 - It does not import `apps/api`, Prisma, `pg`, or route implementations.
 
-The SSR gateway calls `/api/v1/me` first, then `/api/v1/personal-vault` only after admission succeeds. The second call preserves the current idempotent `ensurePersonalVault` behavior. The page loader memoizes these calls per request, treats any transport failure or non-admitted result as the existing safe sign-in redirect, and never renders a partially loaded authenticated page. If `/me` succeeds but the Personal Vault read fails, the page returns the safe fallback rather than retrying through the Next proxy; bounded retry behavior, if added, is limited to the gateway and cannot duplicate a mutation. SSR contract tests cover each partial-failure combination and verify that no credentials or response bodies are logged.
+The SSR gateway calls `/v1/me` first, then `/v1/personal-vault` only after admission succeeds. The second call preserves the current idempotent `ensurePersonalVault` behavior. The page loader memoizes these calls per request, treats any transport failure or non-admitted result as the existing safe sign-in redirect, and never renders a partially loaded authenticated page. If `/me` succeeds but the Personal Vault read fails, the page returns the safe fallback rather than retrying through the Next proxy; bounded retry behavior, if added, is limited to the gateway and cannot duplicate a mutation. SSR contract tests cover each partial-failure combination and verify that no credentials or response bodies are logged.
 
 Update the current consumers as follows:
 
-- `load-vault-page-context.ts` calls `GET /api/v1/me` and `GET /api/v1/personal-vault` through the gateway. An authenticated `/me` response is the admission result; inactive/unauthenticated API errors preserve the existing redirect behavior.
+- `load-vault-page-context.ts` calls `GET /v1/me` and `GET /v1/personal-vault` through the direct API gateway. An authenticated `/me` response is the admission result; inactive/unauthenticated API errors preserve the existing redirect behavior.
 - `apps/web/src/app/sign-in/page.tsx` uses the gateway/auth contract rather than provisioning or reading users with Prisma. `apps/web/src/app/layout.tsx` retains only configuration-based backend selection and browser refresh composition; it must not acquire a database dependency.
-- `apps/web/src/app/vaults/recovery/page.tsx` calls `GET /api/v1/personal-vault/destructive-reset` (the existing route module gains a read operation) for passkey-recovery eligibility and active-owned-shared-vault blockers. The response contains only permitted identifiers/metadata, never vault content or keys.
+- `apps/web/src/app/vaults/recovery/page.tsx` calls `GET /v1/personal-vault/destructive-reset` (the existing route module gains a read operation) through the direct API gateway for passkey-recovery eligibility and active-owned-shared-vault blockers. The response contains only permitted identifiers/metadata, never vault content or keys.
 - `apps/web/src/app/auth/logout/route.ts` calls API session revocation as described in section 6.5 and remains a thin cookie/redirect adapter.
 - Delete the web Prisma client, Prisma repositories, and web server-composition imports after all consumers are migrated. The web package must no longer declare Prisma, `pg`, or migration dependencies.
 
@@ -399,9 +406,9 @@ This keeps SSR and auth redirects intact while making the API the only request-t
 
 ### Request paths
 
-- Browser API call: browser → Next `src/proxy.ts` security middleware (no database/auth-policy ownership and no API redirect) → `apps/web/src/app/api/[...path]/route.ts` catch-all proxy → `https://api-rhasia-scret.nooroctavian.id/api/v1/...` → Hono `/api/v1` route in `apps/api` → domain/application use case → persistence/Hyperdrive → Hono response → proxy with status/body/headers/cookies → browser.
+- Browser API call: browser → Next `src/proxy.ts` security middleware (no database/auth-policy ownership and no API redirect) → `apps/web/src/app/api/[...path]/route.ts` catch-all proxy → `https://api.rhasia-scret.nooroctavian.id/v1/...` → Hono `/v1` route in `apps/api` → domain/application use case → persistence/Hyperdrive → Hono response → proxy with status/body/headers/cookies → browser.
 - Web SSR read: Next page/server gateway → fixed API origin with the incoming web cookie and authenticated proxy marker → Hono route → persistence → response. It must not call the Next proxy or import API persistence. The web `src/proxy.ts` page-gating verifier remains limited to signed browser/session claims and must not perform database access or duplicate API authorization.
-- Native call: mobile `EXPO_PUBLIC_API_URL` → API `/api/v1/...` with bearer authorization → Hono route → persistence. Native does not receive or use web cookies.
+- Native call: mobile `EXPO_PUBLIC_API_URL` → API `/v1/...` with bearer authorization → Hono route → persistence. Native does not receive or use web cookies.
 - Scheduled purge: Cloudflare `scheduled()` → bounded retention use case in `apps/api` → persistence/Hyperdrive; no HTTP loopback and no Next runtime. Self-hosting uses the same bounded use case through the authenticated internal HTTP endpoint from its controlled scheduler container.
 
 ### Local verification
@@ -444,88 +451,88 @@ Document alert thresholds and the owner/runbook for API availability, elevated a
 
 ## 12. Endpoint migration inventory
 
-All 39 current route modules and their 54 current path/method operations must be represented in the Hono route contract and tested through the web proxy. The target adds one read operation (`GET /api/v1/personal-vault/destructive-reset`) required to remove the final web Prisma read, for 55 target business operations. Hono's implicit `HEAD` behavior is framework-derived and not included in that count; parity tests must record its expected status separately.
+All 39 current route modules and their 54 current path/method operations must be represented in the Hono route contract and tested through the web proxy. The target adds one read operation (`GET /v1/personal-vault/destructive-reset`) required to remove the final web Prisma read, for 55 target business operations. Hono's implicit `HEAD` behavior is framework-derived and not included in that count; parity tests must record its expected status separately.
 
 For each operation, maintain a parity row in the implementation/test inventory containing: source route, Hono path/method, input location/schema and size limit, auth assurance/admission/rate-limit policy, use case, repository/transaction boundary, response status/body/encoding, error codes, cache/ETag behavior, audit behavior, and browser/native/SSR transport coverage. The normative operation-level manifest is [`docs/api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md); it must be completed with exact source/test references and contract values before child issues are created. A route is not considered migrated until its row and both relevant transport tests are complete. Mutation tests must include the response and a follow-up read where the existing contract permits it; import tests cover upload/decoded-byte limits and client-side consumption, while archive-export tests preserve the 204 audit side effect; update/delete tests verify revision/conflict behavior and affected cascades; one-time links verify consumption/replay; retention verifies bounded deletion and remaining backlog.
 
 ### Auth and system
 
 ```text
-POST /api/v1/auth/magic-link/request
-POST /api/v1/auth/magic-link/redeem
-POST /api/v1/auth/pwa/session
-POST /api/v1/auth/session/refresh
-POST /api/v1/auth/session/revoke
-GET  /api/v1/health
-GET  /api/v1/time
-GET  /api/v1/internal/retention-purge
-GET  /api/v1/me
+POST /v1/auth/magic-link/request
+POST /v1/auth/magic-link/redeem
+POST /v1/auth/pwa/session
+POST /v1/auth/session/refresh
+POST /v1/auth/session/revoke
+GET  /v1/health
+GET  /v1/time
+GET  /v1/internal/retention-purge
+GET  /v1/me
 ```
 
 ### Passkey recovery
 
 ```text
-POST   /api/v1/passkey-recovery/registration/options
-POST   /api/v1/passkey-recovery/registration/verify
-POST   /api/v1/passkey-recovery/authentication/options
-POST   /api/v1/passkey-recovery/authentication/verify
-GET    /api/v1/passkey-recovery/status
-DELETE /api/v1/passkey-recovery
+POST   /v1/passkey-recovery/registration/options
+POST   /v1/passkey-recovery/registration/verify
+POST   /v1/passkey-recovery/authentication/options
+POST   /v1/passkey-recovery/authentication/verify
+GET    /v1/passkey-recovery/status
+DELETE /v1/passkey-recovery
 ```
 
 ### Personal vault, crypto profile, and imports
 
 ```text
-GET    /api/v1/personal-vault
-POST   /api/v1/personal-vault/initialize
-GET    /api/v1/personal-vault/destructive-reset
-POST   /api/v1/personal-vault/destructive-reset
-GET    /api/v1/user-crypto-profile
-POST   /api/v1/user-crypto-profile/rewrap
-PUT    /api/v1/user-encryption-identity
-POST   /api/v1/vault-imports
+GET    /v1/personal-vault
+POST   /v1/personal-vault/initialize
+GET    /v1/personal-vault/destructive-reset
+POST   /v1/personal-vault/destructive-reset
+GET    /v1/user-crypto-profile
+POST   /v1/user-crypto-profile/rewrap
+PUT    /v1/user-encryption-identity
+POST   /v1/vault-imports
 ```
 
 ### Shared vaults, membership, accounts, and share links
 
 ```text
-GET    /api/v1/shared-vaults
-POST   /api/v1/shared-vaults
-GET    /api/v1/shared-vaults/:vaultId
-PATCH  /api/v1/shared-vaults/:vaultId
-POST   /api/v1/shared-vaults/:vaultId/accounts
-PATCH  /api/v1/shared-vaults/:vaultId/accounts
-DELETE /api/v1/shared-vaults/:vaultId/accounts
-PUT    /api/v1/shared-vaults/:vaultId/accounts
-GET    /api/v1/shared-vaults/:vaultId/audit-events
-POST   /api/v1/shared-vaults/:vaultId/audit-events
-POST   /api/v1/shared-vaults/:vaultId/leave
-DELETE /api/v1/shared-vaults/:vaultId/lifecycle
-POST   /api/v1/shared-vaults/:vaultId/lifecycle
-GET    /api/v1/shared-vaults/:vaultId/member-permissions
-PATCH  /api/v1/shared-vaults/:vaultId/member-permissions
-PATCH  /api/v1/shared-vaults/:vaultId/members/:userId
-DELETE /api/v1/shared-vaults/:vaultId/members/:userId
-GET    /api/v1/shared-vaults/:vaultId/participants
-PATCH  /api/v1/shared-vaults/:vaultId/rotation
-POST   /api/v1/shared-vaults/:vaultId/share-links
-DELETE /api/v1/shared-vaults/:vaultId/share-links/:invitationId
-GET    /api/v1/secure-share-links
-POST   /api/v1/secure-share-links
+GET    /v1/shared-vaults
+POST   /v1/shared-vaults
+GET    /v1/shared-vaults/:vaultId
+PATCH  /v1/shared-vaults/:vaultId
+POST   /v1/shared-vaults/:vaultId/accounts
+PATCH  /v1/shared-vaults/:vaultId/accounts
+DELETE /v1/shared-vaults/:vaultId/accounts
+PUT    /v1/shared-vaults/:vaultId/accounts
+GET    /v1/shared-vaults/:vaultId/audit-events
+POST   /v1/shared-vaults/:vaultId/audit-events
+POST   /v1/shared-vaults/:vaultId/leave
+DELETE /v1/shared-vaults/:vaultId/lifecycle
+POST   /v1/shared-vaults/:vaultId/lifecycle
+GET    /v1/shared-vaults/:vaultId/member-permissions
+PATCH  /v1/shared-vaults/:vaultId/member-permissions
+PATCH  /v1/shared-vaults/:vaultId/members/:userId
+DELETE /v1/shared-vaults/:vaultId/members/:userId
+GET    /v1/shared-vaults/:vaultId/participants
+PATCH  /v1/shared-vaults/:vaultId/rotation
+POST   /v1/shared-vaults/:vaultId/share-links
+DELETE /v1/shared-vaults/:vaultId/share-links/:invitationId
+GET    /v1/secure-share-links
+POST   /v1/secure-share-links
 ```
 
 ### Personal vault accounts, audit, and sync
 
 ```text
-GET    /api/v1/vaults/:vaultId/accounts
-POST   /api/v1/vaults/:vaultId/accounts
-PATCH  /api/v1/vaults/:vaultId/accounts
-DELETE /api/v1/vaults/:vaultId/accounts
-PUT    /api/v1/vaults/:vaultId/accounts
-POST   /api/v1/vaults/:vaultId/archive-exports
-GET    /api/v1/vaults/:vaultId/audit-events
-POST   /api/v1/vaults/:vaultId/audit-events
-GET    /api/v1/sync/offline-bundle
+GET    /v1/vaults/:vaultId/accounts
+POST   /v1/vaults/:vaultId/accounts
+PATCH  /v1/vaults/:vaultId/accounts
+DELETE /v1/vaults/:vaultId/accounts
+PUT    /v1/vaults/:vaultId/accounts
+POST   /v1/vaults/:vaultId/archive-exports
+GET    /v1/vaults/:vaultId/audit-events
+POST   /v1/vaults/:vaultId/audit-events
+GET    /v1/sync/offline-bundle
 ```
 
 The inventory deliberately includes the current shared-vault audit alias and the separate personal-vault audit routes. Their existing authorization and audit redaction semantics must remain distinct.
@@ -535,7 +542,7 @@ The inventory deliberately includes the current shared-vault audit alias and the
 These are candidate child issues for the parent issue after plan approval. They are implementation phases, not a gradual production rollout:
 
 1. **Lock architecture and runtime decisions**
-   - Record the `apps/api` domain/persistence boundary, zero-web-database rule, versioned `/api/v1` public path, `api-contract`/`api-client` client boundary, proxy-only browser policy, host-only cookies, OIDC web callback, Hyperdrive local strategy, and Worker cron in ADRs.
+   - Record the `apps/api` domain/persistence boundary, zero-web-database rule, versioned `/v1` API path plus the web-only `/api/v1` proxy path, `api-contract`/`api-client` client boundary, proxy-only browser policy, host-only cookies, OIDC web callback, Hyperdrive local strategy, and Worker cron in ADRs.
    - Record the HTTP email adapter as the replacement for SMTP; capture only provider-specific endpoint/credential values as deployment inputs.
 
 2. **Extract API domain and Prisma persistence**
@@ -570,7 +577,7 @@ These are candidate child issues for the parent issue after plan approval. They 
    - Update security headers, local configuration, proxy architecture tests, and browser support fixtures so web tests no longer import route implementations or Prisma.
 
 7. **Update web/native composition and auth boundaries**
-   - Point native `EXPO_PUBLIC_API_URL` to the API origin and update every client operation to the `/api/v1` paths.
+   - Point native `EXPO_PUBLIC_API_URL` to the API origin and update every native client operation to the `/v1` paths; retain `/api/v1` only for browser proxy calls.
    - Update web server auth/logout/SSR composition to use the API gateway and thin logout adapter; no web Prisma or `apps/api` backend runtime imports remain.
    - Keep client-only crypto/TOTP/secret boundaries unchanged.
    - Update API contract/client types without putting credentials or decrypted content in caches.
@@ -604,18 +611,18 @@ These are candidate child issues for the parent issue after plan approval. They 
 
 ### Contract and behavior
 
-- All 54 current path/method operations from the 39 route modules are implemented in the Hono app under `apps/api`, including the shared-vault audit `GET` alias, plus the documented recovery-eligibility `GET` operation; each target path is `/api/v1/<source-path>`.
+- All 54 current path/method operations from the 39 route modules are implemented in the Hono app under `apps/api`, including the shared-vault audit `GET` alias, plus the documented recovery-eligibility `GET` operation; each API target path is `/v1/<source-path>`, with browser access through `/api/v1/<source-path>` on the web origin.
 - Existing success/error bodies, status codes, error codes, cache headers, ETags, and encrypted byte encodings remain compatible.
 - Auth assurance levels, application admission, mutation rate limits, authorization, revision checks, audit redaction, one-time links, and retention semantics are unchanged.
 - Destructive Personal Vault Reset atomically removes the specified unusable Personal Vault ciphertext and cryptographic material, preserves Viewer memberships, returns the Personal Vault to `UNINITIALIZED`, and rejects recovery-enrolled users and users who own an active Shared Vault.
-- Browser requests through the web proxy and native bearer requests directly to the API both pass the same contract tests; versioned `/api/v1/**` forwarding is covered, and unversioned `/api/**` requests are rejected without an alias.
+- Browser requests through the web proxy and native bearer requests directly to the API both pass the same contract tests; web `/api/v1/**` to API `/v1/**` forwarding is covered, and unversioned API `/v1`-less requests are rejected without an alias.
 - Web SSR gateway calls preserve auth cookies and page redirect behavior without importing web Prisma; `/me` admission failure, Personal Vault failure, and transport failure all fail closed without rendering partial authenticated content.
 - Multiple `Set-Cookie` headers survive the proxy correctly.
 - PWA handoff and browser refresh rotation work through the proxy in a real browser.
 
 ### Security
 
-- API CORS is exact-origin and does not use wildcard credentials; the private proxy marker is never a browser-allowed or browser-exposed header. CORS, proxy, SSR, and direct-client tests use `/api/v1/**` and verify that an unversioned path cannot bypass the version boundary.
+- API CORS is exact-origin and does not use wildcard credentials; the private proxy marker is never a browser-allowed or browser-exposed header. CORS, proxy, SSR, and direct-client tests use API `/v1/**` and web proxy `/api/v1/**`, and verify that an unversioned path cannot bypass the version boundary.
 - Proxy-origin trust is authenticated and configuration-driven.
 - No sensitive request/response body, cookie, token, secure-share value, key, OTP, or ciphertext is logged.
 - API origin and proxy configuration cannot be attacker-controlled URL redirects.
@@ -631,7 +638,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 - Worker bundle size and runtime limits are acceptable.
 - `wrangler types` output is current and checked as required by project convention.
 - Local `.dev.vars` and production Wrangler secrets are documented and validated.
-- `GET /api/v1/health` remains a non-sensitive liveness check and does not expose database/provider details; dependency failures are represented in safe metrics/alerts.
+- `GET /v1/health` remains a non-sensitive liveness check and does not expose database/provider details; dependency failures are represented in safe metrics/alerts.
 - Cloudflare scheduled retention runs once per configured schedule and reports bounded progress.
 - Vercel no longer owns or schedules the API implementation.
 - A fresh final `pnpm run test:full` passes after the final code/configuration change, with any environment-blocked evidence reported explicitly.
@@ -643,7 +650,7 @@ The following concerns are resolved in this draft rather than left as implementa
 - Persistence and server business logic are owned by `apps/api`, not a third database HTTP service; only client-safe API contracts are shared under `packages/`.
 - `apps/web` has zero database connectivity. SSR uses the fixed-origin API gateway, and recovery eligibility is an API read operation.
 - OIDC authorization/callback remains web-owned; the API validates the shared provider-neutral session contract. Web logout is a thin API-revocation/cookie adapter.
-- The public API preserves the `/api` namespace with a fixed `/v1` version segment and exports `AppType` from `apps/api/src/app.ts`; the version is code/configuration, not a caller-controlled or deployment-specific path. Initial clients use typed `packages/api-contract`/`packages/api-client` helpers without importing API runtime code. `hc` requires a separately generated, CI-checked client-safe declaration and is not required for the initial extraction.
+- The API service exposes a fixed `/v1` version segment at its own origin and exports `AppType` from `apps/api/src/app.ts`; the web origin's `/api/v1` path is only the same-origin browser proxy boundary. The version is code/configuration, not a caller-controlled or deployment-specific path. Initial clients use typed `packages/api-contract`/`packages/api-client` helpers without importing API runtime code. `hc` requires a separately generated, CI-checked client-safe declaration and is not required for the initial extraction.
 - Existing 54 route operations retain their contract; one documented recovery-eligibility `GET` is added, making 55 target business operations, with implicit Hono `HEAD` behavior tested separately. Status/error/body/cache/ETag/encrypted-payload changes require explicit approval.
 - Existing PostgreSQL remains the database. Production Worker access uses Hyperdrive; local `wrangler dev` uses a disposable direct connection and `wrangler dev --remote` is an optional disposable-remote smoke test.
 - Browser traffic is proxy-only and same-origin. Native calls the API directly with bearer credentials. Cookies are host-only and replayed through the proxy. Requests containing conflicting bearer and cookie credentials fail closed; matching credentials must resolve deterministically.
