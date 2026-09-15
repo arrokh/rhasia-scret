@@ -265,13 +265,11 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
       if (decisions.size !== sharedVaults.length || sharedVaults.some(({ id }) => !decisions.has(id)))
         throw new AccountDeletionPlanStaleError();
 
-      const sharedVaultIds = sharedVaults.map(({ id }) => id);
       const deletedSharedVaultIds = sharedVaults
         .filter(({ id }) => decisions.get(id)?.action === "DELETE")
         .map(({ id }) => id);
       const transferredSharedVaults = sharedVaults.filter(({ id }) => decisions.get(id)?.action === "TRANSFER");
       const deletedVaultIds = [...personalVaults.map(({ id }) => id), ...deletedSharedVaultIds];
-      const allOwnedVaultIds = [...personalVaults.map(({ id }) => id), ...sharedVaultIds];
       for (const vault of transferredSharedVaults) {
         const decision = decisions.get(vault.id);
         if (!decision || decision.action !== "TRANSFER" || !decision.transferToUserId || vault.lifecycle !== "ACTIVE")
@@ -311,7 +309,7 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
             { actorUserId: applicationUserId },
             { ownerId: applicationUserId },
             { targetId: applicationUserId },
-            { vaultId: { in: allOwnedVaultIds } },
+            { vaultId: { in: deletedVaultIds } },
           ],
         },
       });

@@ -387,7 +387,8 @@
       "confirmDescription": "Your open vault session will close, and you will need to unlock it again after signing in."
     },
     "accountDeletionEmail": {
-      "subject": "Your rhasia-scret account was deleted",
+      "otpSubject": "Confirm your rhasia-scret account deletion",
+      "completionSubject": "Your rhasia-scret account was deleted",
       "title": "Account deletion verification",
       "description": "Use this one-time code to permanently delete your hosted rhasia-scret account:",
       "code": "Verification code",

@@ -387,7 +387,8 @@
       "confirmDescription": "Sesi brankas yang sedang terbuka akan ditutup dan Anda perlu membukanya kembali setelah masuk."
     },
     "accountDeletionEmail": {
-      "subject": "Akun rhasia-scret Anda telah dihapus",
+      "otpSubject": "Konfirmasi penghapusan akun rhasia-scret",
+      "completionSubject": "Akun rhasia-scret Anda telah dihapus",
       "title": "Verifikasi penghapusan akun",
       "description": "Gunakan kode satu kali ini untuk menghapus permanen akun hosted rhasia-scret Anda:",
       "code": "Kode verifikasi",

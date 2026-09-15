@@ -158,6 +158,7 @@ describe("PrismaAccountDeletionRepository", () => {
       await prisma.vaultAuditEvent.createMany({
         data: [
           { vaultId: transferredVault.id, ownerId: deletingUser.id, actorUserId: deletingUser.id, eventType: "TEST" },
+          { vaultId: transferredVault.id, ownerId: viewer.id, actorUserId: viewer.id, eventType: "PRESERVED" },
           { vaultId: otherVault.id, ownerId: otherOwner.id, actorUserId: deletingUser.id, eventType: "TEST" },
           {
             vaultId: otherVault.id,
@@ -258,6 +259,7 @@ describe("PrismaAccountDeletionRepository", () => {
       ).resolves.toEqual({ role: "OWNER" });
       await expect(prisma.vaultMember.count({ where: { userId: deletingUser.id } })).resolves.toBe(0);
       await expect(prisma.vaultInvitation.count({ where: { vaultId: transferredVault.id } })).resolves.toBe(1);
+      await expect(prisma.vaultAuditEvent.count({ where: { vaultId: transferredVault.id } })).resolves.toBe(1);
       await expect(
         prisma.vaultAuditEvent.count({
           where: {
