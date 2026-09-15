@@ -7,17 +7,37 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks = vi.hoisted(() => ({
-  client: {},
-  requestEmailSignInLink: vi.fn(),
+  announceAuthenticationCompletion: vi.fn(),
   captureAnalyticsEvent: vi.fn(),
+  clearPwaAuthenticationHandoff: vi.fn(),
+  client: {},
+  createPwaAuthenticationHandoff: vi.fn(() => ({ handoffId: "pwa-handoff-123456", verifier: "v".repeat(43) })),
+  isPwaDisplayMode: vi.fn(() => false),
+  pollPwaAuthenticationHandoff: vi.fn(),
+  readPwaAuthenticationHandoff: vi.fn(() => null),
+  requestEmailSignInLink: vi.fn(),
+  subscribeToPwaAuthenticationCompletion: vi.fn(() => () => undefined),
+  subscribeToPwaAuthenticationVerifierRequests: vi.fn(() => () => undefined),
 }));
 
 vi.mock("@/modules/identity/infrastructure/browser-passwordless-client", () => ({
   browserPasswordlessClient: mocks.client,
+  pollPwaAuthenticationHandoff: mocks.pollPwaAuthenticationHandoff,
 }));
 vi.mock("@/modules/identity/presentation/request-email-sign-in-link", () => ({
   authConfirmationRedirectUrl: (origin: string) => `${origin}/auth/confirm`,
   requestEmailSignInLink: mocks.requestEmailSignInLink,
+}));
+vi.mock("@/modules/identity/infrastructure/pwa-authentication", () => ({
+  clearPwaAuthenticationHandoff: mocks.clearPwaAuthenticationHandoff,
+  createPwaAuthenticationHandoff: mocks.createPwaAuthenticationHandoff,
+  isPwaDisplayMode: mocks.isPwaDisplayMode,
+  readPwaAuthenticationHandoff: mocks.readPwaAuthenticationHandoff,
+  subscribeToPwaAuthenticationCompletion: mocks.subscribeToPwaAuthenticationCompletion,
+  subscribeToPwaAuthenticationVerifierRequests: mocks.subscribeToPwaAuthenticationVerifierRequests,
+}));
+vi.mock("@/modules/identity/presentation/auth-completion-channel", () => ({
+  announceAuthenticationCompletion: mocks.announceAuthenticationCompletion,
 }));
 vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 
@@ -30,6 +50,8 @@ describe("EmailSignInForm", () => {
   afterEach(async () => {
     await act(async () => root?.unmount());
     vi.clearAllMocks();
+    mocks.isPwaDisplayMode.mockReturnValue(false);
+    mocks.readPwaAuthenticationHandoff.mockReturnValue(null);
   });
 
   it("renders accessible TanStack validation warnings and blocks invalid submissions", async () => {
@@ -80,6 +102,36 @@ describe("EmailSignInForm", () => {
       method: "email",
       failure_code: "rate_limited",
     });
+  });
+
+  it("requests a PWA handoff and accepts it when the browser publishes the session", async () => {
+    mocks.isPwaDisplayMode.mockReturnValue(true);
+    mocks.requestEmailSignInLink.mockResolvedValueOnce("sent");
+    mocks.pollPwaAuthenticationHandoff.mockResolvedValue({
+      accepted: true,
+      returnPath: "/vaults/invitations/redeem",
+    });
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(EmailSignInForm)));
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const input = container.querySelector<HTMLInputElement>("#email");
+    await act(async () => setInputValue(input, "person@example.test"));
+    await act(async () => form?.requestSubmit());
+    await act(async () => Promise.resolve());
+
+    expect(mocks.requestEmailSignInLink).toHaveBeenCalledWith(mocks.client, "person@example.test", "/vaults", {
+      client: "pwa",
+      handoffId: "pwa-handoff-123456",
+      handoffVerifier: "v".repeat(43),
+    });
+    expect(mocks.pollPwaAuthenticationHandoff).toHaveBeenCalledWith({
+      handoffId: "pwa-handoff-123456",
+      verifier: "v".repeat(43),
+    });
+    expect(mocks.clearPwaAuthenticationHandoff).toHaveBeenCalled();
+    expect(mocks.announceAuthenticationCompletion).toHaveBeenCalledOnce();
   });
 
   it("passes the invitation return path without carrying the fragment into authentication", async () => {

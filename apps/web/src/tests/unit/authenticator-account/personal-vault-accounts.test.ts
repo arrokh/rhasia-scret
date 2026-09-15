@@ -264,6 +264,13 @@ describe("PersonalVaultAccounts", () => {
       "/vaults/accounts/new",
     );
     expect(container.querySelector('[data-slot="account-directory-menu"]')).not.toBeNull();
+    const actionBar = container.querySelector<HTMLElement>('[data-slot="vault-account-actions"]');
+    expect(actionBar?.classList.contains("grid")).toBe(true);
+    expect(actionBar?.classList.contains("grid-cols-2")).toBe(true);
+    expect(actionBar?.classList.contains("sm:grid-cols-4")).toBe(true);
+    expect(
+      container.querySelector<HTMLAnchorElement>('a[href="/vaults/accounts/new"]')?.classList.contains("w-full"),
+    ).toBe(true);
     expect(container.querySelector('[data-slot="account-directory-list"]')?.getAttribute("data-view-mode")).toBe(
       "normal",
     );
@@ -293,6 +300,20 @@ describe("PersonalVaultAccounts", () => {
     await act(async () =>
       sharedVaultMenuTrigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })),
     );
+    const filterMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-filter-menu"]');
+    expect(actionBar?.querySelector('[data-slot="account-directory-filter-menu"]')).toBeNull();
+    await act(async () => filterMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const issuerFilter = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
+      (item) => item.textContent?.trim() === "Example",
+    );
+    await act(async () => issuerFilter?.click());
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(1);
+    expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).not.toContain("Example");
+    const allIssuers = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
+      (item) => item.textContent?.trim() === "Semua penerbit",
+    );
+    await act(async () => allIssuers?.click());
+    await act(async () => filterMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
     const directoryMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-menu"]');
     await act(async () => directoryMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
     const compactView = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(

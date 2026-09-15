@@ -19,6 +19,8 @@ import {
   createPasswordlessAuthServiceForServer,
   isPasswordlessClient,
   isPasswordlessReturnPath,
+  isSafePwaHandoffId,
+  isSafePwaHandoffVerifier,
   readPasswordlessConfiguration,
 } from "./infrastructure/passwordless-service";
 import { PrismaAnonymousAuthRateLimiter } from "./infrastructure/prisma-anonymous-auth-rate-limiter";
@@ -32,7 +34,14 @@ import {
 export { loadApplicationUser };
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository };
 export type { PasswordlessAuthService };
-export { isPasswordlessClient, isPasswordlessReturnPath, readPasswordlessConfiguration, AUTH_RETURN_PATH_COOKIE };
+export {
+  isPasswordlessClient,
+  isPasswordlessReturnPath,
+  isSafePwaHandoffId,
+  isSafePwaHandoffVerifier,
+  readPasswordlessConfiguration,
+  AUTH_RETURN_PATH_COOKIE,
+};
 export {
   isSameOrigin,
   requestClientIp,

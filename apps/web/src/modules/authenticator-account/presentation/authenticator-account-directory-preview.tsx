@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeftRight, ArrowUpRight, MoreVertical, Plus, ShieldKeyhole, Vault } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ type PreviewAccount = {
 export function AuthenticatorAccountDirectoryPreview() {
   const t = useTranslations("Preview.mobile");
   const { preferences, setPreferences } = useAccountDirectoryPreferences("preview-profile");
+  const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
   const { view, vaultFilters, order } = preferences;
   const vaults = useMemo(
     () => [
@@ -67,15 +68,32 @@ export function AuthenticatorAccountDirectoryPreview() {
       (vaultId, index, filters) => availableVaultIds.has(vaultId) && filters.indexOf(vaultId) === index,
     );
   }, [vaultFilters, vaults]);
+  const activeIssuerFilters = useMemo(() => {
+    const availableIssuers = new Set(orderedAccounts.map((account) => account.issuer));
+    return issuerFilters.filter(
+      (issuer, index, filters) => availableIssuers.has(issuer) && filters.indexOf(issuer) === index,
+    );
+  }, [issuerFilters, orderedAccounts]);
   const visibleAccounts = orderedAccounts.filter(
-    (account) => activeVaultFilters.length === 0 || activeVaultFilters.includes(account.vaultId),
+    (account) =>
+      (activeVaultFilters.length === 0 || activeVaultFilters.includes(account.vaultId)) &&
+      (activeIssuerFilters.length === 0 || activeIssuerFilters.includes(account.issuer)),
   );
-  const activeVaultFilterLabel =
-    activeVaultFilters.length === 0
-      ? t("allVaults")
-      : activeVaultFilters.length === 1
-        ? (vaults.find((vault) => vault.id === activeVaultFilters[0])?.name ?? t("allVaults"))
-        : t("selectedVaults", { count: activeVaultFilters.length });
+  const activeFilterLabel = useMemo(() => {
+    const vaultLabel =
+      activeVaultFilters.length === 0
+        ? t("allVaults")
+        : activeVaultFilters.length === 1
+          ? (vaults.find((vault) => vault.id === activeVaultFilters[0])?.name ?? t("allVaults"))
+          : t("selectedVaults", { count: activeVaultFilters.length });
+    if (activeIssuerFilters.length === 0) return vaultLabel;
+    const issuerLabel =
+      activeIssuerFilters.length === 1
+        ? activeIssuerFilters[0]
+        : t("selectedIssuers", { count: activeIssuerFilters.length });
+    return `${vaultLabel} · ${issuerLabel}`;
+  }, [activeIssuerFilters, activeVaultFilters, t, vaults]);
+  const hasActiveFilters = activeVaultFilters.length > 0 || activeIssuerFilters.length > 0;
 
   function moveAccount(sourceKey: string, targetKey: string, placement: "before" | "after" = "before") {
     const keys = orderedAccounts.map(accountDirectoryAccountKey);
@@ -85,64 +103,83 @@ export function AuthenticatorAccountDirectoryPreview() {
 
   return (
     <SurfaceCard className="grid min-w-0 gap-5 p-4 sm:p-5" aria-label={t("listLabel")}>
-      <div className="flex min-w-0 items-center gap-2" data-slot="vault-account-actions">
-        <Button variant="outline" asChild>
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-slot="vault-account-actions">
+        <Button variant="outline" asChild className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal">
           <Link href="/vaults/manage" aria-label={t("vaults")} title={t("vaults")}>
             <Vault aria-hidden="true" />
-            <span className="hidden md:inline">{t("vaults")}</span>
+            <span className="hidden min-w-0 whitespace-normal md:inline">{t("vaults")}</span>
           </Link>
         </Button>
-        <Button variant="outline" aria-label={t("localAction")} title={t("localAction")}>
+        <Button
+          variant="outline"
+          className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+          aria-label={t("localAction")}
+          title={t("localAction")}
+        >
           <ArrowLeftRight aria-hidden="true" />
-          <span className="hidden md:inline">{t("localAction")}</span>
+          <span className="hidden min-w-0 whitespace-normal md:inline">{t("localAction")}</span>
         </Button>
-        <Button variant="outline" aria-label={t("securityAction")} title={t("securityAction")}>
+        <Button
+          variant="outline"
+          className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+          aria-label={t("securityAction")}
+          title={t("securityAction")}
+        >
           <ShieldKeyhole aria-hidden="true" />
-          <span className="hidden md:inline">{t("securityAction")}</span>
+          <span className="hidden min-w-0 whitespace-normal md:inline">{t("securityAction")}</span>
         </Button>
-        <AccountDirectoryControls
-          vaults={vaults}
-          vaultFilters={activeVaultFilters}
-          onVaultFiltersChange={(value) => setPreferences((current) => ({ ...current, vaultFilters: value }))}
-          view={view}
-          onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
-          reorderAccounts={orderedAccounts.map((account) => ({
-            key: accountDirectoryAccountKey(account),
-            issuer: account.issuer,
-            accountName: account.accountName,
-            vaultName: account.vaultName,
-          }))}
-          onMoveAccount={moveAccount}
-          labels={{
-            menuLabel: t("directoryMenu"),
-            filterLabel: t("filterByVault"),
-            allVaults: t("allVaults"),
-            viewLabel: t("viewLabel"),
-            compact: t("compact"),
-            normal: t("normal"),
-            wide: t("wide"),
-            reorder: t("reorderAccounts"),
-            reorderTitle: t("reorderAccountsTitle"),
-            reorderDescription: t("reorderAccountsDescription"),
-            close: t("close"),
-            dragAccount: (account) => t("dragAccount", { account }),
-            moveUp: (account) => t("moveUp", { account }),
-            moveDown: (account) => t("moveDown", { account }),
-          }}
-        />
-        <Button asChild className="ml-auto">
+        <Button asChild className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal">
           <Link href="/vaults/accounts/new" aria-label={t("addLabel")} title={t("add")}>
             <Plus />
-            <span className="hidden md:inline">{t("add")}</span>
+            <span className="hidden min-w-0 whitespace-normal md:inline">{t("add")}</span>
           </Link>
         </Button>
       </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{activeVaultFilterLabel}</p>
+      <div className="flex min-w-0 items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="max-w-full truncate text-xs font-bold tracking-wider text-muted-foreground uppercase">
+            {activeFilterLabel}
+          </p>
           <h2 className="mt-1 text-lg font-bold text-ink-strong">{t("accounts")}</h2>
         </div>
-        <Badge className="bg-gold-soft text-ink-strong">{visibleAccounts.length}</Badge>
+        <div className="flex shrink-0 items-center gap-1">
+          <Badge className="bg-gold-soft text-ink-strong">{visibleAccounts.length}</Badge>
+          <AccountDirectoryControls
+            vaults={vaults}
+            vaultFilters={activeVaultFilters}
+            onVaultFiltersChange={(value) => setPreferences((current) => ({ ...current, vaultFilters: value }))}
+            issuerFilters={activeIssuerFilters}
+            onIssuerFiltersChange={setIssuerFilters}
+            view={view}
+            onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
+            reorderAccounts={orderedAccounts.map((account) => ({
+              key: accountDirectoryAccountKey(account),
+              issuer: account.issuer,
+              accountName: account.accountName,
+              vaultName: account.vaultName,
+            }))}
+            onMoveAccount={moveAccount}
+            labels={{
+              menuLabel: t("directoryMenu"),
+              filterLabel: t("filterLabel"),
+              filterByVault: t("filterByVault"),
+              filterByIssuer: t("filterByIssuer"),
+              allVaults: t("allVaults"),
+              allIssuers: t("allIssuers"),
+              viewLabel: t("viewLabel"),
+              compact: t("compact"),
+              normal: t("normal"),
+              wide: t("wide"),
+              reorder: t("reorderAccounts"),
+              reorderTitle: t("reorderAccountsTitle"),
+              reorderDescription: t("reorderAccountsDescription"),
+              close: t("close"),
+              dragAccount: (account) => t("dragAccount", { account }),
+              moveUp: (account) => t("moveUp", { account }),
+              moveDown: (account) => t("moveDown", { account }),
+            }}
+          />
+        </div>
       </div>
       {visibleAccounts.length ? (
         <ul
@@ -201,7 +238,7 @@ export function AuthenticatorAccountDirectoryPreview() {
         </ul>
       ) : (
         <p className="rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center text-sm text-muted-foreground">
-          {t("emptyFiltered")}
+          {hasActiveFilters ? t("emptyFiltered") : t("empty")}
         </p>
       )}
     </SurfaceCard>

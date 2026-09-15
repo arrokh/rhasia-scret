@@ -12,7 +12,16 @@ async function main(): Promise<void> {
   const staged = process.argv.includes("--staged");
   const prisma = createAdminPrismaClient();
   try {
-    const [users, localIdentities, localUsers, localBindings, mismatches, legacyColumn] = await Promise.all([
+    const [
+      users,
+      localIdentities,
+      localUsers,
+      localBindings,
+      mismatches,
+      legacyColumn,
+      pwaHandoffTable,
+      pwaHandoffEmailColumn,
+    ] = await Promise.all([
       prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT COUNT(*)::bigint AS count FROM application_users`),
       prisma.$queryRaw<Array<{ count: bigint }>>(
         Prisma.sql`SELECT COUNT(*)::bigint AS count FROM external_identities WHERE issuer = ${LOCAL_ISSUER}`,
@@ -29,6 +38,12 @@ async function main(): Promise<void> {
       prisma.$queryRaw<Array<{ count: bigint }>>(
         Prisma.sql`SELECT COUNT(*)::bigint AS count FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'application_users' AND column_name = ${LEGACY_IDENTITY_COLUMN}`,
       ),
+      prisma.$queryRaw<Array<{ count: bigint }>>(
+        Prisma.sql`SELECT COUNT(*)::bigint AS count FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'pwa_authentication_handoffs'`,
+      ),
+      prisma.$queryRaw<Array<{ count: bigint }>>(
+        Prisma.sql`SELECT COUNT(*)::bigint AS count FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'pwa_authentication_handoffs' AND column_name = 'normalized_email'`,
+      ),
     ]);
     const userCount = Number(users[0]?.count ?? 0);
     const identityCount = Number(localIdentities[0]?.count ?? 0);
@@ -36,15 +51,19 @@ async function main(): Promise<void> {
     const bindingCount = Number(localBindings[0]?.count ?? 0);
     const mismatchCount = Number(mismatches[0]?.count ?? 0);
     const legacyColumnCount = Number(legacyColumn[0]?.count ?? 0);
+    const pwaHandoffTableCount = Number(pwaHandoffTable[0]?.count ?? 0);
+    const pwaHandoffEmailColumnCount = Number(pwaHandoffEmailColumn[0]?.count ?? 0);
     if (
       identityCount !== userCount ||
       localUserCount !== userCount ||
       bindingCount !== userCount ||
       mismatchCount !== 0 ||
-      (staged ? legacyColumnCount !== 1 : legacyColumnCount !== 0)
+      (staged ? legacyColumnCount !== 1 : legacyColumnCount !== 0) ||
+      (staged ? pwaHandoffTableCount !== 0 : pwaHandoffTableCount !== 1) ||
+      (staged ? pwaHandoffEmailColumnCount !== 0 : pwaHandoffEmailColumnCount !== 1)
     )
       throw new Error(
-        `Passwordless migration ${staged ? "staged verification" : "verification"} failed: user, identity, distinct-user, binding, email mapping, or legacy-column counts do not match.`,
+        `Passwordless migration ${staged ? "staged verification" : "verification"} failed: user, identity, distinct-user, binding, email mapping, legacy-column, or PWA handoff schema checks do not match.`,
       );
     console.log(
       staged

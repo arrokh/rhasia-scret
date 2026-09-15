@@ -1,7 +1,15 @@
-import type { PasswordlessReturnPath } from "../application/passwordless-authentication";
+import type { PasswordlessClient, PasswordlessReturnPath } from "../application/passwordless-authentication";
 
 export type PasswordlessSignInClient = {
-  requestMagicLink(input: Readonly<{ email: string; returnPath: PasswordlessReturnPath }>): Promise<{
+  requestMagicLink(
+    input: Readonly<{
+      email: string;
+      returnPath: PasswordlessReturnPath;
+      client?: PasswordlessClient;
+      handoffId?: string;
+      handoffVerifier?: string;
+    }>,
+  ): Promise<{
     error: unknown;
   }>;
 };
@@ -12,10 +20,12 @@ export async function requestEmailSignInLink(
   client: PasswordlessSignInClient,
   email: string,
   returnPath: PasswordlessReturnPath,
+  options?: Readonly<{ client?: PasswordlessClient; handoffId?: string; handoffVerifier?: string }>,
 ): Promise<EmailSignInRequestResult> {
   const { error } = await client.requestMagicLink({
     email: email.trim().toLowerCase(),
     returnPath,
+    ...(options ?? {}),
   });
   if (error === null) return "sent";
   return isRateLimited(error) ? "rate_limited" : "error";

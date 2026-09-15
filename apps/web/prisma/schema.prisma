@@ -73,21 +73,22 @@ model MagicLinkChallenge {
 }
 
 model AuthSession {
-  id                 String          @id @default(cuid())
-  applicationUserId  String          @map("application_user_id")
-  accessTokenDigest  Bytes           @unique @map("access_token_digest")
-  refreshTokenDigest Bytes           @unique @map("refresh_token_digest")
-  refreshFamily      String          @map("refresh_family")
-  accessExpiresAt    DateTime        @map("access_expires_at")
-  refreshExpiresAt   DateTime        @map("refresh_expires_at")
-  revokedAt          DateTime?       @map("revoked_at")
-  revocationReason   String?         @map("revocation_reason")
-  refreshRotatedAt   DateTime?       @map("refresh_rotated_at")
-  reuseDetectedAt    DateTime?       @map("reuse_detected_at")
-  lastUsedAt         DateTime?       @map("last_used_at")
-  createdAt          DateTime        @default(now()) @map("created_at")
-  updatedAt          DateTime        @updatedAt @map("updated_at")
-  applicationUser    ApplicationUser @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+  id                       String                    @id @default(cuid())
+  applicationUserId        String                    @map("application_user_id")
+  accessTokenDigest        Bytes                     @unique @map("access_token_digest")
+  refreshTokenDigest       Bytes                     @unique @map("refresh_token_digest")
+  refreshFamily            String                    @map("refresh_family")
+  accessExpiresAt          DateTime                  @map("access_expires_at")
+  refreshExpiresAt         DateTime                  @map("refresh_expires_at")
+  revokedAt                DateTime?                 @map("revoked_at")
+  revocationReason         String?                   @map("revocation_reason")
+  refreshRotatedAt         DateTime?                 @map("refresh_rotated_at")
+  reuseDetectedAt          DateTime?                 @map("reuse_detected_at")
+  lastUsedAt               DateTime?                 @map("last_used_at")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  applicationUser          ApplicationUser           @relation(fields: [applicationUserId], references: [id], onDelete: Cascade)
+  pwaAuthenticationHandoff PwaAuthenticationHandoff?
 
   @@index([applicationUserId, revokedAt])
   @@index([accessExpiresAt])
@@ -95,6 +96,24 @@ model AuthSession {
   @@index([revokedAt, id])
   @@index([refreshFamily, revokedAt, refreshExpiresAt])
   @@map("auth_sessions")
+}
+
+model PwaAuthenticationHandoff {
+  id              String       @id @default(cuid())
+  handoffIdDigest Bytes        @unique @map("handoff_id_digest")
+  verifierDigest  Bytes        @map("verifier_digest")
+  normalizedEmail String?      @map("normalized_email")
+  sessionId       String?      @unique @map("session_id")
+  returnPath      String       @map("return_path")
+  expiresAt       DateTime     @map("expires_at")
+  publishedAt     DateTime?    @map("published_at")
+  consumedAt      DateTime?    @map("consumed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  session         AuthSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([consumedAt, expiresAt])
+  @@map("pwa_authentication_handoffs")
 }
 
 model AnonymousAuthRateLimitWindow {

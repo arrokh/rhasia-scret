@@ -107,7 +107,13 @@ export function DestructivePersonalVaultResetForm() {
       </form.Field>
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <Button variant="destructive" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+          <Button
+            variant="destructive"
+            className="h-auto min-h-12 w-full py-3 text-center leading-5 whitespace-normal"
+            type="submit"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+          >
             <Trash2 />
             {isSubmitting ? t("deleting") : t("submit")}
           </Button>

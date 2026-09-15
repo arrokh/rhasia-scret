@@ -2,8 +2,16 @@ import { deliverMagicLinkEmail, type MagicLinkEmailSender } from "./email-delive
 import type { SessionAssurance, VerifiedPrincipal } from "./session-verifier";
 
 export const PASSWORDLESS_ISSUER = "rhasia:passwordless";
-export type PasswordlessClient = "web" | "mobile";
+export type PasswordlessClient = "web" | "mobile" | "pwa";
 export type PasswordlessReturnPath = "/vaults" | "/vaults/invitations/redeem";
+
+export function isSafePwaHandoffId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{16,128}$/.test(value);
+}
+
+export function isSafePwaHandoffVerifier(value: string): boolean {
+  return /^[A-Za-z0-9_-]{43,128}$/.test(value);
+}
 
 export type MagicLinkChallenge = Readonly<{
   email: string;
@@ -29,7 +37,16 @@ export type PasswordlessAccount = Readonly<{
 
 export interface PasswordlessAuthRepository {
   createChallenge(
-    input: Readonly<{ tokenDigest: Uint8Array; challenge: MagicLinkChallenge; expiresAt: Date }>,
+    input: Readonly<{
+      tokenDigest: Uint8Array;
+      challenge: MagicLinkChallenge;
+      expiresAt: Date;
+      pwaHandoff?: Readonly<{
+        handoffIdDigest: Uint8Array;
+        verifierDigest: Uint8Array;
+        expiresAt: Date;
+      }>;
+    }>,
   ): Promise<void>;
   consumeChallenge(tokenDigest: Uint8Array, client: PasswordlessClient, now: Date): Promise<MagicLinkChallenge | null>;
   findOrCreateAccount(email: string, now: Date): Promise<PasswordlessAccount>;
@@ -38,11 +55,28 @@ export interface PasswordlessAuthRepository {
   verifyBrowserSession(sessionId: string, now: Date): Promise<VerifiedPrincipal | null>;
   rotateRefreshToken(tokenDigest: Uint8Array, sessionId: string, now: Date): Promise<PasswordlessSession | null>;
   revokeSession(sessionId: string, now: Date, reason?: string): Promise<void>;
+  publishPwaHandoff(
+    tokenDigest: Uint8Array,
+    sessionId: string,
+    handoffIdDigest: Uint8Array,
+    now: Date,
+  ): Promise<boolean>;
+  redeemPwaHandoff(
+    handoffIdDigest: Uint8Array,
+    verifierDigest: Uint8Array,
+    now: Date,
+  ): Promise<Readonly<{ session: PasswordlessSession; returnPath: PasswordlessReturnPath }> | null>;
 }
 
 export interface PasswordlessAuthService {
   requestLink(
-    input: Readonly<{ email: string; client: PasswordlessClient; returnPath: PasswordlessReturnPath }>,
+    input: Readonly<{
+      email: string;
+      client: PasswordlessClient;
+      returnPath: PasswordlessReturnPath;
+      handoffId?: string;
+      handoffVerifier?: string;
+    }>,
   ): Promise<void>;
   redeem(
     token: string,
@@ -52,6 +86,11 @@ export interface PasswordlessAuthService {
   verifyBrowserSession(sessionId: string): Promise<VerifiedPrincipal | null>;
   refresh(refreshToken: string): Promise<PasswordlessSession | null>;
   revoke(sessionId: string, reason?: string): Promise<void>;
+  publishPwaHandoff(refreshToken: string, handoffId: string): Promise<void>;
+  redeemPwaHandoff(
+    handoffId: string,
+    verifier: string,
+  ): Promise<Readonly<{ session: PasswordlessSession; returnPath: PasswordlessReturnPath }> | null>;
 }
 
 export type PasswordlessAuthDependencies = Readonly<{
@@ -59,7 +98,12 @@ export type PasswordlessAuthDependencies = Readonly<{
   sender: MagicLinkEmailSender;
   generateToken(): Readonly<{ rawToken: string; digest: Uint8Array }>;
   digestToken(token: string): Uint8Array;
-  buildActionUrl(client: PasswordlessClient, rawToken: string, returnPath: PasswordlessReturnPath): URL;
+  buildActionUrl(
+    client: PasswordlessClient,
+    rawToken: string,
+    returnPath: PasswordlessReturnPath,
+    handoffId?: string,
+  ): URL;
   magicLinkTtlSeconds: number;
   now?: () => Date;
 }>;
@@ -69,24 +113,48 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
 
   return {
     async requestLink(
-      input: Readonly<{ email: string; client: PasswordlessClient; returnPath: PasswordlessReturnPath }>,
+      input: Readonly<{
+        email: string;
+        client: PasswordlessClient;
+        returnPath: PasswordlessReturnPath;
+        handoffId?: string;
+        handoffVerifier?: string;
+      }>,
     ) {
       const email = normalizeEmail(input.email);
       if (!isEmail(email)) throw new Error("Email address is invalid.");
+      if (
+        input.client === "pwa" &&
+        (!input.handoffId ||
+          !isSafePwaHandoffId(input.handoffId) ||
+          !input.handoffVerifier ||
+          !isSafePwaHandoffVerifier(input.handoffVerifier))
+      )
+        throw new Error("PWA authentication handoff is invalid.");
+      if (input.client !== "pwa" && (input.handoffId !== undefined || input.handoffVerifier !== undefined))
+        throw new Error("PWA authentication handoff is invalid.");
       const generated = dependencies.generateToken();
       const requestedAt = now();
+      const expiresAt = new Date(requestedAt.getTime() + dependencies.magicLinkTtlSeconds * 1_000);
       await dependencies.repository.createChallenge({
         tokenDigest: generated.digest,
         challenge: { email, client: input.client, returnPath: input.returnPath },
-        expiresAt: new Date(requestedAt.getTime() + dependencies.magicLinkTtlSeconds * 1_000),
+        expiresAt,
+        ...(input.client === "pwa"
+          ? {
+              pwaHandoff: {
+                handoffIdDigest: dependencies.digestToken(input.handoffId as string),
+                verifierDigest: dependencies.digestToken(input.handoffVerifier as string),
+                expiresAt,
+              },
+            }
+          : {}),
       });
-      await deliverMagicLinkEmail(
-        {
-          recipientEmail: email,
-          actionUrl: dependencies.buildActionUrl(input.client, generated.rawToken, input.returnPath),
-        },
-        dependencies.sender,
-      );
+      const actionUrl =
+        input.handoffId === undefined
+          ? dependencies.buildActionUrl(input.client, generated.rawToken, input.returnPath)
+          : dependencies.buildActionUrl(input.client, generated.rawToken, input.returnPath, input.handoffId);
+      await deliverMagicLinkEmail({ recipientEmail: email, actionUrl }, dependencies.sender);
     },
 
     async redeem(
@@ -121,6 +189,31 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
     async revoke(sessionId: string, reason = "logout"): Promise<void> {
       if (!isSafeSessionId(sessionId)) return;
       await dependencies.repository.revokeSession(sessionId, now(), reason);
+    },
+
+    async publishPwaHandoff(refreshToken: string, handoffId: string): Promise<void> {
+      if (!isSessionToken(refreshToken) || !isSafePwaHandoffId(handoffId))
+        throw new Error("PWA authentication handoff is invalid.");
+      const sessionId = sessionIdFromCredential(refreshToken);
+      if (
+        !sessionId ||
+        !(await dependencies.repository.publishPwaHandoff(
+          dependencies.digestToken(refreshToken),
+          sessionId,
+          dependencies.digestToken(handoffId),
+          now(),
+        ))
+      )
+        throw new Error("PWA authentication handoff is invalid.");
+    },
+
+    async redeemPwaHandoff(handoffId: string, verifier: string) {
+      if (!isSafePwaHandoffId(handoffId) || !isSafePwaHandoffVerifier(verifier)) return null;
+      return dependencies.repository.redeemPwaHandoff(
+        dependencies.digestToken(handoffId),
+        dependencies.digestToken(verifier),
+        now(),
+      );
     },
   };
 }
