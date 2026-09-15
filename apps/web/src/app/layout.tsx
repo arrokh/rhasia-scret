@@ -104,7 +104,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {cloudflareAnalyticsToken ? (
           <Script
             id="cloudflare-web-analytics"
-            type="module"
             src="https://static.cloudflareinsights.com/beacon.min.js"
             strategy="lazyOnload"
             crossOrigin="anonymous"
