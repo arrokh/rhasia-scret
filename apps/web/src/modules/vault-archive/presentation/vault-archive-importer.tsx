@@ -399,7 +399,7 @@ export function VaultArchiveImporter({
               </Field>
             )}
           </previewForm.Field>
-          <previewForm.Subscribe selector={(state) => state.isSubmitting}>
+          <previewForm.Subscribe<boolean> selector={(state) => state.isSubmitting}>
             {(pending) => (
               <Button type="submit" disabled={!isHydrated || !online || pending} aria-busy={pending}>
                 {pending && <LoaderCircle className="animate-spin" />}
@@ -408,7 +408,7 @@ export function VaultArchiveImporter({
             )}
           </previewForm.Subscribe>
         </form>
-        <previewForm.Subscribe selector={(state) => state.isSubmitting}>
+        <previewForm.Subscribe<boolean> selector={(state) => state.isSubmitting}>
           {(pending) =>
             pending && (
               <StatusBanner tone="info" role="status" title={t("openingStatusTitle")}>

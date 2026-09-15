@@ -164,7 +164,7 @@ export function VaultWorkspaceUnlock({
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <Button
             type="submit"

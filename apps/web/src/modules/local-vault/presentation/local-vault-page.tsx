@@ -284,7 +284,7 @@ function CreateLocalVaultForm({ onCreate }: { onCreate: (passphrase: string, nam
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
             {isSubmitting ? t("creating") : t("create")}
@@ -340,7 +340,7 @@ function UnlockLocalVaultForm({
           </div>
         )}
       </form.Field>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <>
             <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
@@ -583,7 +583,7 @@ export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConf
               </div>
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => state.isSubmitting}>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? t("saving") : t("save")}
@@ -768,7 +768,7 @@ function LocalVaultSettings({
               </div>
             )}
           </form.Field>
-          <form.Subscribe selector={(state) => state.isSubmitting}>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <div className="flex justify-end">
                 <Button className="w-full sm:w-fit" type="submit" disabled={isSubmitting}>

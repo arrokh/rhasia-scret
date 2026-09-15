@@ -202,7 +202,7 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
                 </div>
               )}
             </manualForm.Field>
-            <manualForm.Subscribe selector={(state) => state.isSubmitting}>
+            <manualForm.Subscribe<boolean> selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <Button variant="outline" type="submit" disabled={isSubmitting}>
                   {t("useManual")}

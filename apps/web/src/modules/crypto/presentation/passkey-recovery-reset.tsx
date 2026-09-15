@@ -129,7 +129,7 @@ export function PasskeyRecoveryReset() {
         )}
       </form.Field>
 
-      <form.Subscribe selector={(state) => state.values.mode}>
+      <form.Subscribe<SecretMode> selector={(state) => state.values.mode}>
         {(mode) =>
           mode === "generated" ? (
             <div className="grid gap-3">
@@ -255,7 +255,7 @@ export function PasskeyRecoveryReset() {
           </div>
         )}
       </form.Field>
-      <form.Subscribe
+      <form.Subscribe<{ isSubmitting: boolean; mode: SecretMode; customSecret: string }>
         selector={(state) => ({
           isSubmitting: state.isSubmitting,
           mode: state.values.mode,

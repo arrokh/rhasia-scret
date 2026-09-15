@@ -177,7 +177,7 @@ export function OfflineVaultShell() {
                 </div>
               )}
             </form.Field>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
+            <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
               {(pending) => (
                 <Button type="submit" disabled={pending} aria-busy={pending}>
                   <KeyRound />

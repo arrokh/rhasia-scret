@@ -113,7 +113,7 @@ export function RememberedBrowserEnrollment({
           void form.handleSubmit();
         }}
       >
-        <form.Subscribe selector={(state) => state.isSubmitting}>
+        <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
           {(pending) => (
             <>
               <Button

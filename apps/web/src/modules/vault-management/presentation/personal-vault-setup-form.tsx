@@ -244,7 +244,7 @@ export function PersonalVaultSetupForm() {
         )}
       </form.Field>
 
-      <form.Subscribe
+      <form.Subscribe<{ isSubmitting: boolean; secret: string; mode: SecretMode }>
         selector={(state) => ({
           isSubmitting: state.isSubmitting,
           secret: state.values.secret,
@@ -263,7 +263,7 @@ export function PersonalVaultSetupForm() {
           </Button>
         )}
       </form.Subscribe>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
+      <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (isSubmitting ? <StatusBanner tone="info">{t("creatingKeys")}</StatusBanner> : null)}
       </form.Subscribe>
       {status === "setup_error" && (

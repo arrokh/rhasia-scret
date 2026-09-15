@@ -231,7 +231,7 @@ export function AuthenticatorAccountCreator({
             </Field>
           )}
         </unlockForm.Field>
-        <unlockForm.Subscribe selector={(state) => state.isSubmitting}>
+        <unlockForm.Subscribe<boolean> selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
               {isSubmitting && <LoaderCircle className="animate-spin" />}
@@ -257,7 +257,7 @@ export function AuthenticatorAccountCreator({
           <StatusBanner tone="offline">{t("offline")}</StatusBanner>
         </div>
       )}
-      <accountForm.Subscribe selector={(state) => state.values.uri}>
+      <accountForm.Subscribe<string> selector={(state) => state.values.uri}>
         {(uri) =>
           uri ? (
             <form
@@ -331,7 +331,7 @@ export function AuthenticatorAccountCreator({
                   </Field>
                 )}
               </accountForm.Field>
-              <accountForm.Subscribe selector={(state) => state.values.uri}>
+              <accountForm.Subscribe<string> selector={(state) => state.values.uri}>
                 {(reviewUri) => {
                   const metadata = parseAuthenticatorMetadata(reviewUri);
                   if (!metadata) return null;
@@ -393,7 +393,7 @@ export function AuthenticatorAccountCreator({
                   );
                 }}
               </accountForm.Subscribe>
-              <accountForm.Subscribe selector={(state) => state.isSubmitting}>
+              <accountForm.Subscribe<boolean> selector={(state) => state.isSubmitting}>
                 {(isSubmitting) => (
                   <Button type="submit" disabled={!online || isSubmitting} aria-busy={isSubmitting}>
                     {isSubmitting ? t("saving") : t("save")}
