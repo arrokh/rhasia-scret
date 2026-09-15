@@ -1,12 +1,14 @@
 import { Prisma } from "@prisma/client";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   PASSWORDLESS_ISSUER,
+  normalizeEmail,
   passwordlessPrincipal,
   type MagicLinkChallenge,
   type PasswordlessAccount,
   type PasswordlessAuthRepository,
   type PasswordlessClient,
+  type PasswordlessReturnPath,
   type PasswordlessSession,
 } from "../application/passwordless-authentication";
 import type { VerifiedPrincipal } from "../application/session-verifier";
@@ -21,15 +23,32 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
     tokenDigest: Uint8Array;
     challenge: MagicLinkChallenge;
     expiresAt: Date;
+    pwaHandoff?: Readonly<{
+      handoffIdDigest: Uint8Array;
+      verifierDigest: Uint8Array;
+      expiresAt: Date;
+    }>;
   }): Promise<void> {
-    await prisma.magicLinkChallenge.create({
-      data: {
-        normalizedEmail: input.challenge.email,
-        tokenDigest: Buffer.from(input.tokenDigest),
-        client: input.challenge.client,
-        returnPath: input.challenge.returnPath,
-        expiresAt: input.expiresAt,
-      },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.magicLinkChallenge.create({
+        data: {
+          normalizedEmail: input.challenge.email,
+          tokenDigest: Buffer.from(input.tokenDigest),
+          client: input.challenge.client,
+          returnPath: input.challenge.returnPath,
+          expiresAt: input.expiresAt,
+        },
+      });
+      if (input.pwaHandoff)
+        await transaction.pwaAuthenticationHandoff.create({
+          data: {
+            handoffIdDigest: Buffer.from(input.pwaHandoff.handoffIdDigest),
+            verifierDigest: Buffer.from(input.pwaHandoff.verifierDigest),
+            normalizedEmail: input.challenge.email,
+            returnPath: input.challenge.returnPath,
+            expiresAt: input.pwaHandoff.expiresAt,
+          },
+        });
     });
   }
 
@@ -134,30 +153,128 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
   }
 
   public async createSession(account: PasswordlessAccount, now: Date): Promise<PasswordlessSession> {
-    const sessionId = randomSessionId();
-    const accessToken = createSessionCredential(sessionId);
-    const refreshToken = createSessionCredential(sessionId);
-    const accessExpiresAt = new Date(now.getTime() + this.configuration.accessTokenTtlSeconds * 1_000);
-    const refreshExpiresAt = new Date(now.getTime() + this.configuration.refreshTokenTtlSeconds * 1_000);
-    await prisma.authSession.create({
-      data: {
-        id: sessionId,
-        applicationUserId: account.applicationUserId,
-        accessTokenDigest: Buffer.from(this.digestCredential(accessToken)),
-        refreshTokenDigest: Buffer.from(this.digestCredential(refreshToken)),
-        refreshFamily: sessionId,
-        accessExpiresAt,
-        refreshExpiresAt,
-      },
+    return prisma.$transaction((transaction) => this.createSessionInTransaction(transaction, account, now));
+  }
+
+  public async publishPwaHandoff(
+    tokenDigest: Uint8Array,
+    sessionId: string,
+    handoffIdDigest: Uint8Array,
+    now: Date,
+  ): Promise<boolean> {
+    return prisma.$transaction(async (transaction) => {
+      const candidate = await transaction.authSession.findUnique({
+        where: { id: sessionId },
+        select: {
+          applicationUserId: true,
+          refreshTokenDigest: true,
+          revokedAt: true,
+          refreshExpiresAt: true,
+          applicationUser: {
+            select: {
+              externalIdentities: {
+                where: { issuer: PASSWORDLESS_ISSUER },
+                select: { email: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      });
+      const sessionEmail = candidate?.applicationUser.externalIdentities[0]?.email;
+      const normalizedSessionEmail = sessionEmail ? normalizeEmail(sessionEmail) : null;
+      if (
+        !candidate ||
+        !normalizedSessionEmail ||
+        candidate.revokedAt !== null ||
+        candidate.refreshExpiresAt.getTime() <= now.getTime()
+      )
+        return false;
+      const expectedDigest = Buffer.from(tokenDigest);
+      if (!expectedDigest.equals(Buffer.from(candidate.refreshTokenDigest))) {
+        await recordRefreshReuse(transaction, candidate.applicationUserId, sessionId, now);
+        return false;
+      }
+      const reserved = await transaction.pwaAuthenticationHandoff.updateMany({
+        where: {
+          handoffIdDigest: Buffer.from(handoffIdDigest),
+          normalizedEmail: normalizedSessionEmail,
+          sessionId: null,
+          publishedAt: null,
+          consumedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { sessionId },
+      });
+      if (reserved.count !== 1) return false;
+      const session = await this.rotateRefreshTokenInTransaction(transaction, tokenDigest, sessionId, now);
+      if (!session) {
+        await transaction.pwaAuthenticationHandoff.updateMany({
+          where: { handoffIdDigest: Buffer.from(handoffIdDigest), sessionId, publishedAt: null, consumedAt: null },
+          data: { sessionId: null },
+        });
+        return false;
+      }
+      const published = await transaction.pwaAuthenticationHandoff.updateMany({
+        where: { handoffIdDigest: Buffer.from(handoffIdDigest), sessionId, publishedAt: null, consumedAt: null },
+        data: { publishedAt: now },
+      });
+      if (published.count !== 1) throw new Error("PWA authentication handoff is invalid.");
+      return true;
     });
-    return {
-      sessionId,
-      accessToken,
-      refreshToken,
-      accessExpiresAt,
-      refreshExpiresAt,
-      principal: { ...passwordlessPrincipal(account, "active-session"), sessionId },
-    };
+  }
+
+  public async redeemPwaHandoff(
+    handoffIdDigest: Uint8Array,
+    verifierDigest: Uint8Array,
+    now: Date,
+  ): Promise<Readonly<{ session: PasswordlessSession; returnPath: PasswordlessReturnPath }> | null> {
+    return prisma.$transaction(async (transaction) => {
+      const handoff = await transaction.pwaAuthenticationHandoff.findUnique({
+        where: { handoffIdDigest: Buffer.from(handoffIdDigest) },
+        include: {
+          session: {
+            include: {
+              applicationUser: {
+                include: { externalIdentities: { where: { issuer: PASSWORDLESS_ISSUER } } },
+              },
+            },
+          },
+        },
+      });
+      const session = handoff?.session;
+      const identity = session?.applicationUser.externalIdentities[0];
+      if (
+        !handoff ||
+        !session ||
+        !identity ||
+        !equalDigests(handoff.verifierDigest, verifierDigest) ||
+        handoff.consumedAt !== null ||
+        handoff.publishedAt === null ||
+        handoff.expiresAt.getTime() <= now.getTime() ||
+        session.revokedAt !== null ||
+        session.refreshExpiresAt.getTime() <= now.getTime() ||
+        session.applicationUser.status !== "ACTIVE" ||
+        !identity.email ||
+        identity.emailVerifiedAt === null
+      )
+        return null;
+      const consumed = await transaction.pwaAuthenticationHandoff.updateMany({
+        where: {
+          id: handoff.id,
+          consumedAt: null,
+          publishedAt: { not: null },
+          expiresAt: { gt: now },
+        },
+        data: { consumedAt: now },
+      });
+      if (consumed.count !== 1) return null;
+      const account = toAccount(session.applicationUser.id, identity.subject, identity.email);
+      return {
+        session: await this.createSessionInTransaction(transaction, account, now),
+        returnPath: handoff.returnPath as PasswordlessReturnPath,
+      };
+    });
   }
 
   public async verifyAccessToken(tokenDigest: Uint8Array, now: Date): Promise<VerifiedPrincipal | null> {
@@ -230,63 +347,72 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
     sessionId: string,
     now: Date,
   ): Promise<PasswordlessSession | null> {
+    return prisma.$transaction((transaction) =>
+      this.rotateRefreshTokenInTransaction(transaction, tokenDigest, sessionId, now),
+    );
+  }
+
+  private async rotateRefreshTokenInTransaction(
+    transaction: Prisma.TransactionClient,
+    tokenDigest: Uint8Array,
+    sessionId: string,
+    now: Date,
+  ): Promise<PasswordlessSession | null> {
     const expectedDigest = Buffer.from(tokenDigest);
-    return prisma.$transaction(async (transaction) => {
-      const session = await transaction.authSession.findUnique({
-        where: { id: sessionId },
-        include: {
-          applicationUser: {
-            include: {
-              externalIdentities: {
-                where: { issuer: PASSWORDLESS_ISSUER },
-              },
+    const session = await transaction.authSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        applicationUser: {
+          include: {
+            externalIdentities: {
+              where: { issuer: PASSWORDLESS_ISSUER },
             },
           },
         },
-      });
-      const identity = session?.applicationUser.externalIdentities[0];
-      if (
-        !session ||
-        !identity ||
-        session.revokedAt !== null ||
-        session.refreshExpiresAt.getTime() <= now.getTime() ||
-        session.applicationUser.status !== "ACTIVE" ||
-        !identity.email ||
-        identity.emailVerifiedAt === null
-      )
-        return null;
-      if (!expectedDigest.equals(Buffer.from(session.refreshTokenDigest))) {
-        await recordRefreshReuse(transaction, session.applicationUserId, session.id, now);
-        return null;
-      }
-
-      const accessToken = createSessionCredential(session.id);
-      const refreshToken = createSessionCredential(session.id);
-      const accessExpiresAt = new Date(now.getTime() + this.configuration.accessTokenTtlSeconds * 1_000);
-      const updated = await transaction.authSession.updateMany({
-        where: { id: session.id, refreshTokenDigest: expectedDigest, revokedAt: null },
-        data: {
-          accessTokenDigest: Buffer.from(this.digestCredential(accessToken)),
-          refreshTokenDigest: Buffer.from(this.digestCredential(refreshToken)),
-          accessExpiresAt,
-          refreshRotatedAt: now,
-          lastUsedAt: now,
-        },
-      });
-      if (updated.count !== 1) {
-        await recordRefreshReuse(transaction, session.applicationUserId, session.id, now);
-        return null;
-      }
-      const account = toAccount(session.applicationUser.id, identity.subject, identity.email);
-      return {
-        sessionId: session.id,
-        accessToken,
-        refreshToken,
-        accessExpiresAt,
-        refreshExpiresAt: session.refreshExpiresAt,
-        principal: { ...passwordlessPrincipal(account, "active-session"), sessionId: session.id },
-      };
+      },
     });
+    const identity = session?.applicationUser.externalIdentities[0];
+    if (
+      !session ||
+      !identity ||
+      session.revokedAt !== null ||
+      session.refreshExpiresAt.getTime() <= now.getTime() ||
+      session.applicationUser.status !== "ACTIVE" ||
+      !identity.email ||
+      identity.emailVerifiedAt === null
+    )
+      return null;
+    if (!expectedDigest.equals(Buffer.from(session.refreshTokenDigest))) {
+      await recordRefreshReuse(transaction, session.applicationUserId, session.id, now);
+      return null;
+    }
+
+    const accessToken = createSessionCredential(session.id);
+    const refreshToken = createSessionCredential(session.id);
+    const accessExpiresAt = new Date(now.getTime() + this.configuration.accessTokenTtlSeconds * 1_000);
+    const updated = await transaction.authSession.updateMany({
+      where: { id: session.id, refreshTokenDigest: expectedDigest, revokedAt: null },
+      data: {
+        accessTokenDigest: Buffer.from(this.digestCredential(accessToken)),
+        refreshTokenDigest: Buffer.from(this.digestCredential(refreshToken)),
+        accessExpiresAt,
+        refreshRotatedAt: now,
+        lastUsedAt: now,
+      },
+    });
+    if (updated.count !== 1) {
+      await recordRefreshReuse(transaction, session.applicationUserId, session.id, now);
+      return null;
+    }
+    const account = toAccount(session.applicationUser.id, identity.subject, identity.email);
+    return {
+      sessionId: session.id,
+      accessToken,
+      refreshToken,
+      accessExpiresAt,
+      refreshExpiresAt: session.refreshExpiresAt,
+      principal: { ...passwordlessPrincipal(account, "active-session"), sessionId: session.id },
+    };
   }
 
   public async revokeSession(sessionId: string, now: Date, reason = "logout"): Promise<void> {
@@ -294,6 +420,37 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       where: { id: sessionId, revokedAt: null },
       data: { revokedAt: now, revocationReason: reason },
     });
+  }
+
+  private async createSessionInTransaction(
+    transaction: Prisma.TransactionClient,
+    account: PasswordlessAccount,
+    now: Date,
+  ): Promise<PasswordlessSession> {
+    const sessionId = randomSessionId();
+    const accessToken = createSessionCredential(sessionId);
+    const refreshToken = createSessionCredential(sessionId);
+    const accessExpiresAt = new Date(now.getTime() + this.configuration.accessTokenTtlSeconds * 1_000);
+    const refreshExpiresAt = new Date(now.getTime() + this.configuration.refreshTokenTtlSeconds * 1_000);
+    await transaction.authSession.create({
+      data: {
+        id: sessionId,
+        applicationUserId: account.applicationUserId,
+        accessTokenDigest: Buffer.from(this.digestCredential(accessToken)),
+        refreshTokenDigest: Buffer.from(this.digestCredential(refreshToken)),
+        refreshFamily: sessionId,
+        accessExpiresAt,
+        refreshExpiresAt,
+      },
+    });
+    return {
+      sessionId,
+      accessToken,
+      refreshToken,
+      accessExpiresAt,
+      refreshExpiresAt,
+      principal: { ...passwordlessPrincipal(account, "active-session"), sessionId },
+    };
   }
 
   private digestCredential(token: string): Uint8Array {
@@ -323,6 +480,12 @@ async function recordRefreshReuse(
       eventType: "refresh_token_reuse_detected",
     },
   });
+}
+
+function equalDigests(left: Uint8Array, right: Uint8Array): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function toAccount(applicationUserId: string, subject: string, email: string): PasswordlessAccount {

@@ -19,6 +19,26 @@ describe("magic-link email delivery", () => {
     expect(sender.sendMagicLinkEmail).toHaveBeenCalledWith({ recipientEmail, actionUrl });
   });
 
+  it("allows PWA callbacks with a bounded handoff identifier", async () => {
+    const sender = { sendMagicLinkEmail: vi.fn().mockResolvedValue(undefined) };
+    const actionUrl = new URL(
+      `https://vault.example.test/auth/pwa-confirm#token=${token}&next=%2Fvaults&handoff=pwa-handoff-123456`,
+    );
+
+    await expect(deliverMagicLinkEmail({ recipientEmail, actionUrl }, sender)).resolves.toBeUndefined();
+    expect(sender.sendMagicLinkEmail).toHaveBeenCalledWith({ recipientEmail, actionUrl });
+  });
+
+  it("rejects a PWA callback without a handoff identifier", async () => {
+    const sender = { sendMagicLinkEmail: vi.fn() };
+    const actionUrl = new URL(`https://vault.example.test/auth/pwa-confirm#token=${token}&next=%2Fvaults`);
+
+    await expect(deliverMagicLinkEmail({ recipientEmail, actionUrl }, sender)).rejects.toThrow(
+      "Magic-link email request is invalid.",
+    );
+    expect(sender.sendMagicLinkEmail).not.toHaveBeenCalled();
+  });
+
   it("allows the development-only native callback scheme", async () => {
     const sender = { sendMagicLinkEmail: vi.fn().mockResolvedValue(undefined) };
     const actionUrl = new URL(`rhasia-scret://auth/magic-link#token=${token}&next=%2Fvaults`);
@@ -42,6 +62,7 @@ describe("magic-link email delivery", () => {
     `https://vault.example.test/auth/confirm?next=%2Fvaults#token=${token}`,
     `https://vault.example.test/auth/confirm#token=${token}&next=https%3A%2F%2Fattacker.example`,
     `https://vault.example.test/auth/confirm#token=${token}&invitation=secret`,
+    `https://vault.example.test/auth/pwa-confirm#token=${token}&handoff=unsafe`,
   ])("rejects unsafe action URL data: %s", async (rawUrl) => {
     const sender = { sendMagicLinkEmail: vi.fn() };
 

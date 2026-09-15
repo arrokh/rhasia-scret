@@ -46,6 +46,8 @@ export const STATE_CHANGING_ROUTE_RATE_LIMIT_EXCLUSIONS = {
   "POST /auth/logout": "Idempotent session termination must remain available without an application user.",
   "POST /api/auth/session/refresh":
     "Native refresh-token rotation and browser session keepalive have no authenticated Application User and are governed by the session family or active browser assertion.",
+  "POST /api/auth/pwa/session":
+    "PWA session handoff rotates a transient refresh credential and has no authenticated Application User before cookie issuance.",
   "POST /api/auth/session/revoke":
     "Idempotent native session termination is authenticated by the bearer session credential.",
 } as const;

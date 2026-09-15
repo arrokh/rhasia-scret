@@ -43,6 +43,83 @@ describe("PrismaPasswordlessAuthRepository", () => {
     expect(securityEvent).not.toBeNull();
   });
 
+  it.skipIf(!process.env.DATABASE_URL)("publishes and atomically consumes a verifier-backed PWA handoff", async () => {
+    const repository = new PrismaPasswordlessAuthRepository(configuration);
+    const account = await repository.findOrCreateAccount(`pwa-${randomUUID()}@example.test`, new Date());
+    applicationUserIds.push(account.applicationUserId);
+    const initial = await repository.createSession(account, new Date());
+    const handoffId = `pwa-${randomUUID().replaceAll("-", "")}`;
+    const verifier = "v".repeat(43);
+    const now = new Date("2026-09-14T00:00:00.000Z");
+    await prisma.pwaAuthenticationHandoff.create({
+      data: {
+        handoffIdDigest: Buffer.from(digest(handoffId)),
+        verifierDigest: Buffer.from(digest(verifier)),
+        normalizedEmail: account.email,
+        returnPath: "/vaults/invitations/redeem",
+        expiresAt: new Date(now.getTime() + 900_000),
+      },
+    });
+
+    await expect(
+      repository.publishPwaHandoff(digest(initial.refreshToken), initial.sessionId, digest(handoffId), now),
+    ).resolves.toBe(true);
+    const wrongVerifier = await repository.redeemPwaHandoff(digest(handoffId), digest(`${"v".repeat(42)}w`), now);
+    expect(wrongVerifier).toBeNull();
+    const redeemed = await repository.redeemPwaHandoff(digest(handoffId), digest(verifier), now);
+    const replay = await repository.redeemPwaHandoff(digest(handoffId), digest(verifier), now);
+
+    expect(redeemed?.returnPath).toBe("/vaults/invitations/redeem");
+    expect(redeemed?.session.refreshToken).not.toBe(initial.refreshToken);
+    expect(replay).toBeNull();
+    expect(
+      await prisma.pwaAuthenticationHandoff.findUnique({
+        where: { handoffIdDigest: Buffer.from(digest(handoffId)) },
+        select: { publishedAt: true, consumedAt: true, sessionId: true },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        sessionId: initial.sessionId,
+        publishedAt: expect.any(Date),
+        consumedAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it.skipIf(!process.env.DATABASE_URL)("does not bind one account to another account's PWA handoff", async () => {
+    const repository = new PrismaPasswordlessAuthRepository(configuration);
+    const victim = await repository.findOrCreateAccount(`victim-${randomUUID()}@example.test`, new Date());
+    const attacker = await repository.findOrCreateAccount(`attacker-${randomUUID()}@example.test`, new Date());
+    applicationUserIds.push(victim.applicationUserId, attacker.applicationUserId);
+    const initial = await repository.createSession(attacker, new Date());
+    const handoffId = `pwa-${randomUUID().replaceAll("-", "")}`;
+    const now = new Date("2026-09-14T00:00:00.000Z");
+    await prisma.pwaAuthenticationHandoff.create({
+      data: {
+        handoffIdDigest: Buffer.from(digest(handoffId)),
+        verifierDigest: Buffer.from(digest("v".repeat(43))),
+        normalizedEmail: victim.email,
+        returnPath: "/vaults",
+        expiresAt: new Date(now.getTime() + 900_000),
+      },
+    });
+
+    const published = await repository.publishPwaHandoff(
+      digest(initial.refreshToken),
+      initial.sessionId,
+      digest(handoffId),
+      now,
+    );
+
+    expect(published).toBe(false);
+    expect(
+      await prisma.pwaAuthenticationHandoff.findUnique({
+        where: { handoffIdDigest: Buffer.from(digest(handoffId)) },
+        select: { sessionId: true, publishedAt: true },
+      }),
+    ).toEqual({ sessionId: null, publishedAt: null });
+  });
+
   it.skipIf(!process.env.DATABASE_URL)("treats concurrent use of one refresh credential as reuse", async () => {
     const repository = new PrismaPasswordlessAuthRepository(configuration);
     const account = await repository.findOrCreateAccount(`concurrent-${randomUUID()}@example.test`, new Date());

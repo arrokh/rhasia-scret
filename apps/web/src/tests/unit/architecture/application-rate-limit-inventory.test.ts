@@ -42,6 +42,7 @@ describe("authenticated application mutation rate-limit inventory", () => {
       "/api/auth/magic-link/redeem",
       "/api/auth/session/refresh",
       "/api/auth/session/revoke",
+      "/api/auth/pwa/session",
     ]);
     for (const path of routeFiles(appRoot)) {
       const route = routePath(path);

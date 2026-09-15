@@ -220,6 +220,7 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
   function confirmLocaleChange() {
     if (!nextLocale || nextLocale === locale || pending || !online) return;
     persistLocale(nextLocale);
+    onCancel();
     navigator.serviceWorker?.controller?.postMessage({ type: refreshOfflineShellMessage });
     startTransition(() => router.refresh());
   }

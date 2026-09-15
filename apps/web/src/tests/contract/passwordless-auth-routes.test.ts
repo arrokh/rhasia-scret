@@ -7,8 +7,10 @@ const mocks = vi.hoisted(() => ({
   createSessionVerifier: vi.fn(),
   cookies: vi.fn(),
   readPasswordlessConfiguration: vi.fn(),
-  isPasswordlessClient: vi.fn((value: unknown) => value === "web" || value === "mobile"),
+  isPasswordlessClient: vi.fn((value: unknown) => value === "web" || value === "mobile" || value === "pwa"),
   isPasswordlessReturnPath: vi.fn((value: unknown) => value === "/vaults" || value === "/vaults/invitations/redeem"),
+  isSafePwaHandoffId: vi.fn((value: string) => value === "pwa-handoff-123456"),
+  isSafePwaHandoffVerifier: vi.fn((value: string) => value === "v".repeat(43)),
   isSameOrigin: vi.fn(() => true),
   setPasswordlessSessionCookies: vi.fn(),
   PASSWORDLESS_REFRESH_COOKIE: "rhsia-passwordless-refresh",
@@ -22,6 +24,8 @@ vi.mock("@/modules/identity/server", () => ({
   readPasswordlessConfiguration: mocks.readPasswordlessConfiguration,
   isPasswordlessClient: mocks.isPasswordlessClient,
   isPasswordlessReturnPath: mocks.isPasswordlessReturnPath,
+  isSafePwaHandoffId: mocks.isSafePwaHandoffId,
+  isSafePwaHandoffVerifier: mocks.isSafePwaHandoffVerifier,
   isSameOrigin: mocks.isSameOrigin,
   setPasswordlessSessionCookies: mocks.setPasswordlessSessionCookies,
   AUTH_RETURN_PATH_COOKIE: "rhsia-auth-return-path",
@@ -29,6 +33,7 @@ vi.mock("@/modules/identity/server", () => ({
 }));
 
 import { POST as redeemMagicLink } from "@/app/api/auth/magic-link/redeem/route";
+import { POST as acceptPwaSession } from "@/app/api/auth/pwa/session/route";
 import { POST as refreshSession } from "@/app/api/auth/session/refresh/route";
 
 const token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK";
@@ -44,7 +49,9 @@ const session = {
 describe("passwordless authentication route contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isPasswordlessClient.mockImplementation((value: unknown) => value === "web" || value === "mobile");
+    mocks.isPasswordlessClient.mockImplementation(
+      (value: unknown) => value === "web" || value === "mobile" || value === "pwa",
+    );
     mocks.isPasswordlessReturnPath.mockImplementation(
       (value: unknown) => value === "/vaults" || value === "/vaults/invitations/redeem",
     );
@@ -94,6 +101,66 @@ describe("passwordless authentication route contract", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ returnPath: "/vaults/invitations/redeem" });
     expect(mocks.setPasswordlessSessionCookies).toHaveBeenCalledWith(expect.anything(), session, expect.anything());
+  });
+
+  it("returns only a refresh credential to a PWA callback", async () => {
+    mocks.createPasswordlessAuthService.mockReturnValue({
+      redeem: vi.fn().mockResolvedValue({ session, returnPath: "/vaults" }),
+    });
+
+    const response = await redeemMagicLink(
+      new NextRequest("https://vault.example.test/api/auth/magic-link/redeem", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://vault.example.test" },
+        body: JSON.stringify({ token, client: "pwa" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ refreshToken: session.refreshToken, returnPath: "/vaults" });
+    expect(mocks.setPasswordlessSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("publishes a PWA callback session without returning the rotated credential", async () => {
+    const publishPwaHandoff = vi.fn().mockResolvedValue(undefined);
+    mocks.createPasswordlessAuthService.mockReturnValue({ publishPwaHandoff });
+
+    const response = await acceptPwaSession(
+      new NextRequest("https://vault.example.test/api/auth/pwa/session", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://vault.example.test" },
+        body: JSON.stringify({
+          handoffId: "pwa-handoff-123456",
+          refreshToken: session.refreshToken,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ published: true });
+    expect(publishPwaHandoff).toHaveBeenCalledWith(
+      "0123456789abcdef.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+      "pwa-handoff-123456",
+    );
+    expect(mocks.setPasswordlessSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("redeems the transient PWA handoff and sets cookies only in the receiving app", async () => {
+    mocks.createPasswordlessAuthService.mockReturnValue({
+      redeemPwaHandoff: vi.fn().mockResolvedValue({ session, returnPath: "/vaults" }),
+    });
+
+    const response = await acceptPwaSession(
+      new NextRequest("https://vault.example.test/api/auth/pwa/session", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://vault.example.test" },
+        body: JSON.stringify({ handoffId: "pwa-handoff-123456", verifier: "v".repeat(43) }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ accepted: true, returnPath: "/vaults" });
+    expect(mocks.setPasswordlessSessionCookies).toHaveBeenCalledWith(response.cookies, session, expect.anything());
   });
 
   it("keeps browser refresh validation read-only so concurrent loads cannot rotate the same token", async () => {

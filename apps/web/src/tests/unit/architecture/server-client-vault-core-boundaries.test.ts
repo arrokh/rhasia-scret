@@ -206,7 +206,7 @@ describe("server access to client-vault-core", () => {
     const runtimeSources = apiRuntimeSources();
     const paths = runtimeSources.map(sourcePath);
 
-    expect(paths.filter((path) => path.startsWith("app/api/") && path.endsWith("/route.ts"))).toHaveLength(38);
+    expect(paths.filter((path) => path.startsWith("app/api/") && path.endsWith("/route.ts"))).toHaveLength(39);
     expect(paths).toEqual(
       expect.arrayContaining([
         "modules/retention/application/run-retention-purge.ts",

@@ -14,6 +14,7 @@ describe("authentication proxy contract", () => {
     "/",
     "/sign-in",
     "/auth/confirm",
+    "/auth/pwa-confirm",
     "/auth/complete",
     "/api/health",
     "/api/time",
@@ -87,9 +88,11 @@ describe("authentication proxy contract", () => {
   it("prevents API and auth responses from being cached", async () => {
     const api = await createAuthProxy(async () => false)(request("/api/time"));
     const auth = await createAuthProxy(async () => false)(request("/auth/confirm"));
+    const pwaAuth = await createAuthProxy(async () => false)(request("/auth/pwa-confirm"));
 
     expect(api.headers.get("cache-control")).toBe("no-store, private");
     expect(auth.headers.get("cache-control")).toBe("no-store, private");
+    expect(pwaAuth.headers.get("cache-control")).toBe("no-store, private");
   });
 });
 

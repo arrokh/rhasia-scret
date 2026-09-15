@@ -11,7 +11,15 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
-import { browserPasswordlessClient } from "../infrastructure/browser-passwordless-client";
+import { browserPasswordlessClient, pollPwaAuthenticationHandoff } from "../infrastructure/browser-passwordless-client";
+import {
+  clearPwaAuthenticationHandoff,
+  createPwaAuthenticationHandoff,
+  isPwaDisplayMode,
+  readPwaAuthenticationHandoff,
+  type PendingPwaAuthenticationHandoff,
+} from "../infrastructure/pwa-authentication";
+import { announceAuthenticationCompletion } from "./auth-completion-channel";
 import { requestEmailSignInLink } from "./request-email-sign-in-link";
 import {
   AUTH_RETURN_PATH_COOKIE,
@@ -24,8 +32,62 @@ import {
 export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextPath?: string }) {
   const t = useTranslations("Identity.signIn");
   const returnPath = resolveAuthReturnPath(nextPath);
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error" | "rate_limited">("idle");
+  const pwaMode = isPwaDisplayMode();
+  const [status, setStatus] = useState<
+    "idle" | "sending" | "sent" | "authenticating" | "error" | "handoff_error" | "rate_limited"
+  >("idle");
   const [retrySeconds, setRetrySeconds] = useState(0);
+  const [pendingPwaHandoff, setPendingPwaHandoff] = useState<PendingPwaAuthenticationHandoff | null>(() =>
+    pwaMode ? readPwaAuthenticationHandoff() : null,
+  );
+
+  useEffect(() => {
+    if (!pwaMode || !pendingPwaHandoff) return;
+    let active = true;
+    let timer: number | undefined;
+    const startedAt = Date.now();
+
+    const schedulePoll = () => {
+      timer = window.setTimeout(() => void poll(), 1_000);
+    };
+    const poll = async () => {
+      try {
+        const result = await pollPwaAuthenticationHandoff(pendingPwaHandoff);
+        if (!active) return;
+        if ("accepted" in result) {
+          clearPwaAuthenticationHandoff();
+          setPendingPwaHandoff(null);
+          setStatus("authenticating");
+          announceAuthenticationCompletion();
+          if (result.returnPath !== INVITATION_AUTH_RETURN_PATH) window.location.replace(result.returnPath);
+          return;
+        }
+        if (Date.now() - startedAt >= PWA_HANDOFF_TIMEOUT_MS) {
+          clearPwaAuthenticationHandoff();
+          setPendingPwaHandoff(null);
+          setStatus("handoff_error");
+          return;
+        }
+        schedulePoll();
+      } catch {
+        if (!active) return;
+        if (Date.now() - startedAt >= PWA_HANDOFF_TIMEOUT_MS) {
+          clearPwaAuthenticationHandoff();
+          setPendingPwaHandoff(null);
+          setStatus("handoff_error");
+          return;
+        }
+        schedulePoll();
+      }
+    };
+
+    void poll();
+    return () => {
+      active = false;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [pendingPwaHandoff, pwaMode]);
+
   const form = useForm({
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => {
@@ -33,7 +95,23 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
       setStatus("sending");
       rememberAuthReturnPath(returnPath);
       if (returnPath === INVITATION_AUTH_RETURN_PATH) clearUrlFragment();
-      const result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath);
+      let result: Awaited<ReturnType<typeof requestEmailSignInLink>>;
+      if (pwaMode) {
+        const handoff = createPwaAuthenticationHandoff();
+        setPendingPwaHandoff(handoff);
+        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath, {
+          client: "pwa",
+          handoffId: handoff.handoffId,
+          handoffVerifier: handoff.verifier,
+        });
+      } else {
+        setPendingPwaHandoff(null);
+        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, returnPath);
+      }
+      if (pwaMode && result !== "sent") {
+        clearPwaAuthenticationHandoff();
+        setPendingPwaHandoff(null);
+      }
       if (result === "rate_limited") setRetrySeconds(60);
       if (result === "sent") {
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });
@@ -112,7 +190,7 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
             type={status === "sent" ? "button" : "submit"}
             variant={status === "sent" ? "ghost" : "default"}
             className="w-full"
-            disabled={isSubmitting || retrySeconds > 0}
+            disabled={isSubmitting || retrySeconds > 0 || status === "authenticating"}
             aria-busy={isSubmitting}
             onClick={status === "sent" ? () => window.location.reload() : undefined}
           >
@@ -129,18 +207,26 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
       </form.Subscribe>
       {status === "sent" && (
         <StatusBanner tone="success">
-          {t(returnPath === INVITATION_AUTH_RETURN_PATH ? "sentInvitation" : "sent")}
+          {t(pwaMode ? "sentPwa" : returnPath === INVITATION_AUTH_RETURN_PATH ? "sentInvitation" : "sent")}
         </StatusBanner>
       )}
+      {status === "authenticating" && <StatusBanner tone="info">{t("authenticating")}</StatusBanner>}
       {status === "rate_limited" && <StatusBanner tone="warning">{t("rateLimited")}</StatusBanner>}
       {status === "error" && (
         <StatusBanner tone="danger" role="alert">
           {t("error")}
         </StatusBanner>
       )}
+      {status === "handoff_error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("handoffError")}
+        </StatusBanner>
+      )}
     </form>
   );
 }
+
+const PWA_HANDOFF_TIMEOUT_MS = 900_000;
 
 function validateEmail(value: string, requiredMessage: string, invalidMessage: string): string | undefined {
   const normalized = value.trim();

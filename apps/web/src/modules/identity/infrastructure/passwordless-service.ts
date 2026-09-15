@@ -1,5 +1,7 @@
 import {
   createPasswordlessAuthService,
+  isSafePwaHandoffId,
+  isSafePwaHandoffVerifier,
   type PasswordlessAuthRepository,
   type PasswordlessClient,
   type PasswordlessReturnPath,
@@ -21,8 +23,15 @@ export function createPasswordlessAuthServiceForServer(
     sender: createNodemailerEmailSender(readEmailConfiguration()),
     generateToken: () => tokenGenerator.generate(),
     digestToken: (token) => tokenGenerator.digest(token),
-    buildActionUrl: (client, rawToken, returnPath) =>
-      buildActionUrl(authConfiguration.appOrigin, authConfiguration.mobileRedirectUrl, client, rawToken, returnPath),
+    buildActionUrl: (client, rawToken, returnPath, handoffId) =>
+      buildActionUrl(
+        authConfiguration.appOrigin,
+        authConfiguration.mobileRedirectUrl,
+        client,
+        rawToken,
+        returnPath,
+        handoffId,
+      ),
     magicLinkTtlSeconds: authConfiguration.magicLinkTtlSeconds,
   });
 }
@@ -39,15 +48,24 @@ export function buildActionUrl(
   client: PasswordlessClient,
   rawToken: string,
   returnPath: PasswordlessReturnPath,
+  handoffId?: string,
 ): URL {
-  const actionUrl = new URL(client === "web" ? "/auth/confirm" : mobileRedirectUrl.toString(), appOrigin);
-  actionUrl.hash = new URLSearchParams({ token: rawToken, next: returnPath }).toString();
+  if (client === "pwa" && (!handoffId || !isSafePwaHandoffId(handoffId)))
+    throw new Error("PWA authentication handoff is invalid.");
+  if (client !== "pwa" && handoffId !== undefined) throw new Error("PWA authentication handoff is invalid.");
+  const actionPath = client === "web" ? "/auth/confirm" : client === "pwa" ? "/auth/pwa-confirm" : null;
+  const actionUrl = actionPath ? new URL(actionPath, appOrigin) : new URL(mobileRedirectUrl.toString());
+  const fragment = new URLSearchParams({ token: rawToken, next: returnPath });
+  if (client === "pwa" && handoffId) fragment.set("handoff", handoffId);
+  actionUrl.hash = fragment.toString();
   return actionUrl;
 }
 
 export function isPasswordlessClient(value: unknown): value is PasswordlessClient {
-  return value === "web" || value === "mobile";
+  return value === "web" || value === "mobile" || value === "pwa";
 }
+
+export { isSafePwaHandoffId, isSafePwaHandoffVerifier };
 
 export function isPasswordlessReturnPath(value: unknown): value is PasswordlessReturnPath {
   return value === "/vaults" || value === "/vaults/invitations/redeem";

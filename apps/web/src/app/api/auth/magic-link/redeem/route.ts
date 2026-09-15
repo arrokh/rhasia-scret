@@ -12,7 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const body = await readJson(request);
   if (!body || typeof body.token !== "string" || !isPasswordlessClient(body.client))
     return NextResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if (body.client === "web" && !isSameOrigin(request))
+  if ((body.client === "web" || body.client === "pwa") && !isSameOrigin(request))
     return new NextResponse(null, { status: 403, headers: noStoreHeaders() });
   if (body.client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
     return new NextResponse(null, { status: 403, headers: noStoreHeaders() });
@@ -32,7 +32,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             email: result.session.principal.email,
             returnPath: result.returnPath,
           }
-        : { returnPath: result.returnPath },
+        : body.client === "pwa"
+          ? { refreshToken: result.session.refreshToken, returnPath: result.returnPath }
+          : { returnPath: result.returnPath },
       { headers: noStoreHeaders() },
     );
     if (body.client === "web") {

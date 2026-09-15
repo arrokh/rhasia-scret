@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { devices, expect, test, type Locator } from "@playwright/test";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 
@@ -80,7 +80,10 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
   await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   const vaultAccountActions = page.locator('[data-slot="vault-account-actions"]');
-  await expect(vaultAccountActions.locator('[data-slot="account-directory-menu"]')).toHaveAttribute("data-size", "sm");
+  await expect(vaultAccountActions.locator('[data-slot="account-directory-menu"]')).toHaveCount(0);
+  await expect(vaultAccountActions.locator('[data-slot="account-directory-filter-menu"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Opsi tampilan" })).toHaveAttribute("data-size", "icon");
+  await expect(page.getByRole("button", { name: "Filter akun" })).toHaveAttribute("data-size", "icon");
   await expect
     .poll(async () =>
       vaultAccountActions
@@ -93,31 +96,42 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
           ),
         ),
     )
-    .toEqual(["Brankas", "Brankas Perangkat", "Keamanan", "Opsi tampilan", "Tambahkan akun autentikator"]);
+    .toEqual(["Brankas", "Brankas Perangkat", "Keamanan", "Tambahkan akun autentikator"]);
   expect(await vaultAccountActions.evaluate((actions) => actions.scrollWidth <= actions.clientWidth)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
   await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
   const directoryMenu = page.getByRole("button", { name: "Opsi tampilan" });
+  const filterMenu = page.getByRole("button", { name: "Filter akun" });
+  await filterMenu.click();
+  const filterOptions = page.locator('[data-slot="dropdown-menu-content"]');
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Layanan contoh" }).click();
+  await expect(page.locator('[data-slot="account-directory-list"]')).toContainText("Layanan contoh");
+  await expect(page.locator('[data-slot="account-directory-list"]')).not.toContainText("Akun kerja");
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Semua penerbit" }).click();
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" }).click();
+  await expect(filterOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(filterOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  const accountList = page.locator('[data-slot="account-directory-list"]');
+  await expect(accountList.getByText("Akun kerja")).toBeVisible();
+  await expect(accountList.getByText("Layanan contoh")).toBeVisible();
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Semua brankas" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-slot="dropdown-menu-content"][data-state="closed"]')).toHaveCount(0);
   await directoryMenu.click();
   const directoryOptions = page.locator('[data-slot="dropdown-menu-content"]');
-  await directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
-  await directoryOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" }).click();
-  await expect(directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-  await expect(directoryOptions.getByRole("menuitemcheckbox", { name: "Brankas Pribadi" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-  await expect(page.getByText("Akun kerja")).toBeVisible();
-  await expect(page.getByText("Layanan contoh")).toBeVisible();
-  await directoryOptions.getByRole("menuitemcheckbox", { name: "Semua brankas" }).click();
   await directoryOptions.getByRole("menuitemradio", { name: "Ringkas" }).click();
   await expect(page.locator('[data-slot="account-directory-list"]')).toHaveAttribute("data-view-mode", "compact");
   await page.keyboard.press("Escape");
+  await expect(page.locator('[data-slot="dropdown-menu-content"][data-state="closed"]')).toHaveCount(0);
   await directoryMenu.click();
   await directoryOptions.getByRole("menuitem", { name: "Urutkan akun" }).click();
   const reorderDialog = page.getByRole("dialog");
@@ -136,10 +150,10 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
     "/ui-preview/vaults",
   );
   await page.keyboard.press("Escape");
-  await directoryMenu.click();
-  await directoryOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
-  await expect(page.getByText("Akun kerja")).toBeVisible();
-  await expect(page.getByText("Layanan contoh")).toBeHidden();
+  await filterMenu.click();
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Tim Operasional" }).click();
+  await expect(accountList.getByText("Akun kerja")).toBeVisible();
+  await expect(accountList.getByText("Layanan contoh")).toBeHidden();
   await page.keyboard.press("Escape");
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -175,7 +189,174 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   }
 });
 
-test("keeps the language confirmation open after selecting a setting", async ({ page }) => {
+test("keeps the footer anchored when account directory menus open", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/ui-preview");
+
+  const footer = page.locator("footer");
+  const before = await page.evaluate(() => {
+    const readBox = (selector: string) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { left: box.left, right: box.right, top: box.top, width: box.width } : null;
+    };
+    return {
+      main: readBox("main"),
+      footer: readBox("footer"),
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      bodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+    };
+  });
+  expect(before.main).not.toBeNull();
+  expect(before.footer).not.toBeNull();
+
+  for (const label of ["Opsi tampilan", "Filter akun"]) {
+    await page.getByRole("button", { name: label }).click();
+    await expect(page.locator('[data-slot="dropdown-menu-content"][data-state="open"]')).toBeVisible();
+    const after = await page.evaluate(() => {
+      const readBox = (selector: string) => {
+        const box = document.querySelector(selector)?.getBoundingClientRect();
+        return box ? { left: box.left, right: box.right, top: box.top, width: box.width } : null;
+      };
+      return {
+        main: readBox("main"),
+        footer: readBox("footer"),
+        bodyOverflow: getComputedStyle(document.body).overflow,
+        bodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+      };
+    });
+    expect(after).toEqual(before);
+    await page.keyboard.press("Escape");
+  }
+
+  await expect(footer).toBeVisible();
+});
+
+test("reorders authenticator accounts from a touch gesture", async ({ browser }) => {
+  const context = await browser.newContext({
+    ...devices["iPhone 12"],
+    baseURL: `http://127.0.0.1:${browserTestPort}`,
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto("/ui-preview");
+    await page.getByRole("button", { name: "Opsi tampilan" }).click();
+    await page.getByRole("menuitem", { name: "Urutkan akun" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const source = dialog.getByRole("button", {
+      name: "Seret untuk mengurutkan ulang example@local.invalid",
+    });
+    const target = dialog.locator('[data-account-key="preview-operations:preview-account-operations"]');
+    const sourceBox = await source.boundingBox();
+    const targetBox = await target.boundingBox();
+    expect(sourceBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+
+    const client = await context.newCDPSession(page);
+    const sourcePoint = {
+      x: (sourceBox?.x ?? 0) + (sourceBox?.width ?? 0) / 2,
+      y: (sourceBox?.y ?? 0) + (sourceBox?.height ?? 0) / 2,
+    };
+    const targetPoint = {
+      x: (targetBox?.x ?? 0) + (targetBox?.width ?? 0) / 2,
+      y: (targetBox?.y ?? 0) + (targetBox?.height ?? 0) / 2,
+    };
+    const touchPoint = (point: typeof sourcePoint) => ({ ...point, id: 1, radiusX: 4, radiusY: 4, force: 1 });
+
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [touchPoint(sourcePoint)],
+    });
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [touchPoint(targetPoint)],
+    });
+    await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+    await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]').first()).toHaveAttribute(
+      "data-account-key",
+      "preview-operations:preview-account-operations",
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test("keeps Vault actions within the card at an intermediate viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 900 });
+  await page.goto("/ui-preview");
+  const actions = page.locator('[data-slot="vault-account-actions"]');
+  await expect(actions).toBeVisible();
+  const layout = await actions.evaluate((element) => ({
+    actionOverflow: element.scrollWidth > element.clientWidth,
+    itemOverflow: [...element.children].some((item) => item.scrollWidth > item.clientWidth),
+    documentOverflow: document.documentElement.scrollWidth > window.innerWidth,
+  }));
+  expect(layout.actionOverflow).toBe(false);
+  expect(layout.itemOverflow).toBe(false);
+  expect(layout.documentOverflow).toBe(false);
+});
+
+test("keeps preview controls within the viewport in both locales", async ({ page }) => {
+  test.setTimeout(120_000);
+  const routes = [
+    "/ui-preview",
+    "/ui-preview/vaults",
+    "/ui-preview/archive-backup",
+    "/ui-preview/archive-import",
+    "/ui-preview/recovery",
+    "/ui-preview/remembered-browser",
+  ];
+  const origin = `http://127.0.0.1:${browserTestPort}`;
+  for (const locale of ["id", "en"] as const) {
+    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
+    for (const viewport of [
+      { width: 320, height: 700 },
+      { width: 820, height: 900 },
+      { width: 1280, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const route of routes) {
+        await page.goto(route);
+        await page.waitForLoadState("networkidle");
+        const layout = await page.evaluate(() => {
+          const isVisible = (element: HTMLElement) => {
+            const style = getComputedStyle(element);
+            const box = element.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+          };
+          const overflowingControls = [...document.querySelectorAll<HTMLElement>("button, a")]
+            .filter(isVisible)
+            .filter((element) => {
+              const box = element.getBoundingClientRect();
+              return (
+                box.left < -1 ||
+                box.right > window.innerWidth + 1 ||
+                (!element.matches('[data-slot="checkbox"]') && element.scrollWidth > element.clientWidth + 1)
+              );
+            })
+            .slice(0, 5)
+            .map(
+              (element) =>
+                element.getAttribute("aria-label") ??
+                `${element.tagName}.${element.className} ${element.textContent?.trim().slice(0, 80) ?? ""}`,
+            );
+          return {
+            documentOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+            overflowingControls,
+          };
+        });
+        expect(layout, `${locale} ${viewport.width}px ${route}`).toEqual({
+          documentOverflow: false,
+          overflowingControls: [],
+        });
+      }
+    }
+  }
+});
+
+test("closes the language confirmation after changing a setting", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ui-preview");
   await page.waitForLoadState("networkidle");
@@ -186,6 +367,7 @@ test("keeps the language confirmation open after selecting a setting", async ({ 
   await expect(confirmLanguage).toBeVisible();
   await confirmLanguage.click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("uses dedicated, consistent Vault navigation and management tabs", async ({ page }) => {
