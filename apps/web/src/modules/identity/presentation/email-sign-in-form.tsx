@@ -22,6 +22,7 @@ import {
   type PendingPwaAuthenticationHandoff,
 } from "../infrastructure/pwa-authentication";
 import { announceAuthenticationCompletion } from "./auth-completion-channel";
+import { CloudflareTurnstileWidget } from "./cloudflare-turnstile-widget";
 import { requestEmailSignInLink } from "./request-email-sign-in-link";
 import {
   AUTH_RETURN_PATH_COOKIE,
@@ -31,15 +32,28 @@ import {
   resolveAuthReturnPath,
 } from "../application/auth-return-path";
 
-export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextPath?: string }) {
+export function EmailSignInForm({
+  nextPath = DEFAULT_AUTH_RETURN_PATH,
+  turnstileSiteKey,
+}: Readonly<{ nextPath?: string; turnstileSiteKey?: string }>) {
   const t = useTranslations("Identity.signIn");
   const returnPath = resolveAuthReturnPath(nextPath);
   const passwordlessReturnPath =
     returnPath === INVITATION_AUTH_RETURN_PATH ? INVITATION_AUTH_RETURN_PATH : DEFAULT_AUTH_RETURN_PATH;
   const pwaMode = isPwaDisplayMode();
   const [status, setStatus] = useState<
-    "idle" | "sending" | "sent" | "authenticating" | "error" | "handoff_error" | "rate_limited"
+    | "idle"
+    | "sending"
+    | "sent"
+    | "authenticating"
+    | "error"
+    | "handoff_error"
+    | "rate_limited"
+    | "turnstile_required"
+    | "turnstile_error"
   >("idle");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [retrySeconds, setRetrySeconds] = useState(0);
   const [pendingPwaHandoff, setPendingPwaHandoff] = useState<PendingPwaAuthenticationHandoff | null>(() =>
     pwaMode ? readPwaAuthenticationHandoff() : null,
@@ -115,6 +129,10 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
+      if (turnstileSiteKey && !turnstileToken) {
+        setStatus("turnstile_required");
+        return;
+      }
       setStatus("sending");
       rememberAuthReturnPath(returnPath);
       if (returnPath === INVITATION_AUTH_RETURN_PATH) clearUrlFragment();
@@ -126,15 +144,22 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
           client: "pwa",
           handoffId: handoff.handoffId,
           handoffVerifier: handoff.verifier,
+          ...(turnstileToken ? { turnstileToken } : {}),
         });
       } else {
         setPendingPwaHandoff(null);
-        result = await requestEmailSignInLink(browserPasswordlessClient, value.email, passwordlessReturnPath);
+        result = turnstileToken
+          ? await requestEmailSignInLink(browserPasswordlessClient, value.email, passwordlessReturnPath, {
+              turnstileToken,
+            })
+          : await requestEmailSignInLink(browserPasswordlessClient, value.email, passwordlessReturnPath);
       }
       if (pwaMode && result !== "sent") {
         clearPwaAuthenticationHandoff();
         setPendingPwaHandoff(null);
       }
+      setTurnstileToken(null);
+      setTurnstileResetKey((key) => key + 1);
       if (result === "rate_limited") setRetrySeconds(60);
       if (result === "sent") {
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticationSignInLinkRequested, { method: "email" });
@@ -207,13 +232,33 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
           </div>
         )}
       </form.Field>
+      {turnstileSiteKey && (
+        <CloudflareTurnstileWidget
+          key={turnstileResetKey}
+          siteKey={turnstileSiteKey}
+          label={t("securityCheck")}
+          onTokenChange={(token) => {
+            setTurnstileToken(token);
+            if (token) setStatus((current) => (current === "turnstile_required" ? "idle" : current));
+          }}
+          onError={() => {
+            setTurnstileToken(null);
+            setStatus("turnstile_error");
+          }}
+        />
+      )}
       <form.Subscribe<boolean> selector={(formState) => formState.isSubmitting}>
         {(isSubmitting) => (
           <Button
             type={status === "sent" ? "button" : "submit"}
             variant={status === "sent" ? "ghost" : "default"}
             className="w-full"
-            disabled={isSubmitting || retrySeconds > 0 || status === "authenticating"}
+            disabled={
+              isSubmitting ||
+              retrySeconds > 0 ||
+              status === "authenticating" ||
+              Boolean(turnstileSiteKey && !turnstileToken)
+            }
             aria-busy={isSubmitting}
             onClick={status === "sent" ? () => window.location.reload() : undefined}
           >
@@ -235,6 +280,12 @@ export function EmailSignInForm({ nextPath = DEFAULT_AUTH_RETURN_PATH }: { nextP
       )}
       {status === "authenticating" && <StatusBanner tone="info">{t("authenticating")}</StatusBanner>}
       {status === "rate_limited" && <StatusBanner tone="warning">{t("rateLimited")}</StatusBanner>}
+      {status === "turnstile_required" && <StatusBanner tone="warning">{t("turnstileRequired")}</StatusBanner>}
+      {status === "turnstile_error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("turnstileError")}
+        </StatusBanner>
+      )}
       {status === "error" && (
         <StatusBanner tone="danger" role="alert">
           {t("error")}

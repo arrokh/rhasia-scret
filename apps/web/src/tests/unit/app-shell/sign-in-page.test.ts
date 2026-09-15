@@ -15,6 +15,7 @@ vi.mock("@/modules/identity/server", () => ({
   authBackend: () => "passwordless",
   createApplicationUserRepository: () => ({}),
   createSessionVerifier: () => ({}),
+  readPasswordlessConfiguration: () => ({ turnstile: { siteKey: "test-site-key" } }),
 }));
 vi.mock("@/modules/identity/infrastructure/prisma-application-user-repository", () => ({
   PrismaApplicationUserRepository: class PrismaApplicationUserRepository {},

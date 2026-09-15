@@ -33,6 +33,8 @@ export default defineConfig({
           AUTH_APP_ORIGIN: baseURL,
           AUTH_MAGIC_LINK_SECRET: "performance-e2e-magic-link-secret-12345678901234567890",
           AUTH_SESSION_SECRET: "performance-e2e-session-secret-12345678901234567890",
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+          TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
           AUTH_MOBILE_REDIRECT_URL: `${baseURL}/auth/mobile`,
           SMTP_HOST: "smtp.performance.invalid",
           SMTP_PORT: "587",

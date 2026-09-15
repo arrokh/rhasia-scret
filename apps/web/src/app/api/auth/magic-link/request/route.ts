@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   createAnonymousAuthRateLimiter,
   createPasswordlessAuthService,
+  createTurnstileValidator,
   isPasswordlessClient,
   isPasswordlessReturnPath,
   isSafePwaHandoffId,
   isSafePwaHandoffVerifier,
+  isSafeTurnstileToken,
   isSameOrigin,
   requestClientIp,
 } from "@/modules/identity/server";
@@ -19,6 +21,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     typeof body.email !== "string" ||
     (body.client === "pwa" && (typeof body.handoffId !== "string" || typeof body.handoffVerifier !== "string")) ||
     (body.client !== "pwa" && (body.handoffId !== undefined || body.handoffVerifier !== undefined)) ||
+    (body.client !== "mobile" &&
+      (typeof body.turnstileToken !== "string" || !isSafeTurnstileToken(body.turnstileToken))) ||
+    (body.client === "mobile" && body.turnstileToken !== undefined) ||
     (typeof body.handoffId === "string" && !isSafePwaHandoffId(body.handoffId)) ||
     (typeof body.handoffVerifier === "string" && !isSafePwaHandoffVerifier(body.handoffVerifier))
   )
@@ -30,14 +35,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const handoffId = typeof body.handoffId === "string" ? body.handoffId : undefined;
   const handoffVerifier = typeof body.handoffVerifier === "string" ? body.handoffVerifier : undefined;
+  if (body.client !== "mobile") {
+    const turnstileResult = await validateTurnstile(body.turnstileToken);
+    if (turnstileResult === "invalid")
+      return NextResponse.json({ error: "turnstile_failed" }, { status: 403, headers: noStoreHeaders() });
+    if (turnstileResult === "unavailable")
+      return NextResponse.json(
+        { error: "turnstile_unavailable" },
+        { status: 503, headers: { ...noStoreHeaders(), "Retry-After": "5" } },
+      );
+  }
+
+  let limit: Readonly<{ allowed: boolean; retryAfterSeconds: number }>;
   try {
     const limiter = createAnonymousAuthRateLimiter();
-    const limit = await limiter.check(body.email.trim().toLowerCase(), requestClientIp(request), new Date());
-    if (!limit.allowed)
-      return NextResponse.json(
-        { error: "rate_limited" },
-        { status: 429, headers: { ...noStoreHeaders(), "Retry-After": String(limit.retryAfterSeconds) } },
-      );
+    limit = await limiter.check(body.email.trim().toLowerCase(), requestClientIp(request), new Date());
+  } catch {
+    return NextResponse.json(
+      { error: "rate_limit_unavailable" },
+      { status: 503, headers: { ...noStoreHeaders(), "Retry-After": "5" } },
+    );
+  }
+  if (!limit.allowed)
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { ...noStoreHeaders(), "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+
+  try {
     await createPasswordlessAuthService().requestLink({
       email: body.email,
       client: body.client,
@@ -56,6 +81,15 @@ async function readJson(request: NextRequest): Promise<Record<string, unknown> |
     return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
   } catch {
     return null;
+  }
+}
+
+async function validateTurnstile(token: unknown): Promise<"valid" | "invalid" | "unavailable"> {
+  if (typeof token !== "string") return "invalid";
+  try {
+    return await createTurnstileValidator().validate(token);
+  } catch {
+    return "unavailable";
   }
 }
 

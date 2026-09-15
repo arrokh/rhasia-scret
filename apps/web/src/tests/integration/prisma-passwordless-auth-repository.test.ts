@@ -13,6 +13,10 @@ const configuration = {
   mobileRedirectUrl: new URL("http://localhost:3000/auth/mobile"),
   magicLinkSecret,
   sessionSecret,
+  turnstile: {
+    siteKey: "1x00000000000000000000AA",
+    secretKey: "1x0000000000000000000000000000000AA",
+  },
   magicLinkTtlSeconds: 900,
   accessTokenTtlSeconds: 900,
   refreshTokenTtlSeconds: 2_592_000,

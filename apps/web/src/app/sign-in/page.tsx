@@ -11,7 +11,12 @@ import {
   resolveAuthReturnPath,
   type AuthReturnPath,
 } from "@/modules/identity/application/auth-return-path";
-import { authBackend, createApplicationUserRepository, createSessionVerifier } from "@/modules/identity/server";
+import {
+  authBackend,
+  createApplicationUserRepository,
+  createSessionVerifier,
+  readPasswordlessConfiguration,
+} from "@/modules/identity/server";
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 import { InvitationAuthContinuation } from "@/modules/identity/presentation/invitation-auth-continuation";
 
@@ -31,6 +36,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const nextPath = resolveAuthReturnPath(firstQueryValue(params.next));
   const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
   const backend = authBackend();
+  const turnstileSiteKey = backend === "passwordless" ? readPasswordlessConfiguration().turnstile.siteKey : undefined;
   if (user?.canAccessApplication()) redirect(nextPath);
 
   const notice = authNotice(auth, nextPath);
@@ -51,7 +57,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               {t(`notice.${notice.key}`)}
             </StatusBanner>
           )}
-          {backend === "passwordless" && <EmailSignInForm nextPath={nextPath} />}
+          {backend === "passwordless" && <EmailSignInForm nextPath={nextPath} turnstileSiteKey={turnstileSiteKey} />}
           {backend === "oidc" && (
             <Button asChild>
               <Link

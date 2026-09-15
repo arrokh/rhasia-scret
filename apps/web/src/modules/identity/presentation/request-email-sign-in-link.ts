@@ -8,6 +8,7 @@ export type PasswordlessSignInClient = {
       client?: PasswordlessClient;
       handoffId?: string;
       handoffVerifier?: string;
+      turnstileToken?: string;
     }>,
   ): Promise<{
     error: unknown;
@@ -20,7 +21,12 @@ export async function requestEmailSignInLink(
   client: PasswordlessSignInClient,
   email: string,
   returnPath: PasswordlessReturnPath,
-  options?: Readonly<{ client?: PasswordlessClient; handoffId?: string; handoffVerifier?: string }>,
+  options?: Readonly<{
+    client?: PasswordlessClient;
+    handoffId?: string;
+    handoffVerifier?: string;
+    turnstileToken?: string;
+  }>,
 ): Promise<EmailSignInRequestResult> {
   const { error } = await client.requestMagicLink({
     email: email.trim().toLowerCase(),

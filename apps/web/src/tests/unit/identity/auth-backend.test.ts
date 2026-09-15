@@ -7,6 +7,8 @@ const requiredPasswordless = {
   AUTH_APP_ORIGIN: "http://localhost:3000",
   AUTH_MAGIC_LINK_SECRET: "12345678901234567890123456789012",
   AUTH_SESSION_SECRET: "abcdefghijklmnopqrstuvwxyz123456",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+  TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
 };
 
 const requiredOidc = {
@@ -33,10 +35,20 @@ describe("authentication backend configuration", () => {
         magicLinkTtlSeconds: 900,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlSeconds: 2_592_000,
+        turnstile: {
+          siteKey: "1x00000000000000000000AA",
+          secretKey: "1x0000000000000000000000000000000AA",
+        },
       },
     });
     expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_MAGIC_LINK_SECRET: "short" })).toThrow(
       "AUTH_MAGIC_LINK_SECRET",
+    );
+    expect(() => readAuthConfiguration({ ...requiredPasswordless, NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined })).toThrow(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+    );
+    expect(() => readAuthConfiguration({ ...requiredPasswordless, TURNSTILE_SECRET_KEY: undefined })).toThrow(
+      "TURNSTILE_SECRET_KEY",
     );
     expect(() =>
       readAuthConfiguration({
@@ -64,6 +76,13 @@ describe("authentication backend configuration", () => {
         AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth:443/magic-link",
       }),
     ).toThrow("approved callback");
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        AUTH_APP_ORIGIN: "https://host.test",
+      }),
+    ).toThrow("testing keys are not allowed");
   });
 
   it("supports local-only mode and the optional OIDC adapter", () => {
