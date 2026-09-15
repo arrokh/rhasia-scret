@@ -94,7 +94,11 @@ describe("TotpAccountButton", () => {
     const card = container.querySelector("article");
     expect(card?.getAttribute("data-shaking")).toBe("true");
     expect(container.querySelector(".lucide-copy")).toBeNull();
-    await act(async () => card?.dispatchEvent(new Event("animationend", { bubbles: true })));
+    await act(async () => {
+      for (const eventName of ["animationend", "webkitAnimationEnd"]) {
+        card?.dispatchEvent(new Event(eventName, { bubbles: true }));
+      }
+    });
     expect(card?.hasAttribute("data-shaking")).toBe(false);
     await act(async () => vi.advanceTimersByTimeAsync(2_000));
     expect(container.textContent).not.toContain("Disalin");
