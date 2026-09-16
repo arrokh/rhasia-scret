@@ -17,10 +17,10 @@ describe("client vault core public API", () => {
 
   it("uses the issuer parameter when it differs from the label issuer", () => {
     const configuration = parseTotpUri(
-      "otpauth://totp/Username:nooroctaviananwar?secret=JBSWY3DPEHPK3PXP&issuer=Instagram",
+      "otpauth://totp/LabelIssuer:dummy-user%40example.test?secret=JBSWY3DPEHPK3PXP&issuer=QueryIssuer",
     );
 
-    expect(configuration).toMatchObject({ issuer: "Instagram", accountName: "nooroctaviananwar" });
+    expect(configuration).toMatchObject({ issuer: "QueryIssuer", accountName: "dummy-user@example.test" });
     configuration.secret.fill(0);
   });
 

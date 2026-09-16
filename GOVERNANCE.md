@@ -20,7 +20,7 @@ The current repository ownership is declared in [`.github/CODEOWNERS`](.github/C
 
 Maintainers review incoming issues regularly, label them as bug, feature,
 documentation, security, or question, and record the relevant scope and
-acceptance criteria. Reproduction uses synthetic data. A security issue is
+acceptance criteria. Reproduction uses synthetic, non-PII data. A security issue is
 removed from public discussion and handled under [`SECURITY.md`](SECURITY.md).
 Stale requests may be closed with a reason and a link to the governing ADR or
 replacement issue.

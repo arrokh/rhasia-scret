@@ -5,6 +5,11 @@ The repository secret scan remains enabled for pull requests, pushes to
 [`.gitleaks.toml`](../../.gitleaks.toml) is commit-scoped so it does not mask
 future findings in the affected files or branches.
 
+These exceptions do not permit adding user-provided data to tests or fixtures.
+All automated tests, examples, and reproductions must use synthetic, non-PII
+values such as reserved example domains and dummy labels; redact real account
+labels, issuer names, URIs, QR payloads, credentials, and tokens before commit.
+
 | Historical commit                          | Finding                                                                            | Reason                                                                                                                                                                        | Owner                  | Review by  |
 | ------------------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------- |
 | `dfed1a5deede8268710ac3d20d24b2e9715475a9` | Cloudflare Web Analytics token in `apps/web/src/app/layout.tsx`                    | Browser-visible analytics configuration; the active source reads the public `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` environment variable instead of embedding the value. | Repository maintainers | 2026-10-16 |

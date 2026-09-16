@@ -20,7 +20,7 @@ GitHub and include only redacted details.
 Please include:
 
 - a short description and affected component or release;
-- a reproducible proof of concept using synthetic data only;
+- a reproducible proof of concept using synthetic, non-PII data only;
 - impact, preconditions, and whether confidentiality, integrity, or
   availability is affected; and
 - a safe contact channel for clarification.

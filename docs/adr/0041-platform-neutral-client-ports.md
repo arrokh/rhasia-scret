@@ -29,7 +29,7 @@ Authorization checks, revision checks, one-time Secure Share Link semantics, mut
 
 ## Cryptography and protocol compatibility
 
-The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, browser Argon2id/Worker execution, native Noble primitives, and the repository-owned native Argon2id module are adapters. Synthetic cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, context-bound key wraps, archives, and Secure Share Link material; no vector contains production secrets.
+The port boundary does not change protocol constants, envelope versions, context binding, KDF parameters, key-wrap formats, archive formats, Secure Share Link packages, or TOTP behavior. Browser Web Crypto, browser Argon2id/Worker execution, native Noble primitives, and the repository-owned native Argon2id module are adapters. Synthetic, non-PII cross-platform vectors cover Argon2id, RFC 6238 TOTP, context-bound encryption, context-bound key wraps, archives, and Secure Share Link material; no vector contains production secrets or user-provided data.
 
 WebAuthn PRF Remembered Browser and Passkey-Assisted Recovery expose the explicit `browser-webauthn-prf` capability. Unsupported platforms report unsupported; native passkey support is not treated as WebAuthn PRF compatibility and no native-equivalence claim is made.
 

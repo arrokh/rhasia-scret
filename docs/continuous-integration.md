@@ -1,6 +1,6 @@
 # Continuous integration and security automation
 
-GitHub Actions provides main-push and pull-request quality gates, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows use only synthetic database/authentication values and do not require deployment, signing, provider, or production database secrets.
+GitHub Actions provides main-push and pull-request quality gates, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows and their test fixtures use only synthetic, non-PII database/authentication values and do not require deployment, signing, provider, or production database secrets. Never copy user-provided TOTP URIs, account labels, issuer names, QR payloads, or credentials into CI fixtures.
 
 ## Events and permissions
 
