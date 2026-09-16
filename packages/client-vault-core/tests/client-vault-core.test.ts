@@ -15,6 +15,15 @@ describe("client vault core public API", () => {
     expect(result.value).toBe("00000001");
   });
 
+  it("uses the issuer parameter when it differs from the label issuer", () => {
+    const configuration = parseTotpUri(
+      "otpauth://totp/Username:nooroctaviananwar?secret=JBSWY3DPEHPK3PXP&issuer=Instagram",
+    );
+
+    expect(configuration).toMatchObject({ issuer: "Instagram", accountName: "nooroctaviananwar" });
+    configuration.secret.fill(0);
+  });
+
   it("rejects oversized Base32 secrets before regex processing", () => {
     const secret = "A".repeat(1025);
 
