@@ -26,8 +26,10 @@ The web application can run in local-only mode without remote authentication, or
 
 The repository is a pnpm workspace with three bounded application/package areas:
 
-- `apps/web` — Next.js web application, route handlers, Prisma schema/migrations, browser adapters, presentation, localization, and web tests.
+- `apps/api` — Hono/Cloudflare Worker API, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, auth/email adapters, retention scheduling, and API tests.
+- `apps/web` — Next.js presentation application, same-origin `/api/v1/**` proxy, SSR API gateway, browser adapters, presentation, localization, and web tests. It has no database or API business-logic ownership.
 - `apps/mobile` — Expo SDK 57 iOS/Android composition layer, native adapters, native cryptography module, presentation, localization, and mobile tests.
+- `packages/api-contract` and `packages/api-client` — client-safe API schemas/types and web/native transport helpers; they contain no server runtime or persistence code.
 - `packages/client-vault-core` — platform-neutral client workflows and contracts. It has no dependency on either application, React, Expo, Prisma, browser APIs, or platform storage.
 
 ```mermaid
@@ -43,15 +45,17 @@ flowchart TB
     end
 
     subgraph hosted["Hosted application boundary"]
-        routes["apps/web server<br/>Route handlers and application use cases"]
+        api["apps/api<br/>Hono / Worker / Bun API"]
         prisma["Prisma repositories"]
         database[("PostgreSQL<br/>Encrypted content + permitted metadata")]
-        routes --> prisma --> database
+        proxy["apps/web<br/>/api/v1/** proxy + SSR gateway"]
+        proxy --> api
+        api --> prisma --> database
     end
 
-    auth["Passwordless or OIDC<br/>Authentication"] --> routes
-    browser -- "Encrypted payloads + opaque metadata" --> routes
-    mobile -- "Encrypted payloads + opaque metadata" --> routes
+    auth["Passwordless or OIDC<br/>Authentication"] --> api
+    browser -- "Encrypted payloads + opaque metadata" --> proxy
+    mobile -- "Encrypted payloads + opaque metadata" --> api
     plaintext["Client-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
     browser -. "decrypts and uses in client memory" .-> plaintext
     mobile -. "decrypts and uses in client memory" .-> plaintext
@@ -72,7 +76,7 @@ The repository uses the mise-managed toolchain:
 
 - Node.js `24.19.0` (`24.x` in package engines)
 - pnpm `11.17.0`
-- PostgreSQL 16 or a compatible PostgreSQL development instance for web tests and migrations
+- PostgreSQL 16 or a compatible PostgreSQL development instance for API tests and migrations
 - A supported browser and installed Playwright browsers for browser verification
 - Java 21 and native platform toolchains only for native mobile compilation
 
@@ -87,7 +91,7 @@ mise run setup
 
 1. Clone the repository and enter its root.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the passwordless SMTP/secrets in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
+3. If exercising hosted authentication locally, configure the passwordless HTTP email-provider/secrets in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
 4. Install and initialize the workspace:
 
 ```bash
@@ -133,6 +137,14 @@ Web development:
 pnpm dev
 ```
 
+API development (Cloudflare Worker):
+
+```bash
+pnpm --filter @rhasia-scret/api dev
+```
+
+The self-hosted Compose deployment runs the same API route tree through the Bun adapter.
+
 Mobile development:
 
 ```bash
@@ -151,12 +163,12 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-`pnpm run test:full` is the required repository gate. It runs the shared package, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected.
+`pnpm run test:full` is the required repository gate. It runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected.
 
 Focused and release commands:
 
 ```bash
-# Shared package, web, and mobile checks
+# Shared package, API, web, and mobile checks
 pnpm run test:full:core
 pnpm run test:full:web
 pnpm run test:full:mobile
@@ -198,7 +210,7 @@ For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobil
 ## Authentication modes
 
 - **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
-- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure SMTP, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md).
+- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the API HTTP email provider, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md).
 - **OIDC:** `AUTH_BACKEND=oidc`; configure the provider-neutral OIDC adapter and admitted verified emails using the same document.
 
 Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.
@@ -207,7 +219,7 @@ Authentication authorizes application access; it never unlocks encrypted Vault c
 
 The service is honest-but-curious: it enforces authorization but is not trusted with plaintext Vault content or client-held secrets. The design does not hide permitted ciphertext size/timing or authorization/lifecycle metadata. A malicious host could serve altered client code and is outside the MVP guarantee. No production credentials or real Vault content belong in this repository.
 
-The application defers browser database/API access in favor of server-side Prisma access. Operators must follow the deployment, retention, backup, authentication, and security checklists rather than treating repository tests as production security evidence.
+The web application defers browser database/API access to the same-origin proxy, while the API owns request-time Prisma access. Operators must follow the deployment, retention, backup, authentication, and security checklists rather than treating repository tests as production security evidence.
 
 ## Contributing and public verification
 

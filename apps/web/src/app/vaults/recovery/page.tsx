@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { PasskeyRecoveryReset } from "@/modules/crypto";
 import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
 import { DestructivePersonalVaultResetForm, OwnedSharedVaultResetBlocker } from "@/modules/vault-management";
-import { PrismaDestructivePersonalVaultResetRepository } from "@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository";
+import { loadServerDestructiveResetEligibility } from "@/shared/infrastructure/server-api-gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,8 @@ export default async function VaultRecoveryPage() {
 }
 
 async function VaultRecoveryContent() {
-  const { user } = await loadVaultPageContext();
-  const eligibility = await new PrismaDestructivePersonalVaultResetRepository().getEligibility(user.id);
+  await loadVaultPageContext();
+  const eligibility = await loadServerDestructiveResetEligibility();
   return (
     <div className="p-5 sm:p-6">
       {eligibility.passkeyRecoveryEnrolled ? (

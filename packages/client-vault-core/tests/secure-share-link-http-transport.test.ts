@@ -22,7 +22,7 @@ describe("SecureShareLinkHttpTransport", () => {
       }),
     ).resolves.toEqual({ id: "invitation_1", expiresAt: "2026-09-08T00:00:00.000Z" });
     expect(transport.requests[0]).toEqual({
-      url: "/api/shared-vaults/vault_1/share-links",
+      url: "/v1/shared-vaults/vault_1/share-links",
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -46,7 +46,7 @@ describe("SecureShareLinkHttpTransport", () => {
       encryptedPackage: ciphertext,
     });
     await protocol.redeem({ invitationId: "invitation_1", encryptedVaultKey: ciphertext, keyVersion: 1 });
-    expect(transport.requests[0]?.url).toBe(`/api/secure-share-links?verifier=${encodeURIComponent(verifier)}`);
+    expect(transport.requests[0]?.url).toBe(`/v1/secure-share-links?verifier=${encodeURIComponent(verifier)}`);
     expect(String(transport.requests[1]?.body)).toBe(
       JSON.stringify({ invitationId: "invitation_1", encryptedVaultKey: ciphertext, keyVersion: 1 }),
     );
@@ -57,7 +57,7 @@ describe("SecureShareLinkHttpTransport", () => {
     const transport = new StubTransport([response(204, null)]);
     await new SecureShareLinkHttpTransport(transport).cancel("vault_1", "invitation_1");
     expect(transport.requests[0]).toEqual({
-      url: "/api/shared-vaults/vault_1/share-links/invitation_1",
+      url: "/v1/shared-vaults/vault_1/share-links/invitation_1",
       method: "DELETE",
       cache: "no-store",
     });

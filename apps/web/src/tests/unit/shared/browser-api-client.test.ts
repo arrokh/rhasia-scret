@@ -15,10 +15,10 @@ describe("BrowserApiClient", () => {
     vi.stubGlobal("fetch", fetchMock);
     const client = new BrowserApiClient();
 
-    await expect(client.postJson<{ id: string }>("/api/vaults", { encryptedName: "opaque" })).resolves.toEqual({
+    await expect(client.postJson<{ id: string }>("/api/v1/vaults", { encryptedName: "opaque" })).resolves.toEqual({
       id: "vault-1",
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/vaults", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/vaults", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ encryptedName: "opaque" }),
@@ -30,10 +30,10 @@ describe("BrowserApiClient", () => {
     vi.stubGlobal("fetch", fetchMock);
     const client = new BrowserApiClient();
 
-    await expect(client.getJson("/api/time", { cache: "no-store" })).rejects.toEqual(
+    await expect(client.getJson("/api/v1/time", { cache: "no-store" })).rejects.toEqual(
       expect.objectContaining<Partial<BrowserApiError>>({ name: "BrowserApiError", status: 503 }),
     );
-    expect(fetchMock).toHaveBeenCalledWith("/api/time", { cache: "no-store", method: "GET" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/time", { cache: "no-store", method: "GET" });
   });
 
   it("rejects every non-GET request at the common transport boundary while offline without calling fetch", async () => {
@@ -42,10 +42,10 @@ describe("BrowserApiClient", () => {
     setBrowserWritesReadOnly("offline test");
     const client = new BrowserApiClient();
 
-    await expect(client.postEmpty("/api/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
-    await expect(client.patchEmpty("/api/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
-    await expect(client.putEmpty("/api/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
-    await expect(client.deleteEmpty("/api/write")).rejects.toBeInstanceOf(OfflineMutationError);
+    await expect(client.postEmpty("/api/v1/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
+    await expect(client.patchEmpty("/api/v1/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
+    await expect(client.putEmpty("/api/v1/write", {})).rejects.toBeInstanceOf(OfflineMutationError);
+    await expect(client.deleteEmpty("/api/v1/write")).rejects.toBeInstanceOf(OfflineMutationError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -60,7 +60,7 @@ describe("BrowserApiClient", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, ok: true, headers: new Headers() }));
     const client = new BrowserApiClient();
 
-    await client.requestPlatform({ url: "/api/time", method: "GET", signal: cancellation });
+    await client.requestPlatform({ url: "/api/v1/time", method: "GET", signal: cancellation });
 
     expect(disposed).toBe(true);
   });
@@ -72,7 +72,7 @@ describe("BrowserApiClient", () => {
     );
     const client = new BrowserApiClient();
 
-    await expect(client.postEmpty("/api/passkey-recovery/registration/verify", {})).rejects.toEqual(
+    await expect(client.postEmpty("/api/v1/passkey-recovery/registration/verify", {})).rejects.toEqual(
       expect.objectContaining<Partial<BrowserApiError>>({ status: 400, code: "passkey_prf_required" }),
     );
   });

@@ -7,7 +7,7 @@ import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { INVITATION_AUTH_RETURN_PATH, resolveAuthReturnPath } from "../application/auth-return-path";
-import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-authentication";
+import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-client-contract";
 import { announceAuthenticationCompletion, requestInvitationSecret } from "./auth-completion-channel";
 import {
   pollPwaAuthenticationHandoff,

@@ -18,7 +18,10 @@ describe("TanStack Query boundaries", () => {
       .filter((path) => /(?:^|[^.\w])fetch\(/m.test(readFileSync(path, "utf8")))
       .map((path) => relative(process.cwd(), path));
 
-    expect(fetchFiles).toEqual(["src/shared/infrastructure/browser-api-client.ts"]);
+    expect(fetchFiles).toEqual([
+      "src/shared/infrastructure/browser-api-client.ts",
+      "src/shared/infrastructure/server-api-gateway.ts",
+    ]);
   });
 
   it("keeps every context-owned React Query operation in a presentation hook", () => {

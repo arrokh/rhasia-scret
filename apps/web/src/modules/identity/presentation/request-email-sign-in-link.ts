@@ -1,4 +1,4 @@
-import type { PasswordlessClient, PasswordlessReturnPath } from "../application/passwordless-authentication";
+import type { PasswordlessClient, PasswordlessReturnPath } from "../application/passwordless-client-contract";
 
 export type PasswordlessSignInClient = {
   requestMagicLink(

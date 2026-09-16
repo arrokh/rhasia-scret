@@ -49,6 +49,6 @@ describe("BrowserSessionRefresh", () => {
     });
 
     expect(mocks.postJson).toHaveBeenCalledOnce();
-    expect(mocks.postJson).toHaveBeenCalledWith("/api/auth/session/refresh", { client: "web" });
+    expect(mocks.postJson).toHaveBeenCalledWith("/api/v1/auth/session/refresh", { client: "web" });
   });
 });

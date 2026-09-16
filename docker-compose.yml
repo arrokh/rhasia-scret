@@ -8,8 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    networks:
-      - backend
+    networks: [backend]
     healthcheck:
       test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 10s
@@ -18,15 +17,16 @@ services:
       start_period: 10s
 
   migrate:
+    profiles: [migration]
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/api/Dockerfile
       target: migration
       args:
         COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
-    image: rhasia-scret:migrate-${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret-api-migrate:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: "no"
-    working_dir: /app
+    working_dir: /workspace/apps/api
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
       DIRECT_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
@@ -35,15 +35,63 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - backend
+    networks: [backend]
     read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret-api:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      PROXY_SECRET: ${API_PROXY_SECRET:?API_PROXY_SECRET must be set in .env}
+      AUTH_BACKEND: ${AUTH_BACKEND:-passwordless}
+      AUTH_APP_ORIGIN: ${AUTH_APP_ORIGIN:-}
+      AUTH_MOBILE_REDIRECT_URL: ${AUTH_MOBILE_REDIRECT_URL:-}
+      AUTH_MAGIC_LINK_SECRET: ${AUTH_MAGIC_LINK_SECRET:-}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      AUTH_MAGIC_LINK_TTL_SECONDS: ${AUTH_MAGIC_LINK_TTL_SECONDS:-900}
+      AUTH_ACCESS_TOKEN_TTL_SECONDS: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:-900}
+      AUTH_REFRESH_TOKEN_TTL_SECONDS: ${AUTH_REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      EMAIL_PROVIDER_URL: ${EMAIL_PROVIDER_URL:-}
+      EMAIL_PROVIDER_TOKEN: ${EMAIL_PROVIDER_TOKEN:-}
+      AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-}
+      AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_SESSION_SECRET: ${OIDC_SESSION_SECRET:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:8787/v1/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   web:
     build:
@@ -58,23 +106,15 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      API_ORIGIN: http://api:8787
+      API_PROXY_SECRET: ${API_PROXY_SECRET:?API_PROXY_SECRET must be set in .env}
       AUTH_BACKEND: ${AUTH_BACKEND:-passwordless}
       AUTH_APP_ORIGIN: ${AUTH_APP_ORIGIN:-}
       AUTH_TRUST_PROXY_HEADERS: ${AUTH_TRUST_PROXY_HEADERS:-false}
       AUTH_MOBILE_REDIRECT_URL: ${AUTH_MOBILE_REDIRECT_URL:-}
-      AUTH_MAGIC_LINK_SECRET: ${AUTH_MAGIC_LINK_SECRET:-}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-}
-      AUTH_MAGIC_LINK_TTL_SECONDS: ${AUTH_MAGIC_LINK_TTL_SECONDS:-900}
-      AUTH_ACCESS_TOKEN_TTL_SECONDS: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:-900}
-      AUTH_REFRESH_TOKEN_TTL_SECONDS: ${AUTH_REFRESH_TOKEN_TTL_SECONDS:-2592000}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_SECURE: ${SMTP_SECURE:-}
-      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-}
-      AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
       NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN:-}
@@ -89,30 +129,23 @@ services:
       AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}
       PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
       PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
-      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set in .env}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
-      DIRECT_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-    networks:
-      - backend
+      api:
+        condition: service_healthy
+    networks: [backend]
     ports:
       - "${APP_PORT:-3000}:3000"
     read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/api/v1/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
@@ -120,25 +153,21 @@ services:
       start_period: 20s
 
   retention-purge:
-    image: rhasia-scret:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+    image: rhasia-scret-api:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: unless-stopped
     init: true
     environment:
       CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set in .env}
-      RETENTION_PURGE_URL: http://web:3000/api/internal/retention-purge
+      RETENTION_PURGE_URL: http://api:8787/v1/internal/retention-purge
     depends_on:
-      web:
+      api:
         condition: service_healthy
-    networks:
-      - backend
+    networks: [backend]
     read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    command: ["node", "/usr/local/bin/retention-purge.mjs"]
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    command: ["bun", "/usr/local/bin/retention-purge.mjs"]
 
 networks:
   backend:

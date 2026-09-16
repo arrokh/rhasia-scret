@@ -67,7 +67,7 @@ describe("offline PWA architecture boundaries", () => {
     );
     expect(worker).toContain('const LANDING_SHELL = "/"');
     expect(worker).toContain('const OFFLINE_SHELL = "/offline"');
-    expect(worker).toContain('url.pathname.startsWith("/api/")');
+    expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
     expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v5"');

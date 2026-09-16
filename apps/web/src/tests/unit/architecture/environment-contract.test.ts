@@ -11,7 +11,7 @@ describe("workspace environment contract", () => {
 
     expect(existsSync(join(repositoryRoot, "apps", "web", ".env.example"))).toBe(false);
     expect(existsSync(join(repositoryRoot, "apps", "mobile", ".env.example"))).toBe(false);
-    expect(example).toContain("# Hosted web service: self-managed passwordless authentication (server-only)");
+    expect(example).toContain("# Hosted API service: self-managed passwordless authentication (server-only)");
     expect(example).toContain("# Native mobile build: public values only (Expo embeds these in the client)");
     expect(example).toContain("# Docker Compose: database bootstrap and published web port");
     expect(example).toContain("AUTH_BACKEND=passwordless");
@@ -22,7 +22,6 @@ describe("workspace environment contract", () => {
     const sourceFiles = [
       join(repositoryRoot, "apps", "web", "scripts", "load-workspace-environment.ts"),
       join(repositoryRoot, "apps", "web", "next.config.ts"),
-      join(repositoryRoot, "apps", "web", "prisma.config.ts"),
       join(repositoryRoot, "apps", "web", "playwright.config.ts"),
       join(repositoryRoot, "apps", "web", "playwright.e2e.config.ts"),
       join(repositoryRoot, "apps", "web", "playwright.pwa.config.ts"),

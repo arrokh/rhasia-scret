@@ -1,0 +1,15 @@
+export const DEFAULT_AUTH_RETURN_PATH = "/vaults";
+export const INVITATION_AUTH_RETURN_PATH = "/vaults/invitations/redeem";
+export const AUTH_COMPLETION_PATH = "/auth/complete";
+export const ACCOUNT_DELETION_OIDC_RETURN_PATH = "/account/delete/reauth";
+export const AUTH_RETURN_PATH_COOKIE = "rhsia-auth-return-path";
+export const AUTH_RETURN_PATH_COOKIE_MAX_AGE_SECONDS = 600;
+
+export type AuthReturnPath =
+  typeof DEFAULT_AUTH_RETURN_PATH | typeof INVITATION_AUTH_RETURN_PATH | typeof ACCOUNT_DELETION_OIDC_RETURN_PATH;
+
+export function resolveAuthReturnPath(value: unknown): AuthReturnPath {
+  if (value === INVITATION_AUTH_RETURN_PATH) return INVITATION_AUTH_RETURN_PATH;
+  if (value === ACCOUNT_DELETION_OIDC_RETURN_PATH) return ACCOUNT_DELETION_OIDC_RETURN_PATH;
+  return DEFAULT_AUTH_RETURN_PATH;
+}

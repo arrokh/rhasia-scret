@@ -1,84 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+
+const { requestApi } = vi.hoisted(() => ({ requestApi: vi.fn() }));
+vi.mock("@/shared/infrastructure/server-api-gateway", () => ({ requestApi }));
+
 import { createLogoutHandler } from "@/app/auth/logout/route";
 
 describe("POST /auth/logout contract", () => {
-  beforeEach(() => vi.stubEnv("AUTH_APP_ORIGIN", "https://vault.example.test"));
+  beforeEach(() => {
+    vi.stubEnv("AUTH_APP_ORIGIN", "https://vault.example.test");
+    requestApi.mockResolvedValue(new Response(null, { status: 204 }));
+  });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("terminates the current session and redirects with a success status", async () => {
-    const terminateCurrentSession = vi.fn().mockResolvedValue(undefined);
-    const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(request());
-
-    expect(terminateCurrentSession).toHaveBeenCalledOnce();
+  it("revokes through the API and redirects with a success status", async () => {
+    const response = await createLogoutHandler()(request());
+    expect(requestApi).toHaveBeenCalledWith("/v1/auth/session/revoke", { method: "POST" });
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
   });
 
-  it("keeps stale-session logout idempotent", async () => {
-    const response = await createLogoutHandler({
-      sessionTerminator: { terminateCurrentSession: vi.fn().mockResolvedValue(undefined) },
-    })(request());
-
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
-  });
-
-  it("accepts same-origin submissions behind a trusted reverse proxy", async () => {
-    const terminateCurrentSession = vi.fn().mockResolvedValue(undefined);
-    const proxiedRequest = new NextRequest("http://internal:3000/auth/logout", {
-      method: "POST",
-      headers: {
-        origin: "https://vault.example.test",
-        host: "internal:3000",
-        "x-forwarded-host": "vault.example.test",
-        "x-forwarded-proto": "https",
-      },
-    });
-    const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
-
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
-    expect(terminateCurrentSession).toHaveBeenCalledOnce();
-  });
-
-  it("redirects to a redacted failure state when termination fails", async () => {
-    const response = await createLogoutHandler({
-      sessionTerminator: { terminateCurrentSession: vi.fn().mockRejectedValue(new Error("provider details")) },
-    })(request());
-
+  it("redirects to a redacted failure state when the API fails", async () => {
+    requestApi.mockRejectedValueOnce(new Error("provider details"));
+    const response = await createLogoutHandler()(request());
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=logout_failed");
     expect(response.headers.get("location")).not.toContain("provider");
   });
 
-  it("does not use the submitted Origin as a redirect base", async () => {
-    vi.stubEnv("AUTH_APP_ORIGIN", "https://vault.example.test");
-    const terminateCurrentSession = vi.fn().mockResolvedValue(undefined);
-    const proxiedRequest = new NextRequest("http://internal:3000/auth/logout", {
-      method: "POST",
-      headers: {
-        origin: "https://vault.example.test",
-        "x-forwarded-host": "attacker.example.test",
-        "x-forwarded-proto": "https",
-      },
-    });
-
-    const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(proxiedRequest);
-
-    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=signed_out");
+  it("rejects a non-same-origin logout request", async () => {
+    const response = await createLogoutHandler()(request("https://attacker.example.test"));
+    expect(response.status).toBe(403);
+    expect(requestApi).not.toHaveBeenCalled();
   });
-
-  it.each([null, "https://attacker.example.test"])(
-    "rejects a non-same-origin logout request from %s",
-    async (origin) => {
-      const terminateCurrentSession = vi.fn();
-      const response = await createLogoutHandler({ sessionTerminator: { terminateCurrentSession } })(request(origin));
-
-      expect(response.status).toBe(403);
-      expect(terminateCurrentSession).not.toHaveBeenCalled();
-    },
-  );
 });
 
 function request(origin: string | null = "https://vault.example.test"): NextRequest {

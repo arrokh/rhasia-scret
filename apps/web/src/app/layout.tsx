@@ -6,7 +6,6 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Suspense, type ReactNode } from "react";
 import { deterministicTimeZone } from "@/i18n/config";
 import { QueryProvider } from "@/shared/presentation/query-provider";
-import { authBackend } from "@/modules/identity/server";
 import { BrowserSessionRefresh } from "@/modules/identity/presentation/browser-session-refresh";
 import { AppFooter } from "@/shared/presentation/app-ui";
 import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
@@ -93,7 +92,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
           <QueryProvider>
-            {authBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
+            {(process.env.AUTH_BACKEND ?? "passwordless") === "passwordless" ? <BrowserSessionRefresh /> : null}
             <BrowserAnalyticsBootstrap />
             <ServiceWorkerRegistration />
             <OfflineAccessPrompt />

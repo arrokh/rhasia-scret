@@ -3,7 +3,6 @@ packages:
   - "packages/*"
 
 overrides:
-  "@hono/node-server": 2.0.12
   hono: 4.13.7
   find-my-way: 9.7.0
   postcss: 8.5.23
@@ -32,6 +31,7 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: true
+  workerd: true
 onlyBuiltDependencies:
   - "@prisma/engines"
   - core-js

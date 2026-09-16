@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-const defaultRecord = "docs/release-readiness/2026-09-08.md";
+const defaultRecord = "docs/release-readiness/2026-09-16.md";
 const validDecisions = ["HOLD", "READY FOR HUMAN RELEASE REVIEW"];
 
 const requiredFiles = [

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const repositoryRoot = process.cwd();
-const schemaPath = resolve(repositoryRoot, "apps/web/prisma/schema.prisma");
+const schemaPath = resolve(repositoryRoot, "apps/api/prisma/schema.prisma");
 const source = readFileSync(schemaPath, "utf8");
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "rhasia-scret-prisma-format-"));
 const temporarySchemaPath = join(temporaryDirectory, "schema.prisma");
@@ -15,7 +15,7 @@ try {
   writeFileSync(temporarySchemaPath, source);
   const result = spawnSync(
     pnpmCommand,
-    ["--dir", "apps/web", "exec", "prisma", "format", "--schema", temporarySchemaPath],
+    ["--dir", "apps/api", "exec", "prisma", "format", "--schema", temporarySchemaPath],
     {
       cwd: repositoryRoot,
       env: {

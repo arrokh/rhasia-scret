@@ -1,7 +1,7 @@
 # API service extraction and Cloudflare Workers migration plan
 
-**Status:** Draft — review revisions applied; explicit approval and deployment-input gates remain before implementation or GitHub issue creation
-**Review state:** The service-owned backend layout is resolved. The row-level route manifest and ownership/configuration gates below are normative plan artifacts; no implementation or issue creation may begin until they are complete and approved.
+**Status:** Implementation complete — final verification and deployment-input gates remain
+**Review state:** The service-owned backend layout and row-level route manifest are implemented. Final verification must still provide fresh evidence for every ownership, route, runtime, security, and deployment gate before release or merge.
 **Proposed parent issue:** Extract the application API into a Hono Cloudflare Worker and remove Next.js API ownership
 **Scope:** `apps/api`, `apps/web/src/app/api`, server-side application composition, Prisma persistence ownership, web/native API transport, and deployment configuration
 
@@ -106,7 +106,7 @@ No dedicated `HEAD` handlers will be added. Hono automatically derives `HEAD` be
 
 The repository currently has:
 
-- 39 Next route modules under `apps/web/src/app/api`, covering 54 path/method operations when methods and the shared-audit `GET` alias are counted.
+- 43 Next route modules under `apps/web/src/app/api`, covering 59 existing path/method operations when methods and the shared-audit `GET` re-export are counted.
 - All server application modules and Prisma repositories owned by `apps/web`.
 - `apps/web/prisma/schema.prisma` and all migrations under the web app.
 - A Node/Postgres Prisma client at `apps/web/src/shared/infrastructure/prisma-client.ts` using `@prisma/adapter-pg` and `process.env.DATABASE_URL`.
@@ -476,7 +476,7 @@ Document alert thresholds and the owner/runbook for API availability, elevated a
 
 ## 12. Endpoint migration inventory
 
-All 39 current route modules and their 54 current path/method operations must be represented in the Hono route contract and tested through the web proxy. The target adds one read operation (`GET /v1/personal-vault/destructive-reset`) required to remove the final web Prisma read, for 55 target business operations. Hono's implicit `HEAD` behavior is framework-derived and not included in that count; parity tests must record its expected status separately.
+All 43 current route modules and their 59 current path/method operations must be represented in the Hono route contract and tested through the web proxy. The target adds the recovery-eligibility read (`GET /v1/personal-vault/destructive-reset`) and OIDC deletion-completion operation (`POST /v1/me/deletion/oidc/complete`), for 61 target business operations. Hono's implicit `HEAD` behavior is framework-derived and not included in that count; parity tests must record its expected status separately.
 
 For each operation, maintain a parity row in the implementation/test inventory containing: source route, Hono path/method, input location/schema and size limit, auth assurance/admission/rate-limit policy, use case, repository/transaction boundary, response status/body/encoding, error codes, cache/ETag behavior, audit behavior, and browser/native/SSR transport coverage. The normative operation-level manifest is [`docs/api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md); it must be completed with exact source/test references and contract values before child issues are created. A route is not considered migrated until its row and both relevant transport tests are complete. Mutation tests must include the response and a follow-up read where the existing contract permits it; import tests cover upload/decoded-byte limits and client-side consumption, while archive-export tests preserve the 204 audit side effect; update/delete tests verify revision/conflict behavior and affected cascades; one-time links verify consumption/replay; retention verifies bounded deletion and remaining backlog.
 
@@ -637,7 +637,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 
 ### Contract and behavior
 
-- All 54 current path/method operations from the 39 route modules are implemented in the Hono app under `apps/api`, including the shared-vault audit `GET` alias, plus the documented recovery-eligibility `GET` operation; each API target path is `/v1/<source-path>`, with browser access through `/api/v1/<source-path>` on the web origin.
+- All 59 existing path/method operations from the 43 source route modules are implemented in the Hono app under `apps/api`, including account deletion and the shared-vault audit `GET` re-export, plus the documented recovery-eligibility `GET` and OIDC deletion-completion `POST` operations; each API target path is `/v1/<source-path>`, with browser access through `/api/v1/<source-path>` on the web origin.
 - The passwordless request contract requires a safe one-time Turnstile token for web/PWA clients, rejects a token for mobile, validates Turnstile before anonymous limiting/challenge creation, and preserves generic status/error/cache contracts.
 - Existing success/error bodies, status codes, error codes, cache headers, ETags, and encrypted byte encodings remain compatible.
 - Auth assurance levels, application admission, mutation rate limits, authorization, revision checks, audit redaction, one-time links, and retention semantics are unchanged.
@@ -681,7 +681,7 @@ The following concerns are resolved in this draft rather than left as implementa
 - `apps/web` has zero database connectivity. SSR uses the fixed-origin API gateway, and recovery eligibility is an API read operation.
 - OIDC authorization/callback remains web-owned; the API validates the shared provider-neutral session contract. Web logout is a thin API-revocation/cookie adapter.
 - The API service exposes a fixed `/v1` version segment at its own origin and exports `AppType` from `apps/api/src/app.ts`; the web origin's `/api/v1` path is only the same-origin browser proxy boundary. The version is code/configuration, not a caller-controlled or deployment-specific path. Initial clients use typed `packages/api-contract`/`packages/api-client` helpers without importing API runtime code. `hc` requires a separately generated, CI-checked client-safe declaration and is not required for the initial extraction.
-- Existing 54 route operations retain their contract; one documented recovery-eligibility `GET` is added, making 55 target business operations, with implicit Hono `HEAD` behavior tested separately. Status/error/body/cache/ETag/encrypted-payload changes require explicit approval.
+- Existing 59 route operations retain their contract; the documented recovery-eligibility `GET` and OIDC deletion-completion `POST` are added, making 61 target business operations, with implicit Hono `HEAD` behavior tested separately. Status/error/body/cache/ETag/encrypted-payload changes require explicit approval.
 - Existing PostgreSQL remains the database. Production Worker access uses Hyperdrive; local `wrangler dev` uses a disposable direct connection and `wrangler dev --remote` is an optional disposable-remote smoke test.
 - Browser traffic is proxy-only and same-origin. Native calls the API directly with bearer credentials. Cookies are host-only and replayed through the proxy. Requests containing conflicting bearer and cookie credentials fail closed; matching credentials must resolve deterministically.
 - The proxy uses `X-Rhasia-Proxy-Secret` over TLS; it is not a user credential and is not allowed/exposed by CORS.

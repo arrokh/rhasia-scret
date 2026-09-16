@@ -16,7 +16,7 @@ export class AuthorizedOfflineBundleTransport {
 
   public async fetch(cached: EncryptedOfflineVaultBundle | null = null): Promise<EncryptedOfflineVaultBundle> {
     const response = await this.transport.request({
-      url: "/api/sync/offline-bundle",
+      url: "/v1/sync/offline-bundle",
       method: "GET",
       headers: cached ? { "if-none-match": `"${cached.synchronizationToken}"` } : undefined,
       cache: "no-store",

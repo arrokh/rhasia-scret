@@ -2,9 +2,9 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const repositoryRoot = process.cwd();
-const schemaPath = resolve(repositoryRoot, "apps/web/prisma/schema.prisma");
+const schemaPath = resolve(repositoryRoot, "apps/api/prisma/schema.prisma");
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const result = spawnSync(pnpmCommand, ["--dir", "apps/web", "exec", "prisma", "format", "--schema", schemaPath], {
+const result = spawnSync(pnpmCommand, ["--dir", "apps/api", "exec", "prisma", "format", "--schema", schemaPath], {
   cwd: repositoryRoot,
   env: {
     ...process.env,

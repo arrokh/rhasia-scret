@@ -1,0 +1,56 @@
+{
+  "name": "@rhasia-scret/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "11.17.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:bun": "bun run src/bun.ts",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts",
+    "test": "vitest run",
+    "test:full": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "generate:types": "wrangler types --env-interface CloudflareBindings",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "tsx scripts/deploy-passwordless-migrations.ts",
+    "prisma:preflight-passwordless": "tsx scripts/preflight-passwordless-migration.ts",
+    "prisma:seed-passwordless-identities": "tsx scripts/seed-passwordless-identities.ts",
+    "verify:passwordless-migration": "tsx scripts/verify-passwordless-migration.ts",
+    "verify:database": "tsx scripts/verify-test-database.ts",
+    "verify:prisma-connections": "tsx scripts/verify-prisma-connections.ts",
+    "verify:deployment-config": "tsx scripts/verify-deployment-config.ts"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.7.6",
+    "@noble/hashes": "^1.8.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@rhasia-scret/api-contract": "workspace:*",
+    "@rhasia-scret/client-vault-core": "workspace:*",
+    "@simplewebauthn/server": "^14.0.1",
+    "dotenv": "^17.3.1",
+    "hono": "^4.13.7",
+    "jose": "6.2.12",
+    "pg": "^8.23.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260401.0",
+    "@types/node": "^26.5.1",
+    "@types/pg": "^8.15.6",
+    "eslint": "^9.39.1",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0",
+    "wrangler": "^4.72.0"
+  }
+}

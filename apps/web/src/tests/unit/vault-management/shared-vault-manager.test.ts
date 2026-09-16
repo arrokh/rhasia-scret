@@ -85,7 +85,7 @@ describe("dedicated Vault management", () => {
 
     expect(container.querySelector('input[value="Tim Operasional"]')).not.toBeNull();
     await vi.waitFor(() => expect(container.textContent).toContain("owner@example.test"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/member-permissions", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/shared-1/member-permissions", {
       cache: "no-store",
       method: "GET",
     });
@@ -158,7 +158,7 @@ describe("dedicated Vault management", () => {
     await act(async () => findButton(document.body, "Hapus brankas").click());
 
     await vi.waitFor(() => expect(onDeleted).toHaveBeenCalledWith("shared-1"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
   });
 
   it("opens member defaults initially when at least one permission is enabled", async () => {

@@ -24,23 +24,23 @@ export type DestructiveResetResult =
   | { status: "passkey_recovery_available" };
 
 export function initializePersonalVault(request: PersonalVaultInitializationRequest): Promise<void> {
-  return browserApiClient.postEmpty("/api/personal-vault/initialize", request);
+  return browserApiClient.postEmpty("/api/v1/personal-vault/initialize", request);
 }
 
 export function createSharedVault(request: SharedVaultCreationRequest): Promise<{ id: string }> {
-  return browserApiClient.postJson("/api/shared-vaults", request);
+  return browserApiClient.postJson("/api/v1/shared-vaults", request);
 }
 
 export function renameSharedVault(vaultId: string, encryptedName: string): Promise<void> {
-  return browserApiClient.patchEmpty(`/api/shared-vaults/${vaultId}`, { encryptedName, encryptionVersion: 1 });
+  return browserApiClient.patchEmpty(`/api/v1/shared-vaults/${vaultId}`, { encryptedName, encryptionVersion: 1 });
 }
 
 export function deleteSharedVault(vaultId: string): Promise<void> {
-  return browserApiClient.deleteEmpty(`/api/shared-vaults/${vaultId}/lifecycle`);
+  return browserApiClient.deleteEmpty(`/api/v1/shared-vaults/${vaultId}/lifecycle`);
 }
 
 export async function destructivelyResetPersonalVault(confirmation: string): Promise<DestructiveResetResult> {
-  const response = await browserApiClient.post("/api/personal-vault/destructive-reset", { confirmation });
+  const response = await browserApiClient.post("/api/v1/personal-vault/destructive-reset", { confirmation });
   if (response.ok) return { status: "reset" };
   const error = await parseResetError(response);
   if (error.error === "invalid_confirmation") return { status: "invalid_confirmation" };

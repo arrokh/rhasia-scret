@@ -12,6 +12,6 @@ export class BrowserServerTimePort implements ServerTimePort {
 export const browserServerTimePort = new BrowserServerTimePort();
 
 export async function loadServerTime(): Promise<Date> {
-  const response = await browserApiClient.getJson<{ now: string }>("/api/time", { cache: "no-store" });
+  const response = await browserApiClient.getJson<{ now: string }>("/api/v1/time", { cache: "no-store" });
   return new Date(response.now);
 }

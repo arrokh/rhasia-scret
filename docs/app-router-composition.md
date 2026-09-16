@@ -17,7 +17,8 @@ Do not add arbitrary support modules, route-local component directories, infrast
 | Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
 | Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                             |
 | Reusable UI primitives                                                 | `src/components/ui/`                                                                                   |
-| Server adapter composition for route handlers                          | `modules/<context>/server.ts`                                                                          |
+| API route handlers and server adapter composition                      | `apps/api/src/route-handlers/` and `apps/api/src/modules/<context>/server.ts`                          |
+| Same-origin browser API proxy                                          | `src/app/api/[...path]/route.ts`                                                                       |
 | Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                           |
 | Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                             |
 
@@ -27,4 +28,4 @@ Development-preview routes follow the same rule. Their `page.tsx` files remain u
 
 ## Enforcement
 
-`src/tests/unit/architecture/architecture-review-boundaries.test.ts` inventories every file under `src/app` and rejects basenames that are not recognized Next.js conventions or file-based metadata assets. When Next.js introduces a new convention, update the inventory deliberately instead of adding a blanket exception.
+`apps/api/src/architecture.test.ts` and the web dependency-cruiser rules verify the API/web ownership split; the catch-all proxy is the only file under `src/app/api`. When Next.js introduces a new convention, update the inventory deliberately instead of adding a blanket exception.

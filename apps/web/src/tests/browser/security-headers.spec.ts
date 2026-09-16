@@ -7,7 +7,7 @@ test.describe("browser security delivery headers", () => {
     expectSecurityHeaders(pageResponse!, true);
 
     const responses = await Promise.all([
-      page.request.get("/api/health"),
+      page.request.get("/api/v1/health"),
       page.request.get("/offline"),
       page.request.get("/manifest.webmanifest"),
       page.request.get("/sw.js"),

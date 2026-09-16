@@ -8,7 +8,7 @@ export async function loadMobileVaultPermissionDefaults(
   transport: AuthenticatedTransport,
 ): Promise<MobileVaultPermissionDefaults> {
   const response = await transport.request({
-    url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`,
+    url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`,
     method: "GET",
     cache: "no-store",
   });
@@ -22,7 +22,7 @@ export async function updateMobileVaultPermissionDefaults(
   transport: AuthenticatedTransport,
 ): Promise<MobileVaultPermissionDefaults> {
   const response = await transport.request({
-    url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`,
+    url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`,
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ expectedRevision: current.revision, ...current.permissions }),

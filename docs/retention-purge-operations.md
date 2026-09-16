@@ -2,9 +2,9 @@
 
 ## Production execution
 
-Vercel Cron invokes `GET /api/internal/retention-purge` every day at 03:00 UTC, as configured in `vercel.json`. Configure `CRON_SECRET` in every production environment with at least 32 random bytes. Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; the route fails closed when the secret is absent, too short, or incorrect.
+Cloudflare Cron invokes the API Worker's `scheduled()` handler every day at 03:00 UTC. Configure `CRON_SECRET` in the API environment with at least 32 random bytes. The bounded authenticated HTTP endpoint is `/v1/internal/retention-purge` for local/self-hosted diagnostics and accepts `Authorization: Bearer <CRON_SECRET>`; it fails closed when the secret is absent, too short, or incorrect.
 
-The job uses server-side Prisma only. Each run drains at most 10 batches of 100 records for each category:
+The API Worker/Bun service uses server-side Prisma only; the web service has no database connection. Each run drains at most 10 batches of 100 records for each category:
 
 1. expired soft-deleted Authenticator Accounts;
 2. expired Shared Vaults and their encrypted accounts, memberships, and invitations;

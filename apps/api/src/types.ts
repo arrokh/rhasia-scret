@@ -1,0 +1,48 @@
+import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+
+export type HyperdriveBinding = Readonly<{
+  connectionString: string;
+}>;
+
+/** Wrangler bindings are the only configuration source inside Worker request handling. */
+export type ApiBindings = Readonly<{
+  WEB_ORIGIN?: string;
+  PROXY_SECRET?: string;
+  AUTH_BACKEND?: string;
+  AUTH_APP_ORIGIN?: string;
+  AUTH_MOBILE_REDIRECT_URL?: string;
+  AUTH_MAGIC_LINK_SECRET?: string;
+  AUTH_SESSION_SECRET?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  CRON_SECRET?: string;
+  EMAIL_PROVIDER_URL?: string;
+  EMAIL_PROVIDER_TOKEN?: string;
+  AUTH_EMAIL_FROM?: string;
+  AUTH_EMAIL_FROM_NAME?: string;
+  AUTH_MAGIC_LINK_TTL_SECONDS?: string;
+  AUTH_ACCESS_TOKEN_TTL_SECONDS?: string;
+  AUTH_REFRESH_TOKEN_TTL_SECONDS?: string;
+  NODE_ENV?: string;
+  /** Development-only browser E2E session configuration; never set in production. */
+  E2E_BROWSER_TESTS?: string;
+  E2E_BROWSER_TEST_USERS?: string;
+  PASSKEY_RP_ID?: string;
+  PASSKEY_ORIGIN?: string;
+  OIDC_ISSUER?: string;
+  OIDC_CLIENT_ID?: string;
+  OIDC_AUDIENCE?: string;
+  OIDC_SESSION_SECRET?: string;
+  AUTH_ADMITTED_EMAILS?: string;
+  HYPERDRIVE?: HyperdriveBinding;
+  /** Bun-only process-scoped client; Cloudflare supplies request-scoped clients instead. */
+  DATABASE_CLIENT?: PrismaDatabase;
+}>;
+
+export type ApiEnvironment = {
+  Bindings: ApiBindings;
+  Variables: {
+    requestId: string;
+    proxyRequest: boolean;
+    apiRequest: import("@api/http/api-request").ApiRequest;
+  };
+};

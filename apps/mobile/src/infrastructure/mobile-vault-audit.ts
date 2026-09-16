@@ -14,7 +14,7 @@ export async function loadMobileVaultAuditEvents(
   transport: AuthenticatedTransport,
 ): Promise<MobileVaultAuditEvent[]> {
   const response = await transport.request({
-    url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
+    url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
     method: "GET",
     cache: "no-store",
   });

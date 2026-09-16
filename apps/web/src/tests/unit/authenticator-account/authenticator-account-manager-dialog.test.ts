@@ -40,7 +40,7 @@ describe("AuthenticatorAccountManagerDialog", () => {
     await act(async () => document.body.querySelector<HTMLFormElement>("form")?.requestSubmit());
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/vaults/personal-1/accounts",
+      "/api/v1/vaults/personal-1/accounts",
       expect.objectContaining({
         method: "PATCH",
         body: expect.stringContaining('"expectedRevision":1'),
@@ -79,7 +79,7 @@ describe("AuthenticatorAccountManagerDialog", () => {
     await act(async () => findButton(confirmation ?? document.body, "Hapus akun").click());
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/vaults/personal-1/accounts",
+      "/api/v1/vaults/personal-1/accounts",
       expect.objectContaining({ method: "DELETE" }),
     );
     expect(onDeleted).toHaveBeenCalledWith(expect.objectContaining({ id: "account-1" }));

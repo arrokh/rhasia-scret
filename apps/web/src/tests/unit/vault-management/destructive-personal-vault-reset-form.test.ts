@@ -55,7 +55,7 @@ describe("DestructivePersonalVaultResetForm", () => {
     await act(async () => confirm?.click());
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/personal-vault/destructive-reset",
+      "/api/v1/personal-vault/destructive-reset",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ confirmation: "HAPUS DATA BRANKAS" }),

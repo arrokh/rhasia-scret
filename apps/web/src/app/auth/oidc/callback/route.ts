@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { requestApi } from "@/shared/infrastructure/server-api-gateway";
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { completeOidcAuthorization } from "@/modules/identity/infrastructure/oidc-client";
 import {
@@ -17,11 +18,7 @@ import {
   OIDC_VERIFIER_COOKIE,
   signOidcSession,
 } from "@/modules/identity/infrastructure/oidc-session-verifier";
-import {
-  ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
-  createAccountDeletionRepository,
-  setDeletionAuthorizationCookie,
-} from "@/modules/account-deletion/server";
+const ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE = "rhsia-account-deletion-oidc-challenge";
 
 export async function GET(request: Request): Promise<Response> {
   const nextPathFromRequest = resolveAuthReturnPath(new URL(request.url).searchParams.get("next"));
@@ -39,18 +36,13 @@ export async function GET(request: Request): Promise<Response> {
       return redirect(request, "verification_failed", nextPath);
     const result = await completeOidcAuthorization(configuration.oidc, callbackUrl, state, nonce, verifier);
     const token = await signOidcSession(configuration.oidc, result.principal, result.expiresAt);
-    let deletionAuthorizationToken: string | null = null;
+    let deletionResponse: Response | null = null;
     if (nextPath === ACCOUNT_DELETION_OIDC_RETURN_PATH) {
-      const challengeId = cookieStore.get(ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE)?.value;
-      if (!challengeId) throw new Error("Account deletion reauthentication challenge is missing.");
-      deletionAuthorizationToken = (
-        await createAccountDeletionRepository().completeOidcReauthentication(
-          challengeId,
-          result.principal.issuer,
-          result.principal.subject,
-          new Date(),
-        )
-      ).authorizationToken;
+      if (!cookieStore.get(ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE)?.value)
+        throw new Error("Account deletion reauthentication challenge is missing.");
+      const cookie = appendCookie(request.headers.get("cookie"), OIDC_SESSION_COOKIE, token);
+      deletionResponse = await requestApi("/v1/me/deletion/oidc/complete", { method: "POST", headers: { cookie } });
+      if (!deletionResponse.ok) throw new Error("Account deletion reauthentication failed.");
     }
     cookieStore.set(OIDC_SESSION_COOKIE, token, {
       httpOnly: true,
@@ -60,13 +52,24 @@ export async function GET(request: Request): Promise<Response> {
       path: "/",
     });
     clearCallbackCookies(cookieStore);
-    if (deletionAuthorizationToken) setDeletionAuthorizationCookie(cookieStore, deletionAuthorizationToken, 600);
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(nextPath === INVITATION_AUTH_RETURN_PATH ? AUTH_COMPLETION_PATH : nextPath, request.url),
     );
+    if (deletionResponse)
+      for (const cookie of deletionResponse.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
+    return response;
   } catch {
     return redirect(request, "verification_failed", nextPath);
   }
+}
+
+function appendCookie(header: string | null, name: string, value: string): string {
+  const cookies = (header ?? "")
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .filter((cookie) => cookie && !cookie.startsWith(`${name}=`));
+  cookies.push(`${name}=${value}`);
+  return cookies.join("; ");
 }
 
 function clearCallbackCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
