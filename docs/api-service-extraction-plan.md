@@ -41,6 +41,9 @@ Relevant repository architecture/security decisions were also reviewed:
 - ADR-0048 provider email delivery
 - ADR-0049 self-managed passwordless authentication
 - ADR-0050 installed-PWA passwordless handoff
+- `docs/application-rate-limiting.md`
+- `docs/authentication-configuration.md`
+- `docs/sign-in-rate-limit-turnstile-plan.md`
 
 Cloudflare/Prisma runtime feasibility was checked against the current Prisma and Cloudflare guidance:
 
@@ -107,9 +110,13 @@ The repository currently has:
 - All server application modules and Prisma repositories owned by `apps/web`.
 - `apps/web/prisma/schema.prisma` and all migrations under the web app.
 - A Node/Postgres Prisma client at `apps/web/src/shared/infrastructure/prisma-client.ts` using `@prisma/adapter-pg` and `process.env.DATABASE_URL`.
+- A production-safe staged migration workflow: `pnpm prod:db:migrate` loads ignored `.env.prod`, requires interactive confirmation, builds the focused migration image, and runs it with `--no-deps`; development database startup, migration, and shutdown are separate confirmed commands.
 - Browser clients using same-origin paths such as `/api/v1/vaults/...`.
 - Native clients using `EXPO_PUBLIC_API_URL` and bearer-token transport, but still requesting the pre-versioned `/api/...` paths that must be updated to `/v1/...`.
+- Browser and installed-PWA passwordless sign-in forms now render a localized Cloudflare Turnstile widget; the request route validates its one-time token before anonymous rate limiting and challenge creation. Native requests remain widget-free.
 - Passwordless browser sessions represented by HttpOnly cookies and native sessions represented by bearer credentials in native secure storage.
+- Shared Vault invitation and re-invitation creation now receives a client-side `SecureShareLinkDeliveryPort`; the browser opens a localized `mailto:` draft or offers a copy fallback while the Secure Share Link secret remains client-held and never reaches an application endpoint.
+- The authentication-completion channel waits up to 15 seconds for a backgrounded browser tab to return the invitation secret, rather than assuming immediate cross-tab delivery.
 - Web-only OIDC callback routes and page middleware outside `app/api`.
 - Web SSR pages that still directly load database-backed page context and recovery eligibility.
 - Nodemailer/SMTP email delivery, which is not a safe assumption for a Cloudflare Worker runtime.
@@ -162,7 +169,9 @@ Only genuinely cross-application client code is placed in `packages/`: `api-cont
 
 #### 5.1.1 Self-hosted deployment adapter
 
-The existing repository documents Docker/Node self-hosting, but the target self-host runtime is Bun. Bun is a runtime choice here; the monorepo continues using mise-managed Node/pnpm and the single root `pnpm-lock.yaml` for development and dependency installation unless the owner explicitly changes that repository-wide policy. The supported self-hosted deployment must run the same Hono route tree in `apps/api` through `apps/api/src/bun.ts` using `Bun.serve({ fetch: app.fetch, ... })` (or Bun's documented default-export convention) behind the self-hosted web proxy, keep Postgres access through a Bun-compatible `apps/api` persistence factory, read Bun environment variables only at that adapter boundary, and keep the API port private to the Compose network unless native/external clients require a separately protected public API origin. The self-hosted API adapter is a runtime adapter, not a second business implementation. Its existing controlled retention scheduler container calls the bounded authenticated HTTP endpoint; Cloudflare production alone uses `scheduled()`. Removing this Bun deployment requires an explicit breaking-support decision before implementation.
+The current main branch still supports Docker/Node self-hosting with a web-owned Prisma migration image. Its database safety contract is now explicit: `pnpm dev:db` only starts the local database, `pnpm dev:db:migrate` separately requires interactive confirmation, and `pnpm prod:db:migrate` loads ignored `.env.prod`, requires confirmation, uses the focused migration image, and runs with `--no-deps` so it cannot start the Compose-local database.
+
+The target self-host runtime is Bun. Bun is a runtime choice here; the monorepo continues using mise-managed Node/pnpm and the single root `pnpm-lock.yaml` for development and dependency installation unless the owner explicitly changes that repository-wide policy. The supported self-hosted deployment must run the same Hono route tree in `apps/api` through `apps/api/src/bun.ts` using `Bun.serve({ fetch: app.fetch, ... })` (or Bun's documented default-export convention) behind the self-hosted web proxy, keep Postgres access through a Bun-compatible `apps/api` persistence factory, read Bun environment variables only at that adapter boundary, and keep the API port private to the Compose network unless native/external clients require a separately protected public API origin. The self-hosted API adapter is a runtime adapter, not a second business implementation. Its existing controlled retention scheduler container calls the bounded authenticated HTTP endpoint; Cloudflare production alone uses `scheduled()`. Removing this Bun deployment requires an explicit breaking-support decision before implementation.
 
 Update Compose/Docker deployment order to start the API, run controlled persistence migrations separately, then start web with an internal `API_ORIGIN`. Move the current `migrate` stage to an API-owned migration image/target, use a pinned `oven/bun` image for the self-hosted API, install/build dependencies with pnpm in the build stage, and use Bun only to run the built service and its explicitly supported tooling. Remove `DATABASE_URL`, `DIRECT_URL`, SMTP, and email-provider secrets from the web service, give the Bun API its runtime database/email settings, point API health checks at the Bun service and web health checks through the proxy, and point `docker/retention-purge.mjs` at the API service rather than web. If self-hosting is intentionally removed instead, record that as an explicit breaking support decision and update the support matrix before implementation; it must not happen accidentally because web no longer has Prisma.
 
@@ -172,11 +181,11 @@ The API service owns persistence; no separate database HTTP service is introduce
 
 - Move the Prisma schema and migrations from `apps/web/prisma` and `apps/web/prisma.config.ts` to `apps/api/prisma` and `apps/api/prisma.config.ts` without changing migration contents or database history. Preserve the migration directory and checksums exactly.
 - Move the Prisma client construction, generated output, `Prisma*Repository` implementations, and server integration tests under `apps/api/src/persistence` and the relevant domain modules. Select and pin one compatible generated-client strategy (`prisma-client` output or `prisma-client-js` with driver adapters/engine disabled as supported), update all imports, and prove it under the pinned Prisma/Wrangler/Bun versions.
-- Move API-owned administration and database verification tooling out of `apps/web/scripts`, including `admin-prisma-client.ts`, `deploy-passwordless-migrations.ts`, migration preflight/seed/verification scripts, `verify-prisma-connections.ts`, and `verify-test-database.ts`. Rewire root/API package scripts and Docker migration commands to those new paths; these tools may use `DIRECT_URL` only from controlled migration/admin/test processes. Remove direct Prisma, `@prisma/*`, `pg`, migration, and database-test dependencies/scripts from `apps/web/package.json` and add them only to `apps/api` where required.
+- Move API-owned administration and database verification tooling out of `apps/web/scripts`, including `admin-prisma-client.ts`, `deploy-passwordless-migrations.ts`, migration preflight/seed/verification scripts, `verify-prisma-connections.ts`, and `verify-test-database.ts`. Rewire root/API package scripts and Docker migration commands to those new paths; preserve the current confirmed `dev:db:migrate` and `prod:db:migrate` entrypoint behavior, ignored `.env.prod` production inputs, focused migration image, and `--no-deps` production isolation. These tools may use `DIRECT_URL` only from controlled migration/admin/test processes. Remove direct Prisma, `@prisma/*`, `pg`, migration, and database-test dependencies/scripts from `apps/web/package.json` and add them only to `apps/api` where required.
 - Inventory and relocate web Prisma test fixtures, mocks, architecture assertions, path aliases, generated-client references, and `apps/web/src/tests/browser/support/e2e-database.ts` so the web package/test graph is database-free. Browser setup may use API-owned persistence/test-admin tooling, but browser tests must exercise application data through the web/API path rather than a web-bundled database helper.
 - Keep domain/application code in `apps/api/src/modules/<context>/{domain,application}` and transport/infrastructure in the same bounded context. Preserve transaction scopes, unique/conflict handling, cascade behavior, optimistic revision checks, and bounded batch semantics; add concurrency tests for mutations, membership/lifecycle changes, session rotation/revocation, and retention.
 - Use Cloudflare Worker composition with a Hyperdrive connection string through `@prisma/adapter-pg`/`pg` and the current `nodejs_compat` compatibility flag syntax. A request dependency scope owns the Worker adapter/client, registers deterministic cleanup through the execution context, and never retains user/session state; the implementation must document the exact pool/client size and cleanup path. Bun owns one process-scoped compatible Postgres pool/client, closes it on graceful shutdown, and never shares it with the Worker bundle. Test connection reuse/leak behavior, concurrent requests, transaction read-your-writes, and stale-read behavior under the pinned runtimes. Configure the production Hyperdrive binding with query caching disabled by default for authentication/session/challenge, authorization, revision, and read-after-write data; only enable caching for explicitly safe data on a separately proven path.
-- Keep Prisma CLI/migration administration outside the Worker request path and continue requiring `DIRECT_URL` for controlled migration/admin tooling. The web image must not run migrations or need `DIRECT_URL`; remove its current Prisma build/migration stages and build-only database placeholders. Migration tooling runs from the API-owned persistence area under explicit human authority, and self-hosted retention tooling must call the bounded API operation rather than import web Prisma.
+- Keep Prisma CLI/migration administration outside the Worker request path and continue requiring `DIRECT_URL` for controlled migration/admin tooling. Preserve the current safety model when relocating it: production migration consumes ignored `.env.prod`, requires an interactive `yes`, builds the focused migration image, uses `--no-deps`, and does not start the Compose-local database; development startup, migration, and shutdown remain separate confirmed operations. The web image must not run migrations or need `DIRECT_URL` after extraction; remove its current Prisma build/migration stages and build-only database placeholders. Migration tooling runs from the API-owned persistence area under explicit human authority, and self-hosted retention tooling must call the bounded API operation rather than import web Prisma.
 
 This makes the API the only request-time database owner while keeping all backend implementation inside the service boundary. It avoids adding a third network service and its own authentication/security surface.
 
@@ -277,6 +286,14 @@ Cookies must remain host-only unless an explicit security decision says otherwis
 
 The proxy must preserve cookie attributes (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, and expiry/max-age). It must support multiple `Set-Cookie` values without comma-folding them into one invalid header.
 
+### 6.2.1 Passwordless sign-in abuse controls
+
+The current passwordless sign-in flow has two ordered abuse-control layers. The web and installed-PWA forms render a visible, localized Cloudflare Turnstile widget using the public `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; native clients do not render the widget or send a Turnstile token. The API validates browser/PWA tokens server-side against Cloudflare's `siteverify` endpoint before consuming an anonymous rate-limit bucket or creating a magic-link challenge. The token and provider response are transient and must never be persisted or logged.
+
+After request-shape and origin validation, the API must preserve this order: Turnstile validation, PostgreSQL-backed anonymous rate-limit decision, then passwordless challenge creation/email delivery. Missing or malformed browser tokens and rejected tokens return generic no-store `403` errors (`turnstile_failed`); Turnstile transport/provider failures return no-store `503` with `turnstile_unavailable` and `Retry-After: 5`; limiter failures return `rate_limit_unavailable` with the same bounded retry response. Exhausted email/IP buckets continue to return generic no-store `429` responses. None of these responses may disclose account existence.
+
+`TURNSTILE_SECRET_KEY` belongs only to the API Worker/Bun runtime and must never be exposed through browser or native configuration. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` belongs to the web presentation runtime. Production configuration must reject Cloudflare's always-pass testing keys; local verification may use the documented testing pair. The web CSP and `apps/web/src/proxy.ts` security policy must allow `https://challenges.cloudflare.com` in `script-src`, `script-src-elem`, `connect-src`, and `frame-src` without broadening other origins.
+
 ### 6.3 CSRF and trusted proxy transport
 
 The API will not blindly trust arbitrary forwarded-origin headers. The transport design should be:
@@ -311,7 +328,7 @@ The requested migration names `apps/web/src/app/api`, but the repository also ha
 
 - Keep the user-facing OIDC authorization/callback on the web origin for this migration. Keep OIDC client secrets server-only on web, issue the existing signed session cookie on the web origin, and make the API validate the same provider-neutral session contract using only the verifier configuration/signing secret it needs (never the OIDC client secret).
 - Make `apps/web/src/app/auth/logout/route.ts` a thin web adapter: forward the request cookies and authenticated proxy marker to API session revocation, replay API cookie deletions, clear the web-owned OIDC cookie, and redirect. It must not construct a Prisma-backed terminator or contain revocation policy.
-- Keep passwordless confirmation UI on the web, while challenge creation, redemption, session creation, rotation, revocation, and PWA handoff persistence run in the API.
+- Keep passwordless confirmation UI on the web, while challenge creation, redemption, session creation, rotation, revocation, and PWA handoff persistence run in the API. Preserve the current 15-second cross-tab BroadcastChannel verifier wait so a backgrounded invitation/sign-in tab can complete authentication without moving credentials through the channel.
 - Ensure `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` remain the web origin/RP values even though the HTTP implementation is hosted at the API origin.
 - Remove all direct web database access, including SSR auth/page loaders; see section 11 for the explicit API bootstrap calls that replace it.
 
@@ -325,6 +342,7 @@ The API migration must inventory and replace Node/Next assumptions before moving
 - Replace Next `Request`/`NextRequest`/`NextResponse`/`cookies()`/`headers()` with Web Standards and Hono context.
 - Replace `Buffer` conversions with a shared Web-compatible base64/byte adapter, or isolate the adapter behind a runtime-neutral port.
 - Replace `node:crypto` operations with Web Crypto where possible: random values, HMAC/SHA-256, digest comparison, and token generation.
+- Move the server-side Cloudflare Turnstile validator with the passwordless request route into the API. The Worker/Bun runtime receives only `TURNSTILE_SECRET_KEY`; the web retains the public site key for its localized browser/PWA widget. Keep the 5-second verification timeout, token-size/safety validation, fail-closed result classification, and validation-before-rate-limit ordering.
 - Keep the web-owned OIDC authorization/callback dependency (`openid-client`, if retained) out of the Worker bundle; verify only Worker-imported crypto/WebAuthn modules such as `jose` and `@simplewebauthn/server` under the exact compatibility date. Do not rely on Node compatibility flags as proof that every Node package works.
 - Use the approved HTTP email delivery adapter for the Cloudflare Worker. Nodemailer and SMTP credentials must not be bundled into the Worker. An SMTP/Nodemailer adapter may remain isolated behind the supported Bun self-hosted adapter only.
 - Keep email action URLs anchored to the web origin, not the API origin.
@@ -340,6 +358,12 @@ The current implementation creates Nodemailer SMTP transport in `apps/web`, whic
 The API owns challenge creation and authorization. The adapter sends the already-validated action URL using `EMAIL_PROVIDER_URL`, `EMAIL_PROVIDER_TOKEN`, `AUTH_EMAIL_FROM`, and `AUTH_EMAIL_FROM_NAME` bindings/configuration. Provider response payloads and delivery diagnostics remain server-only and are redacted from logs. The HTTP call has a bounded timeout and explicit retry/idempotency behavior; do not automatically retry unless the provider supports an idempotency key, so a retry cannot silently send duplicate magic links. Existing bilingual templates move under the API identity module and preserve web-origin action URLs; keep both English/Indonesian template variants and their parity tests, without placing secrets or user Vault data in templates/logs.
 
 The remaining Cloudflare operator input is the provider endpoint/credential and local mail sink; self-hosted Bun operators may retain the isolated SMTP configuration as a runtime-specific adapter. Update ADR-0048 and the authentication configuration documentation to record the HTTP provider as the Cloudflare contract and SMTP as Bun-only. No SMTP package or SMTP secret remains in `apps/web` or the Worker bundle.
+
+### 8.1 Secure Share Link delivery remains client-only
+
+The latest Shared Vault invitation flow uses the platform-neutral `SecureShareLinkDeliveryPort`. The browser delivery adapter opens a localized `mailto:` draft containing the one-time link, while the UI also offers a client-side copy fallback. This delivery effect is separate from passwordless authentication email: it must not use the API's HTTP email provider, must not send the Secure Share Link secret to the API, and must not persist or log the secret. Re-invitation uses the same fresh-secret and client-delivery path after an expired Invitation; the API receives only the verifier and encrypted key-handoff package permitted by the existing contract.
+
+The extraction must preserve the current invitation/re-invitation UX, Indonesian/English email subject/body catalogs, client-only secret lifetime, and failure handling. The browser-facing invitation link remains anchored at the web origin, and any authentication-completion announcement needed by an open invitation tab remains a client-only cross-tab signal.
 
 ## 9. Retention purge and scheduled work
 
@@ -373,6 +397,7 @@ The catch-all route will:
 - Forward only an explicit allow-list of end-to-end headers, strip any client-supplied `X-Rhasia-Proxy-Secret`, and add the server-held marker.
 - Forward request bodies as streams where supported; do not log or unnecessarily materialize sensitive bodies. Route-specific body/decoded-byte limits remain enforced by the API validator/use case, with proxy and Worker transport limits tested so the proxy does not silently truncate or impose an incompatible lower limit. If Node `fetch` requires it for a streamed request body, set `duplex: "half"` and test abort/backpressure behavior.
 - Forward cookies, bearer credentials, content negotiation, ETags, cache validators, and request origin as required by the API contract.
+- Preserve the Turnstile-enabled web security policy: `next.config.ts` and `apps/web/src/proxy.ts` must allow `https://challenges.cloudflare.com` only for the Turnstile script, frame, and verification connection directives required by the browser/PWA widget.
 - Copy status, response body, and an explicit safe response-header allow-list including `Content-Type`, `Content-Disposition`, `Location`, `WWW-Authenticate`, `Retry-After`, cache headers, ETag, `Vary`, synchronization headers, and every `Set-Cookie` header without comma-folding. API redirects must be relative or explicitly rewritten from the API origin to the web origin; never leak an unintended cross-origin redirect. Strip hop-by-hop/upstream-host headers. Use the runtime's multi-value header API (`Headers.getSetCookie()`/equivalent); pin the route to the Next Node runtime if the deployed runtime lacks that API, and add regression tests for binary/download responses and two or more cookies.
 - Return a generic 502/504 response for upstream transport failure without leaking upstream internals; preserve API application errors unchanged.
 - Use bounded timeout and cancellation behavior.
@@ -413,14 +438,14 @@ This keeps SSR and auth redirects intact while making the API the only request-t
 
 ### Local verification
 
-Use a disposable approved Postgres database. `wrangler dev` uses `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` for direct local connectivity; this does not exercise Hyperdrive pooling. Run a separate `wrangler dev --remote` smoke test only against a disposable remote test database. Also run the supported self-hosted Bun adapter through Docker/Bun against the same API contract and internal proxy path. Start the API Worker or Bun adapter and web dev server with local `API_ORIGIN`, `WEB_ORIGIN`, and proxy-secret values, then run browser tests against the web origin. Run native integration tests against the same local API origin. No test may use production credentials or a production database.
+Use a disposable approved Postgres database. `wrangler dev` uses `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` for direct local connectivity; this does not exercise Hyperdrive pooling. Run a separate `wrangler dev --remote` smoke test only against a disposable remote test database. Also run the supported self-hosted Bun adapter through Docker/Bun against the same API contract and internal proxy path. Start the API Worker or Bun adapter and web dev server with local `API_ORIGIN`, `WEB_ORIGIN`, proxy-secret, and Turnstile values; use Cloudflare's documented always-pass testing pair only for local verification and confirm production rejects it. Run browser tests against the web origin, including the widget/token request path and invitation `mailto:`/copy effects. Run native integration tests against the same local API origin and verify native requests omit Turnstile tokens. No test may use production credentials or a production database.
 
-The end-to-end matrix must cover health/time, passwordless request/redeem/refresh/revoke, PWA handoff, OIDC if enabled, passkey recovery, browser-cookie proxying, native bearer auth, personal/shared vault authorization, encrypted account payloads, audit redaction, ETags, offline bundle, import/export size limits, secure links, and scheduled/manual retention.
+The end-to-end matrix must cover health/time, passwordless request/redeem/refresh/revoke, Turnstile validation and failure ordering, PWA handoff, OIDC if enabled, passkey recovery, browser-cookie proxying, native bearer auth, personal/shared vault authorization, encrypted account payloads, audit redaction, ETags, offline bundle, import/export size limits, client-side Secure Share Link email/copy delivery, and scheduled/manual retention.
 
 ### Production cutover and rollback
 
 1. Validate the Worker bundle, bindings, Hyperdrive test path, email adapter, cron configuration, required self-hosted Bun adapter, and API smoke tests.
-2. Provision API secrets before traffic cutover, using the exact existing session/magic-link/OIDC signing values where continuity is required; do not rotate secrets as an incidental part of extraction, and never print them. Verify web/API secret agreement without exposing values.
+2. Provision API secrets before traffic cutover, using the exact existing session/magic-link/OIDC signing values where continuity is required; do not rotate secrets as an incidental part of extraction, and never print them. Provision the real `TURNSTILE_SECRET_KEY` to the API and the matching public `NEXT_PUBLIC_TURNSTILE_SITE_KEY` to the web; reject the local testing pair in production. Verify web/API secret agreement without exposing values.
 3. Deploy the Worker/custom API domain and run unauthenticated and authenticated smoke tests using a disposable/test account.
 4. Deploy web with the fixed API origin and proxy secret, then run browser proxy/auth smoke tests.
 5. Update the mobile production API origin configuration and run the required native verification before release.
@@ -431,21 +456,21 @@ Because this extraction makes no schema change, rollback is an artifact/config r
 
 ## 11.2 Documentation and configuration impact
 
-Update the ownership and operational documents in the same implementation: `CONTEXT.md` if domain language changes; `docs/monorepo.md`; `docs/shared-code-inventory.md`; `docs/self-hosting.md`; `docs/retention-purge-operations.md`; the authentication/SMTP ADRs and relevant auth configuration docs; `docs/app-router-composition.md` if proxy composition changes; `.env.example`; `docker-compose.yml`; `apps/web/Dockerfile`; `docker/retention-purge.mjs`; `vercel.json`; `pnpm-workspace.yaml` overrides (remove the unused `@hono/node-server` override; Bun uses `Bun.serve`); affected `tools/verify-*`/release scripts; CI/deployment workflows; and package READMEs. The docs must state that API persistence is Worker-owned, web SSR uses the API gateway, local Hyperdrive uses a direct disposable connection, production uses the API cron, and no migration is part of this extraction.
+Update the ownership and operational documents in the same implementation: `CONTEXT.md` if domain language changes; `docs/monorepo.md`; `docs/shared-code-inventory.md`; `docs/self-hosting.md`; `docs/retention-purge-operations.md`; `docs/application-rate-limiting.md`; `docs/authentication-configuration.md`; `docs/sign-in-rate-limit-turnstile-plan.md`; the authentication/SMTP ADRs and relevant auth configuration docs; `docs/app-router-composition.md` if proxy composition changes; `README.md`; `.env.example`; `docker-compose.yml`; `apps/web/Dockerfile`; `docker/retention-purge.mjs`; `vercel.json`; `pnpm-workspace.yaml` overrides (remove the unused `@hono/node-server` override; Bun uses `Bun.serve`); affected `tools/verify-*`/release scripts; CI/deployment workflows; and package READMEs. The docs must state that API persistence is Worker-owned, web SSR uses the API gateway, local Hyperdrive uses a direct disposable connection, production uses the API cron, the confirmed/focused migration workflow is preserved outside request handling, Turnstile protects browser/PWA sign-in before anonymous limiting, and no migration is part of this extraction.
 
 The environment contract must name ownership explicitly and must be implemented as a checked configuration matrix:
 
-- **Web runtime:** `AUTH_BACKEND`, the exact web-origin values needed by page composition, `API_ORIGIN`, `API_PROXY_SECRET`, and the verifier settings required by `apps/web/src/proxy.ts` and the web-owned OIDC callback. For passwordless page gating this includes the browser-assertion verification secret `AUTH_SESSION_SECRET`; for OIDC this includes `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_SESSION_SECRET`. These verification secrets are intentionally shared with the API and must be tested for equality without logging them. Web retains `OIDC_CLIENT_SECRET` and `OIDC_REDIRECT_URI` exclusively for the provider callback. Web does not receive `DATABASE_URL`, `DIRECT_URL`, `HYPERDRIVE`, API persistence, passwordless challenge-creation/email settings, or SMTP/email-provider credentials.
-- **Cloudflare Worker:** `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_BACKEND`, `AUTH_APP_ORIGIN`, `AUTH_MOBILE_REDIRECT_URL`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, passwordless TTLs, passkey settings, the OIDC verification subset (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, optional `OIDC_AUDIENCE`, `OIDC_SESSION_SECRET`, and admission policy), `HYPERDRIVE`, `CRON_SECRET`, and HTTP-email settings. The Worker never receives `OIDC_CLIENT_SECRET` or performs the OIDC callback.
-- **Self-hosted Bun API:** the same API authentication and origin contract as the Worker, `DATABASE_URL`, and either the HTTP-email settings or isolated SMTP settings. Bun must never read web-only OIDC client credentials unless the explicit callback ownership changes through a new decision.
-- **Migration/admin/test tooling:** migration/admin-only `DIRECT_URL` plus any explicitly required verification URL; this tooling is not imported by either runtime request bundle.
+- **Web runtime:** `AUTH_BACKEND`, the exact web-origin values needed by page composition, `API_ORIGIN`, `API_PROXY_SECRET`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, and the verifier settings required by `apps/web/src/proxy.ts` and the web-owned OIDC callback. For passwordless page gating this includes the browser-assertion verification secret `AUTH_SESSION_SECRET`; for OIDC this includes `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_SESSION_SECRET`. These verification secrets are intentionally shared with the API and must be tested for equality without logging them. Web retains `OIDC_CLIENT_SECRET` and `OIDC_REDIRECT_URI` exclusively for the provider callback. Web does not receive `DATABASE_URL`, `DIRECT_URL`, `HYPERDRIVE`, API persistence, passwordless challenge-creation/email settings, `TURNSTILE_SECRET_KEY`, or SMTP/email-provider credentials.
+- **Cloudflare Worker:** `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_BACKEND`, `AUTH_APP_ORIGIN`, `AUTH_MOBILE_REDIRECT_URL`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, passwordless TTLs, passkey settings, the OIDC verification subset (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, optional `OIDC_AUDIENCE`, `OIDC_SESSION_SECRET`, and admission policy), `HYPERDRIVE`, `CRON_SECRET`, and HTTP-email settings. The Worker never receives `OIDC_CLIENT_SECRET` or performs the OIDC callback.
+- **Self-hosted Bun API:** the same API authentication and origin contract as the Worker, including `TURNSTILE_SECRET_KEY`, `DATABASE_URL`, and either the HTTP-email settings or isolated SMTP settings. Bun must never read web-only OIDC client credentials unless the explicit callback ownership changes through a new decision.
+- **Migration/admin/test tooling:** the ignored `.env.prod` pooled `DATABASE_URL` and direct `DIRECT_URL`, plus any explicitly required verification URL; this tooling is not imported by either runtime request bundle.
 - **Native:** `EXPO_PUBLIC_API_URL` and other public origin/callback values only; no server secret or credential.
 
 Remove SMTP variables from web runtime/build configuration, retain them only in the explicit self-hosted Bun API contract if that adapter is selected, keep secrets out of `NEXT_PUBLIC_*`/Expo public variables, validate production origins and provider endpoints as HTTPS, and add a configuration test that rejects missing, cross-assigned, or unexpectedly exposed variables. Preserve existing auth variable names only where they remain semantically correct, documenting the mapping during the one-time extraction.
 
 ## 11.3 Observability and troubleshooting
 
-Worker logs use a request ID and bounded structured fields only: route group, method, status, duration, auth outcome code, dependency outcome code, and retention batch counters. Never include user identifiers, email addresses, cookies, authorization values, request/response bodies, token fragments, ciphertext, or provider payloads. Add counters/timers for 4xx/5xx by route group, upstream proxy failures, database/Hyperdrive latency and failures, email-provider latency/failures, auth rejection/replay, Worker CPU/subrequest limits, and retention backlog/failure.
+Worker logs use a request ID and bounded structured fields only: route group, method, status, duration, auth outcome code, dependency outcome code, and retention batch counters. Never include user identifiers, email addresses, cookies, authorization values, request/response bodies, Turnstile tokens, token fragments, Secure Share Link material, ciphertext, or provider payloads. Add counters/timers for 4xx/5xx by route group, upstream proxy failures, database/Hyperdrive latency and failures, email-provider and Turnstile latency/failures, auth rejection/replay, Worker CPU/subrequest limits, and retention backlog/failure.
 
 Document alert thresholds and the owner/runbook for API availability, elevated auth failures, database failures, email delivery failures, and retention backlog. Include troubleshooting for: proxy 502/504 (origin/DNS/secret/timeout), rejected origin (configured web origin), missing cookies (Set-Cookie replay/host-only attributes), local database errors (Hyperdrive local-connection variable), remote Hyperdrive safety (disposable test DB), Worker bundle/runtime limits, and OIDC/passkey origin mismatch. Diagnostics must be safe to share and must not require dumping secrets or payloads.
 
@@ -542,7 +567,7 @@ The inventory deliberately includes the current shared-vault audit alias and the
 These are candidate child issues for the parent issue after plan approval. They are implementation phases, not a gradual production rollout:
 
 1. **Lock architecture and runtime decisions**
-   - Record the `apps/api` domain/persistence boundary, zero-web-database rule, versioned `/v1` API path plus the web-only `/api/v1` proxy path, `api-contract`/`api-client` client boundary, proxy-only browser policy, host-only cookies, OIDC web callback, Hyperdrive local strategy, and Worker cron in ADRs.
+   - Record the `apps/api` domain/persistence boundary, zero-web-database rule, versioned `/v1` API path plus the web-only `/api/v1` proxy path, `api-contract`/`api-client` client boundary, proxy-only browser policy, host-only cookies, OIDC web callback, Turnstile ownership, client-only Secure Share Link delivery, Hyperdrive local strategy, and Worker cron in ADRs.
    - Record the HTTP email adapter as the replacement for SMTP; capture only provider-specific endpoint/credential values as deployment inputs.
 
 2. **Extract API domain and Prisma persistence**
@@ -560,7 +585,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 
 4. **Port runtime-neutral identity and authentication adapters**
    - Refactor session/auth ports to standard Request/Hono context and split web verifier configuration from API passwordless/persistence configuration.
-   - Port passwordless, bearer, cookie, PWA handoff, admission, rate limits, passkey recovery, OIDC session validation, and cookie issuance; make session revocation accept browser cookies as well as bearer tokens.
+   - Port passwordless, bearer, cookie, PWA handoff, admission, Turnstile validation, rate limits, passkey recovery, OIDC session validation, and cookie issuance; make session revocation accept browser cookies as well as bearer tokens.
    - Replace Worker-incompatible email delivery with the approved adapter.
    - Prove auth and cookie contracts with Worker tests.
 
@@ -574,15 +599,16 @@ These are candidate child issues for the parent issue after plan approval. They 
    - Add the generic Next catch-all proxy and explicitly update `apps/web/src/proxy.ts` matcher/security-header/page-gating behavior so `/api/v1/**` is not redirected or database-backed; the catch-all rejects unversioned `/api/**` requests rather than forwarding an alias.
    - Delete all 39 concrete API route modules.
    - Implement header/body/status/stream/cookie forwarding and upstream failure handling.
-   - Update security headers, local configuration, proxy architecture tests, and browser support fixtures so web tests no longer import route implementations or Prisma.
+   - Preserve the Turnstile CSP directives and public-site-key configuration, and update security headers, local configuration, proxy architecture tests, and browser support fixtures so web tests no longer import route implementations or Prisma.
 
 7. **Update web/native composition and auth boundaries**
    - Point native `EXPO_PUBLIC_API_URL` to the API origin and update every native client operation to the `/v1` paths; retain `/api/v1` only for browser proxy calls.
    - Update web server auth/logout/SSR composition to use the API gateway and thin logout adapter; no web Prisma or `apps/api` backend runtime imports remain.
-   - Keep client-only crypto/TOTP/secret boundaries unchanged.
+   - Keep client-only crypto/TOTP/secret boundaries unchanged, including browser/PWA Turnstile token handling and client-side Secure Share Link `mailto:`/copy delivery.
    - Update API contract/client types without putting credentials or decrypted content in caches.
 
 8. **Local end-to-end verification and Cloudflare deployment configuration**
+   - Preserve and verify the confirmed development/production migration workflow separately from request handling, including the focused migration image, ignored `.env.prod`, and production `--no-deps` isolation.
    - Run the API Worker, required self-hosted Bun adapter, web dev server, and approved Postgres/Hyperdrive test target locally.
    - Exercise browser proxy, passwordless, PWA handoff, OIDC if enabled, passkey recovery, native bearer auth, vault mutations, audit, offline bundle, imports, and retention.
    - Configure Worker secrets/bindings, Hyperdrive, custom domain, cron trigger, HTTP email adapter, and web proxy variables.
@@ -612,13 +638,15 @@ These are candidate child issues for the parent issue after plan approval. They 
 ### Contract and behavior
 
 - All 54 current path/method operations from the 39 route modules are implemented in the Hono app under `apps/api`, including the shared-vault audit `GET` alias, plus the documented recovery-eligibility `GET` operation; each API target path is `/v1/<source-path>`, with browser access through `/api/v1/<source-path>` on the web origin.
+- The passwordless request contract requires a safe one-time Turnstile token for web/PWA clients, rejects a token for mobile, validates Turnstile before anonymous limiting/challenge creation, and preserves generic status/error/cache contracts.
 - Existing success/error bodies, status codes, error codes, cache headers, ETags, and encrypted byte encodings remain compatible.
 - Auth assurance levels, application admission, mutation rate limits, authorization, revision checks, audit redaction, one-time links, and retention semantics are unchanged.
 - Destructive Personal Vault Reset atomically removes the specified unusable Personal Vault ciphertext and cryptographic material, preserves Viewer memberships, returns the Personal Vault to `UNINITIALIZED`, and rejects recovery-enrolled users and users who own an active Shared Vault.
 - Browser requests through the web proxy and native bearer requests directly to the API both pass the same contract tests; web `/api/v1/**` to API `/v1/**` forwarding is covered, and unversioned API `/v1`-less requests are rejected without an alias.
 - Web SSR gateway calls preserve auth cookies and page redirect behavior without importing web Prisma; `/me` admission failure, Personal Vault failure, and transport failure all fail closed without rendering partial authenticated content.
 - Multiple `Set-Cookie` headers survive the proxy correctly.
-- PWA handoff and browser refresh rotation work through the proxy in a real browser.
+- PWA handoff and browser refresh rotation work through the proxy in a real browser, including the 15-second background-tab verifier wait.
+- Shared Vault invitation and re-invitation delivery remains client-only: browser `mailto:` drafts and copy fallback never send the Secure Share Link secret to the API, and the localized email/copy failure states remain complete in both catalogs.
 
 ### Security
 
@@ -627,6 +655,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 - No sensitive request/response body, cookie, token, secure-share value, key, OTP, or ciphertext is logged.
 - API origin and proxy configuration cannot be attacker-controlled URL redirects.
 - Worker secrets are supplied by bindings/secrets, never checked into source or exposed to clients; `OIDC_CLIENT_SECRET` remains web-only and is absent from Worker/Bun API runtime configuration.
+- `TURNSTILE_SECRET_KEY` is API-only, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is web-public, production rejects the always-pass testing pair, and no Turnstile token or response is persisted or logged.
 - Web/API shared verification secrets are intentionally equal where required and are validated without being logged.
 - Plaintext TOTP secrets and decrypted Vault content remain client-only.
 - Browser direct requests carrying API cookies are not an alternate supported path; cookie auth is exercised through the web proxy.
@@ -638,6 +667,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 - Worker bundle size and runtime limits are acceptable.
 - `wrangler types` output is current and checked as required by project convention.
 - Local `.dev.vars` and production Wrangler secrets are documented and validated.
+- The confirmed development and production migration commands remain separate from request handling; production uses ignored `.env.prod`, interactive confirmation, the focused migration image, and `--no-deps` without starting the local Compose database.
 - `GET /v1/health` remains a non-sensitive liveness check and does not expose database/provider details; dependency failures are represented in safe metrics/alerts.
 - Cloudflare scheduled retention runs once per configured schedule and reports bounded progress.
 - Vercel no longer owns or schedules the API implementation.
@@ -655,11 +685,13 @@ The following concerns are resolved in this draft rather than left as implementa
 - Existing PostgreSQL remains the database. Production Worker access uses Hyperdrive; local `wrangler dev` uses a disposable direct connection and `wrangler dev --remote` is an optional disposable-remote smoke test.
 - Browser traffic is proxy-only and same-origin. Native calls the API directly with bearer credentials. Cookies are host-only and replayed through the proxy. Requests containing conflicting bearer and cookie credentials fail closed; matching credentials must resolve deterministically.
 - The proxy uses `X-Rhasia-Proxy-Secret` over TLS; it is not a user credential and is not allowed/exposed by CORS.
+- Passwordless browser/PWA abuse protection remains layered: server-validated Turnstile precedes the shared PostgreSQL anonymous email/IP limits, while native requests remain widget-free but rate-limited.
 - Retention uses one Cloudflare Cron Trigger/`scheduled()` path. The authenticated HTTP endpoint remains for bounded manual/local diagnostics.
 - Cloudflare uses the server-only HTTP email adapter; no SMTP/TCP Worker design or separate email service is planned. Supported Bun self-hosting may retain an isolated SMTP/Nodemailer adapter, which is never imported by the Worker.
 - No database schema change, migration generation, or migration application is part of this extraction.
-- Documented Docker self-hosting is preserved through the same Hono route tree and the required supported Bun adapter; it is not a duplicate API implementation. Cloudflare production uses the Worker adapter and scheduled handler. The Docker build uses pnpm; Bun is the runtime only.
-- Web retains only verifier/OIDC-callback configuration, while the Worker/Bun API owns passwordless challenge/session persistence, passkey verification, database, and email configuration. `AUTH_SESSION_SECRET` and `OIDC_SESSION_SECRET` are shared deliberately where both sides verify the same signed session contract; `OIDC_CLIENT_SECRET` remains web-only.
+- Documented Docker self-hosting is preserved through the same Hono route tree and the required supported Bun adapter; it is not a duplicate API implementation. Cloudflare production uses the Worker adapter and scheduled handler. The Docker build uses pnpm; Bun is the runtime only. The current confirmed migration workflow is relocated without weakening its interactive confirmation or production `--no-deps` isolation.
+- Web retains the public Turnstile site key and verifier/OIDC-callback configuration, while the Worker/Bun API owns passwordless challenge/session persistence, Turnstile verification, passkey verification, database, and email configuration. `AUTH_SESSION_SECRET` and `OIDC_SESSION_SECRET` are shared deliberately where both sides verify the same signed session contract; `OIDC_CLIENT_SECRET` remains web-only.
+- Authentication email remains server-delivered through the selected API adapter, but Shared Vault invitation/re-invitation email remains a client-side localized `mailto:`/copy effect; Secure Share Link secrets never enter the API.
 - SSR performs admission first, then the idempotent Personal Vault read, and fails closed rather than rendering a partially loaded page. Destructive reset preserves Viewer memberships, returns the Personal Vault to `UNINITIALIZED`, and atomically removes the specified unusable Personal Vault material.
 
 The route parity manifest and environment ownership matrix must be completed with exact source/test references before issue creation. Only the following deployment-specific inputs remain:
