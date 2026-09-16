@@ -755,7 +755,6 @@
       "totpOnly": "Hanya konfigurasi otpauth://totp yang didukung.",
       "missingSecret": "URI autentikator tidak memiliki rahasia.",
       "missingIssuer": "URI autentikator tidak memiliki penerbit.",
-      "issuerMismatch": "Label dan parameter penerbit harus sama.",
       "invalidLabel": "Label URI autentikator tidak valid.",
       "missingAccount": "URI autentikator tidak memiliki label akun.",
       "unsupportedAlgorithm": "URI autentikator menggunakan algoritme yang tidak didukung.",

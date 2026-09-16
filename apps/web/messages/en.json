@@ -755,7 +755,6 @@
       "totpOnly": "Only otpauth://totp configurations are supported.",
       "missingSecret": "Authenticator URI has no secret.",
       "missingIssuer": "Authenticator URI has no issuer.",
-      "issuerMismatch": "The label issuer and issuer parameter must match.",
       "invalidLabel": "Authenticator URI label is invalid.",
       "missingAccount": "Authenticator URI has no account label.",
       "unsupportedAlgorithm": "Authenticator URI uses an unsupported algorithm.",

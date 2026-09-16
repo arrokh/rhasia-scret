@@ -4,7 +4,6 @@ export type TotpConfigurationErrorCode =
   | "totpOnly"
   | "missingSecret"
   | "missingIssuer"
-  | "issuerMismatch"
   | "invalidLabel"
   | "missingAccount"
   | "unsupportedAlgorithm"
@@ -45,7 +44,6 @@ export function parseTotpUri(uri: string): TotpConfiguration {
   const { issuer: labelIssuer, accountName } = parseLabel(url.pathname);
   const issuer = url.searchParams.get("issuer") ?? labelIssuer;
   if (!issuer) throw new TotpConfigurationError("missingIssuer");
-  if (labelIssuer && issuer !== labelIssuer) throw new TotpConfigurationError("issuerMismatch");
   const algorithm = parseAlgorithm(url.searchParams.get("algorithm") ?? "SHA1");
   const digits = parseDigits(url.searchParams.get("digits") ?? "6");
   const period = parsePeriod(url.searchParams.get("period") ?? "30");
