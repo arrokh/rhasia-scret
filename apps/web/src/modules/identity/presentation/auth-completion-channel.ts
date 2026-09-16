@@ -2,7 +2,8 @@ const AUTH_COMPLETION_CHANNEL_NAME = "rhasia-scret:authentication-complete";
 const AUTHENTICATED_MESSAGE = "authenticated";
 const INVITATION_SECRET_REQUEST_MESSAGE = "invitation-secret-request";
 const INVITATION_SECRET_RESPONSE_MESSAGE = "invitation-secret-response";
-const INVITATION_SECRET_REQUEST_TIMEOUT_MS = 250;
+// Backgrounded browsers can delay BroadcastChannel delivery while the email callback is foregrounded.
+const INVITATION_SECRET_REQUEST_TIMEOUT_MS = 15_000;
 
 type AuthCompletionMessage = { type: typeof AUTHENTICATED_MESSAGE };
 type InvitationSecretRequestMessage = { type: typeof INVITATION_SECRET_REQUEST_MESSAGE; requestId: string };

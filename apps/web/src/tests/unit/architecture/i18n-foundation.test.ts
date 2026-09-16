@@ -168,6 +168,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     count: 2,
     date: "date",
     email: "user@example.test",
+    link: "https://example.test/invitation#secret",
     id: "opaque-id",
     issuer: "issuer",
     label: "label",

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardX,
+  Mail,
   MailPlus,
   RefreshCw,
   ScrollText,
@@ -38,8 +39,10 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { FormLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
 import type {
   EffectiveSharedVaultAccountPermissions,
+  SecureShareLinkDeliveryPort,
   SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
+import { openInvitationEmailComposer } from "../infrastructure/browser-invitation-email";
 import { createSharedVaultInvitation } from "../infrastructure/browser-shared-vault-invitation";
 import type { BrowserVaultParticipant } from "../infrastructure/browser-vault-participant-client";
 import {
@@ -397,6 +400,23 @@ function overrideValue(value: OverrideChoice): boolean | null {
   return value === "INHERIT" ? null : value === "ALLOW";
 }
 
+function secureInvitationLink(secret: string): string {
+  return `${window.location.origin}/vaults/invitations/redeem#${secret}`;
+}
+
+function invitationEmailDelivery(
+  recipientEmail: string,
+  subject: string,
+  body: (link: string) => string,
+): SecureShareLinkDeliveryPort {
+  return {
+    deliver: async ({ secret }) => {
+      const link = secureInvitationLink(secret);
+      openInvitationEmailComposer({ recipientEmail, subject, body: body(link) });
+    },
+  };
+}
+
 function InvitationPanel({
   vault,
   participants,
@@ -429,7 +449,7 @@ function InvitationPanel({
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"failed" | "unavailable" | null>(null);
   const [reinvitingInvitationId, setReinvitingInvitationId] = useState<string | null>(null);
-  const [latestInvitationLink, setLatestInvitationLink] = useState<string | null>(null);
+  const [latestInvitation, setLatestInvitation] = useState<{ email: string; link: string } | null>(null);
   const [reinvitationFailed, setReinvitationFailed] = useState(false);
   const deleteMutation = useDeleteVaultParticipantMutation(vault.id);
   const visibleParticipants = participants.filter(
@@ -505,7 +525,7 @@ function InvitationPanel({
       { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt },
     ]);
     if (replacedInvitationId) setReplacedInvitationIds((current) => [...current, replacedInvitationId]);
-    setLatestInvitationLink(invitation.link);
+    setLatestInvitation({ email: invitation.email, link: invitation.link });
     onCreated();
   }
   async function reinvite(participant: BrowserVaultParticipant) {
@@ -513,8 +533,15 @@ function InvitationPanel({
     setReinvitingInvitationId(participant.invitationId);
     setReinvitationFailed(false);
     try {
-      const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key);
-      const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`;
+      const invitation = await createSharedVaultInvitation(
+        vault.id,
+        participant.email,
+        vault.key,
+        invitationEmailDelivery(participant.email, t("emailSubject"), (link) =>
+          t("emailBody", { link, email: participant.email }),
+        ),
+      );
+      const link = secureInvitationLink(invitation.secret);
       captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationReissued);
       rememberInvitation(
         { id: invitation.id, email: participant.email, expiresAt: invitation.expiresAt, link },
@@ -533,7 +560,7 @@ function InvitationPanel({
   return (
     <div className="grid gap-5">
       <InvitationForm vault={vault} onCreated={(invitation) => rememberInvitation(invitation)} />
-      {latestInvitationLink && <SecureInvitationLink link={latestInvitationLink} />}
+      {latestInvitation && <SecureInvitationLink email={latestInvitation.email} link={latestInvitation.link} />}
       <section className="grid gap-3" aria-labelledby="invited-users-title">
         <div>
           <h3 id="invited-users-title" className="font-bold text-ink-strong">
@@ -729,8 +756,13 @@ function InvitationForm({
       setError(false);
       try {
         const email = value.email.trim().toLowerCase();
-        const invitation = await createSharedVaultInvitation(vault.id, email, vault.key);
-        const link = `${window.location.origin}/vaults/invitations/redeem#${invitation.secret}`;
+        const invitation = await createSharedVaultInvitation(
+          vault.id,
+          email,
+          vault.key,
+          invitationEmailDelivery(email, t("emailSubject"), (link) => t("emailBody", { link, email })),
+        );
+        const link = secureInvitationLink(invitation.secret);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationCreated);
         form.reset();
         onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link });
@@ -801,10 +833,25 @@ function InvitationForm({
   );
 }
 
-function SecureInvitationLink({ link }: { link: string }) {
+function SecureInvitationLink({ email, link }: { email: string; link: string }) {
   const t = useTranslations("VaultManagement.invitations");
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [emailOpened, setEmailOpened] = useState(false);
+  const [emailFailed, setEmailFailed] = useState(false);
+  function sendEmail() {
+    try {
+      openInvitationEmailComposer({
+        recipientEmail: email,
+        subject: t("emailSubject"),
+        body: t("emailBody", { link, email }),
+      });
+      setEmailOpened(true);
+      setEmailFailed(false);
+    } catch {
+      setEmailFailed(true);
+    }
+  }
   async function copyLink() {
     try {
       await browserClipboard.writeText(link);
@@ -817,18 +864,30 @@ function SecureInvitationLink({ link }: { link: string }) {
   return (
     <div className="grid min-w-0 gap-2 rounded-md border border-success/20 bg-success-surface p-3">
       <p className="text-sm font-bold text-success">{t("ready")}</p>
+      <p className="text-sm text-muted-foreground">{t("deliveryDescription", { email })}</p>
       <output className="min-w-0 break-all rounded-sm bg-card p-2 font-mono text-xs" aria-label={t("secureLink")}>
         {link}
       </output>
-      <Button
-        className="w-full sm:w-auto sm:justify-self-end"
-        variant="outline"
-        type="button"
-        onClick={() => void copyLink()}
-      >
-        {copied ? <Check /> : <Clipboard />}
-        {copied ? t("copied") : t("copy")}
-      </Button>
+      <div className="flex flex-wrap gap-2 sm:justify-end">
+        <Button type="button" onClick={sendEmail}>
+          {emailOpened ? <Check /> : <Mail />}
+          {emailOpened ? t("emailOpened") : t("sendEmail")}
+        </Button>
+        <Button variant="outline" type="button" onClick={() => void copyLink()}>
+          {copied ? <Check /> : <Clipboard />}
+          {copied ? t("copied") : t("copy")}
+        </Button>
+      </div>
+      {emailOpened && (
+        <StatusBanner tone="success" role="status">
+          {t("emailOpened")}
+        </StatusBanner>
+      )}
+      {emailFailed && (
+        <StatusBanner tone="danger" role="alert">
+          {t("emailError")}
+        </StatusBanner>
+      )}
       {copyFailed && (
         <StatusBanner tone="danger" role="alert">
           {t("copyError")}

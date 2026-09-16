@@ -11,6 +11,7 @@ import {
 type MessageListener = (event: MessageEvent<unknown>) => void;
 
 const channels = new Set<FakeBroadcastChannel>();
+let messageDelayMs = 0;
 
 class FakeBroadcastChannel {
   private readonly listeners = new Set<MessageListener>();
@@ -28,10 +29,14 @@ class FakeBroadcastChannel {
   }
 
   public postMessage(data: unknown): void {
-    for (const channel of channels) {
-      if (channel === this || channel.name !== this.name) continue;
-      for (const listener of channel.listeners) listener(new MessageEvent("message", { data }));
-    }
+    const deliver = () => {
+      for (const channel of channels) {
+        if (channel === this || channel.name !== this.name) continue;
+        for (const listener of channel.listeners) listener(new MessageEvent("message", { data }));
+      }
+    };
+    if (messageDelayMs > 0) window.setTimeout(deliver, messageDelayMs);
+    else deliver();
   }
 
   public close(): void {
@@ -42,6 +47,8 @@ class FakeBroadcastChannel {
 describe("auth completion channel", () => {
   afterEach(() => {
     channels.clear();
+    messageDelayMs = 0;
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -81,6 +88,23 @@ describe("auth completion channel", () => {
 
     await expect(requestInvitationSecret()).resolves.toBe("invitation-secret-value");
 
+    unsubscribe();
+  });
+
+  it("waits up to 15 seconds for a backgrounded invitation tab to answer the secret request", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    vi.stubGlobal("crypto", { randomUUID: () => "request-id" });
+    messageDelayMs = 7_000;
+    const unsubscribe = subscribeToAuthenticationCompletion(
+      () => undefined,
+      () => "invitation-secret-value",
+    );
+
+    const secret = requestInvitationSecret();
+    await vi.advanceTimersByTimeAsync(14_500);
+
+    await expect(secret).resolves.toBe("invitation-secret-value");
     unsubscribe();
   });
 });
