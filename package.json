@@ -9,7 +9,10 @@
     "pnpm": "11.17.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @rhasia-scret/web dev",
+    "dev": "pnpm run dev:local",
+    "dev:api": "pnpm --dir apps/api run dev:bun",
+    "dev:web": "pnpm --dir apps/web run dev",
+    "dev:local": "node tools/run-local-dev.mjs",
     "dev:db": "sh -c 'export COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\"; docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db'",
     "dev:db:migrate": "node tools/confirm-database-operation.mjs 'the development database migration' && sh -c 'export COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\"; docker compose -f docker-compose.yml -f docker-compose.dev.yml run --build --rm migrate'",
     "prod:db:migrate": "test -f .env.prod || { printf '%s\\n' 'Missing .env.prod; refusing to run the production migration.' >&2; exit 1; }; node tools/confirm-database-operation.mjs 'the production database migration' && docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod-migration.yml run --build --rm --no-deps migrate",

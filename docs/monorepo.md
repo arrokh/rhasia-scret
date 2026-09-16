@@ -17,8 +17,10 @@ Server-owned web code may import only the encrypted offline-bundle parser/contra
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm --filter @rhasia-scret/web dev
-pnpm --filter @rhasia-scret/api dev
+pnpm dev                         # starts local Bun API, waits for health, then web
+pnpm run dev:api                 # local Bun API only
+pnpm run dev:web                 # web only
+pnpm --filter @rhasia-scret/api dev  # Cloudflare Worker local runtime
 pnpm --dir apps/mobile start
 pnpm run lint
 pnpm run typecheck

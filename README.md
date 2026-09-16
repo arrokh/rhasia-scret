@@ -131,11 +131,17 @@ The repository's tests use synthetic data and local services. Never put authenti
 
 ## Run and verify
 
-Web development:
+Local web/API development:
 
 ```bash
 pnpm dev
 ```
+
+The root development command starts the Bun API on `http://localhost:8787`, waits
+for `/v1/health`, and then starts the web app on `http://localhost:3000`. Run
+`pnpm dev:db` first when the API needs the local PostgreSQL container. The API
+and web can also be started independently with `pnpm run dev:api` and
+`pnpm run dev:web`.
 
 API development (Cloudflare Worker):
 
