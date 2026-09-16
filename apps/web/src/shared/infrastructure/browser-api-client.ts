@@ -1,6 +1,6 @@
 "use client";
 
-import { browserApiPath, isVersionedApiPath } from "@rhasia-scret/api-contract";
+import { browserApiPath, isVersionedApiPath } from "@rhasia-scret/api-contract/paths";
 import type {
   AuthenticatedTransport,
   PlatformHttpRequest,
