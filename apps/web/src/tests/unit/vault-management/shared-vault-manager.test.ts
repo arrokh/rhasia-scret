@@ -10,7 +10,13 @@ import {
 import { TestQueryProvider } from "@/tests/test-query-provider";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
-const mocks = vi.hoisted(() => ({ createSharedVaultInvitation: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  createSharedVaultInvitation: vi.fn(),
+  openInvitationEmailComposer: vi.fn(),
+}));
+vi.mock("@/modules/vault-membership/infrastructure/browser-invitation-email", () => ({
+  openInvitationEmailComposer: mocks.openInvitationEmailComposer,
+}));
 vi.mock("@/modules/vault-membership/infrastructure/browser-shared-vault-invitation", () => ({
   createSharedVaultInvitation: mocks.createSharedVaultInvitation,
 }));
@@ -403,7 +409,19 @@ describe("dedicated Vault management", () => {
         "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
       ),
     );
-    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
+      "shared-1",
+      "viewer@example.test",
+      vaults()[0]!.key,
+      expect.objectContaining({ deliver: expect.any(Function) }),
+    );
+    await act(async () => findButton(container, "Kirim undangan").click());
+    expect(mocks.openInvitationEmailComposer).toHaveBeenCalledWith({
+      recipientEmail: "viewer@example.test",
+      subject: "Anda diundang ke Brankas Bersama",
+      body: expect.stringContaining("client-only-secret"),
+    });
+    expect(container.textContent).toContain("Draf email dibuka");
     const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
     await act(async () => copyPending.click());
     expect(writeText).toHaveBeenCalledWith("http://localhost:3000/vaults/invitations/redeem#client-only-secret");
@@ -467,6 +485,7 @@ describe("dedicated Vault management", () => {
       "shared-1",
       "expired@example.test",
       vaults()[0]!.key,
+      expect.objectContaining({ deliver: expect.any(Function) }),
     );
     expect(container.textContent).toContain("Menunggu");
     expect(container.textContent).not.toContain("Kedaluwarsa");

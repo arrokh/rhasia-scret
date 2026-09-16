@@ -995,7 +995,7 @@
       "deleteDescription": "The invitation link for {email} will no longer work.",
       "revoke": "Revoke access",
       "delete": "Delete invitation",
-      "createError": "The invitation could not be created. Make sure this email has no access or unexpired active invitation.",
+      "createError": "The invitation could not be created or sent. Make sure this email has no access or unexpired active invitation.",
       "copyError": "The link could not be copied. Copy it manually.",
       "copyPending": "Copy invitation for {email}",
       "pendingCopied": "Invitation copied",
@@ -1003,7 +1003,7 @@
       "copyUnavailableLabel": "Invitation link unavailable for {email}",
       "copyUnavailableTitle": "Original link cannot be recovered",
       "formTitle": "Invite by email",
-      "formDescription": "Create a one-time link for this email address, then send it through a secure channel.",
+      "formDescription": "Enter the recipient's email. After the invitation is created, your email app opens with the one-time link ready to send.",
       "invalidEmail": "Enter a valid email address.",
       "recipientEmail": "Recipient email",
       "creating": "Creating invitation…",
@@ -1011,7 +1011,13 @@
       "ready": "Invitation link ready to send",
       "secureLink": "Secure invitation link",
       "copied": "Copied",
-      "copy": "Copy link"
+      "copy": "Copy link",
+      "sendEmail": "Send invitation",
+      "emailOpened": "Email draft opened",
+      "emailError": "The email composer could not be opened. Copy the secure link and send it through a secure channel.",
+      "deliveryDescription": "The one-time link stays in this browser until you send it. Send it only to {email}.",
+      "emailSubject": "You're invited to a Shared Vault",
+      "emailBody": "You have been invited to join a Shared Vault in rhasia-scret.\n\nOpen this one-time Secure Share Link:\n{link}\n\nSign in with {email} to redeem the invitation. This link expires in seven days."
     },
     "audit": {
       "filter": "Filter: {label}",
