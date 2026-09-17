@@ -103,35 +103,81 @@ describe("POST /v1/auth/magic-link/request contract", () => {
   });
 
   it("returns bounded unavailable errors for Turnstile and rate-limit failures", async () => {
-    mocks.createTurnstileValidator.mockReturnValue({ validate: vi.fn().mockResolvedValue("unavailable") });
-    const unavailableTurnstile = await POST(
-      makeRequest(
-        { email: "person@example.test", client: "web", returnPath: "/vaults", turnstileToken: token },
-        { requestLink: vi.fn() },
-      ),
-    );
-    expect(unavailableTurnstile.status).toBe(503);
-    expect(unavailableTurnstile.headers.get("retry-after")).toBe("5");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      mocks.createTurnstileValidator.mockReturnValue({
+        validate: vi.fn().mockRejectedValue(new Error("Turnstile provider is unavailable")),
+      });
+      const unavailableTurnstile = await POST(
+        makeRequest(
+          { email: "person@example.test", client: "web", returnPath: "/vaults", turnstileToken: token },
+          { requestLink: vi.fn() },
+        ),
+      );
+      expect(unavailableTurnstile.status).toBe(503);
+      expect(unavailableTurnstile.headers.get("retry-after")).toBe("5");
+      expect(errorSpy).toHaveBeenCalledWith(
+        JSON.stringify({
+          event: "magic_link_request_turnstile_unavailable",
+          requestId: "diagnostic-request",
+          errorType: "Error",
+        }),
+      );
 
-    mocks.createTurnstileValidator.mockReturnValue({ validate: vi.fn().mockResolvedValue("valid") });
-    mocks.createAnonymousAuthRateLimiter.mockReturnValue({
-      check: vi.fn().mockRejectedValue(new Error("database down")),
-    });
-    const unavailableLimiter = await POST(
-      makeRequest(
-        { email: "person@example.test", client: "web", returnPath: "/vaults", turnstileToken: token },
-        { requestLink: vi.fn() },
-      ),
-    );
-    expect(unavailableLimiter.status).toBe(503);
-    expect(unavailableLimiter.headers.get("retry-after")).toBe("5");
+      mocks.createTurnstileValidator.mockReturnValue({ validate: vi.fn().mockResolvedValue("valid") });
+      mocks.createAnonymousAuthRateLimiter.mockReturnValue({
+        check: vi.fn().mockRejectedValue(new Error("database password must not be logged")),
+      });
+      const unavailableLimiter = await POST(
+        makeRequest(
+          { email: "person@example.test", client: "web", returnPath: "/vaults", turnstileToken: token },
+          { requestLink: vi.fn() },
+        ),
+      );
+      expect(unavailableLimiter.status).toBe(503);
+      expect(unavailableLimiter.headers.get("retry-after")).toBe("5");
+      expect(errorSpy).toHaveBeenCalledWith(
+        JSON.stringify({
+          event: "magic_link_request_rate_limit_unavailable",
+          requestId: "diagnostic-request",
+          errorType: "Error",
+        }),
+      );
+      expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("database password must not be logged");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("logs delivery failures without logging request data or provider details", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const providerError = new Error("provider response contained a secret");
+      const unavailableDelivery = await POST(
+        makeRequest(
+          { email: "person@example.test", client: "web", returnPath: "/vaults", turnstileToken: token },
+          { requestLink: vi.fn().mockRejectedValue(providerError) },
+        ),
+      );
+      expect(unavailableDelivery.status).toBe(503);
+      expect(errorSpy).toHaveBeenCalledWith(
+        JSON.stringify({
+          event: "magic_link_request_delivery_failed",
+          requestId: "diagnostic-request",
+          errorType: "Error",
+        }),
+      );
+      expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("provider response contained a secret");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
 
 function makeRequest(body: unknown, passwordlessAuth: { requestLink: ReturnType<typeof vi.fn> }): ApiRequest {
   const request = new ApiRequest(`${origin}/api/v1/auth/magic-link/request`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin },
+    headers: { "content-type": "application/json", origin, "x-request-id": "diagnostic-request" },
     body: JSON.stringify(body),
   });
   attachApiRequestContext(request, {

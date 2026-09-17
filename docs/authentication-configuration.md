@@ -15,7 +15,7 @@ Set `AUTH_BACKEND=passwordless` and configure:
 - `TURNSTILE_SECRET_KEY`: server-only Cloudflare Turnstile secret used to validate browser tokens. For local development, use the always-pass testing pair documented by Cloudflare; production configuration rejects those testing keys.
 - `EMAIL_PROVIDER_URL`, `EMAIL_PROVIDER_TOKEN`, `AUTH_EMAIL_FROM`, and `AUTH_EMAIL_FROM_NAME` for API-only HTTP email delivery.
 
-The API validates the provider endpoint and sends mail over HTTPS. Never expose API credentials through `NEXT_PUBLIC_` or `EXPO_PUBLIC_` variables.
+The API validates the provider endpoint and sends mail over HTTPS. Its request logs contain only a correlation ID, method, path, status, and duration; dependency failures add only an event and error type. Request bodies, cookies, authorization headers, provider payloads, email addresses, and tokens are never logged. The Web API proxy logs only configuration or transport failures because the API owns implementation-route access logs. Never expose API credentials through `NEXT_PUBLIC_` or `EXPO_PUBLIC_` variables.
 
 `AUTH_BACKEND=none` remains available for local-only deployments. `AUTH_BACKEND=oidc` remains an optional provider adapter with its existing server-only configuration. Invalid or incomplete selected-backend configuration fails closed and must fail deployment validation.
 

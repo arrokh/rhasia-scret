@@ -51,6 +51,7 @@ describe("web API proxy", () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("https://web.example.test/v1/auth/complete?ok=1");
+    expect(response.headers.get("x-request-id")).toBe("request-123");
     expect(response.headers.get("set-cookie")).toContain("session=one");
     expect(response.headers.get("set-cookie")).toContain("refresh=two");
     expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
@@ -79,6 +80,34 @@ describe("web API proxy", () => {
     );
     expect(mutation.status).toBe(403);
     expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
+  });
+
+  it("logs proxy failures without logging request data or error details", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("provider secret must not be logged")));
+
+    const response = await GET(
+      request("/api/v1/personal-vault", { headers: { "x-request-id": "proxy-failure-123" } }),
+      { params: Promise.resolve({ path: ["v1", "personal-vault"] }) },
+    );
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("x-request-id")).toBe("proxy-failure-123");
+    expect(errorSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "web_api_proxy_failure",
+        requestId: "proxy-failure-123",
+        method: "GET",
+        path: "/api/v1/personal-vault",
+        status: 502,
+        error: "upstream_unavailable",
+        errorType: "Error",
+      }),
+    );
+    expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("provider secret must not be logged");
   });
 
   it("does not expose unversioned proxy aliases", async () => {

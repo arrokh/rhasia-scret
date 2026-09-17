@@ -23,6 +23,7 @@ export const apiRuntime: MiddlewareHandler<ApiEnvironment> = async (context, nex
   try {
     const passwordlessAuth = createPasswordlessService(database, bindings);
     const request = new ApiRequest(context.req.raw);
+    request.headers.set("x-request-id", context.get("requestId"));
     if (bindings.WEB_ORIGIN) request.headers.set("x-rhasia-expected-origin", bindings.WEB_ORIGIN);
     const runtime: ApiRequestContext = {
       database,

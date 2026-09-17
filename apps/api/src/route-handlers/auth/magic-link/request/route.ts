@@ -1,5 +1,6 @@
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
+import { logApiDependencyFailure } from "@api/shared/infrastructure/logging";
 import {
   createAnonymousAuthRateLimiter,
   createTurnstileValidator,
@@ -51,7 +52,8 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
     const context = getApiRequestContext(request);
     const limiter = createAnonymousAuthRateLimiter(context.database, context.bindings);
     limit = await limiter.check(body.email.trim().toLowerCase(), requestClientIp(request), new Date());
-  } catch {
+  } catch (error) {
+    logApiDependencyFailure(request, "magic_link_request_rate_limit_unavailable", error);
     return ApiResponse.json(
       { error: "rate_limit_unavailable" },
       { status: 503, headers: { ...noStoreHeaders(), "Retry-After": "5" } },
@@ -71,7 +73,8 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
       ...(body.client === "pwa" ? { handoffId, handoffVerifier } : {}),
     });
     return ApiResponse.json({ sent: true }, { headers: noStoreHeaders() });
-  } catch {
+  } catch (error) {
+    logApiDependencyFailure(request, "magic_link_request_delivery_failed", error);
     return ApiResponse.json({ error: "email_delivery_failed" }, { status: 503, headers: noStoreHeaders() });
   }
 }
@@ -89,7 +92,8 @@ async function validateTurnstile(request: ApiRequest, token: unknown): Promise<"
   if (typeof token !== "string") return "invalid";
   try {
     return await createTurnstileValidator(getApiRequestContext(request).bindings).validate(token);
-  } catch {
+  } catch (error) {
+    logApiDependencyFailure(request, "magic_link_request_turnstile_unavailable", error);
     return "unavailable";
   }
 }

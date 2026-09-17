@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { app } from "@api/app";
 import type { ApiBindings } from "@api/types";
 
@@ -31,6 +31,37 @@ describe("versioned API shell", () => {
     const response = await app.request("https://api.example.test/health", {}, bindings);
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "not_found" });
+  });
+
+  it("logs implementation request metadata without logging request bodies", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const response = await app.request(
+        "https://api.example.test/v1/me",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-request-id": "app-request-123" },
+          body: JSON.stringify({ secret: "request-body-secret" }),
+        },
+        bindings,
+      );
+
+      expect(response.status).toBe(503);
+      const requestLog = errorSpy.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((entry) => entry.event === "api_request");
+      expect(requestLog).toMatchObject({
+        event: "api_request",
+        requestId: "app-request-123",
+        method: "POST",
+        path: "/v1/me",
+        status: 503,
+      });
+      expect(requestLog.durationMs).toEqual(expect.any(Number));
+      expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("request-body-secret");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("allows the configured web origin and rejects other direct browser origins", async () => {

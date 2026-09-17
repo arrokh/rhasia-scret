@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { errorType, logWebServerEvent, requestId } from "@/shared/infrastructure/server-logging";
 
 export const runtime = "nodejs";
 
@@ -80,12 +81,13 @@ export async function OPTIONS(request: NextRequest, context: RouteContext): Prom
 async function forward(request: NextRequest, context: RouteContext): Promise<NextResponse> {
   const { path } = await context.params;
   if (path[0] !== "v1" || path.length < 2) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const correlationId = requestId(request);
 
   let configuration: ProxyConfig;
   try {
     configuration = readProxyConfig();
-  } catch {
-    return NextResponse.json({ error: "proxy_unavailable" }, { status: 503, headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return proxyErrorResponse(request, correlationId, "proxy_unavailable", 503, error);
   }
 
   if (!isTrustedBrowserRequest(request, configuration.webOrigin))
@@ -101,7 +103,7 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     return NextResponse.json({ error: "invalid_path" }, { status: 400, headers: { "cache-control": "no-store" } });
   }
   upstreamUrl.search = new URL(request.url).search;
-  const headers = forwardedRequestHeaders(request, configuration);
+  const headers = forwardedRequestHeaders(request, configuration, correlationId);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -118,12 +120,15 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
         ? { duplex: "half" }
         : {}),
     } as FetchInitWithDuplex);
-    return createProxyResponse(upstream, configuration.apiOrigin.origin, configuration.webOrigin);
+    return createProxyResponse(upstream, configuration.apiOrigin.origin, configuration.webOrigin, correlationId);
   } catch (error) {
     const status = error instanceof DOMException && error.name === "AbortError" ? 504 : 502;
-    return NextResponse.json(
-      { error: status === 504 ? "upstream_timeout" : "upstream_unavailable" },
-      { status, headers: { "cache-control": "no-store" } },
+    return proxyErrorResponse(
+      request,
+      correlationId,
+      status === 504 ? "upstream_timeout" : "upstream_unavailable",
+      status,
+      error,
     );
   } finally {
     clearTimeout(timeout);
@@ -179,7 +184,7 @@ function areLocalLoopbackOrigins(left: string, right: string): boolean {
   }
 }
 
-function forwardedRequestHeaders(request: NextRequest, configuration: ProxyConfig): Headers {
+function forwardedRequestHeaders(request: NextRequest, configuration: ProxyConfig, correlationId: string): Headers {
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = request.headers.get(name);
@@ -187,16 +192,23 @@ function forwardedRequestHeaders(request: NextRequest, configuration: ProxyConfi
   }
   headers.delete("x-rhasia-proxy-secret");
   headers.set("x-rhasia-proxy-secret", configuration.proxySecret);
+  headers.set("x-request-id", correlationId);
   headers.set("origin", configuration.webOrigin);
   return headers;
 }
 
-function createProxyResponse(upstream: Response, apiOrigin: string, webOrigin: string): NextResponse {
+function createProxyResponse(
+  upstream: Response,
+  apiOrigin: string,
+  webOrigin: string,
+  correlationId: string,
+): NextResponse {
   const headers = new Headers();
   for (const name of FORWARDED_RESPONSE_HEADERS) {
     const value = upstream.headers.get(name);
     if (value !== null) headers.set(name, name === "location" ? rewriteLocation(value, apiOrigin, webOrigin) : value);
   }
+  if (!headers.has("x-request-id")) headers.set("x-request-id", correlationId);
 
   const upstreamHeaders = upstream.headers as Headers & { getSetCookie?: () => string[] };
   const cookies =
@@ -205,6 +217,27 @@ function createProxyResponse(upstream: Response, apiOrigin: string, webOrigin: s
   for (const cookie of cookies) headers.append("set-cookie", cookie);
 
   return new NextResponse(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
+}
+
+function proxyErrorResponse(
+  request: NextRequest,
+  correlationId: string,
+  error: "proxy_unavailable" | "upstream_timeout" | "upstream_unavailable",
+  status: 502 | 503 | 504,
+  cause: unknown,
+): NextResponse {
+  logWebServerEvent("error", "web_api_proxy_failure", {
+    requestId: correlationId,
+    method: request.method,
+    path: request.nextUrl.pathname,
+    status,
+    error,
+    errorType: errorType(cause),
+  });
+  return NextResponse.json(
+    { error },
+    { status, headers: { "cache-control": "no-store", "x-request-id": correlationId } },
+  );
 }
 
 function rewriteLocation(value: string, apiOrigin: string, webOrigin: string): string {
