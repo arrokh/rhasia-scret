@@ -1,0 +1,9 @@
+title = "rhasia-scret Gitleaks configuration"
+
+[allowlist]
+description = "Reviewed historical public analytics and synthetic test values"
+commits = [
+  "dfed1a5deede8268710ac3d20d24b2e9715475a9",
+  "3736f553843242a06f8a76cbecab3d91bb3ed0c8",
+  "f350d9c338a49a46fbd5c360038f176bf7cdde5a",
+]

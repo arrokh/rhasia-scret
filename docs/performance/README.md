@@ -8,7 +8,7 @@ These versioned baselines compare latest `main` (`e17fcaa`) with the implementat
 - `baseline-route-bundles.json`: latest-main route chunk baseline.
 - Current navigation and development reports belong under ignored `test-results/performance/`; development compilation latency is not a product budget.
 
-Both production runs used the same local PostgreSQL database, Chromium profile, synthetic E2E identity, and machine. To exercise protected pages without production credentials, each measurement build was made in an isolated/local step that temporarily enabled the existing E2E session seam with `PERFORMANCE_TESTS=1`; the source file was restored immediately after compilation. The bypass is not present in the checked source or final production build.
+Both production runs used the same local PostgreSQL database, Chromium profile, synthetic, non-PII E2E identity, and machine. To exercise protected pages without production credentials, each measurement build was made in an isolated/local step that temporarily enabled the existing E2E session seam with `PERFORMANCE_TESTS=1`; the source file was restored immediately after compilation. The bypass is not present in the checked source or final production build.
 
 The report contains only route names, counts, durations, transfer-independent timing, and safe Server-Timing values. It does not contain Vault Unlock Secrets, keys, OTPs, raw QR data, decrypted account content, or production identity data.
 

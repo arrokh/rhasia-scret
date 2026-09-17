@@ -99,8 +99,8 @@ dan kebijakan browser dalam [ADR-0044](adr/0044-privacy-safe-browser-analytics.m
 adalah pertahanan tambahan, bukan pengganti tinjauan provider. Operator harus:
 
 1. menggunakan project staging dan production yang terpisah jika memungkinkan;
-2. menjalankan smoke flow sintetis tanpa konten Vault, label, alamat, rahasia,
-   data QR, atau OTP nyata;
+2. menjalankan smoke flow sintetis non-PII tanpa konten Vault, label, alamat,
+   rahasia, data QR, atau OTP nyata maupun dari pengguna;
 3. memeriksa payload setelah deployment; dan
 4. menonaktifkan integrasi serta memperbarui tes sanitizer jika muncul properti
    yang tidak diharapkan.

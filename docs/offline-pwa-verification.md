@@ -29,6 +29,6 @@ Firefox or Safari without usable PRF is conformant when the Vault Unlock Secret 
 
 ## Storage inspection
 
-Use deterministic non-production fixtures. Inspect Cache Storage and the `rhasia-scret-offline-vault` IndexedDB database and confirm they contain no plaintext Vault/account names, TOTP secrets, OTP values, raw QR or `otpauth` data, User Root Keys, Vault Encryption Keys, Vault Unlock Secrets, or decrypted private keys. Cache Storage may contain only `/`, `/offline`, manifest/icon resources, and same-origin versioned `/_next/static/` resources.
+Use deterministic, synthetic, non-PII, non-production fixtures with reserved example domains and dummy labels; never use user-provided account data. Inspect Cache Storage and the `rhasia-scret-offline-vault` IndexedDB database and confirm they contain no plaintext Vault/account names, TOTP secrets, OTP values, raw QR or `otpauth` data, User Root Keys, Vault Encryption Keys, Vault Unlock Secrets, or decrypted private keys. Cache Storage may contain only `/`, `/offline`, manifest/icon resources, and same-origin versioned `/_next/static/` resources.
 
 Revocation cannot erase ciphertext or secrets already obtained while a member was offline. A revoked or deleted Vault is removed locally only after the next successful authenticated complete synchronization; authentication, network, or validation failure retains the last valid stale read-only bundle.

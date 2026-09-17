@@ -32,7 +32,7 @@ decrypted Vault content. Screenshots must be redacted before upload.
 ## Triage and escalation
 
 Maintainers label incoming requests as bug, feature, documentation, security,
-or question; reproduce them with synthetic data; and link the relevant ADR or
+or question; reproduce them with synthetic, non-PII data; and link the relevant ADR or
 issue. Security reports follow the embargo and disclosure process in
 [`SECURITY.md`](../SECURITY.md). Release-blocking changes are escalated to the
 maintainer before deployment or merge.
