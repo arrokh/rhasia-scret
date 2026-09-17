@@ -98,8 +98,8 @@ browser policy in [ADR-0044](adr/0044-privacy-safe-browser-analytics.md) is
 defense in depth rather than a substitute for provider review. Operators must:
 
 1. use separate staging and production projects where possible;
-2. run a synthetic smoke flow without real Vault content, labels, addresses,
-   secrets, QR data, or OTPs;
+2. run a synthetic, non-PII smoke flow without real or user-provided Vault
+   content, labels, addresses, secrets, QR data, or OTPs;
 3. inspect the received payloads after deployment; and
 4. disable the integration and update the sanitizer tests if an unexpected
    property appears.

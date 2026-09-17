@@ -68,4 +68,4 @@ This index is the public entry point for the repository's product, operating, ar
 - Workspace dependency lockfile: [`../pnpm-lock.yaml`](../pnpm-lock.yaml).
 - CI workflows and security automation: [`../.github/workflows/`](../.github/workflows/).
 
-When a document conflicts with an ADR or `CONTEXT.md`, the ADR and context terminology control. User-facing changes must update Indonesian and English catalogs together and must not put secrets, OTPs, keys, or decrypted content in documentation, logs, or fixtures.
+When a document conflicts with an ADR or `CONTEXT.md`, the ADR and context terminology control. User-facing changes must update Indonesian and English catalogs together. Documentation, logs, and fixtures must use synthetic, non-PII values and must not contain user-provided account labels, issuer names, URIs, secrets, OTPs, keys, or decrypted content.

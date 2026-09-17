@@ -11,9 +11,11 @@ decisions before opening a change.
    `git config core.hooksPath .githooks` when needed.
 2. Read [`CONTEXT.md`](CONTEXT.md), [`AGENTS.md`](AGENTS.md), the relevant
    `docs/adr/` records, and the [documentation index](docs/README.md).
-3. Use synthetic data only. Never commit Vault material, credentials, OTPs,
-   QR data, private keys, provider tokens, database URLs, or Secure Share Link
-   fragments.
+3. Use synthetic, non-PII data in source, tests, fixtures, examples, and docs.
+   Never commit user-provided TOTP URIs, account labels, issuer names, Vault
+   material, credentials, OTPs, QR data, private keys, provider tokens,
+   database URLs, or Secure Share Link fragments. Use reserved example domains
+   and dummy labels, and redact real values before commit.
 4. Search existing issues and pull requests before starting substantial work.
    Small documentation fixes may go directly to a pull request.
 
@@ -40,7 +42,11 @@ Plaintext TOTP secrets, raw QR data, generated OTPs, Vault Encryption Keys,
 User Root Keys, Vault Unlock Secrets, private encryption keys, archive keys,
 Secure Share Link material, and decrypted Vault content remain on authorized
 clients only. Do not place them in server persistence, logs, analytics, shared
-caches, query keys/results, mutation variables, or fixtures.
+caches, query keys/results, mutation variables, or fixtures. Every automated
+test and fixture must use synthetic, non-PII values; never paste a
+user-provided TOTP URI, account label, issuer, QR payload, secret, OTP,
+credential, or token into the repository, even when a value is non-secret or
+browser-visible.
 
 Changes to crypto, authentication, authorization, audit redaction, retention,
 recovery, offline storage, analytics sanitization, or provider boundaries need

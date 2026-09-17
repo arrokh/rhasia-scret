@@ -4,6 +4,7 @@
 
 - Read `CONTEXT.md` and relevant `docs/adr/` records before changing domain behavior.
 - Keep plaintext TOTP secrets, raw QR data, generated OTPs, Vault Encryption Keys, User Root Keys, Vault Unlock Secrets, and private encryption keys on authorized clients only. This includes the web browser and the native iOS/Android client; these values must not cross into server persistence, logs, analytics, or shared caches. The one-time Secure Share Link secret may enter a transient client URL fragment for delivery, but must be consumed in memory and never persisted, logged, or sent to the server.
+- Automated tests, fixtures, development previews, examples, and checked-in documentation must use synthetic, non-PII values. Never copy user-provided TOTP URIs, QR payloads, account labels, issuer names, secrets, OTPs, credentials, or provider tokens into the repository; use reserved example domains and dummy labels, and redact any existing real data before commit.
 - The server is honest-but-curious: it enforces authorization but must only persist encrypted content and permitted authorization/lifecycle metadata.
 - Treat vault names, account issuer/name, and all TOTP configuration as encrypted content.
 - Do not weaken encryption, authorization, audit redaction, or client/server boundaries without a new ADR.

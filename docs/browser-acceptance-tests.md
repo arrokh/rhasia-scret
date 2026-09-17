@@ -1,6 +1,6 @@
 # Encrypted Vault browser acceptance tests
 
-The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows. It uses synthetic fixtures and a deterministic test-only authentication seam for authenticated scenarios; no production account, Vault, secret, OTP, or key is required. The ordinary unauthenticated smoke scenario still renders the hosted sign-in form, so the passwordless backend's synthetic server secrets and SMTP configuration must be present, even though no real account or email is used.
+The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-workflows.spec.ts` exercises the real route, application, Prisma, browser-crypto, and presentation stack for Personal and Shared Vault workflows. It uses synthetic, non-PII fixtures and a deterministic test-only authentication seam for authenticated scenarios; fixture identities use reserved example domains and dummy labels, and no production account, Vault, secret, OTP, or key is required. Never copy a user-provided account label, issuer, email, URI, QR payload, or credential into browser tests. The ordinary unauthenticated smoke scenario still renders the hosted sign-in form, so the passwordless backend's synthetic server secrets and SMTP configuration must be present, even though no real account or email is used.
 
 ## Local setup
 
@@ -28,7 +28,7 @@ Passwordless/OIDC provider sessions and WebAuthn attestation cannot be exercised
 - replace only external session and passkey verification while retaining the real encrypted recovery-package and authorization workflows;
 - remain disabled in production even if the E2E environment variables or cookie are present.
 
-The Playwright configuration creates these values automatically. They must not be used for normal development identities.
+The Playwright configuration creates these values automatically. They must remain synthetic and non-PII and must not be used for normal development identities.
 
 ## Security assertions
 

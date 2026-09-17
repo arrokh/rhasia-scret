@@ -173,7 +173,7 @@ AUTH_BACKEND=none pnpm run build
 pnpm run test:browser:smoke
 ```
 
-Do not use production credentials, real accounts, Vault content, secrets, tokens, or keys in a smoke test. Before merge or release, run a fresh root `pnpm run test:full`; native release evidence additionally requires the Android and iOS simulator build commands.
+Do not use production credentials, real accounts, user-provided account data, Vault content, secrets, tokens, or keys in a smoke test. Use synthetic, non-PII identities with reserved example domains and dummy labels. Before merge or release, run a fresh root `pnpm run test:full`; native release evidence additionally requires the Android and iOS simulator build commands.
 
 ## Operational handoff checklist
 

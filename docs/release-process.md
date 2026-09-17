@@ -27,8 +27,8 @@ Use SemVer:
 
 Protocol/envelope versions are separate from the product version. A crypto or
 wire-format change requires an ADR, explicit reader/writer compatibility,
-synthetic cross-platform vectors, migration or rollback behavior, and a security
-review. Never infer protocol compatibility from a matching package version.
+synthetic, non-PII cross-platform vectors, migration or rollback behavior, and a
+security review. Never infer protocol compatibility from a matching package version.
 
 ## Compatibility and rollout rules
 
