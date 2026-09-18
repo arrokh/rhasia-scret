@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { ApiEmailSenders, ApiEnvironment } from "@api/types";
 import { jsonResponse } from "@api/http/response";
-import { requestContext, exactOriginCors, proxyTrust } from "@api/middleware/security";
+import { noStoreApiResponses, requestContext, exactOriginCors, proxyTrust } from "@api/middleware/security";
 import { apiRequestLogging } from "@api/middleware/request-logging";
 import { createApiRuntime } from "@api/http/api-runtime";
 import { logApiEvent } from "@api/shared/infrastructure/logging";
@@ -12,6 +12,7 @@ export type ApiAppOptions = Readonly<{ emailSenders?: ApiEmailSenders }>;
 export function createApiApp(options: ApiAppOptions = {}): Hono<ApiEnvironment> {
   const runtime = createApiRuntime(options.emailSenders);
   const versioned = new Hono<ApiEnvironment>();
+  versioned.use("*", noStoreApiResponses);
   versioned.use("*", async (context, next) => {
     if (context.req.path === "/v1/health" || context.req.path === "/v1/time") return next();
     return runtime(context, next);
@@ -20,6 +21,7 @@ export function createApiApp(options: ApiAppOptions = {}): Hono<ApiEnvironment> 
   registerV1Routes(versioned);
 
   const app = new Hono<ApiEnvironment>();
+  app.use("*", noStoreApiResponses);
   app.use("*", requestContext);
   app.use("*", apiRequestLogging);
   app.use("*", proxyTrust);
@@ -28,7 +30,7 @@ export function createApiApp(options: ApiAppOptions = {}): Hono<ApiEnvironment> 
   app.notFound(() => jsonResponse({ error: "not_found" }, { status: 404 }));
   app.onError((_error, context) => {
     logApiEvent("error", "api_internal_error", { requestId: context.get("requestId") });
-    return jsonResponse({ error: "internal_error" }, { status: 500 });
+    return jsonResponse({ error: "internal_error" }, { status: 500, headers: { "cache-control": "no-store" } });
   });
   return app;
 }

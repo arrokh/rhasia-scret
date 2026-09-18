@@ -2,11 +2,7 @@ import type { AccountDeletionEmailSender } from "@api/modules/account-deletion/a
 import type { MagicLinkEmailSender } from "@api/modules/identity/application/email-delivery";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 
-export type HyperdriveBinding = Readonly<{
-  connectionString: string;
-}>;
-
-/** Wrangler bindings are the only configuration source inside Worker request handling. */
+/** Runtime configuration is composed by the Bun, Node.js, or Vercel adapter. */
 export type ApiBindings = Readonly<{
   WEB_ORIGIN?: string;
   PROXY_SECRET?: string;
@@ -39,8 +35,7 @@ export type ApiBindings = Readonly<{
   OIDC_AUDIENCE?: string;
   OIDC_SESSION_SECRET?: string;
   AUTH_ADMITTED_EMAILS?: string;
-  HYPERDRIVE?: HyperdriveBinding;
-  /** Bun-only process-scoped client; Cloudflare supplies request-scoped clients instead. */
+  /** Process-scoped client supplied by a standalone runtime adapter. */
   DATABASE_CLIENT?: PrismaDatabase;
 }>;
 

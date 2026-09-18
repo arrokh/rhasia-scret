@@ -4,29 +4,26 @@ import { readSmtpEmailConfiguration } from "../src/smtp-email-senders";
 
 loadWorkspaceEnvironment();
 const production = process.env.NODE_ENV === "production" || process.env.VERIFY_DEPLOYMENT_PRODUCTION === "1";
-const workerDeployment = process.env.DEPLOYMENT_TARGET === "worker";
+const target = process.env.DEPLOYMENT_TARGET?.trim() || "bun";
 const errors: string[] = [];
 const checked: string[] = [];
 const environment = { ...process.env, NODE_ENV: production ? "production" : process.env.NODE_ENV };
 
+if (!(["bun", "node", "vercel"] as const).includes(target as "bun" | "node" | "vercel"))
+  errors.push("DEPLOYMENT_TARGET must be bun, node, or vercel.");
+
 validateOrigin("WEB_ORIGIN", true);
-const proxySecret = process.env.PROXY_SECRET?.trim() || process.env.API_PROXY_SECRET?.trim();
-if (production && !proxySecret) errors.push("PROXY_SECRET or API_PROXY_SECRET is required.");
+const proxySecret = process.env.PROXY_SECRET?.trim();
+if (production && !proxySecret) errors.push("PROXY_SECRET is required.");
 if (proxySecret && proxySecret.length < 32) errors.push("PROXY_SECRET must contain at least 32 characters.");
 if (production && !process.env.CRON_SECRET?.trim())
   errors.push("CRON_SECRET is required for a production retention scheduler.");
 
-if (workerDeployment) {
-  if (process.env.DATABASE_URL?.trim()) errors.push("DATABASE_URL must not be configured for a Worker deployment.");
-  if (process.env.DIRECT_URL?.trim()) errors.push("DIRECT_URL must not be configured for a Worker deployment.");
-  checked.push("Hyperdrive-only Worker persistence boundary");
-} else {
-  validateUrl("DATABASE_URL", production);
-  validateUrl("DIRECT_URL", production);
-  if (production && sameEndpoint(process.env.DATABASE_URL, process.env.DIRECT_URL))
-    errors.push("DATABASE_URL and DIRECT_URL must use separate endpoints in production.");
-  checked.push("Bun persistence configuration");
-}
+validateUrl("DATABASE_URL", production);
+validateOptionalUrl("DIRECT_URL");
+if (production && sameEndpoint(process.env.DATABASE_URL, process.env.DIRECT_URL))
+  errors.push("DATABASE_URL and DIRECT_URL must use separate endpoints in production.");
+checked.push(`${target} PostgreSQL runtime configuration`);
 
 const backend = process.env.AUTH_BACKEND?.trim() || "passwordless";
 if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc")) {
@@ -43,9 +40,7 @@ if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "p
   requireValue("TURNSTILE_SECRET_KEY");
   try {
     readSmtpEmailConfiguration(environment);
-    checked.push(
-      workerDeployment ? "Worker SMTP email delivery configuration" : "Bun SMTP email delivery configuration",
-    );
+    checked.push("standalone SMTP email delivery configuration");
   } catch (error: unknown) {
     errors.push(error instanceof Error ? error.message : "SMTP email delivery configuration is invalid.");
   }
@@ -62,7 +57,7 @@ if (errors.length) {
   console.error(JSON.stringify({ valid: false, errors }));
   process.exitCode = 1;
 } else {
-  console.log(JSON.stringify({ valid: true, production, workerDeployment, checked: checked.sort() }));
+  console.log(JSON.stringify({ valid: true, production, target, backend, checked: checked.sort() }));
 }
 
 function requireValue(name: string): string | undefined {
@@ -81,6 +76,10 @@ function validateUrl(name: "DATABASE_URL" | "DIRECT_URL", required: boolean): vo
   } catch {
     errors.push(`${name} must be a valid PostgreSQL URL.`);
   }
+}
+
+function validateOptionalUrl(name: "DIRECT_URL"): void {
+  if (process.env[name]?.trim()) validateUrl(name, false);
 }
 
 function validateRequiredUrl(name: "OIDC_ISSUER"): void {

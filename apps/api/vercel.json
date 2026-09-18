@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
+  "buildCommand": "DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate pnpm run prisma:generate && pnpm run build",
+  "rewrites": [{ "source": "/v1/:path*", "destination": "/api/v1/:path*" }],
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [{ "path": "/v1/internal/retention-purge", "schedule": "0 3 * * *" }]
+}

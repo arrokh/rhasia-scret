@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 export type PrismaDatabase = PrismaClient;
 
-/** Keep each Worker request and the Bun process pool bounded to five PostgreSQL connections. */
+/** Keep each standalone API process or serverless instance bounded to five PostgreSQL connections. */
 export const API_DATABASE_POOL_MAX = 5;
 
 export function createPrismaClient(connectionString: string): PrismaDatabase {

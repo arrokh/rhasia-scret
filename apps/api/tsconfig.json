@@ -8,10 +8,10 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["node"],
     "paths": {
       "@api/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+  "include": ["api/**/*.ts", "src/**/*.ts", "scripts/**/*.ts"]
 }

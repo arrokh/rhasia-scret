@@ -15,7 +15,6 @@ const FORWARDED_REQUEST_HEADERS = [
   "authorization",
   "cookie",
   "origin",
-  "referer",
   "x-request-id",
 ] as const;
 

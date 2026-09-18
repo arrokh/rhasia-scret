@@ -26,7 +26,7 @@ The web application can run in local-only mode without remote authentication, or
 
 The repository is a pnpm workspace with three bounded application/package areas:
 
-- `apps/api` — Hono/Cloudflare Worker API, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, auth/email adapters, retention scheduling, and API tests.
+- `apps/api` — standalone Hono API with Bun-primary and Node.js/Vercel adapters, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, auth/email adapters, retention scheduling, and API tests.
 - `apps/web` — Next.js presentation application, same-origin `/api/v1/**` proxy, SSR API gateway, browser adapters, presentation, localization, and web tests. It has no database or API business-logic ownership.
 - `apps/mobile` — Expo SDK 57 iOS/Android composition layer, native adapters, native cryptography module, presentation, localization, and mobile tests.
 - `packages/api-contract` and `packages/api-client` — client-safe API schemas/types and web/native transport helpers; they contain no server runtime or persistence code.
@@ -45,7 +45,7 @@ flowchart TB
     end
 
     subgraph hosted["Hosted application boundary"]
-        api["apps/api<br/>Hono / Worker / Bun API"]
+        api["apps/api<br/>Hono / Bun / Node API"]
         prisma["Prisma repositories"]
         database[("PostgreSQL<br/>Encrypted content + permitted metadata")]
         proxy["apps/web<br/>/api/v1/** proxy + SSR gateway"]
@@ -91,7 +91,7 @@ mise run setup
 
 1. Clone the repository and enter its root.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the passwordless Bun SMTP settings in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
+3. If exercising hosted authentication locally, configure the passwordless standalone API SMTP settings in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
 4. Install and initialize the workspace:
 
 ```bash
@@ -143,13 +143,14 @@ for `/v1/health`, and then starts the web app on `http://localhost:3000`. Run
 and web can also be started independently with `pnpm run dev:api` and
 `pnpm run dev:web`.
 
-API development (Cloudflare Worker):
+API development:
 
 ```bash
-pnpm --filter @rhasia-scret/api dev
+pnpm --filter @rhasia-scret/api dev:bun
+pnpm --filter @rhasia-scret/api dev:node
 ```
 
-The self-hosted Compose deployment runs the same API route tree through the Bun adapter.
+The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/[...path].ts`.
 
 Mobile development:
 
@@ -216,7 +217,7 @@ For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobil
 ## Authentication modes
 
 - **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
-- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the server-only Nodemailer SMTP settings, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md). Bun, self-hosted, and Cloudflare Worker API deployments use the same SMTP adapter.
+- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the server-only Nodemailer SMTP settings, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md). Bun, self-hosted, Node.js, and Vercel API deployments use the same SMTP adapter.
 - **OIDC:** `AUTH_BACKEND=oidc`; configure the provider-neutral OIDC adapter and admitted verified emails using the same document.
 
 Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.

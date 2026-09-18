@@ -2,13 +2,22 @@ import type { MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import type { ApiEnvironment } from "@api/types";
 
-const REQUEST_ID_MAX_LENGTH = 128;
+const OPAQUE_REQUEST_ID =
+  /^(?:[0-9a-f]{16,64}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 export const requestContext: MiddlewareHandler<ApiEnvironment> = async (context, next) => {
   context.set("requestId", requestId(context.req.header("x-request-id")));
   context.set("proxyRequest", false);
   await next();
   context.header("x-request-id", context.get("requestId"));
+};
+
+export const noStoreApiResponses: MiddlewareHandler<ApiEnvironment> = async (context, next) => {
+  try {
+    await next();
+  } finally {
+    if (!context.res.headers.has("cache-control")) context.header("cache-control", "no-store");
+  }
 };
 
 export const exactOriginCors: MiddlewareHandler<ApiEnvironment> = cors({
@@ -35,8 +44,7 @@ export const proxyTrust: MiddlewareHandler<ApiEnvironment> = async (context, nex
 };
 
 export function requestId(value: string | undefined): string {
-  if (!value || value.length > REQUEST_ID_MAX_LENGTH || !/^[A-Za-z0-9._:-]+$/.test(value)) return crypto.randomUUID();
-  return value;
+  return value && OPAQUE_REQUEST_ID.test(value) ? value : crypto.randomUUID();
 }
 
 function timingSafeStringEqual(left: string, right: string): boolean {

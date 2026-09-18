@@ -119,7 +119,7 @@ describe("POST /v1/auth/magic-link/request contract", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         JSON.stringify({
           event: "magic_link_request_turnstile_unavailable",
-          requestId: "diagnostic-request",
+          requestId: "0123456789abcdef0123456789abcdef",
           errorType: "Error",
         }),
       );
@@ -139,7 +139,7 @@ describe("POST /v1/auth/magic-link/request contract", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         JSON.stringify({
           event: "magic_link_request_rate_limit_unavailable",
-          requestId: "diagnostic-request",
+          requestId: "0123456789abcdef0123456789abcdef",
           errorType: "Error",
         }),
       );
@@ -163,7 +163,7 @@ describe("POST /v1/auth/magic-link/request contract", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         JSON.stringify({
           event: "magic_link_request_delivery_failed",
-          requestId: "diagnostic-request",
+          requestId: "0123456789abcdef0123456789abcdef",
           errorType: "Error",
         }),
       );
@@ -177,7 +177,7 @@ describe("POST /v1/auth/magic-link/request contract", () => {
 function makeRequest(body: unknown, passwordlessAuth: { requestLink: ReturnType<typeof vi.fn> }): ApiRequest {
   const request = new ApiRequest(`${origin}/api/v1/auth/magic-link/request`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin, "x-request-id": "diagnostic-request" },
+    headers: { "content-type": "application/json", origin, "x-request-id": "0123456789abcdef0123456789abcdef" },
     body: JSON.stringify(body),
   });
   attachApiRequestContext(request, {

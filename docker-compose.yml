@@ -55,7 +55,7 @@ services:
       NODE_ENV: production
       PORT: 8787
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
-      PROXY_SECRET: ${API_PROXY_SECRET:?API_PROXY_SECRET must be set in .env}
+      PROXY_SECRET: ${PROXY_SECRET:?PROXY_SECRET must be set in .env}
       AUTH_BACKEND: ${AUTH_BACKEND:-passwordless}
       AUTH_APP_ORIGIN: ${AUTH_APP_ORIGIN:-}
       AUTH_MOBILE_REDIRECT_URL: ${AUTH_MOBILE_REDIRECT_URL:-}

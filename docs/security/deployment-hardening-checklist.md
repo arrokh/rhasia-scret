@@ -8,6 +8,7 @@ Use this checklist for every production release. A checked repository item is no
 - [ ] Dynamic HTML/API responses contain a nonce-based CSP; static assets contain the restrictive fallback policy. Confirm production script policy has no `unsafe-inline` or `unsafe-eval`; allow only the documented Argon2id WebAssembly exception.
 - [ ] `frame-ancestors`, `X-Frame-Options`, `base-uri`, `form-action`, `object-src`, `Permissions-Policy`, `Referrer-Policy`, COOP, CORP, and `nosniff` are present on pages, APIs, manifest, service worker, and static assets.
 - [ ] `Cache-Control: no-store, private` is present on API/auth responses. No user-specific HTML, source maps, API responses, cookies, or auth responses are in Cache Storage.
+- [ ] API request logs contain only opaque request IDs, route/method/status/duration, and sanitized event types; bodies, query values, cookies, authorization headers, ciphertext, PII, and provider payloads are redacted.
 - [ ] The service worker caches only the public offline shell, manifest, same-origin static assets, and approved PWA assets; `.map`, cross-origin, `/api`, and `/auth` paths are excluded.
 - [ ] A stale client receives the tested update/lock behavior before it can display a server-derived workspace.
 - [ ] QR/image/archive inputs, Vault/account labels, error text, URLs, and imported data use safe typed rendering and navigation paths.
@@ -36,6 +37,8 @@ Review the passwordless implementation, SMTP provider, and OIDC issuer documenta
 - [ ] Passwordless SMTP/account settings, secret rotation, session-revocation checks, OIDC settings when enabled, and authentication changelog reviews are attached.
 - [ ] PostgreSQL roles, pooled/direct URL use, TLS, migrations, passwordless identity seed verification, backups/PITR, restore drill, purge jobs, audit retention, and monitoring evidence are attached.
 - [ ] Vercel or equivalent host environment scopes, deployment protection, headers, source-map policy, CDN/cache behavior, forced update path, and release provenance are attached.
+- [ ] The API is deployed as a separate Node/Bun service/project; Web has no API secrets, database URLs, SMTP credentials, or migration URL, and API provider log/retention settings are documented.
+- [ ] The 03:00 UTC retention scheduler authenticates with `CRON_SECRET`, fails closed on invalid credentials, exposes bounded counts only, and has failure/backlog monitoring.
 
 ## Release decision
 

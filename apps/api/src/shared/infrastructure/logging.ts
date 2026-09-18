@@ -16,7 +16,14 @@ export function logApiEvent(level: ApiLogLevel, event: string, fields: ApiLogFie
 
 export function logApiDependencyFailure(request: ApiRequest, event: string, error: unknown): void {
   logApiEvent("error", event, {
-    requestId: request.headers.get("x-request-id") ?? "unknown",
+    requestId: opaqueRequestId(request.headers.get("x-request-id")),
     errorType: error instanceof Error ? error.name : typeof error,
   });
+}
+
+function opaqueRequestId(value: string | null): string {
+  return value &&
+    /^(?:[0-9a-f]{16,64}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(value)
+    ? value
+    : "untrusted";
 }

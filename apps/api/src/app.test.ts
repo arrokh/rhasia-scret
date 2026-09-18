@@ -13,13 +13,21 @@ describe("versioned API shell", () => {
     expect(health.status).toBe(200);
     expect(await health.json()).toEqual({ status: "ok" });
     expect(health.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+    expect(health.headers.get("cache-control")).toBe("no-store");
 
     const correlated = await app.request(
       "https://api.example.test/v1/health",
-      { headers: { "x-request-id": "web-request-123" } },
+      { headers: { "x-request-id": "0123456789abcdef0123456789abcdef" } },
       bindings,
     );
-    expect(correlated.headers.get("x-request-id")).toBe("web-request-123");
+    expect(correlated.headers.get("x-request-id")).toBe("0123456789abcdef0123456789abcdef");
+
+    const untrustedCorrelation = await app.request(
+      "https://api.example.test/v1/health",
+      { headers: { "x-request-id": "person@example.test" } },
+      bindings,
+    );
+    expect(untrustedCorrelation.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
 
     const time = await app.request("https://api.example.test/v1/time", {}, bindings);
     expect(time.status).toBe(200);
@@ -30,6 +38,7 @@ describe("versioned API shell", () => {
   it("does not expose an unversioned alias", async () => {
     const response = await app.request("https://api.example.test/health", {}, bindings);
     expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({ error: "not_found" });
   });
 
@@ -40,19 +49,20 @@ describe("versioned API shell", () => {
         "https://api.example.test/v1/me",
         {
           method: "POST",
-          headers: { "content-type": "application/json", "x-request-id": "app-request-123" },
+          headers: { "content-type": "application/json", "x-request-id": "abcdef0123456789abcdef0123456789" },
           body: JSON.stringify({ secret: "request-body-secret" }),
         },
         bindings,
       );
 
       expect(response.status).toBe(503);
+      expect(response.headers.get("cache-control")).toBe("no-store");
       const requestLog = errorSpy.mock.calls
         .map(([line]) => JSON.parse(String(line)))
         .find((entry) => entry.event === "api_request");
       expect(requestLog).toMatchObject({
         event: "api_request",
-        requestId: "app-request-123",
+        requestId: "abcdef0123456789abcdef0123456789",
         method: "POST",
         path: "/v1/me",
         status: 503,

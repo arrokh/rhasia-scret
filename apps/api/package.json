@@ -9,14 +9,15 @@
     "pnpm": "11.17.0"
   },
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "bun run src/bun.ts",
     "dev:bun": "bun run src/bun.ts",
-    "build": "wrangler deploy --dry-run --outdir dist",
+    "dev:node": "tsx src/node.ts",
+    "build": "DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate pnpm run prisma:generate && pnpm run build:node",
+    "build:node": "tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src scripts",
+    "lint": "eslint api src scripts tsup.config.ts",
     "test": "vitest run",
     "test:full": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "generate:types": "wrangler types --env-interface CloudflareBindings",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -26,9 +27,11 @@
     "verify:passwordless-migration": "tsx scripts/verify-passwordless-migration.ts",
     "verify:database": "tsx scripts/verify-test-database.ts",
     "verify:prisma-connections": "tsx scripts/verify-prisma-connections.ts",
-    "verify:deployment-config": "tsx scripts/verify-deployment-config.ts"
+    "verify:deployment-config": "tsx scripts/verify-deployment-config.ts",
+    "smoke:deployment": "tsx scripts/smoke-deployment.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.12",
     "@hono/zod-validator": "^0.7.6",
     "@noble/hashes": "^1.8.0",
     "@prisma/adapter-pg": "^7.10.0",
@@ -44,15 +47,14 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260401.0",
     "@types/node": "^26.5.1",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.15.6",
     "eslint": "^9.39.1",
     "prisma": "^7.10.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.0",
-    "wrangler": "^4.72.0"
+    "vitest": "^5.0.0"
   }
 }

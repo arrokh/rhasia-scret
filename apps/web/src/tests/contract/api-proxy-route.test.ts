@@ -41,8 +41,9 @@ describe("web API proxy", () => {
         headers: {
           cookie: "session=opaque",
           origin: "https://web.example.test",
+          referer: "https://web.example.test/auth/confirm?code=provider-code",
           "content-type": "application/json",
-          "x-request-id": "request-123",
+          "x-request-id": "0123456789abcdef0123456789abcdef",
         },
         body: JSON.stringify({ client: "web" }),
       }),
@@ -51,7 +52,7 @@ describe("web API proxy", () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("https://web.example.test/v1/auth/complete?ok=1");
-    expect(response.headers.get("x-request-id")).toBe("request-123");
+    expect(response.headers.get("x-request-id")).toBe("0123456789abcdef0123456789abcdef");
     expect(response.headers.get("set-cookie")).toContain("session=one");
     expect(response.headers.get("set-cookie")).toContain("refresh=two");
     expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
@@ -59,6 +60,7 @@ describe("web API proxy", () => {
     expect(url.toString()).toBe("https://api.example.test/v1/auth/session/refresh");
     expect(new Headers(options.headers).get("x-rhasia-proxy-secret")).toBe(process.env.API_PROXY_SECRET);
     expect(new Headers(options.headers).get("cookie")).toBe("session=opaque");
+    expect(new Headers(options.headers).get("referer")).toBeNull();
   });
 
   it("allows safe reads without an Origin header but rejects cookie mutations without one", async () => {
@@ -90,16 +92,16 @@ describe("web API proxy", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("provider secret must not be logged")));
 
     const response = await GET(
-      request("/api/v1/personal-vault", { headers: { "x-request-id": "proxy-failure-123" } }),
+      request("/api/v1/personal-vault", { headers: { "x-request-id": "abcdef0123456789abcdef0123456789" } }),
       { params: Promise.resolve({ path: ["v1", "personal-vault"] }) },
     );
 
     expect(response.status).toBe(502);
-    expect(response.headers.get("x-request-id")).toBe("proxy-failure-123");
+    expect(response.headers.get("x-request-id")).toBe("abcdef0123456789abcdef0123456789");
     expect(errorSpy).toHaveBeenCalledWith(
       JSON.stringify({
         event: "web_api_proxy_failure",
-        requestId: "proxy-failure-123",
+        requestId: "abcdef0123456789abcdef0123456789",
         method: "GET",
         path: "/api/v1/personal-vault",
         status: 502,

@@ -12,7 +12,7 @@ Identity is a provider-neutral application boundary. The Identity bounded contex
 Supported deployment modes are selected by validated server-only `AUTH_BACKEND` configuration:
 
 - `none`: Local Profile and Local Vault only. Remote authentication, synchronization, membership, server recovery, audit, and hosted Vault APIs fail closed.
-- `passwordless`: self-managed email-link authentication. One-time link challenges, local sessions, native/PWA refresh rotation, browser assertion keepalive, revocation, and anonymous abuse limits are persisted through the application database; Bun, self-hosted, and Cloudflare Worker API deployments deliver email through the same server-only Nodemailer/SMTP adapter. Worker deployments use `nodejs_compat` and an SMTP submission port; port 25 remains prohibited.
+- `passwordless`: self-managed email-link authentication. One-time link challenges, local sessions, native/PWA refresh rotation, browser assertion keepalive, revocation, and anonymous abuse limits are persisted through the application database; Bun, self-hosted Node.js, and Vercel API deployments deliver email through the same server-only Nodemailer/SMTP adapter using SMTP port 465 or 587; port 25 remains prohibited.
 - `oidc`: Authorization Code with PKCE against one configured OIDC issuer, using discovery metadata and maintained protocol libraries; tokens and client secrets remain server-only.
 
 OIDC remains the interoperability contract for future external providers. Auth.js/NextAuth is not installed as a transparent proxy because it would introduce a second identity and persistence authority. A future managed-auth framework may be added only as an adapter behind this boundary after separate release and security review.

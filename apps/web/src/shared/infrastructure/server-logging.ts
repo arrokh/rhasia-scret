@@ -12,9 +12,12 @@ export function logWebServerEvent(level: ServerLogLevel, event: string, fields: 
   }
 }
 
+const OPAQUE_REQUEST_ID =
+  /^(?:[0-9a-f]{16,64}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+
 export function requestId(request: Request): string {
   const supplied = request.headers.get("x-request-id");
-  return supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied) ? supplied : crypto.randomUUID();
+  return supplied && OPAQUE_REQUEST_ID.test(supplied) ? supplied : crypto.randomUUID();
 }
 
 export function errorType(error: unknown): string {

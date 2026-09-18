@@ -8,7 +8,7 @@ const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const children = new Set();
 const API_BLOCKED_ENVIRONMENT_KEYS = [
   "DIRECT_URL",
-  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
+  "API_PROXY_SECRET",
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
@@ -19,7 +19,6 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "DATABASE_URL",
   "DIRECT_URL",
-  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
@@ -59,7 +58,6 @@ const apiEnvironment = createScopedEnvironment(
     PORT: portFor(apiOrigin, 8787),
     WEB_ORIGIN: webOrigin,
     PROXY_SECRET: proxySecret,
-    API_PROXY_SECRET: proxySecret,
     AUTH_APP_ORIGIN: process.env.AUTH_APP_ORIGIN?.trim() || webOrigin,
     PASSKEY_ORIGIN: process.env.PASSKEY_ORIGIN?.trim() || webOrigin,
     PASSKEY_RP_ID: process.env.PASSKEY_RP_ID?.trim() || new URL(webOrigin).hostname,

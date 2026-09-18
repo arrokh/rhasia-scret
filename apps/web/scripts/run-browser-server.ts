@@ -8,7 +8,7 @@ const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
 const API_BLOCKED_ENVIRONMENT_KEYS = [
   "DIRECT_URL",
-  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
+  "API_PROXY_SECRET",
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
@@ -17,7 +17,6 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "DATABASE_URL",
   "DIRECT_URL",
-  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
@@ -50,7 +49,6 @@ async function main(): Promise<void> {
         NODE_ENV: "development",
         WEB_ORIGIN: webOrigin,
         PROXY_SECRET: proxySecret,
-        API_PROXY_SECRET: proxySecret,
         API_ORIGIN: apiOrigin,
         AUTH_APP_ORIGIN: webOrigin,
         PASSKEY_ORIGIN: webOrigin,

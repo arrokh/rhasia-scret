@@ -34,23 +34,46 @@ describe("API extraction ownership boundaries", () => {
     expect(webSources).not.toMatch(/@prisma\/|from ["']pg["']|from ["']nodemailer["']/);
   });
 
-  it("keeps Worker and Bun composition separate while sharing the Hono app", () => {
-    const worker = read("apps/api/src/index.ts");
+  it("keeps standalone Bun, Node.js, and Vercel adapters separate while sharing the Hono app", () => {
     const bun = read("apps/api/src/bun.ts");
+    const node = read("apps/api/src/node.ts");
+    const vercel = read("apps/api/api/[...path].ts");
+    const vercelConfig = read("apps/api/vercel.json");
+    const apiSources = files(resolve(repositoryRoot, "apps/api/src"))
+      .filter((path) => path.endsWith(".ts") && !path.endsWith("architecture.test.ts"))
+      .map((path) => readFileSync(path, "utf8"))
+      .join("\n");
+    const packageJson = JSON.parse(read("apps/api/package.json")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
     const compose = read("docker-compose.yml");
-    const wrangler = read("apps/api/wrangler.jsonc");
-    expect(worker).toContain("app.fetch");
-    expect(worker).not.toContain("./bun");
-    expect(worker).toContain("@api/app");
-    expect(worker).not.toContain("EMAIL_PROVIDER_URL");
-    expect(wrangler).toContain('"nodejs_compat"');
-    expect(wrangler).toContain('"no_throw_on_not_implemented_tls_options"');
     expect(bun).toContain("Bun.serve");
-    expect(bun).toContain("createSmtpEmailSenders");
-    expect(bun).toContain('authBackend(bindings) === "passwordless"');
-    expect(bun).not.toContain("BUN_SMTP_ENABLED");
-    expect(bun).not.toContain("EMAIL_PROVIDER_URL");
-    expect(bun).toContain("app.fetch");
+    expect(bun).toContain("createStandaloneApi");
+    expect(node).toContain("@hono/node-server");
+    expect(node).toContain("createStandaloneApi");
+    expect(vercel).toContain("getRequestListener");
+    expect(vercel).toContain("normalizeVercelRequest");
+    const vercelJson = JSON.parse(vercelConfig) as {
+      installCommand?: string;
+      buildCommand?: string;
+      rewrites?: Array<{ source?: string; destination?: string }>;
+      functions?: Record<string, { maxDuration?: number }>;
+      crons?: Array<{ path?: string; schedule?: string }>;
+    };
+    expect(vercelJson.installCommand).toContain("--frozen-lockfile");
+    expect(vercelJson.buildCommand).toContain("DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate");
+    expect(vercelJson.rewrites).toEqual([{ source: "/v1/:path*", destination: "/api/v1/:path*" }]);
+    expect(vercelJson.functions?.["api/[...path].ts"]?.maxDuration).toBe(60);
+    expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
+    expect(apiSources).not.toContain("HYPERDRIVE");
+    expect(packageJson.dependencies).toHaveProperty("@hono/node-server");
+    expect(packageJson.devDependencies).not.toHaveProperty("wrangler");
+    expect(packageJson.devDependencies).not.toHaveProperty("@cloudflare/workers-types");
+    expect(packageJson.scripts).toHaveProperty("smoke:deployment");
+    expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
+    expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
     expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");
     expect(compose).toContain("PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}");
