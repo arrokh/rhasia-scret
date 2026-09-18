@@ -6,7 +6,11 @@ import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
-import { INVITATION_AUTH_RETURN_PATH, resolveAuthReturnPath } from "../application/auth-return-path";
+import {
+  AUTH_COMPLETION_PATH,
+  INVITATION_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+} from "../application/auth-return-path";
 import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-client-contract";
 import { announceAuthenticationCompletion, requestInvitationSecret } from "./auth-completion-channel";
 import {
@@ -79,7 +83,11 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
         const invitationSecret = returnPath === INVITATION_AUTH_RETURN_PATH ? await requestInvitationSecret() : null;
         if (mounted.current) {
           announceAuthenticationCompletion();
-          goTo(buildAuthenticatedDestination(returnPath, invitationSecret));
+          goTo(
+            returnPath === INVITATION_AUTH_RETURN_PATH && !invitationSecret
+              ? AUTH_COMPLETION_PATH
+              : buildAuthenticatedDestination(returnPath, invitationSecret),
+          );
         }
       } catch {
         if (mounted.current) setFailed(true);
