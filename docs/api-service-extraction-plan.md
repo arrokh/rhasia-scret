@@ -119,7 +119,7 @@ The repository currently has:
 - The authentication-completion channel waits up to 15 seconds for a backgrounded browser tab to return the invitation secret, rather than assuming immediate cross-tab delivery.
 - Web-only OIDC callback routes and page middleware outside `app/api`.
 - Web SSR pages that still directly load database-backed page context and recovery eligibility.
-- Nodemailer/SMTP email delivery, which is not a safe assumption for a Cloudflare Worker runtime.
+- Nodemailer/SMTP email delivery in the Worker must be validated under the pinned `nodejs_compat` runtime rather than assumed from Node-based tests.
 - A Vercel cron entry for the pre-versioned `/api/internal/retention-purge`, which becomes `/v1/internal/retention-purge` in the API service.
 
 The migration therefore is not a mechanical conversion from `NextResponse` to `c.json()`. It requires explicit runtime ports for request context, cookies, authentication, database construction, email delivery, scheduling, and response-cookie forwarding.
@@ -344,7 +344,7 @@ The API migration must inventory and replace Node/Next assumptions before moving
 - Replace `node:crypto` operations with Web Crypto where possible: random values, HMAC/SHA-256, digest comparison, and token generation.
 - Move the server-side Cloudflare Turnstile validator with the passwordless request route into the API. The Worker/Bun runtime receives only `TURNSTILE_SECRET_KEY`; the web retains the public site key for its localized browser/PWA widget. Keep the 5-second verification timeout, token-size/safety validation, fail-closed result classification, and validation-before-rate-limit ordering.
 - Keep the web-owned OIDC authorization/callback dependency (`openid-client`, if retained) out of the Worker bundle; verify only Worker-imported crypto/WebAuthn modules such as `jose` and `@simplewebauthn/server` under the exact compatibility date. Do not rely on Node compatibility flags as proof that every Node package works.
-- Use the approved HTTP email delivery adapter for the Cloudflare Worker. Nodemailer and SMTP credentials must not be bundled into the Worker. An SMTP/Nodemailer adapter may remain isolated behind the supported Bun self-hosted adapter only.
+- Use the same approved Nodemailer/SMTP email delivery adapter for Bun, self-hosted, and Cloudflare Worker runtimes. The Worker must use `nodejs_compat`, `no_throw_on_not_implemented_tls_options`, SMTP submission ports such as 465/587, and Worker-runtime integration evidence; port 25 remains unavailable and certificate validation remains enabled.
 - Keep email action URLs anchored to the web origin, not the API origin.
 - Ensure error and operational logging never includes request bodies, cookies, authorization headers, raw magic-link tokens, secure-share material, email action fragments, or ciphertext bytes.
 - Check Worker bundle size and CPU/subrequest limits, especially with Prisma, WebAuthn verification, and all route modules bundled together.
@@ -353,15 +353,15 @@ The API migration must inventory and replace Node/Next assumptions before moving
 
 ## 8. Email delivery decision
 
-The current implementation creates Nodemailer SMTP transport in `apps/web`, which is not a Worker runtime assumption. The resolved target is one HTTP email provider adapter behind the existing `MagicLinkEmailSender` port; no separate email service is introduced. SMTP/TCP is out of scope for Cloudflare. To preserve documented self-hosting, SMTP/Nodemailer may remain only as a Bun-only adapter selected by the self-hosted API composition, never imported by the Worker.
+The current implementation creates Nodemailer SMTP transport in `apps/web`; the extraction moves that adapter into the API's shared SMTP composition without changing the SMTP contract for self-hosted/local development. The shared `MagicLinkEmailSender` port keeps challenge creation independent from delivery. Bun, self-hosted, and Cloudflare Worker compositions use the same Nodemailer adapter; Worker SMTP requires `nodejs_compat`, `no_throw_on_not_implemented_tls_options`, and a supported submission port without disabling certificate validation.
 
-The API owns challenge creation and authorization. The adapter sends the already-validated action URL using `EMAIL_PROVIDER_URL`, `EMAIL_PROVIDER_TOKEN`, `AUTH_EMAIL_FROM`, and `AUTH_EMAIL_FROM_NAME` bindings/configuration. Provider response payloads and delivery diagnostics remain server-only and are redacted from logs. The HTTP call has a bounded timeout and explicit retry/idempotency behavior; do not automatically retry unless the provider supports an idempotency key, so a retry cannot silently send duplicate magic links. Existing bilingual templates move under the API identity module and preserve web-origin action URLs; keep both English/Indonesian template variants and their parity tests, without placing secrets or user Vault data in templates/logs.
+The API owns challenge creation and authorization. Every API runtime sends the already-validated action URL through `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASSWORD`, `AUTH_EMAIL_FROM`, and `AUTH_EMAIL_FROM_NAME` using the same Nodemailer implementation. SMTP responses and delivery diagnostics remain server-only and are redacted from logs. The adapter uses bounded delivery behavior and does not automatically retry unless the provider supports idempotency, so retries cannot silently send duplicate magic links. Existing bilingual templates remain under the API identity module and preserve web-origin action URLs; keep both English/Indonesian template variants and their parity tests, without placing secrets or user Vault data in templates/logs.
 
-The remaining Cloudflare operator input is the provider endpoint/credential and local mail sink; self-hosted Bun operators may retain the isolated SMTP configuration as a runtime-specific adapter. Update ADR-0048 and the authentication configuration documentation to record the HTTP provider as the Cloudflare contract and SMTP as Bun-only. No SMTP package or SMTP secret remains in `apps/web` or the Worker bundle.
+All API operators must provide the shared SMTP configuration; Worker deployments must use `nodejs_compat` and a supported SMTP submission port. Browser test composition supplies synthetic SMTP settings and never uses a real mail server. Update ADR-0048 and the authentication configuration documentation to record the shared SMTP contract and Worker-runtime verification. No SMTP package or SMTP secret remains in `apps/web`; the API Worker intentionally bundles the server-only SMTP adapter.
 
 ### 8.1 Secure Share Link delivery remains client-only
 
-The latest Shared Vault invitation flow uses the platform-neutral `SecureShareLinkDeliveryPort`. The browser delivery adapter opens a localized `mailto:` draft containing the one-time link, while the UI also offers a client-side copy fallback. This delivery effect is separate from passwordless authentication email: it must not use the API's HTTP email provider, must not send the Secure Share Link secret to the API, and must not persist or log the secret. Re-invitation uses the same fresh-secret and client-delivery path after an expired Invitation; the API receives only the verifier and encrypted key-handoff package permitted by the existing contract.
+The latest Shared Vault invitation flow uses the platform-neutral `SecureShareLinkDeliveryPort`. The browser delivery adapter opens a localized `mailto:` draft containing the one-time link, while the UI also offers a client-side copy fallback. This delivery effect is separate from passwordless authentication email: it must not use the API's SMTP adapter, must not send the Secure Share Link secret to the API, and must not persist or log the secret. Re-invitation uses the same fresh-secret and client-delivery path after an expired Invitation; the API receives only the verifier and encrypted key-handoff package permitted by the existing contract.
 
 The extraction must preserve the current invitation/re-invitation UX, Indonesian/English email subject/body catalogs, client-only secret lifetime, and failure handling. The browser-facing invitation link remains anchored at the web origin, and any authentication-completion announcement needed by an open invitation tab remains a client-only cross-tab signal.
 
@@ -461,12 +461,12 @@ Update the ownership and operational documents in the same implementation: `CONT
 The environment contract must name ownership explicitly and must be implemented as a checked configuration matrix:
 
 - **Web runtime:** `AUTH_BACKEND`, the exact web-origin values needed by page composition, `API_ORIGIN`, `API_PROXY_SECRET`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, and the verifier settings required by `apps/web/src/proxy.ts` and the web-owned OIDC callback. For passwordless page gating this includes the browser-assertion verification secret `AUTH_SESSION_SECRET`; for OIDC this includes `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_SESSION_SECRET`. These verification secrets are intentionally shared with the API and must be tested for equality without logging them. Web retains `OIDC_CLIENT_SECRET` and `OIDC_REDIRECT_URI` exclusively for the provider callback. Web does not receive `DATABASE_URL`, `DIRECT_URL`, `HYPERDRIVE`, API persistence, passwordless challenge-creation/email settings, `TURNSTILE_SECRET_KEY`, or SMTP/email-provider credentials.
-- **Cloudflare Worker:** `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_BACKEND`, `AUTH_APP_ORIGIN`, `AUTH_MOBILE_REDIRECT_URL`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, passwordless TTLs, passkey settings, the OIDC verification subset (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, optional `OIDC_AUDIENCE`, `OIDC_SESSION_SECRET`, and admission policy), `HYPERDRIVE`, `CRON_SECRET`, and HTTP-email settings. The Worker never receives `OIDC_CLIENT_SECRET` or performs the OIDC callback.
-- **Self-hosted Bun API:** the same API authentication and origin contract as the Worker, including `TURNSTILE_SECRET_KEY`, `DATABASE_URL`, and either the HTTP-email settings or isolated SMTP settings. Bun must never read web-only OIDC client credentials unless the explicit callback ownership changes through a new decision.
+- **Cloudflare Worker:** `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_BACKEND`, `AUTH_APP_ORIGIN`, `AUTH_MOBILE_REDIRECT_URL`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, passwordless TTLs, passkey settings, the OIDC verification subset (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, optional `OIDC_AUDIENCE`, `OIDC_SESSION_SECRET`, and admission policy), `HYPERDRIVE`, `CRON_SECRET`, and the shared SMTP settings. The Worker never receives `OIDC_CLIENT_SECRET` or performs the OIDC callback.
+- **Self-hosted Bun API:** the same API authentication, origin, and SMTP contract as the Worker, including `TURNSTILE_SECRET_KEY`, `DATABASE_URL`, and the shared SMTP settings. Bun must never read web-only OIDC client credentials unless the explicit callback ownership changes through a new decision.
 - **Migration/admin/test tooling:** the ignored `.env.prod` pooled `DATABASE_URL` and direct `DIRECT_URL`, plus any explicitly required verification URL; this tooling is not imported by either runtime request bundle.
 - **Native:** `EXPO_PUBLIC_API_URL` and other public origin/callback values only; no server secret or credential.
 
-Remove SMTP variables from web runtime/build configuration, retain them only in the explicit self-hosted Bun API contract if that adapter is selected, keep secrets out of `NEXT_PUBLIC_*`/Expo public variables, validate production origins and provider endpoints as HTTPS, and add a configuration test that rejects missing, cross-assigned, or unexpectedly exposed variables. Preserve existing auth variable names only where they remain semantically correct, documenting the mapping during the one-time extraction.
+Remove SMTP variables from web runtime/build configuration, retain them only in the explicit API runtime contract, keep secrets out of `NEXT_PUBLIC_*`/Expo public variables, validate production origins and SMTP settings, and add a configuration test that rejects missing, cross-assigned, or unexpectedly exposed variables. Preserve existing auth variable names only where they remain semantically correct, documenting the mapping during the one-time extraction.
 
 ## 11.3 Observability and troubleshooting
 
@@ -568,7 +568,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 
 1. **Lock architecture and runtime decisions**
    - Record the `apps/api` domain/persistence boundary, zero-web-database rule, versioned `/v1` API path plus the web-only `/api/v1` proxy path, `api-contract`/`api-client` client boundary, proxy-only browser policy, host-only cookies, OIDC web callback, Turnstile ownership, client-only Secure Share Link delivery, Hyperdrive local strategy, and Worker cron in ADRs.
-   - Record the HTTP email adapter as the replacement for SMTP; capture only provider-specific endpoint/credential values as deployment inputs.
+   - Record the email runtime contract: Bun, self-hosted, and Cloudflare Worker API runtimes use the same Nodemailer/SMTP adapter; capture only SMTP host, port, sender, and credential values as deployment inputs, and verify Worker SMTP under `nodejs_compat`.
 
 2. **Extract API domain and Prisma persistence**
    - Move schema/migrations into `apps/api` and generate the Prisma client there; compare migration files before/after and run validation/generation only, never a migration command.
@@ -586,7 +586,7 @@ These are candidate child issues for the parent issue after plan approval. They 
 4. **Port runtime-neutral identity and authentication adapters**
    - Refactor session/auth ports to standard Request/Hono context and split web verifier configuration from API passwordless/persistence configuration.
    - Port passwordless, bearer, cookie, PWA handoff, admission, Turnstile validation, rate limits, passkey recovery, OIDC session validation, and cookie issuance; make session revocation accept browser cookies as well as bearer tokens.
-   - Replace Worker-incompatible email delivery with the approved adapter.
+   - Move the Nodemailer SMTP adapter into shared API composition and use it in both Bun and Worker runtimes; both continue to implement the same server-only email port.
    - Prove auth and cookie contracts with Worker tests.
 
 5. **Migrate vault and data routes**
@@ -611,7 +611,7 @@ These are candidate child issues for the parent issue after plan approval. They 
    - Preserve and verify the confirmed development/production migration workflow separately from request handling, including the focused migration image, ignored `.env.prod`, and production `--no-deps` isolation.
    - Run the API Worker, required self-hosted Bun adapter, web dev server, and approved Postgres/Hyperdrive test target locally.
    - Exercise browser proxy, passwordless, PWA handoff, OIDC if enabled, passkey recovery, native bearer auth, vault mutations, audit, offline bundle, imports, and retention.
-   - Configure Worker secrets/bindings, Hyperdrive, custom domain, cron trigger, HTTP email adapter, and web proxy variables.
+   - Configure Worker secrets/bindings, Hyperdrive, custom domain, cron trigger, shared SMTP/TLS settings, and web proxy variables.
    - Remove the old Vercel API cron path and update self-hosting/retention/auth/monorepo documentation.
 
 9. **Final repository quality gate**
@@ -687,7 +687,7 @@ The following concerns are resolved in this draft rather than left as implementa
 - The proxy uses `X-Rhasia-Proxy-Secret` over TLS; it is not a user credential and is not allowed/exposed by CORS.
 - Passwordless browser/PWA abuse protection remains layered: server-validated Turnstile precedes the shared PostgreSQL anonymous email/IP limits, while native requests remain widget-free but rate-limited.
 - Retention uses one Cloudflare Cron Trigger/`scheduled()` path. The authenticated HTTP endpoint remains for bounded manual/local diagnostics.
-- Cloudflare uses the server-only HTTP email adapter; no SMTP/TCP Worker design or separate email service is planned. Supported Bun self-hosting may retain an isolated SMTP/Nodemailer adapter, which is never imported by the Worker.
+- Cloudflare, Bun, and self-hosted deployments use the same server-only SMTP/Nodemailer adapter. Worker SMTP depends on `nodejs_compat` and a supported submission port; port 25 is not used.
 - No database schema change, migration generation, or migration application is part of this extraction.
 - Documented Docker self-hosting is preserved through the same Hono route tree and the required supported Bun adapter; it is not a duplicate API implementation. Cloudflare production uses the Worker adapter and scheduled handler. The Docker build uses pnpm; Bun is the runtime only. The current confirmed migration workflow is relocated without weakening its interactive confirmation or production `--no-deps` isolation.
 - Web retains the public Turnstile site key and verifier/OIDC-callback configuration, while the Worker/Bun API owns passwordless challenge/session persistence, Turnstile verification, passkey verification, database, and email configuration. `AUTH_SESSION_SECRET` and `OIDC_SESSION_SECRET` are shared deliberately where both sides verify the same signed session contract; `OIDC_CLIENT_SECRET` remains web-only.
@@ -696,14 +696,14 @@ The following concerns are resolved in this draft rather than left as implementa
 
 The route parity manifest and environment ownership matrix must be completed with exact source/test references before issue creation. Only the following deployment-specific inputs remain:
 
-1. HTTP email provider endpoint, sender identity, local mail sink, and secret provisioning method.
+1. Shared SMTP host, sender identity, credentials, TLS settings, and secret provisioning method for Bun, self-hosted, and Worker deployments.
 2. Cloudflare account/Worker name, Hyperdrive ID, cron expression, custom-domain/DNS ownership, and deployment workflow.
 3. Disposable local/remote Postgres test targets and the exact pinned Prisma/Wrangler/Bun versions to validate.
 4. Production OIDC enablement and exact redirect values; passkey values remain the web origin/RP ID.
 5. Local and production `WEB_ORIGIN`, `API_ORIGIN`, allowed development origins, and mobile API configuration.
 6. Monitoring/alert destination and operational owner for API, database, email, auth, and retention signals.
 7. Supported mobile build inventory, minimum supported version, and explicit approval for any legacy build that cannot be updated before the hard cutover.
-8. Owner approval of the zero-web-database boundary, proxy-only browser policy, HTTP email transport, supported Bun self-hosting, and frozen-contract/no-migration scope.
+8. Owner approval of the zero-web-database boundary, proxy-only browser policy, shared SMTP/Nodemailer transport across API runtimes, supported Bun self-hosting, and frozen-contract/no-migration scope.
 
 These inputs are configuration/approval gates, not alternate architecture branches. If any selected provider or runtime fails the Worker proof, stop and revise the plan before deployment rather than adding a dual implementation.
 

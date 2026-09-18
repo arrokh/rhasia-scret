@@ -1,7 +1,8 @@
 import { config as loadDotenv } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app } from "@api/app";
+import { createApiApp } from "@api/app";
+import { createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { createPrismaClient } from "@api/shared/infrastructure/prisma-client";
 import type { ApiBindings } from "@api/types";
 
@@ -30,6 +31,9 @@ declare const Bun: Readonly<{
 const databaseUrl = runtimeEnvironment.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required for the Bun API adapter.");
 const database = createPrismaClient(databaseUrl);
+const emailSenders =
+  runtimeEnvironment.AUTH_BACKEND === "none" ? undefined : createSmtpEmailSenders(runtimeEnvironment);
+const app = createApiApp({ emailSenders });
 const bindings: ApiBindings = {
   WEB_ORIGIN: runtimeEnvironment.WEB_ORIGIN,
   PROXY_SECRET: runtimeEnvironment.PROXY_SECRET ?? runtimeEnvironment.API_PROXY_SECRET,
@@ -40,8 +44,6 @@ const bindings: ApiBindings = {
   AUTH_SESSION_SECRET: runtimeEnvironment.AUTH_SESSION_SECRET,
   TURNSTILE_SECRET_KEY: runtimeEnvironment.TURNSTILE_SECRET_KEY,
   CRON_SECRET: runtimeEnvironment.CRON_SECRET,
-  EMAIL_PROVIDER_URL: runtimeEnvironment.EMAIL_PROVIDER_URL,
-  EMAIL_PROVIDER_TOKEN: runtimeEnvironment.EMAIL_PROVIDER_TOKEN,
   AUTH_EMAIL_FROM: runtimeEnvironment.AUTH_EMAIL_FROM,
   AUTH_EMAIL_FROM_NAME: runtimeEnvironment.AUTH_EMAIL_FROM_NAME,
   AUTH_MAGIC_LINK_TTL_SECONDS: runtimeEnvironment.AUTH_MAGIC_LINK_TTL_SECONDS,

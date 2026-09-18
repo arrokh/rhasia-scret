@@ -91,7 +91,7 @@ mise run setup
 
 1. Clone the repository and enter its root.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the passwordless HTTP email-provider/secrets in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
+3. If exercising hosted authentication locally, configure the passwordless Bun SMTP settings in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
 4. Install and initialize the workspace:
 
 ```bash
@@ -216,7 +216,7 @@ For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobil
 ## Authentication modes
 
 - **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
-- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the API HTTP email provider, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md).
+- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the server-only Nodemailer SMTP settings, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md). Bun, self-hosted, and Cloudflare Worker API deployments use the same SMTP adapter.
 - **OIDC:** `AUTH_BACKEND=oidc`; configure the provider-neutral OIDC adapter and admitted verified emails using the same document.
 
 Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.

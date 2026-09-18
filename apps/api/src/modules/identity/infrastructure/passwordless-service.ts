@@ -2,12 +2,12 @@ import {
   createPasswordlessAuthService,
   isSafePwaHandoffId,
   isSafePwaHandoffVerifier,
-  type PasswordlessAuthRepository,
   type PasswordlessClient,
   type PasswordlessReturnPath,
 } from "../application/passwordless-authentication";
 import { readAuthConfiguration, type PasswordlessConfiguration } from "./auth-backend";
-import { createHttpEmailSender } from "./http-email-sender";
+import type { MagicLinkEmailSender } from "../application/email-delivery";
+import { createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { createPasswordlessTokenGenerator } from "./passwordless-crypto";
 import { PrismaPasswordlessAuthRepository } from "./prisma-passwordless-auth-repository";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
@@ -16,14 +16,13 @@ import type { ApiBindings } from "@api/types";
 export function createPasswordlessAuthServiceForApi(
   database: PrismaDatabase,
   bindings: ApiBindings,
-  repository?: PasswordlessAuthRepository,
-  configuration?: PasswordlessConfiguration,
+  sender?: MagicLinkEmailSender,
 ) {
-  const authConfiguration = configuration ?? readApiPasswordlessConfiguration(bindings);
+  const authConfiguration = readApiPasswordlessConfiguration(bindings);
   const tokenGenerator = createPasswordlessTokenGenerator(authConfiguration.magicLinkSecret);
   return createPasswordlessAuthService({
-    repository: repository ?? new PrismaPasswordlessAuthRepository(database, authConfiguration),
-    sender: createHttpEmailSender(bindings),
+    repository: new PrismaPasswordlessAuthRepository(database, authConfiguration),
+    sender: sender ?? createSmtpEmailSenders(bindings).magicLink,
     generateToken: () => tokenGenerator.generate(),
     digestToken: (token) => tokenGenerator.digest(token),
     buildActionUrl: (client, rawToken, returnPath, handoffId) =>

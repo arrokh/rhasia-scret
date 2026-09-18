@@ -5,12 +5,13 @@ import type { SessionTerminator } from "@api/modules/identity/application/sessio
 import type { ApplicationUserRepository } from "@api/modules/identity/application/application-user-repository";
 import type { UserCryptoProfileRepository } from "@api/modules/identity/application/user-crypto-profile-repository";
 import type { ApplicationRateLimitOutcome, ApplicationRateLimitPolicyId } from "@api/modules/rate-limiting";
-import type { ApiBindings } from "@api/types";
+import type { ApiBindings, ApiEmailSenders } from "@api/types";
 import type { ApiRequest } from "@api/http/api-request";
 
 export type ApiRequestContext = Readonly<{
   database: PrismaDatabase;
   bindings: ApiBindings;
+  emailSenders?: ApiEmailSenders;
   sessionVerifier: SessionVerifier;
   sessionTerminator: SessionTerminator;
   passwordlessAuth: PasswordlessAuthService;

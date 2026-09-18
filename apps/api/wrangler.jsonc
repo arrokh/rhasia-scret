@@ -3,7 +3,7 @@
   "name": "rhasia-scret-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "no_throw_on_not_implemented_tls_options"],
   "workers_dev": true,
   "vars": {
     "WEB_ORIGIN": "https://rhasia-scret.nooroctavian.id",

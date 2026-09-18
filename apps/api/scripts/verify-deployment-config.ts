@@ -1,5 +1,6 @@
 import { loadWorkspaceEnvironment } from "./load-workspace-environment";
 import { readAuthConfiguration } from "../src/modules/identity/infrastructure/auth-backend";
+import { readSmtpEmailConfiguration } from "../src/smtp-email-senders";
 
 loadWorkspaceEnvironment();
 const production = process.env.NODE_ENV === "production" || process.env.VERIFY_DEPLOYMENT_PRODUCTION === "1";
@@ -38,11 +39,16 @@ if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "p
   } catch (error: unknown) {
     errors.push(error instanceof Error ? error.message : "Passwordless authentication configuration is invalid.");
   }
-  requireValue("EMAIL_PROVIDER_URL");
-  requireValue("EMAIL_PROVIDER_TOKEN");
   requireValue("AUTH_EMAIL_FROM");
   requireValue("TURNSTILE_SECRET_KEY");
-  if (process.env.EMAIL_PROVIDER_URL?.trim()) validateOrigin("EMAIL_PROVIDER_URL", false);
+  try {
+    readSmtpEmailConfiguration(environment);
+    checked.push(
+      workerDeployment ? "Worker SMTP email delivery configuration" : "Bun SMTP email delivery configuration",
+    );
+  } catch (error: unknown) {
+    errors.push(error instanceof Error ? error.message : "SMTP email delivery configuration is invalid.");
+  }
 } else if (backend === "oidc") {
   validateRequiredUrl("OIDC_ISSUER");
   requireValue("OIDC_CLIENT_ID");

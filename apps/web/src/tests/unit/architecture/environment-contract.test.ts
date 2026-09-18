@@ -18,6 +18,15 @@ describe("workspace environment contract", () => {
     expect(example).toContain("EXPO_PUBLIC_API_URL=");
   });
 
+  it("keeps server-only variables out of the browser test web child", () => {
+    const browserServer = readFileSync(join(repositoryRoot, "apps", "web", "scripts", "run-browser-server.ts"), "utf8");
+
+    expect(browserServer).toContain("WEB_BLOCKED_ENVIRONMENT_KEYS");
+    for (const key of ["DATABASE_URL", "SMTP_PASSWORD", "AUTH_EMAIL_FROM", "TURNSTILE_SECRET_KEY"])
+      expect(browserServer).toContain(`"${key}"`);
+    expect(browserServer).toContain("createScopedEnvironment");
+  });
+
   it("does not load app-local environment files", () => {
     const sourceFiles = [
       join(repositoryRoot, "apps", "web", "scripts", "load-workspace-environment.ts"),

@@ -1,3 +1,5 @@
+import type { AccountDeletionEmailSender } from "@api/modules/account-deletion/application/account-deletion-email";
+import type { MagicLinkEmailSender } from "@api/modules/identity/application/email-delivery";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 
 export type HyperdriveBinding = Readonly<{
@@ -15,8 +17,12 @@ export type ApiBindings = Readonly<{
   AUTH_SESSION_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   CRON_SECRET?: string;
-  EMAIL_PROVIDER_URL?: string;
-  EMAIL_PROVIDER_TOKEN?: string;
+  SMTP_HOST?: string;
+  SMTP_PORT?: string;
+  SMTP_SECURE?: string;
+  SMTP_REQUIRE_TLS?: string;
+  SMTP_USER?: string;
+  SMTP_PASSWORD?: string;
   AUTH_EMAIL_FROM?: string;
   AUTH_EMAIL_FROM_NAME?: string;
   AUTH_MAGIC_LINK_TTL_SECONDS?: string;
@@ -36,6 +42,11 @@ export type ApiBindings = Readonly<{
   HYPERDRIVE?: HyperdriveBinding;
   /** Bun-only process-scoped client; Cloudflare supplies request-scoped clients instead. */
   DATABASE_CLIENT?: PrismaDatabase;
+}>;
+
+export type ApiEmailSenders = Readonly<{
+  magicLink: MagicLinkEmailSender;
+  accountDeletion: AccountDeletionEmailSender;
 }>;
 
 export type ApiEnvironment = {

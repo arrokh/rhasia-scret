@@ -142,7 +142,7 @@ export async function DELETE(request: ApiRequest) {
   return createDeleteMeHandler({
     authenticateMutation: authenticateApplicationMutation,
     repository: createAccountDeletionRepository(context.database, context.bindings),
-    sender: createAccountDeletionEmailSender(context.bindings),
+    sender: createAccountDeletionEmailSender(context.bindings, context.emailSenders?.accountDeletion),
     terminateSession: (currentRequest, cookies) =>
       context.sessionTerminator.terminateCurrentSession(currentRequest, cookies),
     now: () => new Date(),

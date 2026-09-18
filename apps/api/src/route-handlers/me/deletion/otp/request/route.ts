@@ -50,6 +50,6 @@ export async function POST(request: ApiRequest) {
     authenticate: authenticateApplicationMutation,
     backend: () => authBackend(context.bindings),
     repository: createAccountDeletionRepository(context.database, context.bindings),
-    sender: createAccountDeletionEmailSender(context.bindings),
+    sender: createAccountDeletionEmailSender(context.bindings, context.emailSenders?.accountDeletion),
   })(request);
 }

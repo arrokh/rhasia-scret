@@ -9,6 +9,7 @@ import type { SessionVerifier } from "./application/session-verifier";
 import type { SessionTerminator } from "./application/session-terminator";
 import type { UserCryptoProfileRepository } from "./application/user-crypto-profile-repository";
 import type { PasswordlessAuthService } from "./application/passwordless-authentication";
+import type { MagicLinkEmailSender } from "./application/email-delivery";
 import { AUTH_RETURN_PATH_COOKIE } from "./application/auth-return-path";
 import { PrismaApplicationUserRepository } from "./infrastructure/prisma-application-user-repository";
 import { PrismaPasskeyRecoveryRepository } from "./infrastructure/prisma-passkey-recovery-repository";
@@ -84,8 +85,9 @@ export function readPasswordlessConfiguration(bindings: ApiBindings) {
 export function createPasswordlessAuthService(
   database: PrismaDatabase,
   bindings: ApiBindings,
+  sender?: MagicLinkEmailSender,
 ): PasswordlessAuthService {
-  return createPasswordlessAuthServiceForApi(database, bindings);
+  return createPasswordlessAuthServiceForApi(database, bindings, sender);
 }
 
 export function createAnonymousAuthRateLimiter(
@@ -103,14 +105,18 @@ export function createTurnstileValidator(bindings: ApiBindings): CloudflareTurns
   return new CloudflareTurnstileValidator(secret);
 }
 
-export function createSessionVerifier(database: PrismaDatabase, bindings: ApiBindings): SessionVerifier {
+export function createSessionVerifier(
+  database: PrismaDatabase,
+  bindings: ApiBindings,
+  sender?: MagicLinkEmailSender,
+): SessionVerifier {
   const e2eVerifier = createE2eSessionVerifier(bindings);
   if (e2eVerifier) return e2eVerifier;
   const backend = authBackend(bindings);
   if (backend === "none") return { verify: async (_request: Request, _minimum?: SessionAssurance) => null };
   if (backend === "passwordless") {
     return new PasswordlessSessionVerifier(
-      createPasswordlessAuthService(database, bindings),
+      createPasswordlessAuthService(database, bindings, sender),
       readPasswordlessConfiguration(bindings),
     );
   }
@@ -120,9 +126,13 @@ export function createSessionVerifier(database: PrismaDatabase, bindings: ApiBin
   return new OidcSessionVerifier({ issuer, clientId, sessionSecret: new TextEncoder().encode(sessionSecret) });
 }
 
-export function createSessionTerminator(database: PrismaDatabase, bindings: ApiBindings): SessionTerminator {
+export function createSessionTerminator(
+  database: PrismaDatabase,
+  bindings: ApiBindings,
+  sender?: MagicLinkEmailSender,
+): SessionTerminator {
   return authBackend(bindings) === "passwordless"
-    ? new PasswordlessSessionTerminator(createPasswordlessAuthService(database, bindings))
+    ? new PasswordlessSessionTerminator(createPasswordlessAuthService(database, bindings, sender))
     : new OidcSessionTerminator();
 }
 

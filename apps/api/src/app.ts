@@ -1,18 +1,20 @@
 import { Hono } from "hono";
-import type { ApiEnvironment } from "@api/types";
+import type { ApiEmailSenders, ApiEnvironment } from "@api/types";
 import { jsonResponse } from "@api/http/response";
 import { requestContext, exactOriginCors, proxyTrust } from "@api/middleware/security";
 import { apiRequestLogging } from "@api/middleware/request-logging";
+import { createApiRuntime } from "@api/http/api-runtime";
 import { logApiEvent } from "@api/shared/infrastructure/logging";
 import { systemRoutes } from "@api/routes/system";
 import { registerV1Routes } from "@api/routes/v1";
-import { apiRuntime } from "@api/http/api-runtime";
+export type ApiAppOptions = Readonly<{ emailSenders?: ApiEmailSenders }>;
 
-export function createApiApp(): Hono<ApiEnvironment> {
+export function createApiApp(options: ApiAppOptions = {}): Hono<ApiEnvironment> {
+  const runtime = createApiRuntime(options.emailSenders);
   const versioned = new Hono<ApiEnvironment>();
   versioned.use("*", async (context, next) => {
     if (context.req.path === "/v1/health" || context.req.path === "/v1/time") return next();
-    return apiRuntime(context, next);
+    return runtime(context, next);
   });
   versioned.route("", systemRoutes);
   registerV1Routes(versioned);

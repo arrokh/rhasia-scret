@@ -6,28 +6,65 @@ const webOrigin = `http://127.0.0.1:${webPort}`;
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
+const API_BLOCKED_ENVIRONMENT_KEYS = [
+  "DIRECT_URL",
+  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
+  "POSTGRES_DB",
+  "POSTGRES_USER",
+  "POSTGRES_PASSWORD",
+  "OIDC_CLIENT_SECRET",
+];
+const WEB_BLOCKED_ENVIRONMENT_KEYS = [
+  "DATABASE_URL",
+  "DIRECT_URL",
+  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
+  "POSTGRES_DB",
+  "POSTGRES_USER",
+  "POSTGRES_PASSWORD",
+  "TURNSTILE_SECRET_KEY",
+  "AUTH_MAGIC_LINK_SECRET",
+  "AUTH_MAGIC_LINK_TTL_SECONDS",
+  "AUTH_ACCESS_TOKEN_TTL_SECONDS",
+  "AUTH_REFRESH_TOKEN_TTL_SECONDS",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_REQUIRE_TLS",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "AUTH_EMAIL_FROM",
+  "AUTH_EMAIL_FROM_NAME",
+  "CRON_SECRET",
+  "PROXY_SECRET",
+];
 const children = new Set<ChildProcess>();
 let stopping = false;
 
 async function main(): Promise<void> {
   const api = spawn(command, ["--dir", "../api", "run", "dev:bun"], {
     cwd: process.cwd(),
-    env: {
-      ...process.env,
-      PORT: apiPort,
-      NODE_ENV: "development",
-      WEB_ORIGIN: webOrigin,
-      PROXY_SECRET: proxySecret,
-      API_PROXY_SECRET: proxySecret,
-      API_ORIGIN: apiOrigin,
-      AUTH_APP_ORIGIN: webOrigin,
-      PASSKEY_ORIGIN: webOrigin,
-      PASSKEY_RP_ID: new URL(webOrigin).hostname,
-      EMAIL_PROVIDER_URL: process.env.EMAIL_PROVIDER_URL?.trim() || "http://127.0.0.1:9999",
-      EMAIL_PROVIDER_TOKEN: process.env.EMAIL_PROVIDER_TOKEN?.trim() || "browser-test-email-provider-token",
-      AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM?.trim() || "no-reply@browser-e2e.invalid",
-      AUTH_EMAIL_FROM_NAME: process.env.AUTH_EMAIL_FROM_NAME?.trim() || "rhasia-scret",
-    },
+    env: createScopedEnvironment(
+      {
+        PORT: apiPort,
+        NODE_ENV: "development",
+        WEB_ORIGIN: webOrigin,
+        PROXY_SECRET: proxySecret,
+        API_PROXY_SECRET: proxySecret,
+        API_ORIGIN: apiOrigin,
+        AUTH_APP_ORIGIN: webOrigin,
+        PASSKEY_ORIGIN: webOrigin,
+        PASSKEY_RP_ID: new URL(webOrigin).hostname,
+        SMTP_HOST: "127.0.0.1",
+        SMTP_PORT: "2525",
+        SMTP_SECURE: "false",
+        SMTP_REQUIRE_TLS: "true",
+        SMTP_USER: "browser-test-smtp-user",
+        SMTP_PASSWORD: "browser-test-smtp-password",
+        AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM?.trim() || "no-reply@browser-e2e.invalid",
+        AUTH_EMAIL_FROM_NAME: process.env.AUTH_EMAIL_FROM_NAME?.trim() || "rhasia-scret",
+      },
+      API_BLOCKED_ENVIRONMENT_KEYS,
+    ),
     stdio: "inherit",
   });
   children.add(api);
@@ -42,16 +79,18 @@ async function main(): Promise<void> {
     await waitForApi(apiOrigin);
     const web = spawn(command, ["exec", "next", "dev", "-p", webPort], {
       cwd: process.cwd(),
-      env: {
-        ...process.env,
-        NODE_ENV: "development",
-        WEB_ORIGIN: webOrigin,
-        API_ORIGIN: apiOrigin,
-        API_PROXY_SECRET: proxySecret,
-        AUTH_APP_ORIGIN: webOrigin,
-        PASSKEY_ORIGIN: webOrigin,
-        PASSKEY_RP_ID: new URL(webOrigin).hostname,
-      },
+      env: createScopedEnvironment(
+        {
+          NODE_ENV: "development",
+          WEB_ORIGIN: webOrigin,
+          API_ORIGIN: apiOrigin,
+          API_PROXY_SECRET: proxySecret,
+          AUTH_APP_ORIGIN: webOrigin,
+          PASSKEY_ORIGIN: webOrigin,
+          PASSKEY_RP_ID: new URL(webOrigin).hostname,
+        },
+        WEB_BLOCKED_ENVIRONMENT_KEYS,
+      ),
       stdio: "inherit",
     });
     children.add(web);
@@ -80,6 +119,12 @@ async function waitForApi(origin: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error("Timed out waiting for the API browser-test server.");
+}
+
+function createScopedEnvironment(overrides: NodeJS.ProcessEnv, blockedKeys: readonly string[]): NodeJS.ProcessEnv {
+  const environment = { ...process.env, ...overrides };
+  for (const key of blockedKeys) delete environment[key];
+  return environment;
 }
 
 function fail(message: string): void {
