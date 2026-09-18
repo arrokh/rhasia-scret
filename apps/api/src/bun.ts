@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiApp } from "@api/app";
 import { createSmtpEmailSenders } from "@api/smtp-email-senders";
+import { authBackend } from "@api/modules/identity/server";
 import { createPrismaClient } from "@api/shared/infrastructure/prisma-client";
 import type { ApiBindings } from "@api/types";
 
@@ -31,9 +32,6 @@ declare const Bun: Readonly<{
 const databaseUrl = runtimeEnvironment.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required for the Bun API adapter.");
 const database = createPrismaClient(databaseUrl);
-const emailSenders =
-  runtimeEnvironment.AUTH_BACKEND === "none" ? undefined : createSmtpEmailSenders(runtimeEnvironment);
-const app = createApiApp({ emailSenders });
 const bindings: ApiBindings = {
   WEB_ORIGIN: runtimeEnvironment.WEB_ORIGIN,
   PROXY_SECRET: runtimeEnvironment.PROXY_SECRET ?? runtimeEnvironment.API_PROXY_SECRET,
@@ -44,6 +42,12 @@ const bindings: ApiBindings = {
   AUTH_SESSION_SECRET: runtimeEnvironment.AUTH_SESSION_SECRET,
   TURNSTILE_SECRET_KEY: runtimeEnvironment.TURNSTILE_SECRET_KEY,
   CRON_SECRET: runtimeEnvironment.CRON_SECRET,
+  SMTP_HOST: runtimeEnvironment.SMTP_HOST,
+  SMTP_PORT: runtimeEnvironment.SMTP_PORT,
+  SMTP_SECURE: runtimeEnvironment.SMTP_SECURE,
+  SMTP_REQUIRE_TLS: runtimeEnvironment.SMTP_REQUIRE_TLS,
+  SMTP_USER: runtimeEnvironment.SMTP_USER,
+  SMTP_PASSWORD: runtimeEnvironment.SMTP_PASSWORD,
   AUTH_EMAIL_FROM: runtimeEnvironment.AUTH_EMAIL_FROM,
   AUTH_EMAIL_FROM_NAME: runtimeEnvironment.AUTH_EMAIL_FROM_NAME,
   AUTH_MAGIC_LINK_TTL_SECONDS: runtimeEnvironment.AUTH_MAGIC_LINK_TTL_SECONDS,
@@ -61,6 +65,8 @@ const bindings: ApiBindings = {
   AUTH_ADMITTED_EMAILS: runtimeEnvironment.AUTH_ADMITTED_EMAILS,
   DATABASE_CLIENT: database,
 };
+const emailSenders = authBackend(bindings) === "passwordless" ? createSmtpEmailSenders(bindings) : undefined;
+const app = createApiApp({ emailSenders });
 
 const server = Bun.serve({
   port: Number(runtimeEnvironment.PORT ?? "8787"),

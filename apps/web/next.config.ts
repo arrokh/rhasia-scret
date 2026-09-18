@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
-import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
+import { loadWorkspaceEnvironment, WEB_RUNTIME_ENVIRONMENT_KEYS } from "./scripts/load-workspace-environment";
 
-loadWorkspaceEnvironment();
+loadWorkspaceEnvironment({ allowedKeys: WEB_RUNTIME_ENVIRONMENT_KEYS });
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;

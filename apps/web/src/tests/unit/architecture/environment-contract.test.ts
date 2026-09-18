@@ -18,13 +18,38 @@ describe("workspace environment contract", () => {
     expect(example).toContain("EXPO_PUBLIC_API_URL=");
   });
 
-  it("keeps server-only variables out of the browser test web child", () => {
-    const browserServer = readFileSync(join(repositoryRoot, "apps", "web", "scripts", "run-browser-server.ts"), "utf8");
+  it("keeps API-only variables out of every local web runtime", () => {
+    const webLaunchers = [
+      join(repositoryRoot, "tools", "run-local-dev.mjs"),
+      join(repositoryRoot, "apps", "web", "scripts", "run-browser-server.ts"),
+    ].map((path) => readFileSync(path, "utf8"));
 
-    expect(browserServer).toContain("WEB_BLOCKED_ENVIRONMENT_KEYS");
-    for (const key of ["DATABASE_URL", "SMTP_PASSWORD", "AUTH_EMAIL_FROM", "TURNSTILE_SECRET_KEY"])
-      expect(browserServer).toContain(`"${key}"`);
-    expect(browserServer).toContain("createScopedEnvironment");
+    for (const launcher of webLaunchers) {
+      expect(launcher).toContain("WEB_BLOCKED_ENVIRONMENT_KEYS");
+      for (const key of [
+        "DATABASE_URL",
+        "SMTP_PASSWORD",
+        "AUTH_EMAIL_FROM",
+        "AUTH_ADMITTED_EMAILS",
+        "TURNSTILE_SECRET_KEY",
+      ])
+        expect(launcher).toContain(`"${key}"`);
+      expect(launcher).toContain("createScopedEnvironment");
+    }
+
+    const nextConfig = readFileSync(join(repositoryRoot, "apps", "web", "next.config.ts"), "utf8");
+    const deploymentConfig = readFileSync(
+      join(repositoryRoot, "apps", "web", "scripts", "verify-deployment-config.ts"),
+      "utf8",
+    );
+    const environmentLoader = readFileSync(
+      join(repositoryRoot, "apps", "web", "scripts", "load-workspace-environment.ts"),
+      "utf8",
+    );
+    expect(nextConfig).toContain("allowedKeys: WEB_RUNTIME_ENVIRONMENT_KEYS");
+    expect(deploymentConfig).toContain("API_ONLY_ENVIRONMENT_KEYS");
+    expect(deploymentConfig).toContain('"SMTP_PASSWORD"');
+    expect(environmentLoader).not.toContain('"SMTP_PASSWORD"');
   });
 
   it("does not load app-local environment files", () => {

@@ -37,6 +37,7 @@ describe("API extraction ownership boundaries", () => {
   it("keeps Worker and Bun composition separate while sharing the Hono app", () => {
     const worker = read("apps/api/src/index.ts");
     const bun = read("apps/api/src/bun.ts");
+    const compose = read("docker-compose.yml");
     const wrangler = read("apps/api/wrangler.jsonc");
     expect(worker).toContain("app.fetch");
     expect(worker).not.toContain("./bun");
@@ -46,9 +47,13 @@ describe("API extraction ownership boundaries", () => {
     expect(wrangler).toContain('"no_throw_on_not_implemented_tls_options"');
     expect(bun).toContain("Bun.serve");
     expect(bun).toContain("createSmtpEmailSenders");
+    expect(bun).toContain('authBackend(bindings) === "passwordless"');
     expect(bun).not.toContain("BUN_SMTP_ENABLED");
     expect(bun).not.toContain("EMAIL_PROVIDER_URL");
     expect(bun).toContain("app.fetch");
+    expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
+    expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");
+    expect(compose).toContain("PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}");
     expect(existsSync(resolve(repositoryRoot, "apps/api/prisma/schema.prisma"))).toBe(true);
     expect(existsSync(resolve(repositoryRoot, "apps/web/prisma"))).toBe(false);
   });

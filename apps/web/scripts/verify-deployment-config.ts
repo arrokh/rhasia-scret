@@ -1,12 +1,40 @@
-import { loadWorkspaceEnvironment } from "./load-workspace-environment";
+import { loadWorkspaceEnvironment, WEB_RUNTIME_ENVIRONMENT_KEYS } from "./load-workspace-environment";
 import { readAuthConfiguration } from "../src/modules/identity/infrastructure/auth-backend";
 
-loadWorkspaceEnvironment();
+loadWorkspaceEnvironment({ allowedKeys: WEB_RUNTIME_ENVIRONMENT_KEYS });
 
 const production = process.env.NODE_ENV === "production" || process.env.VERIFY_DEPLOYMENT_PRODUCTION === "1";
 const errors: string[] = [];
 const checked = new Set<string>();
 const backend = process.env.AUTH_BACKEND?.trim() || "passwordless";
+const API_ONLY_ENVIRONMENT_KEYS = [
+  "DATABASE_URL",
+  "DIRECT_URL",
+  "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
+  "POSTGRES_DB",
+  "POSTGRES_USER",
+  "POSTGRES_PASSWORD",
+  "PROXY_SECRET",
+  "AUTH_MAGIC_LINK_SECRET",
+  "AUTH_MAGIC_LINK_TTL_SECONDS",
+  "AUTH_ACCESS_TOKEN_TTL_SECONDS",
+  "AUTH_REFRESH_TOKEN_TTL_SECONDS",
+  "TURNSTILE_SECRET_KEY",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_REQUIRE_TLS",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "AUTH_EMAIL_FROM",
+  "AUTH_EMAIL_FROM_NAME",
+  "AUTH_ADMITTED_EMAILS",
+  "CRON_SECRET",
+] as const;
+
+for (const name of API_ONLY_ENVIRONMENT_KEYS) {
+  if (process.env[name]?.trim()) errors.push(`${name} must not be configured for the web runtime.`);
+}
 
 if (production && !process.env.AUTH_BACKEND?.trim()) errors.push("AUTH_BACKEND must be set explicitly for production.");
 if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc"))
