@@ -49,6 +49,7 @@ describe("API extraction ownership boundaries", () => {
       scripts?: Record<string, string>;
     };
     const compose = read("docker-compose.yml");
+    const dockerfile = read("apps/api/Dockerfile");
     expect(bun).toContain("Bun.serve");
     expect(bun).toContain("createStandaloneApi");
     expect(node).toContain("@hono/node-server");
@@ -63,7 +64,9 @@ describe("API extraction ownership boundaries", () => {
       crons?: Array<{ path?: string; schedule?: string }>;
     };
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
-    expect(vercelJson.buildCommand).toContain("DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate");
+    expect(vercelJson.buildCommand).toBe(
+      "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build",
+    );
     expect(vercelJson.rewrites).toEqual([{ source: "/v1/:path*", destination: "/api/v1/:path*" }]);
     expect(vercelJson.functions?.["api/[...path].ts"]?.maxDuration).toBe(60);
     expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
@@ -75,6 +78,8 @@ describe("API extraction ownership boundaries", () => {
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
+    expect(dockerfile).toContain("RUN pnpm --filter @rhasia-scret/api build:node");
+    expect(dockerfile).toContain("COPY --from=build /workspace .");
     expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");
     expect(compose).toContain("PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}");
     expect(existsSync(resolve(repositoryRoot, "apps/api/prisma/schema.prisma"))).toBe(true);

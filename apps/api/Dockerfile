@@ -28,7 +28,8 @@ ENV DIRECT_URL=postgresql://localhost:5432/rhasia_scret_generate
 RUN pnpm --filter @rhasia-scret/api prisma:generate
 
 FROM source AS build
-RUN pnpm --filter @rhasia-scret/api build
+# Prisma Client is generated in the source stage; only bundle the Node artifact here.
+RUN pnpm --filter @rhasia-scret/api build:node
 
 FROM source AS migration
 WORKDIR /workspace/apps/api
@@ -43,7 +44,9 @@ LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 ENV NODE_ENV=production
 ENV PORT=8787
 WORKDIR /app
-COPY --from=source /workspace .
+# The self-hosted runtime remains Bun-primary, while copying from build ensures the
+# generic Node artifact is built and available for deployment verification.
+COPY --from=build /workspace .
 COPY docker/retention-purge.mjs /usr/local/bin/retention-purge.mjs
 WORKDIR /app/apps/api
 EXPOSE 8787

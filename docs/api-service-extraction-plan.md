@@ -69,7 +69,7 @@ The Docker runtime uses the pinned Bun image and `apps/api/src/bun.ts`. The migr
 
 ### Vercel
 
-The API is a separate Node.js Vercel project rooted at `apps/api`, configured by `apps/api/vercel.json`. The Web Vercel project remains rooted at the repository root and deploys only Web. API and Web secrets are configured in their respective projects; no API secret is placed in Web environment variables.
+The API is a separate Node.js Vercel project rooted at `apps/api`, configured by `apps/api/vercel.json`. Its build first validates the production `vercel` environment contract, then runs the package-owned build script; Prisma Client generation uses only the non-production placeholder URL from that script. The Web Vercel project remains rooted at the repository root and deploys only Web. API and Web secrets are configured in their respective projects; no API secret is placed in Web environment variables.
 
 The API project must be validated on a temporary deployment before attaching `api.rhasia-scret.nooroctavian.id`. Vercel Cron calls `/v1/internal/retention-purge` at 03:00 UTC with `CRON_SECRET` authentication. An external or self-hosted scheduler may call the same endpoint.
 
