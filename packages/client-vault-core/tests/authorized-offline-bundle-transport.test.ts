@@ -17,7 +17,7 @@ describe("AuthorizedOfflineBundleTransport", () => {
     await expect(protocol.fetch(cached)).resolves.toEqual({ ...cached, synchronizedAt: "2026-09-01T01:00:00.000Z" });
     expect(transport.requests).toEqual([
       {
-        url: "/api/sync/offline-bundle",
+        url: "/v1/sync/offline-bundle",
         method: "GET",
         headers: { "if-none-match": '"sync_token_1"' },
         cache: "no-store",

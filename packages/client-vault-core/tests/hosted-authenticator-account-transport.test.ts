@@ -11,8 +11,8 @@ const ciphertext = Buffer.alloc(29, 7).toString("base64");
 
 describe("HostedAuthenticatorAccountTransport", () => {
   it.each([
-    ["PERSONAL" as const, "/api/vaults/vault_1/accounts"],
-    ["SHARED" as const, "/api/shared-vaults/vault_1/accounts"],
+    ["PERSONAL" as const, "/v1/vaults/vault_1/accounts"],
+    ["SHARED" as const, "/v1/shared-vaults/vault_1/accounts"],
   ])("selects the %s endpoint and returns a strict created account", async (vaultType, url) => {
     const transport = new StubTransport(response(201, { id: "account_1", revision: 1 }));
     const protocol = new HostedAuthenticatorAccountTransport(transport);

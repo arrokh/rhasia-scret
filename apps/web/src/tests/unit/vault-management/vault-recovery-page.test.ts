@@ -21,12 +21,8 @@ vi.mock("@/modules/vault-management", () => ({
 vi.mock("@/modules/vault-management/presentation/load-vault-page-context", () => ({
   loadVaultPageContext: mocks.loadVaultPageContext,
 }));
-vi.mock("@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository", () => ({
-  PrismaDestructivePersonalVaultResetRepository: class PrismaDestructivePersonalVaultResetRepository {
-    public getEligibility(userId: string) {
-      return mocks.getEligibility(userId);
-    }
-  },
+vi.mock("@/shared/infrastructure/server-api-gateway", () => ({
+  loadServerDestructiveResetEligibility: mocks.getEligibility,
 }));
 
 import VaultRecoveryPage from "@/app/vaults/recovery/page";

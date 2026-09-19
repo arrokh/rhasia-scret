@@ -66,7 +66,10 @@ describe("Personal Vault management", () => {
     expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Undangan")).toBe(false);
     await act(async () => clickTab(container, "Audit"));
     await vi.waitFor(() => expect(container.textContent).toContain("Arsip Brankas diimpor"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/vaults/personal-1/audit-events", { cache: "no-store", method: "GET" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/vaults/personal-1/audit-events", {
+      cache: "no-store",
+      method: "GET",
+    });
     await act(async () => clickTab(container, "Detail"));
 
     await act(async () => findButton(container, "Hapus Example person@example.test").click());

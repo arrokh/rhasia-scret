@@ -1,3 +1,4 @@
+import { ApiClient } from "@rhasia-scret/api-client";
 import type {
   AuthenticatedTransport,
   BearerTokenProvider,
@@ -8,14 +9,18 @@ import { BearerTokenTransport } from "@rhasia-scret/client-vault-core";
 import type { MobilePasswordlessAuthClient } from "./mobile-passwordless-auth-client";
 
 export class NativeHttpTransport implements AuthenticatedTransport {
-  public constructor(private readonly apiUrl: string) {}
+  private readonly client: ApiClient;
+
+  public constructor(apiUrl: string) {
+    this.client = new ApiClient({ origin: apiUrl });
+  }
 
   public async request(request: PlatformHttpRequest): Promise<PlatformHttpResponse> {
     const controller = new AbortController();
     const dispose = request.signal?.subscribe(() => controller.abort());
     if (request.signal?.aborted) controller.abort();
     try {
-      const response = await fetch(new URL(request.url, this.apiUrl), {
+      const response = await this.client.request(request.url, {
         method: request.method,
         headers: request.headers,
         body: request.body as BodyInit | undefined,

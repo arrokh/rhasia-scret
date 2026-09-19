@@ -8,7 +8,7 @@ const source = (path: string) => readFileSync(join(root, path), "utf8");
 describe("navigation and interaction performance boundaries", () => {
   it("keeps protected routes behind request-cached fresh authorization context", () => {
     const loader = source("src/modules/vault-management/presentation/load-vault-page-context.ts");
-    expect(loader).toMatch(/cache\(\(\)\s*=>\s*resolveVaultPageContext/);
+    expect(loader).toContain("cache(loadServerVaultPageContext)");
     expect(loader).toContain('context.user.status !== "ACTIVE"');
     expect(loader).not.toMatch(/use cache/);
   });

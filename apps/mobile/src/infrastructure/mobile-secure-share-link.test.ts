@@ -37,7 +37,7 @@ describe("mobile Secure Share Links", () => {
       createMobileSecureShareLink({ id: "shared_1", key }, "recipient@example.test", transport, webOrigin),
     ).rejects.toThrow("cancelled");
     expect(transport.requests[1]).toEqual({
-      url: "/api/shared-vaults/shared_1/share-links/invitation_1",
+      url: "/v1/shared-vaults/shared_1/share-links/invitation_1",
       method: "DELETE",
       cache: "no-store",
     });
@@ -67,7 +67,7 @@ describe("mobile Secure Share Links", () => {
 
     await redeemMobileSecureShareLink(secret, userRootKey, transport);
 
-    expect(transport.requests[0].url).toMatch(/^\/api\/secure-share-links\?verifier=/);
+    expect(transport.requests[0].url).toMatch(/^\/v1\/secure-share-links\?verifier=/);
     expect(String(transport.requests[1].body)).not.toContain(secret);
     const request = JSON.parse(String(transport.requests[1].body)) as { encryptedVaultKey: string };
     const envelope = nativeClientCrypto.deserializeEncryptedEnvelope(base64ToBytes(request.encryptedVaultKey));

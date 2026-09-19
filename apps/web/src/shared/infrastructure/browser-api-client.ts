@@ -1,5 +1,6 @@
 "use client";
 
+import { browserApiPath, isVersionedApiPath } from "@rhasia-scret/api-contract/paths";
 import type {
   AuthenticatedTransport,
   PlatformHttpRequest,
@@ -32,7 +33,7 @@ export class BrowserApiClient {
       assertBrowserMutationAllowed();
     const adaptedSignal = request.signal ? toAbortSignal(request.signal) : undefined;
     try {
-      const response = await fetch(request.url, {
+      const response = await fetch(normalizeBrowserApiPath(request.url), {
         method: request.method,
         headers: request.headers,
         body: typeof request.body === "string" ? request.body : request.body ? request.body.slice() : undefined,
@@ -138,6 +139,10 @@ class BrowserPlatformResponse implements PlatformHttpResponse {
   text(): Promise<string> {
     return this.response.text();
   }
+}
+
+function normalizeBrowserApiPath(url: string): string {
+  return isVersionedApiPath(url) ? browserApiPath(url) : url;
 }
 
 function toAbortSignal(signal: { readonly aborted: boolean; subscribe(listener: () => void): PortDisposer }): {

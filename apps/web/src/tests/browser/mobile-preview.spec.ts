@@ -380,7 +380,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   let createdInvitation = false;
   let deletedVault = false;
   page.on("pageerror", (error) => pageErrors.push(error));
-  await page.route("**/api/vaults/shared-preview/audit-events**", (route) => {
+  await page.route("**/api/v1/vaults/shared-preview/audit-events**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     return route.fulfill({
       status: 200,
@@ -400,7 +400,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       }),
     });
   });
-  await page.route("**/api/shared-vaults/shared-preview/participants**", (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/participants**", (route) => {
     const nextPage = new URL(route.request().url()).searchParams.has("cursor");
     const participants = nextPage
       ? [
@@ -467,7 +467,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       }),
     });
   });
-  await page.route("**/api/shared-vaults/shared-preview/member-permissions", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/member-permissions", async (route) => {
     const isUpdate = route.request().method() === "PATCH";
     if (isUpdate) defaultPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
@@ -479,7 +479,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       }),
     });
   });
-  await page.route("**/api/shared-vaults/shared-preview/members/viewer-preview", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/members/viewer-preview", async (route) => {
     memberPermissionsBody = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
       status: 200,
@@ -494,7 +494,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       }),
     });
   });
-  await page.route("**/api/shared-vaults/shared-preview/share-links", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/share-links", async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     const reinviting = body.recipientEmail === "expired-with-a-long-address@local.invalid";
     if (reinviting) reinvitationBody = body;
@@ -511,11 +511,11 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       }),
     });
   });
-  await page.route("**/api/shared-vaults/shared-preview/share-links/pending-preview", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/share-links/pending-preview", async (route) => {
     cancelledInvitation = true;
     await route.fulfill({ status: 204 });
   });
-  await page.route("**/api/shared-vaults/shared-preview/lifecycle", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/lifecycle", async (route) => {
     deletedVault = route.request().method() === "DELETE";
     await route.fulfill({ status: 204 });
   });
@@ -756,7 +756,7 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {
   let submittedBody: unknown;
-  await page.route("**/api/personal-vault/destructive-reset", async (route) => {
+  await page.route("**/api/v1/personal-vault/destructive-reset", async (route) => {
     submittedBody = route.request().postDataJSON();
     await route.fulfill({ status: 204 });
   });

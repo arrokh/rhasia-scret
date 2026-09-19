@@ -1,65 +1,21 @@
-import { prisma } from "../../../shared/infrastructure/prisma-client";
+import { spawn } from "node:child_process";
 
-export async function cleanBrowserE2eUsers(emails?: string[]): Promise<void> {
-  const emailFilter = emails?.length ? { in: emails } : { endsWith: "@browser-e2e.test" };
-  const users = await prisma.applicationUser.findMany({
-    where: { email: emailFilter },
-    select: { id: true },
-  });
-  const userIds = users.map(({ id }) => id);
-  const deletionRecords = await prisma.accountDeletionRecord.findMany({
-    where: { email: emailFilter },
-    select: { id: true },
-  });
-  const deletionRecordIds = deletionRecords.map(({ id }) => id);
-  if (!userIds.length && !deletionRecordIds.length) return;
-  const ownedVaults = userIds.length
-    ? await prisma.vault.findMany({ where: { ownerId: { in: userIds } }, select: { id: true } })
-    : [];
-  const vaultIds = ownedVaults.map(({ id }) => id);
-
-  await prisma.$transaction(async (transaction) => {
-    await transaction.accountDeletionChallenge.deleteMany({
-      where: {
-        OR: [
-          ...(userIds.length ? [{ applicationUserId: { in: userIds } }] : []),
-          ...(deletionRecordIds.length ? [{ completedDeletionId: { in: deletionRecordIds } }] : []),
-        ],
-      },
+export async function cleanBrowserE2eUsers(emails?: readonly string[]): Promise<void> {
+  const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const child = spawn(
+    command,
+    ["--dir", "../api", "exec", "tsx", "scripts/clean-browser-e2e-users.ts", ...(emails ?? [])],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+    },
+  );
+  await new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) return resolve();
+      reject(new Error(`API browser E2E cleanup failed (${code ?? signal ?? "unknown"}).`));
     });
-    if (deletionRecordIds.length)
-      await transaction.accountDeletionRecord.deleteMany({ where: { id: { in: deletionRecordIds } } });
-    if (userIds.length || vaultIds.length)
-      await transaction.vaultAuditEvent.deleteMany({
-        where: {
-          OR: [
-            ...(userIds.length ? [{ actorUserId: { in: userIds } }] : []),
-            ...(userIds.length ? [{ ownerId: { in: userIds } }] : []),
-            ...(userIds.length ? [{ targetId: { in: userIds } }] : []),
-            ...(vaultIds.length ? [{ vaultId: { in: vaultIds } }] : []),
-          ],
-        },
-      });
-    if (vaultIds.length) {
-      await transaction.authenticatorAccount.deleteMany({ where: { vaultId: { in: vaultIds } } });
-      await transaction.vaultInvitation.deleteMany({ where: { vaultId: { in: vaultIds } } });
-      await transaction.vaultMember.deleteMany({ where: { vaultId: { in: vaultIds } } });
-      await transaction.vault.deleteMany({ where: { id: { in: vaultIds } } });
-    }
-    if (userIds.length) {
-      await transaction.vaultInvitation.deleteMany({ where: { recipientUserId: { in: userIds } } });
-      await transaction.vaultMember.deleteMany({ where: { userId: { in: userIds } } });
-      await transaction.passkeyRecoveryChallenge.deleteMany({ where: { userId: { in: userIds } } });
-    }
-    if (userIds.length) {
-      await transaction.passkeyRecoveryCredential.deleteMany({ where: { userId: { in: userIds } } });
-      await transaction.userCryptoProfile.deleteMany({ where: { userId: { in: userIds } } });
-      await transaction.applicationRateLimitWindow.deleteMany({ where: { userId: { in: userIds } } });
-      await transaction.applicationUser.deleteMany({ where: { id: { in: userIds } } });
-    }
   });
-}
-
-export async function disconnectBrowserE2eDatabase(): Promise<void> {
-  await prisma.$disconnect();
 }

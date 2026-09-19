@@ -5,18 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
-import { loadApplicationUser } from "@/modules/identity/application/load-application-user";
+import { loadServerVaultPageContext } from "@/shared/infrastructure/server-api-gateway";
 import {
   INVITATION_AUTH_RETURN_PATH,
   resolveAuthReturnPath,
   type AuthReturnPath,
 } from "@/modules/identity/application/auth-return-path";
-import {
-  authBackend,
-  createApplicationUserRepository,
-  createSessionVerifier,
-  readPasswordlessConfiguration,
-} from "@/modules/identity/server";
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 import { InvitationAuthContinuation } from "@/modules/identity/presentation/invitation-auth-continuation";
 
@@ -34,10 +28,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const auth = firstQueryValue(params.auth);
   const nextPath = resolveAuthReturnPath(firstQueryValue(params.next));
-  const user = await loadApplicationUser(createSessionVerifier(), createApplicationUserRepository());
-  const backend = authBackend();
-  const turnstileSiteKey = backend === "passwordless" ? readPasswordlessConfiguration().turnstile.siteKey : undefined;
-  if (user?.canAccessApplication()) redirect(nextPath);
+  const context = await loadServerVaultPageContext();
+  const user = context?.user;
+  const backend = readAuthBackend();
+  const turnstileSiteKey = backend === "passwordless" ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY : undefined;
+  if (user) redirect(nextPath);
 
   const notice = authNotice(auth, nextPath);
 
@@ -96,6 +91,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       </SurfaceCard>
     </AppPage>
   );
+}
+
+function readAuthBackend(): "none" | "passwordless" | "oidc" {
+  const backend = process.env.AUTH_BACKEND ?? "passwordless";
+  if (backend === "none" || backend === "passwordless" || backend === "oidc") return backend;
+  throw new Error("AUTH_BACKEND must be none, passwordless, or oidc.");
 }
 
 function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNotice | null {

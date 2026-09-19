@@ -7,26 +7,26 @@ import type { AccountDeletionPreview, AccountDeletionResult } from "../applicati
 import type { AccountDeletionRequest } from "../domain/account-deletion-policy";
 
 export async function loadAccountDeletionPreview(): Promise<AccountDeletionPreview> {
-  return browserApiClient.getJson<AccountDeletionPreview>("/api/me/deletion/preview", { cache: "no-store" });
+  return browserApiClient.getJson<AccountDeletionPreview>("/api/v1/me/deletion/preview", { cache: "no-store" });
 }
 
 export async function requestAccountDeletionOtp(): Promise<void> {
-  await browserApiClient.postEmpty("/api/me/deletion/otp/request");
+  await browserApiClient.postEmpty("/api/v1/me/deletion/otp/request");
 }
 
 export async function verifyAccountDeletionOtp(otp: string): Promise<void> {
-  await browserApiClient.postEmpty("/api/me/deletion/otp/verify", { otp });
+  await browserApiClient.postEmpty("/api/v1/me/deletion/otp/verify", { otp });
 }
 
 export async function startAccountDeletionOidcReauthentication(): Promise<void> {
-  await browserApiClient.postEmpty("/api/me/deletion/oidc/start");
+  await browserApiClient.postEmpty("/api/v1/me/deletion/oidc/start");
 }
 
 export async function deleteAccount(
   request: AccountDeletionRequest,
 ): Promise<AccountDeletionResult & { emailDelivery: string }> {
   return browserApiClient.readJsonResponse(
-    await browserApiClient.request("/api/me", {
+    await browserApiClient.request("/api/v1/me", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(request),

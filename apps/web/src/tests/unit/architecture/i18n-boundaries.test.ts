@@ -50,7 +50,7 @@ describe("i18n architecture boundaries", () => {
       join(sourceRoot, "shared", "presentation"),
     ]
       .flatMap(sourceFiles)
-      .filter((path) => path.endsWith(".tsx") && !path.includes("/app/api/"));
+      .filter((path) => path.endsWith(".tsx") && !path.includes("/app/api/v1/"));
     const literals = candidates.flatMap(userFacingJsxLiterals);
     expect(literals).toEqual([
       { path: "src/app/page.tsx", kind: "alt", value: "" },
@@ -69,7 +69,7 @@ describe("i18n architecture boundaries", () => {
     const switcher = readFileSync(join(sourceRoot, "i18n/locale-switcher.tsx"), "utf8");
     expect(worker).toContain('event.data?.type !== "RHSIA_REFRESH_OFFLINE_SHELL"');
     expect(worker).toContain("precachePublicShells");
-    expect(worker).toContain('url.pathname.startsWith("/api/")');
+    expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(switcher).toContain('refreshOfflineShellMessage = "RHSIA_REFRESH_OFFLINE_SHELL"');
     expect(worker).not.toMatch(/indexedDB|localStorage|sessionStorage|Background Sync|periodic/i);

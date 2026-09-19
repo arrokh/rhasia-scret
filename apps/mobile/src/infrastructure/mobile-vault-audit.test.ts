@@ -18,7 +18,7 @@ describe("mobile Shared Vault audit history", () => {
     const transport = new StubTransport({ events: [event], nextCursor: null });
     await expect(loadMobileVaultAuditEvents("shared_1", transport)).resolves.toEqual([event]);
     expect(transport.requestValue).toEqual({
-      url: "/api/shared-vaults/shared_1/audit-events",
+      url: "/v1/shared-vaults/shared_1/audit-events",
       method: "GET",
       cache: "no-store",
     });

@@ -22,7 +22,7 @@ describe("provider-neutral identity boundaries", () => {
   });
 
   it("models External Identity independently from Application User and uniquely by issuer and subject", () => {
-    const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8");
+    const schema = readFileSync(join(process.cwd(), "../api/prisma/schema.prisma"), "utf8");
     expect(schema).toContain("model ExternalIdentity");
     expect(schema).toContain("@@unique([issuer, subject])");
     expect(schema).toContain("externalIdentities        ExternalIdentity[]");

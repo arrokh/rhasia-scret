@@ -143,7 +143,7 @@ describe("PersonalVaultSetupForm", () => {
 
     expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abc", "Brankas Pribadi");
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/personal-vault/initialize",
+      "/api/v1/personal-vault/initialize",
       expect.objectContaining({ method: "POST" }),
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -190,7 +190,7 @@ describe("PersonalVaultSetupForm", () => {
       "Brankas Pribadi",
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/personal-vault/initialize",
+      "/api/v1/personal-vault/initialize",
       expect.objectContaining({ method: "POST" }),
     );
     expect(navigationMocks.refresh).toHaveBeenCalledOnce();

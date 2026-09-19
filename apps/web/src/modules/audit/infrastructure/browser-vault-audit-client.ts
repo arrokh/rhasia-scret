@@ -27,7 +27,7 @@ export async function loadVaultAuditEvents(
   const response = await browserApiClient.getJson<{
     events: Array<Omit<VaultAuditEvent, "eventType"> & { eventType: string }>;
     nextCursor: string | null;
-  }>(`/api/vaults/${encodeURIComponent(vaultId)}/audit-events${query}`, { cache: "no-store" });
+  }>(`/api/v1/vaults/${encodeURIComponent(vaultId)}/audit-events${query}`, { cache: "no-store" });
   return {
     events: response.events
       .filter(
@@ -41,18 +41,18 @@ export async function loadVaultAuditEvents(
 }
 
 export function recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
-  return browserApiClient.postEmpty(`/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`, {
+  return browserApiClient.postEmpty(`/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`, {
     eventType: "ACCOUNT_ACCESSED",
     accountId,
   });
 }
 
 export function recordVaultArchiveExport(vaultId: string): Promise<void> {
-  return browserApiClient.postEmpty(`/api/vaults/${encodeURIComponent(vaultId)}/archive-exports`);
+  return browserApiClient.postEmpty(`/api/v1/vaults/${encodeURIComponent(vaultId)}/archive-exports`);
 }
 
 export function recordPersonalVaultAccountCopiesToLocal(vaultId: string, accountIds: string[]): Promise<void> {
-  return browserApiClient.postEmpty(`/api/vaults/${encodeURIComponent(vaultId)}/audit-events`, {
+  return browserApiClient.postEmpty(`/api/v1/vaults/${encodeURIComponent(vaultId)}/audit-events`, {
     eventType: "ACCOUNT_COPIED_TO_LOCAL",
     accountIds,
   });

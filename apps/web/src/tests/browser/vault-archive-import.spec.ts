@@ -13,7 +13,7 @@ const sensitive = {
 test.describe("encrypted Vault archive import", () => {
   test("previews entirely in memory and explicit cancellation clears the draft before mutation", async ({ page }) => {
     let requests = 0;
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       requests += 1;
       await route.abort();
     });
@@ -45,7 +45,7 @@ test.describe("encrypted Vault archive import", () => {
     const consoleMessages: string[] = [];
     page.on("console", (message) => consoleMessages.push(message.text()));
     let requestBody: Record<string, unknown> | undefined;
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       requestBody = route.request().postDataJSON() as Record<string, unknown>;
       const destination = requestBody.destination as { vaultId: string };
       const accounts = requestBody.accounts as Array<{ id: string }>;
@@ -115,7 +115,7 @@ test.describe("encrypted Vault archive import", () => {
       secret: Uint8Array.from([1, 2, 3, 4]),
     };
     let requests = 0;
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       requests += 1;
       const body = route.request().postDataJSON() as {
         destination: { vaultId: string };
@@ -148,7 +148,7 @@ test.describe("encrypted Vault archive import", () => {
     const responseGate = new Promise<void>((resolve) => {
       releaseResponse = resolve;
     });
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       const body = route.request().postDataJSON() as {
         destination: { vaultId: string };
         accounts: Array<{ id: string }>;
@@ -177,7 +177,7 @@ test.describe("encrypted Vault archive import", () => {
   test("keeps the preview and exposes an atomic server failure instead of claiming partial success", async ({
     page,
   }) => {
-    await page.route("**/api/vault-imports", async (route) =>
+    await page.route("**/api/v1/vault-imports", async (route) =>
       route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -194,7 +194,7 @@ test.describe("encrypted Vault archive import", () => {
 
   test("rejects wrong keys and corrupt archives without requests", async ({ page }) => {
     let requests = 0;
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       requests += 1;
       await route.abort();
     });
@@ -212,7 +212,7 @@ test.describe("encrypted Vault archive import", () => {
 
   test("blocks and never queues import while offline", async ({ page, context }) => {
     let requests = 0;
-    await page.route("**/api/vault-imports", async (route) => {
+    await page.route("**/api/v1/vault-imports", async (route) => {
       requests += 1;
       await route.abort();
     });

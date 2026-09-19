@@ -16,10 +16,10 @@ const prfOutput = Uint8Array.from({ length: 32 }, (_, index) => index + 91);
 test.describe("production Remembered Browser UI", () => {
   test.beforeEach(async ({ page }) => {
     await installMockLocalVerification(page);
-    await page.route("**/api/passkey-recovery/status", (route) =>
+    await page.route("**/api/v1/passkey-recovery/status", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ enrolled: false }) }),
     );
-    await page.goto("/api/health");
+    await page.goto("/api/v1/health");
     await clearBrowserStorage(page);
     await page.goto("/ui-preview/remembered-browser");
     await page.getByRole("heading", { name: "Browser yang Diingat", exact: true }).last().waitFor();
@@ -85,7 +85,7 @@ test.describe("production Remembered Browser UI", () => {
     page,
   }) => {
     const bundle = await encryptedBundle();
-    await page.route("**/api/sync/offline-bundle", (route) =>
+    await page.route("**/api/v1/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
     );
     await page.getByRole("button", { name: "Ingat browser ini" }).click();
@@ -115,7 +115,7 @@ test.describe("production Remembered Browser UI", () => {
 
   test("falls back to the Vault Unlock Secret when Local Verification is unsupported", async ({ page }) => {
     const bundle = await encryptedBundle();
-    await page.route("**/api/sync/offline-bundle", (route) =>
+    await page.route("**/api/v1/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
     );
     await page.evaluate(() => {

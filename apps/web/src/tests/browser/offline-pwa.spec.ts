@@ -54,7 +54,7 @@ test.describe("encrypted read-only offline PWA", () => {
     expect(cachedUrls).toContain("/offline");
     expect(cachedUrls).toContain("/");
     expect(cachedUrls.some((url) => url.startsWith("/_next/static/"))).toBe(true);
-    expect(cachedUrls.some((url) => url.startsWith("/api/") || url.startsWith("/auth/"))).toBe(false);
+    expect(cachedUrls.some((url) => url.startsWith("/api/v1/") || url.startsWith("/auth/"))).toBe(false);
 
     await context.setOffline(true);
     await page.goto("/vaults", { waitUntil: "domcontentloaded" });
@@ -178,7 +178,7 @@ test.describe("encrypted read-only offline PWA", () => {
       expect(persisted).not.toContain(plaintext);
     }
 
-    await page.route("**/api/sync/offline-bundle", (route) =>
+    await page.route("**/api/v1/sync/offline-bundle", (route) =>
       route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -191,8 +191,8 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
 
     await context.setOffline(true);
-    await page.unroute("**/api/sync/offline-bundle");
-    await page.route("**/api/sync/offline-bundle", (route) =>
+    await page.unroute("**/api/v1/sync/offline-bundle");
+    await page.route("**/api/v1/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ schemaVersion: 999 }) }),
     );
     await context.setOffline(false);
@@ -201,8 +201,8 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
 
     await context.setOffline(true);
-    await page.unroute("**/api/sync/offline-bundle");
-    await page.route("**/api/sync/offline-bundle", (route) =>
+    await page.unroute("**/api/v1/sync/offline-bundle");
+    await page.route("**/api/v1/sync/offline-bundle", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reconciled.bundle) }),
     );
     await context.setOffline(false);

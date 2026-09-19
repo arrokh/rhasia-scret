@@ -4,7 +4,7 @@ import { openEncryptedVaultExport } from "@/modules/crypto/infrastructure/browse
 test.describe("encrypted Vault archive backup", () => {
   test("audits before releasing a client-only V1 archive and separate key", async ({ page }) => {
     let auditBody: string | null | undefined;
-    await page.route("**/api/vaults/preview-personal-vault/archive-exports", async (route) => {
+    await page.route("**/api/v1/vaults/preview-personal-vault/archive-exports", async (route) => {
       auditBody = route.request().postData();
       await route.fulfill({ status: 204 });
     });
@@ -54,7 +54,7 @@ test.describe("encrypted Vault archive backup", () => {
   });
 
   test("clears prepared archive material when the Vault is locked", async ({ page }) => {
-    await page.route("**/api/vaults/preview-personal-vault/archive-exports", async (route) =>
+    await page.route("**/api/v1/vaults/preview-personal-vault/archive-exports", async (route) =>
       route.fulfill({ status: 204 }),
     );
     await page.goto("/ui-preview/archive-backup");
@@ -71,7 +71,7 @@ test.describe("encrypted Vault archive backup", () => {
   });
 
   test("does not release archive or key when audit recording fails", async ({ page }) => {
-    await page.route("**/api/vaults/preview-personal-vault/archive-exports", async (route) =>
+    await page.route("**/api/v1/vaults/preview-personal-vault/archive-exports", async (route) =>
       route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -90,7 +90,7 @@ test.describe("encrypted Vault archive backup", () => {
 
   test("blocks and never queues backup while offline", async ({ page, context }) => {
     let auditRequests = 0;
-    await page.route("**/api/vaults/preview-personal-vault/archive-exports", async (route) => {
+    await page.route("**/api/v1/vaults/preview-personal-vault/archive-exports", async (route) => {
       auditRequests += 1;
       await route.abort();
     });

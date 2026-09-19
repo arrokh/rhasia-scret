@@ -32,7 +32,7 @@ export class MobileAuthenticatorAccountRepository {
 
   public async recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
     const response = await this.transport.request({
-      url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
+      url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ eventType: "ACCOUNT_ACCESSED", accountId }),

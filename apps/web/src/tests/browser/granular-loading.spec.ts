@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 test("keeps the Vault shell stable while only the selected async tab shows a placeholder", async ({ page }) => {
   let participantsRoute: Parameters<Parameters<typeof page.route>[1]>[0] | undefined;
   let auditRoute: Parameters<Parameters<typeof page.route>[1]>[0] | undefined;
-  await page.route("**/api/shared-vaults/shared-preview/participants**", async (route) => {
+  await page.route("**/api/v1/shared-vaults/shared-preview/participants**", async (route) => {
     participantsRoute = route;
   });
-  await page.route("**/api/vaults/shared-preview/audit-events**", async (route) => {
+  await page.route("**/api/v1/vaults/shared-preview/audit-events**", async (route) => {
     auditRoute = route;
   });
   await page.setViewportSize({ width: 390, height: 844 });

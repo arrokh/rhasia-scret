@@ -3,24 +3,24 @@
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 
 export function loadPasskeyRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
-  return browserApiClient.postJson("/api/passkey-recovery/registration/options", undefined, { cache: "no-store" });
+  return browserApiClient.postJson("/api/v1/passkey-recovery/registration/options", undefined, { cache: "no-store" });
 }
 
 export function verifyPasskeyRegistration(request: {
   response: unknown;
   encryptedRecoveryPackage: string;
 }): Promise<void> {
-  return browserApiClient.postEmpty("/api/passkey-recovery/registration/verify", request);
+  return browserApiClient.postEmpty("/api/v1/passkey-recovery/registration/verify", request);
 }
 
 export function loadPasskeyAuthenticationOptions(): Promise<
   PublicKeyCredentialRequestOptionsJSON & { encryptedRecoveryPackage: string }
 > {
-  return browserApiClient.postJson("/api/passkey-recovery/authentication/options", undefined, { cache: "no-store" });
+  return browserApiClient.postJson("/api/v1/passkey-recovery/authentication/options", undefined, { cache: "no-store" });
 }
 
 export function verifyPasskeyAuthentication(response: unknown): Promise<{ encryptedRecoveryPackage: string }> {
-  return browserApiClient.postJson("/api/passkey-recovery/authentication/verify", { response });
+  return browserApiClient.postJson("/api/v1/passkey-recovery/authentication/verify", { response });
 }
 
 export function rewrapUserCryptoProfile(request: {
@@ -29,7 +29,7 @@ export function rewrapUserCryptoProfile(request: {
   encryptedPersonalVaultKey?: string;
   encryptionVersion: number;
 }): Promise<void> {
-  return browserApiClient.postEmpty("/api/user-crypto-profile/rewrap", request);
+  return browserApiClient.postEmpty("/api/v1/user-crypto-profile/rewrap", request);
 }
 
 export function rewrapUserRootKey(request: {

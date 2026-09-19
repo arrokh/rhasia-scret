@@ -11,7 +11,7 @@ describe("Personal Vault copy audit client", () => {
 
     await recordPersonalVaultAccountCopiesToLocal("vault/1", ["account-1", "account-2"]);
 
-    expect(mocks.postEmpty).toHaveBeenCalledWith("/api/vaults/vault%2F1/audit-events", {
+    expect(mocks.postEmpty).toHaveBeenCalledWith("/api/v1/vaults/vault%2F1/audit-events", {
       eventType: "ACCOUNT_COPIED_TO_LOCAL",
       accountIds: ["account-1", "account-2"],
     });

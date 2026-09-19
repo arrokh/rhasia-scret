@@ -1,6 +1,6 @@
 "use client";
 
-import { isSafePwaHandoffId, isSafePwaHandoffVerifier } from "../application/passwordless-authentication";
+import { isSafePwaHandoffId, isSafePwaHandoffVerifier } from "../application/passwordless-client-contract";
 
 const PWA_AUTH_HANDOFF_STORAGE_KEY = "rhasia-scret:pwa-auth-handoff";
 const PWA_AUTH_HANDOFF_CHANNEL_NAME = "rhasia-scret:pwa-authentication-handoff";

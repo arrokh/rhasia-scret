@@ -39,7 +39,7 @@ describe("OwnedSharedVaultResetBlocker", () => {
       (button) => button.textContent === "Hapus brankas" && button.closest('[role="dialog"]'),
     );
     await act(async () => confirm?.click());
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
     expect(mocks.refresh).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("Semua anggota akan langsung kehilangan akses");
   });

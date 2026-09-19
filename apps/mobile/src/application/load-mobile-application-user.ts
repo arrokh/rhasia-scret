@@ -7,7 +7,7 @@ export type MobileApplicationUserResult =
 export async function loadMobileApplicationUser(
   transport: AuthenticatedTransport,
 ): Promise<MobileApplicationUserResult> {
-  const response = await transport.request({ url: "/api/me", method: "GET", cache: "no-store" });
+  const response = await transport.request({ url: "/v1/me", method: "GET", cache: "no-store" });
   if (response.status === 401) return { status: "unauthenticated" };
   if (response.status === 403) return { status: "inactive" };
   if (!response.ok) return { status: "unavailable" };

@@ -12,7 +12,7 @@ describe("loadVaultParticipants", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(loadVaultParticipants("vault/1", "opaque cursor")).resolves.toEqual(page);
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/vault%2F1/participants?cursor=opaque+cursor", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/vault%2F1/participants?cursor=opaque+cursor", {
       cache: "no-store",
       method: "GET",
     });

@@ -1,5 +1,5 @@
 const secret = process.env.CRON_SECRET?.trim();
-const targetUrl = process.env.RETENTION_PURGE_URL ?? "http://web:3000/api/internal/retention-purge";
+const targetUrl = process.env.RETENTION_PURGE_URL ?? "http://api:8787/v1/internal/retention-purge";
 const requestTimeoutMs = 10_000;
 
 if (!secret || secret.length < 32) {
