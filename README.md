@@ -68,7 +68,7 @@ The server stores only encrypted content and permitted authorization/lifecycle m
 
 See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
 
-Release candidates follow the [release process](docs/release-process.md) and must have a completed [launch-readiness record](docs/release-readiness/2026-09-08.md) before a tag or GitHub Release is published.
+Release candidates follow the [release process](docs/release-process.md) and must have a completed [current launch-readiness record](docs/release-readiness/2026-09-18.md) before a tag or GitHub Release is published.
 
 ## Prerequisites
 
@@ -98,10 +98,10 @@ mise run setup
 cp .env.example .env
 pnpm install --frozen-lockfile
 pnpm run prisma:generate
-pnpm run prisma:migrate:deploy
+node tools/confirm-database-operation.mjs 'the local development database migration' && pnpm run prisma:migrate:deploy
 ```
 
-For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
+The migration command changes the selected database and must be run only after explicit approval for that environment. For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
 
 ### Docker-backed local database
 

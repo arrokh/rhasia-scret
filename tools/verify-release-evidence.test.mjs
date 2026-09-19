@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findUnpinnedActionReferences, parseReadinessRecord } from "./verify-release-evidence.mjs";
+import { defaultRecord, findUnpinnedActionReferences, parseReadinessRecord } from "./verify-release-evidence.mjs";
 
 const validRecord = `# Launch readiness — 2026-09-08
 
@@ -50,6 +50,12 @@ test("rejects a readiness record with missing metadata and sections", () => {
   assert.ok(result.failures.some((failure) => failure.includes("Candidate version")));
   assert.ok(result.failures.some((failure) => failure.includes("Evidence owner")));
   assert.ok(result.failures.some((failure) => failure.includes("## External evidence")));
+});
+
+test("uses the current readiness record by default", () => {
+  assert.equal(defaultRecord, "docs/release-readiness/2026-09-18.md");
+  const result = parseReadinessRecord("");
+  assert.ok(result.failures.every((failure) => failure.includes(defaultRecord)));
 });
 
 test("finds unpinned actions in YAML list items", () => {
