@@ -150,6 +150,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shared_totp_vault_test?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/shared_totp_vault_test?schema=public
+      REQUIRE_DATABASE_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -181,6 +182,8 @@ jobs:
         run: pnpm run prisma:validate
       - name: Apply migrations
         run: pnpm run prisma:migrate:deploy
+      - name: Run API unit and PostgreSQL integration tests
+        run: pnpm --filter @rhasia-scret/api run test:full
       - name: Lint
         run: pnpm --filter @rhasia-scret/web run lint
       - name: Typecheck

@@ -170,7 +170,7 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-`pnpm run test:full` is the required repository gate. It runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and a local PostgreSQL service for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected.
+`pnpm run test:full` is the required repository gate. Locally, it automatically creates and uses a disposable PostgreSQL 16 Testcontainer, applies migrations only inside that container, and removes it afterward; it never uses the development/local database. In CI, the same command selects the job-scoped PostgreSQL service instead. The gate runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
 
 Focused and release commands:
 
@@ -180,6 +180,7 @@ pnpm run test:full:core
 pnpm run test:full:web
 pnpm run test:full:mobile
 pnpm run test:full:direct
+pnpm run test:full:hosted
 pnpm run test:parallel
 pnpm run ci:local
 
@@ -194,7 +195,10 @@ pnpm run test:browser:pwa
 pnpm run test:browser:oidc
 pnpm run test:performance
 
-# Database, build, and repository policy checks
+# API database and repository policy checks
+pnpm run test:unit:api
+pnpm --filter @rhasia-scret/api test:integration
+pnpm run test:integration:container
 pnpm run prisma:validate
 pnpm run verify:database
 pnpm run verify:deployment-config
@@ -212,7 +216,7 @@ mise exec -- pnpm --dir apps/mobile run build:ios-simulator
 mise exec -- pnpm --dir apps/mobile run test:android-native
 ```
 
-For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobile-release-configuration.md). Focused command details, database setup, browser runtime behavior, and CI topology are listed in [`docs/monorepo.md`](docs/monorepo.md), [`docs/browser-test-runtime.md`](docs/browser-test-runtime.md), and [`docs/continuous-integration.md`](docs/continuous-integration.md).
+For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobile-release-configuration.md). Focused command details, disposable database setup, browser runtime behavior, and CI topology are listed in [`docs/monorepo.md`](docs/monorepo.md), [`docs/browser-test-runtime.md`](docs/browser-test-runtime.md), and [`docs/continuous-integration.md`](docs/continuous-integration.md).
 
 ## Authentication modes
 

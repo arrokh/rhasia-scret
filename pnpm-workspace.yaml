@@ -27,12 +27,15 @@ overrides:
 
 allowBuilds:
   "@parcel/watcher": false
+  cpu-features: false
   "@prisma/engines": true
   "@swc/core": false
   core-js: true
   esbuild: true
+  protobufjs: false
   prisma: true
   sharp: true
+  ssh2: false
   unrs-resolver: true
   workerd: true
 onlyBuiltDependencies:

@@ -21,7 +21,7 @@ The main-push and pull-request workflow targets a sub-five-minute critical path 
 
 - **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
-- **Quality:** Prisma generation/schema and staged passwordless migration verification, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
+- **Quality:** Prisma generation/schema and staged passwordless migration verification, API lint/typecheck/unit/real-PostgreSQL integration/build checks, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
 - **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
@@ -79,5 +79,14 @@ CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e 
 ```
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
+
+For local verification, Docker must be running: `pnpm run test:full` automatically uses the disposable Testcontainers PostgreSQL gate. The focused equivalents are:
+
+```bash
+pnpm run test:integration:container
+pnpm run test:full:container
+```
+
+The container runner creates the database itself, generates Prisma Client, applies the checked-in migrations through the staged passwordless migration workflow, runs the requested tests with `REQUIRE_DATABASE_INTEGRATION=1`, and removes the PostgreSQL container afterward. Because both database URLs are overridden only after the disposable container starts, no migration opt-in variable is needed and the development/local database cannot be selected by this command. `pnpm run test:full:hosted` is the explicit underlying gate for an already-provisioned database. GitHub Actions uses job-scoped PostgreSQL service containers instead of Testcontainers, then runs the hosted gate with the same strict database-integration policy.
 
 The policy verifier checks the main and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.
