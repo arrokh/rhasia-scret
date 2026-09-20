@@ -16,6 +16,7 @@ describe("workspace environment contract", () => {
     expect(example).toContain("# Docker Compose: database bootstrap and published web port");
     expect(example).toContain("AUTH_BACKEND=passwordless");
     expect(example).toContain("EXPO_PUBLIC_API_URL=");
+    expect(example).toContain("NEXT_ALLOWED_DEV_ORIGINS=");
   });
 
   it("keeps API-only variables out of every local web runtime", () => {
@@ -47,6 +48,7 @@ describe("workspace environment contract", () => {
       "utf8",
     );
     expect(nextConfig).toContain("allowedKeys: WEB_RUNTIME_ENVIRONMENT_KEYS");
+    expect(nextConfig).toContain("NEXT_ALLOWED_DEV_ORIGINS");
     expect(deploymentConfig).toContain("API_ONLY_ENVIRONMENT_KEYS");
     expect(deploymentConfig).toContain('"SMTP_PASSWORD"');
     expect(environmentLoader).not.toContain('"SMTP_PASSWORD"');

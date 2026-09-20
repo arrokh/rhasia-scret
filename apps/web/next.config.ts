@@ -49,7 +49,8 @@ const securityHeaders = [
 const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
 const isSelfHostedDockerBuild = process.env.SELF_HOSTED_DOCKER_BUILD === "1";
 const configuredPasskeyHost = hostnameFromOrigin(process.env.PASSKEY_ORIGIN);
-const allowedDevOrigins = ["0.0.0.0", "127.0.0.1", configuredPasskeyHost].filter(
+const configuredAllowedDevOrigins = parseAllowedDevOrigins(process.env.NEXT_ALLOWED_DEV_ORIGINS);
+const allowedDevOrigins = ["0.0.0.0", "127.0.0.1", configuredPasskeyHost, ...configuredAllowedDevOrigins].filter(
   (origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index,
 );
 
@@ -80,4 +81,13 @@ function hostnameFromOrigin(origin: string | undefined): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function parseAllowedDevOrigins(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .map((origin) => hostnameFromOrigin(origin) ?? origin)
+    .filter((origin, index, origins) => origins.indexOf(origin) === index);
 }

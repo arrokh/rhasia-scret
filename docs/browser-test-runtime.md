@@ -10,6 +10,16 @@
 
 Firefox and WebKit are intentionally deferred and commented out of both the CI workflow matrix and Playwright project configuration. No Firefox or WebKit test is expected for this support focus.
 
+## Remote development HMR
+
+Next.js dev resources are same-origin by default. When the development server is opened through a Tailnet or LAN hostname, add the hostname to the root `.env` without a hard-coded source change:
+
+```dotenv
+NEXT_ALLOWED_DEV_ORIGINS=your-machine.tailnet.example
+```
+
+Multiple hostnames or origins may be supplied as a comma-separated value. `apps/web/next.config.ts` normalizes origins to hostnames and passes them to `allowedDevOrigins`; restart the Next.js dev server after changing `.env`. Keep this development-only variable out of production deployment configuration.
+
 The local gate uses a collision-free four-port block and distinct Next development output directories for smoke and encrypted workflows. Unless `BROWSER_TEST_PORT` is set, the gate allocates a base port at runtime and verifies that the web ports (`base`, `base + 1`) and API ports (`base + 5687`, `base + 5688`) are available; it never kills an existing process. All browser identities, labels, issuer values, and payloads are synthetic and non-PII; use reserved example values and never user-provided data. The development suites run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with its own PostgreSQL service. Smoke keeps one worker for stability; encrypted workflows use two workers because their scenarios use distinct browser-E2E identities. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
 
 CI and the required local gate focus on Chromium. Firefox and WebKit are commented out of the hosted matrix and Playwright project configuration, and no non-Chromium coverage is expected.
