@@ -95,6 +95,18 @@ _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 A replaceable server-side adapter that verifies an external identity and exposes a provider-neutral Verified Principal. The hosted default is the self-managed passwordless adapter; OIDC remains an optional interoperability adapter. Provider SDKs, OAuth/OIDC protocol types, provider cookies, tokens, and callback mechanics never cross the Identity bounded-context boundary.
 _Avoid_: provider user in domain code, provider-owned Application User, email-based account merge
 
+**API Application Runtime**:
+The request-scoped server composition module that exposes named bounded-context capabilities to HTTP route handlers. It owns adapter construction and memoization while hiding Prisma and database wiring; it does not own authorization policy or encrypted-content interpretation.
+_Avoid_: route-local repository factory, global repository singleton, Prisma in route handlers
+
+**Identity Runtime**:
+The request-scoped identity composition module that selects the configured Authentication Provider and shares the resulting lifecycle adapters for passwordless redemption, session verification, refresh, PWA handoff, and termination. It exposes provider-neutral application interfaces and never exposes provider credentials or client-only secrets.
+_Avoid_: route-local backend selection, duplicate passwordless service, provider session in HTTP handlers
+
+**Application User Deletion Completion Workflow**:
+The application workflow that invokes the authorized atomic deletion, then records best-effort completion-email delivery without allowing email failure to undo the committed deletion. HTTP origin, cookie, and response mapping remain outside the workflow.
+_Avoid_: email-gated deletion, rollback after committed deletion, transport-owned deletion orchestration
+
 **Magic-Link Email Delivery**:
 The server-only delivery path for self-managed passwordless sign-in and signup emails. The server creates a one-time random token, persists only its keyed digest, and sends the token plus validated non-sensitive routing hints in a transient URL fragment through the configured Nodemailer SMTP transport. Redemption creates or loads the local External Identity and rotates a database-backed session, then announces completion so an open invitation tab can restore its client-only Secure Share Link fragment. A request from an installed PWA uses the PWA callback path, a handoff identifier, and a verifier whose keyed digests and normalized request email are retained in a short-lived server handoff row; the publisher must match the redeemed session to that email before binding it, while the session credential remains transient and is never persisted in the email or URL. Secure Share Link secrets remain client-created, client-held, and out-of-band; they never enter the magic-link request or email service.
 _Avoid_: plaintext token persistence, provider-owned session authority, email-delivered Secure Share Link

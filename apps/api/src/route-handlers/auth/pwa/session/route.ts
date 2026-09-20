@@ -35,7 +35,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
 
   try {
     const context = getApiRequestContext(request);
-    const service = context.passwordlessAuth;
+    const service = context.identity.passwordlessAuth;
     if ("refreshToken" in body) {
       await service.publishPwaHandoff(body.refreshToken, body.handoffId);
       return ApiResponse.json({ published: true }, { headers: noStoreHeaders() });

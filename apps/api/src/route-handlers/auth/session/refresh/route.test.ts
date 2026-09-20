@@ -21,27 +21,29 @@ function request(body: unknown, headers: Record<string, string> = {}) {
   attachApiRequestContext(request, {
     database: {},
     bindings: {},
-    sessionVerifier: { verify: async () => ({ assurance: "active-session" }) },
-    sessionTerminator: { terminateCurrentSession: async () => undefined },
-    passwordlessAuth: {
-      requestLink: async () => undefined,
-      redeem: async () => null,
-      verifyAccessToken: async () => null,
-      verifyBrowserSession: async () => null,
-      refresh,
-      revoke: async () => undefined,
-      publishPwaHandoff: async () => undefined,
-      redeemPwaHandoff: async () => null,
-    },
-    applicationUsers: {
-      provision: async () => {
-        throw new Error("not used");
+    identity: {
+      sessionVerifier: { verify: async () => ({ assurance: "active-session" }) },
+      sessionTerminator: { terminateCurrentSession: async () => undefined },
+      passwordlessAuth: {
+        requestLink: async () => undefined,
+        redeem: async () => null,
+        verifyAccessToken: async () => null,
+        verifyBrowserSession: async () => null,
+        refresh,
+        revoke: async () => undefined,
+        publishPwaHandoff: async () => undefined,
+        redeemPwaHandoff: async () => null,
       },
-    },
-    userCryptoProfiles: {
-      get: async () => null,
-      registerUserEncryptionIdentity: async () => undefined,
-      rewrapUserRootKey: async () => undefined,
+      applicationUsers: {
+        provision: async () => {
+          throw new Error("not used");
+        },
+      },
+      userCryptoProfiles: {
+        get: async () => null,
+        registerUserEncryptionIdentity: async () => undefined,
+        rewrapUserRootKey: async () => undefined,
+      },
     },
     checkApplicationRateLimit: async () => ({ status: "allowed", retryAfterSeconds: 0 }),
   } as unknown as ApiRequestContext);

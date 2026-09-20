@@ -33,6 +33,8 @@ Cloudflare Turnstile remains an API integration. It is not a runtime-hosting dep
 
 The Vercel adapter normalizes `/api/**` function paths back to canonical `/v1/**` paths, preserves request bodies and query strings, and uses the Hono Node listener so response headers and repeated `Set-Cookie` values are retained. `apps/api/vercel.json` defines the `/v1/**` rewrite, function timeout, and daily retention cron at `0 3 * * *`.
 
+The implemented composition and lifecycle deepening seams are documented in [`api-architecture-deepening.md`](api-architecture-deepening.md).
+
 ## Environment boundaries
 
 API runtime configuration is server-only:

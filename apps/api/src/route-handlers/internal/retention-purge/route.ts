@@ -1,6 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
-import { createRetentionPurgeService, type RetentionPurgeReport } from "@api/modules/retention/server";
+import type { RetentionPurgeReport } from "@api/modules/retention/server";
 import { constantTimeEqual, sha256Digest, randomUuidWithoutDashes } from "@api/shared/infrastructure/crypto";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export async function GET(request: ApiRequest) {
   const context = getApiRequestContext(request);
   return createRetentionPurgeHandler({
     secret: context.bindings.CRON_SECRET,
-    purge: () => createRetentionPurgeService(context.database)(new Date()),
+    purge: () => context.applicationRuntime.retentionPurge()(new Date()),
     logger: {
       info: (event) => console.info(JSON.stringify(event)),
       error: (event) => console.error(JSON.stringify(event)),

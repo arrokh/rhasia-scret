@@ -2,7 +2,6 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import {
-  createAccountDeletionRepository,
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
   type AccountDeletionEmailSender,
@@ -48,7 +47,7 @@ export async function POST(request: ApiRequest) {
   return createRequestDeletionOtpHandler({
     authenticate: authenticateApplicationMutation,
     backend: () => authBackend(context.bindings),
-    repository: createAccountDeletionRepository(context.database, context.bindings),
+    repository: context.applicationRuntime.accountDeletion(),
     sender: context.emailSenders.accountDeletion,
   })(request);
 }

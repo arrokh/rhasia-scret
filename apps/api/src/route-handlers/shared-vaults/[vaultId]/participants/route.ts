@@ -1,10 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse } from "@api/http/api-request";
-import {
-  createVaultParticipantRepository,
-  listVaultParticipantsForOwner,
-  parseVaultParticipantCursorKey,
-} from "@api/modules/vault-membership/server";
+import { listVaultParticipantsForOwner, parseVaultParticipantCursorKey } from "@api/modules/vault-membership/server";
 import { authenticateApplicationReader } from "@api/shared/infrastructure/authenticated-application-request";
 import {
   encodeTimestampCursor,
@@ -26,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
     user.id,
     vaultId,
     pagination.request,
-    createVaultParticipantRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.vaultParticipants(),
   );
   if (!page) return ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
   return ApiResponse.json({

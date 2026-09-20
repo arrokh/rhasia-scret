@@ -2,11 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  createVaultAuditRepository,
-  listVaultAuditForOwner,
-  recordPersonalVaultAccountCopiesToLocal,
-} from "@api/modules/audit/server";
+import { listVaultAuditForOwner, recordPersonalVaultAccountCopiesToLocal } from "@api/modules/audit/server";
 import {
   authenticateApplicationMutation,
   authenticateApplicationReader,
@@ -43,7 +39,7 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
     user.id,
     vaultId,
     parsed.data.accountIds,
-    createVaultAuditRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.vaultAudit(),
   );
   return recorded
     ? new ApiResponse(null, { status: 204 })
@@ -72,7 +68,7 @@ export async function GET(request: ApiRequest, { params }: { params: Promise<{ v
     vaultId,
     parsedFilter.data,
     pagination.request,
-    createVaultAuditRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.vaultAudit(),
   );
   if (!page) return ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
   return ApiResponse.json(

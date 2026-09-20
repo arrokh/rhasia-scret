@@ -1,7 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
-import { createUserCryptoProfileRepository, type UserCryptoProfileRepository } from "@api/modules/identity/server";
+import { type UserCryptoProfileRepository } from "@api/modules/identity/server";
 import { authenticateApplicationReader } from "@api/shared/infrastructure/authenticated-application-request";
 
 type Dependencies = { authenticate: typeof authenticateApplicationReader; cryptoProfiles: UserCryptoProfileRepository };
@@ -28,6 +28,6 @@ export function createGetUserCryptoProfileHandler({ authenticate, cryptoProfiles
 export async function GET(request: ApiRequest) {
   return createGetUserCryptoProfileHandler({
     authenticate: authenticateApplicationReader,
-    cryptoProfiles: createUserCryptoProfileRepository(getApiRequestContext(request).database),
+    cryptoProfiles: getApiRequestContext(request).applicationRuntime.userCryptoProfiles(),
   })(request);
 }

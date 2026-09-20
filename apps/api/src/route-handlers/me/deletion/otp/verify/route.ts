@@ -7,7 +7,6 @@ import {
   AccountDeletionChallengeUnavailableError,
   AccountDeletionOtpInvalidError,
   AccountDeletionOtpLockedError,
-  createAccountDeletionRepository,
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
   setDeletionAuthorizationCookie,
@@ -52,6 +51,6 @@ export async function POST(request: ApiRequest) {
   const context = getApiRequestContext(request);
   return createVerifyDeletionOtpHandler({
     authenticate: authenticateApplicationMutation,
-    repository: createAccountDeletionRepository(context.database, context.bindings),
+    repository: context.applicationRuntime.accountDeletion(),
   })(request);
 }

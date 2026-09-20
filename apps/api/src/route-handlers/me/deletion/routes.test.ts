@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiResponse } from "@api/http/api-request";
 import { apiTestRequest, testApiBindings } from "@api/tests/support/api-request";
+import { createApiApplicationRuntime } from "@api/modules/server-composition/runtime";
 
 const mocks = vi.hoisted(() => ({
   authenticateReader: vi.fn(),
@@ -54,8 +55,12 @@ import { createRequestDeletionOtpHandler } from "@api/route-handlers/me/deletion
 import { createVerifyDeletionOtpHandler } from "@api/route-handlers/me/deletion/otp/verify/route";
 
 const user = { id: "user-1", email: "person@example.test" };
+const applicationRuntime = {
+  ...createApiApplicationRuntime({} as never, testApiBindings),
+  accountDeletion: () => mocks.repo,
+};
 const request = (path: string, init: RequestInit = {}, context: Record<string, unknown> = {}) =>
-  apiTestRequest(path, init, context as never);
+  apiTestRequest(path, init, { applicationRuntime, ...context } as never);
 
 beforeEach(() => {
   mocks.authenticateReader.mockResolvedValue(user);
@@ -103,7 +108,13 @@ describe("account deletion API routes", () => {
         { method: "POST", headers: { cookie: "rhsia-deletion-oidc-challenge=challenge-1" } },
         {
           bindings: { ...testApiBindings, AUTH_BACKEND: "oidc" },
-          sessionVerifier: { verify: mocks.sessionVerify },
+          identity: {
+            sessionVerifier: { verify: mocks.sessionVerify },
+            sessionTerminator: { terminateCurrentSession: async () => undefined },
+            passwordlessAuth: {} as never,
+            applicationUsers: {} as never,
+            userCryptoProfiles: {} as never,
+          },
         },
       ),
     );

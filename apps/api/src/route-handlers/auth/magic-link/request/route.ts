@@ -4,8 +4,6 @@ import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import { logApiDependencyFailure } from "@api/shared/infrastructure/logging";
 import {
-  createAnonymousAuthRateLimiter,
-  createTurnstileValidator,
   isSafePwaHandoffId,
   isSafePwaHandoffVerifier,
   isSafeTurnstileToken,
@@ -63,7 +61,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   let limit: Readonly<{ allowed: boolean; retryAfterSeconds: number }>;
   try {
     const context = getApiRequestContext(request);
-    const limiter = createAnonymousAuthRateLimiter(context.database, context.bindings);
+    const limiter = context.applicationRuntime.anonymousAuthRateLimiter();
     limit = await limiter.check(body.email.trim().toLowerCase(), requestClientIp(request), new Date());
   } catch (error) {
     logApiDependencyFailure(request, "magic_link_request_rate_limit_unavailable", error);
@@ -79,7 +77,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
     );
 
   try {
-    await getApiRequestContext(request).passwordlessAuth.requestLink({
+    await getApiRequestContext(request).identity.passwordlessAuth.requestLink({
       email: body.email,
       client: body.client,
       returnPath: body.returnPath,
@@ -94,7 +92,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
 
 async function validateTurnstile(request: ApiRequest, token: string): Promise<"valid" | "invalid" | "unavailable"> {
   try {
-    return await createTurnstileValidator(getApiRequestContext(request).bindings).validate(token);
+    return await getApiRequestContext(request).applicationRuntime.turnstile().validate(token);
   } catch (error) {
     logApiDependencyFailure(request, "magic_link_request_turnstile_unavailable", error);
     return "unavailable";

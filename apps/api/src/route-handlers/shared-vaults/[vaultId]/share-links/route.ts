@@ -5,7 +5,6 @@ import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validat
 import { z } from "zod";
 import {
   createSecureShareLinkInvitation,
-  createSecureShareLinkRepository,
   InvitationConflictError,
   InvitationRecipientUnavailableError,
   MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
@@ -35,7 +34,7 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
         linkVerifier: Buffer.from(parsed.data.linkVerifier, "base64"),
         encryptedPackage: Buffer.from(parsed.data.encryptedPackage, "base64"),
       },
-      createSecureShareLinkRepository(getApiRequestContext(request).database),
+      getApiRequestContext(request).applicationRuntime.secureShareLinks(),
     );
     return ApiResponse.json({ id: link.id, expiresAt: link.expiresAt.toISOString() }, { status: 201 });
   } catch (error) {

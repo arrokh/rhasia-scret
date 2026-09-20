@@ -4,11 +4,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  browserE2eAuthenticationVerified,
-  createPasskeyRecoveryRepository,
-  passkeyRecoveryConfiguration,
-} from "@api/modules/identity/server";
+import { browserE2eAuthenticationVerified, passkeyRecoveryConfiguration } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const bodySchema = z.object({ response: z.unknown() }).strict();
@@ -19,7 +15,7 @@ export async function POST(request: ApiRequest) {
   const parsed = await safeParseJsonBody(request, bodySchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
-    const repository = createPasskeyRecoveryRepository(getApiRequestContext(request).database);
+    const repository = getApiRequestContext(request).applicationRuntime.passkeyRecovery();
     const [challenge, credential] = await Promise.all([
       repository.consumeChallenge(user.id, "AUTHENTICATION"),
       repository.getCredential(user.id),

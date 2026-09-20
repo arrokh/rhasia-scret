@@ -3,11 +3,8 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import { createSharedVaultRepository, type SharedVaultRepository } from "@api/modules/vault-management/server";
-import {
-  createSharedVaultAccessRepository,
-  type SharedVaultAccessRepository,
-} from "@api/modules/vault-membership/server";
+import { type SharedVaultRepository } from "@api/modules/vault-management/server";
+import { type SharedVaultAccessRepository } from "@api/modules/vault-membership/server";
 import {
   authenticateApplicationMutation,
   authenticateApplicationReader,
@@ -80,13 +77,13 @@ export function createListSharedVaultsHandler({
 export async function GET(request: ApiRequest) {
   return createListSharedVaultsHandler({
     authenticate: authenticateApplicationReader,
-    sharedVaultAccess: createSharedVaultAccessRepository(getApiRequestContext(request).database),
+    sharedVaultAccess: getApiRequestContext(request).applicationRuntime.sharedVaultAccess(),
   })(request);
 }
 
 export async function POST(request: ApiRequest) {
   return createSharedVaultHandler({
     authenticate: authenticateApplicationMutation,
-    sharedVaults: createSharedVaultRepository(getApiRequestContext(request).database),
+    sharedVaults: getApiRequestContext(request).applicationRuntime.sharedVaults(),
   })(request);
 }

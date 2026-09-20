@@ -9,7 +9,6 @@ import {
   safeParseJsonBody,
 } from "@api/http/validation";
 import { z } from "zod";
-import { createVaultKeyRotationRepository } from "@api/modules/vault-management/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const ciphertext = boundedEncryptedBlobSchema();
@@ -34,10 +33,9 @@ export async function PATCH(request: ApiRequest, { params }: { params: Promise<{
   if (!parsed.success) return ApiResponse.json({ error: "invalid_rotation" }, { status: 400 });
   const { vaultId } = await params;
   const data = parsed.data;
-  const rotated = await createVaultKeyRotationRepository(getApiRequestContext(request).database).rotate(
-    user.id,
-    vaultId,
-    {
+  const rotated = await getApiRequestContext(request)
+    .applicationRuntime.vaultKeyRotation()
+    .rotate(user.id, vaultId, {
       encryptedName: Buffer.from(data.encryptedName, "base64"),
       encryptionVersion: data.encryptionVersion,
       keyVersion: data.keyVersion,
@@ -49,8 +47,7 @@ export async function PATCH(request: ApiRequest, { params }: { params: Promise<{
         userId: member.userId,
         encryptedVaultKey: Buffer.from(member.encryptedVaultKey, "base64"),
       })),
-    },
-  );
+    });
   return rotated
     ? new ApiResponse(null, { status: 204 })
     : ApiResponse.json({ error: "rotation_rejected" }, { status: 409 });

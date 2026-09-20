@@ -55,10 +55,12 @@ const session = {
   principal: { email: "person@example.test" },
 };
 const context = {
-  passwordlessAuth: mocks.passwordlessAuth as unknown as ApiRequestContext["passwordlessAuth"],
-  sessionVerifier: mocks.sessionVerifier as unknown as ApiRequestContext["sessionVerifier"],
-  sessionTerminator: mocks.sessionTerminator as unknown as ApiRequestContext["sessionTerminator"],
-};
+  identity: {
+    passwordlessAuth: mocks.passwordlessAuth as unknown as ApiRequestContext["identity"]["passwordlessAuth"],
+    sessionVerifier: mocks.sessionVerifier as unknown as ApiRequestContext["identity"]["sessionVerifier"],
+    sessionTerminator: mocks.sessionTerminator as unknown as ApiRequestContext["identity"]["sessionTerminator"],
+  },
+} as unknown as Partial<ApiRequestContext>;
 const request = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   apiTestRequest(
     path,

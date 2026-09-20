@@ -4,11 +4,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  browserE2eRegistrationCredential,
-  createPasskeyRecoveryRepository,
-  passkeyRecoveryConfiguration,
-} from "@api/modules/identity/server";
+import { browserE2eRegistrationCredential, passkeyRecoveryConfiguration } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const bodySchema = z
@@ -24,7 +20,7 @@ export async function POST(request: ApiRequest) {
   const parsed = await safeParseJsonBody(request, bodySchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
-    const repository = createPasskeyRecoveryRepository(getApiRequestContext(request).database);
+    const repository = getApiRequestContext(request).applicationRuntime.passkeyRecovery();
     const challenge = await repository.consumeChallenge(user.id, "REGISTRATION");
     if (!challenge) return ApiResponse.json({ error: "passkey_challenge_expired" }, { status: 400 });
     const registrationResponse = parsed.data.response as RegistrationResponseJSON;

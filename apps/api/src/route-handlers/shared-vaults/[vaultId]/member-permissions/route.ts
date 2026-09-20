@@ -3,7 +3,6 @@ import { ApiResponse } from "@api/http/api-request";
 import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
-  createSharedVaultAccountPermissionRepository,
   loadSharedVaultMemberPermissionDefaults,
   updateSharedVaultMemberPermissionDefaults,
 } from "@api/modules/vault-membership/server";
@@ -28,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
   const defaults = await loadSharedVaultMemberPermissionDefaults(
     user.id,
     vaultId,
-    createSharedVaultAccountPermissionRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.sharedVaultAccountPermissions(),
   );
   if (!defaults) return ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
   return ApiResponse.json({
@@ -52,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
       canEditAccounts: parsed.data.canEditAccounts,
       canDeleteAccounts: parsed.data.canDeleteAccounts,
     },
-    createSharedVaultAccountPermissionRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.sharedVaultAccountPermissions(),
   );
   if (result.status === "UNAVAILABLE") return ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
   if (result.status === "STALE") return ApiResponse.json({ error: "stale_permissions_revision" }, { status: 409 });

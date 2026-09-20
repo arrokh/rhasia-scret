@@ -3,8 +3,6 @@ import { ApiResponse } from "@api/http/api-request";
 import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
-  createMembershipLifecycleRepository,
-  createSharedVaultAccountPermissionRepository,
   MembershipUnavailableError,
   revokeVaultMembership,
   updateSharedVaultMemberPermissionOverrides,
@@ -36,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ va
       canEditAccounts: parsed.data.canEditAccounts,
       canDeleteAccounts: parsed.data.canDeleteAccounts,
     },
-    createSharedVaultAccountPermissionRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.sharedVaultAccountPermissions(),
   );
   if (result.status === "UNAVAILABLE") return ApiResponse.json({ error: "member_unavailable" }, { status: 404 });
   if (result.status === "STALE") return ApiResponse.json({ error: "stale_permissions_revision" }, { status: 409 });
@@ -56,7 +54,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ v
       user.id,
       vaultId,
       userId,
-      createMembershipLifecycleRepository(getApiRequestContext(request).database),
+      getApiRequestContext(request).applicationRuntime.membershipLifecycle(),
     );
     return new ApiResponse(null, { status: 204 });
   } catch (error) {

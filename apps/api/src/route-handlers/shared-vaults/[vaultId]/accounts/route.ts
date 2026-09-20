@@ -3,10 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  createSharedAccountRepository,
-  type SharedAccountMutationResult,
-} from "@api/modules/authenticator-account/server";
+import { type SharedAccountMutationResult } from "@api/modules/authenticator-account/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const encryptedAccountPayload = boundedEncryptedBlobSchema(29).refine((value) => {
@@ -28,7 +25,8 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
   const parsed = await safeParseJsonBody(request, payload);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
   const { vaultId } = await params;
-  const result = await createSharedAccountRepository(getApiRequestContext(request).database).create(
+  const accounts = getApiRequestContext(request).applicationRuntime.sharedAccounts();
+  const result = await accounts.create(
     user.id,
     vaultId,
     Buffer.from(parsed.data.encryptedPayload, "base64"),
@@ -44,7 +42,8 @@ export async function PATCH(request: ApiRequest, { params }: { params: Promise<{
   const parsed = await safeParseJsonBody(request, updateSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
   const { vaultId } = await params;
-  const result = await createSharedAccountRepository(getApiRequestContext(request).database).update(
+  const accounts = getApiRequestContext(request).applicationRuntime.sharedAccounts();
+  const result = await accounts.update(
     user.id,
     vaultId,
     parsed.data.accountId,
@@ -62,12 +61,8 @@ export async function DELETE(request: ApiRequest, { params }: { params: Promise<
   const parsed = await safeParseJsonBody(request, deleteSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
   const { vaultId } = await params;
-  const result = await createSharedAccountRepository(getApiRequestContext(request).database).delete(
-    user.id,
-    vaultId,
-    parsed.data.accountId,
-    parsed.data.expectedRevision,
-  );
+  const accounts = getApiRequestContext(request).applicationRuntime.sharedAccounts();
+  const result = await accounts.delete(user.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision);
   return result.status === "SUCCESS" ? new ApiResponse(null, { status: 204 }) : mutationError(result);
 }
 
@@ -77,11 +72,8 @@ export async function PUT(request: ApiRequest, { params }: { params: Promise<{ v
   const parsed = await safeParseJsonBody(request, restoreSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
   const { vaultId } = await params;
-  const result = await createSharedAccountRepository(getApiRequestContext(request).database).restore(
-    user.id,
-    vaultId,
-    parsed.data.accountId,
-  );
+  const accounts = getApiRequestContext(request).applicationRuntime.sharedAccounts();
+  const result = await accounts.restore(user.id, vaultId, parsed.data.accountId);
   return result.status === "SUCCESS" ? new ApiResponse(null, { status: 204 }) : mutationError(result);
 }
 

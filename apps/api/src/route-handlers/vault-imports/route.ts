@@ -5,7 +5,6 @@ import { z } from "zod";
 import { readBoundedRequestBody } from "@api/http/validation";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import {
-  createEncryptedVaultImportRepository,
   importEncryptedVaultArchive,
   MAX_IMPORTED_CIPHERTEXT_BYTES,
   MAX_VAULT_ARCHIVE_IMPORT_ACCOUNTS,
@@ -124,6 +123,6 @@ function json(body: Record<string, unknown>, status: number): ApiResponse {
 export async function POST(request: ApiRequest) {
   return createEncryptedVaultImportHandler({
     authenticate: authenticateApplicationMutation,
-    imports: createEncryptedVaultImportRepository(getApiRequestContext(request).database),
+    imports: getApiRequestContext(request).applicationRuntime.encryptedVaultImports(),
   })(request);
 }

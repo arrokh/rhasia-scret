@@ -1,6 +1,11 @@
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import type { ApiBindings } from "@api/types";
 import type { AccountDeletionEmailSender } from "./application/account-deletion-email";
+import {
+  completeAccountDeletion,
+  type CompleteAccountDeletionDependencies,
+  type CompleteAccountDeletionResult,
+} from "./application/complete-account-deletion";
 import type { AccountDeletionRepository } from "./application/account-deletion-repository";
 import type { AccountDeletionAuthBackend, AccountDeletionRequest } from "./domain/account-deletion-policy";
 import {
@@ -24,7 +29,14 @@ import {
 } from "./infrastructure/account-deletion-request";
 import { PrismaAccountDeletionRepository } from "./infrastructure/prisma-account-deletion-repository";
 
-export type { AccountDeletionEmailSender, AccountDeletionRepository, AccountDeletionRequest };
+export type {
+  AccountDeletionEmailSender,
+  AccountDeletionRepository,
+  AccountDeletionRequest,
+  CompleteAccountDeletionDependencies,
+  CompleteAccountDeletionResult,
+};
+export { completeAccountDeletion };
 export {
   ACCOUNT_DELETION_AUTHORIZATION_COOKIE,
   ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,

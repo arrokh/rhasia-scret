@@ -181,31 +181,35 @@ function makeRequest(body: unknown, passwordlessAuth: { requestLink: ReturnType<
     body: JSON.stringify(body),
   });
   attachApiRequestContext(request, {
-    database: {},
-    bindings: { WEB_ORIGIN: origin },
-    sessionVerifier: { verify: async () => null },
-    sessionTerminator: { terminate: async () => undefined },
-    passwordlessAuth: {
-      ...passwordlessAuth,
-      redeem: async () => null,
-      verifyAccessToken: async () => null,
-      verifyBrowserSession: async () => null,
-      refresh: async () => null,
-      revoke: async () => undefined,
-      publishPwaHandoff: async () => undefined,
-      redeemPwaHandoff: async () => null,
+    applicationRuntime: {
+      turnstile: () => mocks.createTurnstileValidator(),
+      anonymousAuthRateLimiter: () => mocks.createAnonymousAuthRateLimiter(),
     },
-    applicationUsers: {
-      provision: async () => {
-        throw new Error("not used");
+    bindings: { WEB_ORIGIN: origin },
+    identity: {
+      sessionVerifier: { verify: async () => null },
+      sessionTerminator: { terminate: async () => undefined },
+      passwordlessAuth: {
+        ...passwordlessAuth,
+        redeem: async () => null,
+        verifyAccessToken: async () => null,
+        verifyBrowserSession: async () => null,
+        refresh: async () => null,
+        revoke: async () => undefined,
+        publishPwaHandoff: async () => undefined,
+        redeemPwaHandoff: async () => null,
+      },
+      applicationUsers: {
+        provision: async () => {
+          throw new Error("not used");
+        },
+      },
+      userCryptoProfiles: {
+        get: async () => null,
+        registerUserEncryptionIdentity: async () => undefined,
+        rewrapUserRootKey: async () => undefined,
       },
     },
-    userCryptoProfiles: {
-      get: async () => null,
-      registerUserEncryptionIdentity: async () => undefined,
-      rewrapUserRootKey: async () => undefined,
-    },
-    checkApplicationRateLimit: async () => ({ status: "allowed", retryAfterSeconds: 0 }),
   } as unknown as ApiRequestContext);
   return request;
 }

@@ -1,7 +1,11 @@
 import { ApiResponse } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
-import type { ApplicationUser } from "@api/modules/identity";
-import type { SessionAssurance } from "@api/modules/identity";
+import {
+  createAuthenticatedApplicationExecutor,
+  type AuthenticatedApplicationRequest,
+  type AuthenticatedApplicationResult as ApplicationAuthenticationResult,
+} from "@api/modules/server-composition/application";
+import type { ApplicationUser, SessionAssurance } from "@api/modules/identity";
 import type { ApplicationRateLimitPolicyId } from "@api/modules/rate-limiting";
 
 export type AuthenticatedApplicationResult = ApplicationUser | ApiResponse;
@@ -23,34 +27,41 @@ export async function authenticateApplicationMutation(
 
 async function authenticate(
   request: Request,
-  input: Readonly<{
-    access: "reader" | "mutation";
-    assurance: SessionAssurance;
-    operation?: ApplicationRateLimitPolicyId;
-  }>,
+  input: AuthenticatedApplicationRequest,
 ): Promise<AuthenticatedApplicationResult> {
   const context = getApiRequestContext(request);
-  const principal = await context.sessionVerifier.verify(request, input.assurance);
-  if (!principal) return ApiResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const result = await createAuthenticatedApplicationExecutor({
+    verifySession: (assurance) => context.identity.sessionVerifier.verify(request, assurance),
+    provisionApplicationUser: (principal) => context.identity.applicationUsers.provision(principal),
+    checkApplicationRateLimit: (operation, userId) =>
+      context.applicationRuntime.applicationRateLimitChecker()(operation, userId),
+  })(input);
+  return mapAuthenticationResult(result);
+}
 
-  let user: ApplicationUser;
-  try {
-    user = await context.applicationUsers.provision(principal);
-  } catch (error) {
-    if (error instanceof Error && error.name === "ApplicationUserCredentialInvalidatedError")
+function mapAuthenticationResult(result: ApplicationAuthenticationResult): AuthenticatedApplicationResult {
+  switch (result.status) {
+    case "allowed":
+      return result.user;
+    case "unauthenticated":
       return ApiResponse.json({ error: "unauthenticated" }, { status: 401 });
-    throw error;
+    case "inactive_user":
+      return ApiResponse.json({ error: "inactive_user" }, { status: 403 });
+    case "rate_limited":
+      return ApiResponse.json(
+        { error: "rate_limited" },
+        { status: 429, headers: retryAfterHeaders(result.retryAfterSeconds) },
+      );
+    case "rate_limit_unavailable":
+      return ApiResponse.json(
+        { error: "rate_limit_unavailable" },
+        { status: 503, headers: retryAfterHeaders(result.retryAfterSeconds) },
+      );
   }
-  if (!user.canAccessApplication()) return ApiResponse.json({ error: "inactive_user" }, { status: 403 });
-  if (input.access === "reader") return user;
-  if (!input.operation) throw new Error("Mutation operation is required.");
-  const rateLimit = await context.checkApplicationRateLimit(input.operation, user.id);
-  if (rateLimit.status === "allowed") return user;
-  const status = rateLimit.status === "limited" ? 429 : 503;
+}
+
+function retryAfterHeaders(retryAfterSeconds: number): Headers {
   const headers = new Headers({ "cache-control": "no-store" });
-  if (rateLimit.retryAfterSeconds > 0) headers.set("retry-after", String(rateLimit.retryAfterSeconds));
-  return ApiResponse.json(
-    { error: rateLimit.status === "limited" ? "rate_limited" : "rate_limit_unavailable" },
-    { status, headers },
-  );
+  if (retryAfterSeconds > 0) headers.set("retry-after", String(retryAfterSeconds));
+  return headers;
 }

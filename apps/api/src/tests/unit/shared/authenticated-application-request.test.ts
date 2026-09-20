@@ -32,16 +32,10 @@ describe("authenticated application request", () => {
     expect(deps.verifySession).toHaveBeenCalledWith("active-session" satisfies SessionAssurance);
   });
 
-  it("distinguishes a missing session from a missing Application User", async () => {
+  it("returns unauthenticated when the session is missing", async () => {
     const noSession = createAuthenticatedApplicationExecutor(dependencies({ verifySession: vi.fn(async () => null) }));
-    const noUser = createAuthenticatedApplicationExecutor(
-      dependencies({ provisionApplicationUser: vi.fn(async () => null) }),
-    );
     await expect(noSession({ assurance: "fresh-provider-user", access: "reader" })).resolves.toEqual({
       status: "unauthenticated",
-    });
-    await expect(noUser({ assurance: "fresh-provider-user", access: "reader" })).resolves.toEqual({
-      status: "application_user_unavailable",
     });
   });
 

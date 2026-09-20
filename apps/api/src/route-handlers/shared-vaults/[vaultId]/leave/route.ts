@@ -1,10 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse } from "@api/http/api-request";
-import {
-  createMembershipLifecycleRepository,
-  leaveVaultMembership,
-  MembershipUnavailableError,
-} from "@api/modules/vault-membership/server";
+import { leaveVaultMembership, MembershipUnavailableError } from "@api/modules/vault-membership/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 export async function POST(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
@@ -15,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ vau
     await leaveVaultMembership(
       user.id,
       vaultId,
-      createMembershipLifecycleRepository(getApiRequestContext(request).database),
+      getApiRequestContext(request).applicationRuntime.membershipLifecycle(),
     );
     return new ApiResponse(null, { status: 204 });
   } catch (error) {

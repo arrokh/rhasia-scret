@@ -2,7 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import { createVaultAuditRepository, recordSharedVaultAccountAccess } from "@api/modules/audit/server";
+import { recordSharedVaultAccountAccess } from "@api/modules/audit/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 // GET is mounted by the API route composition.
@@ -21,7 +21,7 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
     user.id,
     vaultId,
     parsed.data.accountId,
-    createVaultAuditRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.vaultAudit(),
   );
   if (!recorded) return ApiResponse.json({ error: "shared_vault_access_required" }, { status: 404 });
   return new Response(null, { status: 204 });

@@ -2,7 +2,6 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import {
   ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
-  createAccountDeletionRepository,
   isBrowserAccountDeletionRequest,
   setDeletionAuthorizationCookie,
   type AccountDeletionRepository,
@@ -21,7 +20,7 @@ export function createCompleteOidcDeletionReauthenticationHandler({
     const context = getApiRequestContext(request);
     if (context.bindings.AUTH_BACKEND !== "oidc")
       return ApiResponse.json({ error: "oidc_reauthentication_unavailable" }, { status: 409 });
-    const principal = await context.sessionVerifier.verify(request, "fresh-provider-user");
+    const principal = await context.identity.sessionVerifier.verify(request, "fresh-provider-user");
     if (!principal) return ApiResponse.json({ error: "unauthenticated" }, { status: 401 });
     const challengeId = request.cookies.get(ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE)?.value;
     if (!challengeId) return ApiResponse.json({ error: "oidc_reauthentication_unavailable" }, { status: 409 });
@@ -44,6 +43,6 @@ export function createCompleteOidcDeletionReauthenticationHandler({
 export async function POST(request: ApiRequest) {
   const context = getApiRequestContext(request);
   return createCompleteOidcDeletionReauthenticationHandler({
-    repository: createAccountDeletionRepository(context.database, context.bindings),
+    repository: context.applicationRuntime.accountDeletion(),
   })(request);
 }

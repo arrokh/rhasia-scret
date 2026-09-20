@@ -39,7 +39,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   const refreshToken = body.refreshToken;
 
   try {
-    const session = await getApiRequestContext(request).passwordlessAuth.refresh(refreshToken);
+    const session = await getApiRequestContext(request).identity.passwordlessAuth.refresh(refreshToken);
     if (!session) return ApiResponse.json({ error: "session_expired" }, { status: 401, headers: noStoreHeaders() });
     return ApiResponse.json(
       {
@@ -57,7 +57,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
 }
 
 async function verifyBrowserSession(request: ApiRequest): Promise<ApiResponse> {
-  const session = await getApiRequestContext(request).sessionVerifier.verify(request, "active-session");
+  const session = await getApiRequestContext(request).identity.sessionVerifier.verify(request, "active-session");
   if (session) return ApiResponse.json({ refreshed: true }, { headers: noStoreHeaders() });
   const response = ApiResponse.json({ error: "session_expired" }, { status: 401, headers: noStoreHeaders() });
   clearPasswordlessSessionCookies(response.cookies);

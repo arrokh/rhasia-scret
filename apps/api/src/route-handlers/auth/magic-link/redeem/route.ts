@@ -27,7 +27,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   try {
     const context = getApiRequestContext(request);
     const configuration = readPasswordlessConfiguration(context.bindings);
-    const service = context.passwordlessAuth;
+    const service = context.identity.passwordlessAuth;
     const result = await service.redeem(body.token, body.client);
     if (!result) return ApiResponse.json({ error: "link_expired" }, { status: 400, headers: noStoreHeaders() });
     const response = ApiResponse.json(

@@ -11,7 +11,7 @@ import {
   AccountDeletionAuthorizationError,
   AccountDeletionPlanStaleError,
   clearDeletionCookies,
-  createAccountDeletionRepository,
+  completeAccountDeletion,
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
   type AccountDeletionEmailSender,
@@ -90,20 +90,19 @@ export function createDeleteMeHandler({
       return ApiResponse.json({ error: "invalid_deletion_request" }, { status: 400, headers: noStoreHeaders() });
     const authBackend = user.issuer === "rhasia:passwordless" ? "passwordless" : "oidc";
     try {
-      const result = await repository.deleteUser(user.id, authorizationToken, authBackend, parsed.data, now());
-      let emailDelivery = "failed";
-      try {
-        await sender.sendDeletionCompletionEmail({ recipientEmail: result.email, receiptId: result.receiptId });
-        await repository.recordCompletionEmailStatus(result.receiptId, "SENT");
-        emailDelivery = "sent";
-      } catch {
-        try {
-          await repository.recordCompletionEmailStatus(result.receiptId, "FAILED");
-        } catch {
-          // The deletion is already committed; email delivery remains best-effort.
-        }
-      }
-      const response = ApiResponse.json({ receiptId: result.receiptId, emailDelivery }, { headers: noStoreHeaders() });
+      const { deletion, emailDelivery } = await completeAccountDeletion({
+        repository,
+        sender,
+        applicationUserId: user.id,
+        authorizationToken,
+        authBackend,
+        request: parsed.data,
+        now: now(),
+      });
+      const response = ApiResponse.json(
+        { receiptId: deletion.receiptId, emailDelivery },
+        { headers: noStoreHeaders() },
+      );
       try {
         await terminateSession(request, response.cookies);
       } catch {
@@ -142,10 +141,10 @@ export async function DELETE(request: ApiRequest) {
   const context = getApiRequestContext(request);
   return createDeleteMeHandler({
     authenticateMutation: authenticateApplicationMutation,
-    repository: createAccountDeletionRepository(context.database, context.bindings),
+    repository: context.applicationRuntime.accountDeletion(),
     sender: context.emailSenders.accountDeletion,
     terminateSession: (currentRequest, cookies) =>
-      context.sessionTerminator.terminateCurrentSession(currentRequest, cookies),
+      context.identity.sessionTerminator.terminateCurrentSession(currentRequest, cookies),
     now: () => new Date(),
   })(request);
 }

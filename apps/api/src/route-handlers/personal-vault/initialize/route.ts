@@ -3,11 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  createPersonalVaultRepository,
-  initializePersonalVault,
-  type PersonalVaultInitializer,
-} from "@api/modules/vault-management/server";
+import { initializePersonalVault, type PersonalVaultInitializer } from "@api/modules/vault-management/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const opaqueBlob = boundedEncryptedBlobSchema();
@@ -50,6 +46,6 @@ export function createInitializePersonalVaultHandler({ authenticate, personalVau
 export async function POST(request: ApiRequest) {
   return createInitializePersonalVaultHandler({
     authenticate: authenticateApplicationMutation,
-    personalVaults: createPersonalVaultRepository(getApiRequestContext(request).database),
+    personalVaults: getApiRequestContext(request).applicationRuntime.personalVaults(),
   })(request);
 }

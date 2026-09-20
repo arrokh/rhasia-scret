@@ -9,6 +9,7 @@ import type { SessionVerifier } from "./application/session-verifier";
 import type { SessionTerminator } from "./application/session-terminator";
 import type { UserCryptoProfileRepository } from "./application/user-crypto-profile-repository";
 import type { PasswordlessAuthService } from "./application/passwordless-authentication";
+import type { IdentityRuntime } from "./application/identity-runtime";
 import type { MagicLinkEmailSender } from "./application/email-delivery";
 import { AUTH_RETURN_PATH_COOKIE } from "./application/auth-return-path";
 import { PrismaApplicationUserRepository } from "./infrastructure/prisma-application-user-repository";
@@ -79,6 +80,7 @@ export {
 };
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository, TurnstileValidationResult };
 export type { PasswordlessAuthService };
+export type { IdentityRuntime };
 
 export function authBackend(bindings: Pick<ApiBindings, "AUTH_BACKEND">): "none" | "passwordless" | "oidc" {
   const backend = bindings.AUTH_BACKEND ?? "passwordless";
@@ -96,6 +98,30 @@ export function createPasswordlessAuthService(
   sender: MagicLinkEmailSender,
 ): PasswordlessAuthService {
   return createPasswordlessAuthServiceForApi(database, bindings, sender);
+}
+
+export function createPasswordlessAuthServiceForRuntime(
+  database: PrismaDatabase,
+  bindings: ApiBindings,
+  sender: MagicLinkEmailSender,
+): PasswordlessAuthService {
+  if (authBackend(bindings) === "passwordless") return createPasswordlessAuthService(database, bindings, sender);
+  return disabledPasswordlessAuthService();
+}
+
+export function createIdentityRuntime(
+  database: PrismaDatabase,
+  bindings: ApiBindings,
+  sender: MagicLinkEmailSender,
+): IdentityRuntime {
+  const passwordlessAuth = createPasswordlessAuthServiceForRuntime(database, bindings, sender);
+  return {
+    passwordlessAuth,
+    sessionVerifier: createSessionVerifier(database, bindings, sender, passwordlessAuth),
+    sessionTerminator: createSessionTerminator(database, bindings, sender, passwordlessAuth),
+    applicationUsers: createApplicationUserRepository(database, bindings),
+    userCryptoProfiles: createUserCryptoProfileRepository(database),
+  };
 }
 
 export function createAnonymousAuthRateLimiter(
@@ -117,6 +143,7 @@ export function createSessionVerifier(
   database: PrismaDatabase,
   bindings: ApiBindings,
   sender: MagicLinkEmailSender,
+  passwordlessAuth?: PasswordlessAuthService,
 ): SessionVerifier {
   const e2eVerifier = createE2eSessionVerifier(bindings);
   if (e2eVerifier) return e2eVerifier;
@@ -124,7 +151,7 @@ export function createSessionVerifier(
   if (backend === "none") return { verify: async (_request: Request, _minimum?: SessionAssurance) => null };
   if (backend === "passwordless") {
     return new PasswordlessSessionVerifier(
-      createPasswordlessAuthService(database, bindings, sender),
+      passwordlessAuth ?? createPasswordlessAuthService(database, bindings, sender),
       readPasswordlessConfiguration(bindings),
     );
   }
@@ -138,9 +165,10 @@ export function createSessionTerminator(
   database: PrismaDatabase,
   bindings: ApiBindings,
   sender: MagicLinkEmailSender,
+  passwordlessAuth?: PasswordlessAuthService,
 ): SessionTerminator {
   return authBackend(bindings) === "passwordless"
-    ? new PasswordlessSessionTerminator(createPasswordlessAuthService(database, bindings, sender))
+    ? new PasswordlessSessionTerminator(passwordlessAuth ?? createPasswordlessAuthService(database, bindings, sender))
     : new OidcSessionTerminator();
 }
 
@@ -175,6 +203,21 @@ function configuredAdmittedEmails(value: string | undefined): ReadonlySet<string
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),
   );
+}
+
+function disabledPasswordlessAuthService(): PasswordlessAuthService {
+  return {
+    requestLink: async () => {
+      throw new Error("Passwordless authentication is not configured.");
+    },
+    redeem: async () => null,
+    verifyAccessToken: async () => null,
+    verifyBrowserSession: async () => null,
+    refresh: async () => null,
+    revoke: async () => undefined,
+    publishPwaHandoff: async () => undefined,
+    redeemPwaHandoff: async () => null,
+  };
 }
 
 function required(value: string | undefined, name: string): string {

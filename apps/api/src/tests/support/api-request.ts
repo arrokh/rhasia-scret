@@ -1,7 +1,7 @@
 import { ApiRequest } from "@api/http/api-request";
 import { attachApiRequestContext, type ApiRequestContext } from "@api/http/api-context";
 import { createDisabledEmailSenders } from "@api/smtp-email-senders";
-import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+import { createApiApplicationRuntime } from "@api/modules/server-composition/runtime";
 
 export const testApiBindings = {
   WEB_ORIGIN: "https://web.example.test",
@@ -21,15 +21,16 @@ export function apiTestRequest(
 ): ApiRequest {
   const request = new ApiRequest(`https://api.example.test${path}`, init);
   attachApiRequestContext(request, {
-    database: {} as PrismaDatabase,
+    applicationRuntime: createApiApplicationRuntime({} as never, testApiBindings),
     bindings: testApiBindings,
     emailSenders: testApiBindings.EMAIL_SENDERS,
-    sessionVerifier: { verify: async () => null },
-    sessionTerminator: { terminateCurrentSession: async () => undefined },
-    passwordlessAuth: {} as ApiRequestContext["passwordlessAuth"],
-    applicationUsers: {} as ApiRequestContext["applicationUsers"],
-    userCryptoProfiles: {} as ApiRequestContext["userCryptoProfiles"],
-    checkApplicationRateLimit: async () => ({ status: "allowed" }),
+    identity: {
+      sessionVerifier: { verify: async () => null },
+      sessionTerminator: { terminateCurrentSession: async () => undefined },
+      passwordlessAuth: {} as ApiRequestContext["identity"]["passwordlessAuth"],
+      applicationUsers: {} as ApiRequestContext["identity"]["applicationUsers"],
+      userCryptoProfiles: {} as ApiRequestContext["identity"]["userCryptoProfiles"],
+    },
     ...context,
   });
   return request;

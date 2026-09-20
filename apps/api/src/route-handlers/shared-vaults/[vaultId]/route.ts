@@ -3,8 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import { createSharedVaultAccessRepository } from "@api/modules/vault-membership/server";
-import { createSharedVaultRepository, type SharedVaultRepository } from "@api/modules/vault-management/server";
+import { type SharedVaultRepository } from "@api/modules/vault-management/server";
 import {
   authenticateApplicationMutation,
   authenticateApplicationReader,
@@ -21,10 +20,9 @@ export async function GET(request: ApiRequest, { params }: { params: Promise<{ v
   const user = await authenticateApplicationReader(request, "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
   const { vaultId } = await params;
-  const access = await createSharedVaultAccessRepository(getApiRequestContext(request).database).getForMember(
-    user.id,
-    vaultId,
-  );
+  const access = await getApiRequestContext(request)
+    .applicationRuntime.sharedVaultAccess()
+    .getForMember(user.id, vaultId);
   if (!access) return ApiResponse.json({ error: "shared_vault_unavailable" }, { status: 404 });
   return ApiResponse.json({
     vaultId: access.vaultId,
@@ -70,6 +68,6 @@ export function createRenameSharedVaultHandler({
 export async function PATCH(request: ApiRequest, context: { params: Promise<{ vaultId: string }> }) {
   return createRenameSharedVaultHandler({
     authenticate: authenticateApplicationMutation,
-    sharedVaults: createSharedVaultRepository(getApiRequestContext(request).database),
+    sharedVaults: getApiRequestContext(request).applicationRuntime.sharedVaults(),
   })(request, context);
 }

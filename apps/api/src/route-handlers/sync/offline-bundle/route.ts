@@ -1,6 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse } from "@api/http/api-request";
-import { createOfflineSyncBundleReader, type OfflineSyncBundleReader } from "@api/modules/sync/server";
+import { type OfflineSyncBundleReader } from "@api/modules/sync/server";
 import { authenticateApplicationReader } from "@api/shared/infrastructure/authenticated-application-request";
 
 export function createOfflineSyncBundleHandler({
@@ -25,6 +25,6 @@ export function createOfflineSyncBundleHandler({
 export async function GET(request: Request) {
   return createOfflineSyncBundleHandler({
     authenticate: authenticateApplicationReader,
-    bundles: createOfflineSyncBundleReader(getApiRequestContext(request).database),
+    bundles: getApiRequestContext(request).applicationRuntime.offlineSyncBundles(),
   })(request);
 }

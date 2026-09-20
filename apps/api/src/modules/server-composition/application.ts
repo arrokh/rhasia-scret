@@ -8,14 +8,13 @@ export type AuthenticatedApplicationRequest =
 export type AuthenticatedApplicationResult =
   | Readonly<{ status: "allowed"; user: ApplicationUser }>
   | Readonly<{ status: "unauthenticated" }>
-  | Readonly<{ status: "application_user_unavailable" }>
   | Readonly<{ status: "inactive_user" }>
   | Readonly<{ status: "rate_limited"; retryAfterSeconds: number }>
   | Readonly<{ status: "rate_limit_unavailable"; retryAfterSeconds: number }>;
 
 export type AuthenticatedApplicationDependencies = {
   verifySession(assurance: SessionAssurance): Promise<VerifiedPrincipal | null>;
-  provisionApplicationUser(principal: VerifiedPrincipal): Promise<ApplicationUser | null>;
+  provisionApplicationUser(principal: VerifiedPrincipal): Promise<ApplicationUser>;
   checkApplicationRateLimit(
     operation: ApplicationRateLimitPolicyId,
     userId: string,
@@ -29,7 +28,7 @@ export function createAuthenticatedApplicationExecutor(dependencies: Authenticat
     const principal = await dependencies.verifySession(request.assurance);
     if (!principal) return { status: "unauthenticated" };
 
-    let user: ApplicationUser | null;
+    let user: ApplicationUser;
     try {
       user = await dependencies.provisionApplicationUser(principal);
     } catch (error) {
@@ -38,7 +37,6 @@ export function createAuthenticatedApplicationExecutor(dependencies: Authenticat
         return { status: "unauthenticated" };
       throw error;
     }
-    if (!user) return { status: "application_user_unavailable" };
     if (!user.canAccessApplication()) return { status: "inactive_user" };
     if (request.access === "reader") return { status: "allowed", user };
 

@@ -3,7 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import { createUserCryptoProfileRepository, type UserCryptoProfileRepository } from "@api/modules/identity/server";
+import { type UserCryptoProfileRepository } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 const schema = z
@@ -41,6 +41,6 @@ export function createRewrapUserRootKeyHandler({ authenticate, cryptoProfiles }:
 export async function POST(request: ApiRequest) {
   return createRewrapUserRootKeyHandler({
     authenticate: authenticateApplicationMutation,
-    cryptoProfiles: createUserCryptoProfileRepository(getApiRequestContext(request).database),
+    cryptoProfiles: getApiRequestContext(request).applicationRuntime.userCryptoProfiles(),
   })(request);
 }

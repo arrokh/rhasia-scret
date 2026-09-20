@@ -4,7 +4,6 @@ import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
-  createDestructivePersonalVaultResetRepository,
   InvalidDestructiveResetConfirmationError,
   PasskeyRecoveryAlreadyEnrolledError,
   destructivelyResetPersonalVault,
@@ -50,15 +49,15 @@ export function createDestructivePersonalVaultResetHandler({ authenticate, reset
 export async function GET(request: ApiRequest) {
   const user = await authenticateApplicationReader(request, "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const eligibility = await createDestructivePersonalVaultResetRepository(
-    getApiRequestContext(request).database,
-  ).getEligibility(user.id);
+  const eligibility = await getApiRequestContext(request)
+    .applicationRuntime.destructivePersonalVaultReset()
+    .getEligibility(user.id);
   return ApiResponse.json(eligibility, { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(request: ApiRequest) {
   return createDestructivePersonalVaultResetHandler({
     authenticate: authenticateApplicationMutation,
-    resets: createDestructivePersonalVaultResetRepository(getApiRequestContext(request).database),
+    resets: getApiRequestContext(request).applicationRuntime.destructivePersonalVaultReset(),
   })(request);
 }

@@ -3,10 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import {
-  createPersonalAccountRepository,
-  type PersonalAccountRepository,
-} from "@api/modules/authenticator-account/server";
+import { type PersonalAccountRepository } from "@api/modules/authenticator-account/server";
 import type { ApplicationUser, SessionAssurance } from "@api/modules/identity";
 import {
   authenticateApplicationMutation,
@@ -145,7 +142,7 @@ function handlersFor(request: ApiRequest) {
   return createPersonalAccountsHandlers({
     authenticateReader: authenticateApplicationReader,
     authenticateMutation: authenticateApplicationMutation,
-    accounts: createPersonalAccountRepository(getApiRequestContext(request).database),
+    accounts: getApiRequestContext(request).applicationRuntime.personalAccounts(),
   });
 }
 export const GET = (request: ApiRequest, context: Context) => handlersFor(request).GET(request, context);

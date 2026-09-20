@@ -1,10 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
-import {
-  createVaultAuditRepository,
-  recordVaultArchiveExport,
-  type VaultAuditRepository,
-} from "@api/modules/audit/server";
+import { recordVaultArchiveExport, type VaultAuditRepository } from "@api/modules/audit/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
 export function createVaultArchiveExportAuditHandler(dependencies: {
@@ -31,6 +27,6 @@ function requestDeclaresContent(request: Request): boolean {
 export async function POST(request: ApiRequest, context: { params: Promise<{ vaultId: string }> }) {
   return createVaultArchiveExportAuditHandler({
     authenticate: authenticateApplicationMutation,
-    audit: createVaultAuditRepository(getApiRequestContext(request).database),
+    audit: getApiRequestContext(request).applicationRuntime.vaultAudit(),
   })(request, context);
 }

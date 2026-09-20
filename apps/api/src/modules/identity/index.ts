@@ -10,3 +10,4 @@ export type {
 export { assuranceSatisfies } from "./application/session-verifier";
 export { isSameOrigin } from "./infrastructure/request-origin";
 export type { UserCryptoProfileRepository } from "./application/user-crypto-profile-repository";
+export type { IdentityRuntime } from "./application/identity-runtime";

@@ -4,7 +4,6 @@ import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
-  createSecureShareLinkRepository,
   findSecureShareLinkForRecipient,
   redeemSecureShareLinkForRecipient,
   SecureShareLinkUnavailableError,
@@ -31,7 +30,7 @@ export async function GET(request: ApiRequest) {
   const link = await findSecureShareLinkForRecipient(
     { userId: user.id, email: user.email },
     Buffer.from(parsed.data, "base64"),
-    createSecureShareLinkRepository(getApiRequestContext(request).database),
+    getApiRequestContext(request).applicationRuntime.secureShareLinks(),
   );
   if (!link) return ApiResponse.json({ error: "share_link_unavailable" }, { status: 404 });
   return ApiResponse.json({
@@ -52,7 +51,7 @@ export async function POST(request: ApiRequest) {
       parsed.data.invitationId,
       Buffer.from(parsed.data.encryptedVaultKey, "base64"),
       parsed.data.keyVersion,
-      createSecureShareLinkRepository(getApiRequestContext(request).database),
+      getApiRequestContext(request).applicationRuntime.secureShareLinks(),
     );
     return new ApiResponse(null, { status: 204 });
   } catch (error) {

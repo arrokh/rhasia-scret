@@ -3,7 +3,6 @@ import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import { authBackend } from "@api/modules/identity/server";
 import {
-  createAccountDeletionRepository,
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
   setDeletionOidcChallengeCookie,
@@ -50,6 +49,6 @@ export async function POST(request: ApiRequest) {
   return createStartOidcDeletionReauthenticationHandler({
     authenticate: authenticateApplicationMutation,
     backend: () => authBackend(context.bindings),
-    repository: createAccountDeletionRepository(context.database, context.bindings),
+    repository: context.applicationRuntime.accountDeletion(),
   })(request);
 }

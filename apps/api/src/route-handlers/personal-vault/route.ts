@@ -1,10 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
-import {
-  createPersonalVaultRepository,
-  ensurePersonalVault,
-  type PersonalVaultRepository,
-} from "@api/modules/vault-management/server";
+import { ensurePersonalVault, type PersonalVaultRepository } from "@api/modules/vault-management/server";
 import { authenticateApplicationReader } from "@api/shared/infrastructure/authenticated-application-request";
 
 type Dependencies = {
@@ -24,6 +20,6 @@ export function createGetPersonalVaultHandler({ authenticate, personalVaults }: 
 export async function GET(request: ApiRequest) {
   return createGetPersonalVaultHandler({
     authenticate: authenticateApplicationReader,
-    personalVaults: createPersonalVaultRepository(getApiRequestContext(request).database),
+    personalVaults: getApiRequestContext(request).applicationRuntime.personalVaults(),
   })(request);
 }

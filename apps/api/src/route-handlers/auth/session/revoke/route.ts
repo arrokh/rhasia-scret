@@ -19,7 +19,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   if (context.bindings.NODE_ENV === "development" && context.bindings.E2E_BROWSER_TESTS === "1")
     clearE2eSessionCookie(response.cookies);
   try {
-    await context.sessionTerminator.terminateCurrentSession(request, response.cookies);
+    await context.identity.sessionTerminator.terminateCurrentSession(request, response.cookies);
   } catch {
     // Logout is intentionally idempotent and never discloses session state.
   }
