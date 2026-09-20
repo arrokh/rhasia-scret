@@ -80,13 +80,14 @@ CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e 
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
 
-For local verification, Docker must be running: `pnpm run test:full` automatically uses the disposable Testcontainers PostgreSQL gate. The focused equivalents are:
+For local verification, Docker must be running: `pnpm test` and `pnpm run test:full` automatically use disposable Testcontainers PostgreSQL gates. The focused equivalents are:
 
 ```bash
 pnpm run test:integration:container
+pnpm run test:container
 pnpm run test:full:container
 ```
 
-The container runner creates the database itself, generates Prisma Client, applies the checked-in migrations through the staged passwordless migration workflow, runs the requested tests with `REQUIRE_DATABASE_INTEGRATION=1`, and removes the PostgreSQL container afterward. Because both database URLs are overridden only after the disposable container starts, no migration opt-in variable is needed and the development/local database cannot be selected by this command. `pnpm run test:full:hosted` is the explicit underlying gate for an already-provisioned database. GitHub Actions uses job-scoped PostgreSQL service containers instead of Testcontainers, then runs the hosted gate with the same strict database-integration policy.
+The container runner creates the database itself, generates Prisma Client, applies the checked-in migrations through the staged passwordless migration workflow, runs the requested tests with `REQUIRE_DATABASE_INTEGRATION=1`, and removes the PostgreSQL container afterward. Because both database URLs are overridden only after the disposable container starts, no migration opt-in variable is needed and the development/local database cannot be selected by this command. `pnpm run test:hosted` and `pnpm run test:full:hosted` are the explicit underlying commands for an already-provisioned database. GitHub Actions uses job-scoped PostgreSQL service containers instead of Testcontainers, then runs the hosted gate with the same strict database-integration policy.
 
 The policy verifier checks the main and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.

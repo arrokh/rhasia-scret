@@ -13,8 +13,8 @@ const apiRoot = resolve(repositoryRoot, "apps/api");
 
 async function main(): Promise<number> {
   const mode = process.argv[2];
-  if (mode !== "--integration" && mode !== "--full") {
-    console.error("Usage: pnpm test:integration:container|test:full:container");
+  if (mode !== "--integration" && mode !== "--test" && mode !== "--full") {
+    console.error("Usage: pnpm test:integration:container|test:container|test:full:container");
     return 2;
   }
   loadWorkspaceEnvironment();
@@ -51,7 +51,8 @@ async function main(): Promise<number> {
       );
     }
 
-    return await runPackageManager(["run", "test:full:hosted"], repositoryRoot, environment);
+    const hostedCommand = mode === "--test" ? "test:hosted" : "test:full:hosted";
+    return await runPackageManager(["run", hostedCommand], repositoryRoot, environment);
   } finally {
     if (container) await container.stop();
   }

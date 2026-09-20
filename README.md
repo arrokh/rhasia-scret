@@ -170,7 +170,7 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-`pnpm run test:full` is the required repository gate. Locally, it automatically creates and uses a disposable PostgreSQL 16 Testcontainer, applies migrations only inside that container, and removes it afterward; it never uses the development/local database. In CI, the same command selects the job-scoped PostgreSQL service instead. The gate runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
+The root `pnpm test` and `pnpm run test:full` entrypoints automatically use a disposable PostgreSQL 16 Testcontainer locally, apply migrations only inside that container, and remove it afterward; they never use the development/local database. In CI, both commands select the job-scoped PostgreSQL service instead. `pnpm run test:full` is the required repository gate. The gate runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
 
 Focused and release commands:
 
@@ -179,6 +179,8 @@ Focused and release commands:
 pnpm run test:full:core
 pnpm run test:full:web
 pnpm run test:full:mobile
+pnpm run test:hosted
+pnpm run test:container
 pnpm run test:full:direct
 pnpm run test:full:hosted
 pnpm run test:parallel
