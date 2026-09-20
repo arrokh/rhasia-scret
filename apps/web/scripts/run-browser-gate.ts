@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import { resolveBrowserTestPort } from "./browser-test-ports";
 
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const startedAt = performance.now();
@@ -26,20 +27,24 @@ void main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
+  const browserEnvironment = {
+    ...process.env,
+    BROWSER_TEST_PORT: String(await resolveBrowserTestPort()),
+  };
   let smoke: StageResult;
   let e2e: StageResult;
   if (sequentialDevelopmentSuites) {
-    smoke = await runStage("smoke", ["run", "test:browser:smoke"]);
+    smoke = await runStage("smoke", ["run", "test:browser:smoke"], browserEnvironment);
     if (smoke.exitCode !== 0) {
       writeReport("failed", stages);
       process.exitCode = 1;
       return;
     }
-    e2e = await runStage("e2e", ["run", "test:browser:e2e"]);
+    e2e = await runStage("e2e", ["run", "test:browser:e2e"], browserEnvironment);
   } else {
     [smoke, e2e] = await Promise.all([
-      runStage("smoke", ["run", "test:browser:smoke"]),
-      runStage("e2e", ["run", "test:browser:e2e"]),
+      runStage("smoke", ["run", "test:browser:smoke"], browserEnvironment),
+      runStage("e2e", ["run", "test:browser:e2e"], browserEnvironment),
     ]);
   }
 
@@ -49,7 +54,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const pwa = await runStage("pwa", ["run", "test:browser:pwa"]);
+  const pwa = await runStage("pwa", ["run", "test:browser:pwa"], browserEnvironment);
   writeReport(pwa.exitCode === 0 ? "passed" : "failed", stages);
   if (pwa.exitCode !== 0) process.exitCode = 1;
 }

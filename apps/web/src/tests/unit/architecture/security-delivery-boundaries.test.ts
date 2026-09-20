@@ -86,7 +86,7 @@ describe("browser-delivery security boundaries", () => {
 
   it("keeps the service worker out of sensitive and source-map cache paths", () => {
     const worker = read("public/sw.js");
-    expect(worker).toContain('url.pathname.startsWith("/api/")');
+    expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('!pathname.endsWith(".map")');
     expect(worker).toContain('response.headers.get("content-type")?.startsWith("text/html")');

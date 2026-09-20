@@ -79,17 +79,8 @@ describe("browser test gate inventory", () => {
     for (const setting of [
       'AUTH_BACKEND: "passwordless"',
       "AUTH_APP_ORIGIN: baseURL",
-      "AUTH_MAGIC_LINK_SECRET:",
       "AUTH_SESSION_SECRET:",
       "AUTH_MOBILE_REDIRECT_URL:",
-      "SMTP_HOST:",
-      "SMTP_PORT:",
-      "SMTP_SECURE:",
-      "SMTP_REQUIRE_TLS:",
-      "SMTP_USER:",
-      "SMTP_PASSWORD:",
-      "AUTH_EMAIL_FROM:",
-      "AUTH_EMAIL_FROM_NAME:",
       'E2E_BROWSER_TESTS: "1"',
       "E2E_BROWSER_TEST_USERS:",
     ]) {

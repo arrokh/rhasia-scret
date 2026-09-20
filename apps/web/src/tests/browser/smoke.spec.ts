@@ -193,7 +193,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       return nativeMatchMedia(query);
     };
   });
-  await context.route("**/api/auth/magic-link/request", async (route) => {
+  await context.route("**/api/v1/auth/magic-link/request", async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     expect(body.client).toBe("pwa");
     expect(typeof body.handoffId).toBe("string");
@@ -202,7 +202,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
     handoffId = body.handoffId as string;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sent: true }) });
   });
-  await context.route("**/api/auth/magic-link/redeem", async (route) => {
+  await context.route("**/api/v1/auth/magic-link/redeem", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -212,7 +212,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       }),
     });
   });
-  await context.route("**/api/auth/pwa/session", async (route) => {
+  await context.route("**/api/v1/auth/pwa/session", async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     if (typeof body.refreshToken === "string") {
       handoffPublished = true;

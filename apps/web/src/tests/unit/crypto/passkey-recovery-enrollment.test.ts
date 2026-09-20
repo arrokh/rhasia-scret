@@ -44,8 +44,8 @@ describe("PasskeyRecoveryEnrollment", () => {
 
   it("confirms and detaches persisted Passkey-Assisted Recovery", async () => {
     const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
-      if (input === "/api/passkey-recovery/status") return { ok: true, json: async () => ({ enrolled: true }) };
-      if (input === "/api/passkey-recovery" && init?.method === "DELETE") return { ok: true, status: 204 };
+      if (input === "/api/v1/passkey-recovery/status") return { ok: true, json: async () => ({ enrolled: true }) };
+      if (input === "/api/v1/passkey-recovery" && init?.method === "DELETE") return { ok: true, status: 204 };
       throw new Error(`Unexpected request: ${input}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -67,7 +67,7 @@ describe("PasskeyRecoveryEnrollment", () => {
     await act(async () => findButton(document.body, "Hapus pemulihan")?.click());
     await vi.waitFor(() => expect(findButton(container, "Aktifkan pemulihan kunci akses")).not.toBeUndefined());
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/passkey-recovery", { method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/passkey-recovery", { method: "DELETE" });
     expect(container.textContent).toContain("Pemulihan kunci akses telah dihapus");
     expect(container.textContent).not.toContain("Pemulihan kunci akses aktif");
   });

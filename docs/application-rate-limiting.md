@@ -2,7 +2,7 @@
 
 ## Scope
 
-Authenticated application mutations under `apps/web/src/app/api/` use the operation-class inventory in `authenticated-mutation-rate-limit-inventory.ts`. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
+Authenticated application mutations under the API's `/v1/**` route tree use the operation-class inventory in `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts`. The web `/api/v1/**` proxy is transport-only. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
 Anonymous passwordless link requests use two layers: browser and installed-PWA requests first pass Cloudflare Turnstile validation, then all clients use separate PostgreSQL-backed 15-minute windows:
 

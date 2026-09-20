@@ -11,5 +11,7 @@
 /apps/web/src/modules/crypto/ @arrokh
 /apps/web/src/modules/identity/ @arrokh
 /apps/web/src/modules/audit/ @arrokh
+/apps/api/src/modules/identity/ @arrokh
+/apps/api/src/modules/audit/ @arrokh
 /apps/web/src/shared/infrastructure/browser-analytics* @arrokh
-/apps/web/prisma/ @arrokh
+/apps/api/prisma/ @arrokh

@@ -12,7 +12,7 @@ export class MobilePersonalVaultRepository {
   public constructor(private readonly transport: AuthenticatedTransport) {}
 
   public async load(): Promise<MobilePersonalVault> {
-    const response = await this.transport.request({ url: "/api/personal-vault", method: "GET", cache: "no-store" });
+    const response = await this.transport.request({ url: "/v1/personal-vault", method: "GET", cache: "no-store" });
     if (!response.ok) throw new MobilePersonalVaultRepositoryError(classifyStatus(response.status));
     const body = await response.json<unknown>();
     if (!isPersonalVault(body)) throw new MobilePersonalVaultRepositoryError("invalid_response");
@@ -21,7 +21,7 @@ export class MobilePersonalVaultRepository {
 
   public async loadCryptoProfile(): Promise<EncryptedPersonalVaultProfile> {
     const response = await this.transport.request({
-      url: "/api/user-crypto-profile",
+      url: "/v1/user-crypto-profile",
       method: "GET",
       cache: "no-store",
     });
@@ -50,7 +50,7 @@ export class MobilePersonalVaultRepository {
 
   public async initialize(material: PersonalVaultInitializationMaterial): Promise<void> {
     const response = await this.transport.request({
-      url: "/api/personal-vault/initialize",
+      url: "/v1/personal-vault/initialize",
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

@@ -32,7 +32,7 @@ describe("browserPasswordlessClient", () => {
       turnstileToken: "XXXX.DUMMY.TOKEN.XXXX",
     });
 
-    expect(mocks.postJson).toHaveBeenCalledWith("/api/auth/magic-link/request", {
+    expect(mocks.postJson).toHaveBeenCalledWith("/api/v1/auth/magic-link/request", {
       email: "person@example.test",
       client: "web",
       returnPath: "/vaults",

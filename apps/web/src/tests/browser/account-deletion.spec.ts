@@ -9,6 +9,10 @@ test("web Account Deletion completes the guarded flow and preserves Local Profil
   context,
   browserName,
 }) => {
+  test.skip(
+    process.env.E2E_AUTH_BACKEND === "oidc",
+    "The deterministic deletion E2E exercises passwordless OTP reauthentication.",
+  );
   const alias = e2eUserAlias(browserName, "delete");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias);
@@ -29,10 +33,10 @@ test("web Account Deletion completes the guarded flow and preserves Local Profil
     await page.getByRole("button", { name: "Lanjut", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Verifikasi bahwa ini benar-benar Anda" })).toBeVisible();
 
-    await page.route("**/api/me/deletion/otp/request", async (route) => {
+    await page.route("**/api/v1/me/deletion/otp/request", async (route) => {
       await route.fulfill({ status: 204 });
     });
-    await page.route("**/api/me/deletion/otp/verify", async (route) => {
+    await page.route("**/api/v1/me/deletion/otp/verify", async (route) => {
       await route.fulfill({ status: 204 });
     });
     await page.getByRole("button", { name: "Kirim kode penghapusan" }).click();
@@ -42,7 +46,7 @@ test("web Account Deletion completes the guarded flow and preserves Local Profil
   });
 
   let deletionBody: Record<string, unknown> | null = null;
-  await page.route("**/api/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     if (route.request().method() !== "DELETE") return route.continue();
     deletionBody = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({

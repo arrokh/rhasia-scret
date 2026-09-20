@@ -48,7 +48,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   public async requestMagicLink(email: string): Promise<boolean> {
-    const response = await this.request("/api/auth/magic-link/request", {
+    const response = await this.request("/v1/auth/magic-link/request", {
       email: email.trim().toLowerCase(),
       client: "mobile",
       returnPath: "/vaults",
@@ -114,7 +114,7 @@ export class MobilePasswordlessAuthClient {
         accessToken = refreshed?.accessToken ?? null;
       }
       if (accessToken) {
-        await this.request("/api/auth/session/revoke", undefined, {
+        await this.request("/v1/auth/session/revoke", undefined, {
           Authorization: `Bearer ${accessToken}`,
         });
       }
@@ -145,7 +145,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   private async rotateStoredSession(stored: StoredSession, version: number): Promise<StoredSession | null> {
-    const response = await this.request("/api/auth/session/refresh", {
+    const response = await this.request("/v1/auth/session/refresh", {
       client: "mobile",
       refreshToken: stored.refreshToken,
     });
@@ -165,7 +165,7 @@ export class MobilePasswordlessAuthClient {
   }
 
   private async redeemMagicLinkRequest(token: string, version: number): Promise<NativeMobileSession> {
-    const response = await this.request("/api/auth/magic-link/redeem", { token, client: "mobile" });
+    const response = await this.request("/v1/auth/magic-link/redeem", { token, client: "mobile" });
     if (!response.ok) throw new Error("Magic-link redemption failed.");
     try {
       return publicSession(await this.saveResponse(await readJson<MagicLinkResponse>(response), version));

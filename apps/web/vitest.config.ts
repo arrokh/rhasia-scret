@@ -4,7 +4,11 @@ import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 
 loadWorkspaceEnvironment();
 
-const resolve = { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } };
+const resolve = {
+  alias: {
+    "@": fileURLToPath(new URL("./src", import.meta.url)),
+  },
+};
 const test = { globals: true, clearMocks: true, restoreMocks: true };
 
 export default defineConfig({
@@ -19,7 +23,7 @@ export default defineConfig({
           include: ["src/tests/unit/**/*.test.ts"],
           environment: "node",
           testTimeout: 15_000,
-          setupFiles: ["src/tests/setup.ts", "src/tests/rate-limit-route-mock.ts"],
+          setupFiles: ["src/tests/setup.ts"],
         },
       },
       {
@@ -39,7 +43,6 @@ export default defineConfig({
           name: "contract",
           include: ["src/tests/contract/**/*.test.ts"],
           environment: "node",
-          setupFiles: ["src/tests/rate-limit-route-mock.ts"],
         },
       },
     ],

@@ -16,7 +16,7 @@ describe("mobile Vault archives", () => {
     const auditTransport = new AuditTransport();
     const prepared = await prepareMobileVaultArchive(workspace, workspace.vaults[0], auditTransport);
     expect(auditTransport.requests[0]).toEqual({
-      url: "/api/vaults/vault_1/archive-exports",
+      url: "/v1/vaults/vault_1/archive-exports",
       method: "POST",
       cache: "no-store",
     });
@@ -67,7 +67,7 @@ describe("mobile Vault archives", () => {
     expect(requestText).not.toContain("RFC");
     expect(requestText).not.toContain("vector");
     expect(requestText).not.toContain("12345678901234567890");
-    expect(transport.requests[0].url).toBe("/api/vault-imports");
+    expect(transport.requests[0].url).toBe("/v1/vault-imports");
     workspace.accounts[0].secret.fill(0);
   });
 });

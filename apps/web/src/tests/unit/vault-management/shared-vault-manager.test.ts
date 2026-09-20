@@ -85,7 +85,7 @@ describe("dedicated Vault management", () => {
 
     expect(container.querySelector('input[value="Tim Operasional"]')).not.toBeNull();
     await vi.waitFor(() => expect(container.textContent).toContain("owner@example.test"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/member-permissions", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/shared-1/member-permissions", {
       cache: "no-store",
       method: "GET",
     });
@@ -158,7 +158,7 @@ describe("dedicated Vault management", () => {
     await act(async () => findButton(document.body, "Hapus brankas").click());
 
     await vi.waitFor(() => expect(onDeleted).toHaveBeenCalledWith("shared-1"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/shared-vaults/shared-1/lifecycle", { method: "DELETE" });
   });
 
   it("opens member defaults initially when at least one permission is enabled", async () => {
@@ -409,18 +409,15 @@ describe("dedicated Vault management", () => {
         "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
       ),
     );
-    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
-      "shared-1",
-      "viewer@example.test",
-      vaults()[0]!.key,
-      expect.objectContaining({ deliver: expect.any(Function) }),
-    );
-    await act(async () => findButton(container, "Kirim undangan").click());
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
+    expect(mocks.openInvitationEmailComposer).not.toHaveBeenCalled();
+    await act(async () => findButton(document.body, "Kirim dari email saya").click());
     expect(mocks.openInvitationEmailComposer).toHaveBeenCalledWith({
       recipientEmail: "viewer@example.test",
       subject: "Anda diundang ke Brankas Bersama",
       body: expect.stringContaining("client-only-secret"),
     });
+    await act(async () => findButton(container, "Kirim undangan").click());
     expect(container.textContent).toContain("Draf email dibuka");
     const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
     await act(async () => copyPending.click());
@@ -485,7 +482,6 @@ describe("dedicated Vault management", () => {
       "shared-1",
       "expired@example.test",
       vaults()[0]!.key,
-      expect.objectContaining({ deliver: expect.any(Function) }),
     );
     expect(container.textContent).toContain("Menunggu");
     expect(container.textContent).not.toContain("Kedaluwarsa");

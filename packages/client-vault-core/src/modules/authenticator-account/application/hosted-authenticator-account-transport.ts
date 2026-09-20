@@ -109,7 +109,7 @@ export class HostedAuthenticatorAccountTransport {
 }
 
 function endpoint(destination: HostedAuthenticatorAccountDestination): string {
-  const base = destination.vaultType === "PERSONAL" ? "/api/vaults" : "/api/shared-vaults";
+  const base = destination.vaultType === "PERSONAL" ? "/v1/vaults" : "/v1/shared-vaults";
   return `${base}/${encodeURIComponent(destination.vaultId)}/accounts`;
 }
 

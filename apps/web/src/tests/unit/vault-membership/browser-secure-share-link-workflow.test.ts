@@ -42,7 +42,7 @@ describe("redeemSecureShareLink", () => {
     expect(mocks.request).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        url: expect.stringMatching(/^\/api\/secure-share-links\?verifier=/),
+        url: expect.stringMatching(/^\/v1\/secure-share-links\?verifier=/),
         method: "GET",
         cache: "no-store",
       }),
@@ -58,7 +58,7 @@ describe("redeemSecureShareLink", () => {
     expect(mocks.request).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        url: "/api/secure-share-links",
+        url: "/v1/secure-share-links",
         method: "POST",
         body: JSON.stringify({
           invitationId: "invitation-1",

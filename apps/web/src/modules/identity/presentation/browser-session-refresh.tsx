@@ -8,7 +8,7 @@ export function BrowserSessionRefresh(): null {
   useEffect(() => {
     if (refreshStarted.current || isAuthenticationRoute(window.location.pathname)) return;
     refreshStarted.current = true;
-    void browserApiClient.postJson<{ refreshed: true }>("/api/auth/session/refresh", { client: "web" }).catch(() => {
+    void browserApiClient.postJson<{ refreshed: true }>("/api/v1/auth/session/refresh", { client: "web" }).catch(() => {
       // Anonymous pages and expired sessions intentionally remain quiet.
     });
   }, []);

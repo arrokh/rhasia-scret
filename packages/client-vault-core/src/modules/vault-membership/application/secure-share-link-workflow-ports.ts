@@ -51,5 +51,5 @@ export type SecureShareLinkWorkflowPorts = {
 export type SecureShareLinkCreationPorts = {
   transport: SecureShareLinkCreationTransportPort;
   crypto: SecureShareLinkCreationCryptoPort;
-  delivery: SecureShareLinkDeliveryPort;
+  delivery?: SecureShareLinkDeliveryPort;
 };

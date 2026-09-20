@@ -22,7 +22,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
     );
 
     const request = transport.requests[0];
-    expect(request.url).toBe("/api/vaults/vault_1/accounts");
+    expect(request.url).toBe("/v1/vaults/vault_1/accounts");
     const requestBody = String(request.body);
     expect(requestBody).not.toContain("Example");
     expect(requestBody).not.toContain("alice");
@@ -44,7 +44,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
     const repository = new MobileAuthenticatorAccountRepository(transport);
     await repository.deleteAccount({ id: "account_2", vaultId: "shared_1", vaultType: "SHARED", revision: 4 });
     expect(transport.requests[0]).toEqual({
-      url: "/api/shared-vaults/shared_1/accounts",
+      url: "/v1/shared-vaults/shared_1/accounts",
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ accountId: "account_2", expectedRevision: 4 }),
@@ -57,7 +57,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
     const repository = new MobileAuthenticatorAccountRepository(transport);
     await repository.recordSharedVaultAccountAccess("shared_1", "account_2");
     expect(transport.requests[0]).toEqual({
-      url: "/api/shared-vaults/shared_1/audit-events",
+      url: "/v1/shared-vaults/shared_1/audit-events",
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ eventType: "ACCOUNT_ACCESSED", accountId: "account_2" }),
@@ -74,7 +74,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
       "otpauth://totp/Example:bob?secret=JBSWY3DPEHPK3PXP&issuer=Example",
     );
 
-    expect(transport.requests[0].url).toBe("/api/shared-vaults/shared_1/accounts");
+    expect(transport.requests[0].url).toBe("/v1/shared-vaults/shared_1/accounts");
     expect(account.vaultType).toBe("SHARED");
     account.secret.fill(0);
   });

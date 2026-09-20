@@ -29,7 +29,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `pnpm exec next dev -p ${browserTestPort}`,
+    command: `pnpm exec tsx scripts/run-browser-server.ts ${browserTestPort}`,
     url: browserTestBaseUrl,
     reuseExistingServer: false,
     timeout: 120_000,
@@ -43,12 +43,6 @@ export default defineConfig({
       AUTH_SESSION_SECRET: "browser-e2e-session-secret-12345678901234567890",
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
       TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
-      SMTP_HOST: "smtp.browser-e2e.invalid",
-      SMTP_PORT: "587",
-      SMTP_SECURE: "false",
-      SMTP_REQUIRE_TLS: "true",
-      SMTP_USER: "browser-e2e",
-      SMTP_PASSWORD: "browser-e2e-password",
       AUTH_EMAIL_FROM: "no-reply@browser-e2e.invalid",
       AUTH_EMAIL_FROM_NAME: "rhasia-scret",
       AUTH_ADMITTED_EMAILS: Object.values(e2eUsers)

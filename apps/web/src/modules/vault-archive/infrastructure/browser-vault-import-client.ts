@@ -36,7 +36,7 @@ export async function uploadEncryptedVaultImport(
   request: BrowserEncryptedVaultImportRequest,
 ): Promise<BrowserEncryptedVaultImportResult> {
   try {
-    return await browserApiClient.postJson("/api/vault-imports", request, { signal: AbortSignal.timeout(60_000) });
+    return await browserApiClient.postJson("/api/v1/vault-imports", request, { signal: AbortSignal.timeout(60_000) });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError"))
       throw new VaultImportClientError("clientTimeout");

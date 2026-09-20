@@ -10,17 +10,27 @@
 
 Firefox and WebKit are intentionally deferred and commented out of both the CI workflow matrix and Playwright project configuration. No Firefox or WebKit test is expected for this support focus.
 
-The local gate uses distinct ports and Next development output directories for smoke and encrypted workflows. All browser identities, labels, issuer values, and payloads are synthetic and non-PII; use reserved example values and never user-provided data. They run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with its own PostgreSQL service. Smoke keeps one worker for stability; encrypted workflows use two workers because their scenarios use distinct browser-E2E identities. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
+## Remote development HMR
+
+Next.js dev resources are same-origin by default. When the development server is opened through a Tailnet or LAN hostname, add the hostname to the root `.env` without a hard-coded source change:
+
+```dotenv
+NEXT_ALLOWED_DEV_ORIGINS=your-machine.tailnet.example
+```
+
+Multiple hostnames or origins may be supplied as a comma-separated value. `apps/web/next.config.ts` normalizes origins to hostnames and passes them to `allowedDevOrigins`; restart the Next.js dev server after changing `.env`. Keep this development-only variable out of production deployment configuration.
+
+The local gate uses a collision-free four-port block and distinct Next development output directories for smoke and encrypted workflows. Unless `BROWSER_TEST_PORT` is set, the gate allocates a base port at runtime and verifies that the web ports (`base`, `base + 1`) and API ports (`base + 5687`, `base + 5688`) are available; it never kills an existing process. All browser identities, labels, issuer values, and payloads are synthetic and non-PII; use reserved example values and never user-provided data. The development suites run concurrently by default; `BROWSER_TEST_SEQUENTIAL=1` retains the constrained-machine fallback. GitHub Actions instead runs each `(suite, browser)` pair on an independent runner with its own PostgreSQL service. Smoke keeps one worker for stability; encrypted workflows use two workers because their scenarios use distinct browser-E2E identities. The two development matrix cells, production PWA/navigation job, web quality job, mobile job, core job, repository job, and change-detection job are independent (8 workflow jobs total).
 
 CI and the required local gate focus on Chromium. Firefox and WebKit are commented out of the hosted matrix and Playwright project configuration, and no non-Chromium coverage is expected.
 
-| Stage               |                                 Port | Next output           | Specs                                                                                                                                   |
-| ------------------- | -----------------------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Smoke               | `BROWSER_TEST_PORT` (default `3100`) | `.next/browser-smoke` | `granular-loading`, `mobile-preview`, `remembered-browser`, `security-headers`, `smoke`, `vault-archive-backup`, `vault-archive-import` |
-| Encrypted workflows |              `BROWSER_TEST_PORT + 1` | `.next/browser-e2e`   | `encrypted-vault-workflows`                                                                                                             |
-| Production PWA      |                  `BROWSER_TEST_PORT` | `.next`               | `offline-pwa`                                                                                                                           |
+| Stage               | Port               | Next output           | Specs                                                                                                                                   |
+| ------------------- | ------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Smoke               | allocated base     | `.next/browser-smoke` | `granular-loading`, `mobile-preview`, `remembered-browser`, `security-headers`, `smoke`, `vault-archive-backup`, `vault-archive-import` |
+| Encrypted workflows | allocated base + 1 | `.next/browser-e2e`   | `encrypted-vault-workflows`                                                                                                             |
+| Production PWA      | allocated base     | `.next`               | `offline-pwa`                                                                                                                           |
 
-The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory and complete CI suite/browser matrix are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts`. Navigation performance remains an explicit `pnpm run test:performance` check, sequentially after production PWA tests on their dedicated runner. Neither shares a database with another CI job.
+The suite runner deletes its isolated development output before and after every run. In the default concurrent mode, the gate waits for both development stages before starting the PWA stage and terminates the sibling when either fails. In sequential mode, it fails fast before starting the next stage. Both modes preserve the existing non-zero failure semantics and run the same coverage. The coverage inventory, port allocation, and complete CI suite/browser matrix are enforced by `src/tests/unit/architecture/browser-test-gate-inventory.test.ts` and the browser-port unit tests. Navigation performance remains an explicit `pnpm run test:performance` check, sequentially after production PWA tests on their dedicated runner. Neither shares a database with another CI job.
 
 The web full gate already builds production output before browser tests. It passes `BROWSER_TEST_REUSE_BUILD=1` so the PWA stage starts that verified build rather than running a second `next build`. Running `pnpm run test:browser:pwa` directly still builds production output, so targeted use remains self-contained.
 

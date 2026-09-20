@@ -6,8 +6,12 @@ import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
-import { INVITATION_AUTH_RETURN_PATH, resolveAuthReturnPath } from "../application/auth-return-path";
-import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-authentication";
+import {
+  AUTH_COMPLETION_PATH,
+  INVITATION_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+} from "../application/auth-return-path";
+import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-client-contract";
 import { announceAuthenticationCompletion, requestInvitationSecret } from "./auth-completion-channel";
 import {
   pollPwaAuthenticationHandoff,
@@ -25,6 +29,8 @@ import {
 } from "../infrastructure/pwa-authentication";
 
 type MagicLinkConfirmationProps = { client?: "web" | "pwa"; navigate?: (path: string) => void };
+
+const INVITATION_SECRET_HANDOFF_TIMEOUT_MS = 3_000;
 
 export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps> = ({ client = "web", navigate }) => {
   const t = useTranslations("Identity.confirm");
@@ -76,10 +82,18 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
           return;
         }
         const returnPath = resolveAuthReturnPath((await redeemBrowserMagicLink(fragment.token)).returnPath);
-        const invitationSecret = returnPath === INVITATION_AUTH_RETURN_PATH ? await requestInvitationSecret() : null;
+        const invitationSecretPromise =
+          returnPath === INVITATION_AUTH_RETURN_PATH
+            ? requestInvitationSecret(INVITATION_SECRET_HANDOFF_TIMEOUT_MS)
+            : Promise.resolve(null);
+        announceAuthenticationCompletion();
+        const invitationSecret = await invitationSecretPromise;
         if (mounted.current) {
-          announceAuthenticationCompletion();
-          goTo(buildAuthenticatedDestination(returnPath, invitationSecret));
+          goTo(
+            returnPath === INVITATION_AUTH_RETURN_PATH && !invitationSecret
+              ? AUTH_COMPLETION_PATH
+              : buildAuthenticatedDestination(returnPath, invitationSecret),
+          );
         }
       } catch {
         if (mounted.current) setFailed(true);

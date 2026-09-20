@@ -1,17 +1,4 @@
-export { ApplicationUser } from "./domain/application-user";
-export type { ApplicationUserStatus } from "./domain/application-user";
-export type {
-  SessionAssurance,
-  SessionVerifier,
-  VerifiedPrincipal,
-  VerifiedSession,
-} from "./application/session-verifier";
-export { ApplicationUserCredentialInvalidatedError } from "./application/application-user-repository";
-export type { ApplicationUserRepository } from "./application/application-user-repository";
 export { ACCOUNT_DELETION_OIDC_RETURN_PATH } from "./application/auth-return-path";
-export { loadApplicationUser } from "./application/load-application-user";
-export { linkIdentity } from "./application/identity-linking";
-export type { IdentityLinkRepository, IdentityLinkRequest } from "./application/identity-linking";
 export { LogoutForm } from "./presentation/logout-form";
 export {
   usePasskeyRecoveryStatusQuery,

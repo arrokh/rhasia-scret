@@ -58,10 +58,10 @@ describe("PasskeyRecoveryReset", () => {
       allowCredentials: [{ id: "AQI", type: "public-key" }],
     } as PublicKeyCredentialRequestOptionsJSON;
     const fetchMock = vi.fn(async (input: string, _init?: RequestInit) => {
-      if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
-      if (input === "/api/passkey-recovery/authentication/verify")
+      if (input === "/api/v1/passkey-recovery/authentication/options") return jsonResponse(options);
+      if (input === "/api/v1/passkey-recovery/authentication/verify")
         return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
-      if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
+      if (input === "/api/v1/user-crypto-profile/rewrap") return { ok: true };
       throw new Error(`Unexpected request: ${input}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -82,7 +82,7 @@ describe("PasskeyRecoveryReset", () => {
       expect.any(Uint8Array),
       "alpha bravo charlie delta echo foxtrot",
     );
-    const rewrapCall = fetchMock.mock.calls.find(([url]) => url === "/api/user-crypto-profile/rewrap");
+    const rewrapCall = fetchMock.mock.calls.find(([url]) => url === "/api/v1/user-crypto-profile/rewrap");
     const rewrapRequest = rewrapCall?.[1];
     expect(rewrapRequest).toEqual(expect.objectContaining({ method: "POST" }));
     expect(JSON.parse(String(rewrapRequest?.body))).toEqual({
@@ -120,10 +120,10 @@ describe("PasskeyRecoveryReset", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string) => {
-        if (input === "/api/passkey-recovery/authentication/options") return jsonResponse(options);
-        if (input === "/api/passkey-recovery/authentication/verify")
+        if (input === "/api/v1/passkey-recovery/authentication/options") return jsonResponse(options);
+        if (input === "/api/v1/passkey-recovery/authentication/verify")
           return jsonResponse({ encryptedRecoveryPackage: "CQ==" });
-        if (input === "/api/user-crypto-profile/rewrap") return { ok: true };
+        if (input === "/api/v1/user-crypto-profile/rewrap") return { ok: true };
         throw new Error(`Unexpected request: ${input}`);
       }),
     );

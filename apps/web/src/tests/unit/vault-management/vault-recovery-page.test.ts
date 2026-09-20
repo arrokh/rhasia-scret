@@ -21,15 +21,12 @@ vi.mock("@/modules/vault-management", () => ({
 vi.mock("@/modules/vault-management/presentation/load-vault-page-context", () => ({
   loadVaultPageContext: mocks.loadVaultPageContext,
 }));
-vi.mock("@/modules/vault-management/infrastructure/prisma-destructive-personal-vault-reset-repository", () => ({
-  PrismaDestructivePersonalVaultResetRepository: class PrismaDestructivePersonalVaultResetRepository {
-    public getEligibility(userId: string) {
-      return mocks.getEligibility(userId);
-    }
-  },
+vi.mock("@/shared/infrastructure/server-api-gateway", () => ({
+  loadServerDestructiveResetEligibility: mocks.getEligibility,
 }));
 
 import VaultRecoveryPage from "@/app/vaults/recovery/page";
+import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
 describe("VaultRecoveryPage", () => {
@@ -47,7 +44,7 @@ describe("VaultRecoveryPage", () => {
       activeOwnedSharedVaultIds: [],
     });
 
-    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderRecoveryPage();
 
     expect(markup).toContain('data-testid="destructive-reset"');
     expect(markup).not.toContain('data-testid="passkey-reset"');
@@ -60,7 +57,7 @@ describe("VaultRecoveryPage", () => {
       activeOwnedSharedVaultIds: [],
     });
 
-    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderRecoveryPage();
 
     expect(markup).toContain('data-testid="passkey-reset"');
     expect(markup).not.toContain('data-testid="destructive-reset"');
@@ -73,13 +70,23 @@ describe("VaultRecoveryPage", () => {
       activeOwnedSharedVaultIds: ["vault-1", "vault-2"],
     });
 
-    const markup = await renderFully(createElement(TestQueryProvider, null, await VaultRecoveryPage()));
+    const markup = await renderRecoveryPage();
 
     expect(markup).toContain('data-testid="owned-vault-blocker"');
     expect(markup).toContain("2 owned vaults");
     expect(markup).not.toContain('data-testid="destructive-reset"');
   });
 });
+
+async function renderRecoveryPage(): Promise<string> {
+  return renderFully(
+    createElement(
+      TestQueryProvider,
+      null,
+      createElement(UnlockedVaultWorkspaceProvider, null, await VaultRecoveryPage()),
+    ),
+  );
+}
 
 async function renderFully(element: ReactNode): Promise<string> {
   const stream = await renderToReadableStream(element);

@@ -14,7 +14,7 @@ const cryptoMocks = vi.hoisted(() => ({
     if (secret.trim().length < 3) throw new Error("At least three characters are required.");
   }),
 }));
-const navigationMocks = vi.hoisted(() => ({ refresh: vi.fn() }));
+const navigationMocks = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn() }));
 
 vi.mock("@/modules/crypto", () => cryptoMocks);
 vi.mock("next/navigation", () => ({ useRouter: () => navigationMocks }));
@@ -143,11 +143,56 @@ describe("PersonalVaultSetupForm", () => {
 
     expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abc", "Brankas Pribadi");
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/personal-vault/initialize",
+      "/api/v1/personal-vault/initialize",
       expect.objectContaining({ method: "POST" }),
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
 
+    await act(async () => root?.unmount());
+  });
+
+  it("returns to invitation redemption while preserving its client-only fragment after setup", async () => {
+    cryptoMocks.generateVaultUnlockSecret.mockReset();
+    cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
+      vaultUnlockSalt: new Uint8Array(16),
+      wrappedUserRootKey: new Uint8Array(13),
+      encryptedPersonalVaultKey: new Uint8Array(13),
+      encryptedVaultName: new Uint8Array(13),
+      encryptionVersion: 1,
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState(null, "", "/vaults/invitations/redeem#client-only-secret");
+    const container = document.createElement("div");
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = createRoot(container);
+      root.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(PersonalVaultSetupForm, {
+            afterInitializationPath: "/vaults/invitations/redeem",
+          }),
+        ),
+      );
+    });
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
+    const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
+    await act(async () => {
+      setInputValue(confirmation, "picnic trophy sheriff coin wire ocean");
+      acknowledgement?.click();
+      form?.requestSubmit();
+    });
+
+    expect(navigationMocks.replace).toHaveBeenCalledWith("/vaults/invitations/redeem#client-only-secret");
+    expect(navigationMocks.refresh).toHaveBeenCalledOnce();
+
+    window.history.replaceState(null, "", "/");
     await act(async () => root?.unmount());
   });
 
@@ -190,7 +235,7 @@ describe("PersonalVaultSetupForm", () => {
       "Brankas Pribadi",
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/personal-vault/initialize",
+      "/api/v1/personal-vault/initialize",
       expect.objectContaining({ method: "POST" }),
     );
     expect(navigationMocks.refresh).toHaveBeenCalledOnce();

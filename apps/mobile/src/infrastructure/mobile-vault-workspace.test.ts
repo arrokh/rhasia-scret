@@ -42,7 +42,7 @@ describe("mobile Vault workspace transport", () => {
     expect(bundle).toEqual({ ...cached, synchronizedAt: "2026-08-11T23:00:00.000Z" });
     expect(transport.requests).toEqual([
       {
-        url: "/api/sync/offline-bundle",
+        url: "/v1/sync/offline-bundle",
         method: "GET",
         headers: { "if-none-match": '"sync-token-1"' },
         cache: "no-store",

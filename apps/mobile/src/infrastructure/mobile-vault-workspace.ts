@@ -97,7 +97,7 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
       recoverUserRootKeyWithPasskey: async () => unsupportedDeviceRecovery(),
       rewrapUserCryptoProfile: async (profile) => {
         const response = await transport.request({
-          url: "/api/user-crypto-profile/rewrap",
+          url: "/v1/user-crypto-profile/rewrap",
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(profile),

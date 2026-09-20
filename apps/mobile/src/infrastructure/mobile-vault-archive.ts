@@ -42,7 +42,7 @@ export async function prepareMobileVaultArchive(
   );
   try {
     const response = await transport.request({
-      url: `/api/vaults/${encodeURIComponent(vault.id)}/archive-exports`,
+      url: `/v1/vaults/${encodeURIComponent(vault.id)}/archive-exports`,
       method: "POST",
       cache: "no-store",
     });
@@ -106,7 +106,7 @@ export async function importOpenedArchiveIntoVault(
     }
     const accountIds = encryptedPayloads.map(() => randomUuid());
     const response = await transport.request({
-      url: "/api/vault-imports",
+      url: "/v1/vault-imports",
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

@@ -28,7 +28,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
     validateVerifier(request.linkVerifier);
     validateCiphertext(request.encryptedPackage);
     const response = await this.transport.request({
-      url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links`,
+      url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/share-links`,
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -45,7 +45,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
   public async lookup(verifier: string): Promise<SecureShareLinkLookup> {
     validateVerifier(verifier);
     const response = await this.transport.request({
-      url: `/api/secure-share-links?verifier=${encodeURIComponent(verifier)}`,
+      url: `/v1/secure-share-links?verifier=${encodeURIComponent(verifier)}`,
       method: "GET",
       cache: "no-store",
     });
@@ -60,7 +60,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
     validateCiphertext(request.encryptedVaultKey);
     if (request.keyVersion !== 1) invalidResponse();
     const response = await this.transport.request({
-      url: "/api/secure-share-links",
+      url: "/v1/secure-share-links",
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -77,7 +77,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
     validateIdentifier(vaultId);
     validateIdentifier(invitationId);
     const response = await this.transport.request({
-      url: `/api/shared-vaults/${encodeURIComponent(vaultId)}/share-links/${encodeURIComponent(invitationId)}`,
+      url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/share-links/${encodeURIComponent(invitationId)}`,
       method: "DELETE",
       cache: "no-store",
     });

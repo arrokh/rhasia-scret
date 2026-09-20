@@ -14,6 +14,6 @@ describe("browser invitation email delivery", () => {
     expect(url).toBe(
       "mailto:viewer%40example.test?subject=Shared+Vault+invitation&body=Open+this+one-time+link%3A%0Ahttps%3A%2F%2Fapp.example.test%2Fvaults%2Finvitations%2Fredeem%23client-only-secret",
     );
-    expect(url).not.toContain("/api/");
+    expect(url).not.toContain("/api/v1/");
   });
 });

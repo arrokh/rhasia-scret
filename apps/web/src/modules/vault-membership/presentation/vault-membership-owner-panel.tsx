@@ -39,7 +39,6 @@ import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { FormLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
 import type {
   EffectiveSharedVaultAccountPermissions,
-  SecureShareLinkDeliveryPort,
   SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
 import { openInvitationEmailComposer } from "../infrastructure/browser-invitation-email";
@@ -404,19 +403,6 @@ function secureInvitationLink(secret: string): string {
   return `${window.location.origin}/vaults/invitations/redeem#${secret}`;
 }
 
-function invitationEmailDelivery(
-  recipientEmail: string,
-  subject: string,
-  body: (link: string) => string,
-): SecureShareLinkDeliveryPort {
-  return {
-    deliver: async ({ secret }) => {
-      const link = secureInvitationLink(secret);
-      openInvitationEmailComposer({ recipientEmail, subject, body: body(link) });
-    },
-  };
-}
-
 function InvitationPanel({
   vault,
   participants,
@@ -450,6 +436,8 @@ function InvitationPanel({
   const [copyStatus, setCopyStatus] = useState<"failed" | "unavailable" | null>(null);
   const [reinvitingInvitationId, setReinvitingInvitationId] = useState<string | null>(null);
   const [latestInvitation, setLatestInvitation] = useState<{ email: string; link: string } | null>(null);
+  const [emailConfirmation, setEmailConfirmation] = useState<{ email: string; link: string } | null>(null);
+  const [emailConfirmationFailed, setEmailConfirmationFailed] = useState(false);
   const [reinvitationFailed, setReinvitationFailed] = useState(false);
   const deleteMutation = useDeleteVaultParticipantMutation(vault.id);
   const visibleParticipants = participants.filter(
@@ -526,21 +514,32 @@ function InvitationPanel({
     ]);
     if (replacedInvitationId) setReplacedInvitationIds((current) => [...current, replacedInvitationId]);
     setLatestInvitation({ email: invitation.email, link: invitation.link });
+    setEmailConfirmation({ email: invitation.email, link: invitation.link });
+    setEmailConfirmationFailed(false);
     onCreated();
   }
+  function confirmEmailDelivery() {
+    if (!emailConfirmation) return;
+    try {
+      openInvitationEmailComposer({
+        recipientEmail: emailConfirmation.email,
+        subject: t("emailSubject"),
+        body: t("emailBody", { link: emailConfirmation.link, email: emailConfirmation.email }),
+      });
+      setEmailConfirmation(null);
+      setEmailConfirmationFailed(false);
+    } catch {
+      setEmailConfirmation(null);
+      setEmailConfirmationFailed(true);
+    }
+  }
+
   async function reinvite(participant: BrowserVaultParticipant) {
     if (!participant.invitationId || participant.invitationState !== "EXPIRED") return;
     setReinvitingInvitationId(participant.invitationId);
     setReinvitationFailed(false);
     try {
-      const invitation = await createSharedVaultInvitation(
-        vault.id,
-        participant.email,
-        vault.key,
-        invitationEmailDelivery(participant.email, t("emailSubject"), (link) =>
-          t("emailBody", { link, email: participant.email }),
-        ),
-      );
+      const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key);
       const link = secureInvitationLink(invitation.secret);
       captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationReissued);
       rememberInvitation(
@@ -561,6 +560,20 @@ function InvitationPanel({
     <div className="grid gap-5">
       <InvitationForm vault={vault} onCreated={(invitation) => rememberInvitation(invitation)} />
       {latestInvitation && <SecureInvitationLink email={latestInvitation.email} link={latestInvitation.link} />}
+      {emailConfirmationFailed && (
+        <StatusBanner tone="danger" role="alert">
+          {t("emailError")}
+        </StatusBanner>
+      )}
+      {emailConfirmation && (
+        <ConfirmationDialog
+          title={t("sendEmailConfirmTitle")}
+          description={t("sendEmailConfirmDescription", { email: emailConfirmation.email })}
+          confirmLabel={t("sendEmailConfirm")}
+          onCancel={() => setEmailConfirmation(null)}
+          onConfirm={confirmEmailDelivery}
+        />
+      )}
       <section className="grid gap-3" aria-labelledby="invited-users-title">
         <div>
           <h3 id="invited-users-title" className="font-bold text-ink-strong">
@@ -756,12 +769,7 @@ function InvitationForm({
       setError(false);
       try {
         const email = value.email.trim().toLowerCase();
-        const invitation = await createSharedVaultInvitation(
-          vault.id,
-          email,
-          vault.key,
-          invitationEmailDelivery(email, t("emailSubject"), (link) => t("emailBody", { link, email })),
-        );
+        const invitation = await createSharedVaultInvitation(vault.id, email, vault.key);
         const link = secureInvitationLink(invitation.secret);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationCreated);
         form.reset();

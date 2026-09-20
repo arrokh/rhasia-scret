@@ -16,11 +16,12 @@ export async function createSecureShareLink(
       encryptedPackage: bytesToBase64(material.encryptedPackage),
     });
     invitationId = invitation.id;
-    await ports.delivery.deliver({
-      secret: material.secret,
-      invitationId,
-      expiresAt: invitation.expiresAt,
-    });
+    if (ports.delivery)
+      await ports.delivery.deliver({
+        secret: material.secret,
+        invitationId,
+        expiresAt: invitation.expiresAt,
+      });
     return { id: invitation.id, secret: material.secret, expiresAt: invitation.expiresAt };
   } catch (error) {
     if (invitationId) await ports.transport.cancel(vaultId, invitationId).catch(() => undefined);

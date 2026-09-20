@@ -32,7 +32,7 @@ describe("request origin", () => {
   });
 
   it("does not trust forwarded client IP headers unless the proxy is explicitly trusted", () => {
-    const request = new NextRequest("https://vault.example.test/api/auth/magic-link/request", {
+    const request = new NextRequest("https://vault.example.test/api/v1/auth/magic-link/request", {
       headers: { "x-forwarded-for": "198.51.100.10", "x-real-ip": "198.51.100.11" },
     });
 

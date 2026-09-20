@@ -89,7 +89,7 @@ describe("MobilePasswordlessAuthClient", () => {
     expect(session).not.toHaveProperty("accessToken");
     expect(session).not.toHaveProperty("refreshToken");
     expect(fetchMock).toHaveBeenLastCalledWith(
-      new URL("/api/auth/session/refresh", configuration.apiUrl),
+      new URL("/v1/auth/session/refresh", configuration.apiUrl),
       expect.objectContaining({
         body: JSON.stringify({ client: "mobile", refreshToken }),
       }),
@@ -215,12 +215,12 @@ describe("MobilePasswordlessAuthClient", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      new URL("/api/auth/session/refresh", configuration.apiUrl),
+      new URL("/v1/auth/session/refresh", configuration.apiUrl),
       expect.objectContaining({ body: JSON.stringify({ client: "mobile", refreshToken }) }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      new URL("/api/auth/session/revoke", configuration.apiUrl),
+      new URL("/v1/auth/session/revoke", configuration.apiUrl),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: `Bearer ${rotatedAccessToken}` }),
       }),
@@ -272,7 +272,7 @@ describe("MobilePasswordlessAuthClient", () => {
     await expect(client.signOut()).rejects.toThrow("network unavailable");
     await expect(client.getSession()).resolves.toBeNull();
     expect(fetchMock).toHaveBeenLastCalledWith(
-      new URL("/api/auth/session/revoke", configuration.apiUrl),
+      new URL("/v1/auth/session/revoke", configuration.apiUrl),
       expect.objectContaining({ headers: expect.objectContaining({ Authorization: `Bearer ${accessToken}` }) }),
     );
   });

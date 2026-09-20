@@ -11,7 +11,9 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./modules/sync/domain/offline-vault-bundle": "./src/modules/sync/domain/offline-vault-bundle.ts",
+    "./modules/vault-membership/domain/shared-vault-account-permissions": "./src/modules/vault-membership/domain/shared-vault-account-permissions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit --project tsconfig.json",

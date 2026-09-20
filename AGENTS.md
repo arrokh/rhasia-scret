@@ -9,6 +9,14 @@
 - Treat vault names, account issuer/name, and all TOTP configuration as encrypted content.
 - Do not weaken encryption, authorization, audit redaction, or client/server boundaries without a new ADR.
 
+### Secret scanning and PII response
+
+- Handle every Gitleaks or other secret-scanning finding aggressively and proactively: treat it as a potentially exposed credential or PII until it is explicitly classified as synthetic, public-by-design, or a false positive. Stop commit, merge, deployment, and public disclosure of the affected change until triage is complete.
+- Follow `SECURITY.md` for security-sensitive findings. Use only redacted evidence and synthetic, non-PII reproductions in issues, pull requests, logs, tests, fixtures, and documentation. Never copy the detected value, surrounding credential material, user data, authorization headers, database URLs, tokens, QR data, or decrypted content into chat, source control, tickets, or CI artifacts.
+- For a real or potentially real secret, contain first, then coordinate revocation/rotation with the owner or provider, remove it from the current tree and derived artifacts, assess exposure, and record only the redacted remediation evidence. Deleting a line, adding a broad allowlist, squashing commits, or rewriting history alone is not remediation.
+- Use only narrow, commit-scoped Gitleaks exceptions for reviewed historical public-by-design values, synthetic fixtures, or proven false positives. Document the finding, rationale, owner, review date, and removal condition beside the exception; never suppress an unknown or active finding to make CI pass.
+- Safe read-only triage and redaction may proceed without approval. Obtain explicit human confirmation before rotating or revoking external credentials, rewriting shared/public Git history, force-pushing or deleting remote refs, adding/removing/changing a Gitleaks exception, weakening secret-scanning policy, or publicly disclosing security details. Confirmation must be recorded in the current conversation and does not carry across sessions or environments.
+
 ## Architecture
 
 - Use bounded contexts under `apps/web/src/modules/<context>/{domain,application,infrastructure,presentation}`. The Expo composition and native adapters belong under `apps/mobile`; cross-platform client workflows belong in a named `packages/*` capability package with a public entry point.
@@ -18,6 +26,7 @@
 - Web domain code under `apps/web/src` must not import Next.js, React, Prisma, browser APIs, or HTTP types. Platform-neutral packages must not import either application or platform APIs.
 - Cross-context access goes through each module's public API; do not reach into another module's internals. `apps/web` and `apps/mobile` may consume named shared packages but shared packages may not depend on either app.
 - Keep route handlers thin: validate input, invoke an application use case, and map errors to HTTP.
+- Use guard clauses consistently: reject invalid input, missing authentication/context, unavailable dependencies, and unsupported states immediately; keep the success path flat, avoid `else` branches and deep nesting, and extract branch-specific flows when a guard clause alone would not keep the handler readable.
 - Server code must not import client crypto/decryption or OTP runtime modules.
 - Use server-side Prisma for application data access owned by `apps/web`. Browser database/API access is deferred; do not add browser REST database access until that work is explicitly approved.
 
@@ -39,6 +48,12 @@
 - Do not add locale-prefixed or translated paths, infer locale from `Accept-Language`, or persist locale in Prisma, IndexedDB, TanStack Query, encrypted content, or cryptographic payloads. Locale selection remains the validated `RHSIA_LOCALE` cookie defined by ADR-0035.
 - Never place user-provided Vault/account labels, TOTP configuration, OTPs, secrets, keys, Secure Share Link material, or decrypted content in message catalogs, locale state, Query caches, or service-worker caches.
 - Extend catalog-parity, hard-coded-copy, architecture, contract, and browser/offline coverage with each localized surface. Preserve the exact destructive-reset token `HAPUS DATA BRANKAS` in both locales.
+
+## API validation and control flow
+
+- Use Zod for structural API validation: JSON bodies, required/optional fields, bounded strings and arrays, enums, discriminated unions, route parameters, and query parameters. Keep authentication, authorization, origin checks, rate limiting, provider calls, cryptographic/token verification, and business invariants outside schemas.
+- Prefer strict object schemas for request bodies so unsupported fields fail closed rather than being silently stripped. Preserve bounded, endpoint-specific error codes and status mappings.
+- Use guard clauses for validation and error handling before entering the happy path; avoid nested validation conditionals and imperative type checks when a schema or a small focused helper can express the boundary.
 
 ## Quality
 

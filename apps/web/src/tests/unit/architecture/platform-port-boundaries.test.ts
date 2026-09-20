@@ -77,7 +77,7 @@ describe("platform-neutral client ports", () => {
       },
     };
     const transport = new BearerTokenTransport(delegate, { getToken: async () => "synthetic-access-token" });
-    await transport.request({ url: "/api/me", method: "GET", headers: { accept: "application/json" } });
+    await transport.request({ url: "/api/v1/me", method: "GET", headers: { accept: "application/json" } });
     expect(captured?.headers).toEqual({ accept: "application/json", authorization: "Bearer synthetic-access-token" });
   });
 });

@@ -25,7 +25,7 @@ describe("MobilePersonalVaultRepository", () => {
     const repository = new MobilePersonalVaultRepository(transport);
 
     await expect(repository.load()).resolves.toEqual({ id: "vault-1", lifecycle: "UNINITIALIZED" });
-    expect(transport.requests).toEqual([{ url: "/api/personal-vault", method: "GET", cache: "no-store" }]);
+    expect(transport.requests).toEqual([{ url: "/v1/personal-vault", method: "GET", cache: "no-store" }]);
   });
 
   it("loads only encrypted crypto-profile material", async () => {
@@ -49,7 +49,7 @@ describe("MobilePersonalVaultRepository", () => {
       encryptedPersonalVaultKey: encryptedVaultKey,
       encryptionVersion: 1,
     });
-    expect(transport.requests[0]).toEqual({ url: "/api/user-crypto-profile", method: "GET", cache: "no-store" });
+    expect(transport.requests[0]).toEqual({ url: "/v1/user-crypto-profile", method: "GET", cache: "no-store" });
   });
 
   it("sends only protocol ciphertext and salt during initialization", async () => {
@@ -65,7 +65,7 @@ describe("MobilePersonalVaultRepository", () => {
     });
 
     expect(transport.requests[0]).toMatchObject({
-      url: "/api/personal-vault/initialize",
+      url: "/v1/personal-vault/initialize",
       method: "POST",
       headers: { "content-type": "application/json" },
     });

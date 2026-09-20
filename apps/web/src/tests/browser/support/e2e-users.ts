@@ -3,6 +3,8 @@ export const E2E_BROWSER_SCENARIOS = [
   "personal",
   "accounts",
   "shared",
+  "invitation-onboarding",
+  "invitation-auth-flow",
   "passkey",
   "english",
   "delete",

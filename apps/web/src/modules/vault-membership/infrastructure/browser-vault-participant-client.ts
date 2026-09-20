@@ -37,7 +37,7 @@ export function loadVaultParticipants(vaultId: string, cursor: string | null): P
   if (cursor) search.set("cursor", cursor);
   const query = search.size ? `?${search.toString()}` : "";
   return browserApiClient.getJson<BrowserVaultParticipantPage>(
-    `/api/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`,
+    `/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/participants${query}`,
     { cache: "no-store" },
   );
 }
@@ -46,7 +46,7 @@ export function loadVaultDefaultAccountPermissions(vaultId: string): Promise<{
   vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
   vaultDefaultAccountPermissionsRevision: number;
 }> {
-  return browserApiClient.getJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
+  return browserApiClient.getJson(`/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
     cache: "no-store",
   });
 }
@@ -59,7 +59,7 @@ export function updateVaultDefaultAccountPermissions(
   vaultDefaultAccountPermissions: SharedVaultAccountPermissions;
   vaultDefaultAccountPermissionsRevision: number;
 }> {
-  return browserApiClient.patchJson(`/api/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
+  return browserApiClient.patchJson(`/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/member-permissions`, {
     expectedRevision,
     ...permissions,
   });
@@ -76,7 +76,7 @@ export function updateVaultMemberAccountPermissionOverrides(
   permissionsRevision: number;
 }> {
   return browserApiClient.patchJson(
-    `/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(memberUserId)}`,
+    `/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(memberUserId)}`,
     {
       expectedRevision,
       ...overrides,
@@ -87,7 +87,7 @@ export function updateVaultMemberAccountPermissionOverrides(
 export function deleteVaultParticipant(vaultId: string, participant: BrowserVaultParticipant): Promise<void> {
   if (participant.kind === "MEMBER" && participant.userId) {
     return browserApiClient.deleteEmpty(
-      `/api/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(participant.userId)}`,
+      `/api/v1/shared-vaults/${encodeURIComponent(vaultId)}/members/${encodeURIComponent(participant.userId)}`,
     );
   }
   if (participant.kind === "INVITATION" && participant.invitationId) {

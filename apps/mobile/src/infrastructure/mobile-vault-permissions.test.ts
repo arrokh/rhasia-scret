@@ -16,7 +16,7 @@ describe("mobile Shared Vault permission defaults", () => {
     );
     expect(updated.revision).toBe(3);
     expect(transport.requests[1]).toEqual({
-      url: "/api/shared-vaults/shared_1/member-permissions",
+      url: "/v1/shared-vaults/shared_1/member-permissions",
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

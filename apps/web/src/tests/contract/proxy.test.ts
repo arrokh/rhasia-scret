@@ -16,8 +16,8 @@ describe("authentication proxy contract", () => {
     "/auth/confirm",
     "/auth/pwa-confirm",
     "/auth/complete",
-    "/api/health",
-    "/api/time",
+    "/api/v1/health",
+    "/api/v1/time",
     "/smoke",
     "/ui-preview",
     "/vaultsmith",
@@ -86,7 +86,7 @@ describe("authentication proxy contract", () => {
   });
 
   it("prevents API and auth responses from being cached", async () => {
-    const api = await createAuthProxy(async () => false)(request("/api/time"));
+    const api = await createAuthProxy(async () => false)(request("/api/v1/time"));
     const auth = await createAuthProxy(async () => false)(request("/auth/confirm"));
     const pwaAuth = await createAuthProxy(async () => false)(request("/auth/pwa-confirm"));
 
