@@ -27,8 +27,9 @@ This index is the public entry point for the repository's product, operating, ar
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
 - [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and rollout blockers.
 - [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
-- [`release-readiness/2026-09-18.md`](release-readiness/2026-09-18.md) — current standalone API readiness decision and external deployment blockers.
-- [`release-readiness/2026-09-16.md`](release-readiness/2026-09-16.md) — historical API extraction snapshot superseded by the standalone API record.
+- [`release-readiness/2026-09-20.md`](release-readiness/2026-09-20.md) — current standalone API readiness decision, implementation evidence, and external deployment blockers.
+- [`release-readiness/2026-09-18.md`](release-readiness/2026-09-18.md) — historical standalone API readiness snapshot superseded by the 2026-09-20 record.
+- [`release-readiness/2026-09-16.md`](release-readiness/2026-09-16.md) — historical API extraction snapshot superseded by the standalone API records.
 - [`release-readiness/2026-09-08.md`](release-readiness/2026-09-08.md) — historical launch-candidate evidence ledger; it does not establish readiness for later commits.
 - [`browser-test-runtime.md`](browser-test-runtime.md) — browser-gate topology, worker controls, and reproducible test commands.
 - [`monorepo.md`](monorepo.md) — workspace ownership, package commands, deployment assumptions, and local verification.

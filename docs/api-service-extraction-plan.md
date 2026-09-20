@@ -4,9 +4,11 @@
 
 Run `apps/api` as a standalone Hono service with Bun as the primary runtime and Node.js compatibility for Vercel and other hosts. The implementation removes the Cloudflare Worker and Hyperdrive deployment path while preserving the `/v1/**` API contract, authentication behavior, encrypted-content boundary, shared SMTP delivery, and client-only invitation secrets.
 
-## Current status — 2026-09-18
+## Current status — 2026-09-20
 
-The repository implementation is complete and locally verified. Bun, generic Node.js, and Vercel adapters, environment isolation, deployment validation, PII controls, and the provider-neutral deployment smoke check are implemented. The passwordless migration verifier passes against the already-approved database state; no migration operation was run.
+The repository implementation is complete and locally verified. Bun, generic Node.js, and Vercel adapters, environment isolation, deployment validation, PII controls, provider-neutral deployment smoke checks, bounded request/ciphertext validation, proxy-origin and anonymous-rate-limit hardening, passwordless/PWA handoff fixes, invitation onboarding, account deletion, and offline sign-in navigation are implemented. The browser gate now allocates a collision-free port block by default. The passwordless migration verifier passes against the already-approved database state; no migration operation was run.
+
+A fresh `mise exec -- pnpm run test:full` passed after the implementation changes, and PR #205 checks passed for commit `eb4b2dc`. The latest release-readiness record is [`release-readiness/2026-09-20.md`](release-readiness/2026-09-20.md).
 
 Live deployment, production-domain cutover, provider monitoring, and rollback evidence remain blocked until Vercel/provider access and deployment authority are supplied.
 
@@ -111,4 +113,4 @@ Additional evidence must cover:
 - route parity and encrypted-content/client-only invitation boundaries;
 - temporary-host deployment and Chromium/browser, mobile API, and proxy smoke tests when provider access is available.
 
-Repository tests do not prove a live deployment. No migration or production cutover has been performed. If approved database state, provider credentials, Vercel access, or deployment authority is unavailable, record the exact blocker and stop before claiming deployment completion.
+The latest repository evidence includes a passing `mise exec -- pnpm run test:full` gate, Chromium smoke/encrypted/PWA coverage, mobile JavaScript and Expo Doctor verification, and the adapter, proxy, route-parity, validation, security, and logging checks listed above. Repository tests do not prove a live deployment. No migration or production cutover has been performed. If approved database state, provider credentials, Vercel access, or deployment authority is unavailable, record the exact blocker and stop before claiming deployment completion.

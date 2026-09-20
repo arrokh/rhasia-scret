@@ -68,7 +68,7 @@ The server stores only encrypted content and permitted authorization/lifecycle m
 
 See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
 
-Release candidates follow the [release process](docs/release-process.md) and must have a completed [current launch-readiness record](docs/release-readiness/2026-09-18.md) before a tag or GitHub Release is published.
+Release candidates follow the [release process](docs/release-process.md) and must have a completed [current launch-readiness record](docs/release-readiness/2026-09-20.md) before a tag or GitHub Release is published.
 
 ## Prerequisites
 
