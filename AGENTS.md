@@ -9,6 +9,14 @@
 - Treat vault names, account issuer/name, and all TOTP configuration as encrypted content.
 - Do not weaken encryption, authorization, audit redaction, or client/server boundaries without a new ADR.
 
+### Secret scanning and PII response
+
+- Handle every Gitleaks or other secret-scanning finding aggressively and proactively: treat it as a potentially exposed credential or PII until it is explicitly classified as synthetic, public-by-design, or a false positive. Stop commit, merge, deployment, and public disclosure of the affected change until triage is complete.
+- Follow `SECURITY.md` for security-sensitive findings. Use only redacted evidence and synthetic, non-PII reproductions in issues, pull requests, logs, tests, fixtures, and documentation. Never copy the detected value, surrounding credential material, user data, authorization headers, database URLs, tokens, QR data, or decrypted content into chat, source control, tickets, or CI artifacts.
+- For a real or potentially real secret, contain first, then coordinate revocation/rotation with the owner or provider, remove it from the current tree and derived artifacts, assess exposure, and record only the redacted remediation evidence. Deleting a line, adding a broad allowlist, squashing commits, or rewriting history alone is not remediation.
+- Use only narrow, commit-scoped Gitleaks exceptions for reviewed historical public-by-design values, synthetic fixtures, or proven false positives. Document the finding, rationale, owner, review date, and removal condition beside the exception; never suppress an unknown or active finding to make CI pass.
+- Safe read-only triage and redaction may proceed without approval. Obtain explicit human confirmation before rotating or revoking external credentials, rewriting shared/public Git history, force-pushing or deleting remote refs, adding/removing/changing a Gitleaks exception, weakening secret-scanning policy, or publicly disclosing security details. Confirmation must be recorded in the current conversation and does not carry across sessions or environments.
+
 ## Architecture
 
 - Use bounded contexts under `apps/web/src/modules/<context>/{domain,application,infrastructure,presentation}`. The Expo composition and native adapters belong under `apps/mobile`; cross-platform client workflows belong in a named `packages/*` capability package with a public entry point.
