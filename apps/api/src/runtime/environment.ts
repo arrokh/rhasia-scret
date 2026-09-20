@@ -1,7 +1,7 @@
 import { config as loadDotenv } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ApiBindings } from "@api/types";
+import type { ApiBindings, ApiConfigBindings } from "@api/types";
 
 export type ApiEnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -63,13 +63,13 @@ export function sanitizeApiRuntimeEnvironment(source: ApiEnvironmentSource): Rec
   return environment;
 }
 
-export function readApiBindings(source: ApiEnvironmentSource): ApiBindings {
+export function readApiConfigBindings(source: ApiEnvironmentSource): ApiConfigBindings {
   const bindings: Record<string, string> = {};
   for (const name of API_BINDING_NAMES) {
     const value = source[name];
     if (value !== undefined) bindings[name] = value;
   }
-  return bindings as ApiBindings;
+  return bindings as ApiConfigBindings;
 }
 
 export function readRuntimeDatabaseUrl(source: ApiEnvironmentSource): string {

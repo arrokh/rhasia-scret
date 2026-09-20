@@ -6,6 +6,7 @@ const env = {
   API_ORIGIN: process.env.API_ORIGIN,
   API_PROXY_SECRET: process.env.API_PROXY_SECRET,
   WEB_ORIGIN: process.env.WEB_ORIGIN,
+  AUTH_TRUST_PROXY_HEADERS: process.env.AUTH_TRUST_PROXY_HEADERS,
 };
 
 function request(path: string, init?: ConstructorParameters<typeof NextRequest>[1]): NextRequest {
@@ -17,6 +18,7 @@ afterEach(() => {
   process.env.API_ORIGIN = env.API_ORIGIN;
   process.env.API_PROXY_SECRET = env.API_PROXY_SECRET;
   process.env.WEB_ORIGIN = env.WEB_ORIGIN;
+  process.env.AUTH_TRUST_PROXY_HEADERS = env.AUTH_TRUST_PROXY_HEADERS;
 });
 
 describe("web API proxy", () => {
@@ -61,6 +63,56 @@ describe("web API proxy", () => {
     expect(new Headers(options.headers).get("x-rhasia-proxy-secret")).toBe(process.env.API_PROXY_SECRET);
     expect(new Headers(options.headers).get("cookie")).toBe("session=opaque");
     expect(new Headers(options.headers).get("referer")).toBeNull();
+  });
+
+  it("allows the 0.0.0.0 local development alias for a localhost web origin", async () => {
+    process.env.API_ORIGIN = "http://127.0.0.1:8787";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "http://localhost:3000";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    const response = await POST(
+      new NextRequest("http://0.0.0.0:3000/api/v1/auth/magic-link/redeem", {
+        method: "POST",
+        headers: { origin: "http://0.0.0.0:3000", "content-type": "application/json" },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "magic-link", "redeem"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
+    expect(new Headers(options.headers).get("origin")).toBe("http://localhost:3000");
+  });
+
+  it("forwards only a trusted proxy-derived client IP", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    process.env.AUTH_TRUST_PROXY_HEADERS = "true";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    await GET(request("/api/v1/health", { headers: { "x-forwarded-for": "198.51.100.10, 203.0.113.5" } }), {
+      params: Promise.resolve({ path: ["v1", "health"] }),
+    });
+
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
+    expect(new Headers(options.headers).get("x-rhasia-client-ip")).toBe("198.51.100.10");
+  });
+
+  it("does not forward client IP metadata unless trusted proxy headers are enabled", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    process.env.AUTH_TRUST_PROXY_HEADERS = "false";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    await GET(request("/api/v1/health", { headers: { "x-forwarded-for": "198.51.100.10" } }), {
+      params: Promise.resolve({ path: ["v1", "health"] }),
+    });
+
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
+    expect(new Headers(options.headers).get("x-rhasia-client-ip")).toBeNull();
   });
 
   it("allows safe reads without an Origin header but rejects cookie mutations without one", async () => {

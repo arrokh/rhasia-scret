@@ -1,6 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createSecureShareLinkRepository,
@@ -14,11 +15,13 @@ import {
 } from "@api/shared/infrastructure/authenticated-application-request";
 
 const verifier = z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32);
-const redeemSchema = z.object({
-  invitationId: z.string().min(1),
-  encryptedVaultKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-  keyVersion: z.literal(1),
-});
+const redeemSchema = z
+  .object({
+    invitationId: z.string().min(1).max(128),
+    encryptedVaultKey: boundedEncryptedBlobSchema(),
+    keyVersion: z.literal(1),
+  })
+  .strict();
 
 export async function GET(request: ApiRequest) {
   const user = await authenticateApplicationReader(request, "fresh-provider-user");
@@ -41,7 +44,7 @@ export async function GET(request: ApiRequest) {
 export async function POST(request: ApiRequest) {
   const user = await authenticateApplicationMutation(request, "membership_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = redeemSchema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, redeemSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_redemption" }, { status: 400 });
   try {
     await redeemSecureShareLinkForRecipient(

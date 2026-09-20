@@ -12,6 +12,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@api/modules/identity/server", () => ({
   AUTH_RETURN_PATH_COOKIE: "rhsia-return-path",
   isPasswordlessClient: (value: unknown) => value === "web" || value === "pwa" || value === "mobile",
+  isClientOriginAllowed: (request: Request, client: "web" | "mobile" | "pwa") =>
+    client === "mobile"
+      ? !request.headers.has("origin") || request.headers.get("origin") === new URL(request.url).origin
+      : request.headers.get("origin") === new URL(request.url).origin,
+  isSameOriginIfPresent: (request: Request) =>
+    !request.headers.has("origin") || request.headers.get("origin") === new URL(request.url).origin,
   isSafePwaHandoffId: (value: string) => value === "handoff",
   isSafePwaHandoffVerifier: (value: string) => value === "verifier",
   isSameOrigin: (request: Request) => request.headers.get("origin") === new URL(request.url).origin,
@@ -129,6 +135,16 @@ describe("passwordless authentication route contracts", () => {
     );
     expect(accepted.status).toBe(200);
     await expect(accepted.json()).resolves.toEqual({ accepted: true, returnPath: "/vaults" });
+
+    const malformed = await pwaSession(
+      request(
+        "/v1/auth/pwa/session",
+        { handoffId: "malformed", verifier: "verifier" },
+        { origin: "https://api.example.test" },
+      ),
+    );
+    expect(malformed.status).toBe(400);
+    expect(mocks.passwordlessAuth.redeemPwaHandoff).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes mobile sessions only from the body and keeps web refresh read-only", async () => {

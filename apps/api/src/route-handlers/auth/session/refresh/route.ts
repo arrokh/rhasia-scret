@@ -1,30 +1,42 @@
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
-import { clearPasswordlessSessionCookies, isSameOrigin } from "@api/modules/identity/server";
+import { safeParseJsonBody } from "@api/http/validation";
+import { z } from "zod";
+import { clearPasswordlessSessionCookies, isClientOriginAllowed } from "@api/modules/identity/server";
+
+const refreshSessionSchema = z
+  .object({
+    client: z.enum(["mobile", "web"]),
+    refreshToken: z.string().min(1).max(257).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.client === "web" && value.refreshToken !== undefined)
+      context.addIssue({
+        code: "custom",
+        path: ["refreshToken"],
+        message: "refreshToken is not valid for web sessions",
+      });
+  });
 
 export async function POST(request: ApiRequest): Promise<ApiResponse> {
-  const body = await readJson(request);
-  const client = body?.client;
-  if (client !== "mobile" && client !== "web")
+  const parsed = await safeParseJsonBody(request, refreshSessionSchema);
+  if (!parsed.success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if (
-    (client === "web" && !isSameOrigin(request)) ||
-    (client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
-  )
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
-  const hasRefreshTokenField = !!body && Object.hasOwn(body, "refreshToken");
+  const body = parsed.data;
+  const client = body.client;
+  if (!isClientOriginAllowed(request, client)) return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
   if (client === "web") {
-    if (hasRefreshTokenField || request.headers.has("authorization"))
+    if (request.headers.has("authorization"))
       return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
     return verifyBrowserSession(request);
   }
   if (request.headers.has("cookie") || request.headers.has("authorization"))
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if (typeof body?.refreshToken !== "string")
+  if (body.refreshToken === undefined)
     return ApiResponse.json({ error: "session_expired" }, { status: 401, headers: noStoreHeaders() });
 
   const refreshToken = body.refreshToken;
-  if (!refreshToken) return ApiResponse.json({ error: "session_expired" }, { status: 401, headers: noStoreHeaders() });
 
   try {
     const session = await getApiRequestContext(request).passwordlessAuth.refresh(refreshToken);
@@ -41,15 +53,6 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
     );
   } catch {
     return ApiResponse.json({ error: "session_unavailable" }, { status: 401, headers: noStoreHeaders() });
-  }
-}
-
-async function readJson(request: ApiRequest): Promise<Record<string, unknown> | null> {
-  try {
-    const value: unknown = await request.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  } catch {
-    return null;
   }
 }
 

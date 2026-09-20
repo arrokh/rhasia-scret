@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readApiBindings, readRuntimeDatabaseUrl, sanitizeApiRuntimeEnvironment } from "@api/runtime/environment";
+import { readApiConfigBindings, readRuntimeDatabaseUrl, sanitizeApiRuntimeEnvironment } from "@api/runtime/environment";
 
 describe("standalone API environment boundaries", () => {
   it("removes migration/admin and Web-only variables from local runtime scope", () => {
@@ -15,7 +15,7 @@ describe("standalone API environment boundaries", () => {
   });
 
   it("keeps database URLs and web-only proxy aliases out of request bindings", () => {
-    const bindings = readApiBindings({
+    const bindings = readApiConfigBindings({
       DATABASE_URL: "postgresql://runtime.invalid/database",
       DIRECT_URL: "postgresql://direct.invalid/database",
       API_PROXY_SECRET: "web-only-secret",

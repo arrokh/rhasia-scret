@@ -54,6 +54,19 @@ export function createSmtpEmailSenders(
   };
 }
 
+export function createDisabledEmailSenders(): ApiEmailSenders {
+  const unavailable = async (): Promise<void> => {
+    throw new Error("Email delivery is unavailable.");
+  };
+  return {
+    magicLink: { sendMagicLinkEmail: unavailable },
+    accountDeletion: {
+      sendDeletionOtpEmail: unavailable,
+      sendDeletionCompletionEmail: unavailable,
+    },
+  };
+}
+
 export function readSmtpEmailConfiguration(env: SmtpEnvironment): SmtpEmailConfiguration {
   const production = env.NODE_ENV === "production";
   const smtpHost = readRequired(env.SMTP_HOST, "SMTP_HOST");

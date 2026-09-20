@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createVaultAuditRepository,
@@ -15,29 +16,27 @@ import {
   parseTimestampCursorPageRequest,
 } from "@api/shared/infrastructure/timestamp-cursor-codec";
 
-const auditFilterSchema = z.object({
-  accountId: z.string().min(1).max(128).optional(),
-  actorUserId: z.string().min(1).max(128).optional(),
-});
-const localCopyAuditSchema = z.object({
-  eventType: z.literal("ACCOUNT_COPIED_TO_LOCAL"),
-  accountIds: z
-    .array(z.string().min(1).max(128))
-    .min(1)
-    .max(500)
-    .refine((ids) => new Set(ids).size === ids.length),
-});
+const auditFilterSchema = z
+  .object({
+    accountId: z.string().min(1).max(128).optional(),
+    actorUserId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+const localCopyAuditSchema = z
+  .object({
+    eventType: z.literal("ACCOUNT_COPIED_TO_LOCAL"),
+    accountIds: z
+      .array(z.string().min(1).max(128))
+      .min(1)
+      .max(500)
+      .refine((ids) => new Set(ids).size === ids.length),
+  })
+  .strict();
 
 export async function POST(request: ApiRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await authenticateApplicationMutation(request, "account_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return ApiResponse.json({ error: "invalid_copy_audit" }, { status: 400 });
-  }
-  const parsed = localCopyAuditSchema.safeParse(body);
+  const parsed = await safeParseJsonBody(request, localCopyAuditSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_copy_audit" }, { status: 400 });
   const { vaultId } = await params;
   const recorded = await recordPersonalVaultAccountCopiesToLocal(

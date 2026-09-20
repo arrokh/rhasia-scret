@@ -30,6 +30,8 @@ import {
 
 type MagicLinkConfirmationProps = { client?: "web" | "pwa"; navigate?: (path: string) => void };
 
+const INVITATION_SECRET_HANDOFF_TIMEOUT_MS = 3_000;
+
 export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps> = ({ client = "web", navigate }) => {
   const t = useTranslations("Identity.confirm");
   const goTo = useCallback(
@@ -80,9 +82,13 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
           return;
         }
         const returnPath = resolveAuthReturnPath((await redeemBrowserMagicLink(fragment.token)).returnPath);
-        const invitationSecret = returnPath === INVITATION_AUTH_RETURN_PATH ? await requestInvitationSecret() : null;
+        const invitationSecretPromise =
+          returnPath === INVITATION_AUTH_RETURN_PATH
+            ? requestInvitationSecret(INVITATION_SECRET_HANDOFF_TIMEOUT_MS)
+            : Promise.resolve(null);
+        announceAuthenticationCompletion();
+        const invitationSecret = await invitationSecretPromise;
         if (mounted.current) {
-          announceAuthenticationCompletion();
           goTo(
             returnPath === INVITATION_AUTH_RETURN_PATH && !invitationSecret
               ? AUTH_COMPLETION_PATH

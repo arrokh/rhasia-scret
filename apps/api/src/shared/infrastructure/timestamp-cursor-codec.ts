@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Buffer } from "./base64";
 import {
   DEFAULT_CURSOR_PAGE_SIZE,
@@ -21,18 +22,26 @@ export function encodeTimestampCursor(cursor: TimestampCursor, scope: string): s
 export type ParsedCursorPageRequest =
   { valid: true; request: CursorPageRequest } | { valid: false; error: "invalid_pagination" | "invalid_cursor" };
 
+const cursorPageQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(MAX_CURSOR_PAGE_SIZE).default(DEFAULT_CURSOR_PAGE_SIZE),
+    cursor: z.string().nullable(),
+  })
+  .strict();
+
 export function parseTimestampCursorPageRequest(
   searchParams: URLSearchParams,
   scope: string,
   validKey: (key: string) => boolean = () => true,
 ): ParsedCursorPageRequest {
-  const rawLimit = searchParams.get("limit");
-  const limit = rawLimit === null ? DEFAULT_CURSOR_PAGE_SIZE : Number(rawLimit);
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_CURSOR_PAGE_SIZE)
-    return { valid: false, error: "invalid_pagination" };
-  const cursor = decodeTimestampCursor(searchParams.get("cursor"), scope);
+  const parsedQuery = cursorPageQuerySchema.safeParse({
+    limit: searchParams.get("limit") ?? undefined,
+    cursor: searchParams.get("cursor"),
+  });
+  if (!parsedQuery.success) return { valid: false, error: "invalid_pagination" };
+  const cursor = decodeTimestampCursor(parsedQuery.data.cursor, scope);
   if (cursor === undefined || (cursor && !validKey(cursor.key))) return { valid: false, error: "invalid_cursor" };
-  return { valid: true, request: { cursor, limit } };
+  return { valid: true, request: { cursor, limit: parsedQuery.data.limit } };
 }
 
 export function decodeTimestampCursor(value: string | null, scope: string): TimestampCursor | null | undefined {

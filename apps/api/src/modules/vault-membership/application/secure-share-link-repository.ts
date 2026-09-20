@@ -1,3 +1,5 @@
+export const MAX_INVITATION_RECIPIENT_EMAIL_LENGTH = 254;
+
 export type NewSecureShareLink = {
   recipientUserId: string;
   linkVerifier: Uint8Array;

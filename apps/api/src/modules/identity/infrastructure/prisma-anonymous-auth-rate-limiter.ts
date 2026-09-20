@@ -12,6 +12,7 @@ const WINDOW_SECONDS = 15 * 60;
 const LIMITS: readonly Limit[] = [
   { operation: "magic-link-email", maximum: 5 },
   { operation: "magic-link-ip", maximum: 20 },
+  { operation: "magic-link-unattributed", maximum: 20 },
 ];
 
 export class PrismaAnonymousAuthRateLimiter {
@@ -23,7 +24,9 @@ export class PrismaAnonymousAuthRateLimiter {
   public async check(email: string, clientIp: string | null, now: Date): Promise<AnonymousAuthRateLimitResult> {
     const buckets = [
       { operation: "magic-link-email", value: email },
-      ...(clientIp ? [{ operation: "magic-link-ip", value: clientIp }] : []),
+      clientIp
+        ? { operation: "magic-link-ip", value: clientIp }
+        : { operation: "magic-link-unattributed", value: "all-untrusted-clients" },
     ];
     const results = await Promise.all(buckets.map(({ operation, value }) => this.increment(operation, value, now)));
     const limited = results.find((result) => !result.allowed);

@@ -26,6 +26,7 @@
 - Web domain code under `apps/web/src` must not import Next.js, React, Prisma, browser APIs, or HTTP types. Platform-neutral packages must not import either application or platform APIs.
 - Cross-context access goes through each module's public API; do not reach into another module's internals. `apps/web` and `apps/mobile` may consume named shared packages but shared packages may not depend on either app.
 - Keep route handlers thin: validate input, invoke an application use case, and map errors to HTTP.
+- Use guard clauses consistently: reject invalid input, missing authentication/context, unavailable dependencies, and unsupported states immediately; keep the success path flat, avoid `else` branches and deep nesting, and extract branch-specific flows when a guard clause alone would not keep the handler readable.
 - Server code must not import client crypto/decryption or OTP runtime modules.
 - Use server-side Prisma for application data access owned by `apps/web`. Browser database/API access is deferred; do not add browser REST database access until that work is explicitly approved.
 
@@ -47,6 +48,12 @@
 - Do not add locale-prefixed or translated paths, infer locale from `Accept-Language`, or persist locale in Prisma, IndexedDB, TanStack Query, encrypted content, or cryptographic payloads. Locale selection remains the validated `RHSIA_LOCALE` cookie defined by ADR-0035.
 - Never place user-provided Vault/account labels, TOTP configuration, OTPs, secrets, keys, Secure Share Link material, or decrypted content in message catalogs, locale state, Query caches, or service-worker caches.
 - Extend catalog-parity, hard-coded-copy, architecture, contract, and browser/offline coverage with each localized surface. Preserve the exact destructive-reset token `HAPUS DATA BRANKAS` in both locales.
+
+## API validation and control flow
+
+- Use Zod for structural API validation: JSON bodies, required/optional fields, bounded strings and arrays, enums, discriminated unions, route parameters, and query parameters. Keep authentication, authorization, origin checks, rate limiting, provider calls, cryptographic/token verification, and business invariants outside schemas.
+- Prefer strict object schemas for request bodies so unsupported fields fail closed rather than being silently stripped. Preserve bounded, endpoint-specific error codes and status mappings.
+- Use guard clauses for validation and error handling before entering the happy path; avoid nested validation conditionals and imperative type checks when a schema or a small focused helper can express the boundary.
 
 ## Quality
 

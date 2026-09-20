@@ -90,6 +90,28 @@ describe("MagicLinkConfirmation", () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
+  it("announces completion before waiting for the invitation secret handoff", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/auth/confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults%2Finvitations%2Fredeem",
+    );
+    mocks.redeemBrowserMagicLink.mockResolvedValueOnce({ returnPath: "/vaults/invitations/redeem" });
+    mocks.requestInvitationSecret.mockReturnValueOnce(new Promise(() => undefined));
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(createElement(MagicLinkConfirmation));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.announceAuthenticationCompletion).toHaveBeenCalledOnce();
+    expect(mocks.requestInvitationSecret).toHaveBeenCalledWith(3_000);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it("returns to the authentication handoff page when the invitation secret is unavailable", async () => {
     window.history.replaceState(
       null,

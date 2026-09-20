@@ -28,9 +28,7 @@ describe("createSharedVaultInvitation", () => {
       json: async () => ({ id: "invitation-1", expiresAt: "2026-08-05T12:00:00.000Z" }),
     });
     vi.stubGlobal("fetch", fetchMock);
-    const delivery = { deliver: vi.fn().mockResolvedValue(undefined) };
-
-    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey, delivery)).resolves.toEqual({
+    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey)).resolves.toEqual({
       id: "invitation-1",
       secret: "client-only-secret",
       expiresAt: "2026-08-05T12:00:00.000Z",
@@ -45,11 +43,6 @@ describe("createSharedVaultInvitation", () => {
     });
     expect(JSON.stringify(body)).not.toContain("client-only-secret");
     expect(JSON.stringify(body)).not.toContain(Array.from(vaultKey).join(","));
-    expect(delivery.deliver).toHaveBeenCalledWith({
-      secret: "client-only-secret",
-      invitationId: "invitation-1",
-      expiresAt: "2026-08-05T12:00:00.000Z",
-    });
     expect(linkVerifier).toEqual(new Uint8Array(32));
     expect(encryptedPackage).toEqual(new Uint8Array(13));
   });

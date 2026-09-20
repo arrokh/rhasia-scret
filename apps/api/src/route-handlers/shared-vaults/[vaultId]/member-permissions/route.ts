@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createSharedVaultAccountPermissionRepository,
@@ -39,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ vaul
 export async function PATCH(request: Request, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await authenticateApplicationMutation(request, "membership_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = defaultsSchema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, defaultsSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_member_permissions" }, { status: 400 });
   const { vaultId } = await params;
   const result = await updateSharedVaultMemberPermissionDefaults(

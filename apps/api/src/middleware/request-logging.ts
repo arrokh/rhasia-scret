@@ -1,10 +1,9 @@
-import type { MiddlewareHandler } from "hono";
+import { apiFactory } from "@api/http/hono-factory";
 import { logApiEvent } from "@api/shared/infrastructure/logging";
-import type { ApiEnvironment } from "@api/types";
 
 const SYSTEM_PATHS = new Set(["/v1/health", "/v1/time"]);
 
-export const apiRequestLogging: MiddlewareHandler<ApiEnvironment> = async (context, next) => {
+export const apiRequestLogging = apiFactory.createMiddleware(async (context, next) => {
   if (SYSTEM_PATHS.has(context.req.path)) return next();
 
   const startedAt = Date.now();
@@ -24,4 +23,4 @@ export const apiRequestLogging: MiddlewareHandler<ApiEnvironment> = async (conte
       durationMs: Date.now() - startedAt,
     });
   }
-};
+});

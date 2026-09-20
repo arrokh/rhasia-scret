@@ -409,18 +409,15 @@ describe("dedicated Vault management", () => {
         "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
       ),
     );
-    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
-      "shared-1",
-      "viewer@example.test",
-      vaults()[0]!.key,
-      expect.objectContaining({ deliver: expect.any(Function) }),
-    );
-    await act(async () => findButton(container, "Kirim undangan").click());
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
+    expect(mocks.openInvitationEmailComposer).not.toHaveBeenCalled();
+    await act(async () => findButton(document.body, "Kirim dari email saya").click());
     expect(mocks.openInvitationEmailComposer).toHaveBeenCalledWith({
       recipientEmail: "viewer@example.test",
       subject: "Anda diundang ke Brankas Bersama",
       body: expect.stringContaining("client-only-secret"),
     });
+    await act(async () => findButton(container, "Kirim undangan").click());
     expect(container.textContent).toContain("Draf email dibuka");
     const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
     await act(async () => copyPending.click());
@@ -485,7 +482,6 @@ describe("dedicated Vault management", () => {
       "shared-1",
       "expired@example.test",
       vaults()[0]!.key,
-      expect.objectContaining({ deliver: expect.any(Function) }),
     );
     expect(container.textContent).toContain("Menunggu");
     expect(container.textContent).not.toContain("Kedaluwarsa");

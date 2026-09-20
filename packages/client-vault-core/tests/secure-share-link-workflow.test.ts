@@ -40,6 +40,24 @@ describe("Secure Share Link creation workflow", () => {
     expect(material.secret).toBe("");
   });
 
+  it("allows delivery to be deferred until the presentation asks for it", async () => {
+    const material = shareMaterial();
+    const transport = new FakeTransport();
+    const ports: SecureShareLinkCreationPorts = {
+      crypto: { createMaterial: async () => material },
+      transport,
+    };
+
+    await expect(
+      createSecureShareLink("vault-1", "recipient@example.test", new Uint8Array(32), ports),
+    ).resolves.toEqual({
+      id: "invitation-1",
+      secret: "client-only-secret",
+      expiresAt: "2026-08-05T12:00:00.000Z",
+    });
+    expect(material.secret).toBe("");
+  });
+
   it("revokes a created invitation when platform delivery fails and clears temporary bytes", async () => {
     const material = shareMaterial();
     const transport = new FakeTransport();

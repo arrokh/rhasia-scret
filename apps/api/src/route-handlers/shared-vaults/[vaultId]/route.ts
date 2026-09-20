@@ -1,6 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import { createSharedVaultAccessRepository } from "@api/modules/vault-membership/server";
 import { createSharedVaultRepository, type SharedVaultRepository } from "@api/modules/vault-management/server";
@@ -9,10 +10,12 @@ import {
   authenticateApplicationReader,
 } from "@api/shared/infrastructure/authenticated-application-request";
 
-const renameSchema = z.object({
-  encryptedName: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-  encryptionVersion: z.literal(1),
-});
+const renameSchema = z
+  .object({
+    encryptedName: boundedEncryptedBlobSchema(),
+    encryptionVersion: z.literal(1),
+  })
+  .strict();
 
 export async function GET(request: ApiRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await authenticateApplicationReader(request, "fresh-provider-user");
@@ -49,7 +52,7 @@ export function createRenameSharedVaultHandler({
   return async (request: ApiRequest, { params }: { params: Promise<{ vaultId: string }> }) => {
     const user = await authenticate(request, "vault_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = renameSchema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, renameSchema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_vault_name" }, { status: 400 });
     const { vaultId } = await params;
     const renamed = await sharedVaults.rename(

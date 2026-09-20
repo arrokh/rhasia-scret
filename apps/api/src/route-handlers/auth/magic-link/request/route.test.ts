@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   isSafePwaHandoffId: vi.fn((value: string) => value === "pwa-handoff-123456"),
   isSafePwaHandoffVerifier: vi.fn((value: string) => value === "v".repeat(43)),
   isSafeTurnstileToken: vi.fn((value: string) => value.length > 0),
-  isSameOrigin: vi.fn(() => true),
+  isClientOriginAllowed: vi.fn(() => true),
   requestClientIp: vi.fn(() => null),
 }));
 
@@ -22,7 +22,7 @@ vi.mock("@api/modules/identity/server", () => ({
   isSafePwaHandoffId: mocks.isSafePwaHandoffId,
   isSafePwaHandoffVerifier: mocks.isSafePwaHandoffVerifier,
   isSafeTurnstileToken: mocks.isSafeTurnstileToken,
-  isSameOrigin: mocks.isSameOrigin,
+  isClientOriginAllowed: mocks.isClientOriginAllowed,
   requestClientIp: mocks.requestClientIp,
 }));
 
@@ -37,7 +37,7 @@ beforeEach(() => {
     check: vi.fn().mockResolvedValue({ allowed: true, retryAfterSeconds: 0 }),
   });
   mocks.createTurnstileValidator.mockReturnValue({ validate: vi.fn().mockResolvedValue("valid") });
-  mocks.isSameOrigin.mockReturnValue(true);
+  mocks.isClientOriginAllowed.mockReturnValue(true);
 });
 
 describe("POST /v1/auth/magic-link/request contract", () => {

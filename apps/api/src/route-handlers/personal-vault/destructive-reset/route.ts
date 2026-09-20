@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   ActiveOwnedSharedVaultsPreventResetError,
@@ -14,7 +15,7 @@ import {
   authenticateApplicationReader,
 } from "@api/shared/infrastructure/authenticated-application-request";
 
-const bodySchema = z.object({ confirmation: z.string() });
+const bodySchema = z.object({ confirmation: z.string().min(1) }).strict();
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
@@ -25,7 +26,7 @@ export function createDestructivePersonalVaultResetHandler({ authenticate, reset
   return async function POST(request: ApiRequest) {
     const user = await authenticate(request, "destructive_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, bodySchema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_confirmation" }, { status: 400 });
 
     try {

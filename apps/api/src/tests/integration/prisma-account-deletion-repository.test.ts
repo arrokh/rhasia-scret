@@ -112,7 +112,10 @@ describe("PrismaAccountDeletionRepository", () => {
           encryptedName: bytes("deleted-name"),
           encryptionVersion: 1,
           members: {
-            create: { userId: deletingUser.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+            create: [
+              { userId: deletingUser.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+              { userId: viewer.id, role: "VIEWER", encryptedVaultKey: bytes("viewer-key"), keyVersion: 1 },
+            ],
           },
           accounts: { create: { encryptedPayload: bytes("deleted-account"), encryptionVersion: 1 } },
         },

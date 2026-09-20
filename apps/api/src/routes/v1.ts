@@ -1,6 +1,8 @@
-import { Hono, type Handler } from "hono";
+import type { Handler, Hono } from "hono";
 import type { ApiEnvironment } from "@api/types";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { apiFactory } from "@api/http/hono-factory";
+import { routeParamsSchema } from "@api/http/validation";
 import { appendSetCookies } from "@api/http/cookies";
 import { DELETE as deleteMe, GET as getMe } from "@api/route-handlers/me/route";
 import { POST as requestMagicLink } from "@api/route-handlers/auth/magic-link/request/route";
@@ -73,7 +75,8 @@ import { POST as importVault } from "@api/route-handlers/vault-imports/route";
 
 type HandlerContext<Params extends Record<string, string>> = { params: Promise<Params> };
 
-const v1Routes = new Hono<ApiEnvironment>()
+const v1Routes = apiFactory
+  .createApp()
   .get("/me", adapt(getMe))
   .delete("/me", adapt(deleteMe))
   .post("/auth/magic-link/request", adapt(requestMagicLink))
@@ -143,7 +146,9 @@ function adapt<Params extends Record<string, string>>(
 ): Handler<ApiEnvironment> {
   return async (context) => {
     const request = context.get("apiRequest");
-    const params = context.req.param() as unknown as Params;
+    const parsedParams = routeParamsSchema.safeParse(context.req.param());
+    if (!parsedParams.success) return ApiResponse.json({ error: "invalid_request" }, { status: 400 });
+    const params = parsedParams.data as unknown as Params;
     const response = await handler(request, { params: Promise.resolve(params) });
     return response instanceof ApiResponse ? appendSetCookies(response, response.cookies) : response;
   };

@@ -321,7 +321,14 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
           ],
         },
       });
-      await transaction.vaultMember.deleteMany({ where: { userId: applicationUserId } });
+      await transaction.vaultMember.deleteMany({
+        where: {
+          OR: [
+            { userId: applicationUserId },
+            ...(deletedVaultIds.length ? [{ vaultId: { in: deletedVaultIds } }] : []),
+          ],
+        },
+      });
       await transaction.authenticatorAccount.deleteMany({ where: { vaultId: { in: deletedVaultIds } } });
       await transaction.vault.deleteMany({ where: { id: { in: deletedVaultIds } } });
       const identityEmails = [

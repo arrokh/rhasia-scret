@@ -1,6 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createPersonalAccountRepository,
@@ -12,17 +13,23 @@ import {
   authenticateApplicationReader,
 } from "@api/shared/infrastructure/authenticated-application-request";
 
-const payloadSchema = z.object({
-  encryptedPayload: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-  encryptionVersion: z.literal(1),
-  source: z.literal("LOCAL_VAULT_COPY").optional(),
-});
-const updateSchema = payloadSchema.extend({
-  accountId: z.string().min(1),
-  expectedRevision: z.number().int().positive(),
-});
-const deleteSchema = z.object({ accountId: z.string().min(1), expectedRevision: z.number().int().positive() });
-const restoreSchema = z.object({ accountId: z.string().min(1) });
+const payloadSchema = z
+  .object({
+    encryptedPayload: boundedEncryptedBlobSchema(),
+    encryptionVersion: z.literal(1),
+    source: z.literal("LOCAL_VAULT_COPY").optional(),
+  })
+  .strict();
+const updateSchema = payloadSchema
+  .extend({
+    accountId: z.string().min(1).max(128),
+    expectedRevision: z.number().int().positive(),
+  })
+  .strict();
+const deleteSchema = z
+  .object({ accountId: z.string().min(1).max(128), expectedRevision: z.number().int().positive() })
+  .strict();
+const restoreSchema = z.object({ accountId: z.string().min(1).max(128) }).strict();
 type ApplicationAuthenticationResult = ApplicationUser | ApiResponse;
 type Dependencies = {
   authenticateReader(request: ApiRequest, assurance: SessionAssurance): Promise<ApplicationAuthenticationResult>;
@@ -66,7 +73,7 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
       try {
         const current = await mutationAccess(request);
         if (current instanceof ApiResponse) return current;
-        const parsed = payloadSchema.safeParse(await request.json().catch(() => null));
+        const parsed = await safeParseJsonBody(request, payloadSchema);
         if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
         const account = await accounts.create(current.id, vaultId, {
@@ -83,7 +90,7 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
       try {
         const current = await mutationAccess(request);
         if (current instanceof ApiResponse) return current;
-        const parsed = updateSchema.safeParse(await request.json().catch(() => null));
+        const parsed = await safeParseJsonBody(request, updateSchema);
         if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
         const account = await accounts.update(
@@ -107,7 +114,7 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
       try {
         const current = await mutationAccess(request);
         if (current instanceof ApiResponse) return current;
-        const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+        const parsed = await safeParseJsonBody(request, deleteSchema);
         if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
         return (await accounts.delete(current.id, vaultId, parsed.data.accountId, parsed.data.expectedRevision))
@@ -121,7 +128,7 @@ export function createPersonalAccountsHandlers({ authenticateReader, authenticat
       try {
         const current = await mutationAccess(request);
         if (current instanceof ApiResponse) return current;
-        const parsed = restoreSchema.safeParse(await request.json().catch(() => null));
+        const parsed = await safeParseJsonBody(request, restoreSchema);
         if (!parsed.success) return ApiResponse.json({ error: "invalid_account" }, { status: 400 });
         const { vaultId } = await params;
         return (await accounts.restore(current.id, vaultId, parsed.data.accountId))

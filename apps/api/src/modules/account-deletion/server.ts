@@ -22,7 +22,6 @@ import {
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
 } from "./infrastructure/account-deletion-request";
-import { createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { PrismaAccountDeletionRepository } from "./infrastructure/prisma-account-deletion-repository";
 
 export type { AccountDeletionEmailSender, AccountDeletionRepository, AccountDeletionRequest };
@@ -57,13 +56,6 @@ export function createAccountDeletionRepository(
     database,
     new TextEncoder().encode(anonymousSecret),
   );
-}
-
-export function createAccountDeletionEmailSender(
-  bindings: ApiBindings,
-  sender?: AccountDeletionEmailSender,
-): AccountDeletionEmailSender {
-  return sender ?? createSmtpEmailSenders(bindings).accountDeletion;
 }
 
 export function accountDeletionBackend(bindings: ApiBindings): AccountDeletionAuthBackend {

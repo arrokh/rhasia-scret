@@ -1,6 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createPersonalVaultRepository,
@@ -9,14 +10,16 @@ import {
 } from "@api/modules/vault-management/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const opaqueBlob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
-const initializationSchema = z.object({
-  vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
-  wrappedUserRootKey: opaqueBlob,
-  encryptedPersonalVaultKey: opaqueBlob,
-  encryptedVaultName: opaqueBlob,
-  encryptionVersion: z.literal(1),
-});
+const opaqueBlob = boundedEncryptedBlobSchema();
+const initializationSchema = z
+  .object({
+    vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
+    wrappedUserRootKey: opaqueBlob,
+    encryptedPersonalVaultKey: opaqueBlob,
+    encryptedVaultName: opaqueBlob,
+    encryptionVersion: z.literal(1),
+  })
+  .strict();
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
@@ -27,7 +30,7 @@ export function createInitializePersonalVaultHandler({ authenticate, personalVau
   return async function POST(request: ApiRequest) {
     const user = await authenticate(request, "key_material_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = initializationSchema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, initializationSchema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_initialization" }, { status: 400 });
     await initializePersonalVault(
       user.id,

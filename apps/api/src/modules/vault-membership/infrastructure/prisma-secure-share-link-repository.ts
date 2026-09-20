@@ -3,6 +3,7 @@ import { invitationExpiresAt, invitationIsExpired } from "../domain/invitation-e
 import {
   InvitationConflictError,
   InvitationRecipientUnavailableError,
+  MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
   SecureShareLinkUnavailableError,
   type NewSecureShareLink,
   type RedeemableSecureShareLink,
@@ -36,6 +37,8 @@ export class PrismaSecureShareLinkRepository implements SecureShareLinkRepositor
     link: Omit<NewSecureShareLink, "recipientUserId">,
   ): ReturnType<SecureShareLinkRepository["createForEmail"]> {
     const normalizedEmail = normalizeEmail(recipientEmail);
+    if (normalizedEmail.length > MAX_INVITATION_RECIPIENT_EMAIL_LENGTH)
+      throw new InvitationRecipientUnavailableError("Invitation recipient is unavailable.");
     const now = this.now();
     const expiresAt = invitationExpiresAt(now);
     return this.database.$transaction(async (transaction) => {

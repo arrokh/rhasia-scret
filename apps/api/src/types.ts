@@ -37,12 +37,16 @@ export type ApiBindings = Readonly<{
   AUTH_ADMITTED_EMAILS?: string;
   /** Process-scoped client supplied by a standalone runtime adapter. */
   DATABASE_CLIENT?: PrismaDatabase;
+  /** Process-scoped email delivery ports supplied by a runtime adapter. */
+  EMAIL_SENDERS: ApiEmailSenders;
 }>;
 
 export type ApiEmailSenders = Readonly<{
   magicLink: MagicLinkEmailSender;
   accountDeletion: AccountDeletionEmailSender;
 }>;
+
+export type ApiConfigBindings = Omit<ApiBindings, "EMAIL_SENDERS">;
 
 export type ApiEnvironment = {
   Bindings: ApiBindings;

@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   authenticateApplicationMutation,
@@ -10,7 +11,6 @@ import {
   AccountDeletionAuthorizationError,
   AccountDeletionPlanStaleError,
   clearDeletionCookies,
-  createAccountDeletionEmailSender,
   createAccountDeletionRepository,
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
@@ -18,6 +18,7 @@ import {
   type AccountDeletionRepository,
 } from "@api/modules/account-deletion/server";
 
+const deletionAuthorizationTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
 const deletionRequestSchema = z
   .object({
     confirmation: z.string(),
@@ -66,7 +67,7 @@ export function createDeleteMeHandler({
     if (!isBrowserAccountDeletionRequest(request))
       return ApiResponse.json({ error: "same_origin_required" }, { status: 403, headers: noStoreHeaders() });
     const authorizationToken = request.cookies.get(ACCOUNT_DELETION_AUTHORIZATION_COOKIE)?.value;
-    if (!authorizationToken || !/^[A-Za-z0-9_-]{43,128}$/.test(authorizationToken))
+    if (!authorizationToken || !deletionAuthorizationTokenSchema.safeParse(authorizationToken).success)
       return ApiResponse.json(
         { error: "deletion_reauthentication_required" },
         { status: 401, headers: noStoreHeaders() },
@@ -84,7 +85,7 @@ export function createDeleteMeHandler({
 
     const user = await authenticateMutation(request, "destructive_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = deletionRequestSchema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, deletionRequestSchema);
     if (!parsed.success)
       return ApiResponse.json({ error: "invalid_deletion_request" }, { status: 400, headers: noStoreHeaders() });
     const authBackend = user.issuer === "rhasia:passwordless" ? "passwordless" : "oidc";
@@ -142,7 +143,7 @@ export async function DELETE(request: ApiRequest) {
   return createDeleteMeHandler({
     authenticateMutation: authenticateApplicationMutation,
     repository: createAccountDeletionRepository(context.database, context.bindings),
-    sender: createAccountDeletionEmailSender(context.bindings, context.emailSenders?.accountDeletion),
+    sender: context.emailSenders.accountDeletion,
     terminateSession: (currentRequest, cookies) =>
       context.sessionTerminator.terminateCurrentSession(currentRequest, cookies),
     now: () => new Date(),

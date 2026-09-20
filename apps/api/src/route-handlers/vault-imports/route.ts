@@ -2,6 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { z } from "zod";
+import { readBoundedRequestBody } from "@api/http/validation";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import {
   createEncryptedVaultImportRepository,
@@ -50,6 +51,11 @@ const importSchema = z
     if (new Set(accounts.map(({ id }) => id)).size !== accounts.length)
       context.addIssue({ code: "custom", message: "Account identifiers must be unique.", path: ["accounts"] });
   });
+const contentLengthSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .refine((value) => Number.isSafeInteger(value));
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
@@ -60,12 +66,13 @@ export function createEncryptedVaultImportHandler({ authenticate, imports }: Dep
   return async function POST(request: ApiRequest) {
     const user = await authenticate(request, "archive_import", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const declaredLength = Number(request.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES)
+    const parsedContentLength = contentLengthSchema.safeParse(request.headers.get("content-length") ?? "0");
+    if (!parsedContentLength.success) return json({ error: "invalid_archive_import" }, 400);
+    if (parsedContentLength.data > MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES)
       return json({ error: "archive_import_too_large" }, 413);
     let boundedBody: string | null;
     try {
-      boundedBody = await readBoundedBody(request, MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES);
+      boundedBody = await readBoundedRequestBody(request, MAX_VAULT_ARCHIVE_IMPORT_REQUEST_BYTES);
     } catch {
       return json({ error: "invalid_archive_import" }, 400);
     }
@@ -108,38 +115,6 @@ export function createEncryptedVaultImportHandler({ authenticate, imports }: Dep
       result.status === "IMPORTED" ? 201 : 200,
     );
   };
-}
-
-async function readBoundedBody(request: Request, maximumBytes: number): Promise<string | null> {
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > maximumBytes) {
-        await reader.cancel();
-        return null;
-      }
-      chunks.push(value);
-    }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    try {
-      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } finally {
-      bytes.fill(0);
-    }
-  } finally {
-    reader.releaseLock();
-  }
 }
 
 function json(body: Record<string, unknown>, status: number): ApiResponse {

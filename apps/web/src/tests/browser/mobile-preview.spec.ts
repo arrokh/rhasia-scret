@@ -604,6 +604,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       encryptedPackage: expect.any(String),
     });
   await expect(page.getByLabel("Tautan undangan aman")).toBeVisible();
+  await page.getByRole("button", { name: "Batal", exact: true }).click();
   await page.getByLabel("Tautan undangan tidak tersedia untuk pending@local.invalid").click();
   await expect(page.getByText(/Tautan aman asli hanya tersedia saat undangan dibuat/)).toBeVisible();
   await page.getByLabel("Email penerima").fill("viewer@example.test");
@@ -621,6 +622,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
     });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();
+  await page.getByRole("button", { name: "Batal", exact: true }).click();
   await page.getByLabel("Lihat audit viewer@local.invalid").click();
   await expect(page.getByText("Filter: viewer@local.invalid")).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();

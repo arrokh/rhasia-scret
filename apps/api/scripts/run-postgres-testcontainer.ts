@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GenericContainer, Wait, type StartedTestContainer } from "testcontainers";
@@ -8,6 +8,8 @@ const POSTGRES_PORT = 5432;
 const POSTGRES_DATABASE = "rhasia_scret_test";
 const POSTGRES_USER = "rhasia_test";
 const POSTGRES_PASSWORD = "rhasia_test_password";
+const CONTAINER_STOP_TIMEOUT_MS = 10_000;
+type TerminationSignal = "SIGINT" | "SIGTERM";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const apiRoot = resolve(repositoryRoot, "apps/api");
 
@@ -20,6 +22,18 @@ async function main(): Promise<number> {
   loadWorkspaceEnvironment();
 
   let container: StartedTestContainer | undefined;
+  let activeChild: ChildProcess | undefined;
+  let terminationSignal: TerminationSignal | undefined;
+  const handleTermination = (signal: TerminationSignal) => {
+    terminationSignal = signal;
+    if (activeChild && activeChild.exitCode === null && activeChild.signalCode === null) {
+      activeChild.kill(signal);
+    }
+  };
+
+  process.on("SIGINT", handleTermination);
+  process.on("SIGTERM", handleTermination);
+
   try {
     container = await new GenericContainer("postgres:16-alpine")
       .withEnvironment({
@@ -40,28 +54,59 @@ async function main(): Promise<number> {
       REQUIRE_DATABASE_INTEGRATION: "1",
     };
 
-    await runPackageManager(["run", "prisma:generate"], apiRoot, environment);
-    await runPackageManager(["run", "prisma:migrate:deploy"], apiRoot, environment);
+    const runCommand = (args: string[], cwd: string) =>
+      runPackageManager(args, cwd, environment, (child) => {
+        activeChild = child;
+        if (terminationSignal) child.kill(terminationSignal);
+      });
+
+    const generatedExitCode = await runCommand(["run", "prisma:generate"], apiRoot);
+    if (terminationSignal) return 1;
+    if (generatedExitCode !== 0) return generatedExitCode;
+
+    const migratedExitCode = await runCommand(["run", "prisma:migrate:deploy"], apiRoot);
+    if (terminationSignal) return 1;
+    if (migratedExitCode !== 0) return migratedExitCode;
 
     if (mode === "--integration") {
-      return await runPackageManager(
+      const integrationExitCode = await runCommand(
         ["--filter", "@rhasia-scret/api", "test:integration"],
         repositoryRoot,
-        environment,
       );
+      return terminationSignal ? 1 : integrationExitCode;
     }
 
     const hostedCommand = mode === "--test" ? "test:hosted" : "test:full:hosted";
-    return await runPackageManager(["run", hostedCommand], repositoryRoot, environment);
+    const hostedExitCode = await runCommand(["run", hostedCommand], repositoryRoot);
+    return terminationSignal ? 1 : hostedExitCode;
   } finally {
-    if (container) await container.stop();
+    process.off("SIGINT", handleTermination);
+    process.off("SIGTERM", handleTermination);
+    if (activeChild && activeChild.exitCode === null && activeChild.signalCode === null) {
+      activeChild.kill("SIGTERM");
+    }
+    if (container) await stopTestContainer(container);
   }
 }
 
-function runPackageManager(args: string[], cwd: string, environment: NodeJS.ProcessEnv): Promise<number> {
+async function stopTestContainer(container: StartedTestContainer): Promise<void> {
+  await container.stop({
+    timeout: CONTAINER_STOP_TIMEOUT_MS,
+    remove: true,
+    removeVolumes: true,
+  });
+}
+
+function runPackageManager(
+  args: string[],
+  cwd: string,
+  environment: NodeJS.ProcessEnv,
+  onStarted?: (child: ChildProcess) => void,
+): Promise<number> {
   const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, { cwd, env: environment, stdio: "inherit" });
+    onStarted?.(child);
     child.once("error", reject);
     child.once("exit", (code, signal) => resolvePromise(code ?? (signal ? 1 : 0)));
   });

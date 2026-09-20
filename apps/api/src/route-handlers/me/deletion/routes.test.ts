@@ -26,7 +26,6 @@ vi.mock("@api/shared/infrastructure/authenticated-application-request", () => ({
 vi.mock("@api/modules/account-deletion/server", () => ({
   ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE: "rhsia-deletion-oidc-challenge",
   createAccountDeletionRepository: () => mocks.repo,
-  createAccountDeletionEmailSender: () => ({ sendDeletionOtpEmail: mocks.sendDeletionOtpEmail }),
   isBrowserAccountDeletionReadRequest: () => true,
   isBrowserAccountDeletionRequest: () => true,
   noStoreHeaders: () => ({ "cache-control": "no-store" }),

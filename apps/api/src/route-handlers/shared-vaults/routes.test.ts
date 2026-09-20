@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   InvitationConflictError: class extends Error {},
   InvitationRecipientUnavailableError: class extends Error {},
   SecureShareLinkUnavailableError: class extends Error {},
+  MAX_INVITATION_RECIPIENT_EMAIL_LENGTH: 254,
   MembershipUnavailableError: class extends Error {},
 }));
 
@@ -59,6 +60,7 @@ vi.mock("@api/modules/vault-membership/server", () => ({
   InvitationConflictError: mocks.InvitationConflictError,
   InvitationRecipientUnavailableError: mocks.InvitationRecipientUnavailableError,
   SecureShareLinkUnavailableError: mocks.SecureShareLinkUnavailableError,
+  MAX_INVITATION_RECIPIENT_EMAIL_LENGTH: mocks.MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
   parseVaultParticipantCursorKey: (key: string) => (key.startsWith("member:") ? key : null),
 }));
 vi.mock("@api/modules/vault-management/server", () => ({
@@ -304,6 +306,25 @@ describe("Shared Vault membership and permission routes", () => {
     expect(mocks.cancelInvitation).toHaveBeenCalledWith("owner-1", "vault-1", "invitation-1", expect.anything());
   });
 
+  it("rejects rotations with more than the bounded item count", async () => {
+    const body = {
+      encryptedName: Buffer.alloc(13, 1).toString("base64"),
+      encryptionVersion: 1,
+      keyVersion: 2,
+      accounts: Array.from({ length: 501 }, (_, index) => ({
+        id: `account-${index}`,
+        encryptedPayload: Buffer.alloc(13, 2).toString("base64"),
+      })),
+      memberPackages: [],
+    };
+    const response = await rotate(
+      request("/v1/shared-vaults/vault-1/rotation", { method: "PATCH", body: JSON.stringify(body) }),
+      params,
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.rotate).not.toHaveBeenCalled();
+  });
+
   it("rotates encrypted member packages without returning key material", async () => {
     mocks.rotate.mockResolvedValue(true);
     const body = {
@@ -323,6 +344,22 @@ describe("Shared Vault membership and permission routes", () => {
 });
 
 describe("Secure Share Link routes", () => {
+  it("rejects an overlong recipient email before persistence", async () => {
+    const response = await invite(
+      request("/v1/shared-vaults/vault-1/share-links", {
+        method: "POST",
+        body: JSON.stringify({
+          recipientEmail: `${"a".repeat(250)}@example.test`,
+          linkVerifier: Buffer.alloc(32, 1).toString("base64"),
+          encryptedPackage: Buffer.alloc(13, 2).toString("base64"),
+        }),
+      }),
+      params,
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.createLink).not.toHaveBeenCalled();
+  });
+
   it("creates, resolves, and redeems a link using only recipient identity and encrypted bytes", async () => {
     mocks.createLink.mockResolvedValue({ id: "invitation-1", expiresAt: new Date("2026-09-16T00:00:00.000Z") });
     const created = await invite(

@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import {
@@ -13,7 +14,7 @@ import {
   type AccountDeletionRepository,
 } from "@api/modules/account-deletion/server";
 
-const schema = z.object({ otp: z.string().regex(/^\d{6}$/) });
+const schema = z.object({ otp: z.string().regex(/^\d{6}$/) }).strict();
 
 type VerifyDeletionOtpDependencies = Readonly<{
   authenticate: typeof authenticateApplicationMutation;
@@ -26,7 +27,7 @@ export function createVerifyDeletionOtpHandler({ authenticate, repository }: Ver
       return ApiResponse.json({ error: "same_origin_required" }, { status: 403, headers: noStoreHeaders() });
     const user = await authenticate(request, "account_deletion_authentication", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, schema);
     if (!parsed.success)
       return ApiResponse.json({ error: "invalid_deletion_otp" }, { status: 400, headers: noStoreHeaders() });
     try {

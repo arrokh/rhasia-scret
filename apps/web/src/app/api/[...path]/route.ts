@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { errorType, logWebServerEvent, requestId } from "@/shared/infrastructure/server-logging";
+import { requestClientIp } from "@/modules/identity/infrastructure/request-origin";
 
 export const runtime = "nodejs";
 
@@ -160,15 +161,15 @@ function parseOrigin(value: string | undefined, name: string): { origin: string;
 
 function isTrustedBrowserRequest(request: NextRequest, webOrigin: string): boolean {
   const requestOrigin = new URL(request.url).origin;
-  if (requestOrigin !== webOrigin && !areLocalLoopbackOrigins(requestOrigin, webOrigin)) return false;
+  if (requestOrigin !== webOrigin && !areLocalDevelopmentOrigins(requestOrigin, webOrigin)) return false;
   const suppliedOrigin = request.headers.get("origin");
-  if (suppliedOrigin && suppliedOrigin !== webOrigin && !areLocalLoopbackOrigins(suppliedOrigin, webOrigin))
+  if (suppliedOrigin && suppliedOrigin !== webOrigin && !areLocalDevelopmentOrigins(suppliedOrigin, webOrigin))
     return false;
   if (MUTATION_METHODS.has(request.method) && request.headers.has("cookie") && !suppliedOrigin) return false;
   return true;
 }
 
-function areLocalLoopbackOrigins(left: string, right: string): boolean {
+function areLocalDevelopmentOrigins(left: string, right: string): boolean {
   try {
     const first = new URL(left);
     const second = new URL(right);
@@ -176,7 +177,9 @@ function areLocalLoopbackOrigins(left: string, right: string): boolean {
       first.protocol === "http:" &&
       second.protocol === "http:" &&
       first.port === second.port &&
-      [first.hostname, second.hostname].every((hostname) => hostname === "localhost" || hostname === "127.0.0.1")
+      [first.hostname, second.hostname].every(
+        (hostname) => hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0",
+      )
     );
   } catch {
     return false;
@@ -193,6 +196,8 @@ function forwardedRequestHeaders(request: NextRequest, configuration: ProxyConfi
   headers.set("x-rhasia-proxy-secret", configuration.proxySecret);
   headers.set("x-request-id", correlationId);
   headers.set("origin", configuration.webOrigin);
+  const clientIp = requestClientIp(request);
+  if (clientIp) headers.set("x-rhasia-client-ip", clientIp);
   return headers;
 }
 

@@ -85,6 +85,14 @@ describe("POST /v1/vault-imports contract", () => {
     expect(importArchive).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed content-length headers before reading the archive", async () => {
+    const importArchive = vi.fn<EncryptedVaultImportRepository["import"]>();
+    const handler = createHandler(importArchive);
+    const response = await handler(request({}, { "content-length": "not-a-length" }));
+    expect(response.status).toBe(400);
+    expect(importArchive).not.toHaveBeenCalled();
+  });
+
   it("rejects unsupported ciphertext envelope versions", async () => {
     const importArchive = vi.fn<EncryptedVaultImportRepository["import"]>();
     const handler = createHandler(importArchive);

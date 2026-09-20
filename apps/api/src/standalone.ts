@@ -1,10 +1,10 @@
 import { createApiApp } from "@api/app";
 import { authBackend } from "@api/modules/identity/server";
-import { createSmtpEmailSenders } from "@api/smtp-email-senders";
+import { createDisabledEmailSenders, createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { createPrismaClient, type PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import type { ApiBindings } from "@api/types";
 import {
-  readApiBindings,
+  readApiConfigBindings,
   readRuntimeDatabaseUrl,
   sanitizeApiRuntimeEnvironment,
   type ApiEnvironmentSource,
@@ -19,14 +19,16 @@ export type StandaloneApi = Readonly<{
 
 export function createStandaloneApi(source: ApiEnvironmentSource): StandaloneApi {
   const runtimeEnvironment = sanitizeApiRuntimeEnvironment(source);
-  const bindingsWithoutDatabase = readApiBindings(runtimeEnvironment);
+  const configBindings = readApiConfigBindings(runtimeEnvironment);
   const emailSenders =
-    authBackend(bindingsWithoutDatabase) === "passwordless"
-      ? createSmtpEmailSenders(bindingsWithoutDatabase)
-      : undefined;
+    authBackend(configBindings) === "none" ? createDisabledEmailSenders() : createSmtpEmailSenders(configBindings);
   const database = createPrismaClient(readRuntimeDatabaseUrl(runtimeEnvironment));
-  const bindings: ApiBindings = { ...bindingsWithoutDatabase, DATABASE_CLIENT: database };
-  const app = createApiApp({ emailSenders });
+  const bindings: ApiBindings = {
+    ...configBindings,
+    DATABASE_CLIENT: database,
+    EMAIL_SENDERS: emailSenders,
+  };
+  const app = createApiApp();
 
   return {
     app,

@@ -2,6 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { verifyRegistrationResponse, type RegistrationResponseJSON } from "@simplewebauthn/server";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   browserE2eRegistrationCredential,
@@ -10,15 +11,17 @@ import {
 } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const bodySchema = z.object({
-  response: z.unknown(),
-  encryptedRecoveryPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-});
+const bodySchema = z
+  .object({
+    response: z.unknown(),
+    encryptedRecoveryPackage: boundedEncryptedBlobSchema(),
+  })
+  .strict();
 
 export async function POST(request: ApiRequest) {
   const user = await authenticateApplicationMutation(request, "recovery_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, bodySchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
     const repository = createPasskeyRecoveryRepository(getApiRequestContext(request).database);
@@ -68,5 +71,6 @@ export async function POST(request: ApiRequest) {
 function prfEnabled(extensionResults: unknown): boolean {
   if (!extensionResults || typeof extensionResults !== "object") return false;
   const prf = (extensionResults as Record<string, unknown>).prf;
-  return !!prf && typeof prf === "object" && (prf as Record<string, unknown>).enabled === true;
+  if (!prf || typeof prf !== "object") return false;
+  return (prf as Record<string, unknown>).enabled === true;
 }

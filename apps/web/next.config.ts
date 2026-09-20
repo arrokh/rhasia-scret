@@ -49,7 +49,7 @@ const securityHeaders = [
 const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
 const isSelfHostedDockerBuild = process.env.SELF_HOSTED_DOCKER_BUILD === "1";
 const configuredPasskeyHost = hostnameFromOrigin(process.env.PASSKEY_ORIGIN);
-const allowedDevOrigins = ["127.0.0.1", configuredPasskeyHost].filter(
+const allowedDevOrigins = ["0.0.0.0", "127.0.0.1", configuredPasskeyHost].filter(
   (origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index,
 );
 

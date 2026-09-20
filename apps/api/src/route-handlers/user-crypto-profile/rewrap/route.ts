@@ -1,19 +1,19 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import { createUserCryptoProfileRepository, type UserCryptoProfileRepository } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const schema = z.object({
-  vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
-  wrappedUserRootKey: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-  encryptedPersonalVaultKey: z
-    .base64()
-    .refine((value) => Buffer.byteLength(value, "base64") >= 13)
-    .optional(),
-  encryptionVersion: z.literal(1),
-});
+const schema = z
+  .object({
+    vaultUnlockSalt: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 16),
+    wrappedUserRootKey: boundedEncryptedBlobSchema(),
+    encryptedPersonalVaultKey: boundedEncryptedBlobSchema().optional(),
+    encryptionVersion: z.literal(1),
+  })
+  .strict();
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
@@ -24,7 +24,7 @@ export function createRewrapUserRootKeyHandler({ authenticate, cryptoProfiles }:
   return async function POST(request: ApiRequest) {
     const user = await authenticate(request, "key_material_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, schema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_rewrap" }, { status: 400 });
     await cryptoProfiles.rewrapUserRootKey(user.id, {
       vaultUnlockSalt: Buffer.from(parsed.data.vaultUnlockSalt, "base64"),

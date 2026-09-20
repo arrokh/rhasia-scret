@@ -1,51 +1,64 @@
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
+import { safeParseJsonBody } from "@api/http/validation";
+import { z } from "zod";
 import { logApiDependencyFailure } from "@api/shared/infrastructure/logging";
 import {
   createAnonymousAuthRateLimiter,
   createTurnstileValidator,
-  isPasswordlessClient,
-  isPasswordlessReturnPath,
   isSafePwaHandoffId,
   isSafePwaHandoffVerifier,
   isSafeTurnstileToken,
-  isSameOrigin,
+  isClientOriginAllowed,
   requestClientIp,
 } from "@api/modules/identity/server";
 
+const magicLinkRequestSchema = z.discriminatedUnion("client", [
+  z
+    .object({
+      client: z.literal("web"),
+      email: z.string().trim().min(1).max(254).email(),
+      returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
+      turnstileToken: z.string().refine(isSafeTurnstileToken),
+    })
+    .strict(),
+  z
+    .object({
+      client: z.literal("mobile"),
+      email: z.string().trim().min(1).max(254).email(),
+      returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
+    })
+    .strict(),
+  z
+    .object({
+      client: z.literal("pwa"),
+      email: z.string().trim().min(1).max(254).email(),
+      returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
+      turnstileToken: z.string().refine(isSafeTurnstileToken),
+      handoffId: z.string().refine(isSafePwaHandoffId),
+      handoffVerifier: z.string().refine(isSafePwaHandoffVerifier),
+    })
+    .strict(),
+]);
+
 export async function POST(request: ApiRequest): Promise<ApiResponse> {
-  const body = await readJson(request);
-  if (
-    !body ||
-    !isPasswordlessClient(body.client) ||
-    !isPasswordlessReturnPath(body.returnPath) ||
-    typeof body.email !== "string" ||
-    (body.client === "pwa" && (typeof body.handoffId !== "string" || typeof body.handoffVerifier !== "string")) ||
-    (body.client !== "pwa" && (body.handoffId !== undefined || body.handoffVerifier !== undefined)) ||
-    (body.client !== "mobile" &&
-      (typeof body.turnstileToken !== "string" || !isSafeTurnstileToken(body.turnstileToken))) ||
-    (body.client === "mobile" && body.turnstileToken !== undefined) ||
-    (typeof body.handoffId === "string" && !isSafePwaHandoffId(body.handoffId)) ||
-    (typeof body.handoffVerifier === "string" && !isSafePwaHandoffVerifier(body.handoffVerifier))
-  )
+  const parsed = await safeParseJsonBody(request, magicLinkRequestSchema);
+  if (!parsed.success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if ((body.client === "web" || body.client === "pwa") && !isSameOrigin(request))
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
-  if (body.client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
+  const body = parsed.data;
+  if (!isClientOriginAllowed(request, body.client))
     return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
 
-  const handoffId = typeof body.handoffId === "string" ? body.handoffId : undefined;
-  const handoffVerifier = typeof body.handoffVerifier === "string" ? body.handoffVerifier : undefined;
-  if (body.client !== "mobile") {
-    const turnstileResult = await validateTurnstile(request, body.turnstileToken);
-    if (turnstileResult === "invalid")
-      return ApiResponse.json({ error: "turnstile_failed" }, { status: 403, headers: noStoreHeaders() });
-    if (turnstileResult === "unavailable")
-      return ApiResponse.json(
-        { error: "turnstile_unavailable" },
-        { status: 503, headers: { ...noStoreHeaders(), "Retry-After": "5" } },
-      );
-  }
+  const handoffId = body.client === "pwa" ? body.handoffId : undefined;
+  const handoffVerifier = body.client === "pwa" ? body.handoffVerifier : undefined;
+  const turnstileResult = body.client === "mobile" ? "valid" : await validateTurnstile(request, body.turnstileToken);
+  if (turnstileResult === "invalid")
+    return ApiResponse.json({ error: "turnstile_failed" }, { status: 403, headers: noStoreHeaders() });
+  if (turnstileResult === "unavailable")
+    return ApiResponse.json(
+      { error: "turnstile_unavailable" },
+      { status: 503, headers: { ...noStoreHeaders(), "Retry-After": "5" } },
+    );
 
   let limit: Readonly<{ allowed: boolean; retryAfterSeconds: number }>;
   try {
@@ -79,17 +92,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   }
 }
 
-async function readJson(request: ApiRequest): Promise<Record<string, unknown> | null> {
-  try {
-    const value: unknown = await request.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function validateTurnstile(request: ApiRequest, token: unknown): Promise<"valid" | "invalid" | "unavailable"> {
-  if (typeof token !== "string") return "invalid";
+async function validateTurnstile(request: ApiRequest, token: string): Promise<"valid" | "invalid" | "unavailable"> {
   try {
     return await createTurnstileValidator(getApiRequestContext(request).bindings).validate(token);
   } catch (error) {

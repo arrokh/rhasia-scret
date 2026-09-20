@@ -24,6 +24,7 @@ export { cancelPendingVaultInvitation, listVaultParticipantsForOwner } from "./a
 export {
   InvitationConflictError,
   InvitationRecipientUnavailableError,
+  MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
   SecureShareLinkUnavailableError,
 } from "./application/secure-share-link-repository";
 export type { SharedVaultAccessRepository } from "./application/shared-vault-access-repository";

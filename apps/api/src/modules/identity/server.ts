@@ -33,7 +33,13 @@ import {
   isSafeTurnstileToken,
   type TurnstileValidationResult,
 } from "./infrastructure/turnstile";
-import { isSameOrigin, requestClientIp, requestPublicOrigin } from "./infrastructure/request-origin";
+import {
+  isClientOriginAllowed,
+  isSameOrigin,
+  isSameOriginIfPresent,
+  requestClientIp,
+  requestPublicOrigin,
+} from "./infrastructure/request-origin";
 import {
   clearPasswordlessSessionCookies,
   PASSWORDLESS_REFRESH_COOKIE,
@@ -57,7 +63,9 @@ export {
   isSafePwaHandoffId,
   isSafePwaHandoffVerifier,
   isSafeTurnstileToken,
+  isClientOriginAllowed,
   isSameOrigin,
+  isSameOriginIfPresent,
   requestClientIp,
   requestPublicOrigin,
   clearPasswordlessSessionCookies,
@@ -72,7 +80,7 @@ export {
 export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository, TurnstileValidationResult };
 export type { PasswordlessAuthService };
 
-export function authBackend(bindings: ApiBindings): "none" | "passwordless" | "oidc" {
+export function authBackend(bindings: Pick<ApiBindings, "AUTH_BACKEND">): "none" | "passwordless" | "oidc" {
   const backend = bindings.AUTH_BACKEND ?? "passwordless";
   if (backend === "none" || backend === "passwordless" || backend === "oidc") return backend;
   throw new Error("AUTH_BACKEND must be none, passwordless, or oidc.");
@@ -85,7 +93,7 @@ export function readPasswordlessConfiguration(bindings: ApiBindings) {
 export function createPasswordlessAuthService(
   database: PrismaDatabase,
   bindings: ApiBindings,
-  sender?: MagicLinkEmailSender,
+  sender: MagicLinkEmailSender,
 ): PasswordlessAuthService {
   return createPasswordlessAuthServiceForApi(database, bindings, sender);
 }
@@ -108,7 +116,7 @@ export function createTurnstileValidator(bindings: ApiBindings): CloudflareTurns
 export function createSessionVerifier(
   database: PrismaDatabase,
   bindings: ApiBindings,
-  sender?: MagicLinkEmailSender,
+  sender: MagicLinkEmailSender,
 ): SessionVerifier {
   const e2eVerifier = createE2eSessionVerifier(bindings);
   if (e2eVerifier) return e2eVerifier;
@@ -129,7 +137,7 @@ export function createSessionVerifier(
 export function createSessionTerminator(
   database: PrismaDatabase,
   bindings: ApiBindings,
-  sender?: MagicLinkEmailSender,
+  sender: MagicLinkEmailSender,
 ): SessionTerminator {
   return authBackend(bindings) === "passwordless"
     ? new PasswordlessSessionTerminator(createPasswordlessAuthService(database, bindings, sender))

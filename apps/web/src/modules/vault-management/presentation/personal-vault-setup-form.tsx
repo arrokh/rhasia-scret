@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FunctionComponent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm } from "@tanstack/react-form";
@@ -25,8 +25,12 @@ import { useInitializePersonalVaultMutation } from "./hooks/use-personal-vault-m
 
 type SecretMode = "generated" | "custom";
 type SetupStatus = "idle" | "setup_error";
+type PersonalVaultSetupFormProps = Readonly<{
+  afterInitializationPath?: "/vaults/invitations/redeem";
+}>;
 
-export function PersonalVaultSetupForm() {
+export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormProps> = (props = {}) => {
+  const { afterInitializationPath } = props;
   const t = useTranslations("VaultManagement.setup");
   const router = useRouter();
   const generatedSecret = useRef<string | null>(null);
@@ -54,7 +58,17 @@ export function PersonalVaultSetupForm() {
           encryptionVersion: material.encryptionVersion,
         });
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitialized);
-        router.refresh();
+        if (afterInitializationPath) {
+          const fragment = window.location.hash;
+          const secret = fragment.slice(1);
+          const destination = /^[A-Za-z0-9_-]{16,4096}$/.test(secret)
+            ? `${afterInitializationPath}${fragment}`
+            : afterInitializationPath;
+          router.replace(destination);
+          router.refresh();
+        } else {
+          router.refresh();
+        }
       } catch {
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitializationFailed);
         setStatus("setup_error");
@@ -273,7 +287,7 @@ export function PersonalVaultSetupForm() {
       )}
     </form>
   );
-}
+};
 
 function Field({ children }: { children: React.ReactNode }) {
   return <div className="grid gap-2">{children}</div>;

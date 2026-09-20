@@ -1,7 +1,9 @@
-import { redirect } from "next/navigation";
+import { LockKeyhole } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { InvitationRedemptionWorkspace } from "@/modules/authenticator-account";
 import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
+import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
+import { SectionHeading } from "@/shared/presentation/app-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,21 @@ export default async function RedeemInvitationPage() {
 }
 
 async function InvitationContent() {
-  const { personalVault } = await loadVaultPageContext();
-  if (personalVault.lifecycle === "UNINITIALIZED") redirect("/vaults");
+  const [vaultsT, { personalVault }] = await Promise.all([
+    getTranslations("VaultManagement.vaultsPage"),
+    loadVaultPageContext(),
+  ]);
+  if (personalVault.lifecycle === "UNINITIALIZED")
+    return (
+      <div className="grid gap-6 p-5 sm:p-6">
+        <SectionHeading
+          icon={LockKeyhole}
+          eyebrow={vaultsT("personal")}
+          title={vaultsT("setupTitle")}
+          description={vaultsT("setupIntro")}
+        />
+        <PersonalVaultSetupForm afterInitializationPath="/vaults/invitations/redeem" />
+      </div>
+    );
   return <InvitationRedemptionWorkspace personalVaultId={personalVault.id} />;
 }

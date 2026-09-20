@@ -11,7 +11,7 @@ import type { ApiRequest } from "@api/http/api-request";
 export type ApiRequestContext = Readonly<{
   database: PrismaDatabase;
   bindings: ApiBindings;
-  emailSenders?: ApiEmailSenders;
+  emailSenders: ApiEmailSenders;
   sessionVerifier: SessionVerifier;
   sessionTerminator: SessionTerminator;
   passwordlessAuth: PasswordlessAuthService;

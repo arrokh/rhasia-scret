@@ -2,6 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { verifyAuthenticationResponse, type AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   browserE2eAuthenticationVerified,
@@ -10,12 +11,12 @@ import {
 } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const bodySchema = z.object({ response: z.unknown() });
+const bodySchema = z.object({ response: z.unknown() }).strict();
 
 export async function POST(request: ApiRequest) {
   const user = await authenticateApplicationMutation(request, "recovery_authentication", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, bodySchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_passkey_recovery" }, { status: 400 });
   try {
     const repository = createPasskeyRecoveryRepository(getApiRequestContext(request).database);

@@ -1,20 +1,27 @@
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
+import { safeParseJsonBody } from "@api/http/validation";
+import { z } from "zod";
 import {
   AUTH_RETURN_PATH_COOKIE,
-  isPasswordlessClient,
-  isSameOrigin,
+  isClientOriginAllowed,
   readPasswordlessConfiguration,
   setPasswordlessSessionCookies,
 } from "@api/modules/identity/server";
 
+const magicLinkRedeemSchema = z
+  .object({
+    token: z.string().min(1).max(128),
+    client: z.enum(["web", "mobile", "pwa"]),
+  })
+  .strict();
+
 export async function POST(request: ApiRequest): Promise<ApiResponse> {
-  const body = await readJson(request);
-  if (!body || typeof body.token !== "string" || !isPasswordlessClient(body.client))
+  const parsed = await safeParseJsonBody(request, magicLinkRedeemSchema);
+  if (!parsed.success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
-  if ((body.client === "web" || body.client === "pwa") && !isSameOrigin(request))
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
-  if (body.client === "mobile" && request.headers.get("origin") && !isSameOrigin(request))
+  const body = parsed.data;
+  if (!isClientOriginAllowed(request, body.client))
     return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
 
   try {
@@ -51,15 +58,6 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
     return response;
   } catch {
     return ApiResponse.json({ error: "redemption_failed" }, { status: 400, headers: noStoreHeaders() });
-  }
-}
-
-async function readJson(request: ApiRequest): Promise<Record<string, unknown> | null> {
-  try {
-    const value: unknown = await request.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  } catch {
-    return null;
   }
 }
 

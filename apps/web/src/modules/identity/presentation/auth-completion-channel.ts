@@ -46,12 +46,12 @@ export function subscribeToAuthenticationCompletion(
   };
 }
 
-export function requestInvitationSecret(): Promise<string | null> {
+export function requestInvitationSecret(timeoutMs = INVITATION_SECRET_REQUEST_TIMEOUT_MS): Promise<string | null> {
   if (typeof BroadcastChannel === "undefined") return Promise.resolve(null);
   const requestId = crypto.randomUUID();
   const channel = new BroadcastChannel(AUTH_COMPLETION_CHANNEL_NAME);
   return new Promise((resolve) => {
-    const timeout = window.setTimeout(() => finish(null), INVITATION_SECRET_REQUEST_TIMEOUT_MS);
+    const timeout = window.setTimeout(() => finish(null), timeoutMs);
     const onMessage = (event: MessageEvent<unknown>) => {
       if (isInvitationSecretResponseMessage(event.data) && event.data.requestId === requestId)
         finish(isSafeInvitationSecret(event.data.secret) ? event.data.secret : null);

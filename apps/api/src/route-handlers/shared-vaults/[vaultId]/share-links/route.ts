@@ -1,25 +1,29 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createSecureShareLinkInvitation,
   createSecureShareLinkRepository,
   InvitationConflictError,
   InvitationRecipientUnavailableError,
+  MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
 } from "@api/modules/vault-membership/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const schema = z.object({
-  recipientEmail: z.email(),
-  linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32),
-  encryptedPackage: z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13),
-});
+const schema = z
+  .object({
+    recipientEmail: z.string().trim().min(1).max(MAX_INVITATION_RECIPIENT_EMAIL_LENGTH).email(),
+    linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32),
+    encryptedPackage: boundedEncryptedBlobSchema(),
+  })
+  .strict();
 
 export async function POST(request: ApiRequest, { params }: { params: Promise<{ vaultId: string }> }) {
   const user = await authenticateApplicationMutation(request, "membership_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, schema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_share_link" }, { status: 400 });
   try {
     const { vaultId } = await params;

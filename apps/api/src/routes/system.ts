@@ -1,9 +1,9 @@
-import { Hono } from "hono";
-import type { ApiEnvironment } from "@api/types";
+import { apiFactory } from "@api/http/hono-factory";
 import { jsonResponse } from "@api/http/response";
 import { healthResponseSchema, timeResponseSchema } from "@rhasia-scret/api-contract";
 
-export const systemRoutes = new Hono<ApiEnvironment>()
+export const systemRoutes = apiFactory
+  .createApp()
   .get("/health", () => jsonResponse(healthResponseSchema.parse({ status: "ok" })))
   .get("/time", () =>
     jsonResponse(timeResponseSchema.parse({ now: new Date().toISOString() }), {

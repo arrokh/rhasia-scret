@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { app } from "@api/app";
+import { createDisabledEmailSenders } from "@api/smtp-email-senders";
 import type { ApiBindings } from "@api/types";
 
 const bindings: ApiBindings = {
   WEB_ORIGIN: "https://rhasia-scret.nooroctavian.id",
   PROXY_SECRET: "proxy-secret-that-is-long-enough-for-tests-123456",
+  EMAIL_SENDERS: createDisabledEmailSenders(),
 };
 
 describe("versioned API shell", () => {
@@ -101,6 +103,18 @@ describe("versioned API shell", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "forbidden" });
     expect(response.headers.get("x-rhasia-proxy-secret")).toBeNull();
+  });
+
+  it("fails closed when a required email sender binding is missing", async () => {
+    const incompleteBindings = {
+      ...bindings,
+      DATABASE_CLIENT: {} as NonNullable<ApiBindings["DATABASE_CLIENT"]>,
+    };
+    Reflect.deleteProperty(incompleteBindings, "EMAIL_SENDERS");
+
+    const response = await app.request("https://api.example.test/v1/me", {}, incompleteBindings as ApiBindings);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "api_misconfigured" });
   });
 
   it("rejects direct cookie-bearing session revocation without the trusted proxy marker", async () => {

@@ -1,6 +1,7 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
+import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import { createSharedVaultRepository, type SharedVaultRepository } from "@api/modules/vault-management/server";
 import {
@@ -12,16 +13,18 @@ import {
   authenticateApplicationReader,
 } from "@api/shared/infrastructure/authenticated-application-request";
 
-const blob = z.base64().refine((value) => Buffer.byteLength(value, "base64") >= 13);
-const schema = z.object({
-  vaultId: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{16,128}$/)
-    .optional(),
-  encryptedName: blob,
-  encryptedOwnerVaultKey: blob,
-  encryptionVersion: z.literal(1),
-});
+const blob = boundedEncryptedBlobSchema();
+const schema = z
+  .object({
+    vaultId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{16,128}$/)
+      .optional(),
+    encryptedName: blob,
+    encryptedOwnerVaultKey: blob,
+    encryptionVersion: z.literal(1),
+  })
+  .strict();
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
   sharedVaults: SharedVaultRepository;
@@ -31,7 +34,7 @@ export function createSharedVaultHandler({ authenticate, sharedVaults }: Depende
   return async function POST(request: ApiRequest) {
     const user = await authenticate(request, "vault_mutation", "fresh-provider-user");
     if (user instanceof ApiResponse) return user;
-    const parsed = schema.safeParse(await request.json().catch(() => null));
+    const parsed = await safeParseJsonBody(request, schema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_vault" }, { status: 400 });
     const vault = await sharedVaults.create(user.id, {
       id: parsed.data.vaultId,

@@ -1,17 +1,19 @@
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { getApiRequestContext } from "@api/http/api-context";
-import { clearE2eSessionCookie, isSameOrigin } from "@api/modules/identity/server";
+import { z } from "zod";
+import { clearE2eSessionCookie, isSameOriginIfPresent } from "@api/modules/identity/server";
+
+const authorizationHeaderSchema = z.string().regex(/^Bearer [A-Za-z0-9_.-]{1,512}$/);
 
 export async function POST(request: ApiRequest): Promise<ApiResponse> {
   const authorization = request.headers.get("authorization");
-  if (authorization && !/^Bearer [A-Za-z0-9_.-]{1,512}$/.test(authorization))
+  if (authorization && !authorizationHeaderSchema.safeParse(authorization).success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
   if (authorization && request.headers.has("cookie"))
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
   if (request.headers.get("cookie") && !request.headers.has("x-rhasia-proxy-secret"))
     return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
-  if (request.headers.get("origin") && !isSameOrigin(request))
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
+  if (!isSameOriginIfPresent(request)) return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
   const context = getApiRequestContext(request);
   const response = new ApiResponse(null, { status: 204, headers: noStoreHeaders() });
   if (context.bindings.NODE_ENV === "development" && context.bindings.E2E_BROWSER_TESTS === "1")

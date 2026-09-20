@@ -1,5 +1,6 @@
 import { getApiRequestContext } from "@api/http/api-context";
 import { ApiResponse } from "@api/http/api-request";
+import { safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
 import {
   createMembershipLifecycleRepository,
@@ -22,7 +23,7 @@ const overridesSchema = z
 export async function PATCH(request: Request, { params }: { params: Promise<{ vaultId: string; userId: string }> }) {
   const user = await authenticateApplicationMutation(request, "membership_mutation", "fresh-provider-user");
   if (user instanceof ApiResponse) return user;
-  const parsed = overridesSchema.safeParse(await request.json().catch(() => null));
+  const parsed = await safeParseJsonBody(request, overridesSchema);
   if (!parsed.success) return ApiResponse.json({ error: "invalid_member_permissions" }, { status: 400 });
   const { vaultId, userId } = await params;
   const result = await updateSharedVaultMemberPermissionOverrides(

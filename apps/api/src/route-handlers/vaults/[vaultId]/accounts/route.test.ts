@@ -3,6 +3,7 @@ import { ApiRequest, ApiResponse } from "@api/http/api-request";
 import { createPersonalAccountsHandlers } from "@api/route-handlers/vaults/[vaultId]/accounts/route";
 import { ApplicationUser } from "@api/modules/identity/domain/application-user";
 import { EncryptedAuthenticatorAccount } from "@api/modules/authenticator-account/domain/encrypted-account";
+import { Buffer } from "@api/shared/infrastructure/base64";
 
 const payload = { encryptedPayload: btoa("encrypted-account-payload"), encryptionVersion: 1 as const };
 const user = new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE");
@@ -36,6 +37,27 @@ describe("Personal Vault account route contracts", () => {
       "vault-1",
       expect.objectContaining({ encryptionVersion: 1, source: undefined }),
     );
+  });
+
+  it("rejects an encrypted payload larger than the bounded ciphertext limit", async () => {
+    const create = vi.fn();
+    const handlers = createPersonalAccountsHandlers({
+      ...authenticationDependencies(),
+      accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() },
+    });
+    const response = await handlers.POST(
+      request("/v1/vaults/vault-1/accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          encryptedPayload: Buffer.from(new Uint8Array(16 * 1024 + 30)).toString("base64"),
+          encryptionVersion: 1,
+        }),
+      }),
+      { params: Promise.resolve({ vaultId: "vault-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("accepts only the redacted Local Vault copy source marker", async () => {

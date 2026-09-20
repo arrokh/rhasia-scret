@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
 import { useLocale, useTranslations } from "next-intl";
-import { Fingerprint, KeyRound, Lock, Trash2 } from "lucide-react";
+import { ArrowLeft, Fingerprint, KeyRound, Lock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -236,10 +236,18 @@ function UnlockedOfflineWorkspace({
         title={t("accountsTitle")}
         description={t("snapshotDate", { date: snapshotDate })}
         action={
-          <Button variant="outline" onClick={onLock}>
-            <Lock />
-            {t("lock")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild>
+              <Link href="/sign-in" onClick={onLock}>
+                <ArrowLeft aria-hidden="true" />
+                {t("backSignIn")}
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={onLock}>
+              <Lock />
+              {t("lock")}
+            </Button>
+          </div>
         }
       />
       <SurfaceCard className="grid gap-5 p-4 sm:p-5">

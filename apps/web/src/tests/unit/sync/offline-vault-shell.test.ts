@@ -72,6 +72,7 @@ describe("OfflineVaultShell", () => {
     expect(container.textContent).toContain("viewer@example.test");
     expect(container.textContent).toContain("Tim Viewer");
     expect(container.textContent).toContain("pemeriksaan drift dan audit akses tidak tersedia");
+    expect(container.querySelector('header a[href="/sign-in"]')?.textContent).toContain("Kembali ke masuk");
     expect(container.querySelector('button[aria-label^="Kelola"]')).toBeNull();
     expect(container.querySelector('a[href="/vaults/accounts/new"]')).toBeNull();
     expect(container.textContent).not.toContain("Tambah akun");

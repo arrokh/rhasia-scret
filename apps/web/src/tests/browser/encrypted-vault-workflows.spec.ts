@@ -638,6 +638,112 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   }
 });
 
+test("a new invitation recipient initializes Personal Vault and returns to redemption", async ({
+  page,
+  context,
+  browser,
+  browserName,
+}) => {
+  const ownerAlias = scenarioAlias(browserName, "invitation-onboarding", "owner");
+  const recipientAlias = scenarioAlias(browserName, "invitation-onboarding", "viewer-leave");
+  const ownerSecret = "e2e invitation owner passphrase";
+  const recipientSecret = "e2e invitation recipient passphrase";
+  const ownerVaultName = "E2E Invitation Owner Vault";
+  await cleanBrowserE2eUsers([e2eUserEmail(ownerAlias), e2eUserEmail(recipientAlias)]);
+  await authenticate(context, ownerAlias);
+  await page.goto("/vaults");
+  await initializePersonalVault(page, "E2E Invitation Owner Personal Vault", ownerSecret);
+  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await unlockVault(page, ownerSecret);
+
+  await page.getByRole("link", { name: "Brankas", exact: true }).click();
+  await page.getByRole("link", { name: "Brankas Bersama" }).click();
+  await page.getByLabel("Nama Brankas Bersama").fill(ownerVaultName);
+  await page.getByRole("button", { name: "Buat Brankas" }).click();
+  await expect(page).toHaveURL(/\/vaults\/manage\/[A-Za-z0-9_-]+$/);
+  const invitation = await createInvitation(page, e2eUserEmail(recipientAlias));
+
+  const recipientContext = await browser.newContext({ baseURL: baseUrl });
+  const recipientPage = await recipientContext.newPage();
+  try {
+    await authenticate(recipientContext, recipientAlias);
+    await recipientPage.goto(invitation);
+    await expect(recipientPage.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
+    await initializePersonalVault(recipientPage, "E2E Invitation Recipient Personal Vault", recipientSecret);
+    await expect(recipientPage).toHaveURL(/\/vaults\/invitations\/redeem(?:#|$)/);
+    await expect(recipientPage.getByRole("textbox", { name: "Passphrase Brankas", exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await unlockVault(recipientPage, recipientSecret);
+    await expect(recipientPage.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
+  } finally {
+    await recipientContext.close();
+  }
+});
+
+test("a passwordless invitation recipient keeps the invitation through Personal Vault setup", async ({
+  page,
+  context,
+  browser,
+  browserName,
+}) => {
+  const ownerAlias = scenarioAlias(browserName, "invitation-auth-flow", "owner");
+  const recipientAlias = scenarioAlias(browserName, "invitation-auth-flow", "viewer-leave");
+  const ownerSecret = "e2e passwordless invitation owner passphrase";
+  const recipientSecret = "e2e passwordless invitation recipient passphrase";
+  await cleanBrowserE2eUsers([e2eUserEmail(ownerAlias), e2eUserEmail(recipientAlias)]);
+  await authenticate(context, ownerAlias);
+  await page.goto("/vaults");
+  await initializePersonalVault(page, "E2E Passwordless Invitation Owner Vault", ownerSecret);
+  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await unlockVault(page, ownerSecret);
+  await page.getByRole("link", { name: "Brankas", exact: true }).click();
+  await page.getByRole("link", { name: "Brankas Bersama" }).click();
+  await page.getByLabel("Nama Brankas Bersama").fill("E2E Passwordless Invitation Shared Vault");
+  await page.getByRole("button", { name: "Buat Brankas" }).click();
+  await expect(page).toHaveURL(/\/vaults\/manage\/[A-Za-z0-9_-]+$/);
+  const invitation = await createInvitation(page, e2eUserEmail(recipientAlias));
+
+  const recipientContext = await browser.newContext({ baseURL: baseUrl });
+  const signInPage = await recipientContext.newPage();
+  const callbackPage = await recipientContext.newPage();
+  try {
+    await signInPage.goto(invitation);
+    await expect(signInPage.locator("#email")).toBeVisible();
+    await callbackPage.route("**/api/v1/auth/magic-link/redeem", async (route) => {
+      await recipientContext.addCookies([
+        {
+          name: "rhsia-e2e-session",
+          value: recipientAlias,
+          url: baseUrl,
+          httpOnly: true,
+          sameSite: "Lax",
+        },
+      ]);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ returnPath: "/vaults/invitations/redeem" }),
+      });
+    });
+    await callbackPage.goto(
+      `/auth/confirm#token=${"a".repeat(43)}&next=${encodeURIComponent("/vaults/invitations/redeem")}`,
+    );
+    await expect(callbackPage.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await initializePersonalVault(callbackPage, "E2E Passwordless Invitation Recipient Vault", recipientSecret);
+    await expect(callbackPage).toHaveURL(/\/vaults\/invitations\/redeem(?:#|$)/);
+    await expect(callbackPage.getByRole("textbox", { name: "Passphrase Brankas", exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await unlockVault(callbackPage, recipientSecret);
+    await expect(callbackPage.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
+  } finally {
+    await recipientContext.close();
+  }
+});
+
 test("English setup, unlock, account creation, and OTP smoke use the real stack", async ({
   page,
   context,
@@ -894,6 +1000,7 @@ async function createInvitation(page: Page, email: string): Promise<string> {
   await page.getByRole("button", { name: "Buat undangan" }).click();
   const output = page.getByLabel("Tautan undangan aman");
   await expect(output).toBeVisible();
+  await page.getByRole("button", { name: "Batal", exact: true }).click();
   return ((await output.textContent()) ?? "").trim();
 }
 
