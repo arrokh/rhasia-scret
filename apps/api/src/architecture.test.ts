@@ -64,11 +64,13 @@ describe("API extraction ownership boundaries", () => {
     const vercelJson = JSON.parse(vercelConfig) as {
       installCommand?: string;
       buildCommand?: string;
+      git?: { deploymentEnabled?: Record<string, boolean> };
       rewrites?: Array<{ source?: string; destination?: string }>;
       functions?: Record<string, { maxDuration?: number; includeFiles?: string }>;
       crons?: Array<{ path?: string; schedule?: string }>;
     };
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
+    expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "*": false });
     expect(vercelJson.buildCommand).toBe(
       "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
     );
