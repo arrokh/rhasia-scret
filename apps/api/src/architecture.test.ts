@@ -67,6 +67,7 @@ describe("API extraction ownership boundaries", () => {
       framework?: null;
       installCommand?: string;
       buildCommand?: string;
+      ignoreCommand?: string;
       git?: { deploymentEnabled?: Record<string, boolean> };
       rewrites?: Array<{ source?: string; destination?: string }>;
       functions?: Record<string, { maxDuration?: number; includeFiles?: string }>;
@@ -74,6 +75,7 @@ describe("API extraction ownership boundaries", () => {
     };
     expect(vercelJson.framework).toBeNull();
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
+    expect(vercelJson.ignoreCommand).toBe("node ../../tools/vercel-ignore.mjs api");
     expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "**": false });
     expect(vercelJson.buildCommand).toBe(
       "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",

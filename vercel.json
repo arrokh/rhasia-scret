@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": { "deploymentEnabled": { "main": true, "**": false } },
+  "ignoreCommand": "node tools/vercel-ignore.mjs web",
   "installCommand": "pnpm install --filter @rhasia-scret/web... --frozen-lockfile",
   "buildCommand": "pnpm --filter @rhasia-scret/web verify:deployment-config && pnpm --filter @rhasia-scret/web build"
 }
