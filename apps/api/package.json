@@ -37,31 +37,31 @@
     "smoke:deployment": "tsx scripts/smoke-deployment.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.12",
-    "@hono/zod-validator": "^0.7.6",
-    "@noble/hashes": "^1.8.0",
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-validator": "^0.9.1",
+    "@noble/hashes": "^2.4.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@rhasia-scret/api-contract": "workspace:*",
     "@rhasia-scret/client-vault-core": "workspace:*",
-    "@simplewebauthn/server": "^14.0.1",
-    "dotenv": "^17.3.1",
-    "hono": "^4.13.7",
+    "@simplewebauthn/server": "^14.0.2",
+    "dotenv": "^18.0.0",
+    "hono": "^4.13.8",
     "jose": "6.2.12",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.1",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.15.6",
-    "eslint": "^9.39.1",
+    "eslint": "^10.10.0",
     "prisma": "^7.10.0",
     "testcontainers": "^12.1.0",
     "tsup": "^8.5.1",
     "tsx": "^4.23.13",
-    "typescript": "^5.9.3",
-    "vitest": "^5.0.0"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }
