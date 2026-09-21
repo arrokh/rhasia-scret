@@ -35,10 +35,17 @@ describe("API extraction ownership boundaries", () => {
   });
 
   it("keeps standalone Bun, Node.js, and Vercel adapters separate while sharing the Hono app", () => {
+    const app = read("apps/api/src/app.ts");
+    const standalone = read("apps/api/src/standalone.ts");
     const bun = read("apps/api/src/bun.ts");
     const node = read("apps/api/src/node.ts");
     const vercel = read("apps/api/api/index.ts");
+    const vercelHealth = read("apps/api/api/health.ts");
+    const vercelTime = read("apps/api/api/time.ts");
+    const vercelLoader = read("apps/api/api/load-bundle.ts");
     const vercelEntry = read("apps/api/src/vercel.ts");
+    const vercelHealthEntry = read("apps/api/src/vercel-health.ts");
+    const vercelTimeEntry = read("apps/api/src/vercel-time.ts");
     const tsupConfig = read("apps/api/tsup.config.ts");
     const vercelConfig = read("apps/api/vercel.json");
     const apiSources = files(resolve(repositoryRoot, "apps/api/src"))
@@ -54,19 +61,37 @@ describe("API extraction ownership boundaries", () => {
     const productionMigrationCompose = read("docker-compose.prod-migration.yml");
     const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
     const dockerfile = read("apps/api/Dockerfile");
+    expect(app).not.toContain("export const app");
+    expect(standalone).toContain("createApiRuntimeDependencies");
     expect(bun).toContain("Bun.serve");
     expect(bun).toContain("createStandaloneApi");
     expect(node).toContain("@hono/node-server");
     expect(node).toContain("createStandaloneApi");
+    expect(vercel).toContain("createBundleHandler");
+    expect(vercel).toContain('from "./load-bundle.js"');
     expect(vercel).toContain('"../dist/vercel.js"');
-    expect(vercel).toContain("import(bundleSpecifier)");
+    for (const dependency of ["@prisma/adapter-pg", "@prisma/client", "dotenv", "nodemailer", "pg"])
+      expect(vercel).toContain(`import "${dependency}"`);
+    expect(vercelHealth).toContain('from "./load-bundle.js"');
+    expect(vercelHealth).toContain('"../dist/vercel-health.js"');
+    expect(vercelTime).toContain('from "./load-bundle.js"');
+    expect(vercelTime).toContain('"../dist/vercel-time.js"');
+    expect(vercelLoader).toContain("import(bundleSpecifier)");
     expect(vercel).not.toContain("createRequire");
     expect(vercel).not.toContain("@api/");
     expect(vercelEntry).toContain("getRequestListener");
     expect(vercelEntry).toContain("normalizeVercelRequest");
+    expect(vercelEntry).toContain('import("@api/standalone")');
+    expect(vercelHealthEntry).toContain('"health"');
+    expect(vercelTimeEntry).toContain('"time"');
     expect(tsupConfig).toContain("API_BUILD_TARGET");
+    expect(tsupConfig).toContain('noExternal: buildTarget === "vercel" ? vercelDependencies : workspaceDependencies');
+    expect(tsupConfig).toContain("vercelExternalDependencies");
+    expect(tsupConfig).toContain('external: buildTarget === "vercel" ? vercelExternalDependencies : []');
+    expect(tsupConfig).toContain("splitting: true");
     const vercelJson = JSON.parse(vercelConfig) as {
       framework?: null;
+      regions?: string[];
       installCommand?: string;
       buildCommand?: string;
       ignoreCommand?: string;
@@ -76,15 +101,22 @@ describe("API extraction ownership boundaries", () => {
       crons?: Array<{ path?: string; schedule?: string }>;
     };
     expect(vercelJson.framework).toBeNull();
+    expect(vercelJson.regions).toEqual(["sin1"]);
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
     expect(vercelJson.ignoreCommand).toBe("node ../../tools/vercel-ignore.mjs api");
     expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "**": false });
     expect(vercelJson.buildCommand).toBe(
       "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
     );
-    expect(vercelJson.rewrites).toEqual([{ source: "/v1/(.*)", destination: "/api" }]);
-    expect(vercelJson.functions?.["api/index.ts"]?.maxDuration).toBe(60);
-    expect(vercelJson.functions?.["api/index.ts"]?.includeFiles).toBe("dist/vercel.js");
+    expect(vercelJson.rewrites).toEqual([
+      { source: "/v1/health", destination: "/api/health" },
+      { source: "/v1/time", destination: "/api/time" },
+      { source: "/v1/(.*)", destination: "/api" },
+    ]);
+    for (const functionName of ["api/index.ts", "api/health.ts", "api/time.ts"]) {
+      expect(vercelJson.functions?.[functionName]?.maxDuration).toBe(60);
+      expect(vercelJson.functions?.[functionName]?.includeFiles).toBe("dist/**");
+    }
     expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
     expect(apiSources).not.toContain("HYPERDRIVE");
     expect(packageJson.dependencies).toHaveProperty("@hono/node-server");

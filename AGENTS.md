@@ -57,6 +57,12 @@
 
 ## Quality
 
+### Vercel deployment scope
+
+- The API uses only the existing Vercel API project configured for this repository. Never create, link, or deploy `apps/api` through a different Vercel project.
+- For preview or validation deployments, use a custom branch deployment in that existing project. Do not use the Vercel CLI in a way that creates a project or changes the project association.
+- Production deployment requires explicit human authorization in the current conversation. Local builds, bundle checks, and PR validation must not deploy production.
+
 - **Human database authority:** Never execute, apply, deploy, resolve, reset, push, introspect, or otherwise run a database migration operation (`prisma migrate dev`, `prisma migrate deploy`, `prisma migrate resolve`, `prisma migrate reset`, `prisma db push`, or equivalent) without explicit confirmation from the human in the current conversation. Confirmation is environment-specific and does not carry over to another database. Migration verification and tests may run only against an already-approved database state. Generating a migration file with Prisma CLI is allowed only when requested, and it must not be applied without that confirmation.
 - Generate Prisma migrations only with the Prisma CLI (`prisma migrate dev`); never author migration SQL by hand. Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for Prisma migrations, introspection, and administrative tooling.
 - Store domain enum values as database strings. Use TypeScript unions or enums for strictness in code; do not create native PostgreSQL enums.

@@ -4,12 +4,17 @@ import { apiFactory } from "@api/http/hono-factory";
 import { jsonResponse } from "@api/http/response";
 import { noStoreApiResponses, requestContext, exactOriginCors, proxyTrust } from "@api/middleware/security";
 import { apiRequestLogging } from "@api/middleware/request-logging";
-import { createApiRuntime } from "@api/http/api-runtime";
+import { createApiRuntime, type ApiRuntimeDependencies } from "@api/http/api-runtime";
 import { logApiEvent } from "@api/shared/infrastructure/logging";
 import { systemRoutes } from "@api/routes/system";
 import { registerV1Routes } from "@api/routes/v1";
-export function createApiApp(): Hono<ApiEnvironment> {
-  const runtime = createApiRuntime();
+
+type ApiAppOptions = Readonly<{
+  runtimeDependencies?: ApiRuntimeDependencies;
+}>;
+
+export function createApiApp(options: ApiAppOptions = {}): Hono<ApiEnvironment> {
+  const runtime = createApiRuntime(options.runtimeDependencies);
   const versioned = apiFactory.createApp();
   versioned.use("*", noStoreApiResponses);
   versioned.use("*", async (context, next) => {
@@ -34,5 +39,4 @@ export function createApiApp(): Hono<ApiEnvironment> {
   return app;
 }
 
-export const app = createApiApp();
-export type AppType = typeof app;
+export type AppType = ReturnType<typeof createApiApp>;

@@ -1,9 +1,26 @@
 /** @vitest-environment node */
 
 import { describe, expect, it, vi } from "vitest";
+import { createTurnstileValidator } from "@api/modules/identity/server";
 import { CloudflareTurnstileValidator, isSafeTurnstileToken } from "@api/modules/identity/infrastructure/turnstile";
 
 describe("CloudflareTurnstileValidator", () => {
+  it("trims the production secret before sending it to Cloudflare", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false }), { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const validator = createTurnstileValidator({ TURNSTILE_SECRET_KEY: "  server-secret  " });
+
+      await expect(validator.validate("token")).resolves.toBe("invalid");
+      expect(fetcher).toHaveBeenCalledWith(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        expect.objectContaining({ body: "secret=server-secret&response=token" }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("accepts a successful Cloudflare validation without exposing the secret in the request URL", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true }), {
