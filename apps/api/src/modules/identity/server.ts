@@ -142,8 +142,10 @@ export function createAnonymousAuthRateLimiter(
   return new PrismaAnonymousAuthRateLimiter(database, new TextEncoder().encode(secret));
 }
 
-export function createTurnstileValidator(bindings: ApiBindings): CloudflareTurnstileValidator {
-  const secret = bindings.TURNSTILE_SECRET_KEY;
+export function createTurnstileValidator(
+  bindings: Pick<ApiBindings, "TURNSTILE_SECRET_KEY">,
+): CloudflareTurnstileValidator {
+  const secret = bindings.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) throw new Error("TURNSTILE_SECRET_KEY is required.");
   return new CloudflareTurnstileValidator(secret);
 }
