@@ -1,4 +1,5 @@
 import { createApiApp } from "@api/app";
+import { createApiRuntimeDependencies } from "@api/http/api-runtime";
 import { authBackend } from "@api/modules/identity/server";
 import { createDisabledEmailSenders, createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { createPrismaClient, type PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
@@ -28,7 +29,8 @@ export function createStandaloneApi(source: ApiEnvironmentSource): StandaloneApi
     DATABASE_CLIENT: database,
     EMAIL_SENDERS: emailSenders,
   };
-  const app = createApiApp();
+  const runtimeDependencies = createApiRuntimeDependencies(database, bindings, emailSenders);
+  const app = createApiApp({ runtimeDependencies });
 
   return {
     app,

@@ -1,14 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "regions": ["sin1"],
+  "git": { "deploymentEnabled": { "main": true, "**": false } },
+  "ignoreCommand": "node ../../tools/vercel-ignore.mjs api",
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
   "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
-  "git": { "deploymentEnabled": { "main": true, "**": false } },
-  "rewrites": [{ "source": "/v1/(.*)", "destination": "/api" }],
+  "rewrites": [
+    { "source": "/v1/health", "destination": "/api/health" },
+    { "source": "/v1/time", "destination": "/api/time" },
+    { "source": "/v1/(.*)", "destination": "/api" }
+  ],
   "functions": {
     "api/index.ts": {
       "maxDuration": 60,
-      "includeFiles": "dist/vercel.js"
+      "includeFiles": "dist/**"
+    },
+    "api/health.ts": {
+      "maxDuration": 60,
+      "includeFiles": "dist/**"
+    },
+    "api/time.ts": {
+      "maxDuration": 60,
+      "includeFiles": "dist/**"
     }
   },
   "crons": [{ "path": "/v1/internal/retention-purge", "schedule": "0 3 * * *" }]

@@ -1,16 +1,9 @@
-import type { RequestListener } from "node:http";
+import "@prisma/adapter-pg";
+import "@prisma/client";
+import "dotenv";
+import "nodemailer";
+import "pg";
+import { createBundleHandler } from "./load-bundle.js";
 
-type VercelBundle = { default: RequestListener };
-
-let handlerPromise: Promise<RequestListener> | undefined;
-
-async function loadHandler(): Promise<RequestListener> {
-  const bundleSpecifier = "../dist/vercel.js";
-  const bundle = (await import(bundleSpecifier)) as VercelBundle;
-  return bundle.default;
-}
-
-export default async function handler(...args: Parameters<RequestListener>): Promise<void> {
-  const resolvedHandler = await (handlerPromise ??= loadHandler());
-  resolvedHandler(...args);
-}
+// Keep dynamically loaded runtime dependencies in Vercel's static function trace.
+export default createBundleHandler("../dist/vercel.js");
