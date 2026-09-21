@@ -60,7 +60,7 @@ describe("API extraction ownership boundaries", () => {
     expect(vercel).not.toContain("@api/");
     expect(vercelEntry).toContain("getRequestListener");
     expect(vercelEntry).toContain("normalizeVercelRequest");
-    expect(tsupConfig).toContain('"src/vercel.ts"');
+    expect(tsupConfig).toContain("API_BUILD_TARGET");
     const vercelJson = JSON.parse(vercelConfig) as {
       installCommand?: string;
       buildCommand?: string;
@@ -70,7 +70,7 @@ describe("API extraction ownership boundaries", () => {
     };
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
     expect(vercelJson.buildCommand).toBe(
-      "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build",
+      "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
     );
     expect(vercelJson.rewrites).toEqual([{ source: "/v1/:path*", destination: "/api/v1/:path*" }]);
     expect(vercelJson.functions?.["api/[...path].ts"]?.maxDuration).toBe(60);
@@ -81,7 +81,8 @@ describe("API extraction ownership boundaries", () => {
     expect(packageJson.devDependencies).not.toHaveProperty("wrangler");
     expect(packageJson.devDependencies).not.toHaveProperty("@cloudflare/workers-types");
     expect(packageJson.scripts).toHaveProperty("smoke:deployment");
-    expect(packageJson.scripts?.["build:node"]).toContain("verify-vercel-bundle.ts");
+    expect(packageJson.scripts?.["build:node"]).toBe("tsup --config tsup.config.ts");
+    expect(packageJson.scripts?.["build:vercel"]).toContain("verify-vercel-bundle.ts");
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");

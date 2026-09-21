@@ -31,7 +31,7 @@ Cloudflare Turnstile remains an API integration. It is not a runtime-hosting dep
 
 `apps/api/src/standalone.ts` creates the API bindings, SMTP senders, and one process-scoped Prisma client from `DATABASE_URL`. Request handling never reads `DIRECT_URL`, receives no Hyperdrive binding, and does not expose database connection strings in request context.
 
-The Vercel adapter loads the standalone `dist/vercel.js` bundle produced by the API build, rather than asking Vercel's source transpiler to resolve the internal `@api/*` TypeScript aliases. The bundle is included explicitly in the function artifact. It normalizes `/api/**` function paths back to canonical `/v1/**` paths, preserves request bodies and query strings, and uses the Hono Node listener so response headers and repeated `Set-Cookie` values are retained. `apps/api/vercel.json` defines the `/v1/**` rewrite, function timeout, bundle inclusion, and daily retention cron at `0 3 * * *`.
+The Vercel adapter loads the standalone `dist/vercel.js` bundle produced by the Vercel-specific API build target, rather than asking Vercel's source transpiler to resolve the internal `@api/*` TypeScript aliases. The bundle is included explicitly in the function artifact. It normalizes `/api/**` function paths back to canonical `/v1/**` paths, preserves request bodies and query strings, and uses the Hono Node listener so response headers and repeated `Set-Cookie` values are retained. `apps/api/vercel.json` defines the `/v1/**` rewrite, function timeout, bundle inclusion, and daily retention cron at `0 3 * * *`.
 
 The implemented composition and lifecycle deepening seams are documented in [`api-architecture-deepening.md`](api-architecture-deepening.md).
 
@@ -73,7 +73,7 @@ The Docker runtime uses the pinned Bun image and `apps/api/src/bun.ts`. The migr
 
 ### Vercel
 
-The API is a separate Node.js Vercel project rooted at `apps/api`, configured by `apps/api/vercel.json`. Its build first validates the production `vercel` environment contract, then runs the package-owned build script; Prisma Client generation uses only the non-production placeholder URL from that script. The Web Vercel project remains rooted at the repository root and deploys only Web. API and Web secrets are configured in their respective projects; no API secret is placed in Web environment variables.
+The API is a separate Node.js Vercel project rooted at `apps/api`, configured by `apps/api/vercel.json`. Its build first validates the production `vercel` environment contract, then runs the package-owned Vercel build target; Prisma Client generation uses only the non-production placeholder URL from that target. The Web Vercel project remains rooted at the repository root and deploys only Web. API and Web secrets are configured in their respective projects; no API secret is placed in Web environment variables.
 
 The API project must be validated on a temporary deployment before attaching `api.rhasia-scret.nooroctavian.id`. Vercel Cron calls `/v1/internal/retention-purge` at 03:00 UTC with `CRON_SECRET` authentication. An external or self-hosted scheduler may call the same endpoint.
 
