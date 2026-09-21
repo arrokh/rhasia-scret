@@ -23,11 +23,11 @@ Cloudflare Turnstile remains an API integration. It is not a runtime-hosting dep
 
 `apps/api/src/app.ts` remains the canonical Hono application. Runtime adapters compose the application with process configuration and a bounded Prisma client:
 
-| Adapter        | Entry point                 | Role                                                                  |
-| -------------- | --------------------------- | --------------------------------------------------------------------- |
-| Bun            | `apps/api/src/bun.ts`       | Local development, Docker, and primary self-hosted/production runtime |
-| Node.js        | `apps/api/src/node.ts`      | Generic Node.js host using `apps/api/dist/node.js`                    |
-| Vercel Node.js | `apps/api/api/[...path].ts` | Separate API Vercel project                                           |
+| Adapter        | Entry point             | Role                                                                  |
+| -------------- | ----------------------- | --------------------------------------------------------------------- |
+| Bun            | `apps/api/src/bun.ts`   | Local development, Docker, and primary self-hosted/production runtime |
+| Node.js        | `apps/api/src/node.ts`  | Generic Node.js host using `apps/api/dist/node.js`                    |
+| Vercel Node.js | `apps/api/api/index.ts` | Separate API Vercel project                                           |
 
 `apps/api/src/standalone.ts` creates the API bindings, SMTP senders, and one process-scoped Prisma client from `DATABASE_URL`. Request handling never reads `DIRECT_URL`, receives no Hyperdrive binding, and does not expose database connection strings in request context.
 
