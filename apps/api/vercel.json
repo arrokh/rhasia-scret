@@ -6,7 +6,7 @@
   "functions": {
     "api/[...path].ts": {
       "maxDuration": 60,
-      "includeFiles": ["dist/vercel.js"]
+      "includeFiles": "dist/vercel.js"
     }
   },
   "crons": [{ "path": "/v1/internal/retention-purge", "schedule": "0 3 * * *" }]

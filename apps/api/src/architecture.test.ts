@@ -65,7 +65,7 @@ describe("API extraction ownership boundaries", () => {
       installCommand?: string;
       buildCommand?: string;
       rewrites?: Array<{ source?: string; destination?: string }>;
-      functions?: Record<string, { maxDuration?: number; includeFiles?: string[] }>;
+      functions?: Record<string, { maxDuration?: number; includeFiles?: string }>;
       crons?: Array<{ path?: string; schedule?: string }>;
     };
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
@@ -74,7 +74,7 @@ describe("API extraction ownership boundaries", () => {
     );
     expect(vercelJson.rewrites).toEqual([{ source: "/v1/:path*", destination: "/api/v1/:path*" }]);
     expect(vercelJson.functions?.["api/[...path].ts"]?.maxDuration).toBe(60);
-    expect(vercelJson.functions?.["api/[...path].ts"]?.includeFiles).toEqual(["dist/vercel.js"]);
+    expect(vercelJson.functions?.["api/[...path].ts"]?.includeFiles).toBe("dist/vercel.js");
     expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
     expect(apiSources).not.toContain("HYPERDRIVE");
     expect(packageJson.dependencies).toHaveProperty("@hono/node-server");
