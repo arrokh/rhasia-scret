@@ -51,6 +51,8 @@ describe("API extraction ownership boundaries", () => {
       scripts?: Record<string, string>;
     };
     const compose = read("docker-compose.yml");
+    const productionMigrationCompose = read("docker-compose.prod-migration.yml");
+    const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
     const dockerfile = read("apps/api/Dockerfile");
     expect(bun).toContain("Bun.serve");
     expect(bun).toContain("createStandaloneApi");
@@ -94,6 +96,15 @@ describe("API extraction ownership boundaries", () => {
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
+    expect(productionMigrationCompose).toContain(
+      "DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env.prod}",
+    );
+    expect(productionMigrationCompose).toContain("DIRECT_URL: ${DIRECT_URL:?DIRECT_URL must be set in .env.prod}");
+    expect(productionMigrationCompose).not.toMatch(/^\s+PROXY_SECRET:/m);
+    expect(rootPackage.scripts?.["prod:db:migrate"]).toContain("-f docker-compose.prod-migration.yml");
+    expect(rootPackage.scripts?.["prod:db:migrate"]).not.toContain(
+      "-f docker-compose.yml -f docker-compose.prod-migration.yml",
+    );
     expect(dockerfile).toContain("RUN pnpm --filter @rhasia-scret/api build:node");
     expect(dockerfile).toContain("COPY --from=build /workspace .");
     expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");

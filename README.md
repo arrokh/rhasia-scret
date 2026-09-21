@@ -124,8 +124,7 @@ reset the local database.
 
 For a production migration, create the ignored `.env.prod` file with the
 production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
-The command builds and runs the focused migration image, does not start the
-Compose `db` dependency, and requires typing `yes` before applying migrations.
+The command builds and runs the standalone focused migration Compose project, so it does not parse or require application runtime secrets such as `PROXY_SECRET` or SMTP credentials. It does not start the Compose `db` dependency and requires typing `yes` before applying migrations.
 
 The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, OIDC client secrets, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 

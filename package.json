@@ -15,7 +15,7 @@
     "dev:local": "node tools/run-local-dev.mjs",
     "dev:db": "sh -c 'export COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\"; docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db'",
     "dev:db:migrate": "node tools/confirm-database-operation.mjs 'the development database migration' && sh -c 'export COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\"; docker compose -f docker-compose.yml -f docker-compose.dev.yml run --build --rm migrate'",
-    "prod:db:migrate": "test -f .env.prod || { printf '%s\\n' 'Missing .env.prod; refusing to run the production migration.' >&2; exit 1; }; node tools/confirm-database-operation.mjs 'the production database migration' && docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod-migration.yml run --build --rm --no-deps migrate",
+    "prod:db:migrate": "test -f .env.prod || { printf '%s\\n' 'Missing .env.prod; refusing to run the production migration.' >&2; exit 1; }; node tools/confirm-database-operation.mjs 'the production database migration' && docker compose --env-file .env.prod -f docker-compose.prod-migration.yml run --build --rm --no-deps migrate",
     "dev:db:down": "node tools/confirm-database-operation.mjs 'stop the development Compose stack' && COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\" docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "build": "pnpm --filter @rhasia-scret/api build && pnpm --filter @rhasia-scret/web build",
     "start": "pnpm --filter @rhasia-scret/web start",
