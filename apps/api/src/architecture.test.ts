@@ -70,6 +70,8 @@ describe("API extraction ownership boundaries", () => {
     expect(vercel).toContain("createBundleHandler");
     expect(vercel).toContain('from "./load-bundle.js"');
     expect(vercel).toContain('"../dist/vercel.js"');
+    for (const dependency of ["@prisma/adapter-pg", "@prisma/client", "dotenv", "nodemailer", "pg"])
+      expect(vercel).toContain(`import "${dependency}"`);
     expect(vercelHealth).toContain('from "./load-bundle.js"');
     expect(vercelHealth).toContain('"../dist/vercel-health.js"');
     expect(vercelTime).toContain('from "./load-bundle.js"');
@@ -84,6 +86,8 @@ describe("API extraction ownership boundaries", () => {
     expect(vercelTimeEntry).toContain('"time"');
     expect(tsupConfig).toContain("API_BUILD_TARGET");
     expect(tsupConfig).toContain('noExternal: buildTarget === "vercel" ? vercelDependencies : workspaceDependencies');
+    expect(tsupConfig).toContain("vercelExternalDependencies");
+    expect(tsupConfig).toContain('external: buildTarget === "vercel" ? vercelExternalDependencies : []');
     expect(tsupConfig).toContain("splitting: true");
     const vercelJson = JSON.parse(vercelConfig) as {
       framework?: null;

@@ -9,8 +9,12 @@ if (buildTarget !== "node" && buildTarget !== "vercel")
   throw new Error(`API_BUILD_TARGET must be node or vercel, received ${buildTarget}.`);
 
 const workspaceDependencies = ["@rhasia-scret/api-contract", "@rhasia-scret/client-vault-core"];
-// Vercel loads dist/vercel.js through a runtime dynamic import, so bundle every direct dependency into the artifact.
-const vercelDependencies = Object.keys(packageManifest.dependencies ?? {});
+// Vercel loads dist/vercel.js through a runtime dynamic import, so bundle direct dependencies into the artifact.
+// These Node packages use dynamic CommonJS requires that cannot be rewritten safely into the ESM bundle.
+const vercelExternalDependencies = ["@prisma/client", "@prisma/adapter-pg", "pg", "nodemailer", "dotenv"];
+const vercelDependencies = Object.keys(packageManifest.dependencies ?? {}).filter(
+  (dependency) => !vercelExternalDependencies.includes(dependency),
+);
 
 export default defineConfig({
   entry: buildTarget === "vercel" ? ["src/vercel.ts", "src/vercel-health.ts", "src/vercel-time.ts"] : ["src/node.ts"],
@@ -21,4 +25,5 @@ export default defineConfig({
   clean: true,
   splitting: true,
   noExternal: buildTarget === "vercel" ? vercelDependencies : workspaceDependencies,
+  external: buildTarget === "vercel" ? vercelExternalDependencies : [],
 });
