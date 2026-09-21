@@ -54,7 +54,8 @@ The API extraction now implements four bounded-context deepening changes identif
 
 - **System routes:** `apps/api/src/vercel-health.ts` and `apps/api/src/vercel-time.ts` are separate small bundles that do not import the standalone API composition.
 - **API routes:** `apps/api/src/routes/v1.ts` registers route handlers through dynamic imports, allowing tsup to emit route-level chunks instead of placing every handler in the Vercel entry bundle.
-- **Adapter:** `apps/api/api/index.ts`, `apps/api/api/health.ts`, and `apps/api/api/time.ts` load the generated bundles through the shared relative-path loader; `apps/api/vercel.json` includes all chunks and routes exact system paths before the catch-all.
+- **Adapter:** `apps/api/api/index.ts`, `apps/api/api/health.ts`, and `apps/api/api/time.ts` load the generated bundles through the shared relative-path loader; the Vercel build embeds API runtime dependencies into `dist/**`, and `apps/api/vercel.json` includes all chunks and routes exact system paths before the catch-all.
+- **Artifact contract:** `scripts/verify-vercel-bundle.ts` rejects unresolved package imports and unresolved `@api/*` aliases, ensuring the dynamically loaded Node function does not depend on a missing Vercel `node_modules` tree.
 - **Contract:** Dedicated system responses reproduce the request ID, proxy marker, CORS, no-store, method, and response contracts covered by the shared Hono app tests.
 
 ## Verification

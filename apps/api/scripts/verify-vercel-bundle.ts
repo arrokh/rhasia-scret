@@ -1,3 +1,4 @@
+import { builtinModules } from "node:module";
 import { readdir, readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,10 @@ const bundleContents = new Map(
 );
 if ([...bundleContents.values()].some((content) => content.includes("@api/")))
   throw new Error("The Vercel bundle contains unresolved @api/* imports.");
+
+const externalImports = findExternalImports(bundleContents.values());
+if (externalImports.length > 0)
+  throw new Error(`The Vercel bundle contains unresolved runtime package imports: ${externalImports.join(", ")}`);
 
 const vercelBundle = readBundle("vercel.js");
 if (!vercelBundle.includes("import(") || vercelBundle.includes("route-handlers"))
@@ -51,4 +56,19 @@ async function findJavaScriptFiles(directory: string): Promise<string[]> {
     if (entry.isFile() && path.endsWith(".js")) files.push(path);
   }
   return files;
+}
+
+function findExternalImports(contents: Iterable<string>): string[] {
+  const builtins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)]);
+  const imports = new Set<string>();
+  const pattern = /(?:from\s+|import\(\s*)["']([^"']+)["']/g;
+  for (const content of contents) {
+    const importRegion = content.slice(0, 16_384);
+    for (const match of importRegion.matchAll(pattern)) {
+      const specifier = match[1];
+      if (specifier.startsWith(".") || builtins.has(specifier)) continue;
+      imports.add(specifier);
+    }
+  }
+  return [...imports].sort();
 }
