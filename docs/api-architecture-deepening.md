@@ -19,11 +19,11 @@ The API extraction now implements four bounded-context deepening changes identif
 
 - **Module:** `apps/api/src/modules/server-composition/runtime.ts`
 - **Interface:** `ApiApplicationRuntime`
-- **Implementation:** Memoized, per-request repository factories.
+- **Implementation:** Memoized, process-scoped repository factories.
 - **Depth:** Repository construction and Prisma wiring are hidden behind named context capabilities such as `sharedVaults()`, `vaultAudit()`, and `secureShareLinks()`.
 - **Seam:** Route handlers depend on a capability, not on Prisma or a module factory.
-- **Adapter:** `createApiApplicationRuntime(database, bindings)` adapts the process database and bindings to the route-facing runtime.
-- **Leverage:** Route composition is centralized, and each capability is instantiated at most once per request.
+- **Adapter:** `createApiApplicationRuntime(database, bindings)` adapts the process database and bindings to the route-facing runtime; `createStandaloneApi` composes it once for each warm process/function instance.
+- **Leverage:** Route composition is centralized, and each capability is instantiated at most once per process/function instance.
 - **Locality:** Domain repository selection stays in the owning bounded context; the composition module only assembles adapters.
 
 `ApiRequestContext` no longer exposes the Prisma client. It exposes the application runtime, identity runtime, bindings, and email senders needed by HTTP orchestration; the application runtime owns the authenticated rate-limit port.
@@ -49,6 +49,13 @@ The API extraction now implements four bounded-context deepening changes identif
 - **Adapter:** The Prisma deletion repository remains responsible for atomic database deletion and receipt persistence; the HTTP handler remains responsible for origin, cookie, and response concerns.
 - **Leverage:** Completion status behavior is now directly unit-tested without exercising HTTP or Prisma.
 - **Locality:** Destructive deletion policy and transaction behavior remain in the account-deletion context; authentication/session cookies remain in identity and HTTP adapters.
+
+## 5. Vercel cold-start boundaries
+
+- **System routes:** `apps/api/src/vercel-health.ts` and `apps/api/src/vercel-time.ts` are separate small bundles that do not import the standalone API composition.
+- **API routes:** `apps/api/src/routes/v1.ts` registers route handlers through dynamic imports, allowing tsup to emit route-level chunks instead of placing every handler in the Vercel entry bundle.
+- **Adapter:** `apps/api/api/index.ts`, `apps/api/api/health.ts`, and `apps/api/api/time.ts` load the generated bundles through the shared relative-path loader; `apps/api/vercel.json` includes all chunks and routes exact system paths before the catch-all.
+- **Contract:** Dedicated system responses reproduce the request ID, proxy marker, CORS, no-store, method, and response contracts covered by the shared Hono app tests.
 
 ## Verification
 

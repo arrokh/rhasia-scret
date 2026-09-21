@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { app } from "@api/app";
+import { createApiApp } from "@api/app";
 import { createDisabledEmailSenders } from "@api/smtp-email-senders";
 import type { ApiBindings } from "@api/types";
+
+const app = createApiApp();
 
 const bindings: ApiBindings = {
   WEB_ORIGIN: "https://rhasia-scret.nooroctavian.id",
