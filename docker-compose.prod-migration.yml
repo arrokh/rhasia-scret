@@ -1,9 +1,28 @@
-# External production migration override. The base Compose file points the
-# migration service at its Compose-managed `db`; this override uses the
-# production pooled/direct URLs and is always run with `--no-deps`.
+# Standalone production migration Compose project.
+# Keep this file independent from the application stack so migration-only runs
+# do not require runtime secrets such as PROXY_SECRET or SMTP credentials.
 services:
   migrate:
-    depends_on: []
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migration
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set in .env.prod}
+    image: rhasia-scret-api-migrate:${COMMIT_SHA:?COMMIT_SHA must be set in .env.prod}
+    restart: "no"
+    working_dir: /workspace/apps/api
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env.prod}
       DIRECT_URL: ${DIRECT_URL:?DIRECT_URL must be set in .env.prod}
+      NODE_ENV: production
+    command: ["node_modules/.bin/tsx", "scripts/deploy-passwordless-migrations.ts"]
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  backend:
+    driver: bridge

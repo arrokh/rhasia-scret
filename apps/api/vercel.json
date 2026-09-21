@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "git": { "deploymentEnabled": { "main": true, "**": false } },
+  "ignoreCommand": "node ../../tools/vercel-ignore.mjs api",
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
   "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
-  "git": { "deploymentEnabled": { "main": true, "**": false } },
   "rewrites": [{ "source": "/v1/(.*)", "destination": "/api" }],
   "functions": {
     "api/index.ts": {
