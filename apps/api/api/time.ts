@@ -1,3 +1,3 @@
-import { createBundleHandler } from "./load-bundle";
+import { createBundleHandler } from "./load-bundle.js";
 
 export default createBundleHandler("../dist/vercel-time.js");
