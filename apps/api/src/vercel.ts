@@ -1,14 +1,14 @@
 import { getRequestListener } from "@hono/node-server";
-import { createStandaloneApi, type StandaloneApi } from "@api/standalone";
 import { normalizeVercelRequest } from "@api/runtime/vercel-path";
+import type { StandaloneApi } from "@api/standalone";
 
-let api: StandaloneApi | undefined;
+let apiPromise: Promise<StandaloneApi> | undefined;
 
-function getApi(): StandaloneApi {
-  return (api ??= createStandaloneApi(process.env));
+function getApi(): Promise<StandaloneApi> {
+  return (apiPromise ??= import("@api/standalone").then(({ createStandaloneApi }) => createStandaloneApi(process.env)));
 }
 
 export default getRequestListener(async (request) => {
-  const standalone = getApi();
+  const standalone = await getApi();
   return standalone.app.fetch(normalizeVercelRequest(request), standalone.bindings);
 });
