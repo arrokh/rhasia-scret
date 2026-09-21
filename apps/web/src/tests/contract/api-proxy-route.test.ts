@@ -65,6 +65,39 @@ describe("web API proxy", () => {
     expect(new Headers(options.headers).get("referer")).toBeNull();
   });
 
+  it("does not relay upstream compression metadata after the server fetch decodes the body", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    const upstreamHeaders = new Headers({
+      "content-encoding": "gzip",
+      "content-length": "42",
+      "content-type": "application/json",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ participants: [] }), { status: 200, headers: upstreamHeaders }),
+        ),
+    );
+
+    const response = await GET(
+      request("/api/v1/shared-vaults/vault-1/participants", {
+        headers: { "accept-encoding": "gzip, deflate, br" },
+      }),
+      { params: Promise.resolve({ path: ["v1", "shared-vaults", "vault-1", "participants"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(await response.json()).toEqual({ participants: [] });
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
+    expect(new Headers(options.headers).get("accept-encoding")).toBe("identity");
+  });
+
   it("allows the 0.0.0.0 local development alias for a localhost web origin", async () => {
     process.env.API_ORIGIN = "http://127.0.0.1:8787";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";

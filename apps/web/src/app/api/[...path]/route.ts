@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
-  "accept-encoding",
   "cache-control",
   "content-type",
   "if-match",
@@ -22,7 +21,6 @@ const FORWARDED_REQUEST_HEADERS = [
 const FORWARDED_RESPONSE_HEADERS = [
   "cache-control",
   "content-disposition",
-  "content-encoding",
   "content-length",
   "content-type",
   "etag",
@@ -195,6 +193,10 @@ function forwardedRequestHeaders(request: NextRequest, configuration: ProxyConfi
   headers.delete("x-rhasia-proxy-secret");
   headers.set("x-rhasia-proxy-secret", configuration.proxySecret);
   headers.set("x-request-id", correlationId);
+  // Node's fetch transparently decodes compressed upstream responses. Keep the
+  // hop to the API uncompressed and let the public web response handle its own
+  // content encoding.
+  headers.set("accept-encoding", "identity");
   headers.set("origin", configuration.webOrigin);
   const clientIp = requestClientIp(request);
   if (clientIp) headers.set("x-rhasia-client-ip", clientIp);
@@ -208,7 +210,9 @@ function createProxyResponse(
   correlationId: string,
 ): NextResponse {
   const headers = new Headers();
+  const upstreamWasEncoded = upstream.headers.has("content-encoding");
   for (const name of FORWARDED_RESPONSE_HEADERS) {
+    if (name === "content-length" && upstreamWasEncoded) continue;
     const value = upstream.headers.get(name);
     if (value !== null) headers.set(name, name === "location" ? rewriteLocation(value, apiOrigin, webOrigin) : value);
   }
