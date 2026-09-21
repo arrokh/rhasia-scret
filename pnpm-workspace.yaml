@@ -21,6 +21,9 @@ overrides:
   "@expo/plist>@xmldom/xmldom": 0.8.15
   "plist>@xmldom/xmldom": 0.9.12
   fast-uri: 3.1.6
+  # Keep every transitive esbuild consumer on the release that fixes the
+  # Windows development-server path traversal advisory (GHSA-g7r4-m6w7-qqqr).
+  esbuild: 0.28.2
   # Expo SDK 57 requires one native expo-constants version; expo-linking's
   # older patch range otherwise creates a duplicate native module.
   expo-constants: 57.0.19
