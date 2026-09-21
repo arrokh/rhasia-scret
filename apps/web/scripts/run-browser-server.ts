@@ -41,7 +41,7 @@ const children = new Set<ChildProcess>();
 let stopping = false;
 
 async function main(): Promise<void> {
-  const api = spawn(command, ["--dir", "../api", "run", "dev:bun"], {
+  const api = spawn(command, ["--dir", "../api", "run", "dev"], {
     cwd: process.cwd(),
     env: createScopedEnvironment(
       {

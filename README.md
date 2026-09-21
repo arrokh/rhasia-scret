@@ -97,9 +97,12 @@ mise run setup
 ```bash
 cp .env.example .env
 pnpm install --frozen-lockfile
-pnpm run prisma:generate
+# The API workspace postinstall generates Prisma Client with a synthetic URL.
+pnpm run prisma:generate  # Explicit refresh when needed.
 node tools/confirm-database-operation.mjs 'the local development database migration' && pnpm run prisma:migrate:deploy
 ```
+
+The API package also regenerates Prisma Client before Bun/Node development and API builds, so a stale ignored client cannot survive a dependency reinstall. Generation only reads the schema and never connects to a database; migrations remain separate and explicit.
 
 The migration command changes the selected database and must be run only after explicit approval for that environment. For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
 
@@ -145,9 +148,11 @@ and web can also be started independently with `pnpm run dev:api` and
 API development:
 
 ```bash
-pnpm --filter @rhasia-scret/api dev:bun
+pnpm --filter @rhasia-scret/api dev
 pnpm --filter @rhasia-scret/api dev:node
 ```
+
+Both API development commands regenerate Prisma Client before startup. The root `pnpm dev`, `pnpm run dev:api`, and browser test server use the same Bun development entrypoint; there is no duplicate Bun alias.
 
 The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/index.ts`.
 
@@ -183,7 +188,6 @@ pnpm run test:container
 pnpm run test:full:direct
 pnpm run test:full:hosted
 pnpm run test:parallel
-pnpm run ci:local
 
 # Web test slices
 pnpm run test:unit
