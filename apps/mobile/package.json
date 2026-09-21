@@ -38,7 +38,7 @@
     "@react-native/js-polyfills": "0.86.2",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "29.5.14",
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.1",
     "@types/react": "~19.2.2",
     "@types/react-test-renderer": "^19.1.0",
     "@typescript-eslint/parser": "^8.70.0",
