@@ -28,6 +28,10 @@ overrides:
   # older patch range otherwise creates a duplicate native module.
   expo-constants: 57.0.19
 
+# Several React Native/Expo packages resolve Babel helpers from the workspace root.
+publicHoistPattern:
+  - "@babel/runtime"
+
 allowBuilds:
   "@parcel/watcher": false
   cpu-features: false
