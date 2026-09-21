@@ -150,7 +150,7 @@ pnpm --filter @rhasia-scret/api dev:bun
 pnpm --filter @rhasia-scret/api dev:node
 ```
 
-The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/[...path].ts`.
+The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/index.ts`.
 
 Mobile development:
 
