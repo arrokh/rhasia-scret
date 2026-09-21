@@ -69,7 +69,7 @@ The Docker runtime uses the pinned Bun image and `apps/api/src/bun.ts`. The migr
 
 ### Node.js
 
-`pnpm --filter @rhasia-scret/api build` generates Prisma Client with the placeholder URL and builds `apps/api/dist/node.js` plus its route/chunk files. Deploy the complete `apps/api/dist/` directory; copying only `node.js` omits required dynamic imports. The artifact runs with Node.js 24 and uses the same Hono application, SMTP composition, database pool, environment contract, and shutdown behavior as Bun.
+`pnpm --filter @rhasia-scret/api build` generates Prisma Client with the placeholder URL and builds `apps/api/dist/node.js` plus its route/chunk files. The API package also generates Prisma Client during install and before Bun/Node development, preventing ignored generated output from remaining on an incompatible client version after dependency changes. Generation does not connect to PostgreSQL. Deploy the complete `apps/api/dist/` directory; copying only `node.js` omits required dynamic imports. The artifact runs with Node.js 24 and uses the same Hono application, SMTP composition, database pool, environment contract, and shutdown behavior as Bun.
 
 ### Vercel
 

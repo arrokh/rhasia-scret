@@ -76,9 +76,11 @@ mise run setup
 pnpm install --frozen-lockfile
 pnpm run prisma:validate
 pnpm run build
-pnpm --filter @rhasia-scret/api dev:bun
+pnpm --filter @rhasia-scret/api dev
 pnpm start
 ```
+
+Installing the workspace generates the API's Prisma Client with a synthetic, non-production URL. The API `dev`, `dev:node`, and build commands repeat generation before use; this keeps ignored generated output aligned with the installed Prisma packages without connecting to PostgreSQL. Runtime traffic still uses only `DATABASE_URL`; `DIRECT_URL` remains reserved for explicit Prisma migrations and administrative commands.
 
 Run both processes behind an HTTPS proxy that forwards the original host/protocol correctly. If the web proxy strips and replaces forwarded headers, set `AUTH_TRUST_PROXY_HEADERS=true`; otherwise leave it `false` so client-supplied forwarding metadata is ignored. For Compose:
 

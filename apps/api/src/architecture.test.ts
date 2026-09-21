@@ -57,6 +57,7 @@ describe("API extraction ownership boundaries", () => {
       devDependencies?: Record<string, string>;
       scripts?: Record<string, string>;
     };
+    const localDev = read("tools/run-local-dev.mjs");
     const compose = read("docker-compose.yml");
     const productionMigrationCompose = read("docker-compose.prod-migration.yml");
     const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
@@ -123,8 +124,16 @@ describe("API extraction ownership boundaries", () => {
     expect(packageJson.devDependencies).not.toHaveProperty("wrangler");
     expect(packageJson.devDependencies).not.toHaveProperty("@cloudflare/workers-types");
     expect(packageJson.scripts).toHaveProperty("smoke:deployment");
+    expect(packageJson.scripts?.dev).toBe("pnpm run prisma:generate && bun run src/bun.ts");
+    expect(packageJson.scripts?.["dev:bun"]).toBeUndefined();
+    expect(packageJson.scripts?.["dev:node"]).toBe("pnpm run prisma:generate && tsx src/node.ts");
+    expect(packageJson.scripts?.postinstall).toBe("pnpm run prisma:generate");
+    expect(packageJson.scripts?.["prisma:generate"]).toBe(
+      "DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate prisma generate",
+    );
     expect(packageJson.scripts?.["build:node"]).toBe("tsup --config tsup.config.ts");
     expect(packageJson.scripts?.["build:vercel"]).toContain("verify-vercel-bundle.ts");
+    expect(localDev).toContain('["--dir", "apps/api", "run", "dev"]');
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
@@ -137,6 +146,10 @@ describe("API extraction ownership boundaries", () => {
     expect(rootPackage.scripts?.["prod:db:migrate"]).not.toContain(
       "-f docker-compose.yml -f docker-compose.prod-migration.yml",
     );
+    expect(rootPackage.scripts?.["dev:api"]).toBe("pnpm --dir apps/api run dev");
+    expect(rootPackage.scripts?.["ci:local"]).toBeUndefined();
+    expect(rootPackage.scripts?.["mobile:verify"]).toBeUndefined();
+    expect(rootPackage.scripts?.["test:vercel-deployment"]).toBeUndefined();
     expect(dockerfile).toContain("RUN pnpm --filter @rhasia-scret/api build:node");
     expect(dockerfile).toContain("COPY --from=build /workspace .");
     expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");

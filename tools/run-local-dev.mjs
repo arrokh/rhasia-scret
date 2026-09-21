@@ -90,7 +90,7 @@ try {
 await waitForChildrenToExit();
 
 async function run() {
-  const api = startChild("api", ["--dir", "apps/api", "run", "dev:bun"], apiEnvironment);
+  const api = startChild("api", ["--dir", "apps/api", "run", "dev"], apiEnvironment);
   await waitForApi(api, apiOrigin);
 
   if (stopping) return;
