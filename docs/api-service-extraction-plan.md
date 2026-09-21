@@ -31,7 +31,7 @@ Cloudflare Turnstile remains an API integration. It is not a runtime-hosting dep
 
 `apps/api/src/standalone.ts` creates the API bindings, SMTP senders, and one process-scoped Prisma client from `DATABASE_URL`. Request handling never reads `DIRECT_URL`, receives no Hyperdrive binding, and does not expose database connection strings in request context.
 
-The Vercel adapter normalizes `/api/**` function paths back to canonical `/v1/**` paths, preserves request bodies and query strings, and uses the Hono Node listener so response headers and repeated `Set-Cookie` values are retained. `apps/api/vercel.json` defines the `/v1/**` rewrite, function timeout, and daily retention cron at `0 3 * * *`.
+The Vercel adapter loads the standalone `dist/vercel.js` bundle produced by the API build, rather than asking Vercel's source transpiler to resolve the internal `@api/*` TypeScript aliases. The bundle is included explicitly in the function artifact. It normalizes `/api/**` function paths back to canonical `/v1/**` paths, preserves request bodies and query strings, and uses the Hono Node listener so response headers and repeated `Set-Cookie` values are retained. `apps/api/vercel.json` defines the `/v1/**` rewrite, function timeout, bundle inclusion, and daily retention cron at `0 3 * * *`.
 
 The implemented composition and lifecycle deepening seams are documented in [`api-architecture-deepening.md`](api-architecture-deepening.md).
 

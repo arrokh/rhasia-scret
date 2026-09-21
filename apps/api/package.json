@@ -13,7 +13,7 @@
     "dev:bun": "bun run src/bun.ts",
     "dev:node": "tsx src/node.ts",
     "build": "DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate pnpm run prisma:generate && pnpm run build:node",
-    "build:node": "tsup --config tsup.config.ts",
+    "build:node": "tsup --config tsup.config.ts && tsx scripts/verify-vercel-bundle.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint api src scripts tsup.config.ts",
     "test": "tsx scripts/run-tests.ts",
