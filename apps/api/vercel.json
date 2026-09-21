@@ -3,7 +3,7 @@
   "framework": null,
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
   "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
-  "git": { "deploymentEnabled": { "main": true, "*": false } },
+  "git": { "deploymentEnabled": { "main": true, "**": false } },
   "rewrites": [{ "source": "/v1/(.*)", "destination": "/api" }],
   "functions": {
     "api/index.ts": {

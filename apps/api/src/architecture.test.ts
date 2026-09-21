@@ -74,7 +74,7 @@ describe("API extraction ownership boundaries", () => {
     };
     expect(vercelJson.framework).toBeNull();
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
-    expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "*": false });
+    expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "**": false });
     expect(vercelJson.buildCommand).toBe(
       "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
     );
