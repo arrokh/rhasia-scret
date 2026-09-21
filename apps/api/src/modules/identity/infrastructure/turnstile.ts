@@ -1,4 +1,10 @@
 export type TurnstileValidationResult = "valid" | "invalid" | "unavailable";
+export type TurnstileUnavailableReason = "transport" | "http_error" | "malformed_response";
+export type TurnstileValidationDiagnostics = Readonly<{
+  result: TurnstileValidationResult;
+  unavailableReason?: TurnstileUnavailableReason;
+  responseStatus?: number;
+}>;
 
 type TurnstileResponse = Readonly<{ success: boolean }>;
 
@@ -14,19 +20,33 @@ export class CloudflareTurnstileValidator {
   ) {}
 
   public async validate(token: string): Promise<TurnstileValidationResult> {
+    return (await this.validateWithDiagnostics(token)).result;
+  }
+
+  public async validateWithDiagnostics(token: string): Promise<TurnstileValidationDiagnostics> {
+    let response: Response;
     try {
-      const response = await this.fetcher(TURNSTILE_VERIFY_URL, {
+      response = await this.fetcher(TURNSTILE_VERIFY_URL, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ secret: this.secretKey, response: token }).toString(),
         signal: AbortSignal.timeout(5_000),
       });
-      if (!response.ok) return "unavailable";
-      const payload: unknown = await response.json();
-      return isTurnstileResponse(payload) && payload.success ? "valid" : "invalid";
     } catch {
-      return "unavailable";
+      return { result: "unavailable", unavailableReason: "transport" };
     }
+    if (!response.ok)
+      return { result: "unavailable", unavailableReason: "http_error", responseStatus: response.status };
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      return { result: "unavailable", unavailableReason: "malformed_response", responseStatus: response.status };
+    }
+    if (!isTurnstileResponse(payload))
+      return { result: "unavailable", unavailableReason: "malformed_response", responseStatus: response.status };
+    return { result: payload.success ? "valid" : "invalid", responseStatus: response.status };
   }
 }
 

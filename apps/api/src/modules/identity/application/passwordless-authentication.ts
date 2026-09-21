@@ -3,6 +3,26 @@ import type { SessionAssurance, VerifiedPrincipal } from "./session-verifier";
 
 export const PASSWORDLESS_ISSUER = "rhasia:passwordless";
 export type PasswordlessClient = "web" | "mobile" | "pwa";
+
+export class PasswordlessChallengePersistenceError extends Error {
+  public readonly cause: unknown;
+
+  public constructor(cause: unknown) {
+    super("Magic-link challenge persistence failed.");
+    this.name = "PasswordlessChallengePersistenceError";
+    this.cause = cause;
+  }
+}
+
+export class PasswordlessEmailDeliveryError extends Error {
+  public readonly cause: unknown;
+
+  public constructor(cause: unknown) {
+    super("Magic-link email delivery failed.");
+    this.name = "PasswordlessEmailDeliveryError";
+    this.cause = cause;
+  }
+}
 export type PasswordlessReturnPath = "/vaults" | "/vaults/invitations/redeem";
 
 export function isSafePwaHandoffId(value: string): boolean {
@@ -136,25 +156,33 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
       const generated = dependencies.generateToken();
       const requestedAt = now();
       const expiresAt = new Date(requestedAt.getTime() + dependencies.magicLinkTtlSeconds * 1_000);
-      await dependencies.repository.createChallenge({
-        tokenDigest: generated.digest,
-        challenge: { email, client: input.client, returnPath: input.returnPath },
-        expiresAt,
-        ...(input.client === "pwa"
-          ? {
-              pwaHandoff: {
-                handoffIdDigest: dependencies.digestToken(input.handoffId as string),
-                verifierDigest: dependencies.digestToken(input.handoffVerifier as string),
-                expiresAt,
-              },
-            }
-          : {}),
-      });
+      try {
+        await dependencies.repository.createChallenge({
+          tokenDigest: generated.digest,
+          challenge: { email, client: input.client, returnPath: input.returnPath },
+          expiresAt,
+          ...(input.client === "pwa"
+            ? {
+                pwaHandoff: {
+                  handoffIdDigest: dependencies.digestToken(input.handoffId as string),
+                  verifierDigest: dependencies.digestToken(input.handoffVerifier as string),
+                  expiresAt,
+                },
+              }
+            : {}),
+        });
+      } catch (error) {
+        throw new PasswordlessChallengePersistenceError(error);
+      }
       const actionUrl =
         input.handoffId === undefined
           ? dependencies.buildActionUrl(input.client, generated.rawToken, input.returnPath)
           : dependencies.buildActionUrl(input.client, generated.rawToken, input.returnPath, input.handoffId);
-      await deliverMagicLinkEmail({ recipientEmail: email, actionUrl }, dependencies.sender);
+      try {
+        await deliverMagicLinkEmail({ recipientEmail: email, actionUrl }, dependencies.sender);
+      } catch (error) {
+        throw new PasswordlessEmailDeliveryError(error);
+      }
     },
 
     async redeem(

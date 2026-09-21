@@ -37,13 +37,35 @@ describe("CloudflareTurnstileValidator", () => {
     await expect(unavailable.validate("token")).resolves.toBe("unavailable");
   });
 
-  it("rejects non-successful HTTP responses and unsafe token values", async () => {
-    const validator = new CloudflareTurnstileValidator(
+  it("reports bounded diagnostics for provider failures without exposing response content", async () => {
+    const httpFailure = new CloudflareTurnstileValidator(
       "server-secret",
       vi.fn().mockResolvedValue(new Response(null, { status: 502 })),
     );
+    const malformedFailure = new CloudflareTurnstileValidator(
+      "server-secret",
+      vi.fn().mockResolvedValue(new Response("not-json", { status: 200 })),
+    );
+    const transportFailure = new CloudflareTurnstileValidator(
+      "server-secret",
+      vi.fn().mockRejectedValue(new Error("secret provider detail")),
+    );
 
-    await expect(validator.validate("token")).resolves.toBe("unavailable");
+    await expect(httpFailure.validate("token")).resolves.toBe("unavailable");
+    await expect(httpFailure.validateWithDiagnostics("token")).resolves.toEqual({
+      result: "unavailable",
+      unavailableReason: "http_error",
+      responseStatus: 502,
+    });
+    await expect(malformedFailure.validateWithDiagnostics("token")).resolves.toEqual({
+      result: "unavailable",
+      unavailableReason: "malformed_response",
+      responseStatus: 200,
+    });
+    await expect(transportFailure.validateWithDiagnostics("token")).resolves.toEqual({
+      result: "unavailable",
+      unavailableReason: "transport",
+    });
     expect(isSafeTurnstileToken("XXXX.DUMMY.TOKEN.XXXX")).toBe(true);
     expect(isSafeTurnstileToken("token with spaces")).toBe(false);
     expect(isSafeTurnstileToken("\u0000token")).toBe(false);

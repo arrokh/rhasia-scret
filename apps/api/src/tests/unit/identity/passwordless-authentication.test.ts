@@ -4,6 +4,8 @@ import {
   isMagicLinkToken,
   isSessionToken,
   normalizeEmail,
+  PasswordlessChallengePersistenceError,
+  PasswordlessEmailDeliveryError,
   type PasswordlessSession,
 } from "@api/modules/identity/application/passwordless-authentication";
 
@@ -77,6 +79,50 @@ describe("passwordless authentication application service", () => {
       recipientEmail: "person@example.test",
       actionUrl: new URL(`https://vault.example.test/auth/confirm#token=${token}&next=%2Fvaults`),
     });
+  });
+
+  it("classifies challenge persistence and email delivery failures separately", async () => {
+    const databaseError = Object.assign(new Error("database detail"), { code: "P1001" });
+    const emailError = Object.assign(new Error("smtp detail"), { code: "EAUTH" });
+    const repository = {
+      createChallenge: vi.fn().mockRejectedValueOnce(databaseError).mockResolvedValue(undefined),
+      consumeChallenge: vi.fn(),
+      findOrCreateAccount: vi.fn(),
+      createSession: vi.fn(),
+      verifyAccessToken: vi.fn(),
+      verifyBrowserSession: vi.fn(),
+      rotateRefreshToken: vi.fn(),
+      revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
+    };
+    const sender = { sendMagicLinkEmail: vi.fn().mockRejectedValue(emailError) };
+    const service = createPasswordlessAuthService({
+      repository,
+      sender,
+      generateToken: () => ({ rawToken: token, digest: new Uint8Array([1, 2, 3]) }),
+      digestToken: () => new Uint8Array([4, 5, 6]),
+      buildActionUrl: () => new URL(`https://vault.example.test/auth/confirm#token=${token}`),
+      magicLinkTtlSeconds: 900,
+    });
+
+    const challengeFailure = service.requestLink({
+      email: "person@example.test",
+      client: "web",
+      returnPath: "/vaults",
+    });
+    await expect(challengeFailure).rejects.toBeInstanceOf(PasswordlessChallengePersistenceError);
+    await expect(challengeFailure).rejects.toMatchObject({ cause: databaseError });
+    expect(repository.createChallenge).toHaveBeenCalledOnce();
+
+    const emailFailure = service.requestLink({
+      email: "person@example.test",
+      client: "web",
+      returnPath: "/vaults",
+    });
+    await expect(emailFailure).rejects.toBeInstanceOf(PasswordlessEmailDeliveryError);
+    await expect(emailFailure).rejects.toMatchObject({ cause: emailError });
+    expect(sender.sendMagicLinkEmail).toHaveBeenCalledOnce();
   });
 
   it("builds a PWA-specific link with its transient handoff identifier", async () => {

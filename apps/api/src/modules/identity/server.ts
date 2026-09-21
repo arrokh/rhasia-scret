@@ -32,6 +32,8 @@ import { PrismaAnonymousAuthRateLimiter } from "./infrastructure/prisma-anonymou
 import {
   CloudflareTurnstileValidator,
   isSafeTurnstileToken,
+  type TurnstileUnavailableReason,
+  type TurnstileValidationDiagnostics,
   type TurnstileValidationResult,
 } from "./infrastructure/turnstile";
 import {
@@ -78,7 +80,14 @@ export {
   browserE2eRegistrationCredential,
   browserE2eTestsEnabled,
 };
-export type { ApplicationUserRepository, SessionVerifier, UserCryptoProfileRepository, TurnstileValidationResult };
+export type {
+  ApplicationUserRepository,
+  SessionVerifier,
+  UserCryptoProfileRepository,
+  TurnstileUnavailableReason,
+  TurnstileValidationDiagnostics,
+  TurnstileValidationResult,
+};
 export type { PasswordlessAuthService };
 export type { IdentityRuntime };
 
