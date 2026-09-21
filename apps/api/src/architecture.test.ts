@@ -83,6 +83,7 @@ describe("API extraction ownership boundaries", () => {
     expect(vercelHealthEntry).toContain('"health"');
     expect(vercelTimeEntry).toContain('"time"');
     expect(tsupConfig).toContain("API_BUILD_TARGET");
+    expect(tsupConfig).toContain('noExternal: buildTarget === "vercel" ? vercelDependencies : workspaceDependencies');
     expect(tsupConfig).toContain("splitting: true");
     const vercelJson = JSON.parse(vercelConfig) as {
       framework?: null;
