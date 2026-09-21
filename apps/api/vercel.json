@@ -1,11 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
-  "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build",
+  "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
+  "git": { "deploymentEnabled": { "main": true, "*": false } },
   "rewrites": [{ "source": "/v1/:path*", "destination": "/api/v1/:path*" }],
   "functions": {
     "api/[...path].ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "dist/vercel.js"
     }
   },
   "crons": [{ "path": "/v1/internal/retention-purge", "schedule": "0 3 * * *" }]
