@@ -11,7 +11,7 @@ test("restricts both Vercel projects to main and configures path-aware ignore co
   const web = JSON.parse(readFileSync(join(repositoryRoot, "vercel.json"), "utf8"));
   const api = JSON.parse(readFileSync(join(repositoryRoot, "apps/api/vercel.json"), "utf8"));
   assert.deepEqual(web.git?.deploymentEnabled, { main: true, "**": false });
-  assert.equal(web.ignoreCommand, "node tools/vercel-ignore.mjs web");
+  assert.equal(web.ignoreCommand, "node ../../tools/vercel-ignore.mjs web");
   assert.deepEqual(api.git?.deploymentEnabled, { main: true, "**": false });
   assert.equal(api.ignoreCommand, "node ../../tools/vercel-ignore.mjs api");
 });
