@@ -59,7 +59,7 @@
 
 ### Vercel deployment scope
 
-- The API uses only the existing Vercel project [`api-rhasia-scret`](https://vercel.com/noor-octavian-anwars-projects/api-rhasia-scret). Never create, link, or deploy `apps/api` through a different Vercel project.
+- The API uses only the existing Vercel API project configured for this repository. Never create, link, or deploy `apps/api` through a different Vercel project.
 - For preview or validation deployments, use a custom branch deployment in that existing project. Do not use the Vercel CLI in a way that creates a project or changes the project association.
 - Production deployment requires explicit human authorization in the current conversation. Local builds, bundle checks, and PR validation must not deploy production.
 
