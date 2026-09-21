@@ -68,8 +68,11 @@ describe("API extraction ownership boundaries", () => {
     expect(node).toContain("@hono/node-server");
     expect(node).toContain("createStandaloneApi");
     expect(vercel).toContain("createBundleHandler");
+    expect(vercel).toContain('from "./load-bundle.js"');
     expect(vercel).toContain('"../dist/vercel.js"');
+    expect(vercelHealth).toContain('from "./load-bundle.js"');
     expect(vercelHealth).toContain('"../dist/vercel-health.js"');
+    expect(vercelTime).toContain('from "./load-bundle.js"');
     expect(vercelTime).toContain('"../dist/vercel-time.js"');
     expect(vercelLoader).toContain("import(bundleSpecifier)");
     expect(vercel).not.toContain("createRequire");
