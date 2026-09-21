@@ -70,8 +70,8 @@ type StandaloneModule = {
 };
 
 async function verifyStandaloneRuntime(path: string): Promise<void> {
-  const module = (await import(pathToFileURL(path).href)) as StandaloneModule;
-  const standalone = module.createStandaloneApi({
+  const standaloneModule = (await import(pathToFileURL(path).href)) as StandaloneModule;
+  const standalone = standaloneModule.createStandaloneApi({
     NODE_ENV: "production",
     DATABASE_URL: "postgresql://synthetic:synthetic@127.0.0.1:5432/synthetic",
     WEB_ORIGIN: "https://synthetic.example.test",
