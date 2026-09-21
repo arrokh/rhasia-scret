@@ -38,6 +38,8 @@ describe("API extraction ownership boundaries", () => {
     const bun = read("apps/api/src/bun.ts");
     const node = read("apps/api/src/node.ts");
     const vercel = read("apps/api/api/[...path].ts");
+    const vercelEntry = read("apps/api/src/vercel.ts");
+    const tsupConfig = read("apps/api/tsup.config.ts");
     const vercelConfig = read("apps/api/vercel.json");
     const apiSources = files(resolve(repositoryRoot, "apps/api/src"))
       .filter((path) => path.endsWith(".ts") && !path.endsWith("architecture.test.ts"))
@@ -54,13 +56,16 @@ describe("API extraction ownership boundaries", () => {
     expect(bun).toContain("createStandaloneApi");
     expect(node).toContain("@hono/node-server");
     expect(node).toContain("createStandaloneApi");
-    expect(vercel).toContain("getRequestListener");
-    expect(vercel).toContain("normalizeVercelRequest");
+    expect(vercel).toContain('"../dist/vercel.js"');
+    expect(vercel).not.toContain("@api/");
+    expect(vercelEntry).toContain("getRequestListener");
+    expect(vercelEntry).toContain("normalizeVercelRequest");
+    expect(tsupConfig).toContain('"src/vercel.ts"');
     const vercelJson = JSON.parse(vercelConfig) as {
       installCommand?: string;
       buildCommand?: string;
       rewrites?: Array<{ source?: string; destination?: string }>;
-      functions?: Record<string, { maxDuration?: number }>;
+      functions?: Record<string, { maxDuration?: number; includeFiles?: string[] }>;
       crons?: Array<{ path?: string; schedule?: string }>;
     };
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
@@ -69,12 +74,14 @@ describe("API extraction ownership boundaries", () => {
     );
     expect(vercelJson.rewrites).toEqual([{ source: "/v1/:path*", destination: "/api/v1/:path*" }]);
     expect(vercelJson.functions?.["api/[...path].ts"]?.maxDuration).toBe(60);
+    expect(vercelJson.functions?.["api/[...path].ts"]?.includeFiles).toEqual(["dist/vercel.js"]);
     expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
     expect(apiSources).not.toContain("HYPERDRIVE");
     expect(packageJson.dependencies).toHaveProperty("@hono/node-server");
     expect(packageJson.devDependencies).not.toHaveProperty("wrangler");
     expect(packageJson.devDependencies).not.toHaveProperty("@cloudflare/workers-types");
     expect(packageJson.scripts).toHaveProperty("smoke:deployment");
+    expect(packageJson.scripts?.["build:node"]).toContain("verify-vercel-bundle.ts");
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");

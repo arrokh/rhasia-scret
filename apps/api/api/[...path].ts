@@ -1,14 +1,7 @@
-import { getRequestListener } from "@hono/node-server";
-import { createStandaloneApi, type StandaloneApi } from "@api/standalone";
-import { normalizeVercelRequest } from "@api/runtime/vercel-path";
+import { createRequire } from "node:module";
+import type { RequestListener } from "node:http";
 
-let api: StandaloneApi | undefined;
+const require = createRequire(import.meta.url);
+const handler = require("../dist/vercel.js") as RequestListener;
 
-function getApi(): StandaloneApi {
-  return (api ??= createStandaloneApi(process.env));
-}
-
-export default getRequestListener(async (request) => {
-  const standalone = getApi();
-  return standalone.app.fetch(normalizeVercelRequest(request), standalone.bindings);
-});
+export default handler;
