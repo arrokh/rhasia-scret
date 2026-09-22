@@ -64,6 +64,10 @@ describe("web authentication configuration", () => {
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "oidc", NODE_ENV: "test" })).toThrow("OIDC_ISSUER");
   });
 
+  it("requires an explicit backend in production", () => {
+    expect(() => readAuthConfiguration({ NODE_ENV: "production" })).toThrow("explicitly");
+  });
+
   it("rejects invalid backend and insecure production redirects", () => {
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "rhasia:passwordless" })).toThrow("AUTH_BACKEND");
     expect(readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toMatchObject({ backend: "oidc" });

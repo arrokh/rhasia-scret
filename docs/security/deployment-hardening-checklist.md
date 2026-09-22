@@ -17,7 +17,10 @@ Use this checklist for every production release. A checked repository item is no
 
 Review the passwordless implementation, SMTP provider, and OIDC issuer documentation/changelog before each release. Record the review date, exact dependency versions, callback configuration, and session/revocation evidence.
 
-- [ ] `AUTH_BACKEND` is explicitly set to `none`, `passwordless`, or `oidc`; invalid or incomplete configuration fails closed.
+- [ ] `AUTH_BACKEND` is explicitly set to `none`, `passwordless`, or `oidc`; invalid or incomplete configuration fails closed in both deployment validation and runtime composition, while non-production passwordless defaulting remains intentional.
+- [ ] Invalid web authentication configuration redirects protected pages to the localized `configuration_error` state and never becomes `none` or ordinary `required` authentication.
+- [ ] Invalid serverless/lazy API authentication composition returns only `authentication_misconfigured` with HTTP 503, `Cache-Control: no-store`, and an opaque request ID; standalone startup exits before listener creation.
+- [ ] Configuration diagnostics contain only the fixed category, bounded field name, and correlation context; no raw configuration values, secrets, cookies, tokens, provider payloads, or exception text are logged or returned.
 - [ ] Passwordless link token format, fragment-only delivery, fragment clearing, one-time consumption, expiry, generic responses, SMTP TLS, request limits, session lifetimes, refresh rotation/reuse detection, cookie flags, native secure storage, and revocation/logout scope are verified.
 - [ ] OIDC discovery issuer, audience, redirect URI, state, nonce, PKCE, ID-token expiry/signature, verified-email admission, and callback error handling are verified when enabled.
 - [ ] Browser-visible configuration contains public values only. Database URLs, tokens, cookies, authorization headers, SMTP/OIDC secrets, and session credentials are absent from bundles, logs, telemetry, and caches.

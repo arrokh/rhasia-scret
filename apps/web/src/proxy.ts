@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { logWebServerEvent, requestId } from "@/shared/infrastructure/server-logging";
 import { createIdentityProxyVerifier, type SetAuthCookies } from "@/modules/identity/proxy";
+import type { ProxySessionVerification } from "@/modules/identity/infrastructure/proxy-session-verifier";
 import { DEFAULT_AUTH_RETURN_PATH, INVITATION_AUTH_RETURN_PATH } from "@/modules/identity/application/auth-return-path";
-type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
+type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<ProxySessionVerification>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -83,20 +85,25 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
     const requestWithNonce = { headers: requestHeaders };
     let response = NextResponse.next({ request: requestWithNonce });
     let hasSession = false;
+    let configurationError = false;
     const verificationStartedAt = performance.now();
     try {
-      hasSession = await verifySession(request, (cookiesToSet) => {
+      const verification = await verifySession(request, (cookiesToSet) => {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
         response = NextResponse.next({ request: requestWithNonce });
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
       });
+      configurationError = verification === "configuration_error";
+      hasSession = verification === true;
     } catch {
       hasSession = false;
     }
 
     const serverTiming = `auth_claims;dur=${Math.max(0, performance.now() - verificationStartedAt).toFixed(2)}`;
+    if (configurationError)
+      logWebServerEvent("error", "web_authentication_misconfigured", { requestId: requestId(request) });
     if (!hasSession && isProtectedPagePath(request.nextUrl.pathname)) {
-      const redirect = redirectToSignIn(request, response);
+      const redirect = redirectToSignIn(request, response, configurationError ? "configuration_error" : "required");
       redirect.headers.set("server-timing", serverTiming);
       return applySecurityHeaders(redirect, request, nonce);
     }
@@ -105,9 +112,13 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
   };
 }
 
-function redirectToSignIn(request: NextRequest, refreshedResponse: NextResponse): NextResponse {
+function redirectToSignIn(
+  request: NextRequest,
+  refreshedResponse: NextResponse,
+  reason: "required" | "configuration_error",
+): NextResponse {
   const destination = new URL("/sign-in", request.url);
-  destination.searchParams.set("auth", "required");
+  destination.searchParams.set("auth", reason);
   const nextPath =
     request.nextUrl.pathname === INVITATION_AUTH_RETURN_PATH ? INVITATION_AUTH_RETURN_PATH : DEFAULT_AUTH_RETURN_PATH;
   if (nextPath !== DEFAULT_AUTH_RETURN_PATH) destination.searchParams.set("next", nextPath);

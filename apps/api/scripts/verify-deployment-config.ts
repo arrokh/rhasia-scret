@@ -25,12 +25,17 @@ if (production && sameEndpoint(process.env.DATABASE_URL, process.env.DIRECT_URL)
   errors.push("DATABASE_URL and DIRECT_URL must use separate endpoints in production.");
 checked.push(`${target} PostgreSQL runtime configuration`);
 
-const backend = process.env.AUTH_BACKEND?.trim() || "passwordless";
+if (production && !process.env.AUTH_BACKEND?.trim()) errors.push("AUTH_BACKEND must be set explicitly for production.");
+const configuredBackend = process.env.AUTH_BACKEND?.trim();
+const backend = configuredBackend || "passwordless";
 if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc")) {
   errors.push("AUTH_BACKEND must be none, passwordless, or oidc.");
 } else if (backend === "passwordless") {
   try {
-    const configuration = readAuthConfiguration(environment, { requireTurnstileSiteKey: false });
+    const configuration = readAuthConfiguration(
+      { ...environment, AUTH_BACKEND: backend },
+      { requireTurnstileSiteKey: false },
+    );
     if (configuration.backend !== "passwordless") throw new Error("Passwordless configuration is invalid.");
     checked.push("passwordless authentication configuration");
   } catch (error: unknown) {

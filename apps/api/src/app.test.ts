@@ -119,6 +119,29 @@ describe("versioned API shell", () => {
     expect(await response.json()).toEqual({ error: "api_misconfigured" });
   });
 
+  it("returns an additive authentication configuration error without raw details", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const response = await app.request(
+        "https://api.example.test/v1/me",
+        { headers: { "x-request-id": "abcdef0123456789abcdef0123456789" } },
+        {
+          ...bindings,
+          AUTH_BACKEND: "invalid-backend",
+          DATABASE_CLIENT: {} as NonNullable<ApiBindings["DATABASE_CLIENT"]>,
+        },
+      );
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-request-id")).toBe("abcdef0123456789abcdef0123456789");
+      expect(await response.json()).toEqual({ error: "authentication_misconfigured" });
+      expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("invalid-backend");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("rejects direct cookie-bearing session revocation without the trusted proxy marker", async () => {
     const response = await app.request(
       "https://api.example.test/v1/auth/session/revoke",

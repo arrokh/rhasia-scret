@@ -1,6 +1,6 @@
 import { createApiApp } from "@api/app";
 import { createApiRuntimeDependencies } from "@api/http/api-runtime";
-import { authBackend } from "@api/modules/identity/server";
+import { authBackend, validateAuthenticationConfiguration } from "@api/modules/identity/server";
 import { createDisabledEmailSenders, createSmtpEmailSenders } from "@api/smtp-email-senders";
 import { createPrismaClient, type PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import type { ApiBindings } from "@api/types";
@@ -21,6 +21,7 @@ export type StandaloneApi = Readonly<{
 export function createStandaloneApi(source: ApiEnvironmentSource): StandaloneApi {
   const runtimeEnvironment = sanitizeApiRuntimeEnvironment(source);
   const configBindings = readApiConfigBindings(runtimeEnvironment);
+  validateAuthenticationConfiguration(configBindings);
   const emailSenders =
     authBackend(configBindings) === "none" ? createDisabledEmailSenders() : createSmtpEmailSenders(configBindings);
   const database = createPrismaClient(readRuntimeDatabaseUrl(runtimeEnvironment));

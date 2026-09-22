@@ -17,7 +17,17 @@ Set `AUTH_BACKEND=passwordless` and configure:
 
 All API runtimes use Nodemailer exclusively. SMTP port 587 requires STARTTLS; implicit TLS uses port 465 with `SMTP_SECURE=true`. Port 25 is not supported. API request logs contain only a correlation ID, method, path, status, and duration; magic-link dependency failures add a fixed dependency/client label and bounded timing, while Turnstile failures may add only a fixed failure reason and HTTP status, and allowlisted SMTP/database transport codes may be included without messages. Request bodies, cookies, authorization headers, provider payloads, email addresses, and tokens are never logged. The Web API proxy logs only configuration or transport failures because the API owns implementation-route access logs. Never expose API credentials through `NEXT_PUBLIC_` or `EXPO_PUBLIC_` variables.
 
-`AUTH_BACKEND=none` remains available for local-only deployments. `AUTH_BACKEND=oidc` remains an optional provider adapter with its existing server-only configuration. Invalid or incomplete selected-backend configuration fails closed and must fail deployment validation.
+`AUTH_BACKEND=none` remains available for local-only deployments. `AUTH_BACKEND=oidc` remains an optional provider adapter with its existing server-only configuration. Invalid or incomplete selected-backend configuration fails closed and must fail deployment validation. Non-production runtimes retain the passwordless default; production deployment and runtime validation require `AUTH_BACKEND` to be explicit.
+
+## Configuration failure behavior
+
+Configuration failures are classified separately from an absent or expired session. The web proxy never converts an invalid backend, origin, session secret, OIDC value, or other selected-backend failure into `none` or `auth=required`; protected pages redirect to `/sign-in?auth=configuration_error`, preserving the safe invitation continuation when present. The public sign-in page validates the web-owned configuration before querying the hosted API, skips that query for explicit `none`, and renders the localized configuration state without raw parser text.
+
+When a lazy/serverless API composition detects invalid authentication configuration, it returns the additive contract `{ "error": "authentication_misconfigured" }` with HTTP 503, `Cache-Control: no-store`, and the opaque request ID header. The web proxy forwards that response unchanged, and hosted sign-in maps it to the same localized configuration state. Existing missing database or email bindings continue to return `api_misconfigured` with HTTP 503; transient SMTP, database, and Turnstile failures retain their dependency-specific outcomes.
+
+Standalone Bun/Node startup validates authentication composition before creating the HTTP listener. Invalid configuration emits only the fixed startup event, bounded field name, and startup correlation marker, then exits without advertising readiness. Health and time remain lightweight system routes and do not initialize the full request runtime. No response, redirect, log, analytics event, cookie, or query parameter contains secret values, provider payloads, tokens, cookies, authorization headers, or raw configuration values.
+
+The API error is additive for mixed-version deployment: an older web runtime may retain generic 503 handling, while an updated web runtime recognizes `authentication_misconfigured`. Rollback is application-only; no database migration or data operation is required.
 
 ## Link and session security
 

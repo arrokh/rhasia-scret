@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createAuthProxy, isProtectedPagePath } from "@/proxy";
+import { createIdentityProxyVerifier } from "@/modules/identity/proxy";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("authentication proxy contract", () => {
   it.each(["/vaults", "/vaults/shared", "/vaults/invitations/redeem", "/totp"])(
@@ -50,6 +55,18 @@ describe("authentication proxy contract", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=required");
+  });
+
+  it("does not fall back to none when web authentication configuration is invalid", async () => {
+    vi.stubEnv("AUTH_BACKEND", "invalid-backend");
+    expect(await createIdentityProxyVerifier()(request("/vaults"), () => undefined)).toBe("configuration_error");
+  });
+
+  it("distinguishes authentication configuration failures from missing sessions", async () => {
+    const response = await createAuthProxy(async () => "configuration_error")(request("/vaults"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://vault.example.test/sign-in?auth=configuration_error");
   });
 
   it("preserves the safe invitation return path when access is required", async () => {

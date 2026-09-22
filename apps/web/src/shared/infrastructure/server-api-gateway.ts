@@ -18,17 +18,35 @@ export type DestructiveResetEligibility = {
 };
 
 type ApiError = { error?: string };
+export type ServerApiConfigurationCode = "authentication_misconfigured" | "api_misconfigured";
+
+export class ServerApiConfigurationError extends Error {
+  public constructor(public readonly code: ServerApiConfigurationCode) {
+    super(code);
+    this.name = "ServerApiConfigurationError";
+  }
+}
+
+export function isServerApiConfigurationError(error: unknown): error is ServerApiConfigurationError {
+  return error instanceof ServerApiConfigurationError;
+}
 
 export async function loadServerVaultPageContext(): Promise<WebVaultPageContext | null> {
   const userResponse = await requestApi("/v1/me");
   if (userResponse.status === 401 || userResponse.status === 403) return null;
-  if (!userResponse.ok) throw new Error("API user lookup failed.");
+  if (!userResponse.ok) {
+    throwServerApiConfigurationError(userResponse, await readApiError(userResponse));
+    throw new Error("API user lookup failed.");
+  }
   const user = (await userResponse.json()) as { id?: unknown; email?: unknown };
   if (typeof user.id !== "string" || typeof user.email !== "string") throw new Error("Invalid API user response.");
 
   const vaultResponse = await requestApi("/v1/personal-vault");
   if (vaultResponse.status === 401 || vaultResponse.status === 403) return null;
-  if (!vaultResponse.ok) throw new Error("API Personal Vault lookup failed.");
+  if (!vaultResponse.ok) {
+    throwServerApiConfigurationError(vaultResponse, await readApiError(vaultResponse));
+    throw new Error("API Personal Vault lookup failed.");
+  }
   const vault = (await vaultResponse.json()) as { id?: unknown; lifecycle?: unknown };
   if (typeof vault.id !== "string" || (vault.lifecycle !== "UNINITIALIZED" && vault.lifecycle !== "ACTIVE"))
     throw new Error("Invalid API Personal Vault response.");
@@ -85,6 +103,15 @@ export async function requestApi(path: string, init?: RequestInit): Promise<Resp
   const cookie = incoming.get("cookie");
   if (cookie && !outgoing.has("cookie")) outgoing.set("cookie", cookie);
   return fetch(new URL(path, origin), { ...init, headers: outgoing, cache: "no-store" });
+}
+
+function throwServerApiConfigurationError(response: Response, error: ApiError): void {
+  if (response.status === 503 && isServerApiConfigurationCode(error.error))
+    throw new ServerApiConfigurationError(error.error);
+}
+
+function isServerApiConfigurationCode(value: string | undefined): value is ServerApiConfigurationCode {
+  return value === "authentication_misconfigured" || value === "api_misconfigured";
 }
 
 export async function readApiError(response: Response): Promise<ApiError> {

@@ -4,6 +4,9 @@ import { ApiRequest } from "@api/http/api-request";
 import { createIdentityRuntime } from "@api/modules/identity/server";
 import type { ApiBindings, ApiEmailSenders } from "@api/types";
 import { createApiApplicationRuntime, type ApiApplicationRuntime } from "@api/modules/server-composition/runtime";
+import { jsonResponse } from "@api/http/response";
+import { logApiEvent } from "@api/shared/infrastructure/logging";
+import { isAuthenticationConfigurationError } from "@api/modules/identity/infrastructure/auth-backend";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import type { IdentityRuntime } from "@api/modules/identity";
 
@@ -19,7 +22,20 @@ export function createApiRuntime(fixedDependencies?: ApiRuntimeDependencies) {
     if (!database) return context.json({ error: "api_misconfigured" }, 503);
     const emailSenders = bindings.EMAIL_SENDERS;
     if (!emailSenders) return context.json({ error: "api_misconfigured" }, 503);
-    const identity = fixedDependencies?.identity ?? createIdentityRuntime(database, bindings, emailSenders.magicLink);
+    let identity = fixedDependencies?.identity;
+    if (!identity) {
+      try {
+        identity = createIdentityRuntime(database, bindings, emailSenders.magicLink);
+      } catch (error) {
+        if (!isAuthenticationConfigurationError(error)) throw error;
+        const requestId = context.get("requestId");
+        logApiEvent("error", "api_authentication_misconfigured", { requestId, field: error.field });
+        return jsonResponse(
+          { error: "authentication_misconfigured" },
+          { status: 503, headers: { "cache-control": "no-store", "x-request-id": requestId } },
+        );
+      }
+    }
     const request = new ApiRequest(context.req.raw);
     request.headers.set("x-request-id", context.get("requestId"));
     if (bindings.WEB_ORIGIN) request.headers.set("x-rhasia-expected-origin", bindings.WEB_ORIGIN);

@@ -1,8 +1,20 @@
-import { createStandaloneApi } from "@api/standalone";
+import { createStandaloneApi, type StandaloneApi } from "@api/standalone";
 import { loadLocalApiEnvironment } from "@api/runtime/environment";
+import { isAuthenticationConfigurationError } from "@api/modules/identity/infrastructure/auth-backend";
+import { logApiEvent } from "@api/shared/infrastructure/logging";
 
 const environment = loadLocalApiEnvironment();
-const api = createStandaloneApi(environment);
+let api: StandaloneApi;
+try {
+  api = createStandaloneApi(environment);
+} catch (error) {
+  if (!isAuthenticationConfigurationError(error)) throw error;
+  logApiEvent("error", "api_startup_authentication_misconfigured", {
+    field: error.field,
+    requestId: "startup",
+  });
+  process.exit(1);
+}
 
 type BunServer = Readonly<{ stop(force?: boolean): void }>;
 declare const Bun: Readonly<{

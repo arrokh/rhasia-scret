@@ -10,7 +10,7 @@ import type { MagicLinkEmailSender } from "../application/email-delivery";
 import { createPasswordlessTokenGenerator } from "./passwordless-crypto";
 import { PrismaPasswordlessAuthRepository } from "./prisma-passwordless-auth-repository";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
-import type { ApiBindings } from "@api/types";
+import type { ApiBindings, ApiConfigBindings } from "@api/types";
 
 export function createPasswordlessAuthServiceForApi(
   database: PrismaDatabase,
@@ -37,7 +37,7 @@ export function createPasswordlessAuthServiceForApi(
   });
 }
 
-export function readApiPasswordlessConfiguration(bindings: ApiBindings): PasswordlessConfiguration {
+export function readApiPasswordlessConfiguration(bindings: ApiConfigBindings): PasswordlessConfiguration {
   const environment = Object.fromEntries(
     Object.entries(bindings).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   );

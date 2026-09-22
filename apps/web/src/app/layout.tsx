@@ -7,6 +7,7 @@ import { Suspense, type ReactNode } from "react";
 import { deterministicTimeZone } from "@/i18n/config";
 import { QueryProvider } from "@/shared/presentation/query-provider";
 import { BrowserSessionRefresh } from "@/modules/identity/presentation/browser-session-refresh";
+import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { AppFooter } from "@/shared/presentation/app-ui";
 import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
@@ -92,7 +93,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
           <QueryProvider>
-            {(process.env.AUTH_BACKEND ?? "passwordless") === "passwordless" ? <BrowserSessionRefresh /> : null}
+            {readWebAuthBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
             <BrowserAnalyticsBootstrap />
             <ServiceWorkerRegistration />
             <OfflineAccessPrompt />
@@ -111,4 +112,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </body>
     </html>
   );
+}
+
+function readWebAuthBackend(): "none" | "passwordless" | "oidc" | "invalid" {
+  try {
+    return readAuthConfiguration().backend;
+  } catch {
+    return "invalid";
+  }
 }

@@ -122,8 +122,9 @@ pnpm dev
 not run migrations. Run `pnpm dev:db:migrate` separately when the schema needs
 updating. Stop the development Compose stack without deleting its named volume
 with `pnpm dev:db:down`. Migration and shutdown operations require typing
-`yes`; use `docker compose ... down -v` only when you intentionally want to
-reset the local database.
+`yes`. To permanently delete the development database volume, start a fresh
+PostgreSQL container, and apply all development migrations, run
+`pnpm dev:db:reset`; it also requires typing `yes` and is destructive.
 
 For the complete containerized self-hosted flow, use the idempotent commands
 below from the repository root:
