@@ -134,19 +134,25 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
 }
 
 function readProxyConfig(): ProxyConfig {
-  const apiOrigin = parseOrigin(process.env.API_ORIGIN, "API_ORIGIN");
+  const apiOrigin = parseOrigin(process.env.API_ORIGIN, "API_ORIGIN", { allowComposeApiService: true });
   const webOrigin = parseOrigin(process.env.WEB_ORIGIN ?? process.env.AUTH_APP_ORIGIN, "WEB_ORIGIN").origin;
   const proxySecret = process.env.API_PROXY_SECRET;
   if (!proxySecret || proxySecret.length < 32) throw new Error("API_PROXY_SECRET is not configured.");
   return { apiOrigin: apiOrigin.url, webOrigin, proxySecret };
 }
 
-function parseOrigin(value: string | undefined, name: string): { origin: string; url: URL } {
+function parseOrigin(
+  value: string | undefined,
+  name: string,
+  { allowComposeApiService = false }: Readonly<{ allowComposeApiService?: boolean }> = {},
+): { origin: string; url: URL } {
   if (!value) throw new Error(`${name} is not configured.`);
   const url = new URL(value);
   const localHttp = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  const composeApiHttp =
+    allowComposeApiService && url.protocol === "http:" && url.hostname === "api" && url.port === "8787";
   if (
-    (!localHttp && url.protocol !== "https:") ||
+    (!localHttp && !composeApiHttp && url.protocol !== "https:") ||
     url.pathname !== "/" ||
     url.search ||
     url.hash ||

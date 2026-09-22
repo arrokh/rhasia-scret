@@ -26,6 +26,48 @@ describe("authentication backend configuration", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({ backend: "passwordless" });
   });
 
+  it("allows localhost HTTP authentication in a production container", () => {
+    expect(
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "production-site-key",
+        TURNSTILE_SECRET_KEY: "production-secret-key",
+      }),
+    ).toMatchObject({ backend: "passwordless" });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        AUTH_APP_ORIGIN: "http://vault.example.test",
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "production-site-key",
+        TURNSTILE_SECRET_KEY: "production-secret-key",
+      }),
+    ).toThrow("HTTPS");
+  });
+
+  it("allows Turnstile testing keys only for local HTTP self-hosting", () => {
+    expect(
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        WEB_ORIGIN: "http://localhost:3000",
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+        TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+      }),
+    ).toMatchObject({ backend: "passwordless" });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        WEB_ORIGIN: "http://localhost:3000",
+        AUTH_APP_ORIGIN: "https://host.example.test",
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+        TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+      }),
+    ).toThrow("testing keys are not allowed");
+  });
+
   it("reads passwordless origins, secrets, and bounded lifetimes", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({
       backend: "passwordless",
@@ -96,6 +138,20 @@ describe("authentication backend configuration", () => {
 
   it("rejects invalid backend and insecure production redirects", () => {
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "rhasia:passwordless" })).toThrow("AUTH_BACKEND");
-    expect(() => readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toThrow("OIDC_REDIRECT_URI");
+    expect(readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toMatchObject({ backend: "oidc" });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredOidc,
+        NODE_ENV: "production",
+        OIDC_ISSUER: "http://issuer.example.test",
+      }),
+    ).toThrow("OIDC_ISSUER");
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredOidc,
+        NODE_ENV: "production",
+        OIDC_REDIRECT_URI: "http://oidc.example.test/auth/oidc/callback",
+      }),
+    ).toThrow("OIDC_REDIRECT_URI");
   });
 });
