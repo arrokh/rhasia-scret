@@ -62,6 +62,7 @@ describe("API extraction ownership boundaries", () => {
     const productionMigrationCompose = read("docker-compose.prod-migration.yml");
     const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
     const dockerfile = read("apps/api/Dockerfile");
+    const webDockerfile = read("apps/web/Dockerfile");
     expect(app).not.toContain("export const app");
     expect(standalone).toContain("createApiRuntimeDependencies");
     expect(bun).toContain("Bun.serve");
@@ -150,8 +151,34 @@ describe("API extraction ownership boundaries", () => {
     expect(rootPackage.scripts?.["ci:local"]).toBeUndefined();
     expect(rootPackage.scripts?.["mobile:verify"]).toBeUndefined();
     expect(rootPackage.scripts?.["test:vercel-deployment"]).toBeUndefined();
-    expect(dockerfile).toContain("RUN pnpm --filter @rhasia-scret/api build:node");
-    expect(dockerfile).toContain("COPY --from=build /workspace .");
+    expect(dockerfile).toContain("pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts");
+    expect(dockerfile).toContain("pnpm --filter @rhasia-scret/api deploy --prod --legacy --ignore-scripts /tmp/api");
+    expect(dockerfile).toContain(
+      "pnpm --filter @rhasia-scret/api deploy --prod --no-optional --legacy --ignore-scripts /tmp/api-runtime",
+    );
+    expect(dockerfile).toContain("FROM production AS runtime-prepared");
+    expect(dockerfile).toContain("FROM base AS migration");
+    expect(dockerfile).toContain(
+      'USER node\nCMD ["node_modules/.bin/tsx", "scripts/deploy-passwordless-migrations.ts"]',
+    );
+    expect(dockerfile).toContain("/tmp/migration-tools");
+    expect(dockerfile).toContain("COPY --from=runtime-prepared --chown=bun:bun /tmp/api-runtime ./apps/api");
+    expect(dockerfile).not.toContain("COPY --from=production /tmp/api ./apps/api");
+    expect(dockerfile).not.toContain("COPY --from=build /workspace .");
+    expect(dockerfile).toContain(
+      "FROM oven/bun:1.3.9-alpine@sha256:9028ee7a60a04777190f0c3129ce49c73384d3fc918f3e5c75f5af188e431981 AS runtime",
+    );
+    expect(dockerfile).toContain("COPY --from=runtime-prepared --chown=bun:bun /tmp/api-runtime ./apps/api");
+    expect(dockerfile).toContain("USER bun");
+    expect(webDockerfile).toContain(
+      "FROM node:24.19.0-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS base",
+    );
+    expect(webDockerfile).toContain(
+      "FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS runtime",
+    );
+    expect(webDockerfile).toContain("COPY --from=base /usr/local/bin/node /usr/local/bin/node");
+    expect(webDockerfile).toContain("mkdir -p /app/apps/web/.next/cache");
+    expect(compose).toContain("/app/apps/web/.next/cache:uid=1001,gid=1001,mode=0755");
     expect(compose).toContain("PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}");
     expect(compose).toContain("PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}");
     expect(existsSync(resolve(repositoryRoot, "apps/api/prisma/schema.prisma"))).toBe(true);

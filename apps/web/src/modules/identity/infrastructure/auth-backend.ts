@@ -55,15 +55,13 @@ export function readAuthConfiguration(
   if (backend === "none") return { backend };
   if (backend === "passwordless") return { backend, passwordless: readPasswordlessConfiguration(env) };
   if (backend !== "oidc") throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none, passwordless, or oidc.");
-  const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER", env.NODE_ENV);
-  const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI", env.NODE_ENV);
+  const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER");
+  const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI");
   const clientId = readRequired(env.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
   const clientSecret = readRequired(env.OIDC_CLIENT_SECRET, "OIDC_CLIENT_SECRET");
   const sessionSecretText = readRequired(env.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
   if (sessionSecretText.length < 32)
     throw configurationError("OIDC_SESSION_SECRET", "OIDC_SESSION_SECRET must contain at least 32 characters.");
-  if (redirectUri.protocol !== "https:" && env.NODE_ENV === "production")
-    throw configurationError("OIDC_REDIRECT_URI", "OIDC_REDIRECT_URI must use HTTPS in production.");
   return {
     backend,
     oidc: {
@@ -78,7 +76,7 @@ export function readAuthConfiguration(
 }
 
 function readPasswordlessConfiguration(env: Readonly<Record<string, string | undefined>>): PasswordlessConfiguration {
-  const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN", env.NODE_ENV);
+  const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
   return {
     appOrigin,
     mobileRedirectUrl: readMobileRedirectUrl(env.AUTH_MOBILE_REDIRECT_URL, appOrigin, env.NODE_ENV),
@@ -90,8 +88,8 @@ function readRequired(value: string | undefined, name: AuthConfigurationField): 
   return normalized;
 }
 
-function readOrigin(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
-  const parsed = readUrl(value, name, nodeEnv);
+function readOrigin(value: string | undefined, name: AuthConfigurationField): URL {
+  const parsed = readUrl(value, name);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password)
     throw configurationError(name, `${name} must contain only an origin.`);
   return parsed;
@@ -124,7 +122,7 @@ function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEn
   return parsed;
 }
 
-function readUrl(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
+function readUrl(value: string | undefined, name: AuthConfigurationField): URL {
   let parsed: URL;
   try {
     parsed = new URL(readRequired(value, name));
@@ -133,7 +131,7 @@ function readUrl(value: string | undefined, name: AuthConfigurationField, nodeEn
   }
   if (
     parsed.protocol !== "https:" &&
-    !(nodeEnv !== "production" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"))
+    !(parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname))
   ) {
     throw configurationError(name, `${name} must use HTTPS.`);
   }

@@ -29,7 +29,7 @@ Copy the single root `.env.example` to `.env`. It separates API persistence valu
 | Variable                                                                                                                             | Required when                                               | Notes                                                                                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AUTH_BACKEND`                                                                                                                       | Every deployment; explicit in production                    | `none`, `passwordless`, or `oidc`; defaults to `passwordless` outside explicit production configuration.                                                                                          |
-| `AUTH_APP_ORIGIN`                                                                                                                    | `passwordless`                                              | Exact HTTPS origin without path/query/fragment/credentials. HTTP localhost is allowed outside production.                                                                                         |
+| `AUTH_APP_ORIGIN`                                                                                                                    | `passwordless`                                              | Exact origin without path/query/fragment/credentials. HTTPS is required except for localhost HTTP self-hosting.                                                                                   |
 | `AUTH_TRUST_PROXY_HEADERS`                                                                                                           | Optional web proxy setting                                  | `false` by default. Set `true` only when a trusted HTTPS proxy strips/replaces forwarded host/protocol metadata. API rate limiting uses the authenticated proxy marker instead.                   |
 | `AUTH_MOBILE_REDIRECT_URL`                                                                                                           | Optional                                                    | Exact `/auth/mobile` callback, or development-only `rhasia-scret://auth/magic-link`.                                                                                                              |
 | `AUTH_SESSION_SECRET`                                                                                                                | `passwordless`                                              | Shared verification secret, at least 32 characters; signs browser assertions.                                                                                                                     |
@@ -40,7 +40,7 @@ Copy the single root `.env.example` to `.env`. It separates API persistence valu
 | `API_ORIGIN`, `API_PROXY_SECRET`                                                                                                     | Web proxy and SSR gateway                                   | Fixed API origin and private proxy marker; web calls `/v1/**` directly for SSR. Compose may use the private `http://api:8787` service name; public/non-Compose production origins must use HTTPS. |
 | `DATABASE_URL`                                                                                                                       | Every API runtime                                           | Pooled runtime Prisma URL; use TLS in production.                                                                                                                                                 |
 | `DIRECT_URL`                                                                                                                         | API Prisma CLI                                              | Direct migration/admin URL; production pooled and direct endpoints must be distinct.                                                                                                              |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SESSION_SECRET`                                    | `oidc`                                                      | Existing server-only OIDC adapter settings; production callback and issuer use HTTPS.                                                                                                             |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SESSION_SECRET`                                    | `oidc`                                                      | Existing server-only OIDC adapter settings; HTTPS is required except for localhost HTTP self-hosting callbacks.                                                                                   |
 | `OIDC_AUDIENCE`, `AUTH_ADMITTED_EMAILS`                                                                                              | Optional OIDC policy                                        | Audience and verified-email admission policy; not a membership list.                                                                                                                              |
 | `PASSKEY_RP_ID`, `PASSKEY_ORIGIN`                                                                                                    | Passkey recovery/unlock                                     | Server-only WebAuthn settings; origin and RP hostname must agree.                                                                                                                                 |
 | `MOBILE_APPLE_TEAM_ID`, `MOBILE_ANDROID_CERT_SHA256`                                                                                 | Verified native links                                       | Optional association-document values; malformed values fail closed.                                                                                                                               |
@@ -82,21 +82,46 @@ pnpm start
 
 Installing the workspace generates the API's Prisma Client with a synthetic, non-production URL. The API `dev`, `dev:node`, and build commands repeat generation before use; this keeps ignored generated output aligned with the installed Prisma packages without connecting to PostgreSQL. Runtime traffic still uses only `DATABASE_URL`; `DIRECT_URL` remains reserved for explicit Prisma migrations and administrative commands.
 
-Run both processes behind an HTTPS proxy that forwards the original host/protocol correctly. If the web proxy strips and replaces forwarded headers, set `AUTH_TRUST_PROXY_HEADERS=true`; otherwise leave it `false` so client-supplied forwarding metadata is ignored. For Compose:
+Run both processes behind an HTTPS proxy that forwards the original host/protocol correctly. If the web proxy strips and replaces forwarded headers, set `AUTH_TRUST_PROXY_HEADERS=true`; otherwise leave it `false` so client-supplied forwarding metadata is ignored. For a local self-hosted Compose deployment, use the idempotent repository commands:
 
 ```bash
-cp .env.example .env
-# Set the Shared workspace database, Hosted web service, Native mobile build,
-# and Docker Compose values required by the deployment you are running.
-COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml config --quiet
-# Apply migrations separately through the confirmed API-owned migration command.
-pnpm dev:db
-pnpm dev:db:migrate
-COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA="$(git rev-parse --short HEAD)" docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+pnpm selfhosted:setup
+pnpm selfhosted:up
 curl --fail --silent --show-error http://127.0.0.1:${APP_PORT:-3000}/api/v1/health
 ```
 
-Do not publish the database port. The named volume survives `docker compose down`; back it up before retiring it.
+`selfhosted:setup` creates `.env` only when it is absent and repairs only
+non-database `replace-with-*` placeholders in an existing file. Set
+`POSTGRES_PASSWORD` manually; setup never rotates an existing database
+credential. It generates local secrets, preserves configured values, verifies
+Docker and the application environment, starts PostgreSQL,
+and applies the API-owned migrations after an interactive `yes` confirmation.
+It defaults a newly created environment to `AUTH_BACKEND=none`; configure
+passwordless or OIDC in `.env` before `selfhosted:up` when hosted
+authentication is required. Rerun setup to validate changed authentication
+configuration before migrating again. Compose containers use production
+builds, but localhost HTTP is supported for local self-hosting; use HTTPS for
+any non-local web, API, or authentication origin. `selfhosted:up` verifies the environment,
+builds the production images before starting them (so Compose does not try to pull
+private application image names), starts PostgreSQL, API, web, and the retention
+scheduler, and waits for Compose health checks. If a health check fails, it prints
+sanitized Compose service status before exiting. The web cache is backed by an
+ephemeral writable tmpfs while the rest of the application filesystem remains
+read-only. Both commands may be rerun safely. `selfhosted:down`
+stops the project without deleting the PostgreSQL volume:
+
+```bash
+pnpm selfhosted:down
+```
+
+The self-hosted commands intentionally keep PostgreSQL private on the
+Compose network; the development-only override remains available for
+`pnpm dev:db` when host-side database access is needed. The API runtime uses a
+production-only deployment without Prisma's optional CLI, Studio, and TypeScript
+tooling; the separate migration image retains the Prisma CLI and narrowly
+required `tsx` tool. The web runtime uses an Alpine Node image and Next
+standalone output. The named volume survives `selfhosted:down`; back it up before
+retiring it.
 
 ### 2. Apply PostgreSQL schema and identity migration
 
@@ -128,7 +153,7 @@ Preflight rejects invalid or colliding normalized Application User emails. Seedi
 
 ### 3. Configure passwordless authentication
 
-Set `AUTH_BACKEND=passwordless`, the API-only `AUTH_*` values, and the server-only Bun SMTP values. The user flow is:
+Set `AUTH_BACKEND=passwordless`, the API-only `AUTH_*` values, and the server-only Bun SMTP values. Local self-hosted Compose may use the documented Cloudflare Turnstile testing pair from `.env.example` when both `WEB_ORIGIN` and `AUTH_APP_ORIGIN` are localhost or `127.0.0.1`; non-local production origins still reject testing keys. The user flow is:
 
 1. Web or native client submits an email and a fixed client audience.
 2. The server persists only a keyed token digest and sends a bilingual email.
@@ -149,7 +174,7 @@ If the selected backend is malformed or incomplete, protected web routes redirec
 
 ### 5. Configure HTTPS and verified links
 
-Use one exact HTTPS origin for `AUTH_APP_ORIGIN`, `PASSKEY_ORIGIN`, `EXPO_PUBLIC_WEB_ORIGIN`, and the web/native routes. Verify these association documents without redirects when native is enabled:
+Use one exact HTTPS origin for hosted/non-local deployments. Local self-hosting may use `http://localhost` or `http://127.0.0.1`; HTTPS remains required for non-local passwordless/OIDC origins. Use the configured origin for `AUTH_APP_ORIGIN`, `PASSKEY_ORIGIN`, `EXPO_PUBLIC_WEB_ORIGIN`, and the web/native routes. Verify these association documents without redirects when native is enabled:
 
 - `/.well-known/apple-app-site-association`
 - `/.well-known/assetlinks.json`

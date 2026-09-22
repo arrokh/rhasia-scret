@@ -73,15 +73,13 @@ export function readAuthConfiguration(
   if (backend === "none") return { backend };
   if (backend === "passwordless") return { backend, passwordless: readPasswordlessConfiguration(env, options) };
   if (backend !== "oidc") throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none, passwordless, or oidc.");
-  const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER", env.NODE_ENV);
-  const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI", env.NODE_ENV);
+  const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER");
+  const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI");
   const clientId = readRequired(env.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
   const clientSecret = readRequired(env.OIDC_CLIENT_SECRET, "OIDC_CLIENT_SECRET");
   const sessionSecretText = readRequired(env.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
   if (sessionSecretText.length < 32)
     throw configurationError("OIDC_SESSION_SECRET", "OIDC_SESSION_SECRET must contain at least 32 characters.");
-  if (redirectUri.protocol !== "https:" && env.NODE_ENV === "production")
-    throw configurationError("OIDC_REDIRECT_URI", "OIDC_REDIRECT_URI must use HTTPS in production.");
   return {
     backend,
     oidc: {
@@ -99,7 +97,7 @@ function readPasswordlessConfiguration(
   env: Readonly<Record<string, string | undefined>>,
   options: Readonly<{ requireTurnstileSiteKey?: boolean }>,
 ): PasswordlessConfiguration {
-  const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN", env.NODE_ENV);
+  const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
   const mobileRedirectUrl = readMobileRedirectUrl(env.AUTH_MOBILE_REDIRECT_URL, appOrigin, env.NODE_ENV);
   const magicLinkSecretText = readRequired(env.AUTH_MAGIC_LINK_SECRET, "AUTH_MAGIC_LINK_SECRET");
   const sessionSecretText = readRequired(env.AUTH_SESSION_SECRET, "AUTH_SESSION_SECRET");
@@ -148,6 +146,7 @@ function readTurnstileConfiguration(
   const secretKey = readRequired(env.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
   if (
     nodeEnv === "production" &&
+    !isLocalHttpSelfHosted(env) &&
     (siteKey === "1x00000000000000000000AA" || secretKey === "1x0000000000000000000000000000000AA")
   )
     throw configurationError(
@@ -155,6 +154,20 @@ function readTurnstileConfiguration(
       "Cloudflare Turnstile testing keys are not allowed in production.",
     );
   return { siteKey, secretKey };
+}
+
+function isLocalHttpSelfHosted(env: Readonly<Record<string, string | undefined>>): boolean {
+  const origins = [env.WEB_ORIGIN, env.AUTH_APP_ORIGIN].filter((value): value is string => Boolean(value?.trim()));
+  return origins.length > 0 && origins.every(isLocalHttpOrigin);
+}
+
+function isLocalHttpOrigin(value: string): boolean {
+  try {
+    const origin = new URL(value);
+    return origin.protocol === "http:" && ["localhost", "127.0.0.1"].includes(origin.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function readRequired(value: string | undefined, name: AuthConfigurationField): string {
@@ -179,8 +192,8 @@ function readInteger(
   return parsed;
 }
 
-function readOrigin(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
-  const parsed = readUrl(value, name, nodeEnv);
+function readOrigin(value: string | undefined, name: AuthConfigurationField): URL {
+  const parsed = readUrl(value, name);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password)
     throw configurationError(name, `${name} must contain only an origin.`);
   return parsed;
@@ -213,7 +226,7 @@ function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEn
   return parsed;
 }
 
-function readUrl(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
+function readUrl(value: string | undefined, name: AuthConfigurationField): URL {
   let parsed: URL;
   try {
     parsed = new URL(readRequired(value, name));
@@ -222,7 +235,7 @@ function readUrl(value: string | undefined, name: AuthConfigurationField, nodeEn
   }
   if (
     parsed.protocol !== "https:" &&
-    !(nodeEnv !== "production" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"))
+    !(parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname))
   ) {
     throw configurationError(name, `${name} must use HTTPS.`);
   }

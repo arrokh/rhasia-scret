@@ -18,6 +18,19 @@ const requiredOidc = {
 };
 
 describe("web authentication configuration", () => {
+  it("allows localhost HTTP authentication in a production container", () => {
+    expect(readAuthConfiguration({ ...requiredPasswordless, NODE_ENV: "production" })).toMatchObject({
+      backend: "passwordless",
+    });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        AUTH_APP_ORIGIN: "http://vault.example.test",
+      }),
+    ).toThrow("HTTPS");
+  });
+
   it("reads only web-owned passwordless origin settings", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toEqual({
       backend: "passwordless",
@@ -57,6 +70,20 @@ describe("web authentication configuration", () => {
 
   it("rejects invalid backend and insecure production redirects", () => {
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "rhasia:passwordless" })).toThrow("AUTH_BACKEND");
-    expect(() => readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toThrow("OIDC_REDIRECT_URI");
+    expect(readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toMatchObject({ backend: "oidc" });
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredOidc,
+        NODE_ENV: "production",
+        OIDC_ISSUER: "http://issuer.example.test",
+      }),
+    ).toThrow("OIDC_ISSUER");
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredOidc,
+        NODE_ENV: "production",
+        OIDC_REDIRECT_URI: "http://oidc.example.test/auth/oidc/callback",
+      }),
+    ).toThrow("OIDC_REDIRECT_URI");
   });
 });

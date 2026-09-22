@@ -98,6 +98,20 @@ describe("web API proxy", () => {
     expect(new Headers(options.headers).get("accept-encoding")).toBe("identity");
   });
 
+  it("allows the private Compose API service origin", async () => {
+    process.env.API_ORIGIN = "http://api:8787";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    const response = await GET(request("/api/v1/health"), {
+      params: Promise.resolve({ path: ["v1", "health"] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toEqual(new URL("http://api:8787/v1/health"));
+  });
+
   it("allows the 0.0.0.0 local development alias for a localhost web origin", async () => {
     process.env.API_ORIGIN = "http://127.0.0.1:8787";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";

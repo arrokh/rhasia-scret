@@ -125,6 +125,28 @@ with `pnpm dev:db:down`. Migration and shutdown operations require typing
 `yes`; use `docker compose ... down -v` only when you intentionally want to
 reset the local database.
 
+For the complete containerized self-hosted flow, use the idempotent commands
+below from the repository root:
+
+```bash
+pnpm selfhosted:setup  # creates local .env if absent, verifies config, starts PostgreSQL, applies migrations
+pnpm selfhosted:up     # verifies config, builds, and starts db, API, web, and retention services
+pnpm selfhosted:down   # verifies Docker and stops the Compose project; preserves the database volume
+```
+
+`selfhosted:setup` creates a local-only (`AUTH_BACKEND=none`) `.env` only when
+one does not exist. For an existing file, it repairs non-database
+`replace-with-*` example placeholders and preserves configured values. Set
+`POSTGRES_PASSWORD` manually because setup never rotates an existing database
+credential. Change
+the authentication settings before `selfhosted:up` when passwordless or OIDC
+is required; rerun setup to validate the changed configuration before migrating
+again. The Compose containers use production builds. Localhost HTTP is allowed
+for local self-hosting; use HTTPS for any non-local web, API, or authentication
+origin. `selfhosted:up` builds application images before starting services and
+waits for health checks; failures include sanitized Compose status. Database
+migrations remain explicit and require typing `yes`.
+
 For a production migration, create the ignored `.env.prod` file with the
 production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
 The command builds and runs the standalone focused migration Compose project, so it does not parse or require application runtime secrets such as `PROXY_SECRET` or SMTP credentials. It does not start the Compose `db` dependency and requires typing `yes` before applying migrations.
