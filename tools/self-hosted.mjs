@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, constants, existsSync, fchmodSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -88,12 +88,22 @@ export function setEnvValue(source, name, value) {
 export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "local" } = {}) {
   const envPath = resolve(root, ".env");
   const examplePath = resolve(root, ".env.example");
-  if (!existsSync(examplePath)) throw new Error("Missing .env.example; cannot create the self-hosted environment.");
+  let exampleSource;
+  try {
+    exampleSource = readFileSync(examplePath, "utf8");
+  } catch (error) {
+    if (isFileNotFoundError(error)) throw new Error("Missing .env.example; cannot create the self-hosted environment.");
+    throw error;
+  }
 
-  if (!existsSync(envPath)) {
+  let original;
+  try {
+    original = readFileSync(envPath, "utf8");
+  } catch (error) {
+    if (!isFileNotFoundError(error)) throw error;
     const databasePassword = randomSecret();
     const proxySecret = randomSecret();
-    let source = readFileSync(examplePath, "utf8");
+    let source = exampleSource;
     source = setEnvValue(source, "AUTH_BACKEND", "none");
     source = setEnvValue(source, "POSTGRES_PASSWORD", databasePassword);
     source = setEnvValue(source, "PROXY_SECRET", proxySecret);
@@ -104,16 +114,13 @@ export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "loc
     source = setEnvValue(source, "COMMIT_SHA", commitSha);
 
     try {
-      writeFileSync(envPath, source, { encoding: "utf8", mode: 0o600, flag: "wx" });
-    } catch (error) {
-      if (!isFileExistsError(error)) throw error;
+      writeEnvironmentFile(envPath, source, true);
+    } catch (writeError) {
+      if (!isFileExistsError(writeError)) throw writeError;
       return ensureLocalEnvironment({ root, commitSha });
     }
-    chmodSync(envPath, 0o600);
     return { created: true, updated: false, envPath };
   }
-
-  const original = readFileSync(envPath, "utf8");
   const values = parseEnvFile(original);
   let source = original;
   let updated = false;
@@ -143,9 +150,22 @@ export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "loc
   }
 
   if (!updated) return { created: false, updated: false, envPath };
-  writeFileSync(envPath, source, { encoding: "utf8" });
-  chmodSync(envPath, 0o600);
+  writeEnvironmentFile(envPath, source, false);
   return { created: false, updated: true, envPath };
+}
+
+function writeEnvironmentFile(path, source, createOnly) {
+  const flags = createOnly
+    ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
+    : constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0);
+  let fileDescriptor;
+  try {
+    fileDescriptor = openSync(path, flags, 0o600);
+    fchmodSync(fileDescriptor, 0o600);
+    writeFileSync(fileDescriptor, source, { encoding: "utf8" });
+  } finally {
+    if (fileDescriptor !== undefined) closeSync(fileDescriptor);
+  }
 }
 
 export function composeArguments(root = repositoryRoot, commandArguments = []) {
@@ -373,6 +393,10 @@ function isLocalHttpOrigin(value) {
 
 function isFileExistsError(error) {
   return error instanceof Error && "code" in error && error.code === "EEXIST";
+}
+
+function isFileNotFoundError(error) {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function unquote(value) {
