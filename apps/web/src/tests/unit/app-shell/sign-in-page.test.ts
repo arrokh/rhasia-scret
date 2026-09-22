@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadServerVaultPageContext: vi.fn(),
@@ -19,6 +19,15 @@ vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
 }));
 
 import SignInPage from "@/app/sign-in/page";
+
+beforeEach(() => {
+  vi.stubEnv("AUTH_BACKEND", "passwordless");
+  vi.stubEnv("AUTH_APP_ORIGIN", "https://app.example.test");
+  vi.stubEnv("AUTH_MAGIC_LINK_SECRET", "synthetic-magic-link-secret-32-characters");
+  vi.stubEnv("AUTH_SESSION_SECRET", "synthetic-session-secret-32-characters");
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "synthetic-turnstile-site-key");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "synthetic-turnstile-secret-key");
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
