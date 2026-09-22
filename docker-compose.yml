@@ -142,7 +142,9 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000"
     read_only: true
-    tmpfs: [/tmp]
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache:uid=1001,gid=1001,mode=0755
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     healthcheck:

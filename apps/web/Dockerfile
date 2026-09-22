@@ -1,12 +1,11 @@
 # syntax=docker/dockerfile:1
 
 ARG COMMIT_SHA=unknown
-FROM node:24.19.0-bookworm-slim AS base
+FROM node:24.19.0-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/* \
+RUN apk add --no-cache ca-certificates libc6-compat openssl \
   && corepack enable \
   && corepack prepare pnpm@11.17.0 --activate \
   && pnpm config set store-dir /pnpm/store
@@ -27,7 +26,7 @@ COPY packages/client-vault-core packages/client-vault-core
 COPY packages/api-contract packages/api-contract
 RUN pnpm --filter @rhasia-scret/web build
 
-FROM node:24.19.0-bookworm-slim AS runtime
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS runtime
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 ENV NODE_ENV=production
@@ -35,15 +34,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 WORKDIR /app
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd --system --gid 1001 nodejs \
-  && useradd --system --uid 1001 --gid nodejs nextjs \
-  && rm -rf /usr/local/lib/node_modules/npm \
-  && rm -f /usr/local/bin/npm /usr/local/bin/npx
+COPY --from=base /usr/local/bin/node /usr/local/bin/node
+RUN apk add --no-cache ca-certificates libc6-compat libstdc++ openssl \
+  && addgroup -S -g 1001 nodejs \
+  && adduser -S -D -H -u 1001 -G nodejs nextjs
 COPY --from=build --chown=nextjs:nodejs /workspace/apps/web/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /workspace/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=nextjs:nodejs /workspace/apps/web/public ./apps/web/public
+RUN mkdir -p /app/apps/web/.next/cache \
+  && chown nextjs:nodejs /app/apps/web/.next/cache
 USER nextjs
 WORKDIR /app/apps/web
 EXPOSE 3000
