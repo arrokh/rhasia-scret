@@ -17,6 +17,24 @@ const bindings = {
 } as ApiBindings;
 
 describe("API runtime composition", () => {
+  it("returns a stable configuration error for invalid authentication configuration", async () => {
+    const app = apiFactory.createApp();
+    app.use("*", requestContext);
+    app.use("*", createApiRuntime());
+    app.get("/", () => new Response("unexpected"));
+
+    const response = await app.request(
+      "https://api.example.test/",
+      { headers: { "x-request-id": "0123456789abcdef0123456789abcdef" } },
+      { ...bindings, AUTH_BACKEND: "invalid-backend" },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-request-id")).toBe("0123456789abcdef0123456789abcdef");
+    expect(await response.json()).toEqual({ error: "authentication_misconfigured" });
+  });
+
   it("reuses fixed identity and application composition across requests", async () => {
     const observedContexts: Array<ReturnType<typeof getApiRequestContext>> = [];
     const app = apiFactory.createApp();

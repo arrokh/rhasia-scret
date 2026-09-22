@@ -1,4 +1,4 @@
-import type { ApiBindings } from "@api/types";
+import type { ApiBindings, ApiConfigBindings } from "@api/types";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import { loadApplicationUser } from "./application/load-application-user";
 import {
@@ -56,10 +56,12 @@ import {
   browserE2eRegistrationCredential,
   browserE2eTestsEnabled,
 } from "./infrastructure/e2e-passkey-verification";
+import { AuthenticationConfigurationError, type AuthConfigurationField } from "./infrastructure/auth-backend";
 
 export {
   loadApplicationUser,
   ApplicationUserCredentialInvalidatedError,
+  AuthenticationConfigurationError,
   AUTH_RETURN_PATH_COOKIE,
   isPasswordlessClient,
   isPasswordlessReturnPath,
@@ -91,14 +93,36 @@ export type {
 export type { PasswordlessAuthService };
 export type { IdentityRuntime };
 
-export function authBackend(bindings: Pick<ApiBindings, "AUTH_BACKEND">): "none" | "passwordless" | "oidc" {
-  const backend = bindings.AUTH_BACKEND ?? "passwordless";
+export function authBackend(
+  bindings: Pick<ApiBindings, "AUTH_BACKEND"> & Partial<Pick<ApiBindings, "NODE_ENV">>,
+): "none" | "passwordless" | "oidc" {
+  const configuredBackend = bindings.AUTH_BACKEND?.trim();
+  if (!configuredBackend && bindings.NODE_ENV === "production")
+    throw new AuthenticationConfigurationError("AUTH_BACKEND", "AUTH_BACKEND must be set explicitly in production.");
+  const backend = configuredBackend || "passwordless";
   if (backend === "none" || backend === "passwordless" || backend === "oidc") return backend;
-  throw new Error("AUTH_BACKEND must be none, passwordless, or oidc.");
+  throw new AuthenticationConfigurationError("AUTH_BACKEND", "AUTH_BACKEND must be none, passwordless, or oidc.");
 }
 
-export function readPasswordlessConfiguration(bindings: ApiBindings) {
+export function readPasswordlessConfiguration(bindings: ApiConfigBindings) {
   return readApiPasswordlessConfiguration(bindings);
+}
+
+export function validateAuthenticationConfiguration(bindings: ApiConfigBindings): void {
+  const backend = authBackend(bindings);
+  if (backend === "passwordless") {
+    readPasswordlessConfiguration(bindings);
+    return;
+  }
+  if (backend !== "oidc") return;
+  requiredUrl(bindings.OIDC_ISSUER, "OIDC_ISSUER", bindings.NODE_ENV);
+  required(bindings.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
+  const sessionSecret = required(bindings.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
+  if (sessionSecret.length < 32)
+    throw new AuthenticationConfigurationError(
+      "OIDC_SESSION_SECRET",
+      "OIDC_SESSION_SECRET must contain at least 32 characters.",
+    );
 }
 
 export function createPasswordlessAuthService(
@@ -169,6 +193,11 @@ export function createSessionVerifier(
   const issuer = requiredUrl(bindings.OIDC_ISSUER, "OIDC_ISSUER", bindings.NODE_ENV);
   const clientId = required(bindings.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
   const sessionSecret = required(bindings.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
+  if (sessionSecret.length < 32)
+    throw new AuthenticationConfigurationError(
+      "OIDC_SESSION_SECRET",
+      "OIDC_SESSION_SECRET must contain at least 32 characters.",
+    );
   return new OidcSessionVerifier({ issuer, clientId, sessionSecret: new TextEncoder().encode(sessionSecret) });
 }
 
@@ -231,20 +260,20 @@ function disabledPasswordlessAuthService(): PasswordlessAuthService {
   };
 }
 
-function required(value: string | undefined, name: string): string {
+function required(value: string | undefined, name: AuthConfigurationField): string {
   const normalized = value?.trim();
-  if (!normalized) throw new Error(`${name} is required.`);
+  if (!normalized) throw new AuthenticationConfigurationError(name, `${name} is required.`);
   return normalized;
 }
 
-function requiredUrl(value: string | undefined, name: string, nodeEnv?: string): URL {
+function requiredUrl(value: string | undefined, name: AuthConfigurationField, nodeEnv?: string): URL {
   let url: URL;
   try {
     url = new URL(required(value, name));
   } catch {
-    throw new Error(`${name} must be a valid URL.`);
+    throw new AuthenticationConfigurationError(name, `${name} must be a valid URL.`);
   }
   if (url.protocol !== "https:" && !(nodeEnv !== "production" && ["localhost", "127.0.0.1"].includes(url.hostname)))
-    throw new Error(`${name} must use HTTPS.`);
+    throw new AuthenticationConfigurationError(name, `${name} must use HTTPS.`);
   return url;
 }

@@ -1,4 +1,36 @@
 export type AuthBackend = "none" | "passwordless" | "oidc";
+export type AuthConfigurationField =
+  | "AUTH_BACKEND"
+  | "AUTH_APP_ORIGIN"
+  | "AUTH_MOBILE_REDIRECT_URL"
+  | "AUTH_MAGIC_LINK_SECRET"
+  | "AUTH_SESSION_SECRET"
+  | "AUTH_MAGIC_LINK_TTL_SECONDS"
+  | "AUTH_ACCESS_TOKEN_TTL_SECONDS"
+  | "AUTH_REFRESH_TOKEN_TTL_SECONDS"
+  | "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
+  | "TURNSTILE_SECRET_KEY"
+  | "OIDC_ISSUER"
+  | "OIDC_CLIENT_ID"
+  | "OIDC_CLIENT_SECRET"
+  | "OIDC_REDIRECT_URI"
+  | "OIDC_SESSION_SECRET";
+
+export class AuthenticationConfigurationError extends Error {
+  public readonly code = "authentication_misconfigured" as const;
+
+  public constructor(
+    public readonly field: AuthConfigurationField,
+    message: string,
+  ) {
+    super(message);
+    this.name = "AuthenticationConfigurationError";
+  }
+}
+
+export function isAuthenticationConfigurationError(error: unknown): error is AuthenticationConfigurationError {
+  return error instanceof AuthenticationConfigurationError;
+}
 
 export type TurnstileConfiguration = {
   siteKey: string;
@@ -34,18 +66,22 @@ export function readAuthConfiguration(
   env: Readonly<Record<string, string | undefined>>,
   options: Readonly<{ requireTurnstileSiteKey?: boolean }> = {},
 ): AuthConfiguration {
-  const backend = env.AUTH_BACKEND ?? "passwordless";
+  const configuredBackend = env.AUTH_BACKEND?.trim();
+  if (!configuredBackend && env.NODE_ENV === "production")
+    throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be set explicitly in production.");
+  const backend = configuredBackend || "passwordless";
   if (backend === "none") return { backend };
   if (backend === "passwordless") return { backend, passwordless: readPasswordlessConfiguration(env, options) };
-  if (backend !== "oidc") throw new Error("AUTH_BACKEND must be none, passwordless, or oidc.");
+  if (backend !== "oidc") throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none, passwordless, or oidc.");
   const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER", env.NODE_ENV);
   const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI", env.NODE_ENV);
   const clientId = readRequired(env.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
   const clientSecret = readRequired(env.OIDC_CLIENT_SECRET, "OIDC_CLIENT_SECRET");
   const sessionSecretText = readRequired(env.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
-  if (sessionSecretText.length < 32) throw new Error("OIDC_SESSION_SECRET must contain at least 32 characters.");
+  if (sessionSecretText.length < 32)
+    throw configurationError("OIDC_SESSION_SECRET", "OIDC_SESSION_SECRET must contain at least 32 characters.");
   if (redirectUri.protocol !== "https:" && env.NODE_ENV === "production")
-    throw new Error("OIDC_REDIRECT_URI must use HTTPS in production.");
+    throw configurationError("OIDC_REDIRECT_URI", "OIDC_REDIRECT_URI must use HTTPS in production.");
   return {
     backend,
     oidc: {
@@ -67,10 +103,15 @@ function readPasswordlessConfiguration(
   const mobileRedirectUrl = readMobileRedirectUrl(env.AUTH_MOBILE_REDIRECT_URL, appOrigin, env.NODE_ENV);
   const magicLinkSecretText = readRequired(env.AUTH_MAGIC_LINK_SECRET, "AUTH_MAGIC_LINK_SECRET");
   const sessionSecretText = readRequired(env.AUTH_SESSION_SECRET, "AUTH_SESSION_SECRET");
-  if (magicLinkSecretText.length < 32) throw new Error("AUTH_MAGIC_LINK_SECRET must contain at least 32 characters.");
-  if (sessionSecretText.length < 32) throw new Error("AUTH_SESSION_SECRET must contain at least 32 characters.");
+  if (magicLinkSecretText.length < 32)
+    throw configurationError("AUTH_MAGIC_LINK_SECRET", "AUTH_MAGIC_LINK_SECRET must contain at least 32 characters.");
+  if (sessionSecretText.length < 32)
+    throw configurationError("AUTH_SESSION_SECRET", "AUTH_SESSION_SECRET must contain at least 32 characters.");
   if (magicLinkSecretText === sessionSecretText)
-    throw new Error("AUTH_MAGIC_LINK_SECRET and AUTH_SESSION_SECRET must be different values.");
+    throw configurationError(
+      "AUTH_MAGIC_LINK_SECRET",
+      "AUTH_MAGIC_LINK_SECRET and AUTH_SESSION_SECRET must be different values.",
+    );
   const turnstile = readTurnstileConfiguration(env, env.NODE_ENV, options.requireTurnstileSiteKey ?? true);
   return {
     appOrigin,
@@ -109,35 +150,39 @@ function readTurnstileConfiguration(
     nodeEnv === "production" &&
     (siteKey === "1x00000000000000000000AA" || secretKey === "1x0000000000000000000000000000000AA")
   )
-    throw new Error("Cloudflare Turnstile testing keys are not allowed in production.");
+    throw configurationError(
+      "TURNSTILE_SECRET_KEY",
+      "Cloudflare Turnstile testing keys are not allowed in production.",
+    );
   return { siteKey, secretKey };
 }
 
-function readRequired(value: string | undefined, name: string): string {
+function readRequired(value: string | undefined, name: AuthConfigurationField): string {
   const normalized = value?.trim();
-  if (!normalized) throw new Error(`${name} is required for the selected authentication backend.`);
+  if (!normalized) throw configurationError(name, `${name} is required for the selected authentication backend.`);
   return normalized;
 }
 
 function readInteger(
   value: string | undefined,
-  name: string,
+  name: AuthConfigurationField,
   fallback: number,
   minimum: number,
   maximum: number,
 ): number {
   const raw = value?.trim() || String(fallback);
-  if (!/^\d+$/.test(raw)) throw new Error(`${name} must be an integer between ${minimum} and ${maximum}.`);
+  if (!/^\d+$/.test(raw))
+    throw configurationError(name, `${name} must be an integer between ${minimum} and ${maximum}.`);
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum)
-    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}.`);
+    throw configurationError(name, `${name} must be an integer between ${minimum} and ${maximum}.`);
   return parsed;
 }
 
-function readOrigin(value: string | undefined, name: string, nodeEnv: string | undefined): URL {
+function readOrigin(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
   const parsed = readUrl(value, name, nodeEnv);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password)
-    throw new Error(`${name} must contain only an origin.`);
+    throw configurationError(name, `${name} must contain only an origin.`);
   return parsed;
 }
 
@@ -147,7 +192,7 @@ function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEn
   try {
     parsed = new URL(value.trim());
   } catch {
-    throw new Error("AUTH_MOBILE_REDIRECT_URL must be a valid URL.");
+    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL must be a valid URL.");
   }
   const isDevelopmentCustomScheme =
     parsed.protocol === "rhasia-scret:" &&
@@ -164,22 +209,26 @@ function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEn
     parsed.search ||
     parsed.hash
   )
-    throw new Error("AUTH_MOBILE_REDIRECT_URL is not an approved callback.");
+    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL is not an approved callback.");
   return parsed;
 }
 
-function readUrl(value: string | undefined, name: string, nodeEnv: string | undefined): URL {
+function readUrl(value: string | undefined, name: AuthConfigurationField, nodeEnv: string | undefined): URL {
   let parsed: URL;
   try {
     parsed = new URL(readRequired(value, name));
   } catch {
-    throw new Error(`${name} must be a valid URL.`);
+    throw configurationError(name, `${name} must be a valid URL.`);
   }
   if (
     parsed.protocol !== "https:" &&
     !(nodeEnv !== "production" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"))
   ) {
-    throw new Error(`${name} must use HTTPS.`);
+    throw configurationError(name, `${name} must use HTTPS.`);
   }
   return parsed;
+}
+
+function configurationError(field: AuthConfigurationField, message: string): AuthenticationConfigurationError {
+  return new AuthenticationConfigurationError(field, message);
 }

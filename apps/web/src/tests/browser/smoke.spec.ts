@@ -171,6 +171,16 @@ test("renders email authentication and signup at sign in", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Buka snapshot luring" })).toHaveAttribute("href", "/offline");
 });
 
+test("renders the localized configuration failure state", async ({ page }) => {
+  await page.goto("/sign-in?auth=configuration_error");
+  await expect(
+    page
+      .locator('[data-slot="alert"]')
+      .filter({ hasText: "Layanan masuk belum dikonfigurasi. Hubungi administrator." }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Alamat email")).toBeVisible();
+});
+
 test("hands a passwordless session to a new installed-PWA window", async ({ page, context }) => {
   let handoffId: string | undefined;
   let handoffPublished = false;

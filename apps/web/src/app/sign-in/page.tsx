@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
-import { loadServerVaultPageContext } from "@/shared/infrastructure/server-api-gateway";
+import { isServerApiConfigurationError, loadServerVaultPageContext } from "@/shared/infrastructure/server-api-gateway";
 import {
   INVITATION_AUTH_RETURN_PATH,
   resolveAuthReturnPath,
@@ -13,6 +13,7 @@ import {
 } from "@/modules/identity/application/auth-return-path";
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 import { InvitationAuthContinuation } from "@/modules/identity/presentation/invitation-auth-continuation";
+import { readAuthConfiguration, type AuthBackend } from "@/modules/identity/infrastructure/auth-backend";
 
 export const dynamic = "force-dynamic";
 
@@ -28,13 +29,28 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const auth = firstQueryValue(params.auth);
   const nextPath = resolveAuthReturnPath(firstQueryValue(params.next));
-  const context = await loadServerVaultPageContext();
+  let backend: AuthBackend | "invalid" = "invalid";
+  let configurationError = false;
+  try {
+    backend = readAuthConfiguration().backend;
+  } catch {
+    configurationError = true;
+  }
+  let context: Awaited<ReturnType<typeof loadServerVaultPageContext>> = null;
+  if (backend !== "none" && backend !== "invalid") {
+    try {
+      context = await loadServerVaultPageContext();
+    } catch (error) {
+      if (!isServerApiConfigurationError(error)) throw error;
+      configurationError = true;
+      backend = "invalid";
+    }
+  }
   const user = context?.user;
-  const backend = readAuthBackend();
   const turnstileSiteKey = backend === "passwordless" ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY : undefined;
   if (user) redirect(nextPath);
 
-  const notice = authNotice(auth, nextPath);
+  const notice = authNotice(configurationError ? "configuration_error" : auth, nextPath);
 
   return (
     <AppPage centered>
@@ -70,7 +86,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           {backend === "none" && (
             <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>
           )}
-          {backend !== "none" && <Separator />}
+          {backend !== "none" && backend !== "invalid" && <Separator />}
           <Button variant="outline" asChild>
             <Link href="/local">
               <Laptop aria-hidden="true" />
@@ -80,9 +96,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <Button variant="outline" asChild>
             <Link href="/offline">{t("openOffline")}</Link>
           </Button>
-          <p className="text-center text-xs leading-5 text-muted-foreground">
-            {t(backend === "none" ? "localOnly" : backend === "passwordless" ? "emailAccess" : "organizationAccess")}
-          </p>
+          {backend !== "invalid" && (
+            <p className="text-center text-xs leading-5 text-muted-foreground">
+              {t(backend === "none" ? "localOnly" : backend === "passwordless" ? "emailAccess" : "organizationAccess")}
+            </p>
+          )}
           <Separator />
           <Button variant="ghost" asChild>
             <Link href="/">{t("backHome")}</Link>
@@ -91,12 +109,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       </SurfaceCard>
     </AppPage>
   );
-}
-
-function readAuthBackend(): "none" | "passwordless" | "oidc" {
-  const backend = process.env.AUTH_BACKEND ?? "passwordless";
-  if (backend === "none" || backend === "passwordless" || backend === "oidc") return backend;
-  throw new Error("AUTH_BACKEND must be none, passwordless, or oidc.");
 }
 
 function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNotice | null {

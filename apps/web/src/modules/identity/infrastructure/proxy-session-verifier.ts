@@ -16,7 +16,11 @@ export type ProxyAuthConfiguration =
   | { backend: "none" }
   | { backend: "passwordless"; sessionSecret: Uint8Array }
   | ({ backend: "oidc" } & OidcConfiguration);
-export type ProxySessionVerifier = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<boolean>;
+export type ProxySessionVerification = boolean | "configuration_error";
+export type ProxySessionVerifier = (
+  request: NextRequest,
+  setAuthCookies: SetAuthCookies,
+) => Promise<ProxySessionVerification>;
 
 export function createProxySessionVerifier(configuration: ProxyAuthConfiguration): ProxySessionVerifier {
   if (configuration.backend === "none") return async () => false;
