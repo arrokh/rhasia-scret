@@ -1210,11 +1210,12 @@
     },
     "offline": {
       "title": "Offline vault access",
-      "description": "Unlock an encrypted snapshot on this device without contacting the server.",
+      "description": "Unlock an encrypted Personal Vault snapshot on this device without contacting the server. Shared Vaults are online-only.",
       "readOnly": "Read-only mode",
       "readOnlyDescription": "Authorization cannot be checked until online synchronization succeeds. Changes and access audits are not stored or replayed.",
       "searching": "Looking for encrypted snapshots…",
       "empty": "No local snapshot exists yet. Open your vaults once while online to synchronize this device.",
+      "migrationRequired": "An older snapshot containing Shared Vault data was removed. Reconnect to synchronize a Personal Vault snapshot.",
       "profile": "Anonymous local profile",
       "chooseSnapshot": "Choose snapshot",
       "profileSummary": "Snapshot {number} · {date} · {count, plural, one {# vault} other {# vaults}}",

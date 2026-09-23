@@ -1,4 +1,4 @@
-import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import type { EncryptedPersonalOfflineSnapshot } from "@rhasia-scret/client-vault-core";
 import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import {
@@ -44,14 +44,17 @@ describe("EncryptedOfflineVaultStore", () => {
     expect(persistedText).not.toContain(bundle.personalVault.vaultId);
     expect(await store.read(bundle.profileId)).toEqual(bundle);
     expect(await store.readByPersonalVaultId(bundle.personalVault.vaultId)).toEqual(bundle);
-    expect(await store.listProfiles()).toEqual([
-      {
-        profileId: bundle.profileId,
-        personalVaultId: bundle.personalVault.vaultId,
-        synchronizedAt: bundle.synchronizedAt,
-        sharedVaultCount: 0,
-      },
-    ]);
+    expect(await store.listProfiles()).toEqual({
+      migrationRequired: false,
+      profiles: [
+        {
+          profileId: bundle.profileId,
+          personalVaultId: bundle.personalVault.vaultId,
+          synchronizedAt: bundle.synchronizedAt,
+          sharedVaultCount: 0,
+        },
+      ],
+    });
   });
 
   it("rejects synchronization-time regression and clears file and device-bound storage key", async () => {
@@ -62,6 +65,75 @@ describe("EncryptedOfflineVaultStore", () => {
 
     await expect(store.replace(fixture("2026-08-11T21:00:00.000Z"))).rejects.toThrow("cannot regress");
     await store.clearAll();
+
+    expect(persistence.bytes).toBeNull();
+    expect(keys.values.size).toBe(0);
+  });
+
+  it("removes an orphaned Keychain or Keystore key when no encrypted snapshot exists", async () => {
+    const persistence = new MemoryBlob();
+    const keys = new MemoryKeys();
+    await keys.set("rhasia.mobile.offline-vault.encryption-key.v1", bytesToBase64(new Uint8Array(32).fill(9)));
+    const store = new EncryptedOfflineVaultStore(persistence, keys, nativeClientCrypto);
+
+    await expect(store.listProfiles()).resolves.toEqual({ profiles: [], migrationRequired: false });
+    expect(keys.values.size).toBe(0);
+  });
+
+  it("removes a legacy Shared Vault store before it can be discovered", async () => {
+    const persistence = new MemoryBlob();
+    const keys = new MemoryKeys();
+    const key = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
+    const legacy = {
+      version: 1,
+      profiles: {
+        profile_1: {
+          ...fixture(),
+          schemaVersion: 2,
+          sharedVaults: [],
+        },
+      },
+    };
+    const envelope = await nativeClientCrypto.encryptPayloadWithContext(
+      key,
+      new TextEncoder().encode(JSON.stringify(legacy)),
+      { purpose: "native-offline-snapshot", payloadType: "encrypted-vault-bundles", keyVersion: 1 },
+    );
+    await persistence.replace(nativeClientCrypto.serializeEncryptedEnvelope(envelope));
+    await keys.set("rhasia.mobile.offline-vault.encryption-key.v1", bytesToBase64(key));
+    key.fill(0);
+
+    const store = new EncryptedOfflineVaultStore(persistence, keys, nativeClientCrypto);
+    await expect(store.listProfiles()).resolves.toEqual({ profiles: [], migrationRequired: true });
+    expect(persistence.bytes).toBeNull();
+    expect(keys.values.size).toBe(0);
+  });
+
+  it("zeroes the loaded storage key when decryption fails", async () => {
+    const persistence = new MemoryBlob();
+    const keys = new MemoryKeys();
+    await new EncryptedOfflineVaultStore(persistence, keys, nativeClientCrypto).replace(fixture());
+    let decryptedKey: Uint8Array | undefined;
+    const failingCrypto = {
+      ...nativeClientCrypto,
+      decryptPayloadWithContext: async (key: Uint8Array) => {
+        decryptedKey = key;
+        throw new Error("snapshot decryption failed");
+      },
+    };
+    const store = new EncryptedOfflineVaultStore(persistence, keys, failingCrypto);
+
+    await expect(store.listProfiles()).rejects.toThrow("snapshot decryption failed");
+    expect(decryptedKey).toEqual(new Uint8Array(32));
+  });
+
+  it("removes the secure storage key when the last Personal snapshot is removed", async () => {
+    const persistence = new MemoryBlob();
+    const keys = new MemoryKeys();
+    const store = new EncryptedOfflineVaultStore(persistence, keys, nativeClientCrypto);
+    await store.replace(fixture());
+
+    await store.removeProfile("profile_1");
 
     expect(persistence.bytes).toBeNull();
     expect(keys.values.size).toBe(0);
@@ -78,9 +150,9 @@ describe("EncryptedOfflineVaultStore", () => {
   });
 });
 
-function fixture(synchronizedAt = "2026-08-11T22:00:00.000Z"): EncryptedOfflineVaultBundle {
+function fixture(synchronizedAt = "2026-08-11T22:00:00.000Z"): EncryptedPersonalOfflineSnapshot {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     profileId: "profile_1",
     synchronizedAt,
     synchronizationToken: "sync-token-1",
@@ -97,7 +169,6 @@ function fixture(synchronizedAt = "2026-08-11T22:00:00.000Z"): EncryptedOfflineV
       encryptionVersion: 1,
       accounts: [{ id: "account_1", encryptedPayload: envelope(5), encryptionVersion: 1, revision: 1 }],
     },
-    sharedVaults: [],
   };
 }
 

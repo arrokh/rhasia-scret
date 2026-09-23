@@ -83,4 +83,5 @@ export const API_ROUTE_MANIFEST = [
   ["GET", "/vaults/:vaultId/audit-events"],
   ["POST", "/vaults/:vaultId/audit-events"],
   ["GET", "/sync/offline-bundle"],
+  ["GET", "/sync/workspace-bundle"],
 ] as const satisfies readonly (readonly [ApiRouteMethod, string])[];

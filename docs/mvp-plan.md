@@ -19,9 +19,9 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 - Vault names, account issuer/name, and normalized TOTP configuration are encrypted vault content. Before unlock, the UI uses generic locked labels.
 - A Shared Vault has exactly one Owner and zero or more Viewers. Owners always manage accounts, membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
 - Owners may invite an exact email recipient before that person has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs up or signs in, completes enrollment, redeems the link, and receives Shared Vault access without the owner returning. The link expires exactly seven days after creation; owners may cancel pending links, and may re-invite the same recipient only after expiry with fresh link material.
-- Membership revocation immediately denies future online access and removes the local snapshot on next successful contact. It cannot erase copied secrets or offline caches; owners must reset the original service's 2FA for full credential revocation.
+- Membership revocation immediately denies future online access and removes Shared Vault material on next successful contact. Personal-only hosted snapshots never contain Shared Vaults; revocation cannot erase copied secrets or old-client caches, and owners must reset the original service's 2FA for full credential revocation.
 - Shared Vaults and accounts soft-delete for 30 days and only owners may restore them. Personal Vaults cannot be deleted. Vault audit history is owner-only, opaque-ID-only, and retained one year after vault deletion.
-- The PWA and native client permit read-only offline use from encrypted Local Vault Snapshots. They block and never queue offline writes. The native client adds a separate context-authenticated storage layer with its random key in Keychain/Android Keystore. Installation is optional for the PWA; the native target is an installable iOS/Android app.
+- The PWA and native client permit read-only offline use from encrypted Personal-only Local Vault Snapshots; Shared Vaults remain online-only. They block and never queue offline writes. The native client adds a separate context-authenticated storage layer with its random key in Keychain/Android Keystore. Installation is optional for the PWA; the native target is an installable iOS/Android app.
 
 ## Bounded contexts and layering
 
@@ -145,7 +145,7 @@ Owners always update/delete/restore accounts with revisions. Viewers may replace
 
 ## Slice 14 — encrypted offline clients
 
-Store encrypted Local Vault Snapshots after sync. Allow read-only offline unlock and OTP generation; show offline state and block all writes. The web client uses browser-owned encrypted storage and the native client adds a context-authenticated file layer with a secure-store key. Reconnection handles revision/access removal.
+Store encrypted Personal-only Local Vault Snapshots after sync. Allow read-only Personal Vault offline unlock and OTP generation; show offline state and block all writes. Shared Vaults remain online-only. The web client uses browser-owned encrypted storage and the native client adds a context-authenticated file layer with a secure-store key. Reconnection handles revision/access removal and clears legacy Shared-containing snapshots.
 
 ## Slice 15 — audit history
 

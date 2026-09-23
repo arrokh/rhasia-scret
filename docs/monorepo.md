@@ -6,12 +6,12 @@ The repository uses pnpm workspaces as its monorepo boundary. The root `pnpm-loc
 
 - `apps/api` owns the standalone Hono service, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, email/auth adapters, retention scheduling, and API tests/configuration. Bun is the primary runtime; Node.js and Vercel adapters share the same composition.
 - `apps/web` owns the Next.js presentation application, same-origin `/api/v1/**` proxy, browser adapters, web presentation, localization catalogs, SSR API gateway, and web-only tests/configuration. It has no database or backend-module ownership.
-- `apps/mobile` owns the Expo SDK 57 application, generated-native configuration, repository-owned native modules, native adapters, mobile presentation, mobile localization, and mobile-only tests/configuration. It consumes hosted Personal/Shared Vault workflows and read-only encrypted offline snapshots, not the browser-only Local Profile/Local Vault.
+- `apps/mobile` owns the Expo SDK 57 application, generated-native configuration, repository-owned native modules, native adapters, mobile presentation, mobile localization, and mobile-only tests/configuration. It consumes hosted Personal/Shared Vault workflows and read-only encrypted Personal-only offline snapshots; Shared Vaults remain online-only, and it does not implement the browser-only Local Profile/Local Vault.
 - `packages/client-vault-core` owns platform-neutral client workflows and contracts. It exposes `src/index.ts` as its public API and has no dependency on either app or on browser, React, Expo, Prisma, filesystem, or platform-storage APIs.
 
 Applications may depend on the shared package through `workspace:*`. They must not import the other application or reach into shared-package internals. Browser and native capabilities remain injected ports implemented by the owning app.
 
-Server-owned web code may import only the encrypted offline-bundle parser/contracts and deterministic Shared Vault permission policy/types from `client-vault-core`. An architecture test rejects all other package symbols—including crypto, decryption, unlock, archive-opening, Secure Share, and OTP workflows—as well as default, namespace, wildcard, inline, and dynamic package imports at server boundaries.
+Server-owned web code may import only the encrypted Personal-only snapshot and transient workspace parser/contracts and deterministic Shared Vault permission policy/types from `client-vault-core`. An architecture test rejects all other package symbols—including crypto, decryption, unlock, archive-opening, Secure Share, and OTP workflows—as well as default, namespace, wildcard, inline, and dynamic package imports at server boundaries.
 
 ## Commands
 

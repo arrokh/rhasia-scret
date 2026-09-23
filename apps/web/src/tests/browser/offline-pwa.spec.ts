@@ -178,7 +178,7 @@ test.describe("encrypted read-only offline PWA", () => {
       expect(persisted).not.toContain(plaintext);
     }
 
-    await page.route("**/api/v1/sync/offline-bundle", (route) =>
+    await page.route("**/api/v1/sync/workspace-bundle", (route) =>
       route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -187,26 +187,38 @@ test.describe("encrypted read-only offline PWA", () => {
     );
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    await expect(page.getByRole("status").filter({ hasText: "Autentikasi diperlukan" })).toBeVisible();
-    await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
+    await expect(page.getByText("Viewer User", { exact: true })).toHaveCount(0);
 
     await context.setOffline(true);
-    await page.unroute("**/api/v1/sync/offline-bundle");
-    await page.route("**/api/v1/sync/offline-bundle", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ schemaVersion: 999 }) }),
+    await page.getByRole("textbox", { name: "Passphrase Brankas" }).fill(initial.secret);
+    await page.getByRole("button", { name: "Buka dengan Passphrase Brankas" }).click();
+    await expect(page.getByRole("heading", { name: "Akun autentikator luring" })).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.unroute("**/api/v1/sync/workspace-bundle");
+    await page.route("**/api/v1/sync/workspace-bundle", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ responseVersion: 999 }) }),
     );
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect(page.getByRole("status").filter({ hasText: "Sinkronisasi gagal atau usang" })).toBeVisible();
-    await expect(page.getByText("Viewer User", { exact: true })).toBeVisible();
+    await expect(page.getByText("Viewer User", { exact: true })).toHaveCount(0);
 
     await context.setOffline(true);
-    await page.unroute("**/api/v1/sync/offline-bundle");
-    await page.route("**/api/v1/sync/offline-bundle", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reconciled.bundle) }),
-    );
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.unroute("**/api/v1/sync/workspace-bundle");
+    let reconciledRequests = 0;
+    await page.route("**/api/v1/sync/workspace-bundle", (route) => {
+      reconciledRequests += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(reconciled.workspace),
+      });
+    });
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect.poll(() => reconciledRequests).toBeGreaterThan(0);
     await expect(page.getByRole("status").filter({ hasText: "Daring dan terkini" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Viewer User", { exact: true })).toHaveCount(0);
     expect(await storedBundleText(page)).toContain("2026-01-02T00:00:00.000Z");
@@ -220,6 +232,7 @@ test.describe("encrypted read-only offline PWA", () => {
 type FixtureAccount = { issuer: string; accountName: string; secretBase64: string };
 type FixtureBundle = {
   bundle: Record<string, unknown>;
+  workspace: Record<string, unknown>;
   secret: string;
   accounts: FixtureAccount[];
   vaultNames: string[];
@@ -300,6 +313,18 @@ async function encryptedFixture({
     vaultId,
     lifecycle: "ACTIVE",
     role,
+    effectiveAccountPermissions: {
+      permissions: {
+        canAddAccounts: role === "OWNER",
+        canEditAccounts: role === "OWNER",
+        canDeleteAccounts: role === "OWNER",
+      },
+      sources: {
+        canAddAccounts: role === "OWNER" ? "OWNER" : "VAULT",
+        canEditAccounts: role === "OWNER" ? "OWNER" : "VAULT",
+        canDeleteAccounts: role === "OWNER" ? "OWNER" : "VAULT",
+      },
+    },
     encryptedName: base64(
       await encrypted(key, new TextEncoder().encode(name), {
         purpose: "vault-name",
@@ -323,11 +348,11 @@ async function encryptedFixture({
   const sharedVaults = [await sharedVault("owner_vault", "Owner Vault", "OWNER", ownerKey, ownerAccount.record)];
   if (includeViewer)
     sharedVaults.push(await sharedVault("viewer_vault", "Viewer Vault", "VIEWER", viewerKey, viewerAccount.record));
-  const bundle = {
-    schemaVersion: 1,
+  const personalSnapshot = {
+    schemaVersion: 3,
     profileId: "profile_fixture",
     synchronizedAt,
-    synchronizationToken: synchronizedAt,
+    synchronizationToken: `personal-${synchronizedAt}`,
     cryptoProfile: {
       vaultUnlockSalt: base64(salt),
       wrappedUserRootKey: base64(
@@ -359,15 +384,20 @@ async function encryptedFixture({
       encryptionVersion: 1,
       accounts: [personalAccount.record],
     },
+  };
+  const workspace = {
+    responseVersion: 1,
+    workspaceSynchronizationToken: synchronizedAt,
+    synchronizedAt,
+    personalSnapshot,
     sharedVaults,
   };
   unlockKey.fill(0);
   return {
-    bundle,
+    bundle: personalSnapshot,
+    workspace,
     secret,
-    accounts: includeViewer
-      ? [personalAccount.fixture, ownerAccount.fixture, viewerAccount.fixture]
-      : [personalAccount.fixture, ownerAccount.fixture],
+    accounts: [personalAccount.fixture],
     vaultNames: includeViewer ? ["Personal Vault", "Owner Vault", "Viewer Vault"] : ["Personal Vault", "Owner Vault"],
     sensitiveValues: [secret, base64(userRootKey), base64(personalKey), base64(ownerKey), base64(viewerKey)],
   };

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/vaults/manage" }));
 vi.mock("@/modules/identity", () => ({ LogoutForm: () => null }));
 vi.mock("@/modules/vault-management/presentation/load-vault-page-context", () => ({
   loadVaultPageContext: mocks.loadVaultPageContext,
@@ -42,6 +42,10 @@ describe("VaultDirectoryPage archive navigation", () => {
 
     expect(markup).toContain("Buka Brankas Pribadi atau kelola Brankas Bersama Anda.");
     expect(markup.match(/role="status"/g)).toHaveLength(1);
+    expect(markup).toContain("p-5 sm:p-6");
+    expect(markup).toContain('class="h-7 w-32 rounded bg-muted"');
+    expect(markup).toContain('class="size-12 rounded-md bg-muted"');
+    expect(markup).toContain("min-h-16 gap-2 rounded-md border bg-muted/30 p-3");
     expect(markup).not.toContain("Brankas Anda terkunci");
   });
 
@@ -77,6 +81,10 @@ describe("VaultDirectoryPage archive navigation", () => {
       'aria-label="Import arsip" title="Import arsip" data-slot="button" data-variant="outline" data-size="icon"',
     );
     expect(markup).toContain('href="/vaults/manage/new"');
+    const archiveActions = markup.match(/<nav aria-label="Aksi arsip Brankas"[\s\S]*?<\/nav>/)?.[0];
+    expect(archiveActions).toBeDefined();
+    expect(archiveActions?.match(/size-12/g)).toHaveLength(2);
+    expect(archiveActions?.match(/h-12/g)).toHaveLength(1);
     expect(markup).toContain("lucide-database-backup");
     expect(markup).toContain("lucide-import");
     expect(markup).not.toContain("lucide-download");

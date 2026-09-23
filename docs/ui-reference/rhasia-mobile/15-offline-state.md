@@ -14,8 +14,8 @@ Use amber/orange only as a warning role; preserve the white/neutral mobile shell
 
 ## Expected behaviour
 
-This represents read-only offline access from an encrypted Local Vault Snapshot. Locally generated OTPs may remain available after unlock, but all writes—account changes, invitations, membership changes, deletion, and settings that mutate server state—must be blocked and never queued. On reconnection, synchronize revisions and remove a snapshot if access was revoked.
+This represents read-only offline access from an encrypted Personal-only Local Vault Snapshot. Shared Vaults are online-only and must not appear in the offline picker or account list. Locally generated Personal Vault OTPs may remain available after unlock, but all writes—account changes, invitations, membership changes, deletion, and settings that mutate server state—must be blocked and never queued. On reconnection, synchronize revisions; reject and clear any legacy snapshot that may contain Shared Vault data, without touching the independent writable Local Vault.
 
 ## Flow
 
-Connectivity loss → detect snapshot availability → unlock cached Vault locally → show read-only OTP access and offline warning → retry/reconnect → synchronize or revoke local snapshot according to server authorization.
+Connectivity loss → evict transient Shared Vault material → detect Personal-only snapshot availability → unlock Personal Vault locally → show read-only OTP access and offline warning → retry/reconnect → synchronize or clear legacy/revoked hosted data according to server authorization.

@@ -52,7 +52,7 @@ function workspace(syncState: Workspace["syncState"] = "CURRENT", value = "old")
   return { profileId: "profile-1", syncState, userRootKey: Uint8Array.of(7, 8), value };
 }
 
-function harness(initial = workspace("CURRENT")) {
+function harness(initial = workspace("CURRENT"), evictShared?: (value: Workspace) => Workspace) {
   const network = new Network();
   const applicationLifecycle = new Lifecycle();
   let lockListener: (() => void) | undefined;
@@ -79,6 +79,7 @@ function harness(initial = workspace("CURRENT")) {
           value.userRootKey.fill(0);
         }
       },
+      evictShared,
       classifyFailure: (error) =>
         error instanceof Error && error.message === "auth"
           ? "AUTHENTICATION"
@@ -112,6 +113,22 @@ describe("WorkspaceLifecycle", () => {
     expect(refreshed.userRootKey).toEqual(Uint8Array.of(7, 8));
   });
 
+  it("evicts Shared material before presenting the offline state", () => {
+    const test = harness(workspace("CURRENT", "shared"), (value) => ({ ...value, value: "personal" }));
+    test.controller.start();
+    test.network.change(false);
+    expect(test.controller.workspace?.value).toBe("personal");
+    expect(test.controller.workspace?.syncState).toBe("OFFLINE");
+  });
+
+  it("evicts Shared material before stale state on a timeout or malformed response", async () => {
+    const test = harness(workspace("OFFLINE", "shared"), (value) => ({ ...value, value: "personal" }));
+    test.refresh.mockRejectedValue(new Error("workspace request timed out"));
+    test.controller.start();
+    await vi.waitFor(() => expect(test.controller.workspace?.syncState).toBe("STALE"));
+    expect(test.controller.workspace?.value).toBe("personal");
+  });
+
   it.each([
     [new Error("auth"), "AUTH_REQUIRED"],
     [new Error("storage"), "LOCAL_STORAGE_ERROR"],
@@ -120,8 +137,35 @@ describe("WorkspaceLifecycle", () => {
     const test = harness(workspace("OFFLINE"));
     test.refresh.mockRejectedValue(failure);
     test.controller.start();
+    if (expected === "AUTH_REQUIRED") {
+      await vi.waitFor(() => expect(test.controller.workspace).toBeNull());
+      return;
+    }
     await vi.waitFor(() => expect(test.controller.workspace?.syncState).toBe(expected));
     expect(test.writeReasons.at(-1)).toBe(`Workspace is ${expected}.`);
+  });
+
+  it("revalidates a currently authorized workspace when the application becomes visible", async () => {
+    const test = harness(workspace("CURRENT"));
+    const refreshed = workspace("CURRENT", "revalidated");
+    test.refresh.mockResolvedValue(refreshed);
+    test.controller.start();
+
+    test.applicationLifecycle.listener?.(true);
+    await vi.waitFor(() => expect(test.controller.workspace?.value).toBe("revalidated"));
+    expect(test.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("evicts Shared material and marks stale when explicit authorization refresh fails", async () => {
+    const test = harness(workspace("CURRENT", "shared"), (value) => ({ ...value, value: "personal" }));
+    test.refresh.mockRejectedValue(new Error("workspace request failed"));
+    test.controller.start();
+
+    await expect(test.controller.refreshAuthorization()).rejects.toThrow("workspace request failed");
+
+    expect(test.controller.workspace?.value).toBe("personal");
+    expect(test.controller.workspace?.syncState).toBe("STALE");
+    expect(test.writeReasons.at(-1)).toBe("Workspace is STALE.");
   });
 
   it("cancels an in-flight refresh and clears its late result after lock", async () => {
@@ -141,6 +185,7 @@ describe("WorkspaceLifecycle", () => {
     await vi.waitFor(() => expect(test.refresh).toHaveBeenCalledOnce());
 
     test.lock();
+    expect(test.refresh.mock.calls[0]?.[0]).toEqual(Uint8Array.of(0, 0));
     const late = workspace("CURRENT", "late");
     resolveRefresh?.(late);
     await vi.waitFor(() => expect(test.cleared).toContain(late));

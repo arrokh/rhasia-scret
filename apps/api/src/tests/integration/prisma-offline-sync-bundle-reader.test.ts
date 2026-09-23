@@ -53,7 +53,8 @@ describe("PrismaOfflineSyncBundleReader", () => {
       await createVault(otherOwner.id, "SHARED", "ACTIVE", user.id, "VIEWER", "REVOKED");
       await createVault(otherOwner.id, "SHARED", "DELETED", user.id, "VIEWER");
 
-      const bundle = await new PrismaOfflineSyncBundleReader(prisma).readAuthorizedBundle(user.id);
+      const reader = new PrismaOfflineSyncBundleReader(prisma);
+      const bundle = await reader.readAuthorizedBundle(user.id);
 
       expect(bundle).not.toBeNull();
       expect(bundle?.profileId).toBe(user.id);
@@ -74,7 +75,19 @@ describe("PrismaOfflineSyncBundleReader", () => {
       expect(JSON.stringify(bundle)).not.toContain("encryptedUserPrivateKey");
       expect(JSON.stringify(bundle)).not.toContain(user.email);
 
-      const unchanged = await new PrismaOfflineSyncBundleReader(prisma).readAuthorizedBundle(user.id);
+      const authorizedWorkspace = await reader.readAuthorizedWorkspaceResponse(user.id);
+      expect(authorizedWorkspace).not.toBeNull();
+      expect(authorizedWorkspace?.workspaceSynchronizationToken).toBe(bundle?.synchronizationToken);
+      expect(authorizedWorkspace?.personalSnapshot).not.toHaveProperty("sharedVaults");
+      expect(authorizedWorkspace?.personalSnapshot.personalVault.vaultId).toBe(personal.id);
+      expect(authorizedWorkspace?.sharedVaults.map(({ vaultId }) => vaultId)).toEqual(
+        bundle?.sharedVaults.map(({ vaultId }) => vaultId),
+      );
+      expect(authorizedWorkspace?.personalSnapshot.synchronizationToken).not.toBe(
+        authorizedWorkspace?.workspaceSynchronizationToken,
+      );
+
+      const unchanged = await reader.readAuthorizedBundle(user.id);
       expect(unchanged?.synchronizationToken).toBe(bundle?.synchronizationToken);
 
       const changedPayload = opaque.slice();

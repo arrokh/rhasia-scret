@@ -2,16 +2,17 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   BrowserOfflineVaultRepository,
-  parseEncryptedOfflineVaultBundle,
-  type EncryptedOfflineVaultBundle,
+  LegacySharedVaultSnapshotError,
+  parseEncryptedPersonalOfflineSnapshot,
+  type EncryptedPersonalOfflineSnapshot,
 } from "@/modules/sync";
 
 const ciphertext = Buffer.from([1, ...Array<number>(31).fill(7)]).toString("base64");
 const salt = Buffer.alloc(16, 8).toString("base64");
 
-function bundle(profileId: string, synchronizedAt = "2026-01-01T00:00:00.000Z"): EncryptedOfflineVaultBundle {
-  return parseEncryptedOfflineVaultBundle({
-    schemaVersion: 1,
+function snapshot(profileId: string, synchronizedAt = "2026-01-01T00:00:00.000Z"): EncryptedPersonalOfflineSnapshot {
+  return parseEncryptedPersonalOfflineSnapshot({
+    schemaVersion: 3,
     profileId,
     synchronizedAt,
     synchronizationToken: synchronizedAt,
@@ -28,120 +29,150 @@ function bundle(profileId: string, synchronizedAt = "2026-01-01T00:00:00.000Z"):
       encryptionVersion: 1,
       accounts: [{ id: "personal_account", encryptedPayload: ciphertext, encryptionVersion: 1, revision: 1 }],
     },
-    sharedVaults: [
-      {
-        vaultId: `shared_${profileId}`,
-        lifecycle: "ACTIVE",
-        role: "VIEWER",
-        encryptedName: ciphertext,
-        encryptionVersion: 1,
-        encryptedVaultKey: ciphertext,
-        keyVersion: 1,
-        accounts: [{ id: "shared_account", encryptedPayload: ciphertext, encryptionVersion: 1, revision: 2 }],
-      },
-    ],
   });
+}
+
+function legacyBundle(profileId: string) {
+  return {
+    schemaVersion: 2,
+    profileId,
+    synchronizedAt: "2026-01-01T00:00:00.000Z",
+    synchronizationToken: "legacy-token",
+    cryptoProfile: snapshot(profileId).cryptoProfile,
+    personalVault: snapshot(profileId).personalVault,
+    sharedVaults: [],
+  };
 }
 
 describe("BrowserOfflineVaultRepository", () => {
   const repository = new BrowserOfflineVaultRepository();
   beforeEach(async () => repository.clearAll());
 
-  it("discovers opaque profiles and atomically reads complete validated bundles", async () => {
-    await repository.replace(bundle("profile_a"));
-    await repository.replace(bundle("profile_b", "2026-01-02T00:00:00.000Z"));
+  it("discovers and reads only Personal Vault snapshots", async () => {
+    await repository.replace(snapshot("profile_a"));
+    await repository.replace(snapshot("profile_b", "2026-01-02T00:00:00.000Z"));
 
-    expect(await repository.listProfiles()).toEqual([
-      {
-        profileId: "profile_b",
-        personalVaultId: "personal_profile_b",
-        synchronizedAt: "2026-01-02T00:00:00.000Z",
-        sharedVaultCount: 1,
-      },
-      {
-        profileId: "profile_a",
-        personalVaultId: "personal_profile_a",
-        synchronizedAt: "2026-01-01T00:00:00.000Z",
-        sharedVaultCount: 1,
-      },
-    ]);
-    const restored = await repository.read("profile_a");
-    expect(restored?.personalVault.accounts).toHaveLength(1);
-    expect(restored?.schemaVersion).toBe(2);
-    expect(restored?.sharedVaults[0]?.effectiveAccountPermissions).toEqual({
-      permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
-      sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" },
+    expect(await repository.listProfiles()).toEqual({
+      migrationRequired: false,
+      profiles: [
+        {
+          profileId: "profile_b",
+          personalVaultId: "personal_profile_b",
+          synchronizedAt: "2026-01-02T00:00:00.000Z",
+          sharedVaultCount: 0,
+        },
+        {
+          profileId: "profile_a",
+          personalVaultId: "personal_profile_a",
+          synchronizedAt: "2026-01-01T00:00:00.000Z",
+          sharedVaultCount: 0,
+        },
+      ],
     });
+    expect((await repository.read("profile_a"))?.schemaVersion).toBe(3);
     expect((await repository.readByPersonalVaultId("personal_profile_b"))?.profileId).toBe("profile_b");
-    expect(await repository.readByPersonalVaultId("missing-personal-vault")).toBeNull();
   });
 
-  it("rejects malformed, plaintext-shaped, unknown-version, incomplete, and regressing records while preserving the last valid bundle", async () => {
-    const current = bundle("profile_a", "2026-01-02T00:00:00.000Z");
-    await repository.replace(current);
-
-    expect(() => parseEncryptedOfflineVaultBundle({ ...current, schemaVersion: 3 })).toThrow(/unsupported schema/);
-    expect(() =>
-      parseEncryptedOfflineVaultBundle({
-        ...current,
-        cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: "plaintext secret" },
-      }),
-    ).toThrow(/base64/);
-    const unknownEnvelope = Buffer.from([3, ...Array<number>(31).fill(7)]).toString("base64");
-    expect(() =>
-      parseEncryptedOfflineVaultBundle({
-        ...current,
-        cryptoProfile: { ...current.cryptoProfile, wrappedUserRootKey: unknownEnvelope },
-      }),
-    ).toThrow(/envelope version/);
-    expect(() => parseEncryptedOfflineVaultBundle({ ...current, personalVault: { vaultId: "missing" } })).toThrow(
-      /unexpected or missing/,
+  it("rejects legacy Shared Vault snapshots and malformed records", async () => {
+    expect(() => parseEncryptedPersonalOfflineSnapshot(legacyBundle("profile_a"))).toThrow(
+      LegacySharedVaultSnapshotError,
     );
-    await expect(repository.replace(bundle("profile_a", "2026-01-01T00:00:00.000Z"))).rejects.toThrow(/cannot regress/);
-    expect((await repository.read("profile_a"))?.synchronizedAt).toBe(current.synchronizedAt);
+    expect(() => parseEncryptedPersonalOfflineSnapshot({ ...snapshot("profile_a"), schemaVersion: 2 })).toThrow(
+      /unsupported snapshot schema/,
+    );
+    await expect(repository.replace(snapshot("profile_a", "2026-01-02T00:00:00.000Z"))).resolves.toBeUndefined();
+    await expect(repository.replace(snapshot("profile_a"))).rejects.toThrow(/cannot regress/);
   });
 
-  it("preserves the last valid bundle when an IndexedDB upgrade aborts", async () => {
-    await repository.replace(bundle("profile_a"));
-    await expect(
-      new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open("rhasia-scret-offline-vault", 2);
-        request.onupgradeneeded = () => request.transaction?.abort();
-        request.onsuccess = () => {
-          request.result.close();
-          resolve();
-        };
-        request.onerror = () => reject(request.error ?? new Error("upgrade aborted"));
-      }),
-    ).rejects.toBeTruthy();
-
-    expect((await repository.read("profile_a"))?.personalVault.vaultId).toBe("personal_profile_a");
-  });
-
-  it("isolates profiles, removes one Shared Vault atomically, and clears snapshots with remembered packages", async () => {
-    await repository.replace(bundle("profile_a"));
-    await repository.replace(bundle("profile_b"));
-    await repository.saveRememberedBrowser({
-      version: 1,
-      profileId: "profile_a",
-      rpId: "localhost",
-      origin: "http://localhost",
-      credentialId: ciphertext,
-      encryptedUserRootKeyPackage: ciphertext,
-      enrolledAt: "2026-01-01T00:00:00.000Z",
+  it("deletes legacy snapshots and their remembered browser material", async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("rhasia-scret-offline-vault", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
+    const transaction = database.transaction(["encrypted-snapshots", "remembered-browsers"], "readwrite");
+    transaction.objectStore("encrypted-snapshots").put(legacyBundle("legacy_profile"));
+    transaction.objectStore("remembered-browsers").put({ profileId: "legacy_profile" });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
 
-    await repository.removeVault("profile_a", "shared_profile_a");
-    expect((await repository.read("profile_a"))?.sharedVaults).toEqual([]);
-    expect(await repository.read("profile_b")).not.toBeNull();
-    expect(await repository.readRememberedBrowser("profile_a")).not.toBeNull();
+    expect((await repository.listProfiles()).migrationRequired).toBe(true);
+    expect(await repository.read("legacy_profile")).toBeNull();
+    expect(await repository.readRememberedBrowser("legacy_profile")).toBeNull();
+  });
 
-    await repository.removeProfile("profile_a");
-    expect(await repository.read("profile_a")).toBeNull();
+  it("replaces a legacy snapshot without retaining remembered-browser material", async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("rhasia-scret-offline-vault", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction(["encrypted-snapshots", "remembered-browsers"], "readwrite");
+    transaction.objectStore("encrypted-snapshots").put(legacyBundle("profile_a"));
+    transaction.objectStore("remembered-browsers").put({ profileId: "profile_a" });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+
+    await repository.replace(snapshot("profile_a", "2026-01-02T00:00:00.000Z"));
+
+    expect(await repository.read("profile_a")).not.toBeNull();
     expect(await repository.readRememberedBrowser("profile_a")).toBeNull();
-    expect(await repository.read("profile_b")).not.toBeNull();
+  });
 
-    await repository.clearAll();
-    expect(await repository.listProfiles()).toEqual([]);
+  it("cleans a legacy snapshot when read directly before offline unlock", async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("rhasia-scret-offline-vault", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction(["encrypted-snapshots", "remembered-browsers"], "readwrite");
+    transaction.objectStore("encrypted-snapshots").put(legacyBundle("legacy_profile"));
+    transaction.objectStore("remembered-browsers").put({ profileId: "legacy_profile" });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+
+    await expect(repository.read("legacy_profile")).rejects.toBeInstanceOf(LegacySharedVaultSnapshotError);
+    expect(await repository.readRememberedBrowser("legacy_profile")).toBeNull();
+    expect(await repository.read("legacy_profile")).toBeNull();
+  });
+
+  it("cleans discovered legacy records but fails closed on unrelated malformed records", async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("rhasia-scret-offline-vault", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction(["encrypted-snapshots", "remembered-browsers"], "readwrite");
+    transaction.objectStore("encrypted-snapshots").put(legacyBundle("legacy_profile"));
+    transaction.objectStore("encrypted-snapshots").put({ profileId: "malformed_profile", schemaVersion: 2 });
+    transaction.objectStore("remembered-browsers").put({ profileId: "legacy_profile" });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+
+    await expect(repository.readByPersonalVaultId("unrelated_personal_vault")).rejects.toThrow(
+      /Invalid encrypted offline bundle/,
+    );
+    expect(await repository.read("legacy_profile")).toBeNull();
+    expect(await repository.readRememberedBrowser("legacy_profile")).toBeNull();
+  });
+
+  it("removes a Personal Vault snapshot without affecting another profile", async () => {
+    await repository.replace(snapshot("profile_a"));
+    await repository.replace(snapshot("profile_b"));
+    await repository.removeVault("profile_a", "personal_profile_a");
+    expect(await repository.read("profile_a")).toBeNull();
+    expect(await repository.read("profile_b")).not.toBeNull();
   });
 });

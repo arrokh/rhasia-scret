@@ -32,7 +32,7 @@ export function TotpAccountButton({
   configuration: TotpConfiguration;
   vaultName: string;
   onManage?: () => void;
-  onAccess?: () => void | Promise<void>;
+  onAccess?: () => void | boolean | Promise<void | boolean>;
   density?: "compact" | "normal" | "wide";
   vaultDetailHref?: string;
   vaultDetailLabel?: string;
@@ -75,9 +75,13 @@ export function TotpAccountButton({
     if (!code) return;
     setShaking(true);
     try {
-      void Promise.resolve(onAccess?.()).catch(() => undefined);
+      const accessAllowed = await onAccess?.();
+      if (accessAllowed === false) {
+        setShaking(false);
+        return;
+      }
     } catch {
-      /* Audit failure must not block local OTP copy. */
+      /* A transient audit failure must not block local OTP copy. */
     }
     try {
       await browserClipboard.writeText(code);

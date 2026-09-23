@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/vaults/recovery" }));
 vi.mock("@/modules/crypto", () => ({
   PasskeyRecoveryReset: () => createElement("div", { "data-testid": "passkey-reset" }, "Passkey reset form"),
 }));

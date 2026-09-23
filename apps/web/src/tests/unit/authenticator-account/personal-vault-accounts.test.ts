@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   loadUnlockedVaultWorkspaceWithRememberedBrowser: vi.fn(),
   clearUnlockedVaultWorkspace: vi.fn(),
   refreshUnlockedVaultWorkspace: vi.fn(),
+  recordSharedVaultAccountAccess: vi.fn(),
+  pathname: "/vaults",
   passkeyEnrolled: true,
 }));
 
@@ -19,8 +21,10 @@ vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser: mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser,
   clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace: (workspace: unknown) => workspace,
   refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace,
 }));
+vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
 vi.mock("@/modules/crypto", () => ({
@@ -32,7 +36,7 @@ vi.mock("@/modules/identity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/modules/identity")>()),
   usePasskeyRecoveryStatusQuery: () => ({ data: { enrolled: mocks.passkeyEnrolled } }),
 }));
-vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: vi.fn() }));
+vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: mocks.recordSharedVaultAccountAccess }));
 
 import type { UnlockedVaultWorkspace } from "@/modules/sync/infrastructure/browser-vault-workspace";
 import { VaultPageAccountMenu } from "@/modules/vault-management/presentation/vault-page-account-menu";
@@ -48,6 +52,9 @@ describe("PersonalVaultAccounts", () => {
     mocks.loadUnlockedVaultWorkspace.mockReset();
     mocks.loadUnlockedVaultWorkspaceWithPasskey.mockReset();
     mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
+    mocks.refreshUnlockedVaultWorkspace.mockReset();
+    mocks.recordSharedVaultAccountAccess.mockReset();
+    mocks.pathname = "/vaults";
     mocks.passkeyEnrolled = true;
   });
   afterEach(async () => {
@@ -83,6 +90,28 @@ describe("PersonalVaultAccounts", () => {
       "Keamanan",
     );
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("revalidates Shared authorization when the Vault route changes", async () => {
+    mocks.refreshUnlockedVaultWorkspace.mockResolvedValue(workspace());
+    const container = document.createElement("div");
+    root = createRoot(container);
+    const render = () =>
+      createElement(
+        TestQueryProvider,
+        null,
+        createElement(
+          UnlockedVaultWorkspaceProvider,
+          { initialWorkspace: workspace() },
+          createElement(PersonalVaultAccounts, { vaultId: "personal-1" }),
+        ),
+      );
+    await act(async () => root?.render(render()));
+
+    mocks.pathname = "/vaults/manage/personal";
+    await act(async () => root?.render(render()));
+
+    await vi.waitFor(() => expect(mocks.refreshUnlockedVaultWorkspace).toHaveBeenCalledOnce());
   });
 
   it("preserves an initial workspace through development Strict Mode effect replay", async () => {
@@ -268,6 +297,16 @@ describe("PersonalVaultAccounts", () => {
     expect(actionBar?.classList.contains("grid")).toBe(true);
     expect(actionBar?.classList.contains("grid-cols-2")).toBe(true);
     expect(actionBar?.classList.contains("sm:grid-cols-4")).toBe(true);
+    const contentSection = container.querySelector<HTMLElement>('section[aria-labelledby="account-list-heading"]');
+    expect(contentSection?.classList).toContain("p-5");
+    expect(contentSection?.classList).toContain("sm:p-6");
+    const actionButtons = [...(actionBar?.querySelectorAll<HTMLElement>(':scope > [data-slot="button"]') ?? [])];
+    expect(actionButtons.length).toBeGreaterThan(0);
+    for (const button of actionButtons) {
+      expect(button.classList).toContain("h-12");
+      expect(button.classList).not.toContain("h-auto");
+      expect(button.classList).not.toContain("py-2");
+    }
     expect(
       container.querySelector<HTMLAnchorElement>('a[href="/vaults/accounts/new"]')?.classList.contains("w-full"),
     ).toBe(true);

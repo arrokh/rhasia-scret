@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiRequest, ApiResponse } from "@api/http/api-request";
 import { createOfflineSyncBundleHandler } from "@api/route-handlers/sync/offline-bundle/route";
 import { ApplicationUser } from "@api/modules/identity/domain/application-user";
-import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core/modules/sync/domain/offline-vault-bundle";
+import type { EncryptedOnlineWorkspaceBundle } from "@rhasia-scret/client-vault-core/modules/sync/domain/offline-vault-bundle";
 
 const ciphertext = Buffer.alloc(32, 7).toString("base64");
-const bundle: EncryptedOfflineVaultBundle = {
+const bundle: EncryptedOnlineWorkspaceBundle = {
   schemaVersion: 2,
   profileId: "user_1",
   synchronizedAt: "2026-01-01T00:00:00.000Z",
@@ -68,7 +68,7 @@ describe("GET /v1/sync/offline-bundle contract", () => {
     });
 
     const response = await handler(request());
-    const body = (await response.json()) as EncryptedOfflineVaultBundle;
+    const body = (await response.json()) as EncryptedOnlineWorkspaceBundle;
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");

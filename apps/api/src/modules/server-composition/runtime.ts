@@ -29,7 +29,7 @@ import {
   createSharedVaultAccountPermissionRepository,
   createVaultParticipantRepository,
 } from "@api/modules/vault-membership/server";
-import { createOfflineSyncBundleReader } from "@api/modules/sync/server";
+import { createAuthorizedWorkspaceReader, createOfflineSyncBundleReader } from "@api/modules/sync/server";
 import { createEncryptedVaultImportRepository } from "@api/modules/vault-archive/server";
 import { createRetentionPurgeService } from "@api/modules/retention/server";
 
@@ -57,6 +57,7 @@ export type ApiApplicationRuntime = Readonly<{
   sharedVaultAccountPermissions(): ReturnType<typeof createSharedVaultAccountPermissionRepository>;
   vaultParticipants(): ReturnType<typeof createVaultParticipantRepository>;
   offlineSyncBundles(): ReturnType<typeof createOfflineSyncBundleReader>;
+  authorizedWorkspace(): ReturnType<typeof createAuthorizedWorkspaceReader>;
   encryptedVaultImports(): ReturnType<typeof createEncryptedVaultImportRepository>;
   retentionPurge(): ReturnType<typeof createRetentionPurgeService>;
 }>;
@@ -86,6 +87,7 @@ export function createApiApplicationRuntime(database: PrismaDatabase, bindings: 
     sharedVaultAccountPermissions: once(() => createSharedVaultAccountPermissionRepository(database)),
     vaultParticipants: once(() => createVaultParticipantRepository(database)),
     offlineSyncBundles: once(() => createOfflineSyncBundleReader(database)),
+    authorizedWorkspace: once(() => createAuthorizedWorkspaceReader(database)),
     encryptedVaultImports: once(() => createEncryptedVaultImportRepository(database)),
     retentionPurge: once(() => createRetentionPurgeService(database)),
   };

@@ -1,6 +1,10 @@
 import { Suspense, type ReactNode } from "react";
-import { AppPage, PageHeader, SurfaceCard } from "@/shared/presentation/app-ui";
-import { ActionLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
+import { AppPage, PageHeader, SurfaceCard, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
+import {
+  ActionLoadingPlaceholder,
+  DirectoryLoadingPlaceholder,
+  SectionLoadingPlaceholder,
+} from "@/shared/presentation/loading-placeholder";
 import { VaultPageLogoutAction } from "./vault-page-logout-action";
 
 export function VaultPageFrame({
@@ -10,6 +14,7 @@ export function VaultPageFrame({
   title,
   description,
   contentLabel,
+  loadingVariant = "section",
   children,
 }: {
   backHref?: string;
@@ -18,6 +23,7 @@ export function VaultPageFrame({
   title: string;
   description: string;
   contentLabel: string;
+  loadingVariant?: "section" | "directory";
   children: ReactNode;
 }) {
   return (
@@ -37,8 +43,12 @@ export function VaultPageFrame({
       <SurfaceCard aria-label={contentLabel}>
         <Suspense
           fallback={
-            <div className="p-5 sm:p-6">
-              <SectionLoadingPlaceholder rows={3} />
+            <div className={SURFACE_CARD_CONTENT_PADDING_CLASS}>
+              {loadingVariant === "directory" ? (
+                <DirectoryLoadingPlaceholder rows={3} />
+              ) : (
+                <SectionLoadingPlaceholder rows={3} />
+              )}
             </div>
           }
         >

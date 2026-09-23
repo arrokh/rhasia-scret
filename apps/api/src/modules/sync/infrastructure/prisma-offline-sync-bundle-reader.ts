@@ -3,15 +3,18 @@ import { sha256Digest } from "@api/shared/infrastructure/crypto";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core/modules/vault-membership/domain/shared-vault-account-permissions";
 import { measureServerOperation } from "@api/shared/infrastructure/server-performance";
+import type { AuthorizedWorkspaceReader } from "../application/authorized-workspace-reader";
 import type { OfflineSyncBundleReader } from "../application/offline-sync-bundle-reader";
 import {
-  parseEncryptedOfflineVaultBundle,
-  type EncryptedOfflineVaultBundle,
+  parseAuthorizedWorkspaceResponse,
+  parseEncryptedOnlineWorkspaceBundle,
+  type AuthorizedWorkspaceResponse,
+  type EncryptedOnlineWorkspaceBundle,
 } from "@rhasia-scret/client-vault-core/modules/sync/domain/offline-vault-bundle";
 
-export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
+export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader, AuthorizedWorkspaceReader {
   public constructor(private readonly database: PrismaDatabase) {}
-  async readAuthorizedBundle(userId: string): Promise<EncryptedOfflineVaultBundle | null> {
+  async readAuthorizedBundle(userId: string): Promise<EncryptedOnlineWorkspaceBundle | null> {
     return measureServerOperation("rhsia:server:offline-bundle-read", () =>
       this.database.$transaction(
         async (transaction) => {
@@ -81,11 +84,33 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader {
             }),
           };
           const synchronizationToken = Buffer.from(sha256Digest(JSON.stringify(content))).toString("base64url");
-          return parseEncryptedOfflineVaultBundle({ ...content, synchronizedAt, synchronizationToken });
+          return parseEncryptedOnlineWorkspaceBundle({ ...content, synchronizedAt, synchronizationToken });
         },
         { isolationLevel: "RepeatableRead" },
       ),
     );
+  }
+
+  async readAuthorizedWorkspaceResponse(userId: string): Promise<AuthorizedWorkspaceResponse | null> {
+    const bundle = await this.readAuthorizedBundle(userId);
+    if (!bundle) return null;
+    const personalSnapshotContent = {
+      schemaVersion: 3 as const,
+      profileId: bundle.profileId,
+      synchronizedAt: bundle.synchronizedAt,
+      cryptoProfile: bundle.cryptoProfile,
+      personalVault: bundle.personalVault,
+    };
+    const synchronizationToken = Buffer.from(sha256Digest(JSON.stringify(personalSnapshotContent))).toString(
+      "base64url",
+    );
+    return parseAuthorizedWorkspaceResponse({
+      responseVersion: 1,
+      workspaceSynchronizationToken: bundle.synchronizationToken,
+      synchronizedAt: bundle.synchronizedAt,
+      personalSnapshot: { ...personalSnapshotContent, synchronizationToken },
+      sharedVaults: bundle.sharedVaults,
+    });
   }
 }
 

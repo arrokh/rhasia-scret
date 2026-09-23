@@ -1,12 +1,14 @@
 "use client";
 
 import { browserAuthenticatedTransport } from "@/shared/infrastructure/browser-api-client";
-import { AuthorizedOfflineBundleTransport, type EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import {
+  AuthorizedWorkspaceTransport,
+  type AuthorizedWorkspaceResponse,
+  type CancellationPort,
+} from "@rhasia-scret/client-vault-core";
 
-const offlineBundles = new AuthorizedOfflineBundleTransport(browserAuthenticatedTransport);
+const workspaceBundles = new AuthorizedWorkspaceTransport(browserAuthenticatedTransport);
 
-export async function fetchAuthorizedOfflineBundle(
-  cached: EncryptedOfflineVaultBundle | null = null,
-): Promise<EncryptedOfflineVaultBundle> {
-  return offlineBundles.fetch(cached);
+export async function fetchAuthorizedWorkspaceBundle(signal?: CancellationPort): Promise<AuthorizedWorkspaceResponse> {
+  return workspaceBundles.fetch(signal);
 }

@@ -29,9 +29,10 @@ export function OfflineVaultShell() {
   const t = useTranslations("Sync.offline");
   const locale = useLocale();
   const [profiles, setProfiles] = useState<OfflineProfileSummary[]>([]);
+  const [migrationRequired, setMigrationRequired] = useState(false);
   const { workspace, replaceWorkspace } = useWorkspaceLifecycle();
   const [status, setStatus] = useState<
-    "loading" | "ready" | "empty" | "unlock_error" | "remembered_error" | "storage_error"
+    "loading" | "ready" | "empty" | "unlock_error" | "remembered_error" | "storage_error" | "migration_required"
   >("loading");
   const [secretVisible, setSecretVisible] = useState(false);
   const [repository] = useState(() => new BrowserOfflineVaultRepository());
@@ -57,11 +58,12 @@ export function OfflineVaultShell() {
     let active = true;
     repository
       .listProfiles()
-      .then((items) => {
+      .then((discovery) => {
         if (!active) return;
-        setProfiles(items);
-        if (items[0]) form.setFieldValue("profileId", items[0].profileId);
-        setStatus(items.length ? "ready" : "empty");
+        setProfiles(discovery.profiles);
+        setMigrationRequired(discovery.migrationRequired);
+        if (discovery.profiles[0]) form.setFieldValue("profileId", discovery.profiles[0].profileId);
+        setStatus(discovery.profiles.length ? "ready" : discovery.migrationRequired ? "migration_required" : "empty");
       })
       .catch(() => {
         if (active) setStatus("storage_error");
@@ -93,6 +95,7 @@ export function OfflineVaultShell() {
       await repository.clearAll();
       captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultCleared);
       setProfiles([]);
+      setMigrationRequired(false);
       setStatus("empty");
     } catch {
       setStatus("storage_error");
@@ -121,6 +124,7 @@ export function OfflineVaultShell() {
         </StatusBanner>
         {status === "loading" && <p className="text-sm text-muted-foreground">{t("searching")}</p>}
         {status === "empty" && <StatusBanner tone="warning">{t("empty")}</StatusBanner>}
+        {migrationRequired && <StatusBanner tone="warning">{t("migrationRequired")}</StatusBanner>}
         {profiles.length > 0 && (
           <form
             noValidate
@@ -145,7 +149,7 @@ export function OfflineVaultShell() {
                           {t("profileSummary", {
                             number: index + 1,
                             date: formatLocalDateTime(profile.synchronizedAt, locale),
-                            count: profile.sharedVaultCount + 1,
+                            count: 1,
                           })}
                         </SelectItem>
                       ))}

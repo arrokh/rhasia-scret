@@ -38,7 +38,9 @@ export const messages = {
     personalVaultReady: "Brankas Pribadi siap",
     personalVaultUnlockDescription: "Masukkan Passphrase Brankas untuk membuka kunci sepenuhnya di perangkat ini.",
     personalVaultOfflineUnlockDescription:
-      "Server tidak tersedia. Masukkan Passphrase Brankas untuk membuka snapshot terenkripsi hanya-baca di perangkat ini; perubahan tidak akan diantrekan atau diputar ulang.",
+      "Server tidak tersedia. Masukkan Passphrase Brankas untuk membuka snapshot terenkripsi Brankas Pribadi hanya-baca di perangkat ini. Brankas Bersama hanya tersedia saat daring; perubahan tidak akan diantrekan atau diputar ulang.",
+    personalVaultOfflineMigrationRequired:
+      "Snapshot offline lama yang mungkin berisi Brankas Bersama telah dihapus. Sambungkan kembali untuk membuat snapshot Brankas Pribadi.",
     unlockVault: "Buka kunci Brankas",
     personalVaultUnlocking: "Membuka kunci…",
     personalVaultUnlockError: "Brankas tidak dapat dibuka. Periksa Passphrase Brankas dan coba lagi.",
@@ -184,7 +186,9 @@ export const messages = {
     personalVaultReady: "Personal Vault ready",
     personalVaultUnlockDescription: "Enter the Vault Passphrase to unlock entirely on this device.",
     personalVaultOfflineUnlockDescription:
-      "The server is unavailable. Enter the Vault Passphrase to open this device's read-only encrypted snapshot; mutations will not be queued or replayed.",
+      "The server is unavailable. Enter the Vault Passphrase to open this device's read-only encrypted Personal Vault snapshot. Shared Vaults are available only while online; mutations will not be queued or replayed.",
+    personalVaultOfflineMigrationRequired:
+      "An older offline snapshot that may have contained Shared Vault data was removed. Reconnect to create a Personal Vault snapshot.",
     unlockVault: "Unlock Vault",
     personalVaultUnlocking: "Unlocking…",
     personalVaultUnlockError: "The Vault could not be unlocked. Check the Vault Passphrase and try again.",

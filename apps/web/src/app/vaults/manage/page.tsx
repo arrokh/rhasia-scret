@@ -15,6 +15,7 @@ export default async function VaultDirectoryPage() {
       title={t("directoryTitle")}
       description={t("directoryDescription")}
       contentLabel={t("directoryLabel")}
+      loadingVariant="directory"
     >
       <VaultDirectoryContent />
     </VaultPageFrame>

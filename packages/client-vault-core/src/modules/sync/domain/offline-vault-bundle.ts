@@ -1,6 +1,8 @@
 import type { EffectiveSharedVaultAccountPermissions } from "../../vault-membership/domain/shared-vault-account-permissions";
 
-export const OFFLINE_BUNDLE_SCHEMA_VERSION = 2 as const;
+export const OFFLINE_BUNDLE_SCHEMA_VERSION = 3 as const;
+export const ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION = 2 as const;
+export const AUTHORIZED_WORKSPACE_RESPONSE_VERSION = 1 as const;
 export const OFFLINE_ENCRYPTION_VERSION = 1 as const;
 
 export type EncryptedOfflineAccount = {
@@ -18,7 +20,7 @@ export type EncryptedOfflinePersonalVault = {
   accounts: EncryptedOfflineAccount[];
 };
 
-export type EncryptedOfflineSharedVault = {
+export type EncryptedOnlineSharedVault = {
   vaultId: string;
   lifecycle: "ACTIVE";
   role: "OWNER" | "VIEWER";
@@ -30,8 +32,8 @@ export type EncryptedOfflineSharedVault = {
   accounts: EncryptedOfflineAccount[];
 };
 
-export type EncryptedOfflineVaultBundle = {
-  schemaVersion: 2;
+export type EncryptedPersonalOfflineSnapshot = {
+  schemaVersion: typeof OFFLINE_BUNDLE_SCHEMA_VERSION;
   profileId: string;
   synchronizedAt: string;
   synchronizationToken: string;
@@ -42,11 +44,60 @@ export type EncryptedOfflineVaultBundle = {
     encryptionVersion: 1;
   };
   personalVault: EncryptedOfflinePersonalVault;
-  sharedVaults: EncryptedOfflineSharedVault[];
 };
 
-export function parseEncryptedOfflineVaultBundle(value: unknown): EncryptedOfflineVaultBundle {
-  const bundle = object(value, "Local Vault Snapshot");
+export type EncryptedOnlineWorkspaceBundle = {
+  schemaVersion: typeof ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION;
+  profileId: string;
+  synchronizedAt: string;
+  synchronizationToken: string;
+  cryptoProfile: EncryptedPersonalOfflineSnapshot["cryptoProfile"];
+  personalVault: EncryptedOfflinePersonalVault;
+  sharedVaults: EncryptedOnlineSharedVault[];
+};
+
+export type AuthorizedWorkspaceResponse = {
+  responseVersion: typeof AUTHORIZED_WORKSPACE_RESPONSE_VERSION;
+  workspaceSynchronizationToken: string;
+  synchronizedAt: string;
+  personalSnapshot: EncryptedPersonalOfflineSnapshot;
+  sharedVaults: EncryptedOnlineSharedVault[];
+};
+
+export class LegacySharedVaultSnapshotError extends Error {
+  public constructor() {
+    super("The stored offline snapshot contains Shared Vault data and must be refreshed online.");
+    this.name = "LegacySharedVaultSnapshotError";
+  }
+}
+
+export function parseEncryptedPersonalOfflineSnapshot(value: unknown): EncryptedPersonalOfflineSnapshot {
+  const bundle = object(value, "Personal Local Vault Snapshot");
+  if ("sharedVaults" in bundle) throw new LegacySharedVaultSnapshotError();
+  exactKeys(
+    bundle,
+    ["schemaVersion", "profileId", "synchronizedAt", "synchronizationToken", "cryptoProfile", "personalVault"],
+    "Personal Local Vault Snapshot",
+  );
+  if (bundle.schemaVersion !== OFFLINE_BUNDLE_SCHEMA_VERSION) invalid("unsupported snapshot schema version");
+  const profileId = opaqueId(bundle.profileId, "profileId");
+  const synchronizedAt = timestamp(bundle.synchronizedAt, "synchronizedAt");
+  const synchronizationToken = text(bundle.synchronizationToken, "synchronizationToken", 256);
+  const cryptoProfile = parseProfile(bundle.cryptoProfile);
+  const personalVault = parsePersonalVault(bundle.personalVault);
+  if (personalVault.vaultId === profileId) invalid("Personal Vault identifier must differ from profile identifier");
+  return {
+    schemaVersion: OFFLINE_BUNDLE_SCHEMA_VERSION,
+    profileId,
+    synchronizedAt,
+    synchronizationToken,
+    cryptoProfile,
+    personalVault,
+  };
+}
+
+export function parseEncryptedOnlineWorkspaceBundle(value: unknown): EncryptedOnlineWorkspaceBundle {
+  const bundle = object(value, "Online workspace bundle");
   exactKeys(
     bundle,
     [
@@ -58,10 +109,11 @@ export function parseEncryptedOfflineVaultBundle(value: unknown): EncryptedOffli
       "personalVault",
       "sharedVaults",
     ],
-    "Local Vault Snapshot",
+    "Online workspace bundle",
   );
   const schemaVersion = bundle.schemaVersion;
-  if (schemaVersion !== 1 && schemaVersion !== OFFLINE_BUNDLE_SCHEMA_VERSION) invalid("unsupported schema version");
+  if (schemaVersion !== 1 && schemaVersion !== ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION)
+    invalid("unsupported online workspace schema version");
   const profileId = opaqueId(bundle.profileId, "profileId");
   const synchronizedAt = timestamp(bundle.synchronizedAt, "synchronizedAt");
   const synchronizationToken = text(bundle.synchronizationToken, "synchronizationToken", 256);
@@ -76,7 +128,7 @@ export function parseEncryptedOfflineVaultBundle(value: unknown): EncryptedOffli
     vaultIds.add(vault.vaultId);
   }
   return {
-    schemaVersion: OFFLINE_BUNDLE_SCHEMA_VERSION,
+    schemaVersion: ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION,
     profileId,
     synchronizedAt,
     synchronizationToken,
@@ -86,7 +138,53 @@ export function parseEncryptedOfflineVaultBundle(value: unknown): EncryptedOffli
   };
 }
 
-function parseProfile(value: unknown): EncryptedOfflineVaultBundle["cryptoProfile"] {
+export function parseAuthorizedWorkspaceResponse(value: unknown): AuthorizedWorkspaceResponse {
+  const response = object(value, "Authorized workspace response");
+  exactKeys(
+    response,
+    ["responseVersion", "workspaceSynchronizationToken", "synchronizedAt", "personalSnapshot", "sharedVaults"],
+    "Authorized workspace response",
+  );
+  if (response.responseVersion !== AUTHORIZED_WORKSPACE_RESPONSE_VERSION)
+    invalid("unsupported authorized workspace response version");
+  const synchronizedAt = timestamp(response.synchronizedAt, "synchronizedAt");
+  const personalSnapshot = parseEncryptedPersonalOfflineSnapshot(response.personalSnapshot);
+  if (personalSnapshot.synchronizedAt !== synchronizedAt) invalid("snapshot synchronization timestamp mismatch");
+  const workspaceSynchronizationToken = text(
+    response.workspaceSynchronizationToken,
+    "workspaceSynchronizationToken",
+    256,
+  );
+  const sharedVaults = array(response.sharedVaults, "sharedVaults").map((entry, index) =>
+    parseSharedVault(entry, index, ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION),
+  );
+  const vaultIds = new Set([personalSnapshot.personalVault.vaultId]);
+  for (const vault of sharedVaults) {
+    if (vaultIds.has(vault.vaultId)) invalid("duplicate Vault identifier");
+    vaultIds.add(vault.vaultId);
+  }
+  return {
+    responseVersion: AUTHORIZED_WORKSPACE_RESPONSE_VERSION,
+    workspaceSynchronizationToken,
+    synchronizedAt,
+    personalSnapshot,
+    sharedVaults,
+  };
+}
+
+export function composeOnlineWorkspaceBundle(response: AuthorizedWorkspaceResponse): EncryptedOnlineWorkspaceBundle {
+  return {
+    schemaVersion: ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION,
+    profileId: response.personalSnapshot.profileId,
+    synchronizedAt: response.synchronizedAt,
+    synchronizationToken: response.workspaceSynchronizationToken,
+    cryptoProfile: response.personalSnapshot.cryptoProfile,
+    personalVault: response.personalSnapshot.personalVault,
+    sharedVaults: response.sharedVaults,
+  };
+}
+
+function parseProfile(value: unknown): EncryptedPersonalOfflineSnapshot["cryptoProfile"] {
   const profile = object(value, "cryptoProfile");
   exactKeys(
     profile,
@@ -116,7 +214,11 @@ function parsePersonalVault(value: unknown): EncryptedOfflinePersonalVault {
   };
 }
 
-function parseSharedVault(value: unknown, index: number, schemaVersion: 1 | 2): EncryptedOfflineSharedVault {
+function parseSharedVault(
+  value: unknown,
+  index: number,
+  schemaVersion: 1 | typeof ONLINE_WORKSPACE_BUNDLE_SCHEMA_VERSION,
+): EncryptedOnlineSharedVault {
   const label = `sharedVaults[${index}]`;
   const vault = object(value, label);
   exactKeys(

@@ -1,4 +1,4 @@
-import type { EncryptedOfflineVaultBundle } from "../domain/offline-vault-bundle";
+import type { EncryptedPersonalOfflineSnapshot } from "../domain/offline-vault-bundle";
 import type { PortDisposer } from "../../../shared/application/platform-ports";
 
 export type RememberedBrowserPackage = {
@@ -11,13 +11,23 @@ export type RememberedBrowserPackage = {
   enrolledAt: string;
 };
 
+export type OfflineProfileSummary = {
+  profileId: string;
+  personalVaultId: string;
+  synchronizedAt: string;
+  sharedVaultCount: 0;
+};
+
+export type OfflineProfileDiscovery = {
+  profiles: OfflineProfileSummary[];
+  migrationRequired: boolean;
+};
+
 export interface OfflineVaultSnapshotStore {
-  listProfiles(): Promise<
-    Array<{ profileId: string; personalVaultId: string; synchronizedAt: string; sharedVaultCount: number }>
-  >;
-  read(profileId: string): Promise<EncryptedOfflineVaultBundle | null>;
-  readByPersonalVaultId(personalVaultId: string): Promise<EncryptedOfflineVaultBundle | null>;
-  replace(bundle: EncryptedOfflineVaultBundle): Promise<void>;
+  listProfiles(): Promise<OfflineProfileDiscovery>;
+  read(profileId: string): Promise<EncryptedPersonalOfflineSnapshot | null>;
+  readByPersonalVaultId(personalVaultId: string): Promise<EncryptedPersonalOfflineSnapshot | null>;
+  replace(bundle: EncryptedPersonalOfflineSnapshot): Promise<void>;
   removeVault(profileId: string, vaultId: string): Promise<void>;
   removeProfile(profileId: string): Promise<void>;
   clearAll(): Promise<void>;

@@ -123,7 +123,7 @@ export async function hasRememberedBrowserForPersonalVault(personalVaultId: stri
   if (!supportsLocalVerification()) return false;
   const repository = new BrowserOfflineVaultRepository();
   const profiles = await repository.listProfiles();
-  for (const profile of profiles) {
+  for (const profile of profiles.profiles) {
     if (profile.personalVaultId !== personalVaultId) continue;
     try {
       const browserPackage = await repository.readRememberedBrowser(profile.profileId);

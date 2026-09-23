@@ -17,7 +17,7 @@ The authorized web or native client alone handles plaintext TOTP secrets, raw QR
 
 ## Device lifecycle
 
-Remembered-browser verification and encrypted Local Vault Snapshots are client-installation-local. Web sign-out, explicit forget, membership revocation detected on a successful sync, or Shared Vault deletion must remove applicable device-local material; native sign-out and lifecycle cleanup use Keychain/Android Keystore and application-document storage. Offline access is read-only; mutations are blocked and never queued. Native AppState backgrounding also locks and clears the unlocked workspace, but native device authentication is not a recovery mechanism.
+Remembered-browser verification and encrypted Local Vault Snapshots are client-installation-local. A hosted snapshot contains Personal Vault data only; Shared Vaults are online-only and are not retained in offline storage. Web sign-out, explicit forget, membership revocation detected on a successful sync, or Shared Vault deletion must remove applicable device-local material; native sign-out and lifecycle cleanup use Keychain/Android Keystore and application-document storage. Legacy Shared-containing snapshots are rejected and cleared without touching the independent writable Local Vault. Offline access is read-only; mutations are blocked and never queued. Native AppState backgrounding also locks and clears the unlocked workspace, but native device authentication is not a recovery mechanism. Authorization revocation cannot erase TOTP secrets already learned; reset credentials at the original service after suspected exposure.
 
 ## Key rotation and recovery
 

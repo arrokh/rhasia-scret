@@ -1210,11 +1210,12 @@
     },
     "offline": {
       "title": "Akses brankas luring",
-      "description": "Buka snapshot terenkripsi di perangkat ini tanpa menghubungi server.",
+      "description": "Buka snapshot Brankas Pribadi terenkripsi di perangkat ini tanpa menghubungi server. Brankas Bersama hanya tersedia saat daring.",
       "readOnly": "Mode baca-saja",
       "readOnlyDescription": "Otorisasi tidak dapat diperiksa sampai sinkronisasi daring berhasil. Perubahan dan audit akses tidak disimpan atau diputar ulang.",
       "searching": "Mencari snapshot terenkripsi…",
       "empty": "Belum ada snapshot lokal. Buka brankas sekali saat daring untuk menyinkronkan perangkat ini.",
+      "migrationRequired": "Snapshot lama yang berisi Brankas Bersama telah dihapus. Sambungkan kembali untuk menyinkronkan snapshot Brankas Pribadi.",
       "profile": "Profil lokal anonim",
       "chooseSnapshot": "Pilih snapshot",
       "profileSummary": "Snapshot {number} · {date} · {count, plural, one {# brankas} other {# brankas}}",

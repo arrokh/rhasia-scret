@@ -26,7 +26,7 @@ COPY packages/api-contract packages/api-contract
 COPY packages/client-vault-core packages/client-vault-core
 # Prisma 7 loads prisma.config.ts even for generation; this is never a runtime or migration URL.
 ENV DIRECT_URL=postgresql://localhost:5432/rhasia_scret_generate
-RUN pnpm --filter @rhasia-scret/api prisma:generate
+RUN cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts
 
 FROM source AS build
 # Prisma Client is generated in the source stage; only bundle the Node artifact here.

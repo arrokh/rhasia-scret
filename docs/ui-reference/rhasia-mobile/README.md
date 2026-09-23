@@ -46,7 +46,7 @@ The source is a visual reference only. Implementations must follow `CONTEXT.md`,
 - Do **not** implement the pictured numeric “Vault PIN,” PIN change, or one-minute auto-lock. A generated Vault Unlock Secret is a recommended difficult multi-word secret; a user-created value may contain at least three trimmed characters under ADR-0029. Web sessions end through explicit lock or logout; the native workspace also locks when AppState leaves the active state. See ADR-0001, ADR-0002, ADR-0007, ADR-0021, and ADR-0029.
 - The only Shared Vault roles are Owner and Viewer. Do not add the pictured “Can edit” role. A Viewer is read/copy-capable and may receive independent account add/edit/delete capabilities through Vault-wide defaults and per-member overrides; member management and audit history remain owner-only.
 - The client may scan or manually enter an `otpauth://totp` URI, but raw QR data, raw URIs, TOTP secrets, and generated OTPs must never reach or persist on the server.
-- Offline UI must make all mutations unavailable and never queue writes. It may present cached OTPs only from an encrypted Local Vault Snapshot.
+- Offline UI must make all mutations unavailable and never queue writes. It may present Personal Vault OTPs only from an encrypted Personal-only Local Vault Snapshot; Shared Vaults are online-only and must not appear in offline navigation.
 - The Activity view must contain redacted, opaque-ID-only audit events, never account or Vault labels.
 
 ## Asset maintenance

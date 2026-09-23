@@ -189,6 +189,98 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   }
 });
 
+test("keeps section action controls the same standard size on mobile and desktop", async ({ page }) => {
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/ui-preview");
+    await expect(page.locator('[data-slot="vault-account-actions"]')).toBeVisible();
+
+    const accountActions = page.locator('[data-slot="vault-account-actions"] > [data-slot="button"]');
+    await expect(accountActions).toHaveCount(4);
+    const accountActionGeometry = await accountActions.evaluateAll((actions) =>
+      actions.map((action) => {
+        const bounds = action.getBoundingClientRect();
+        const contentFits = [...action.children]
+          .filter((child) => getComputedStyle(child).display !== "none")
+          .every((child) => {
+            const childBounds = child.getBoundingClientRect();
+            return childBounds.top >= bounds.top && childBounds.bottom <= bounds.bottom;
+          });
+        return { height: Math.round(bounds.height), contentFits };
+      }),
+    );
+    expect(accountActionGeometry).toEqual([
+      { height: 48, contentFits: true },
+      { height: 48, contentFits: true },
+      { height: 48, contentFits: true },
+      { height: 48, contentFits: true },
+    ]);
+    const accountCardLayout = await page.locator('[data-slot="vault-account-actions"]').evaluate((actions) => {
+      const card = actions.closest('[data-slot="card"]');
+      if (!card) throw new Error("Account actions must remain inside a SurfaceCard");
+      const style = getComputedStyle(card);
+      return {
+        padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+        surface: [
+          style.backgroundColor,
+          style.borderRadius,
+          style.borderTopWidth,
+          style.borderTopColor,
+          style.boxShadow,
+        ],
+      };
+    });
+
+    const directoryActions = page.locator(
+      '[data-slot="account-directory-menu"], [data-slot="account-directory-filter-menu"]',
+    );
+    expect(
+      await directoryActions.evaluateAll((actions) =>
+        actions.map((action) => Math.round(action.getBoundingClientRect().height)),
+      ),
+    ).toEqual([48, 48]);
+
+    await page.goto("/ui-preview/vaults");
+    await expect(page.locator('[aria-label="Aksi arsip Brankas"]')).toBeVisible();
+    const vaultActions = page.locator('[aria-label="Aksi arsip Brankas"] [data-slot="button"]');
+    await expect(vaultActions).toHaveCount(3);
+    const geometry = await vaultActions.evaluateAll((actions) =>
+      actions.map((action) => {
+        const { width: actionWidth, height } = action.getBoundingClientRect();
+        return { width: Math.round(actionWidth), height: Math.round(height) };
+      }),
+    );
+    expect(geometry.map(({ height }) => height)).toEqual([48, 48, 48]);
+    expect(geometry.slice(0, 2).map(({ width: actionWidth }) => actionWidth)).toEqual([48, 48]);
+    const directoryCardLayout = await page.locator('[aria-label="Aksi arsip Brankas"]').evaluate((nav) => {
+      const content = nav.parentElement?.parentElement;
+      const card = nav.closest('[data-slot="card"]');
+      if (!content || !card) throw new Error("Vault directory actions must remain inside a SurfaceCard");
+      const contentStyle = getComputedStyle(content);
+      const surfaceStyle = getComputedStyle(card);
+      return {
+        padding: [
+          contentStyle.paddingTop,
+          contentStyle.paddingRight,
+          contentStyle.paddingBottom,
+          contentStyle.paddingLeft,
+        ],
+        surface: [
+          surfaceStyle.backgroundColor,
+          surfaceStyle.borderRadius,
+          surfaceStyle.borderTopWidth,
+          surfaceStyle.borderTopColor,
+          surfaceStyle.boxShadow,
+        ],
+      };
+    });
+    const expectedPadding = width < 640 ? ["20px", "20px", "20px", "20px"] : ["24px", "24px", "24px", "24px"];
+    expect(accountCardLayout.padding).toEqual(expectedPadding);
+    expect(directoryCardLayout.padding).toEqual(expectedPadding);
+    expect(directoryCardLayout.surface).toEqual(accountCardLayout.surface);
+  }
+});
+
 test("keeps the footer anchored when account directory menus open", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/ui-preview");

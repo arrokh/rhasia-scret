@@ -1,6 +1,6 @@
 import { AppState } from "react-native";
 import {
-  AuthorizedOfflineBundleTransportError,
+  AuthorizedWorkspaceTransportError,
   WorkspaceLifecycleCancelledError,
   type ApplicationLifecyclePort,
   type CancellationPort,
@@ -15,6 +15,7 @@ import {
 import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import {
   clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace,
   nativeNetworkStatus,
   refreshMobileVaultWorkspaceWithKey,
 } from "./mobile-vault-workspace";
@@ -94,6 +95,7 @@ export function createNativeWorkspaceLifecyclePorts(
       refresh: (userRootKey, profileId, cancellation) =>
         refreshNativeWorkspace(userRootKey, profileId, cancellation, transport),
       clear: clearUnlockedVaultWorkspace,
+      evictShared: evictSharedVaultWorkspace,
       classifyFailure: classifyNativeWorkspaceRefreshFailure,
       readOnlyReason: (workspace) => `Vault workspace is ${workspace.syncState.toLowerCase()}.`,
     },
@@ -101,7 +103,11 @@ export function createNativeWorkspaceLifecyclePorts(
 }
 
 export function classifyNativeWorkspaceRefreshFailure(error: unknown): WorkspaceRefreshFailure {
-  if (error instanceof AuthorizedOfflineBundleTransportError && error.status === 401) return "AUTHENTICATION";
+  if (
+    error instanceof AuthorizedWorkspaceTransportError &&
+    (error.status === 401 || (error.status === 403 && error.code === "inactive_user"))
+  )
+    return "AUTHENTICATION";
   if (error instanceof Error && /Native encrypted Vault storage|Local Vault Snapshot/.test(error.message))
     return "LOCAL_STORAGE";
   return "SYNC";
@@ -114,7 +120,7 @@ async function refreshNativeWorkspace(
   transport: AuthenticatedTransport,
 ): Promise<UnlockedVaultWorkspace> {
   if (cancellation.aborted) throw new WorkspaceLifecycleCancelledError();
-  const refreshed = await refreshMobileVaultWorkspaceWithKey(userRootKey, profileId, transport);
+  const refreshed = await refreshMobileVaultWorkspaceWithKey(userRootKey, profileId, transport, cancellation);
   if (!cancellation.aborted) return refreshed;
   clearUnlockedVaultWorkspace(refreshed);
   throw new WorkspaceLifecycleCancelledError();

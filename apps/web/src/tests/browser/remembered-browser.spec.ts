@@ -85,8 +85,8 @@ test.describe("production Remembered Browser UI", () => {
     page,
   }) => {
     const bundle = await encryptedBundle();
-    await page.route("**/api/v1/sync/offline-bundle", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
+    await page.route("**/api/v1/sync/workspace-bundle", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(workspaceResponse(bundle)) }),
     );
     await page.getByRole("button", { name: "Ingat browser ini" }).click();
     await seedSnapshot(page, bundle);
@@ -115,8 +115,8 @@ test.describe("production Remembered Browser UI", () => {
 
   test("falls back to the Vault Unlock Secret when Local Verification is unsupported", async ({ page }) => {
     const bundle = await encryptedBundle();
-    await page.route("**/api/v1/sync/offline-bundle", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bundle) }),
+    await page.route("**/api/v1/sync/workspace-bundle", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(workspaceResponse(bundle)) }),
     );
     await page.evaluate(() => {
       Object.defineProperty(window, "PublicKeyCredential", { configurable: true, value: undefined });
@@ -191,7 +191,7 @@ async function encryptedBundle(): Promise<Record<string, unknown>> {
   });
   if (typeof derived === "string") throw new Error("Expected binary Argon2 output.");
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     profileId,
     synchronizedAt: "2026-01-01T00:00:00.000Z",
     synchronizationToken: "remembered-browser-sync",
@@ -226,6 +226,15 @@ async function encryptedBundle(): Promise<Record<string, unknown>> {
       encryptionVersion: 1,
       accounts: [],
     },
+  };
+}
+
+function workspaceResponse(personalSnapshot: Record<string, unknown>) {
+  return {
+    responseVersion: 1,
+    workspaceSynchronizationToken: "remembered-browser-workspace",
+    synchronizedAt: personalSnapshot.synchronizedAt,
+    personalSnapshot,
     sharedVaults: [],
   };
 }

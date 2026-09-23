@@ -14,7 +14,7 @@ Ports are owned by the bounded context that owns the capability:
 - shared platform ports define authenticated HTTP transport, cancellation, network status, lifecycle visibility, clipboard, download, and file input contracts;
 - Identity and shared transport composition retain authorization semantics while allowing a bearer-token transport adapter;
 - Crypto defines primitive encryption, HMAC, ECDH, HKDF-SHA-256, Argon2id derivation, and device-bound capability contracts;
-- Sync and Local Vault define encrypted snapshot, Remembered Browser, Local Profile, and lock storage contracts;
+- Sync and Local Vault define encrypted Personal-only snapshot, transient online-workspace, Remembered Browser, Local Profile, and lock storage contracts; the snapshot store cannot accept Shared Vault material;
 - Authenticator Account defines encrypted account payload and QR import contracts;
 - Vault Archive defines archive preparation and download contracts;
 - OTP Runtime defines server-time access.

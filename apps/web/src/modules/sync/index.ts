@@ -1,14 +1,23 @@
 export type { OfflineSyncBundleReader } from "./application/offline-sync-bundle-reader";
-export { OFFLINE_BUNDLE_SCHEMA_VERSION, parseEncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+export {
+  AUTHORIZED_WORKSPACE_RESPONSE_VERSION,
+  LegacySharedVaultSnapshotError,
+  OFFLINE_BUNDLE_SCHEMA_VERSION,
+  parseAuthorizedWorkspaceResponse,
+  parseEncryptedOnlineWorkspaceBundle,
+  parseEncryptedPersonalOfflineSnapshot,
+} from "@rhasia-scret/client-vault-core";
 export type {
+  AuthorizedWorkspaceResponse,
   EncryptedOfflineAccount,
   EncryptedOfflinePersonalVault,
-  EncryptedOfflineSharedVault,
-  EncryptedOfflineVaultBundle,
+  EncryptedOnlineSharedVault,
+  EncryptedOnlineWorkspaceBundle,
+  EncryptedPersonalOfflineSnapshot,
 } from "@rhasia-scret/client-vault-core";
 export { isReadOnlySyncState, nextOfflineSyncState } from "@rhasia-scret/client-vault-core";
 export type { OfflineSyncEvent, OfflineSyncState } from "@rhasia-scret/client-vault-core";
-export { AuthorizedOfflineBundleTransportError } from "@rhasia-scret/client-vault-core";
+export { AuthorizedWorkspaceTransportError } from "@rhasia-scret/client-vault-core";
 export { canMutateVault, resolveVaultStatus } from "@rhasia-scret/client-vault-core";
 export type {
   VaultCapability,
@@ -29,7 +38,7 @@ export type {
   RememberedBrowserStore,
   VaultLockPort,
 } from "@rhasia-scret/client-vault-core";
-export { fetchAuthorizedOfflineBundle } from "./infrastructure/browser-offline-sync-client";
+export { fetchAuthorizedWorkspaceBundle } from "./infrastructure/browser-offline-sync-client";
 export {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,

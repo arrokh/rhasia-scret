@@ -9,6 +9,7 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { usePathname } from "next/navigation";
 import { useWorkspaceLifecycle, type UnlockedVaultWorkspace } from "@/modules/sync";
 
 type UnlockedVaultWorkspaceSession = {
@@ -28,6 +29,8 @@ export function UnlockedVaultWorkspaceProvider({
   children?: ReactNode;
   initialWorkspace?: UnlockedVaultWorkspace | null;
 }) {
+  const pathname = usePathname();
+  const previousPathnameRef = useRef(pathname);
   const workspaceRef = useRef<UnlockedVaultWorkspace | null>(initialWorkspace);
   const lastClearedWorkspaceRef = useRef<UnlockedVaultWorkspace | null>(null);
   const { workspace, setWorkspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } =
@@ -37,6 +40,12 @@ export function UnlockedVaultWorkspaceProvider({
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
+
+  useEffect(() => {
+    if (previousPathnameRef.current === pathname) return;
+    previousPathnameRef.current = pathname;
+    void refreshWorkspaceAuthorization().catch(() => undefined);
+  }, [pathname, refreshWorkspaceAuthorization]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;

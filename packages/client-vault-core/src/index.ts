@@ -19,7 +19,7 @@ export * from "./modules/otp-runtime/application/generate-totp";
 export * from "./modules/otp-runtime/domain/clock-drift";
 export * from "./modules/otp-runtime/domain/totp-configuration";
 export * from "./modules/sync/application/client-storage-ports";
-export * from "./modules/sync/application/authorized-offline-bundle-transport";
+export * from "./modules/sync/application/authorized-workspace-transport";
 export * from "./modules/sync/application/workspace-lifecycle";
 export * from "./modules/sync/domain/offline-sync-state";
 export * from "./modules/sync/domain/vault-status";

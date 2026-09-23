@@ -87,6 +87,8 @@ export function SurfaceCard({ children, className, ...props }: React.ComponentPr
   );
 }
 
+export const SURFACE_CARD_CONTENT_PADDING_CLASS = "p-5 sm:p-6";
+
 export function AppFooter() {
   return (
     <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/85">

@@ -12,8 +12,8 @@ import {
 
 describe("API contract", () => {
   it("declares every canonical API operation exactly once", () => {
-    expect(API_ROUTE_MANIFEST).toHaveLength(61);
-    expect(new Set(API_ROUTE_MANIFEST.map(([method, path]) => `${method} ${path}`)).size).toBe(61);
+    expect(API_ROUTE_MANIFEST).toHaveLength(62);
+    expect(new Set(API_ROUTE_MANIFEST.map(([method, path]) => `${method} ${path}`)).size).toBe(62);
   });
 
   it("keeps the version segment canonical and browser-only proxy prefix separate", () => {

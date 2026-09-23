@@ -24,10 +24,11 @@ import {
   type EffectiveSharedVaultAccountPermissions,
   type SharedVaultAccountPermissions,
 } from "@/modules/vault-membership";
+import { cn } from "@/lib/utils";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
-import { StatusBanner } from "@/shared/presentation/app-ui";
+import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { encryptSharedVaultName } from "../infrastructure/browser-shared-vault-creator";
@@ -47,7 +48,7 @@ export type SharedVaultSummary = {
 export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] }) {
   const t = useTranslations("VaultManagement.directory");
   return (
-    <div className="grid gap-5 p-5 sm:p-6">
+    <div className={cn("grid gap-5", SURFACE_CARD_CONTENT_PADDING_CLASS)}>
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-ink-strong">{t("title")}</h2>
