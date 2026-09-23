@@ -259,6 +259,11 @@ const routes: readonly LazyRouteDefinition[] = [
   { method: "get", path: "/sync/offline-bundle", load: () => import("@api/route-handlers/sync/offline-bundle/route") },
   {
     method: "get",
+    path: "/sync/workspace-bundle",
+    load: () => import("@api/route-handlers/sync/workspace-bundle/route"),
+  },
+  {
+    method: "get",
     path: "/user-crypto-profile",
     load: () => import("@api/route-handlers/user-crypto-profile/route"),
   },

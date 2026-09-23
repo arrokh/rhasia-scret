@@ -22,7 +22,7 @@ The server resolves effective permissions and performs authorization plus mutati
 
 Successful Shared Vault account and permission changes write actor-attributed, redacted Vault Audit events in the same transaction. Events contain only permitted authorization/lifecycle metadata and opaque identifiers, never Vault Names, account labels, TOTP configuration, generated OTPs, ciphertext contents, or keys.
 
-Effective permissions and their per-capability source may be returned to the affected member and included in Local Vault Snapshots as permitted authorization metadata. Other members' settings and the member list remain owner-only. Offline and stale workspaces remain read-only regardless of cached permissions.
+Effective permissions and their per-capability source may be returned to the affected member through the transient authorized online workspace response. They are not included in Personal-only Local Vault Snapshots. Other members' settings and the member list remain owner-only. Offline and stale workspaces remain read-only and expose Personal Vault data only.
 
 Clients isolate malformed Authenticator Account records so one invalid member-written payload cannot make every account in the Shared Vault unavailable. The owner receives an opaque integrity warning and can soft-delete the bad record without exposing its encrypted content.
 

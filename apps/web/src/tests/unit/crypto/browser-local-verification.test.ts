@@ -191,14 +191,17 @@ describe("Remembered Browser Local Verification", () => {
   });
 
   it("offers remembered unlock only for a same-site package bound to the requested Personal Vault", async () => {
-    mocks.listProfiles.mockResolvedValue([
-      {
-        profileId: "profile_1",
-        personalVaultId: "vault_1",
-        synchronizedAt: "2026-01-01T00:00:00.000Z",
-        sharedVaultCount: 0,
-      },
-    ]);
+    mocks.listProfiles.mockResolvedValue({
+      profiles: [
+        {
+          profileId: "profile_1",
+          personalVaultId: "vault_1",
+          synchronizedAt: "2026-01-01T00:00:00.000Z",
+          sharedVaultCount: 0,
+        },
+      ],
+      migrationRequired: false,
+    });
     mocks.readRemembered.mockResolvedValue({
       version: 1,
       profileId: "profile_1",

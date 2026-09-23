@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AuthorizedOfflineBundleTransportError,
+  AuthorizedWorkspaceTransportError,
   type UnlockedVaultWorkspace,
   type WorkspaceLifecyclePorts,
   type WorkspaceRefreshFailure,
@@ -12,6 +12,7 @@ import { setBrowserWritesReadOnly } from "@/shared/infrastructure/browser-write-
 import { browserVaultLockPort } from "./browser-vault-lock";
 import {
   clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace,
   LocalStorageSyncError,
   refreshUnlockedVaultWorkspace,
 } from "./browser-vault-workspace";
@@ -25,11 +26,13 @@ export function createBrowserWorkspaceLifecyclePorts(
     lock: browserVaultLockPort,
     writes: { setReadOnly: setBrowserWritesReadOnly },
     workspace: {
-      refresh: (userRootKey, profileId) => refreshUnlockedVaultWorkspace(userRootKey, profileId),
+      refresh: (userRootKey, profileId, cancellation) =>
+        refreshUnlockedVaultWorkspace(userRootKey, profileId, cancellation),
       clear: (workspace) => {
         clearUnlockedVaultWorkspace(workspace);
         if (workspace) onCleared?.(workspace);
       },
+      evictShared: evictSharedVaultWorkspace,
       classifyFailure: classifyBrowserWorkspaceRefreshFailure,
       readOnlyReason: (workspace) => `Vault workspace is ${workspace.syncState.toLowerCase()}.`,
     },
@@ -37,7 +40,10 @@ export function createBrowserWorkspaceLifecyclePorts(
 }
 
 export function classifyBrowserWorkspaceRefreshFailure(error: unknown): WorkspaceRefreshFailure {
-  if (error instanceof AuthorizedOfflineBundleTransportError && (error.status === 401 || error.status === 403))
+  if (
+    error instanceof AuthorizedWorkspaceTransportError &&
+    (error.status === 401 || (error.status === 403 && error.code === "inactive_user"))
+  )
     return "AUTHENTICATION";
   if (error instanceof BrowserApiError && (error.status === 401 || error.status === 403)) return "AUTHENTICATION";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";

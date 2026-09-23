@@ -10,13 +10,14 @@ import {
   unlockPersonalVaultWithUserRootKey,
 } from "@/modules/crypto";
 import { decryptAccountConfiguration } from "@/modules/authenticator-account/client";
-import { BrowserOfflineVaultRepository, fetchAuthorizedOfflineBundle } from "@/modules/sync";
+import { BrowserOfflineVaultRepository, fetchAuthorizedWorkspaceBundle } from "@/modules/sync";
 import { browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
 import { unlockSharedVault } from "@/modules/vault-membership";
 import type { CancellationPort } from "@rhasia-scret/client-vault-core";
 import {
-  AuthorizedOfflineBundleTransportError,
+  AuthorizedWorkspaceTransportError,
   clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace,
   loadOfflineVaultWorkspace as loadOfflineWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser as loadOfflineWorkspaceWithRememberedBrowser,
   loadUnlockedVaultWorkspace as loadUnlockedWorkspace,
@@ -29,14 +30,14 @@ import {
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
 
-export { clearUnlockedVaultWorkspace, LocalStorageSyncError };
+export { clearUnlockedVaultWorkspace, evictSharedVaultWorkspace, LocalStorageSyncError };
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
 
 export type BrowserVaultWorkspaceUnlockFailure = "AUTHENTICATION" | "LOCAL_STORAGE" | "PASSPHRASE" | "SYNC";
 
 export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): BrowserVaultWorkspaceUnlockFailure {
-  if (error instanceof AuthorizedOfflineBundleTransportError)
-    return error.status === 401 || error.status === 403 ? "AUTHENTICATION" : "SYNC";
+  if (error instanceof AuthorizedWorkspaceTransportError)
+    return error.status === 401 || (error.status === 403 && error.code === "inactive_user") ? "AUTHENTICATION" : "SYNC";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
   return "PASSPHRASE";
 }
@@ -47,7 +48,7 @@ function browserPorts(): VaultWorkspacePlatformPorts {
     network: browserNetworkStatus,
     data: {
       snapshotStore,
-      fetchAuthorizedOfflineBundle: (cached) => fetchAuthorizedOfflineBundle(cached),
+      fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(signal),
     },
     crypto: {
       unlockPersonalVault,
@@ -107,6 +108,7 @@ export function loadOfflineVaultWorkspaceWithRememberedBrowser(profileId: string
 export function refreshUnlockedVaultWorkspace(
   userRootKey: Uint8Array,
   expectedProfileId: string,
+  signal?: CancellationPort,
 ): Promise<UnlockedVaultWorkspace> {
-  return refreshWorkspace(userRootKey, expectedProfileId, browserPorts());
+  return refreshWorkspace(userRootKey, expectedProfileId, browserPorts(), signal);
 }

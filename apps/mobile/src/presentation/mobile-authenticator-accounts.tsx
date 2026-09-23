@@ -190,6 +190,7 @@ export function MobileAuthenticatorAccounts({
               await refreshWorkspaceAuthorization();
             }}
             repository={repository}
+            refreshWorkspaceAuthorization={refreshWorkspaceAuthorization}
           />
         );
       })}
@@ -211,6 +212,7 @@ function MobileTotpAccount({
   online,
   onDelete,
   repository,
+  refreshWorkspaceAuthorization,
 }: {
   account: WorkspaceAuthenticatorAccount;
   canDelete: boolean;
@@ -218,6 +220,7 @@ function MobileTotpAccount({
   online: boolean;
   onDelete(): Promise<void>;
   repository: MobileAuthenticatorAccountRepository;
+  refreshWorkspaceAuthorization(): Promise<void>;
 }) {
   const [code, setCode] = useState<{ value: string; validUntil: Date } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -230,7 +233,19 @@ function MobileTotpAccount({
   const copyCode = async () => {
     if (!code || code.validUntil.getTime() <= Date.now()) return;
     if (online && account.vaultType === "SHARED") {
-      void repository.recordSharedVaultAccountAccess(account.vaultId, account.id).catch(() => undefined);
+      try {
+        const accessAllowed = await repository.recordSharedVaultAccountAccess(account.vaultId, account.id);
+        if (!accessAllowed) {
+          await refreshWorkspaceAuthorization().catch(() => undefined);
+          return;
+        }
+      } catch {
+        try {
+          await refreshWorkspaceAuthorization();
+        } catch {
+          return;
+        }
+      }
     }
     await nativeClipboard.writeText(code.value);
     setCopied(true);

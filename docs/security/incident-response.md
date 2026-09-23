@@ -14,7 +14,7 @@ This runbook is intentionally provider- and deployment-neutral. Record only opaq
 - Stop serving the compromised build, revoke the deployment, and force a known-good client update/rollback.
 - Compare deployed artifact hashes/provenance with the approved release and review CSP/headers, source-map exposure, service-worker caches, and CDN behavior.
 - Treat secrets opened while the compromised client was active as exposed. Notify affected users with service-specific TOTP reset guidance; deleting Vault ciphertext does not revoke credentials already learned.
-- Revoke server sessions and clear server-derived workspaces/Remembered Browser packages where appropriate. Preserve independent Local Profile ciphertext and explain that an actively malicious host can observe opened Local Vault secrets.
+- Revoke server sessions and clear server-derived workspaces/Remembered Browser packages where appropriate. Hosted Local Vault Snapshots contain Personal Vault data only; remove legacy Shared-containing snapshots and retain no Shared Vault offline copy. Preserve independent Local Profile ciphertext and explain that an actively malicious host can observe opened Local Vault secrets.
 
 ## Dependency, CI, or artifact compromise
 
@@ -30,13 +30,13 @@ This runbook is intentionally provider- and deployment-neutral. Record only opaq
 
 ## Stolen session or authentication compromise
 
-- Revoke the affected provider session(s), review session IDs/freshness, and clear unlocked server workspaces and snapshots.
+- Revoke the affected provider session(s), review session IDs/freshness, and clear unlocked server workspaces and Personal-only snapshots. A global authentication failure may retain the encrypted Personal snapshot for explicit offline unlock, but must not retain an active Shared Vault workspace.
 - Review user switching, invitation/admission, identity-linking, and sensitive-operation events. Do not automatically link or transfer identities by email.
 - The Local Profile is independent: preserve it unless the user explicitly clears it, and require a separate local action for any copy.
 
 ## Vault/member compromise
 
-- Revoke membership authorization immediately and review redacted Vault Audit History by opaque Vault/account IDs.
+- Revoke membership authorization immediately and review redacted Vault Audit History by opaque Vault/account IDs. On reconnection, verify Shared Vault material is absent from the Personal-only snapshot and that the active workspace evicts it before stale/offline presentation.
 - Remember that revocation cannot erase ciphertext or TOTP secrets previously obtained by a member. Advise reset/re-enrollment at the original service when a TOTP secret may have been exposed.
 - For a suspected key compromise, follow the approved key-rotation/recovery ADR; do not claim that deletion alone is cryptographic remediation.
 

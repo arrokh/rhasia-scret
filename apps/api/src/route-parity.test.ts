@@ -74,12 +74,13 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["GET", "/v1/vaults/vault_1/audit-events"],
   ["POST", "/v1/vaults/vault_1/audit-events"],
   ["GET", "/v1/sync/offline-bundle"],
+  ["GET", "/v1/sync/workspace-bundle"],
 ];
 
 describe("canonical API route parity", () => {
   it("covers every registered operation, including deletion and dynamic aliases", () => {
-    expect(routes).toHaveLength(61);
-    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(61);
+    expect(routes).toHaveLength(62);
+    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(62);
     expect(routes).toEqual(API_ROUTE_MANIFEST.map(([method, path]) => [method, materialize(path)]));
   });
 

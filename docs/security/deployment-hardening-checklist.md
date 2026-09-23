@@ -9,7 +9,7 @@ Use this checklist for every production release. A checked repository item is no
 - [ ] `frame-ancestors`, `X-Frame-Options`, `base-uri`, `form-action`, `object-src`, `Permissions-Policy`, `Referrer-Policy`, COOP, CORP, and `nosniff` are present on pages, APIs, manifest, service worker, and static assets.
 - [ ] `Cache-Control: no-store, private` is present on API/auth responses. No user-specific HTML, source maps, API responses, cookies, or auth responses are in Cache Storage.
 - [ ] API request logs contain only opaque request IDs, route/method/status/duration, and sanitized event types; bodies, query values, cookies, authorization headers, ciphertext, PII, and provider payloads are redacted.
-- [ ] The service worker caches only the public offline shell, manifest, same-origin static assets, and approved PWA assets; `.map`, cross-origin, `/api`, and `/auth` paths are excluded.
+- [ ] The service worker caches only the public offline shell, manifest, same-origin static assets, and approved PWA assets; `.map`, cross-origin, `/api`, and `/auth` paths are excluded. The workspace-bundle response is `no-store` and never enters Cache Storage.
 - [ ] A stale client receives the tested update/lock behavior before it can display a server-derived workspace.
 - [ ] QR/image/archive inputs, Vault/account labels, error text, URLs, and imported data use safe typed rendering and navigation paths.
 
@@ -25,7 +25,8 @@ Review the passwordless implementation, SMTP provider, and OIDC issuer documenta
 - [ ] OIDC discovery issuer, audience, redirect URI, state, nonce, PKCE, ID-token expiry/signature, verified-email admission, and callback error handling are verified when enabled.
 - [ ] Browser-visible configuration contains public values only. Database URLs, tokens, cookies, authorization headers, SMTP/OIDC secrets, and session credentials are absent from bundles, logs, telemetry, and caches.
 - [ ] Sensitive online mutations require a current authorized identity and configured freshness/revocation assurance. Offline Local Vault use does not depend on hosted authentication.
-- [ ] Logout clears unlocked server workspaces, server-derived snapshots, and Remembered Browser material according to their ADRs while preserving independent encrypted Local Profile data.
+- [ ] Logout clears unlocked server workspaces, Personal-only server-derived snapshots, and Remembered Browser material according to their ADRs while preserving independent encrypted Local Profile data.
+- [ ] Synthetic browser/native storage inspection proves hosted snapshots contain Personal Vault data only, legacy Shared-containing snapshots are cleaned up, and Shared Vault access remains online-only.
 
 ## Supply chain and CI
 

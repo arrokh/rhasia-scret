@@ -76,7 +76,7 @@ and it never resets analytics identity or emits an identified deletion event.
 - `local_authenticator_account_updated`
 - `local_authenticator_account_deleted`
 
-`client_error` is reserved for the existing redacted error boundary telemetry (`error_name`, `error_digest`) and is not a product funnel event.
+`client_error` is reserved for the existing redacted error boundary telemetry (`error_name`, `error_digest`) and is not a product funnel event. Personal-only snapshot migration, Shared Vault eviction, and workspace protocol failures add no analytics events; if operational measurements are added, they remain bounded and contain no user, Vault, account, ciphertext, key, OTP, or label data.
 
 ## Analysis guidance
 

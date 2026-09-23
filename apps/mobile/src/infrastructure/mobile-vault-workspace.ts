@@ -2,15 +2,16 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
 import {
   clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace,
   loadOfflineVaultWorkspace as loadOfflineWorkspace,
   loadUnlockedVaultWorkspace as loadOnlineWorkspace,
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   type UnlockedVaultWorkspace,
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
-import { AuthorizedOfflineBundleTransport, type EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
+import { AuthorizedWorkspaceTransport, type AuthorizedWorkspaceResponse } from "@rhasia-scret/client-vault-core";
 import { unlockSharedVaultWithCrypto } from "@rhasia-scret/client-vault-core";
-import type { NetworkStatusPort, PortDisposer } from "@rhasia-scret/client-vault-core";
+import type { CancellationPort, NetworkStatusPort, PortDisposer } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { EncryptedOfflineVaultStore } from "./encrypted-offline-vault-store";
 import { nativeOfflineVaultPersistence, nativeOfflineVaultSecureKeys } from "./native-offline-vault-persistence";
@@ -88,7 +89,7 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
     network: nativeNetworkStatus,
     data: {
       snapshotStore: mobileOfflineVaultStore,
-      fetchAuthorizedOfflineBundle: (cached) => fetchAuthorizedOfflineBundle(transport, cached),
+      fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(transport, signal),
     },
     crypto: {
       unlockPersonalVault: unlockMobilePersonalVault,
@@ -126,16 +127,23 @@ export function loadMobileVaultWorkspace(
 export function refreshMobileVaultWorkspace(
   workspace: UnlockedVaultWorkspace,
   transport: AuthenticatedTransport,
+  signal?: CancellationPort,
 ): Promise<UnlockedVaultWorkspace> {
-  return refreshWorkspace(workspace.userRootKey, workspace.profileId, createMobileVaultWorkspacePorts(transport));
+  return refreshWorkspace(
+    workspace.userRootKey,
+    workspace.profileId,
+    createMobileVaultWorkspacePorts(transport),
+    signal,
+  );
 }
 
 export function refreshMobileVaultWorkspaceWithKey(
   userRootKey: Uint8Array,
   profileId: string,
   transport: AuthenticatedTransport,
+  signal?: CancellationPort,
 ): Promise<UnlockedVaultWorkspace> {
-  return refreshWorkspace(userRootKey, profileId, createMobileVaultWorkspacePorts(transport));
+  return refreshWorkspace(userRootKey, profileId, createMobileVaultWorkspacePorts(transport), signal);
 }
 
 export function loadOfflineMobileVaultWorkspace(
@@ -146,14 +154,14 @@ export function loadOfflineMobileVaultWorkspace(
   return loadOfflineWorkspace(profileId, vaultUnlockSecret, createMobileVaultWorkspacePorts(transport));
 }
 
-export { clearUnlockedVaultWorkspace };
+export { clearUnlockedVaultWorkspace, evictSharedVaultWorkspace };
 export type { UnlockedVaultWorkspace };
 
-async function fetchAuthorizedOfflineBundle(
+async function fetchAuthorizedWorkspaceBundle(
   transport: AuthenticatedTransport,
-  cached: EncryptedOfflineVaultBundle | null,
-): Promise<EncryptedOfflineVaultBundle> {
-  return new AuthorizedOfflineBundleTransport(transport).fetch(cached);
+  signal?: CancellationPort,
+): Promise<AuthorizedWorkspaceResponse> {
+  return new AuthorizedWorkspaceTransport(transport).fetch(signal);
 }
 
 function unsupportedDeviceRecovery(): never {

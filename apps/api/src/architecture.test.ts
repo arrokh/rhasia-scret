@@ -152,6 +152,8 @@ describe("API extraction ownership boundaries", () => {
     expect(rootPackage.scripts?.["mobile:verify"]).toBeUndefined();
     expect(rootPackage.scripts?.["test:vercel-deployment"]).toBeUndefined();
     expect(dockerfile).toContain("pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts");
+    expect(dockerfile).toContain("cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts");
+    expect(dockerfile).not.toContain("pnpm --filter @rhasia-scret/api prisma:generate");
     expect(dockerfile).toContain("pnpm --filter @rhasia-scret/api deploy --prod --legacy --ignore-scripts /tmp/api");
     expect(dockerfile).toContain(
       "pnpm --filter @rhasia-scret/api deploy --prod --no-optional --legacy --ignore-scripts /tmp/api-runtime",

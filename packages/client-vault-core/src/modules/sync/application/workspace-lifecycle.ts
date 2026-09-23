@@ -39,6 +39,7 @@ export interface WorkspaceWriteGatePort {
 export interface WorkspaceLifecycleAdapter<Workspace extends WorkspaceLifecycleValue> {
   refresh(userRootKey: Uint8Array, profileId: string, cancellation: CancellationPort): Promise<Workspace>;
   clear(workspace: Workspace | null): void;
+  evictShared?(workspace: Workspace): Workspace;
   classifyFailure(error: unknown): WorkspaceRefreshFailure;
   readOnlyReason(workspace: Workspace): string;
 }
@@ -91,7 +92,7 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
         else this.markNetworkLost();
       }),
       this.ports.applicationLifecycle.subscribeVisibility((visible) => {
-        if (visible) void this.reconcile();
+        if (visible) void this.refreshAuthorization().catch(() => undefined);
       }),
     );
     if (!this.ports.network.isOnline()) this.markNetworkLost();
@@ -195,6 +196,7 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
     const cancellation = new LifecycleCancellation();
     this.reconciling = cancellation;
     const key = source.userRootKey.slice();
+    const disposeKeyClear = cancellation.subscribe(() => key.fill(0));
     if (mode === "reconciliation") {
       this.current = { ...source, syncState: nextOfflineSyncState(source.syncState, "RECONNECT_STARTED") };
       this.publish();
@@ -220,15 +222,22 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
           throw error instanceof WorkspaceLifecycleCancelledError ? error : new WorkspaceLifecycleCancelledError();
         return;
       }
-      if (mode === "reconciliation" && this.current) {
-        this.current = {
-          ...this.current,
-          syncState: nextOfflineSyncState("SYNCING", failureEvent(this.ports.workspace.classifyFailure(error))),
-        };
-        this.publish();
+      if (this.current) {
+        const failure = this.ports.workspace.classifyFailure(error);
+        if (failure === "AUTHENTICATION") {
+          this.lock();
+        } else {
+          const evicted = evictShared(this.ports.workspace, this.current);
+          this.current = {
+            ...evicted,
+            syncState: nextOfflineSyncState("SYNCING", failureEvent(failure)),
+          };
+          this.publish();
+        }
       }
       if (mode === "authorization") throw error;
     } finally {
+      disposeKeyClear();
       key.fill(0);
       if (this.reconciling === cancellation) this.reconciling = null;
     }
@@ -237,7 +246,8 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
   private markNetworkLost(): void {
     if (this.disposed || !this.current) return;
     this.cancelReconciliation();
-    this.current = { ...this.current, syncState: nextOfflineSyncState(this.current.syncState, "NETWORK_LOST") };
+    const evicted = evictShared(this.ports.workspace, this.current);
+    this.current = { ...evicted, syncState: nextOfflineSyncState(evicted.syncState, "NETWORK_LOST") };
     this.publish();
   }
 
@@ -281,6 +291,13 @@ class LifecycleCancellation implements CancellationPort {
     for (const listener of this.listeners) listener();
     this.listeners.clear();
   }
+}
+
+function evictShared<Workspace extends WorkspaceLifecycleValue>(
+  adapter: WorkspaceLifecycleAdapter<Workspace>,
+  workspace: Workspace,
+): Workspace {
+  return adapter.evictShared?.(workspace) ?? workspace;
 }
 
 function failureEvent(failure: WorkspaceRefreshFailure): OfflineSyncEvent {

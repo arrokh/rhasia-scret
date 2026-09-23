@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { SurfaceCard } from "@/shared/presentation/app-ui";
+import { SurfaceCard, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { AccountDirectoryControls } from "./account-directory-controls";
 import {
   accountDirectoryAccountKey,
@@ -102,9 +102,9 @@ export function AuthenticatorAccountDirectoryPreview() {
   }
 
   return (
-    <SurfaceCard className="grid min-w-0 gap-5 p-4 sm:p-5" aria-label={t("listLabel")}>
+    <SurfaceCard className={cn("grid min-w-0 gap-5", SURFACE_CARD_CONTENT_PADDING_CLASS)} aria-label={t("listLabel")}>
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-slot="vault-account-actions">
-        <Button variant="outline" asChild className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal">
+        <Button variant="outline" asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
           <Link href="/vaults/manage" aria-label={t("vaults")} title={t("vaults")}>
             <Vault aria-hidden="true" />
             <span className="hidden min-w-0 whitespace-normal md:inline">{t("vaults")}</span>
@@ -112,7 +112,7 @@ export function AuthenticatorAccountDirectoryPreview() {
         </Button>
         <Button
           variant="outline"
-          className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+          className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
           aria-label={t("localAction")}
           title={t("localAction")}
         >
@@ -121,14 +121,14 @@ export function AuthenticatorAccountDirectoryPreview() {
         </Button>
         <Button
           variant="outline"
-          className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+          className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
           aria-label={t("securityAction")}
           title={t("securityAction")}
         >
           <ShieldKeyhole aria-hidden="true" />
           <span className="hidden min-w-0 whitespace-normal md:inline">{t("securityAction")}</span>
         </Button>
-        <Button asChild className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal">
+        <Button asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
           <Link href="/vaults/accounts/new" aria-label={t("addLabel")} title={t("add")}>
             <Plus />
             <span className="hidden min-w-0 whitespace-normal md:inline">{t("add")}</span>

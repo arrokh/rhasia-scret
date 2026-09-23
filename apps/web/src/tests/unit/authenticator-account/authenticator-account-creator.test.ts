@@ -17,7 +17,10 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/vaults/accounts/new",
+  useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
+}));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/modules/otp-runtime", () => ({ parseTotpUri: mocks.parseTotpUri }));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload", () => ({
@@ -27,6 +30,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
   clearUnlockedVaultWorkspace: mocks.clearUnlockedVaultWorkspace,
+  evictSharedVaultWorkspace: (workspace: unknown) => workspace,
   refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace,
 }));
 vi.mock("@/modules/authenticator-account/presentation/qr-import-input", () => ({

@@ -57,6 +57,15 @@
 
 ## Quality
 
+### Visual and design consistency
+
+- Before changing presentation, inspect the target screen, sibling routes, and relevant `apps/web/src/app/ui-preview/**` compositions. Reuse shared components and design tokens instead of adding one-off styling.
+- Keep peer actions in a section header, toolbar, or action group on the same size tier and alignment. The shared Button contract is documented in `docs/ui-design-consistency.md`; standard labeled and icon-only actions both use 48px geometry (`default` and `icon`). Use compact sizes only when the whole peer group is intentionally compact.
+- Reuse `SurfaceCard` for card shells and `SURFACE_CARD_CONTENT_PADDING_CLASS` for matching primary-card content insets. When equivalent pages are compared, keep the card surface and responsive content padding identical and cover both in browser geometry tests.
+- Keep loading placeholders aligned with their resolved page headers and cards: preserve back/action slots, button dimensions, content insets, and major section heights. Use route-specific skeleton variants where header structure differs, and test the transition geometry.
+- For icon-only actions, preserve accessible names and appropriate titles/tooltips. Check desktop and narrow layouts, both locales (including long labels), keyboard focus, contrast, and reduced-motion behavior.
+- When a shared visual component or token changes, inspect all affected production and preview surfaces and update the matching regression tests. Add a shared-component geometry test for size-token changes; use Chromium browser coverage when route composition or responsive behavior changes.
+
 ### Vercel deployment scope
 
 - The API uses only the existing Vercel API project configured for this repository. Never create, link, or deploy `apps/api` through a different Vercel project.

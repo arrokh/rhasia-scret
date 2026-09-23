@@ -1,5 +1,5 @@
 import {
-  AuthorizedOfflineBundleTransportError,
+  AuthorizedWorkspaceTransportError,
   WorkspaceLifecycle,
   type ApplicationLifecyclePort,
   type AuthenticatedTransport,
@@ -119,12 +119,22 @@ describe("native WorkspaceLifecycle adapters", () => {
   });
 
   it("classifies authentication, local storage, and synchronization failures", () => {
-    expect(
-      classifyNativeWorkspaceRefreshFailure(new AuthorizedOfflineBundleTransportError(401, "unauthenticated")),
-    ).toBe("AUTHENTICATION");
+    expect(classifyNativeWorkspaceRefreshFailure(new AuthorizedWorkspaceTransportError(401, "unauthenticated"))).toBe(
+      "AUTHENTICATION",
+    );
     expect(classifyNativeWorkspaceRefreshFailure(new Error("Native encrypted Vault storage is invalid."))).toBe(
       "LOCAL_STORAGE",
     );
     expect(classifyNativeWorkspaceRefreshFailure(new Error("network unavailable"))).toBe("SYNC");
+  });
+
+  it("treats Shared-specific denial, malformed responses, and timeouts as synchronization failures", () => {
+    expect(
+      classifyNativeWorkspaceRefreshFailure(new AuthorizedWorkspaceTransportError(403, "membership_revoked")),
+    ).toBe("SYNC");
+    expect(classifyNativeWorkspaceRefreshFailure(new Error("malformed workspace response"))).toBe("SYNC");
+    const timeout = new Error("workspace request timed out");
+    timeout.name = "AbortError";
+    expect(classifyNativeWorkspaceRefreshFailure(timeout)).toBe("SYNC");
   });
 });

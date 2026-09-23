@@ -380,7 +380,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
               fetch(`/api/v1/shared-vaults/${vaultId}/members/00000000-0000-4000-8000-000000000000`, {
                 method: "DELETE",
               }),
-              fetch("/api/v1/sync/offline-bundle"),
+              fetch("/api/v1/sync/workspace-bundle"),
             ]);
           const bundle = (await bundleResponse.json()) as {
             sharedVaults: Array<Record<string, unknown>>;
@@ -497,7 +497,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
 
       const deleteStatus = await leavePage.evaluate(
         async ({ vaultId }) => {
-          const bundle = (await fetch("/api/v1/sync/offline-bundle").then((response) => response.json())) as {
+          const bundle = (await fetch("/api/v1/sync/workspace-bundle").then((response) => response.json())) as {
             sharedVaults: Array<{
               vaultId: string;
               accounts: Array<{ id: string; revision: number }>;

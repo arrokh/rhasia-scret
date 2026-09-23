@@ -1,4 +1,3 @@
-import type { EncryptedOfflineVaultBundle } from "@rhasia-scret/client-vault-core";
 import type {
   AuthenticatedTransport,
   PlatformHttpRequest,
@@ -32,27 +31,23 @@ describe("mobile Vault workspace transport", () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
-  it("uses bearer transport and reuses an unchanged encrypted snapshot without mutation replay", async () => {
-    const cached = fixture();
-    const transport = new StubTransport(response(304, null, { "x-synchronized-at": "2026-08-11T23:00:00.000Z" }));
+  it("fetches the transient online workspace contract without caching", async () => {
+    const transport = new StubTransport(response(200, workspaceResponse()));
     const ports = createMobileVaultWorkspacePorts(transport);
 
-    const bundle = await ports.data.fetchAuthorizedOfflineBundle(cached);
-
-    expect(bundle).toEqual({ ...cached, synchronizedAt: "2026-08-11T23:00:00.000Z" });
+    await expect(ports.data.fetchAuthorizedWorkspaceBundle()).resolves.toEqual(workspaceResponse());
     expect(transport.requests).toEqual([
       {
-        url: "/v1/sync/offline-bundle",
+        url: "/v1/sync/workspace-bundle",
         method: "GET",
-        headers: { "if-none-match": '"sync-token-1"' },
         cache: "no-store",
       },
     ]);
   });
 
-  it("fails closed on malformed bundle responses", async () => {
+  it("fails closed on malformed workspace responses", async () => {
     const ports = createMobileVaultWorkspacePorts(new StubTransport(response(200, { plaintextSecret: "forbidden" })));
-    await expect(ports.data.fetchAuthorizedOfflineBundle(null)).rejects.toThrow("Invalid encrypted offline bundle");
+    await expect(ports.data.fetchAuthorizedWorkspaceBundle()).rejects.toThrow(/Authorized workspace response/);
   });
 });
 
@@ -76,24 +71,29 @@ function response(status: number, body: unknown, headers: Record<string, string>
   };
 }
 
-function fixture(): EncryptedOfflineVaultBundle {
+function workspaceResponse() {
   return {
-    schemaVersion: 2,
-    profileId: "profile_1",
+    responseVersion: 1,
+    workspaceSynchronizationToken: "sync-token-1",
     synchronizedAt: "2026-08-11T22:00:00.000Z",
-    synchronizationToken: "sync-token-1",
-    cryptoProfile: {
-      vaultUnlockSalt: bytesToBase64(new Uint8Array(16).fill(1)),
-      wrappedUserRootKey: envelope(2),
-      encryptedPersonalVaultKey: envelope(3),
-      encryptionVersion: 1,
-    },
-    personalVault: {
-      vaultId: "vault_1",
-      lifecycle: "ACTIVE",
-      encryptedName: envelope(4),
-      encryptionVersion: 1,
-      accounts: [],
+    personalSnapshot: {
+      schemaVersion: 3,
+      profileId: "profile_1",
+      synchronizedAt: "2026-08-11T22:00:00.000Z",
+      synchronizationToken: "personal-token-1",
+      cryptoProfile: {
+        vaultUnlockSalt: bytesToBase64(new Uint8Array(16).fill(1)),
+        wrappedUserRootKey: envelope(2),
+        encryptedPersonalVaultKey: envelope(3),
+        encryptionVersion: 1,
+      },
+      personalVault: {
+        vaultId: "vault_1",
+        lifecycle: "ACTIVE",
+        encryptedName: envelope(4),
+        encryptionVersion: 1,
+        accounts: [],
+      },
     },
     sharedVaults: [],
   };

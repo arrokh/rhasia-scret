@@ -30,7 +30,7 @@ export class MobileAuthenticatorAccountRepository {
     );
   }
 
-  public async recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<void> {
+  public async recordSharedVaultAccountAccess(vaultId: string, accountId: string): Promise<boolean> {
     const response = await this.transport.request({
       url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/audit-events`,
       method: "POST",
@@ -38,7 +38,9 @@ export class MobileAuthenticatorAccountRepository {
       body: JSON.stringify({ eventType: "ACCOUNT_ACCESSED", accountId }),
       cache: "no-store",
     });
+    if (response.status === 401 || response.status === 403 || response.status === 404) return false;
     if (!response.ok) throw new Error("Shared Vault account access audit could not be recorded.");
+    return true;
   }
 
   public async importTotpUri(

@@ -27,7 +27,9 @@ export function MobilePersonalVault({
   webOrigin: string;
   consumeSecureShareSecret?: () => string | null;
 }) {
-  const [state, setState] = useState<"loading" | "uninitialized" | "active" | "offline" | "error">("loading");
+  const [state, setState] = useState<
+    "loading" | "uninitialized" | "active" | "offline" | "migration_required" | "error"
+  >("loading");
   const [vaultId, setVaultId] = useState<string | null>(null);
   const [offlineProfileId, setOfflineProfileId] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -36,9 +38,12 @@ export function MobilePersonalVault({
       setVaultId(vault.id);
       setState(vault.lifecycle === "UNINITIALIZED" ? "uninitialized" : "active");
     } catch {
-      const profiles = await mobileOfflineVaultStore.listProfiles().catch(() => []);
-      if (profiles[0]) {
-        setOfflineProfileId(profiles[0].profileId);
+      const profiles = await mobileOfflineVaultStore
+        .listProfiles()
+        .catch(() => ({ profiles: [], migrationRequired: false }));
+      if (profiles.migrationRequired) setState("migration_required");
+      else if (profiles.profiles[0]) {
+        setOfflineProfileId(profiles.profiles[0].profileId);
         setState("offline");
       } else setState("error");
     }
@@ -57,8 +62,9 @@ export function MobilePersonalVault({
         void mobileOfflineVaultStore.listProfiles().then(
           (profiles) => {
             if (!mounted) return;
-            if (profiles[0]) {
-              setOfflineProfileId(profiles[0].profileId);
+            if (profiles.migrationRequired) setState("migration_required");
+            else if (profiles.profiles[0]) {
+              setOfflineProfileId(profiles.profiles[0].profileId);
               setState("offline");
             } else setState("error");
           },
@@ -79,6 +85,25 @@ export function MobilePersonalVault({
         {copy.personalVaultLoading}
       </Text>
     );
+  if (state === "migration_required") {
+    return (
+      <View style={styles.panel}>
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {copy.personalVaultOfflineMigrationRequired}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            setState("loading");
+            void load();
+          }}
+          style={styles.secondaryButton}
+        >
+          <Text style={styles.secondaryButtonText}>{copy.retry}</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (state === "error") {
     return (
       <View style={styles.panel}>

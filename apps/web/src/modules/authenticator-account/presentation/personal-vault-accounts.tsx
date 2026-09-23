@@ -10,7 +10,8 @@ import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/module
 import { TotpAccountButton } from "@/modules/otp-runtime";
 import { VaultStatusIndicator, type WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { recordSharedVaultAccountAccess } from "@/modules/audit";
-import { StatusBanner } from "@/shared/presentation/app-ui";
+import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
+import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { cn } from "@/lib/utils";
 import { LocalVaultCopyPanel } from "@/modules/local-vault";
 import { AccountDirectoryControls } from "./account-directory-controls";
@@ -23,6 +24,15 @@ import {
 import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
+
+function requiresWorkspaceRevalidation(error: unknown): boolean {
+  return (
+    error instanceof BrowserApiError &&
+    (error.status === 401 ||
+      error.status === 403 ||
+      (error.status === 404 && error.code === "shared_vault_access_required"))
+  );
+}
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
@@ -144,14 +154,13 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
     visibleAccounts.findIndex((account) => accountDirectoryAccountKey(account) === lastMovedKey) + 1;
 
   return (
-    <section className="grid min-w-0 gap-5 p-4 sm:p-5" aria-labelledby="account-list-heading">
+    <section
+      className={cn("grid min-w-0 gap-5", SURFACE_CARD_CONTENT_PADDING_CLASS)}
+      aria-labelledby="account-list-heading"
+    >
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-slot="vault-account-actions">
         {current && (
-          <Button
-            variant="outline"
-            asChild
-            className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
-          >
+          <Button variant="outline" asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
             <Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}>
               <Vault aria-hidden="true" />
               <span className="hidden min-w-0 whitespace-normal md:inline">{t("vaults")}</span>
@@ -163,7 +172,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             <SheetTrigger asChild>
               <Button
                 variant="outline"
-                className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+                className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
                 aria-label={t("localAction")}
                 title={t("localAction")}
               >
@@ -196,7 +205,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             <SheetTrigger asChild>
               <Button
                 variant="outline"
-                className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal"
+                className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
                 aria-label={t("securityAction")}
                 title={t("securityAction")}
               >
@@ -220,7 +229,7 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
           </Sheet>
         )}
         {current && (
-          <Button asChild className="h-auto min-h-12 w-full min-w-0 py-2 text-center whitespace-normal">
+          <Button asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
             <Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")} title={t("addAccount")}>
               <Plus />
               <span className="hidden min-w-0 whitespace-normal md:inline">{t("addAccount")}</span>
@@ -349,8 +358,15 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
                           try {
                             await recordSharedVaultAccountAccess(account.vaultId, account.id);
                             setAuditError(false);
-                          } catch {
+                            return true;
+                          } catch (error) {
                             setAuditError(true);
+                            try {
+                              await refreshWorkspaceAuthorization();
+                            } catch {
+                              return false;
+                            }
+                            return !requiresWorkspaceRevalidation(error);
                           }
                         }
                       : undefined

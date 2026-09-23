@@ -10,7 +10,7 @@ A browser installation may own at most one client-only **Local Profile**. A Loca
 
 The browser installation is the security and lifecycle scope. The application does not identify a Local Profile by email, provider subject, Application User identifier, device account, or any server-provided value. It may store an opaque random profile identifier only to address its own encrypted records. An Expo installation is not a second implementation of this writable Local Profile contract.
 
-A Local Vault is a writable client-owned source of Authenticator Accounts. A Local Vault Snapshot remains the existing read-only encrypted copy of a previously synchronized server Vault described by ADR-0016; the two types must never share an identity, write path, synchronization state, or deletion operation.
+A Local Vault is a writable client-owned source of Authenticator Accounts. A Local Vault Snapshot is a Personal-Vault-only read-only encrypted copy of a previously synchronized server Personal Vault described by ADR-0016; Shared Vaults remain online-only. The two types must never share an identity, write path, synchronization state, or deletion operation.
 
 ## Local key hierarchy and encrypted storage
 

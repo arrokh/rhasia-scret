@@ -106,6 +106,24 @@ describe("TotpAccountButton", () => {
     expect(container.querySelector("circle.stroke-success")).toBeNull();
   });
 
+  it("does not copy a Shared Vault code after confirmed authorization denial", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("navigator", { clipboard: { writeText: mocks.writeText } });
+    const onAccess = vi.fn().mockResolvedValue(false);
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(createElement(TotpAccountButton, { configuration: configuration(), vaultName: "Shared", onAccess })),
+    );
+
+    const copy = container.querySelector<HTMLButtonElement>('[aria-label^="Salin OTP"]');
+    await act(async () => copy?.click());
+
+    expect(onAccess).toHaveBeenCalledOnce();
+    expect(mocks.writeText).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Disalin");
+  });
+
   it("pauses the shared clock while hidden and resynchronizes on visibility", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));

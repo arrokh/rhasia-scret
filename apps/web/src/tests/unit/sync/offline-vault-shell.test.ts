@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
   clearUnlockedVaultWorkspace: mocks.clearWorkspace,
+  evictSharedVaultWorkspace: (workspace: unknown) => workspace,
   loadOfflineVaultWorkspace: mocks.loadOffline,
   loadOfflineVaultWorkspaceWithRememberedBrowser: mocks.loadRemembered,
   refreshUnlockedVaultWorkspace: mocks.refresh,
@@ -36,7 +37,7 @@ describe("OfflineVaultShell", () => {
   });
 
   it("links an empty offline state back to sign in", async () => {
-    mocks.listProfiles.mockResolvedValue([]);
+    mocks.listProfiles.mockResolvedValue({ profiles: [], migrationRequired: false });
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -46,16 +47,30 @@ describe("OfflineVaultShell", () => {
     expect(container.querySelector<HTMLAnchorElement>('a[href="/sign-in"]')?.textContent).toContain("Kembali ke masuk");
   });
 
-  it("unlocks Personal, Owner Shared, and Viewer Shared snapshots read-only and exposes no mutation affordances", async () => {
+  it("shows reconnect guidance after legacy Shared Vault snapshot cleanup", async () => {
+    mocks.listProfiles.mockResolvedValue({ profiles: [], migrationRequired: true });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(OfflineVaultShell)));
+
+    expect(container.textContent).toContain("Snapshot lama yang berisi Brankas Bersama telah dihapus");
+  });
+
+  it("unlocks a Personal-only snapshot read-only and exposes no mutation affordances", async () => {
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
-    mocks.listProfiles.mockResolvedValue([
-      {
-        profileId: "profile_1",
-        personalVaultId: "personal_1",
-        synchronizedAt: "2026-01-01T00:00:00.000Z",
-        sharedVaultCount: 2,
-      },
-    ]);
+    mocks.listProfiles.mockResolvedValue({
+      profiles: [
+        {
+          profileId: "profile_1",
+          personalVaultId: "personal_1",
+          synchronizedAt: "2026-01-01T00:00:00.000Z",
+          sharedVaultCount: 0,
+        },
+      ],
+      migrationRequired: false,
+    });
     mocks.loadOffline.mockResolvedValue(workspace());
     const container = document.createElement("div");
     document.body.append(container);
@@ -67,10 +82,10 @@ describe("OfflineVaultShell", () => {
 
     expect(container.textContent).toContain("personal@example.test");
     expect(container.textContent).toContain("Brankas Pribadi");
-    expect(container.textContent).toContain("owner@example.test");
-    expect(container.textContent).toContain("Tim Owner");
-    expect(container.textContent).toContain("viewer@example.test");
-    expect(container.textContent).toContain("Tim Viewer");
+    expect(container.textContent).not.toContain("owner@example.test");
+    expect(container.textContent).not.toContain("Tim Owner");
+    expect(container.textContent).not.toContain("viewer@example.test");
+    expect(container.textContent).not.toContain("Tim Viewer");
     expect(container.textContent).toContain("pemeriksaan drift dan audit akses tidak tersedia");
     expect(container.querySelector('header a[href="/sign-in"]')?.textContent).toContain("Kembali ke masuk");
     expect(container.querySelector('button[aria-label^="Kelola"]')).toBeNull();
@@ -95,14 +110,8 @@ function workspace() {
         role: "OWNER" as const,
         key: Uint8Array.of(2),
       },
-      { id: "owner_1", name: "Tim Owner", type: "SHARED" as const, role: "OWNER" as const, key: Uint8Array.of(3) },
-      { id: "viewer_1", name: "Tim Viewer", type: "SHARED" as const, role: "VIEWER" as const, key: Uint8Array.of(4) },
     ],
-    accounts: [
-      account("personal", "personal_1", "Brankas Pribadi", "PERSONAL" as const),
-      account("owner", "owner_1", "Tim Owner", "SHARED" as const),
-      account("viewer", "viewer_1", "Tim Viewer", "SHARED" as const),
-    ],
+    accounts: [account("personal", "personal_1", "Brankas Pribadi", "PERSONAL" as const)],
   };
 }
 

@@ -1,6 +1,6 @@
 import type { CancellationPort, NetworkStatusPort } from "../../../shared/application/platform-ports";
 import type { OfflineVaultSnapshotStore } from "../../sync/application/client-storage-ports";
-import type { EncryptedOfflineVaultBundle } from "../../sync/domain/offline-vault-bundle";
+import type { AuthorizedWorkspaceResponse } from "../../sync/domain/offline-vault-bundle";
 import type { CryptoEnvelopeContext, EncryptedEnvelope } from "../../crypto/application/encrypted-envelope-types";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
 
@@ -58,7 +58,7 @@ export interface VaultWorkspaceCryptoPort {
 
 export interface VaultWorkspaceDataPort {
   readonly snapshotStore: OfflineVaultSnapshotStore;
-  fetchAuthorizedOfflineBundle(cached: EncryptedOfflineVaultBundle | null): Promise<EncryptedOfflineVaultBundle>;
+  fetchAuthorizedWorkspaceBundle(signal?: CancellationPort): Promise<AuthorizedWorkspaceResponse>;
 }
 
 export type VaultWorkspacePlatformPorts = {

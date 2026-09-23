@@ -55,7 +55,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
   it("records Shared Vault access through the existing rate-limited audit endpoint", async () => {
     const transport = new StubTransport(response(204, null));
     const repository = new MobileAuthenticatorAccountRepository(transport);
-    await repository.recordSharedVaultAccountAccess("shared_1", "account_2");
+    await expect(repository.recordSharedVaultAccountAccess("shared_1", "account_2")).resolves.toBe(true);
     expect(transport.requests[0]).toEqual({
       url: "/v1/shared-vaults/shared_1/audit-events",
       method: "POST",
@@ -63,6 +63,13 @@ describe("MobileAuthenticatorAccountRepository", () => {
       body: JSON.stringify({ eventType: "ACCOUNT_ACCESSED", accountId: "account_2" }),
       cache: "no-store",
     });
+  });
+
+  it("reports a confirmed Shared Vault access denial for workspace revalidation", async () => {
+    const transport = new StubTransport(response(404, { error: "shared_vault_access_required" }));
+    const repository = new MobileAuthenticatorAccountRepository(transport);
+
+    await expect(repository.recordSharedVaultAccountAccess("shared_1", "account_2")).resolves.toBe(false);
   });
 
   it("preserves the Shared Vault endpoint and domain type", async () => {

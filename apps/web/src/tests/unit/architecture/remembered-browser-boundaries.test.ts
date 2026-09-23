@@ -14,7 +14,7 @@ describe("Remembered Browser production boundaries", () => {
     expect(unlock).toContain('t("localVerification")');
     expect(unlock).toContain('t("passphrase")');
     expect(workspace).toMatch(
-      /fetchMeasuredAuthorizedOfflineBundle\(\{ personalVaultId \}, ports\)[\s\S]+ports\.crypto\.recoverUserRootKeyWithRememberedBrowser/,
+      /fetchMeasuredAuthorizedWorkspaceBundle\(ports\)[\s\S]+ports\.crypto\.recoverUserRootKeyWithRememberedBrowser/,
     );
   });
 
