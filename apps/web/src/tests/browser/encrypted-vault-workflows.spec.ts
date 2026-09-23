@@ -881,40 +881,31 @@ async function openSharedManagement(
   sharedVaultId?: string,
 ): Promise<void> {
   const tabBar = page.locator('[data-slot="tabs-list"] [data-slot="tabs-trigger"]');
-  const sharedVaultLink = page.getByRole("link", { name: sharedName });
-  const lockHeading = page.getByRole("heading", {
-    name: "Brankas Anda terkunci",
-  });
-  const sharedVaultTab = page.getByRole("link", {
-    name: /(Brankas Bersama|Shared Vaults|Shared vaults)/i,
-  });
   const passphraseInput = page.getByRole("textbox", {
     name: "Passphrase Brankas",
     exact: true,
   });
 
-  const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
-  await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-  if (await lockHeading.isVisible()) {
-    await unlockVault(page, secret);
-  }
   if (sharedVaultId) {
-    await page.goto(`/vaults/manage/${sharedVaultId}`, {
-      waitUntil: "domcontentloaded",
-    });
+    // The unlocked workspace is in-memory; reloading this route after unlock would lock it again.
+    await page.goto(`/vaults/manage/${sharedVaultId}`, { waitUntil: "domcontentloaded" });
     const initialState = await sharedManagementState(page, tabBar, passphraseInput, 30_000);
-    if (initialState === "locked") {
-      await unlockVault(page, secret);
-      await page.goto(`/vaults/manage/${sharedVaultId}`, {
-        waitUntil: "domcontentloaded",
-      });
-    }
+    if (initialState === "locked") await unlockVault(page, secret);
     await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));
     await expectSharedManagementUnlocked(page, tabBar, passphraseInput, secret, 60_000);
     await tabBar.first().scrollIntoViewIfNeeded();
     await expect(tabBar.first()).toBeVisible({ timeout: 30_000 });
     return;
   }
+
+  const sharedVaultLink = page.getByRole("link", { name: sharedName });
+  const lockHeading = page.getByRole("heading", { name: "Brankas Anda terkunci" });
+  const sharedVaultTab = page.getByRole("link", {
+    name: /(Brankas Bersama|Shared Vaults|Shared vaults)/i,
+  });
+  const vaultsLink = page.getByRole("link", { name: "Brankas", exact: true });
+  await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+  if (await lockHeading.isVisible()) await unlockVault(page, secret);
   if (await vaultsLink.isVisible()) {
     await vaultsLink.click();
     if (!/\/vaults\/manage\/?$/.test(new URL(page.url()).pathname)) {
