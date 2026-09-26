@@ -119,6 +119,7 @@ function unlockedWorkspace(): UnlockedVaultWorkspace {
         name: "Personal Vault",
         type: "PERSONAL",
         role: "OWNER",
+        keyVersion: 1,
         effectiveAccountPermissions: {
           permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
           sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },

@@ -172,6 +172,11 @@ const routes: readonly LazyRouteDefinition[] = [
     load: () => import("@api/route-handlers/shared-vaults/[vaultId]/lifecycle/route"),
   },
   {
+    method: "get",
+    path: "/shared-vaults/:vaultId/rotation",
+    load: () => import("@api/route-handlers/shared-vaults/[vaultId]/rotation/route"),
+  },
+  {
     method: "patch",
     path: "/shared-vaults/:vaultId/rotation",
     load: () => import("@api/route-handlers/shared-vaults/[vaultId]/rotation/route"),
@@ -266,6 +271,16 @@ const routes: readonly LazyRouteDefinition[] = [
     method: "put",
     path: "/user-encryption-identity",
     load: () => import("@api/route-handlers/user-encryption-identity/route"),
+  },
+  {
+    method: "get",
+    path: "/user-encryption-identity/rotation",
+    load: () => import("@api/route-handlers/user-encryption-identity/rotation/route"),
+  },
+  {
+    method: "patch",
+    path: "/user-encryption-identity/rotation",
+    load: () => import("@api/route-handlers/user-encryption-identity/rotation/route"),
   },
   { method: "post", path: "/vault-imports", load: () => import("@api/route-handlers/vault-imports/route") },
 ];

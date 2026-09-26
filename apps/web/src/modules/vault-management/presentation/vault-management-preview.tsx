@@ -11,6 +11,7 @@ export function VaultManagementPreview() {
     id: "shared-preview",
     name: sample("operations"),
     role: "OWNER" as const,
+    keyVersion: 1,
     effectiveAccountPermissions: {
       permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
       sources: {
@@ -39,6 +40,8 @@ export function VaultManagementPreview() {
           }}
           onRenamed={() => undefined}
           onAccountDeleted={async () => undefined}
+          onWorkspaceRefresh={async () => undefined}
+          keyRotationEnabled={false}
         />
       </SurfaceCard>
     </div>

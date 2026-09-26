@@ -28,10 +28,24 @@ describe("navigation and interaction performance boundaries", () => {
     expect(clock).toContain('document.visibilityState === "hidden"');
   });
 
-  it("loads the QR decoder only after a scan action", () => {
+  it("loads the QR decoder only when scanning and avoids unrelated barcode readers", () => {
     const importer = source("src/modules/authenticator-account/infrastructure/browser-qr-importer.ts");
-    expect(importer).toContain('import("@zxing/browser")');
-    expect(importer).not.toContain("import { BrowserQRCodeReader");
+    const input = source("src/modules/authenticator-account/presentation/qr-import-input.tsx");
+    expect(importer).toContain('import("jsqr")');
+    expect(importer).not.toContain("@zxing/browser");
+    expect(input).toContain('import("../infrastructure/browser-qr-importer")');
+    expect(input).not.toMatch(/^import\s+\{.*browser-qr-importer/m);
+  });
+
+  it("keeps rotation workflows on dedicated public entry points rather than route-facing barrels", () => {
+    const identityBarrel = source("src/modules/identity/index.ts");
+    const vaultManagementBarrel = source("src/modules/vault-management/index.ts");
+    expect(identityBarrel).not.toContain("browser-user-encryption-identity-rotation-workflow");
+    expect(vaultManagementBarrel).not.toContain("browser-vault-key-rotation-workflow");
+    expect(source("src/modules/identity/key-rotation.ts")).toContain(
+      "browser-user-encryption-identity-rotation-workflow",
+    );
+    expect(source("src/modules/vault-management/key-rotation.ts")).toContain("browser-vault-key-rotation-workflow");
   });
 
   it("fully prefetches only the two high-probability Vault directory transitions", () => {

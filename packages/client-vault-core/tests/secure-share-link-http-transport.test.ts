@@ -19,6 +19,7 @@ describe("SecureShareLinkHttpTransport", () => {
         recipientEmail: " Recipient@Example.test ",
         linkVerifier: verifier,
         encryptedPackage: ciphertext,
+        expectedKeyVersion: 7,
       }),
     ).resolves.toEqual({ id: "invitation_1", expiresAt: "2026-09-08T00:00:00.000Z" });
     expect(transport.requests[0]).toEqual({
@@ -29,6 +30,7 @@ describe("SecureShareLinkHttpTransport", () => {
         recipientEmail: "recipient@example.test",
         linkVerifier: verifier,
         encryptedPackage: ciphertext,
+        expectedKeyVersion: 7,
       }),
       cache: "no-store",
     });
@@ -36,7 +38,7 @@ describe("SecureShareLinkHttpTransport", () => {
 
   it("looks up and redeems a one-time link without sending its secret", async () => {
     const transport = new StubTransport([
-      response(200, { id: "invitation_1", vaultId: "vault_1", encryptedPackage: ciphertext }),
+      response(200, { id: "invitation_1", vaultId: "vault_1", encryptedPackage: ciphertext, keyVersion: 7 }),
       response(204, null),
     ]);
     const protocol = new SecureShareLinkHttpTransport(transport);
@@ -44,13 +46,41 @@ describe("SecureShareLinkHttpTransport", () => {
       id: "invitation_1",
       vaultId: "vault_1",
       encryptedPackage: ciphertext,
+      keyVersion: 7,
     });
-    await protocol.redeem({ invitationId: "invitation_1", encryptedVaultKey: ciphertext, keyVersion: 1 });
+    const expectedPublicKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) };
+    await protocol.redeem({
+      invitationId: "invitation_1",
+      encryptedVaultKey: ciphertext,
+      keyVersion: 7,
+      expectedPublicKey,
+    });
     expect(transport.requests[0]?.url).toBe(`/v1/secure-share-links?verifier=${encodeURIComponent(verifier)}`);
     expect(String(transport.requests[1]?.body)).toBe(
-      JSON.stringify({ invitationId: "invitation_1", encryptedVaultKey: ciphertext, keyVersion: 1 }),
+      JSON.stringify({ invitationId: "invitation_1", encryptedVaultKey: ciphertext, keyVersion: 7, expectedPublicKey }),
     );
     expect(JSON.stringify(transport.requests)).not.toContain("client-link-secret");
+  });
+
+  it("rejects private identity key fields before issuing a redemption request", async () => {
+    const transport = new StubTransport([]);
+    const protocol = new SecureShareLinkHttpTransport(transport);
+
+    await expect(
+      protocol.redeem({
+        invitationId: "invitation_1",
+        encryptedVaultKey: ciphertext,
+        keyVersion: 7,
+        expectedPublicKey: {
+          kty: "EC",
+          crv: "P-256",
+          x: "A".repeat(43),
+          y: "B".repeat(43),
+          d: "synthetic-private-material",
+        },
+      }),
+    ).rejects.toThrow("protocol value is invalid");
+    expect(transport.requests).toHaveLength(0);
   });
 
   it("cancels the exact pending invitation", async () => {
@@ -86,12 +116,19 @@ describe("SecureShareLinkHttpTransport", () => {
       recipientEmail: "recipient@example.test",
       linkVerifier: verifier,
       encryptedPackage: ciphertext,
+      expectedKeyVersion: 7,
       secret: "client-link-secret",
-    } as unknown as { recipientEmail: string; linkVerifier: string; encryptedPackage: string });
+    } as unknown as {
+      recipientEmail: string;
+      linkVerifier: string;
+      encryptedPackage: string;
+      expectedKeyVersion: number;
+    });
     expect(JSON.parse(String(transport.requests[0]?.body))).toEqual({
       recipientEmail: "recipient@example.test",
       linkVerifier: verifier,
       encryptedPackage: ciphertext,
+      expectedKeyVersion: 7,
     });
   });
 
@@ -103,6 +140,7 @@ describe("SecureShareLinkHttpTransport", () => {
         recipientEmail: `${"a".repeat(310)}@example.test`,
         linkVerifier: verifier,
         encryptedPackage: ciphertext,
+        expectedKeyVersion: 1,
       }),
     ).rejects.toThrow("protocol value is invalid");
   });

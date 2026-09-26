@@ -250,27 +250,47 @@ export function VaultArchiveImporter({
           };
     planRef.current = plan;
     let newVaultMaterial: Awaited<ReturnType<typeof createSharedVaultMaterial>> | undefined;
+    let newVaultOwnerPublicKey: NonNullable<typeof workspace.userEncryptionPublicKey> | undefined;
     let encryptedAccounts: Uint8Array[] = [];
     let uploaded = false;
     try {
-      newVaultMaterial = destination
-        ? undefined
-        : await createSharedVaultMaterial(workspace.userRootKey, opened.vaultName, plan.vaultId);
+      if (destination) {
+        newVaultMaterial = undefined;
+      } else {
+        const ownerPublicKey = workspace.userEncryptionPublicKey;
+        if (!ownerPublicKey) throw new VaultArchivePresentationError("destinationKeyUnavailable");
+        newVaultOwnerPublicKey = ownerPublicKey;
+        newVaultMaterial = await createSharedVaultMaterial(
+          ownerPublicKey,
+          workspace.profileId,
+          opened.vaultName,
+          plan.vaultId,
+        );
+      }
       const destinationKey = destination?.key ?? newVaultMaterial?.vaultKey;
       if (!destinationKey) throw new VaultArchivePresentationError("destinationKeyUnavailable");
       encryptedAccounts = await encryptVaultArchiveAccounts(destinationKey, opened.accounts, plan.vaultId);
       if (!activeRef.current) throw new VaultArchivePresentationError("locked");
       let requestDestination: BrowserEncryptedVaultImportRequest["destination"];
-      if (destination) {
+      if (destination?.type === "PERSONAL") {
         requestDestination = { kind: "EXISTING", vaultId: destination.id, vaultType: destination.type };
+      } else if (destination?.type === "SHARED") {
+        requestDestination = {
+          kind: "EXISTING",
+          vaultId: destination.id,
+          vaultType: destination.type,
+          expectedKeyVersion: destination.keyVersion,
+        };
       } else {
         const material = newVaultMaterial;
         if (!material) throw new VaultArchivePresentationError("newVaultMaterialUnavailable");
+        if (!newVaultOwnerPublicKey) throw new VaultArchivePresentationError("destinationKeyUnavailable");
         requestDestination = {
           kind: "NEW_SHARED",
           vaultId: plan.vaultId,
           encryptedName: bytesToBase64(material.encryptedName),
           encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey),
+          expectedOwnerPublicKey: newVaultOwnerPublicKey,
           encryptionVersion: 1,
         };
       }
@@ -305,7 +325,10 @@ export function VaultArchiveImporter({
       });
     } catch (error) {
       if (!activeRef.current) return;
-      if (error instanceof VaultImportClientError && error.code === "clientDestinationUnavailable") {
+      if (
+        error instanceof VaultImportClientError &&
+        (error.code === "clientDestinationUnavailable" || error.code === "clientConflict")
+      ) {
         try {
           const refreshed = await refreshAfterImport(workspace);
           if (refreshed) replaceWorkspace(refreshed);

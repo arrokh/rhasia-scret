@@ -10,11 +10,16 @@ import {
   parseEncryptedOnlineWorkspaceBundle,
   type AuthorizedWorkspaceResponse,
   type EncryptedOnlineWorkspaceBundle,
+  type EncryptedUserEncryptionIdentityProfile,
 } from "@rhasia-scret/client-vault-core/modules/sync/domain/offline-vault-bundle";
 
 export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader, AuthorizedWorkspaceReader {
   public constructor(private readonly database: PrismaDatabase) {}
   async readAuthorizedBundle(userId: string): Promise<EncryptedOnlineWorkspaceBundle | null> {
+    return (await this.readAuthorizedSnapshot(userId))?.bundle ?? null;
+  }
+
+  private async readAuthorizedSnapshot(userId: string): Promise<AuthorizedBundleSnapshot | null> {
     return measureServerOperation("rhsia:server:offline-bundle-read", () =>
       this.database.$transaction(
         async (transaction) => {
@@ -84,7 +89,16 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader, A
             }),
           };
           const synchronizationToken = Buffer.from(sha256Digest(JSON.stringify(content))).toString("base64url");
-          return parseEncryptedOnlineWorkspaceBundle({ ...content, synchronizedAt, synchronizationToken });
+          const bundle = parseEncryptedOnlineWorkspaceBundle({ ...content, synchronizedAt, synchronizationToken });
+          const userEncryptionIdentity =
+            profile.userEncryptionPublicKey && profile.encryptedUserPrivateKey && profile.userEncryptionKeyVersion === 1
+              ? {
+                  publicKey: profile.userEncryptionPublicKey as Record<string, unknown>,
+                  encryptedPrivateKey: base64(profile.encryptedUserPrivateKey),
+                  encryptionVersion: 1 as const,
+                }
+              : undefined;
+          return { bundle, userEncryptionIdentity };
         },
         { isolationLevel: "RepeatableRead" },
       ),
@@ -92,8 +106,9 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader, A
   }
 
   async readAuthorizedWorkspaceResponse(userId: string): Promise<AuthorizedWorkspaceResponse | null> {
-    const bundle = await this.readAuthorizedBundle(userId);
-    if (!bundle) return null;
+    const snapshot = await this.readAuthorizedSnapshot(userId);
+    if (!snapshot) return null;
+    const { bundle, userEncryptionIdentity } = snapshot;
     const personalSnapshotContent = {
       schemaVersion: 3 as const,
       profileId: bundle.profileId,
@@ -104,15 +119,24 @@ export class PrismaOfflineSyncBundleReader implements OfflineSyncBundleReader, A
     const synchronizationToken = Buffer.from(sha256Digest(JSON.stringify(personalSnapshotContent))).toString(
       "base64url",
     );
+    const workspaceSynchronizationToken = Buffer.from(
+      sha256Digest(JSON.stringify({ synchronizationToken: bundle.synchronizationToken, userEncryptionIdentity })),
+    ).toString("base64url");
     return parseAuthorizedWorkspaceResponse({
       responseVersion: 1,
-      workspaceSynchronizationToken: bundle.synchronizationToken,
+      workspaceSynchronizationToken,
       synchronizedAt: bundle.synchronizedAt,
       personalSnapshot: { ...personalSnapshotContent, synchronizationToken },
       sharedVaults: bundle.sharedVaults,
+      ...(userEncryptionIdentity ? { userEncryptionIdentity } : {}),
     });
   }
 }
+
+type AuthorizedBundleSnapshot = {
+  bundle: EncryptedOnlineWorkspaceBundle;
+  userEncryptionIdentity?: EncryptedUserEncryptionIdentityProfile;
+};
 
 function accountRecord(account: {
   id: string;

@@ -574,6 +574,32 @@
       "submit": "Atur ulang passphrase",
       "error": "Passphrase tidak dapat diatur ulang. Pastikan kunci akses pemulihan tersedia dan coba lagi.",
       "success": "Passphrase berhasil diatur ulang. Simpan passphrase baru, lalu gunakan untuk membuka brankas."
+    },
+    "userEncryptionRotation": {
+      "title": "Rotasi Pasangan Kunci Enkripsi Pengguna",
+      "description": "Buat identitas ECDH baru hanya di browser ini dan bungkus ulang paket kunci Brankas Bersama Anda. User Root Key dan Passphrase tidak berubah.",
+      "identityUnavailable": "Pasangan Kunci Enkripsi Pengguna saat ini tidak tersedia. Muat ulang workspace daring sebelum melanjutkan.",
+      "memberships": "{count, plural, one {# keanggotaan Brankas Bersama akan diperbarui.} other {# keanggotaan Brankas Bersama akan diperbarui.}}",
+      "irreversibleWarning": "Rotasi tidak dapat menghapus kunci atau data brankas yang sudah disalin orang atau perangkat lain.",
+      "preparing": "Menyiapkan paket kunci baru di browser ini…",
+      "cancelPreparation": "Batalkan persiapan",
+      "review": "Tinjau rotasi",
+      "discard": "Buang rotasi yang disiapkan",
+      "confirmTitle": "Rotasikan Pasangan Kunci Enkripsi Pengguna ini?",
+      "confirmDescription": "Ganti identitas saat ini dan perbarui {count, plural, one {# keanggotaan Brankas Bersama} other {# keanggotaan Brankas Bersama}}. Perubahan dilakukan atomik; identitas lama tidak dapat membuka paket baru.",
+      "confirm": "Rotasikan pasangan kunci",
+      "submitting": "Menyimpan rotasi dan memeriksa hasilnya…",
+      "success": "Pasangan Kunci Enkripsi Pengguna berhasil dirotasi. Workspace telah dimuat ulang.",
+      "notApplied": "Rotasi tidak tersimpan. Siapkan rotasi baru dari workspace yang telah dimuat ulang sebelum mencoba lagi.",
+      "conflict": "Identitas atau keanggotaan berubah. Workspace telah dimuat ulang; tinjau keadaan terkini sebelum mencoba lagi.",
+      "unknown": "Hasil rotasi belum dapat diverifikasi. Jangan ulangi dahulu; periksa status atau muat ulang workspace.",
+      "failed": "Rotasi tidak dapat disiapkan. Tidak ada perubahan yang disimpan. Muat ulang workspace lalu coba lagi.",
+      "cancelled": "Persiapan dibatalkan. Tidak ada rotasi yang disimpan.",
+      "refreshFailed": "Status rotasi diketahui, tetapi workspace tidak dapat dimuat ulang. Muat ulang sebelum menggunakan atau merotasi kunci lagi.",
+      "checkStatus": "Periksa status rotasi",
+      "refreshWorkspace": "Muat ulang workspace",
+      "prepare": "Siapkan rotasi pasangan kunci",
+      "rotateAgain": "Siapkan rotasi lain"
     }
   },
   "AuthenticatorAccount": {
@@ -878,6 +904,7 @@
       "detailTab": "Detail",
       "invitationsTab": "Undangan",
       "auditTab": "Audit",
+      "securityTab": "Keamanan",
       "owner": "Pemilik",
       "loading": "Memuat…",
       "unavailable": "Tidak tersedia",
@@ -894,6 +921,35 @@
       "deleteConfirmAction": "Hapus brankas",
       "deleteError": "Brankas Bersama tidak dapat dihapus. Coba lagi.",
       "unavailableAccountWarning": "Satu atau beberapa catatan akun terenkripsi tidak dapat dibuka. Pemilik dapat mengenalinya melalui ID buram, memeriksa pelaku audit, dan menghapus catatan yang tidak valid."
+    },
+    "keyRotation": {
+      "title": "Rotasi Kunci Enkripsi Brankas",
+      "description": "Buat kunci baru untuk {name} dan enkripsi ulang nama serta seluruh catatan akun yang masih dapat dipulihkan di browser ini.",
+      "generation": "Generasi kunci {current} akan menjadi {next}.",
+      "accounts": "{count, plural, one {# catatan akun akan dienkripsi ulang} other {# catatan akun akan dienkripsi ulang}}; {recoverable, plural, one {# masih dapat dipulihkan setelah dihapus} other {# masih dapat dipulihkan setelah dihapus}}.",
+      "members": "Paket kunci terenkripsi baru akan disiapkan untuk {count, plural, one {# anggota aktif} other {# anggota aktif}}.",
+      "invitations": "{count, plural, one {# Secure Share Link tertunda akan dibatalkan} other {# Secure Share Link tertunda akan dibatalkan}}.",
+      "irreversibleWarning": "Rotasi tidak dapat menghapus kunci, data TOTP, atau salinan yang sudah diperoleh orang lain.",
+      "preparing": "Mengenkripsi ulang semua catatan yang dapat dipulihkan di browser ini…",
+      "cancelPreparation": "Batalkan persiapan",
+      "review": "Tinjau rotasi",
+      "discard": "Buang rotasi yang disiapkan",
+      "confirmTitle": "Rotasikan Kunci Enkripsi Brankas ini?",
+      "confirmDescription": "Naikkan generasi kunci dari {current} ke {next}, enkripsi ulang {accounts} catatan akun, perbarui {members} paket anggota, dan batalkan {invitations} Secure Share Link tertunda. Salinan yang telah diperoleh tidak dapat dicabut.",
+      "confirm": "Rotasikan kunci Brankas",
+      "submitting": "Menyimpan rotasi dan memeriksa hasilnya…",
+      "success": "Kunci Enkripsi Brankas berhasil dirotasi dan workspace telah dimuat ulang.",
+      "notApplied": "Rotasi tidak tersimpan. Siapkan rotasi baru dari workspace yang telah dimuat ulang sebelum mencoba lagi.",
+      "conflict": "Brankas atau keanggotaannya berubah. Workspace telah dimuat ulang; tinjau keadaan terkini sebelum mencoba lagi.",
+      "unknown": "Hasil rotasi belum dapat diverifikasi. Jangan ulangi dahulu; periksa status atau muat ulang workspace.",
+      "failed": "Rotasi tidak dapat disiapkan. Tidak ada perubahan yang disimpan. Muat ulang workspace lalu coba lagi.",
+      "cancelled": "Persiapan dibatalkan. Tidak ada rotasi yang disimpan.",
+      "refreshFailed": "Status rotasi diketahui, tetapi workspace tidak dapat dimuat ulang. Muat ulang sebelum menggunakan atau merotasi kunci lagi.",
+      "checkStatus": "Periksa status rotasi",
+      "refreshWorkspace": "Muat ulang workspace",
+      "prepare": "Siapkan rotasi kunci Brankas",
+      "rotateAgain": "Siapkan rotasi lain",
+      "previewDisabled": "Rotasi dinonaktifkan dalam pratinjau pengembangan ini."
     },
     "permissions": {
       "defaultsTitle": "Izin akun bawaan anggota",
@@ -961,6 +1017,7 @@
     },
     "creator": {
       "offlineError": "Anda sedang luring. Pembuatan Brankas Bersama tidak tersedia hingga Anda tersambung kembali.",
+      "identityUnavailable": "Identitas Enkripsi Pengguna Anda belum tersedia. Muat ulang ruang kerja saat daring, lalu coba lagi.",
       "success": "Brankas Bersama dibuat. Undang anggota dari pengaturannya.",
       "error": "Tidak dapat membuat Brankas Bersama.",
       "name": "Nama Brankas Bersama",
@@ -1058,6 +1115,8 @@
       "vaultMemberDefaultsUpdated": "Izin akun bawaan anggota diperbarui",
       "vaultDeleted": "Brankas dihapus",
       "vaultRestored": "Brankas dipulihkan",
+      "vaultKeyRotated": "Kunci Enkripsi Brankas Bersama dirotasi",
+      "userEncryptionKeyPairRotated": "Pasangan Kunci Enkripsi Pengguna dirotasi",
       "securityActivity": "Aktivitas keamanan",
       "archiveExported": "Arsip Brankas diekspor",
       "archiveImported": "Arsip Brankas diimpor"
@@ -1190,7 +1249,8 @@
       "backToVaults": "Kembali ke brankas",
       "redeeming": "Menerima undangan…",
       "redeem": "Terima undangan",
-      "error": "Undangan tidak dapat digunakan. Tautan mungkin sudah pernah digunakan atau bukan untuk akun ini."
+      "error": "Undangan tidak dapat digunakan. Tautan mungkin sudah pernah digunakan atau bukan untuk akun ini.",
+      "identityChanged": "Identitas enkripsi Anda berubah. Ruang kerja telah dimuat ulang; coba terima undangan lagi."
     }
   },
   "Sync": {

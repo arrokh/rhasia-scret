@@ -4,7 +4,7 @@ import { createUserEncryptionIdentityHandler } from "@api/route-handlers/user-en
 import { ApplicationUser } from "@api/modules/identity/domain/application-user";
 
 const payload = {
-  publicKey: { kty: "EC", crv: "P-256", x: "public-x", y: "public-y" },
+  publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
   encryptedPrivateKey: btoa("encrypted-private-key-material"),
   encryptionVersion: 1 as const,
 };
@@ -17,7 +17,7 @@ const request = (body: unknown) =>
 
 describe("PUT /v1/user-encryption-identity contract", () => {
   it("registers only a public key and encrypted private-key backup", async () => {
-    const registerUserEncryptionIdentity = vi.fn().mockResolvedValue(undefined);
+    const registerUserEncryptionIdentity = vi.fn().mockResolvedValue(true);
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () => user,
       cryptoProfiles: {
@@ -36,12 +36,28 @@ describe("PUT /v1/user-encryption-identity contract", () => {
     );
   });
 
+  it("fails closed when another client already registered an identity", async () => {
+    const handler = createUserEncryptionIdentityHandler({
+      authenticate: async () => user,
+      cryptoProfiles: {
+        get: async () => null,
+        registerUserEncryptionIdentity: async () => false,
+        rewrapUserRootKey: async () => undefined,
+      },
+    });
+
+    const response = await handler(request(payload));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ error: "identity_already_registered" });
+  });
+
   it("rejects a private JWK", async () => {
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () => user,
       cryptoProfiles: {
         get: async () => null,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey: async () => undefined,
       },
     });

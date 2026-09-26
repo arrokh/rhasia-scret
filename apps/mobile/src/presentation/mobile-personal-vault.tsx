@@ -3,7 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { MobileMessages } from "../localization";
 import { createMobilePersonalVaultInitialization } from "../application/create-mobile-personal-vault";
-import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
+import { clearPersonalVaultInitializationMaterial, type AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import { MobilePersonalVaultRepository } from "../infrastructure/mobile-personal-vault-repository";
 import {
   loadMobileVaultWorkspace,
@@ -176,7 +176,12 @@ function PersonalVaultUnlock({
         const shareSecret = mode.kind === "online" ? consumeSecureShareSecret?.() : null;
         if (shareSecret) {
           try {
-            await redeemMobileSecureShareLink(shareSecret, result.userRootKey, transport);
+            if (!result.userEncryptionPublicKey) throw new Error("User Encryption Identity is unavailable.");
+            await redeemMobileSecureShareLink(
+              shareSecret,
+              { profileId: result.profileId, publicKey: result.userEncryptionPublicKey },
+              transport,
+            );
             setShareStatus("redeemed");
             try {
               await refreshWorkspaceAuthorization();
@@ -302,12 +307,15 @@ function PersonalVaultSetup({
     defaultValues: { vaultName: copy.personalVaultDefaultName, passphrase: "", confirmation: "", acknowledged: false },
     onSubmit: async ({ value }) => {
       setSubmissionError(false);
+      let material: Awaited<ReturnType<typeof createMobilePersonalVaultInitialization>> | undefined;
       try {
-        const material = await createMobilePersonalVaultInitialization(value.passphrase, value.vaultName);
+        material = await createMobilePersonalVaultInitialization(value.passphrase, value.vaultName);
         await repository.initialize(material);
         onInitialized();
       } catch {
         setSubmissionError(true);
+      } finally {
+        if (material) clearPersonalVaultInitializationMaterial(material);
       }
     },
   });

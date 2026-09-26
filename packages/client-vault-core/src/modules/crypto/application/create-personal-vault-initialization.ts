@@ -1,4 +1,5 @@
-import type { ClientCryptoPort, KeyDerivationPort } from "./crypto-ports";
+import type { ClientCryptoPort, KeyDerivationPort, PortableJsonWebKey } from "./crypto-ports";
+import { createUserEncryptionIdentityWithCrypto } from "./user-encryption-identity";
 import {
   ARGON2_ITERATIONS,
   ARGON2_MEMORY_KIB,
@@ -14,6 +15,9 @@ export type PersonalVaultInitializationMaterial = {
   wrappedUserRootKey: Uint8Array;
   encryptedPersonalVaultKey: Uint8Array;
   encryptedVaultName: Uint8Array;
+  userEncryptionPublicKey: PortableJsonWebKey;
+  encryptedUserPrivateKey: Uint8Array;
+  userEncryptionKeyVersion: 1;
   encryptionVersion: number;
 };
 
@@ -42,7 +46,11 @@ export async function createPersonalVaultInitialization(
   const userRootKey = ports.crypto.generateSymmetricKey();
   const personalVaultKey = ports.crypto.generateSymmetricKey();
   const nameBytes = new TextEncoder().encode(vaultName);
+  let encryptedUserPrivateKey: Uint8Array | undefined;
+  let identity: Awaited<ReturnType<typeof createUserEncryptionIdentityWithCrypto>> | undefined;
   try {
+    identity = await createUserEncryptionIdentityWithCrypto(userRootKey, ports.crypto);
+    encryptedUserPrivateKey = ports.crypto.serializeEncryptedEnvelope(identity.encryptedPrivateKey);
     return {
       vaultUnlockSalt,
       wrappedUserRootKey: ports.crypto.serializeEncryptedEnvelope(
@@ -66,14 +74,27 @@ export async function createPersonalVaultInitialization(
           keyVersion: 1,
         }),
       ),
+      userEncryptionPublicKey: identity.publicKey,
+      encryptedUserPrivateKey,
+      userEncryptionKeyVersion: 1,
       encryptionVersion,
     };
   } finally {
+    identity?.encryptedPrivateKey.nonce.fill(0);
+    identity?.encryptedPrivateKey.ciphertext.fill(0);
     nameBytes.fill(0);
     vaultUnlockKey.fill(0);
     userRootKey.fill(0);
     personalVaultKey.fill(0);
   }
+}
+
+export function clearPersonalVaultInitializationMaterial(material: PersonalVaultInitializationMaterial): void {
+  material.vaultUnlockSalt.fill(0);
+  material.wrappedUserRootKey.fill(0);
+  material.encryptedPersonalVaultKey.fill(0);
+  material.encryptedVaultName.fill(0);
+  material.encryptedUserPrivateKey.fill(0);
 }
 
 export function validateVaultUnlockSecret(secret: string): void {

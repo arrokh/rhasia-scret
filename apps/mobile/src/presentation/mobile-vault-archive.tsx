@@ -94,6 +94,7 @@ export function MobileVaultArchive({
         setStatus("imported_refresh_error");
       }
     } catch {
+      await refreshWorkspaceAuthorization().catch(() => undefined);
       setStatus("error");
     }
   };

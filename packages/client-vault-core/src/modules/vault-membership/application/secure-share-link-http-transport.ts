@@ -1,4 +1,5 @@
 import type { AuthenticatedTransport, PlatformHttpResponse } from "../../../shared/application/platform-ports";
+import type { PortableJsonWebKey } from "../../crypto/application/crypto-ports";
 import type {
   CreatedSecureShareLink,
   SecureShareLinkCreationTransportPort,
@@ -22,11 +23,17 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
 
   public async create(
     vaultId: string,
-    request: Readonly<{ recipientEmail: string; linkVerifier: string; encryptedPackage: string }>,
+    request: Readonly<{
+      recipientEmail: string;
+      linkVerifier: string;
+      encryptedPackage: string;
+      expectedKeyVersion: number;
+    }>,
   ): Promise<CreatedSecureShareLink> {
     validateIdentifier(vaultId);
     validateVerifier(request.linkVerifier);
     validateCiphertext(request.encryptedPackage);
+    validateKeyVersion(request.expectedKeyVersion);
     const response = await this.transport.request({
       url: `/v1/shared-vaults/${encodeURIComponent(vaultId)}/share-links`,
       method: "POST",
@@ -35,6 +42,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
         recipientEmail: normalizeEmail(request.recipientEmail),
         linkVerifier: request.linkVerifier,
         encryptedPackage: request.encryptedPackage,
+        expectedKeyVersion: request.expectedKeyVersion,
       }),
       cache: "no-store",
     });
@@ -54,11 +62,17 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
   }
 
   public async redeem(
-    request: Readonly<{ invitationId: string; encryptedVaultKey: string; keyVersion: 1 }>,
+    request: Readonly<{
+      invitationId: string;
+      encryptedVaultKey: string;
+      keyVersion: number;
+      expectedPublicKey: PortableJsonWebKey;
+    }>,
   ): Promise<void> {
     validateIdentifier(request.invitationId);
     validateCiphertext(request.encryptedVaultKey);
-    if (request.keyVersion !== 1) invalidResponse();
+    validateKeyVersion(request.keyVersion);
+    const expectedPublicKey = sanitizePublicKey(request.expectedPublicKey);
     const response = await this.transport.request({
       url: "/v1/secure-share-links",
       method: "POST",
@@ -67,6 +81,7 @@ export class SecureShareLinkHttpTransport implements SecureShareLinkCreationTran
         invitationId: request.invitationId,
         encryptedVaultKey: request.encryptedVaultKey,
         keyVersion: request.keyVersion,
+        expectedPublicKey,
       }),
       cache: "no-store",
     });
@@ -94,13 +109,24 @@ function parseCreated(value: unknown): CreatedSecureShareLink {
 }
 
 function parseLookup(value: unknown): SecureShareLinkLookup {
-  if (!isExactRecord(value, ["encryptedPackage", "id", "vaultId"])) invalidResponse();
-  if (typeof value.id !== "string" || typeof value.vaultId !== "string" || typeof value.encryptedPackage !== "string")
+  if (!isExactRecord(value, ["encryptedPackage", "id", "keyVersion", "vaultId"])) invalidResponse();
+  if (
+    typeof value.id !== "string" ||
+    typeof value.vaultId !== "string" ||
+    typeof value.encryptedPackage !== "string" ||
+    typeof value.keyVersion !== "number"
+  )
     invalidResponse();
   validateIdentifier(value.id);
   validateIdentifier(value.vaultId);
   validateCiphertext(value.encryptedPackage);
-  return { id: value.id, vaultId: value.vaultId, encryptedPackage: value.encryptedPackage };
+  validateKeyVersion(value.keyVersion);
+  return {
+    id: value.id,
+    vaultId: value.vaultId,
+    encryptedPackage: value.encryptedPackage,
+    keyVersion: value.keyVersion,
+  };
 }
 
 async function requestError(response: PlatformHttpResponse): Promise<SecureShareLinkHttpTransportError> {
@@ -135,6 +161,42 @@ function validateVerifier(value: string): void {
 
 function validateCiphertext(value: string): void {
   if (!isBase64(value) || base64ByteLength(value) < 13) invalidResponse();
+}
+
+function sanitizePublicKey(value: PortableJsonWebKey): PortableJsonWebKey {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) invalidResponse();
+  const record = value as Record<string, unknown>;
+  if (
+    record.kty !== "EC" ||
+    record.crv !== "P-256" ||
+    typeof record.x !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(record.x) ||
+    typeof record.y !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(record.y)
+  )
+    invalidResponse();
+  const allowed = new Set(["kty", "crv", "x", "y", "ext", "key_ops"]);
+  if (Object.keys(record).some((key) => !allowed.has(key))) invalidResponse();
+  if (record.ext !== undefined && typeof record.ext !== "boolean") invalidResponse();
+  if (
+    record.key_ops !== undefined &&
+    (!Array.isArray(record.key_ops) ||
+      record.key_ops.length > 8 ||
+      record.key_ops.some((operation) => typeof operation !== "string"))
+  )
+    invalidResponse();
+  return {
+    kty: record.kty,
+    crv: record.crv,
+    x: record.x,
+    y: record.y,
+    ...(record.ext === undefined ? {} : { ext: record.ext }),
+    ...(record.key_ops === undefined ? {} : { key_ops: record.key_ops }),
+  };
+}
+
+function validateKeyVersion(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 1) invalidResponse();
 }
 
 function isBase64(value: string): boolean {

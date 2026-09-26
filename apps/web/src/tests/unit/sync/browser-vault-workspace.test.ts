@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   decryptAccountConfiguration: vi.fn(),
   decryptPayloadWithContext: vi.fn(),
+  createUserEncryptionIdentity: vi.fn(),
   fetchAuthorizedWorkspaceBundle: vi.fn(),
+  registerUserEncryptionIdentity: vi.fn(),
+  serializeEncryptedEnvelope: vi.fn(),
   read: vi.fn(),
   recoverUserRootKeyWithPasskey: vi.fn(),
+  recoverUserEncryptionPrivateKey: vi.fn(),
   recoverUserRootKeyWithRememberedBrowser: vi.fn(),
   rewrapUserCryptoProfile: vi.fn(),
   replace: vi.fn(),
@@ -15,11 +19,15 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/crypto", () => ({
+  createUserEncryptionIdentity: mocks.createUserEncryptionIdentity,
   decryptPayloadWithContext: mocks.decryptPayloadWithContext,
   deserializeEncryptedEnvelope: vi.fn((value) => value),
   recoverUserRootKeyWithPasskey: mocks.recoverUserRootKeyWithPasskey,
+  recoverUserEncryptionPrivateKey: mocks.recoverUserEncryptionPrivateKey,
   recoverUserRootKeyWithRememberedBrowser: mocks.recoverUserRootKeyWithRememberedBrowser,
+  registerUserEncryptionIdentity: mocks.registerUserEncryptionIdentity,
   rewrapUserCryptoProfile: mocks.rewrapUserCryptoProfile,
+  serializeEncryptedEnvelope: mocks.serializeEncryptedEnvelope,
   unlockPersonalVault: mocks.unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey,
 }));
@@ -35,7 +43,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
   decryptAccountConfiguration: mocks.decryptAccountConfiguration,
 }));
 
-import { AuthorizedWorkspaceTransportError } from "@rhasia-scret/client-vault-core";
+import { AuthorizedWorkspaceTransportError, type AuthorizedWorkspaceResponse } from "@rhasia-scret/client-vault-core";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -79,6 +87,69 @@ describe("Vault workspace loading", () => {
     expect(workspace.vaults.map((vault) => vault.type)).toEqual(["PERSONAL", "SHARED"]);
     expect(workspace.accounts).toHaveLength(2);
     expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
+  });
+
+  it("uses an online encrypted User Encryption identity transiently and never persists it offline", async () => {
+    const response = workspaceResponse();
+    response.userEncryptionIdentity = {
+      publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+      encryptedPrivateKey: "AQ==",
+      encryptionVersion: 1,
+    };
+    const userRootKey = Uint8Array.of(1);
+    const privateKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43), d: "A".repeat(43) };
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey: Uint8Array.of(2) });
+    mocks.recoverUserEncryptionPrivateKey.mockResolvedValue(privateKey);
+    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
+    mocks.decryptAccountConfiguration
+      .mockResolvedValueOnce(account("Personal", "owner"))
+      .mockResolvedValueOnce(account("Shared", "member"));
+
+    await loadUnlockedVaultWorkspace("secret", "personal-1");
+
+    expect(mocks.recoverUserEncryptionPrivateKey).toHaveBeenCalledWith(userRootKey, Uint8Array.of(0));
+    expect(mocks.unlockSharedVault).toHaveBeenCalledWith(userRootKey, Uint8Array.of(5), Uint8Array.of(5), {
+      vaultId: "shared-1",
+      recipientId: "profile-1",
+      keyVersion: 1,
+      userEncryptionPrivateKey: privateKey,
+    });
+    expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
+    expect(response.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
+    expect(mocks.replace.mock.calls[0]?.[0]).not.toHaveProperty("userEncryptionIdentity");
+  });
+
+  it("enrolls a missing User Encryption identity once and keeps its private-key backup out of offline storage", async () => {
+    const response = workspaceResponse();
+    const userRootKey = Uint8Array.of(1);
+    const identityEnvelope = { version: 2 as const, nonce: Uint8Array.of(8), ciphertext: Uint8Array.of(9) };
+    const serializedIdentity = Uint8Array.of(5, 6);
+    let registeredEncryptedPrivateKey: Uint8Array | undefined;
+    const publicKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) };
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey: Uint8Array.of(2) });
+    mocks.createUserEncryptionIdentity.mockResolvedValue({ publicKey, encryptedPrivateKey: identityEnvelope });
+    mocks.serializeEncryptedEnvelope.mockReturnValue(serializedIdentity);
+    mocks.registerUserEncryptionIdentity.mockImplementation(async (identity) => {
+      registeredEncryptedPrivateKey = identity.encryptedPrivateKey.slice();
+      return true;
+    });
+    mocks.recoverUserEncryptionPrivateKey.mockResolvedValue({ ...publicKey, d: "A".repeat(43) });
+    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
+    mocks.decryptAccountConfiguration
+      .mockResolvedValueOnce(account("Personal", "owner"))
+      .mockResolvedValueOnce(account("Shared", "member"));
+
+    const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
+
+    expect(registeredEncryptedPrivateKey).toEqual(Uint8Array.of(5, 6));
+    expect(identityEnvelope.nonce).toEqual(Uint8Array.of(0));
+    expect(identityEnvelope.ciphertext).toEqual(Uint8Array.of(0));
+    expect(serializedIdentity).toEqual(Uint8Array.of(0, 0));
+    expect(workspace.userEncryptionPublicKey).toEqual(publicKey);
+    expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
+    expect(mocks.replace.mock.calls[0]?.[0]).not.toHaveProperty("userEncryptionIdentity");
   });
 
   it("loads the Personal-only snapshot offline without contacting the workspace transport", async () => {
@@ -188,7 +259,7 @@ function account(issuer: string, accountName: string, secret = Uint8Array.of(9))
   return { issuer, accountName, secret, algorithm: "SHA-1" as const, digits: 6 as const, period: 30 };
 }
 
-function workspaceResponse() {
+function workspaceResponse(): AuthorizedWorkspaceResponse {
   const encrypted = "BQ==";
   return {
     responseVersion: 1 as const,

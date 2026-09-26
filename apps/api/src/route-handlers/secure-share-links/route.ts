@@ -2,11 +2,13 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { z } from "zod";
 import {
   findSecureShareLinkForRecipient,
   redeemSecureShareLinkForRecipient,
   SecureShareLinkUnavailableError,
+  StaleRecipientEncryptionIdentityError,
 } from "@api/modules/vault-membership/server";
 import {
   authenticateApplicationMutation,
@@ -18,7 +20,8 @@ const redeemSchema = z
   .object({
     invitationId: z.string().min(1).max(128),
     encryptedVaultKey: boundedEncryptedBlobSchema(),
-    keyVersion: z.literal(1),
+    keyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    expectedPublicKey: publicEncryptionKeySchema,
   })
   .strict();
 
@@ -37,6 +40,7 @@ export async function GET(request: ApiRequest) {
     id: link.id,
     vaultId: link.vaultId,
     encryptedPackage: Buffer.from(link.encryptedPackage).toString("base64"),
+    keyVersion: link.keyVersion,
   });
 }
 
@@ -51,10 +55,13 @@ export async function POST(request: ApiRequest) {
       parsed.data.invitationId,
       Buffer.from(parsed.data.encryptedVaultKey, "base64"),
       parsed.data.keyVersion,
+      parsed.data.expectedPublicKey,
       getApiRequestContext(request).applicationRuntime.secureShareLinks(),
     );
     return new ApiResponse(null, { status: 204 });
   } catch (error) {
+    if (error instanceof StaleRecipientEncryptionIdentityError)
+      return ApiResponse.json({ error: "stale_user_encryption_identity" }, { status: 409 });
     if (error instanceof SecureShareLinkUnavailableError)
       return ApiResponse.json({ error: "share_link_unavailable" }, { status: 404 });
     throw error;

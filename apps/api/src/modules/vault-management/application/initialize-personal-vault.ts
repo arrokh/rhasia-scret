@@ -3,6 +3,9 @@ export type PersonalVaultInitialization = {
   wrappedUserRootKey: Uint8Array;
   encryptedPersonalVaultKey: Uint8Array;
   encryptedVaultName: Uint8Array;
+  userEncryptionPublicKey: JsonWebKey;
+  encryptedUserPrivateKey: Uint8Array;
+  userEncryptionKeyVersion: number;
   encryptionVersion: number;
 };
 
@@ -16,6 +19,7 @@ export async function initializePersonalVault(
   vaults: PersonalVaultInitializer,
 ): Promise<void> {
   if (!ownerId) throw new Error("An application user is required to initialize a Personal Vault.");
-  if (initialization.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
+  if (initialization.encryptionVersion !== 1 || initialization.userEncryptionKeyVersion !== 1)
+    throw new Error("Unsupported encryption version.");
   await vaults.initialize(ownerId, initialization);
 }

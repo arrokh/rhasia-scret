@@ -38,6 +38,7 @@ const workspace = {
       type: "PERSONAL" as const,
       role: "OWNER" as const,
       effectiveAccountPermissions: ownerPermissions,
+      keyVersion: 1,
       key: new Uint8Array(32),
     },
     {
@@ -46,6 +47,7 @@ const workspace = {
       type: "SHARED" as const,
       role: "VIEWER" as const,
       effectiveAccountPermissions: viewerPermissions,
+      keyVersion: 1,
       key: new Uint8Array(32),
     },
   ],

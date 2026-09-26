@@ -110,7 +110,15 @@ export async function importOpenedArchiveIntoVault(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        destination: { kind: "EXISTING", vaultId: destination.id, vaultType: destination.type },
+        destination:
+          destination.type === "SHARED"
+            ? {
+                kind: "EXISTING",
+                vaultId: destination.id,
+                vaultType: destination.type,
+                expectedKeyVersion: destination.keyVersion,
+              }
+            : { kind: "EXISTING", vaultId: destination.id, vaultType: destination.type },
         accounts: encryptedPayloads.map((encryptedPayload, index) => ({
           id: accountIds[index],
           encryptedPayload: bytesToBase64(encryptedPayload),

@@ -220,6 +220,7 @@ describe("dedicated Vault management", () => {
 
     expect(container.querySelector('[role="tablist"]')).toBeNull();
     expect(container.querySelector('[role="tab"]')).toBeNull();
+    expect(container.textContent).not.toContain("Rotasi Kunci Enkripsi Brankas");
     expect(container.textContent).toContain("Akun autentikator");
     expect(
       [...container.querySelectorAll("button")].some((button) =>
@@ -354,7 +355,7 @@ describe("dedicated Vault management", () => {
     expect(findButton(container, "Buka panduan: Izin anggota Brankas Bersama")).toBeDefined();
     await act(async () => findButton(container, "Atur izin akun untuk viewer@example.test").click());
     expect(document.body.textContent).toContain("Izin akun anggota");
-    expect(document.body.querySelectorAll('[role="combobox"]')).toHaveLength(3);
+    expect(document.body.querySelectorAll('select[data-slot="native-select"]')).toHaveLength(3);
     expect(document.body.textContent).toContain("Gunakan bawaan Brankas");
     expect(document.body.textContent).toContain("penggantian anggota");
   });
@@ -412,7 +413,12 @@ describe("dedicated Vault management", () => {
         "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
       ),
     );
-    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith("shared-1", "viewer@example.test", vaults()[0]!.key);
+    expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
+      "shared-1",
+      "viewer@example.test",
+      vaults()[0]!.key,
+      1,
+    );
     expect(mocks.openInvitationEmailComposer).not.toHaveBeenCalled();
     await act(async () => findButton(document.body, "Kirim dari email saya").click());
     expect(mocks.openInvitationEmailComposer).toHaveBeenCalledWith({
@@ -485,6 +491,7 @@ describe("dedicated Vault management", () => {
       "shared-1",
       "expired@example.test",
       vaults()[0]!.key,
+      1,
     );
     expect(container.textContent).toContain("Menunggu");
     expect(container.textContent).not.toContain("Kedaluwarsa");
@@ -815,6 +822,7 @@ function vaults() {
       id: "shared-1",
       name: "Tim Operasional",
       role: "OWNER" as const,
+      keyVersion: 1,
       effectiveAccountPermissions: {
         permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
         sources: {

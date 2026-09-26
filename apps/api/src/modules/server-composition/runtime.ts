@@ -7,6 +7,7 @@ import {
   createPasskeyRecoveryRepository,
   createTurnstileValidator,
   createUserCryptoProfileRepository,
+  createUserEncryptionIdentityRotationRepository,
 } from "@api/modules/identity/server";
 import { createExpiredVaultAuditRepository, createVaultAuditRepository } from "@api/modules/audit/server";
 import {
@@ -38,6 +39,7 @@ export type ApiApplicationRuntime = Readonly<{
   accountDeletion(): AccountDeletionRepository;
   passkeyRecovery(): ReturnType<typeof createPasskeyRecoveryRepository>;
   userCryptoProfiles(): ReturnType<typeof createUserCryptoProfileRepository>;
+  userEncryptionIdentityRotation(): ReturnType<typeof createUserEncryptionIdentityRotationRepository>;
   turnstile(): ReturnType<typeof createTurnstileValidator>;
   anonymousAuthRateLimiter(): ReturnType<typeof createAnonymousAuthRateLimiter>;
   vaultAudit(): ReturnType<typeof createVaultAuditRepository>;
@@ -68,6 +70,7 @@ export function createApiApplicationRuntime(database: PrismaDatabase, bindings: 
     accountDeletion: once(() => createAccountDeletionRepository(database, bindings)),
     passkeyRecovery: once(() => createPasskeyRecoveryRepository(database)),
     userCryptoProfiles: once(() => createUserCryptoProfileRepository(database)),
+    userEncryptionIdentityRotation: once(() => createUserEncryptionIdentityRotationRepository(database)),
     turnstile: once(() => createTurnstileValidator(bindings)),
     anonymousAuthRateLimiter: once(() => createAnonymousAuthRateLimiter(database, bindings)),
     vaultAudit: once(() => createVaultAuditRepository(database)),

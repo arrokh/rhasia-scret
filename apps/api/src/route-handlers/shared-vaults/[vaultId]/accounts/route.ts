@@ -10,7 +10,13 @@ const encryptedAccountPayload = boundedEncryptedBlobSchema(29).refine((value) =>
   const bytes = Buffer.from(value, "base64");
   return bytes[0] === 1 || bytes[0] === 2;
 });
-const payload = z.object({ encryptedPayload: encryptedAccountPayload, encryptionVersion: z.literal(1) }).strict();
+const payload = z
+  .object({
+    encryptedPayload: encryptedAccountPayload,
+    encryptionVersion: z.literal(1),
+    expectedKeyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
 const updateSchema = payload
   .extend({ accountId: z.string().min(1).max(128), expectedRevision: z.number().int().positive() })
   .strict();
@@ -31,6 +37,7 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
     vaultId,
     Buffer.from(parsed.data.encryptedPayload, "base64"),
     parsed.data.encryptionVersion,
+    parsed.data.expectedKeyVersion,
   );
   if (result.status !== "SUCCESS") return mutationError(result);
   return ApiResponse.json({ id: result.value.id, revision: result.value.revision }, { status: 201 });
@@ -50,6 +57,7 @@ export async function PATCH(request: ApiRequest, { params }: { params: Promise<{
     parsed.data.expectedRevision,
     Buffer.from(parsed.data.encryptedPayload, "base64"),
     parsed.data.encryptionVersion,
+    parsed.data.expectedKeyVersion,
   );
   if (result.status !== "SUCCESS") return mutationError(result);
   return ApiResponse.json({ id: result.value.id, revision: result.value.revision });
@@ -83,5 +91,6 @@ function mutationError(result: Exclude<SharedAccountMutationResult<unknown>, { s
   if (result.status === "PERMISSION_DENIED")
     return ApiResponse.json({ error: "account_permission_required" }, { status: 403 });
   if (result.status === "STALE_REVISION") return ApiResponse.json({ error: "stale_revision" }, { status: 409 });
+  if (result.status === "STALE_KEY_VERSION") return ApiResponse.json({ error: "stale_key_version" }, { status: 409 });
   return ApiResponse.json({ error: "account_unavailable" }, { status: 404 });
 }

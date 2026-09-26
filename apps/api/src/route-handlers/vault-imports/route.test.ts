@@ -29,6 +29,7 @@ describe("POST /v1/vault-imports contract", () => {
         vaultId,
         encryptedName: ciphertext,
         encryptedOwnerVaultKey: ciphertext,
+        expectedOwnerPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
         encryptionVersion: 1,
       },
       accounts: [{ id: accountId, encryptedPayload: ciphertext, encryptionVersion: 1 }],

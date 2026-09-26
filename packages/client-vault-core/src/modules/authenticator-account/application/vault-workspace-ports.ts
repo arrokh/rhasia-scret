@@ -1,7 +1,10 @@
 import type { CancellationPort, NetworkStatusPort } from "../../../shared/application/platform-ports";
 import type { OfflineVaultSnapshotStore } from "../../sync/application/client-storage-ports";
 import type { AuthorizedWorkspaceResponse } from "../../sync/domain/offline-vault-bundle";
+import type { PortableJsonWebKey } from "../../crypto/application/crypto-ports";
 import type { CryptoEnvelopeContext, EncryptedEnvelope } from "../../crypto/application/encrypted-envelope-types";
+import type { EncryptedUserEncryptionIdentity } from "../../crypto/application/user-encryption-identity";
+import type { SharedVaultUnlockContext } from "../../vault-membership/application/unlock-shared-vault";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
 
 export type WorkspacePersonalVaultProfile = {
@@ -42,12 +45,18 @@ export interface VaultWorkspaceCryptoPort {
     envelope: EncryptedEnvelope,
     context: CryptoEnvelopeContext,
   ): Promise<Uint8Array>;
+  serializeEncryptedEnvelope(envelope: EncryptedEnvelope): Uint8Array;
   deserializeEncryptedEnvelope(bytes: Uint8Array): EncryptedEnvelope;
+  recoverUserEncryptionPrivateKey(
+    userRootKey: Uint8Array,
+    encryptedPrivateKey: Uint8Array,
+  ): Promise<PortableJsonWebKey>;
+  createUserEncryptionIdentity(userRootKey: Uint8Array): Promise<EncryptedUserEncryptionIdentity>;
   unlockSharedVault(
     userRootKey: Uint8Array,
     encryptedVaultKey: Uint8Array,
     encryptedName: Uint8Array,
-    vaultId: string,
+    context: SharedVaultUnlockContext,
   ): Promise<WorkspaceSharedVaultUnlock>;
   decryptAccountConfiguration(
     vaultKey: Uint8Array,
@@ -59,6 +68,14 @@ export interface VaultWorkspaceCryptoPort {
 export interface VaultWorkspaceDataPort {
   readonly snapshotStore: OfflineVaultSnapshotStore;
   fetchAuthorizedWorkspaceBundle(signal?: CancellationPort): Promise<AuthorizedWorkspaceResponse>;
+  registerUserEncryptionIdentity(
+    identity: {
+      publicKey: PortableJsonWebKey;
+      encryptedPrivateKey: Uint8Array;
+      encryptionVersion: 1;
+    },
+    signal?: CancellationPort,
+  ): Promise<boolean>;
 }
 
 export type VaultWorkspacePlatformPorts = {

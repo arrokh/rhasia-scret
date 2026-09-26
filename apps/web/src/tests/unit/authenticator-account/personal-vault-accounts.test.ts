@@ -400,6 +400,7 @@ function workspace(): UnlockedVaultWorkspace {
         name: "Brankas Pribadi",
         type: "PERSONAL",
         role: "OWNER",
+        keyVersion: 1,
         effectiveAccountPermissions: {
           permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
           sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
@@ -411,6 +412,7 @@ function workspace(): UnlockedVaultWorkspace {
         name: "Tim Operasional",
         type: "SHARED",
         role: "VIEWER",
+        keyVersion: 1,
         effectiveAccountPermissions: {
           permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
           sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" },

@@ -11,6 +11,7 @@ import { TotpAccountButton } from "@/modules/otp-runtime";
 import { VaultStatusIndicator, type WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { recordSharedVaultAccountAccess } from "@/modules/audit";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
+import { UserEncryptionIdentityRotation } from "@/modules/identity";
 import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { cn } from "@/lib/utils";
 import { LocalVaultCopyPanel } from "@/modules/local-vault";
@@ -224,6 +225,12 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
               <div className="grid gap-4">
                 <PasskeyRecoveryEnrollment userRootKey={workspace.userRootKey} />
                 <RememberedBrowserEnrollment profileId={workspace.profileId} userRootKey={workspace.userRootKey} />
+                <UserEncryptionIdentityRotation
+                  userRootKey={workspace.userRootKey}
+                  profileId={workspace.profileId}
+                  publicKey={workspace.userEncryptionPublicKey}
+                  onRefresh={refreshWorkspaceAuthorization}
+                />
               </div>
             </SheetContent>
           </Sheet>

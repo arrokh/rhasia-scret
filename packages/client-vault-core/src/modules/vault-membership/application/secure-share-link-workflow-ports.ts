@@ -1,9 +1,12 @@
+import type { PortableJsonWebKey } from "../../crypto/application/crypto-ports";
+
 export type CreatedSecureShareLink = Readonly<{ id: string; expiresAt: string }>;
 
 export type SecureShareLinkLookup = {
   id: string;
   vaultId: string;
   encryptedPackage: string;
+  keyVersion: number;
 };
 
 export type SecureShareLinkMaterial = {
@@ -14,13 +17,23 @@ export type SecureShareLinkMaterial = {
 
 export interface SecureShareLinkTransportPort {
   lookup(verifier: string): Promise<SecureShareLinkLookup>;
-  redeem(request: { invitationId: string; encryptedVaultKey: string; keyVersion: 1 }): Promise<void>;
+  redeem(request: {
+    invitationId: string;
+    encryptedVaultKey: string;
+    keyVersion: number;
+    expectedPublicKey: PortableJsonWebKey;
+  }): Promise<void>;
 }
 
 export interface SecureShareLinkCreationTransportPort extends SecureShareLinkTransportPort {
   create(
     vaultId: string,
-    request: Readonly<{ recipientEmail: string; linkVerifier: string; encryptedPackage: string }>,
+    request: Readonly<{
+      recipientEmail: string;
+      linkVerifier: string;
+      encryptedPackage: string;
+      expectedKeyVersion: number;
+    }>,
   ): Promise<CreatedSecureShareLink>;
   cancel(vaultId: string, invitationId: string): Promise<void>;
 }
@@ -38,8 +51,9 @@ export interface SecureShareLinkCryptoPort {
   redeemMaterial(
     secret: string,
     encryptedPackage: Uint8Array,
-    userRootKey: Uint8Array,
+    recipient: { profileId: string; publicKey: PortableJsonWebKey },
     vaultId: string,
+    keyVersion: number,
   ): Promise<{ linkVerifier: Uint8Array; encryptedVaultKey: Uint8Array }>;
 }
 

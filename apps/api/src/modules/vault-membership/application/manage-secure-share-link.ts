@@ -27,7 +27,8 @@ export function redeemSecureShareLinkForRecipient(
   invitationId: string,
   encryptedVaultKey: Uint8Array,
   keyVersion: number,
+  expectedPublicKey: JsonWebKey,
   repository: SecureShareLinkRepository,
 ) {
-  return repository.redeem(recipient, invitationId, encryptedVaultKey, keyVersion);
+  return repository.redeem(recipient, invitationId, encryptedVaultKey, keyVersion, expectedPublicKey);
 }

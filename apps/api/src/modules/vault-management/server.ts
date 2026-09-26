@@ -22,6 +22,10 @@ export {
   type ExpiredVaultRetentionRepository,
   type VaultPurgeBatch,
 } from "./application/purge-expired-vault-retention";
+export {
+  SharedVaultIdentityConflictError,
+  SharedVaultKeyVersionConflictError,
+} from "./application/shared-vault-repository";
 export type { SharedVaultRepository } from "./application/shared-vault-repository";
 
 export function createDestructivePersonalVaultResetRepository(

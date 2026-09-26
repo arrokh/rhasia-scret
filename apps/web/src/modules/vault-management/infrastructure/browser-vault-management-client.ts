@@ -1,12 +1,16 @@
 "use client";
 
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import type { PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 
 export type PersonalVaultInitializationRequest = {
   vaultUnlockSalt: string;
   wrappedUserRootKey: string;
   encryptedPersonalVaultKey: string;
   encryptedVaultName: string;
+  userEncryptionPublicKey: PortableJsonWebKey;
+  encryptedUserPrivateKey: string;
+  userEncryptionKeyVersion: number;
   encryptionVersion: number;
 };
 
@@ -14,6 +18,7 @@ export type SharedVaultCreationRequest = {
   vaultId?: string;
   encryptedName: string;
   encryptedOwnerVaultKey: string;
+  expectedOwnerPublicKey: PortableJsonWebKey;
   encryptionVersion: number;
 };
 
@@ -31,8 +36,12 @@ export function createSharedVault(request: SharedVaultCreationRequest): Promise<
   return browserApiClient.postJson("/api/v1/shared-vaults", request);
 }
 
-export function renameSharedVault(vaultId: string, encryptedName: string): Promise<void> {
-  return browserApiClient.patchEmpty(`/api/v1/shared-vaults/${vaultId}`, { encryptedName, encryptionVersion: 1 });
+export function renameSharedVault(vaultId: string, encryptedName: string, expectedKeyVersion: number): Promise<void> {
+  return browserApiClient.patchEmpty(`/api/v1/shared-vaults/${vaultId}`, {
+    encryptedName,
+    encryptionVersion: 1,
+    expectedKeyVersion,
+  });
 }
 
 export function deleteSharedVault(vaultId: string): Promise<void> {

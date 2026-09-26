@@ -1,10 +1,12 @@
-import type { ClientCryptoPort } from "../../crypto/application/crypto-ports";
+import type { ClientCryptoPort, PortableJsonWebKey } from "../../crypto/application/crypto-ports";
+import type { CryptoEnvelopeContext } from "../../crypto/application/encrypted-envelope-types";
 
 export async function redeemSecureShareLinkMaterialWithCrypto(
   secret: string,
   encryptedPackage: Uint8Array,
-  userRootKey: Uint8Array,
+  recipient: { profileId: string; publicKey: PortableJsonWebKey },
   vaultId: string | undefined,
+  keyVersion: number,
   crypto: ClientCryptoPort,
   digestSha256: (value: Uint8Array) => Promise<Uint8Array>,
 ): Promise<{ linkVerifier: Uint8Array; encryptedVaultKey: Uint8Array }> {
@@ -28,21 +30,32 @@ export async function redeemSecureShareLinkMaterialWithCrypto(
     }
 
     const envelope = crypto.deserializeEncryptedEnvelope(encryptedPackage);
-    if (envelope.version !== 2) throw new Error("Secure Share Link package is invalid.");
-    vaultKey = await crypto.decryptPayloadWithContext(linkKey, envelope, {
-      purpose: "secure-share-link",
-      payloadType: "vault-encryption-key",
-      ...(vaultId ? { vaultId } : {}),
-      keyVersion: 1,
-    });
-    encryptedVaultKey = crypto.serializeEncryptedEnvelope(
-      await crypto.encryptPayloadWithContext(userRootKey, vaultKey, {
-        purpose: "vault-key-wrap",
+    try {
+      if (envelope.version !== 2) throw new Error("Secure Share Link package is invalid.");
+      vaultKey = await crypto.decryptPayloadWithContext(linkKey, envelope, {
+        purpose: "secure-share-link",
         payloadType: "vault-encryption-key",
         ...(vaultId ? { vaultId } : {}),
         keyVersion: 1,
-      }),
-    );
+      });
+    } finally {
+      envelope.nonce.fill(0);
+      envelope.ciphertext.fill(0);
+    }
+    const context: CryptoEnvelopeContext = {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      ...(vaultId ? { vaultId } : {}),
+      recipientId: recipient.profileId,
+      keyVersion,
+    };
+    const wrappedVaultKey = await crypto.wrapKeyForRecipientWithContext(vaultKey, recipient.publicKey, context);
+    try {
+      encryptedVaultKey = crypto.serializeKeyWrapEnvelope(wrappedVaultKey);
+    } finally {
+      wrappedVaultKey.nonce.fill(0);
+      wrappedVaultKey.ciphertext.fill(0);
+    }
     return { linkVerifier, encryptedVaultKey };
   } catch (error) {
     linkVerifier?.fill(0);

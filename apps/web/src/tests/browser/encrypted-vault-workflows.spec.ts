@@ -1,5 +1,13 @@
 import { resolve } from "node:path";
-import { expect, test, type BrowserContext, type Locator, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Response,
+  type TestInfo,
+} from "@playwright/test";
 import { cleanBrowserE2eUsers } from "./support/e2e-database";
 import { e2eUserAlias, e2eUserEmail, type E2E_BROWSER_SCENARIOS, type E2E_BROWSER_ROLES } from "./support/e2e-users";
 import { expectVaultLockAction, lockVaultFromSettings } from "./support/vault-account-settings";
@@ -281,7 +289,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   context,
   browser,
   browserName,
-}) => {
+}, testInfo) => {
   const ownerAlias = scenarioAlias(browserName, "shared", "owner");
   const leaveAlias = scenarioAlias(browserName, "shared", "viewer-leave");
   const revokeAlias = scenarioAlias(browserName, "shared", "viewer-revoke");
@@ -311,6 +319,9 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
     await initializeUserContext(revokePage, revokeContext, revokeAlias, "Revoke Personal Vault", revokeSecret);
 
     let sharedVaultId = "";
+    let leaveInvitation = "";
+    let pendingInvitation = "";
+    let viewerOtp = "";
     await test.step("owner creates an encrypted Shared Vault and account", async () => {
       await page.getByRole("link", { name: "Brankas", exact: true }).click();
       await page.getByRole("link", { name: "Brankas Bersama" }).click();
@@ -336,17 +347,99 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       ).toBeVisible();
     });
 
-    let leaveInvitation = "";
-    await test.step("owner creates encrypted one-time invitation material", async () => {
+    await test.step("owner activates one Viewer and leaves another invitation pending before rotation", async () => {
       await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
       leaveInvitation = await createInvitation(page, e2eUserEmail(leaveAlias));
       expect(leaveInvitation).toContain("#");
       expect(observed.requests.join("\n")).not.toContain(leaveInvitation.split("#")[1] ?? "missing-secret");
+      await redeemInvitation(leavePage, leaveInvitation, leaveSecret, [sharedName, "E2E Manual", "manual-user"]);
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      pendingInvitation = await createInvitation(page, e2eUserEmail(revokeAlias));
+      expect(pendingInvitation).toContain("#");
+      expect(observed.requests.join("\n")).not.toContain(pendingInvitation.split("#")[1] ?? "missing-secret");
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
+      await page.getByRole("tab", { name: "Keamanan" }).click();
+      await captureRotationLayout(
+        page,
+        testInfo,
+        "vault-rotation-id",
+        page.locator('section[aria-labelledby^="vault-key-rotation-"]'),
+      );
     });
 
-    let viewerOtp = "";
-    await test.step("recipient redeems in-browser, sees generic locked labels, and cannot enumerate owner surfaces", async () => {
-      await redeemInvitation(leavePage, leaveInvitation, leaveSecret, [sharedName, "E2E Manual", "manual-user"]);
+    await test.step("owner rotates the Shared Vault key and User Encryption identity in English", async () => {
+      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+      await unlockVault(page, ownerSecret);
+      await page.getByRole("button", { name: "Keamanan", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Rotasi Pasangan Kunci Enkripsi Pengguna" })).toBeVisible();
+      await captureRotationLayout(
+        page,
+        testInfo,
+        "identity-rotation-id",
+        page.locator('section[aria-labelledby="user-encryption-identity-rotation-title"]'),
+      );
+
+      await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseUrl }]);
+      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
+      await unlockVault(page, ownerSecret, "en");
+      await page.getByRole("button", { name: "Security", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Rotate User Encryption Key Pair" })).toBeVisible();
+      await captureRotationLayout(
+        page,
+        testInfo,
+        "identity-rotation-en",
+        page.locator('section[aria-labelledby="user-encryption-identity-rotation-title"]'),
+      );
+
+      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId, "en");
+      await page.getByRole("tab", { name: "Security" }).click();
+      await captureRotationLayout(
+        page,
+        testInfo,
+        "vault-rotation-en",
+        page.locator('section[aria-labelledby^="vault-key-rotation-"]'),
+      );
+      await page.getByRole("button", { name: "Prepare Vault key rotation" }).click();
+      await expect(page.getByText(/Key generation 1 will become 2/)).toBeVisible();
+      await page.getByRole("button", { name: "Review rotation" }).click();
+      await page.getByRole("button", { name: "Rotate Vault key" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "The Vault Encryption Key was rotated" })).toBeVisible({
+        timeout: 60_000,
+      });
+
+      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
+      await unlockVault(page, ownerSecret, "en");
+      await page.getByRole("button", { name: "Security", exact: true }).click();
+      await page.getByRole("button", { name: "Prepare key-pair rotation" }).click();
+      const preparationMessage = page.getByText(/Shared Vault membership will be updated/);
+      const preparationOutcome = await Promise.race([
+        preparationMessage.waitFor({ state: "visible" }).then(() => "prepared" as const),
+        page
+          .getByRole("alert")
+          .waitFor({ state: "visible" })
+          .then(() => "failed" as const),
+      ]);
+      expect(preparationOutcome, "User Encryption rotation must prepare without failure").toBe("prepared");
+      await expect(preparationMessage).toBeVisible();
+      await page.getByRole("button", { name: "Review rotation" }).click();
+      await page.getByRole("button", { name: "Rotate key pair" }).click();
+      await expect(
+        page.getByRole("status").filter({ hasText: "The User Encryption Key Pair was rotated" }),
+      ).toBeVisible({ timeout: 60_000 });
+      await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseUrl }]);
+      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
+    });
+
+    await test.step("Vault-key rotation invalidates the pending invitation package", async () => {
+      await expectInvitationInvalidated(revokePage, pendingInvitation, revokeSecret);
+    });
+
+    await test.step("an already-active Viewer retains access and cannot enumerate owner surfaces", async () => {
+      await leavePage.goto("/vaults", { waitUntil: "domcontentloaded" });
+      await unlockVault(leavePage, leaveSecret);
       const copyResponse = leavePage.waitForResponse(
         (response) =>
           response.request().method() === "POST" &&
@@ -374,6 +467,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
                 body: JSON.stringify({
                   encryptedPayload: btoa(String.fromCharCode(1, ...Array(28).fill(0))),
                   encryptionVersion: 1,
+                  expectedKeyVersion: 2,
                 }),
               }),
               fetch(`/api/v1/shared-vaults/${vaultId}/share-links`, {
@@ -383,6 +477,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
                   recipientEmail: "owner@browser-e2e.test",
                   linkVerifier: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                   encryptedPackage: "AQEBAQEBAQEBAQEBAQEBAQE=",
+                  expectedKeyVersion: 2,
                 }),
               }),
               fetch(`/api/v1/shared-vaults/${vaultId}/members/00000000-0000-4000-8000-000000000000`, {
@@ -455,10 +550,8 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
         .first()
         .click();
       await page.getByLabel(`Atur izin akun untuk ${e2eUserEmail(leaveAlias)}`).click();
-      await page.getByLabel("Ubah akun").click();
-      await page.getByRole("option", { name: "Izinkan" }).click();
-      await page.getByLabel("Hapus akun").click();
-      await page.getByRole("option", { name: "Tolak" }).click();
+      await page.getByLabel("Ubah akun").selectOption("ALLOW");
+      await page.getByLabel("Hapus akun").selectOption("DENY");
       const memberPermissionsResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
@@ -550,11 +643,14 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       ).toHaveCount(0);
     });
 
-    let revokeInvitation = "";
-    await test.step("a second recipient can be revoked by the owner", async () => {
+    await test.step("a fresh recipient invitation can be redeemed and access revoked by the owner", async () => {
       await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
-      revokeInvitation = await createInvitation(page, e2eUserEmail(revokeAlias));
-      await redeemInvitation(revokePage, revokeInvitation, revokeSecret, [sharedName, "E2E Manual", "manual-user"]);
+      const replacementInvitation = await createInvitation(page, e2eUserEmail(revokeAlias));
+      await redeemInvitation(revokePage, replacementInvitation, revokeSecret, [
+        sharedName,
+        "E2E Manual",
+        "manual-user",
+      ]);
       await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
       await getManagementTab(page, /(Undangan|Invitations)/i)
         .first()
@@ -927,20 +1023,20 @@ async function openSharedManagement(
   secret: string,
   sharedName: string,
   sharedVaultId?: string,
+  locale: "id" | "en" = "id",
 ): Promise<void> {
   const tabBar = page.locator('[data-slot="tabs-list"] [data-slot="tabs-trigger"]');
   const passphraseInput = page.getByRole("textbox", {
-    name: "Passphrase Brankas",
-    exact: true,
+    name: /^(Passphrase Brankas|Vault Passphrase)$/,
   });
 
   if (sharedVaultId) {
     // The unlocked workspace is in-memory; reloading this route after unlock would lock it again.
     await page.goto(`/vaults/manage/${sharedVaultId}`, { waitUntil: "domcontentloaded" });
     const initialState = await sharedManagementState(page, tabBar, passphraseInput, 30_000);
-    if (initialState === "locked") await unlockVault(page, secret);
+    if (initialState === "locked") await unlockVault(page, secret, locale);
     await expect(page).toHaveURL(new RegExp(`/vaults/manage/${sharedVaultId}$`));
-    await expectSharedManagementUnlocked(page, tabBar, passphraseInput, secret, 60_000);
+    await expectSharedManagementUnlocked(page, tabBar, passphraseInput, secret, 60_000, locale);
     await tabBar.first().scrollIntoViewIfNeeded();
     await expect(tabBar.first()).toBeVisible({ timeout: 30_000 });
     return;
@@ -969,7 +1065,7 @@ async function openSharedManagement(
   await expect(sharedVaultLink).toBeVisible({ timeout: 30_000 });
   await sharedVaultLink.click();
   await expect(page).toHaveURL(/\/vaults\/manage\/[^/]+$/);
-  await expectSharedManagementUnlocked(page, tabBar, passphraseInput, secret, 60_000);
+  await expectSharedManagementUnlocked(page, tabBar, passphraseInput, secret, 60_000, locale);
   await tabBar.first().scrollIntoViewIfNeeded();
   await expect(tabBar.first()).toBeVisible({ timeout: 30_000 });
 }
@@ -1000,10 +1096,11 @@ async function expectSharedManagementUnlocked(
   passphraseInput: ReturnType<Page["getByRole"]>,
   secret: string,
   timeout = 60_000,
+  locale: "id" | "en" = "id",
 ): Promise<void> {
   let state = await sharedManagementState(page, tabBar, passphraseInput, timeout);
   if (state === "locked") {
-    await unlockVault(page, secret);
+    await unlockVault(page, secret, locale);
     state = await sharedManagementState(page, tabBar, passphraseInput, timeout);
   }
   if (state === "locked") {
@@ -1018,7 +1115,9 @@ async function expectSharedManagementUnlocked(
     throw new Error("Shared Vault management page did not reach a stable unlocked state.");
   }
   expect(state).toBe("unlocked");
-  await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeHidden({ timeout });
+  await expect(page.getByRole("heading", { name: /Brankas Anda terkunci|Your vault is locked/ })).toBeHidden({
+    timeout,
+  });
 }
 
 function getManagementTab(page: Page, name: string | RegExp): Locator {
@@ -1051,9 +1150,24 @@ async function redeemInvitation(
 ): Promise<void> {
   await page.goto(invitation);
   for (const value of lockedPlaintext) await expect(page.getByText(value, { exact: true })).toHaveCount(0);
-  await page.getByRole("textbox", { name: "Passphrase Brankas", exact: true }).fill(secret);
-  await page.getByRole("button", { name: "Buka Brankas" }).click();
-  await expect(page.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
+  const passphraseInput = page.getByRole("textbox", { name: "Passphrase Brankas", exact: true });
+  const acceptInvitation = page.getByRole("button", { name: "Terima undangan" });
+  const workspaceState = await Promise.race([
+    passphraseInput
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "locked" as const)
+      .catch(() => null),
+    acceptInvitation
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "unlocked" as const)
+      .catch(() => null),
+  ]);
+  if (workspaceState === null) throw new Error("Invitation redemption did not reach a locked or unlocked state.");
+  if (workspaceState === "locked") await unlockVault(page, secret);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /undangan tidak dapat digunakan|invitation cannot be used/i }),
+  ).toHaveCount(0);
+  await expect(acceptInvitation).toBeVisible({ timeout: 30_000 });
   const redemptionResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/secure-share-links",
@@ -1068,6 +1182,42 @@ async function redeemInvitation(
     page.getByRole("button", {
       name: "Salin OTP untuk manual-user, E2E Manual",
     }),
+  ).toBeVisible();
+}
+
+async function captureRotationLayout(page: Page, testInfo: TestInfo, name: string, section: Locator): Promise<void> {
+  for (const viewport of [
+    { label: "desktop", width: 1280, height: 900 },
+    { label: "narrow", width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await expect(section).toBeVisible();
+    const bounds = await section.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error("Expected the key-rotation panel to have rendered geometry.");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
+    await page.screenshot({
+      path: testInfo.outputPath(`${name}-${viewport.label}.png`),
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
+async function expectInvitationInvalidated(page: Page, invitation: string, secret: string): Promise<void> {
+  await page.goto(invitation);
+  await page.getByRole("textbox", { name: "Passphrase Brankas", exact: true }).fill(secret);
+  await page.getByRole("button", { name: "Buka Brankas" }).click();
+  await expect(page.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" && new URL(response.url()).pathname === "/api/v1/secure-share-links",
+  );
+  await page.getByRole("button", { name: "Terima undangan" }).click();
+  expect((await responsePromise).status()).toBe(404);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /undangan tidak dapat digunakan|invitation cannot be used/i }),
   ).toBeVisible();
 }
 
@@ -1128,9 +1278,9 @@ async function initializePersonalVault(page: Page, name: string, secret: string)
   await page.getByRole("button", { name: "Amankan Brankas Pribadi" }).click();
 }
 
-async function unlockVault(page: Page, secret: string): Promise<void> {
+async function unlockVault(page: Page, secret: string, locale: "id" | "en" = "id"): Promise<void> {
   const input = page.getByRole("textbox", {
-    name: "Passphrase Brankas",
+    name: locale === "en" ? "Vault Passphrase" : "Passphrase Brankas",
     exact: true,
   });
   await expect(input).toBeVisible();
@@ -1150,8 +1300,8 @@ async function unlockVault(page: Page, secret: string): Promise<void> {
   await expect(input).toHaveAttribute("type", "password");
   await input.fill(secret);
   await expect(input).toHaveValue(secret);
-  await page.getByRole("button", { name: "Buka Brankas" }).click();
-  await expectVaultLockAction(page);
+  await page.getByRole("button", { name: locale === "en" ? "Unlock Vault" : "Buka Brankas" }).click();
+  await expectVaultLockAction(page, locale);
 }
 
 async function installMockClipboard(

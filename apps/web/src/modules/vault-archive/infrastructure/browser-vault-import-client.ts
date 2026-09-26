@@ -1,6 +1,7 @@
 "use client";
 
 import { BrowserApiError, browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import type { PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 
 export type VaultImportClientErrorCode =
   "clientDestinationUnavailable" | "clientConflict" | "clientInvalidPayload" | "clientTimeout" | "clientServerError";
@@ -14,12 +15,14 @@ export class VaultImportClientError extends Error {
 
 export type BrowserEncryptedVaultImportRequest = {
   destination:
-    | { kind: "EXISTING"; vaultId: string; vaultType: "PERSONAL" | "SHARED" }
+    | { kind: "EXISTING"; vaultId: string; vaultType: "PERSONAL" }
+    | { kind: "EXISTING"; vaultId: string; vaultType: "SHARED"; expectedKeyVersion: number }
     | {
         kind: "NEW_SHARED";
         vaultId: string;
         encryptedName: string;
         encryptedOwnerVaultKey: string;
+        expectedOwnerPublicKey: PortableJsonWebKey;
         encryptionVersion: 1;
       };
   accounts: Array<{ id: string; encryptedPayload: string; encryptionVersion: 1 }>;

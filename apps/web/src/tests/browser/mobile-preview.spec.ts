@@ -669,7 +669,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(page.getByRole("heading", { name: "Izin akun anggota" })).toBeVisible();
   await expect(page.getByRole("combobox")).toHaveCount(3);
   await page.getByLabel("Hapus akun").click();
-  await page.getByRole("option", { name: "Izinkan" }).click();
+  await page.getByLabel("Hapus akun").selectOption("ALLOW");
   await page.getByRole("button", { name: "Simpan izin anggota" }).click();
   await expect
     .poll(() => memberPermissionsBody)
@@ -694,6 +694,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       recipientEmail: "expired-with-a-long-address@local.invalid",
       linkVerifier: expect.any(String),
       encryptedPackage: expect.any(String),
+      expectedKeyVersion: 1,
     });
   await expect(page.getByLabel("Tautan undangan aman")).toBeVisible();
   await page.getByRole("button", { name: "Batal", exact: true }).click();
@@ -711,6 +712,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
       recipientEmail: "viewer@example.test",
       linkVerifier: expect.any(String),
       encryptedPackage: expect.any(String),
+      expectedKeyVersion: 1,
     });
   expect(JSON.stringify(invitationBody)).not.toContain((await secureLink.textContent())?.split("#")[1]);
   await expect(page.getByLabel("Salin undangan untuk viewer@example.test")).toBeVisible();

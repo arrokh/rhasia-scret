@@ -18,7 +18,12 @@ describe("mobile Secure Share Links", () => {
     const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
-    await createMobileSecureShareLink({ id: "shared_1", key }, "Recipient@Example.test", transport, webOrigin);
+    await createMobileSecureShareLink(
+      { id: "shared_1", key, keyVersion: 7 },
+      "Recipient@Example.test",
+      transport,
+      webOrigin,
+    );
 
     const body = String(transport.requests[0].body);
     expect(body).toContain("recipient@example.test");
@@ -34,7 +39,12 @@ describe("mobile Secure Share Links", () => {
     const transport = new CreateLinkTransport();
     const key = new Uint8Array(32).fill(6);
     await expect(
-      createMobileSecureShareLink({ id: "shared_1", key }, "recipient@example.test", transport, webOrigin),
+      createMobileSecureShareLink(
+        { id: "shared_1", key, keyVersion: 7 },
+        "recipient@example.test",
+        transport,
+        webOrigin,
+      ),
     ).rejects.toThrow("cancelled");
     expect(transport.requests[1]).toEqual({
       url: "/v1/shared-vaults/shared_1/share-links/invitation_1",
@@ -48,7 +58,8 @@ describe("mobile Secure Share Links", () => {
     const secret = "test-client-only-link-secret-123";
     const vaultId = "shared_1";
     const vaultKey = new Uint8Array(32).fill(7);
-    const userRootKey = new Uint8Array(32).fill(9);
+    const recipientKeyPair = await nativeClientCrypto.generateUserEncryptionKeyPair();
+    const recipient = { profileId: "profile_1", publicKey: recipientKeyPair.publicKey };
     const linkKey = sha256(new TextEncoder().encode(`shared-totp-vault:share-link:v1:${secret}`));
     const encryptedPackage = nativeClientCrypto.serializeEncryptedEnvelope(
       await nativeClientCrypto.encryptPayloadWithContext(linkKey, vaultKey, {
@@ -63,24 +74,27 @@ describe("mobile Secure Share Links", () => {
       id: "invitation_1",
       vaultId,
       encryptedPackage: bytesToBase64(encryptedPackage),
+      keyVersion: 7,
     });
 
-    await redeemMobileSecureShareLink(secret, userRootKey, transport);
+    await redeemMobileSecureShareLink(secret, recipient, transport);
 
     expect(transport.requests[0].url).toMatch(/^\/v1\/secure-share-links\?verifier=/);
     expect(String(transport.requests[1].body)).not.toContain(secret);
     const request = JSON.parse(String(transport.requests[1].body)) as { encryptedVaultKey: string };
-    const envelope = nativeClientCrypto.deserializeEncryptedEnvelope(base64ToBytes(request.encryptedVaultKey));
-    const unwrapped = await nativeClientCrypto.decryptPayloadWithContext(userRootKey, envelope, {
+    const envelope = nativeClientCrypto.deserializeKeyWrapEnvelope(base64ToBytes(request.encryptedVaultKey));
+    const unwrapped = await nativeClientCrypto.unwrapKeyForRecipientWithContext(envelope, recipientKeyPair.privateKey, {
       purpose: "vault-key-wrap",
       payloadType: "vault-encryption-key",
       vaultId,
-      keyVersion: 1,
+      recipientId: recipient.profileId,
+      keyVersion: 7,
     });
     expect(unwrapped).toEqual(vaultKey);
     unwrapped.fill(0);
     vaultKey.fill(0);
-    userRootKey.fill(0);
+    envelope.nonce.fill(0);
+    envelope.ciphertext.fill(0);
     encryptedPackage.fill(0);
   });
 });
@@ -103,7 +117,9 @@ class CreateLinkTransport implements AuthenticatedTransport {
 
 class ShareLinkTransport implements AuthenticatedTransport {
   public readonly requests: PlatformHttpRequest[] = [];
-  public constructor(private readonly lookup: { id: string; vaultId: string; encryptedPackage: string }) {}
+  public constructor(
+    private readonly lookup: { id: string; vaultId: string; encryptedPackage: string; keyVersion: number },
+  ) {}
   public async request(request: PlatformHttpRequest): Promise<PlatformHttpResponse> {
     this.requests.push(request);
     const body = request.method === "GET" ? this.lookup : null;

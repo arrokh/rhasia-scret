@@ -7,17 +7,18 @@ import {
   redeemSecureShareLinkMaterialWithCrypto,
   SecureShareLinkHttpTransport,
   type AuthenticatedTransport,
+  type PortableJsonWebKey,
 } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 
 export function createMobileSecureShareLink(
-  vault: { id: string; key: Uint8Array },
+  vault: { id: string; key: Uint8Array; keyVersion: number },
   recipientEmail: string,
   transport: AuthenticatedTransport,
   webOrigin: string,
 ): Promise<{ expiresAt: string }> {
   const secureShareLinks = new SecureShareLinkHttpTransport(transport);
-  return createSecureShareLink(vault.id, recipientEmail, vault.key, {
+  return createSecureShareLink(vault.id, recipientEmail, vault.key, vault.keyVersion, {
     crypto: {
       createMaterial: (vaultKey, vaultId) =>
         createSecureShareLinkMaterialWithCrypto(vaultKey, vaultId, nativeClientCrypto, async (value) => sha256(value)),
@@ -34,19 +35,20 @@ export function createMobileSecureShareLink(
 
 export function redeemMobileSecureShareLink(
   secret: string,
-  userRootKey: Uint8Array,
+  recipient: { profileId: string; publicKey: PortableJsonWebKey },
   transport: AuthenticatedTransport,
 ): Promise<void> {
   const secureShareLinks = new SecureShareLinkHttpTransport(transport);
-  return redeemSecureShareLink(secret, userRootKey, {
+  return redeemSecureShareLink(secret, recipient, {
     crypto: {
       digestSha256: async (value) => sha256(value),
-      redeemMaterial: (linkSecret, encryptedPackage, rootKey, vaultId) =>
+      redeemMaterial: (linkSecret, encryptedPackage, recipientIdentity, vaultId, keyVersion) =>
         redeemSecureShareLinkMaterialWithCrypto(
           linkSecret,
           encryptedPackage,
-          rootKey,
+          recipientIdentity,
           vaultId,
+          keyVersion,
           nativeClientCrypto,
           async (value) => sha256(value),
         ),
