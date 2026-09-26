@@ -184,6 +184,7 @@ describe("AuthenticatorAccountCreator", () => {
       ),
     );
 
+    expect(container.querySelector('[aria-label="Buka panduan: Membuka sesi Brankas"]')).not.toBeNull();
     await act(async () => {
       setInputValue(container.querySelector("#account-vault-unlock-secret"), "four random secret words");
     });
@@ -199,6 +200,7 @@ describe("AuthenticatorAccountCreator", () => {
     expect(container.textContent).toContain("SHA-1");
     expect(container.textContent).toContain("30 detik");
     expect(container.querySelector<HTMLInputElement>("#account-label")?.value).toBe("person@example.test");
+    expect(container.querySelector('[aria-label="Buka panduan: Impor akun autentikator"]')).not.toBeNull();
     await act(async () => setInputValue(container.querySelector("#account-label"), "Alice Mobile"));
     await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
 

@@ -66,6 +66,15 @@ describe("QrImportInput camera scanning", () => {
     expect(findButton(container, "Pindai dengan kamera")).toBeDefined();
   });
 
+  it("places localized contextual help with the QR import choices", async () => {
+    const container = mount();
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(QrImportInput, { onUri: vi.fn() })));
+
+    expect(container.querySelector('[aria-label="Buka panduan: Impor akun autentikator"]')).not.toBeNull();
+  });
+
   it("decodes an uploaded QR image and forwards its URI", async () => {
     const uri = "otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example";
     mocks.decodeQrImage.mockResolvedValue(uri);

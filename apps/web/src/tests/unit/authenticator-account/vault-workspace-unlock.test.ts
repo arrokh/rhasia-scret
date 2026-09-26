@@ -57,6 +57,28 @@ describe("locked Vault session", () => {
     expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("Passphrase Brankas tidak dapat");
   });
 
+  it("offers contextual help without replacing the entered Vault Passphrase", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    const passphrase = container.querySelector<HTMLInputElement>("#vault-unlock-secret");
+    await act(async () => setInputValue(passphrase, "synthetic passphrase"));
+    await import("@/shared/presentation/contextual-help-dialog");
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[aria-label="Buka panduan: Membuka sesi Brankas"]')?.click();
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("Membuka sesi Brankas");
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(passphrase?.value).toBe("synthetic passphrase");
+  });
+
   it("offers the independent Local Vault as a separate touchpoint", async () => {
     const container = document.createElement("div");
     document.body.append(container);

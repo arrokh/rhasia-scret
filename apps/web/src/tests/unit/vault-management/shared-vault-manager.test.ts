@@ -330,6 +330,7 @@ describe("dedicated Vault management", () => {
     );
 
     await vi.waitFor(() => expect(container.textContent).toContain("Izin akun bawaan anggota"));
+    expect(findButton(container, "Buka panduan: Izin anggota Brankas Bersama")).toBeDefined();
     const defaults = container.querySelector<HTMLElement>('[data-slot="collapsible"]');
     expect(defaults?.getAttribute("data-state")).toBe("closed");
     await act(async () => defaults?.querySelector<HTMLButtonElement>('[data-slot="collapsible-trigger"]')?.click());
@@ -349,6 +350,8 @@ describe("dedicated Vault management", () => {
 
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
+    expect(findButton(container, "Buka panduan: Undangan Brankas Bersama")).toBeDefined();
+    expect(findButton(container, "Buka panduan: Izin anggota Brankas Bersama")).toBeDefined();
     await act(async () => findButton(container, "Atur izin akun untuk viewer@example.test").click());
     expect(document.body.textContent).toContain("Izin akun anggota");
     expect(document.body.querySelectorAll('[role="combobox"]')).toHaveLength(3);

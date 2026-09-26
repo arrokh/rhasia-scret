@@ -184,6 +184,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     state: "state",
     vault: "vault",
     source: "source",
+    topic: "topic",
     value: "value",
     token: (chunks: ReactNode) => chunks,
   };

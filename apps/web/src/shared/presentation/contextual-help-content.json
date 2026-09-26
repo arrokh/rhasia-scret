@@ -1,0 +1,92 @@
+{
+  "personalVaultSetup": {
+    "id": {
+      "title": "Menyiapkan Brankas Pribadi",
+      "summary": "Buat Passphrase Brankas dan kunci yang melindungi konten Brankas Pribadi Anda.",
+      "purpose": "Penyiapan membuat Vault Encryption Key baru; Passphrase Brankas yang terpisah dari kredensial masuk melindungi kunci di browser ini.",
+      "nextStep": "Pilih nama, gunakan passphrase otomatis atau buat sendiri, lalu konfirmasikan bahwa passphrase tidak dapat dipulihkan tanpa kunci akses pemulihan. Setelah penyiapan, buka Brankas untuk menambahkan akun.",
+      "consequences": "Kunci dibuat di browser; server hanya menerima ciphertext dan metadata yang diizinkan. Nama Brankas dienkripsi. Passphrase yang dibuat otomatis hanya tampil sekali—simpan dengan aman.",
+      "cancelOrRecover": "Sebelum memilih Amankan Brankas Pribadi, tinggalkan halaman untuk membatalkan. Passphrase yang terlupa hanya dapat dipulihkan dengan Passkey pemulihan terdaftar; Destructive Personal Vault Reset menghapus ciphertext secara permanen."
+    },
+    "en": {
+      "title": "Set up your Personal Vault",
+      "summary": "Create a Vault Passphrase and keys that protect your Personal Vault content.",
+      "purpose": "Setup creates a new Vault Encryption Key; your separate Vault Passphrase protects the key in your browser.",
+      "nextStep": "Choose a Vault name, use a generated passphrase or create one, then acknowledge that it cannot be recovered without an access-recovery key. Unlock after setup to add accounts.",
+      "consequences": "Keys are created in-browser; the server gets ciphertext and permitted metadata. The Vault name is encrypted. A generated passphrase appears once, so store it safely.",
+      "cancelOrRecover": "Leave before selecting Secure Personal Vault to cancel. A forgotten passphrase requires a pre-enrolled recovery passkey; Destructive Personal Vault Reset permanently deletes ciphertext."
+    }
+  },
+  "personalVaultUnlock": {
+    "id": {
+      "title": "Membuka sesi Brankas",
+      "summary": "Buka kunci konten Vault di browser untuk melanjutkan pekerjaan.",
+      "purpose": "Passphrase Brankas membantu browser membuka User Root Key dan Vault Encryption Key; kunci serta konten yang dibuka hanya tersedia di browser ini.",
+      "nextStep": "Masukkan passphrase dan pilih Buka Brankas untuk memuat Brankas yang dapat diakses, lalu kelola akun sesuai izin.",
+      "consequences": "Pembukaan kunci tidak mengubah passphrase atau mengirim kunci ke server. Buka dengan passkey memerlukan Passkey pemulihan terdaftar dan verifikasi daring; Verifikasi Lokal memerlukan Browser yang Diingat terdaftar.",
+      "cancelOrRecover": "Keluar kapan saja tanpa perubahan. Jika lupa passphrase, periksa apakah Passkey pemulihan telah didaftarkan; Destructive Personal Vault Reset menghapus ciphertext, bukan memulihkannya."
+    },
+    "en": {
+      "title": "Unlock your Vault session",
+      "summary": "Unlock Vault content in your browser so you can continue.",
+      "purpose": "Your Vault Passphrase helps the browser open the User Root Key and Vault Encryption Key; keys and decrypted content stay in your browser.",
+      "nextStep": "Enter your passphrase and select Unlock Vault to load accessible Vaults, then manage accounts according to your permissions.",
+      "consequences": "Unlocking doesn't change your passphrase or send keys to the server. Passkey-Assisted Unlock needs an enrolled recovery passkey and online verification; Local Verification needs an enrolled Remembered Browser.",
+      "cancelOrRecover": "Leave any time without changes. If you forgot your passphrase, check for an enrolled recovery passkey; Destructive Personal Vault Reset deletes ciphertext rather than recovering it."
+    }
+  },
+  "authenticatorAccountImport": {
+    "id": {
+      "title": "Impor akun autentikator",
+      "summary": "Pindai QR, pilih gambar QR, atau masukkan URI TOTP untuk membuat akun.",
+      "purpose": "Gunakan kamera, gambar, atau URI otpauth://totp yang didukung. Tinjau konfigurasi sebelum membuat akun di Vault.",
+      "nextStep": "Periksa metadata, ubah nama bila perlu, pilih Vault yang mengizinkan penambahan, lalu pilih Simpan akun. Browser mengenkripsi konfigurasi.",
+      "consequences": "Akun dibuat hanya saat disimpan. Rahasia TOTP, URI mentah, data QR, dan OTP tidak dikirim ke server sebagai plaintext; pilih Tetap tambahkan hanya jika sengaja membuat akun duplikat terpisah.",
+      "cancelOrRecover": "Sebelum menyimpan, pilih Impor kode lain atau tinggalkan halaman—akun belum dibuat. Jika pemindaian gagal, coba gambar atau URI manual; setelah disimpan, ubah atau hapus sesuai izin."
+    },
+    "en": {
+      "title": "Import an Authenticator Account",
+      "summary": "Scan a QR code, choose a QR image, or enter a TOTP URI to create an account.",
+      "purpose": "Use the camera, an image, or a supported otpauth://totp URI. Review the configuration before creating a Vault account.",
+      "nextStep": "Review metadata, rename if needed, choose a Vault that permits additions, and select Save account. The browser encrypts the configuration.",
+      "consequences": "An account is created only when saved. The TOTP secret, raw URI, QR data, and OTP never reach the server as plaintext; Add anyway creates a separate duplicate.",
+      "cancelOrRecover": "Before saving, select Import another or leave; no account exists yet. If scanning fails, try an image or manual URI. Afterward, edit or delete according to permissions."
+    }
+  },
+  "sharedVaultInvitations": {
+    "id": {
+      "title": "Undangan Brankas Bersama",
+      "summary": "Undang penerima tertentu dan kelola Secure Share Link mereka.",
+      "purpose": "Pemilik mengundang satu alamat email tertentu. Penerima harus masuk dengan email terverifikasi yang cocok, lalu memilih Terima undangan untuk menukar Secure Share Link.",
+      "nextStep": "Kirim tautan melalui saluran aman di luar aplikasi. Penerima membuka tautan, masuk dengan email yang cocok, lalu memilih Terima undangan untuk menerima akses dan paket kunci terenkripsi.",
+      "consequences": "Secure Share Link berlaku tujuh hari; secret tidak sampai ke server. Server menyimpan verifier, paket kunci terenkripsi, dan metadata yang diizinkan. Pencabutan menghentikan akses mendatang, bukan menarik data yang sudah diterima.",
+      "cancelOrRecover": "Batalkan undangan tertunda untuk membatalkan tautan. Jika hilang, batalkan lalu buat undangan baru; jika kedaluwarsa, gunakan Undang ulang."
+    },
+    "en": {
+      "title": "Shared Vault invitations",
+      "summary": "Invite a specific recipient and manage their Secure Share Link.",
+      "purpose": "An owner invites one specific email address. The recipient signs in with its matching verified email, then selects Accept invitation to redeem the Secure Share Link.",
+      "nextStep": "Send the link through a secure channel outside the app. The recipient opens it, signs in with the matching email, and selects Accept invitation to receive access and an encrypted key package.",
+      "consequences": "A Secure Share Link expires after seven days; its secret never reaches the server. Only its verifier, encrypted key package, and permitted metadata are stored. Revocation stops future access, not retrieval of information already received.",
+      "cancelOrRecover": "Cancel a pending invitation to invalidate its link. If lost, cancel and recreate it; if expired, use Re-invite."
+    }
+  },
+  "sharedVaultPermissions": {
+    "id": {
+      "title": "Izin anggota Brankas Bersama",
+      "summary": "Atur izin bawaan dan pengecualian untuk setiap kemampuan akun.",
+      "purpose": "Pemilik menetapkan izin bawaan tambah, edit, dan hapus akun. Per anggota dan kemampuan, Ikuti bawaan, Izinkan, atau Tolak menentukan izin efektif.",
+      "nextStep": "Atur bawaan di detail Brankas atau pengecualian dari daftar anggota. Viewer dapat melakukan tindakan yang diizinkan; hanya pemilik memulihkan akun terhapus.",
+      "consequences": "Izin bawaan awalnya ditolak; tiap kemampuan terpisah, dan bawaan berlaku jika tidak ada penggantian. Server menolak tindakan yang dilarang. Pencabutan menghentikan akses baru, bukan menarik data yang sudah disalin.",
+      "cancelOrRecover": "Batalkan sebelum menyimpan untuk mempertahankan izin. Pemilik dapat mengubah bawaan atau pengecualian nanti. Pencabutan tidak menghapus salinan anggota."
+    },
+    "en": {
+      "title": "Shared Vault member permissions",
+      "summary": "Set default permissions and overrides for each account capability.",
+      "purpose": "The owner sets defaults for adding, editing, and deleting accounts. Per member and capability, Inherit, Allow, or Deny determines effective permissions.",
+      "nextStep": "Set defaults in Vault details or overrides from the member list. Viewers can perform permitted actions; only the owner can restore deleted accounts.",
+      "consequences": "Defaults start denied; each capability is separate, and the Vault default applies without an override. The server blocks denied actions. Revocation stops future access, not retrieval of copied information.",
+      "cancelOrRecover": "Cancel before saving to keep current permissions. The owner can change defaults or overrides later. Revocation cannot erase copies a member already has."
+    }
+  }
+}
