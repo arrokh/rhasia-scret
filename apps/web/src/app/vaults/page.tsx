@@ -5,6 +5,7 @@ import { loadVaultPageContext, VaultPageLogoutAction } from "@/modules/vault-man
 import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account";
 import { AppPage, PageHeader, SectionHeading, SurfaceCard } from "@/shared/presentation/app-ui";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { ActionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function VaultsPage() {
               eyebrow={t("personal")}
               title={t("setupTitle")}
               description={t("setupIntro")}
+              action={<ContextualHelpButton topic="personalVaultSetup" />}
             />
             <PersonalVaultSetupForm />
           </div>

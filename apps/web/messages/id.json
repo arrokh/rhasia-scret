@@ -19,6 +19,21 @@
       "title": "Terjadi kesalahan",
       "description": "Coba lagi.",
       "retry": "Coba lagi"
+    },
+    "contextualHelp": {
+      "open": "Buka panduan: {topic}",
+      "close": "Tutup panduan",
+      "topics": {
+        "personalVaultSetup": "Menyiapkan Brankas Pribadi",
+        "personalVaultUnlock": "Membuka sesi Brankas",
+        "authenticatorAccountImport": "Impor akun autentikator",
+        "sharedVaultInvitations": "Undangan Brankas Bersama",
+        "sharedVaultPermissions": "Izin anggota Brankas Bersama"
+      },
+      "purpose": "Tujuan",
+      "nextStep": "Langkah berikutnya",
+      "consequences": "Dampak penting",
+      "cancelOrRecover": "Batalkan atau pulihkan"
     }
   },
   "Locale": {

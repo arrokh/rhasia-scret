@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { StatusBanner, SectionHeading } from "@/shared/presentation/app-ui";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { decodeQrImage, scanQrCamera } from "../infrastructure/browser-qr-importer";
 
@@ -127,7 +128,12 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
 
   return (
     <section className={cn("grid gap-5 p-5 sm:p-6", className)} aria-labelledby="qr-import-title">
-      <SectionHeading icon={ScanLine} title={t("title")} description={t("description")} />
+      <SectionHeading
+        icon={ScanLine}
+        title={t("title")}
+        description={t("description")}
+        action={<ContextualHelpButton topic="authenticatorAccountImport" />}
+      />
       <Button
         type="button"
         className="w-full"

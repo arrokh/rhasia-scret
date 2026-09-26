@@ -34,6 +34,7 @@ import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { FormLoadingPlaceholder, SectionLoadingPlaceholder } from "@/shared/presentation/loading-placeholder";
@@ -167,22 +168,25 @@ function VaultDefaultPermissionsForm({
       }}
     >
       <Collapsible open={expanded} onOpenChange={setExpanded}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-auto min-h-11 w-full justify-between gap-3 rounded-b-none p-4 text-left whitespace-normal"
-            type="button"
-          >
-            <span>
-              <span className="block font-bold text-foreground">{t("defaultsTitle")}</span>
-              <span className="mt-1 block text-sm font-normal text-muted-foreground">{t("defaultsDescription")}</span>
-            </span>
-            <ChevronDown
-              className={`size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
-              aria-hidden="true"
-            />
-          </Button>
-        </CollapsibleTrigger>
+        <div className="flex items-center gap-2">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-auto min-h-12 flex-1 justify-between gap-3 rounded-b-none p-4 text-left whitespace-normal"
+              type="button"
+            >
+              <span>
+                <span className="block font-bold text-foreground">{t("defaultsTitle")}</span>
+                <span className="mt-1 block text-sm font-normal text-muted-foreground">{t("defaultsDescription")}</span>
+              </span>
+              <ChevronDown
+                className={`size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <ContextualHelpButton topic="sharedVaultPermissions" />
+        </div>
         <CollapsibleContent>
           <div className="grid gap-3 border-t p-4">
             <div className="grid gap-3 sm:grid-cols-3">
@@ -663,15 +667,18 @@ function InvitationPanel({
                       </Button>
                     )}
                     {participant.kind === "MEMBER" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        aria-label={t("configurePermissions", { email: participant.email })}
-                        onClick={() => setParticipantToConfigure(participant)}
-                      >
-                        <Settings2 />
-                      </Button>
+                      <>
+                        <ContextualHelpButton topic="sharedVaultPermissions" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          aria-label={t("configurePermissions", { email: participant.email })}
+                          onClick={() => setParticipantToConfigure(participant)}
+                        >
+                          <Settings2 />
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -793,12 +800,15 @@ function InvitationForm({
         void form.handleSubmit();
       }}
     >
-      <div>
-        <h3 className="flex items-center gap-2 font-bold text-ink-strong">
-          <MailPlus className="size-5" />
-          {t("formTitle")}
-        </h3>
-        <p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 font-bold text-ink-strong">
+            <MailPlus className="size-5" />
+            {t("formTitle")}
+          </h3>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">{t("formDescription")}</p>
+        </div>
+        <ContextualHelpButton topic="sharedVaultInvitations" />
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <form.Field

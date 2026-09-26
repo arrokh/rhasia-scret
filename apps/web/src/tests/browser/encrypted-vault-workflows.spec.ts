@@ -33,6 +33,14 @@ test("verified email session, Personal Vault initialization, lock, unlock, and l
     await authenticate(context, alias);
     await page.goto("/vaults");
     await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
+    await page.getByLabel("Nama Brankas").fill(personalName);
+    await verifyContextualHelp(
+      page,
+      "Buka panduan: Menyiapkan Brankas Pribadi",
+      "Menyiapkan Brankas Pribadi",
+      "Buat Passphrase Brankas dan kunci",
+    );
+    await expect(page.getByLabel("Nama Brankas")).toHaveValue(personalName);
     await initializePersonalVault(page, personalName, personalSecret);
     await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
     const lockedDirectoryPage = await context.newPage();
@@ -676,6 +684,13 @@ test("a new invitation recipient initializes Personal Vault and returns to redem
     });
     await unlockVault(recipientPage, recipientSecret);
     await expect(recipientPage.getByRole("button", { name: "Terima undangan" })).toBeVisible({ timeout: 30_000 });
+    await verifyContextualHelp(
+      recipientPage,
+      "Buka panduan: Undangan Brankas Bersama",
+      "Undangan Brankas Bersama",
+      "Penerima harus masuk dengan email terverifikasi yang cocok",
+    );
+    await expect(recipientPage.getByRole("button", { name: "Terima undangan" })).toBeVisible();
   } finally {
     await recipientContext.close();
   }
@@ -762,19 +777,52 @@ test("English setup, unlock, account creation, and OTP smoke use the real stack"
   await expect(page.getByText("Vault name is required.")).toBeVisible();
   await page.getByLabel("Vault name").fill("E2E English Personal Vault");
   await page.getByLabel("Create your own").click();
-  await page.getByRole("textbox", { name: "Your Vault Passphrase", exact: true }).fill(secret);
-  await page.getByRole("textbox", { name: "Re-enter your Vault Passphrase" }).fill(secret);
+  const setupPassphrase = page.getByRole("textbox", { name: "Your Vault Passphrase", exact: true });
+  const setupConfirmation = page.getByRole("textbox", { name: "Re-enter your Vault Passphrase" });
+  await setupPassphrase.fill(secret);
+  await setupConfirmation.fill(secret);
   await page.getByLabel(/I understand that without an access-recovery key/).click();
+  await verifyContextualHelp(
+    page,
+    "Open guide: Set up your Personal Vault",
+    "Set up your Personal Vault",
+    "Create a Vault Passphrase and keys",
+  );
+  await expect(page.getByLabel("Vault name")).toHaveValue("E2E English Personal Vault");
+  await expect(setupPassphrase).toHaveValue(secret);
+  await expect(setupConfirmation).toHaveValue(secret);
   await page.getByRole("button", { name: "Secure Personal Vault" }).click();
 
   await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("textbox", { name: "Vault Passphrase", exact: true }).fill(secret);
+  const unlockPassphrase = page.getByRole("textbox", { name: "Vault Passphrase", exact: true });
+  await unlockPassphrase.fill(secret);
+  await verifyContextualHelp(
+    page,
+    "Open guide: Unlock your Vault session",
+    "Unlock your Vault session",
+    "Unlock Vault content in your browser",
+  );
+  await expect(unlockPassphrase).toHaveValue(secret);
   await page.getByRole("button", { name: "Unlock Vault" }).click();
   await expectVaultLockAction(page, "en");
 
   await page.getByRole("link", { name: "Add authenticator account" }).click();
+  await verifyContextualHelp(
+    page,
+    "Open guide: Import an Authenticator Account",
+    "Import an Authenticator Account",
+    "Scan a QR code, choose a QR image, or enter a TOTP URI",
+  );
   await attachQrImportImage(page);
   await expect(page.getByRole("heading", { name: "Authenticator metadata" })).toBeVisible();
+  const importedAccountName = page.getByRole("textbox", { name: "Account label" });
+  await verifyContextualHelp(
+    page,
+    "Open guide: Import an Authenticator Account",
+    "Import an Authenticator Account",
+    "An account is created only when saved",
+  );
+  await expect(importedAccountName).toHaveValue("image-user");
   await page.getByRole("button", { name: "Save account" }).click();
   await expect(page).toHaveURL(/\/vaults$/);
   await expect(page.getByLabel("Current OTP")).toHaveText(/\d{3} \d{3}/);
@@ -1023,6 +1071,24 @@ async function redeemInvitation(
   ).toBeVisible();
 }
 
+async function verifyContextualHelp(
+  page: Page,
+  triggerName: string,
+  title: string,
+  expectedGuidance: string,
+): Promise<void> {
+  const trigger = page.getByRole("button", { name: triggerName });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog").last();
+  await expect(dialog.getByRole("heading", { name: title })).toBeVisible();
+  await expect(dialog).toContainText(expectedGuidance);
+  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+}
+
 function scenarioAlias(
   browserName: string,
   scenario: (typeof E2E_BROWSER_SCENARIOS)[number],
@@ -1045,7 +1111,17 @@ async function authenticate(context: BrowserContext, alias: string): Promise<voi
 
 async function initializePersonalVault(page: Page, name: string, secret: string): Promise<void> {
   await page.getByLabel("Nama Brankas").fill(name);
-  await page.getByLabel("Buat sendiri").click();
+  const customSecretChoice = page.getByRole("radio", { name: "Buat sendiri" });
+  await expect
+    .poll(
+      async () => {
+        if ((await customSecretChoice.getAttribute("aria-checked")) === "true") return "true";
+        await customSecretChoice.click({ timeout: 2_000 });
+        return customSecretChoice.getAttribute("aria-checked");
+      },
+      { timeout: 15_000 },
+    )
+    .toBe("true");
   await page.getByRole("textbox", { name: "Passphrase Brankas Anda" }).fill(secret);
   await page.getByRole("textbox", { name: "Masukkan kembali Passphrase Brankas" }).fill(secret);
   await page.getByLabel(/Saya memahami/).click();

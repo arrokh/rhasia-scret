@@ -4,6 +4,7 @@ import { InvitationRedemptionWorkspace } from "@/modules/authenticator-account";
 import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
 import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
 import { SectionHeading } from "@/shared/presentation/app-ui";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ async function InvitationContent() {
           eyebrow={vaultsT("personal")}
           title={vaultsT("setupTitle")}
           description={vaultsT("setupIntro")}
+          action={<ContextualHelpButton topic="personalVaultSetup" />}
         />
         <PersonalVaultSetupForm afterInitializationPath="/vaults/invitations/redeem" />
       </div>
