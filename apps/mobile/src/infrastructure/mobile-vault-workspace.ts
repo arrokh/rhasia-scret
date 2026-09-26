@@ -1,5 +1,8 @@
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+import {
+  createAuthenticatorAccountPayloadPort,
+  createUserEncryptionIdentityWithCrypto,
+} from "@rhasia-scret/client-vault-core";
 import {
   clearUnlockedVaultWorkspace,
   evictSharedVaultWorkspace,
@@ -10,12 +13,15 @@ import {
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
 import { AuthorizedWorkspaceTransport, type AuthorizedWorkspaceResponse } from "@rhasia-scret/client-vault-core";
-import { unlockSharedVaultWithCrypto } from "@rhasia-scret/client-vault-core";
+import {
+  recoverUserEncryptionPrivateKeyWithCrypto,
+  unlockSharedVaultWithCrypto,
+} from "@rhasia-scret/client-vault-core";
 import type { CancellationPort, NetworkStatusPort, PortDisposer } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { EncryptedOfflineVaultStore } from "./encrypted-offline-vault-store";
 import { nativeOfflineVaultPersistence, nativeOfflineVaultSecureKeys } from "./native-offline-vault-persistence";
-import type { AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
+import { bytesToBase64, type AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
 import {
   unlockMobilePersonalVault,
   unlockMobilePersonalVaultWithUserRootKey,
@@ -90,6 +96,23 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
     data: {
       snapshotStore: mobileOfflineVaultStore,
       fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(transport, signal),
+      registerUserEncryptionIdentity: async (identity, signal) => {
+        const response = await transport.request({
+          url: "/v1/user-encryption-identity",
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            publicKey: identity.publicKey,
+            encryptedPrivateKey: bytesToBase64(identity.encryptedPrivateKey),
+            encryptionVersion: identity.encryptionVersion,
+          }),
+          cache: "no-store",
+          ...(signal ? { signal } : {}),
+        });
+        if (response.status === 204) return true;
+        if (response.status === 409) return false;
+        throw new Error("User Encryption Identity registration failed.");
+      },
     },
     crypto: {
       unlockPersonalVault: unlockMobilePersonalVault,
@@ -108,9 +131,18 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
       },
       decryptPayload: nativeClientCrypto.decryptPayload,
       decryptPayloadWithContext: nativeClientCrypto.decryptPayloadWithContext,
+      serializeEncryptedEnvelope: nativeClientCrypto.serializeEncryptedEnvelope,
       deserializeEncryptedEnvelope: nativeClientCrypto.deserializeEncryptedEnvelope,
-      unlockSharedVault: (userRootKey, encryptedVaultKey, encryptedName, vaultId) =>
-        unlockSharedVaultWithCrypto(nativeClientCrypto, userRootKey, encryptedVaultKey, encryptedName, vaultId),
+      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) =>
+        recoverUserEncryptionPrivateKeyWithCrypto(
+          userRootKey,
+          nativeClientCrypto.deserializeEncryptedEnvelope(encryptedPrivateKey),
+          nativeClientCrypto,
+        ),
+      createUserEncryptionIdentity: (userRootKey) =>
+        createUserEncryptionIdentityWithCrypto(userRootKey, nativeClientCrypto),
+      unlockSharedVault: (userRootKey, encryptedVaultKey, encryptedName, context) =>
+        unlockSharedVaultWithCrypto(nativeClientCrypto, userRootKey, encryptedVaultKey, encryptedName, context),
       decryptAccountConfiguration: accountPayloads.decryptAccountConfiguration,
     },
   };

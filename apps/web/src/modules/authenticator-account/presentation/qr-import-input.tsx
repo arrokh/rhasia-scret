@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { IScannerControls } from "@zxing/browser";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { Camera, CameraOff, ChevronDown, ImageUp, LoaderCircle, ScanLine } from "lucide-react";
@@ -21,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { StatusBanner, SectionHeading } from "@/shared/presentation/app-ui";
 import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
-import { decodeQrImage, scanQrCamera } from "../infrastructure/browser-qr-importer";
+import type { QrCameraScannerControls } from "../infrastructure/browser-qr-importer";
 
 type QrError =
   | "imageError"
@@ -35,7 +34,7 @@ const CAMERA_MODAL_READY_DELAY_MS = 500;
 
 export function QrImportInput({ onUri, className }: { onUri: (uri: string) => void; className?: string }) {
   const t = useTranslations("AuthenticatorAccount.qr");
-  const controls = useRef<IScannerControls | null>(null);
+  const controls = useRef<QrCameraScannerControls | null>(null);
   const onUriRef = useRef(onUri);
   const [error, setError] = useState<QrError | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -66,17 +65,22 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
   useEffect(() => {
     if (!cameraOpen || !cameraReady || !videoElement) return;
     let cancelled = false;
-    void scanQrCamera(videoElement, (uri) => {
-      if (cancelled) return;
-      controls.current?.stop();
-      controls.current = null;
-      setCameraOpen(false);
-      setCameraReady(false);
-      setCameraLoading(false);
-      setError(null);
-      onUriRef.current(uri);
-    })
+    void import("../infrastructure/browser-qr-importer")
+      .then(({ scanQrCamera }) => {
+        if (cancelled) return null;
+        return scanQrCamera(videoElement, (uri) => {
+          if (cancelled) return;
+          controls.current?.stop();
+          controls.current = null;
+          setCameraOpen(false);
+          setCameraReady(false);
+          setCameraLoading(false);
+          setError(null);
+          onUriRef.current(uri);
+        });
+      })
       .then((scannerControls) => {
+        if (!scannerControls) return;
         if (cancelled) scannerControls.stop();
         else {
           controls.current = scannerControls;
@@ -102,6 +106,7 @@ export function QrImportInput({ onUri, className }: { onUri: (uri: string) => vo
     if (!file) return;
     setUploadLoading(true);
     try {
+      const { decodeQrImage } = await import("../infrastructure/browser-qr-importer");
       onUri(await decodeQrImage(file));
       setFileName(file.name);
       setError(null);

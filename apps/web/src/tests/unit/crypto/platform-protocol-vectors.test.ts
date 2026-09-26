@@ -3,6 +3,7 @@ import { ARGON2ID_PROTOCOL_VECTOR, RFC6238_SHA1_VECTOR } from "@rhasia-scret/cli
 import {
   createEncryptedVaultArchive,
   decryptPayloadWithContext,
+  deserializeKeyWrapEnvelope,
   deriveVaultUnlockKey,
   encryptPayloadWithContext,
   generateSymmetricKey,
@@ -79,21 +80,32 @@ describe("cross-platform protocol vectors", () => {
 
     const vaultKey = Uint8Array.from({ length: 32 }, (_, index) => 32 - index);
     const material = await createSecureShareLinkMaterial(vaultKey, "vault-vector");
-    const recipientRootKey = generateSymmetricKey();
+    const recipient = { profileId: "profile-vector", publicKey };
     const redeemed = await redeemSecureShareLinkMaterial(
       material.secret,
       material.encryptedPackage,
-      recipientRootKey,
+      recipient,
       "vault-vector",
+      7,
     );
+    const redeemedEnvelope = deserializeKeyWrapEnvelope(redeemed.encryptedVaultKey);
+    const redeemedVaultKey = await unwrapKeyForRecipientWithContext(redeemedEnvelope, privateKey, {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      vaultId: "vault-vector",
+      recipientId: recipient.profileId,
+      keyVersion: 7,
+    });
     expect(redeemed.linkVerifier).toEqual(material.linkVerifier);
-    expect(redeemed.encryptedVaultKey.length).toBeGreaterThan(16);
+    expect(redeemedVaultKey).toEqual(vaultKey);
 
     key.fill(0);
     plaintext.fill(0);
     archiveKey.fill(0);
     vaultKey.fill(0);
-    recipientRootKey.fill(0);
+    redeemedVaultKey.fill(0);
+    redeemedEnvelope.nonce.fill(0);
+    redeemedEnvelope.ciphertext.fill(0);
     material.linkVerifier.fill(0);
     material.encryptedPackage.fill(0);
     redeemed.linkVerifier.fill(0);

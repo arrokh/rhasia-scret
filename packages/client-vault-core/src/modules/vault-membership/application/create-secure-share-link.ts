@@ -5,8 +5,11 @@ export async function createSecureShareLink(
   vaultId: string,
   recipientEmail: string,
   vaultKey: Uint8Array,
+  expectedKeyVersion: number,
   ports: SecureShareLinkCreationPorts,
 ): Promise<{ id: string; secret: string; expiresAt: string }> {
+  if (!Number.isSafeInteger(expectedKeyVersion) || expectedKeyVersion < 1)
+    throw new Error("Secure Share Link key generation is invalid.");
   const material = await ports.crypto.createMaterial(vaultKey, vaultId);
   let invitationId: string | undefined;
   try {
@@ -14,6 +17,7 @@ export async function createSecureShareLink(
       recipientEmail,
       linkVerifier: bytesToBase64(material.linkVerifier),
       encryptedPackage: bytesToBase64(material.encryptedPackage),
+      expectedKeyVersion,
     });
     invitationId = invitation.id;
     if (ports.delivery)

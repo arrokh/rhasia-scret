@@ -5,6 +5,7 @@ import { prisma } from "@api/tests/integration/prisma";
 
 const userIds: string[] = [];
 const vaultIds: string[] = [];
+const publicKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) } satisfies JsonWebKey;
 
 async function cleanup() {
   await prisma.vaultAuditEvent.deleteMany({ where: { vaultId: { in: vaultIds } } });
@@ -82,9 +83,23 @@ describe("PrismaEncryptedVaultImportRepository", () => {
     async () => {
       const owner = await createUser("shared-owner");
       const vault = await createVault(owner.id, "SHARED");
+      await prisma.vaultMember.create({
+        data: {
+          vaultId: vault.id,
+          userId: owner.id,
+          role: "OWNER",
+          encryptedVaultKey: bytes("encrypted-owner-key"),
+          keyVersion: 1,
+        },
+      });
       const accountId = randomUUID();
       const request = {
-        destination: { kind: "EXISTING" as const, vaultId: vault.id, vaultType: "SHARED" as const },
+        destination: {
+          kind: "EXISTING" as const,
+          vaultId: vault.id,
+          vaultType: "SHARED" as const,
+          expectedKeyVersion: 1,
+        },
         accounts: [{ id: accountId, encryptedPayload: bytes("encrypted-account"), encryptionVersion: 1 as const }],
       };
       await expect(new PrismaEncryptedVaultImportRepository(prisma).import(owner.id, request)).resolves.toEqual({
@@ -110,13 +125,31 @@ describe("PrismaEncryptedVaultImportRepository", () => {
       const vault = await createVault(owner.id, "SHARED");
       await prisma.vaultMember.createMany({
         data: [
-          { vaultId: vault.id, userId: owner.id, role: "OWNER" },
-          { vaultId: vault.id, userId: member.id, role: "VIEWER", canAddAccountsOverride: true },
+          {
+            vaultId: vault.id,
+            userId: owner.id,
+            role: "OWNER",
+            encryptedVaultKey: bytes("owner-key"),
+            keyVersion: 1,
+          },
+          {
+            vaultId: vault.id,
+            userId: member.id,
+            role: "VIEWER",
+            encryptedVaultKey: bytes("member-key"),
+            keyVersion: 1,
+            canAddAccountsOverride: true,
+          },
         ],
       });
       const accountId = randomUUID();
       const request = {
-        destination: { kind: "EXISTING" as const, vaultId: vault.id, vaultType: "SHARED" as const },
+        destination: {
+          kind: "EXISTING" as const,
+          vaultId: vault.id,
+          vaultType: "SHARED" as const,
+          expectedKeyVersion: 1,
+        },
         accounts: [
           { id: accountId, encryptedPayload: bytes("member-encrypted-account"), encryptionVersion: 1 as const },
         ],
@@ -136,6 +169,15 @@ describe("PrismaEncryptedVaultImportRepository", () => {
         }),
       ).resolves.toEqual({ ownerId: owner.id, actorUserId: member.id, eventType: "ARCHIVE_IMPORTED" });
 
+      const staleAccountId = randomUUID();
+      await expect(
+        repository.import(member.id, {
+          destination: { ...request.destination, expectedKeyVersion: 2 },
+          accounts: [{ id: staleAccountId, encryptedPayload: bytes("stale-member-ciphertext"), encryptionVersion: 1 }],
+        }),
+      ).resolves.toEqual({ status: "CONFLICT" });
+      expect(await prisma.authenticatorAccount.findUnique({ where: { id: staleAccountId } })).toBeNull();
+
       await prisma.vaultMember.update({
         where: { vaultId_userId: { vaultId: vault.id, userId: member.id } },
         data: { canAddAccountsOverride: false },
@@ -152,12 +194,14 @@ describe("PrismaEncryptedVaultImportRepository", () => {
       const vaultId = randomUUID();
       vaultIds.push(vaultId);
       const accountIds = [randomUUID(), randomUUID()];
+      await createCryptoProfile(owner.id);
       const request = {
         destination: {
           kind: "NEW_SHARED" as const,
           vaultId,
           encryptedName: bytes("encrypted-name"),
           encryptedOwnerVaultKey: bytes("encrypted-owner-key"),
+          expectedOwnerPublicKey: publicKey,
           encryptionVersion: 1 as const,
         },
         accounts: accountIds.map((id) => ({
@@ -225,6 +269,7 @@ describe("PrismaEncryptedVaultImportRepository", () => {
           vaultId: newVaultId,
           encryptedName: bytes("encrypted-name"),
           encryptedOwnerVaultKey: bytes("owner-key"),
+          expectedOwnerPublicKey: publicKey,
           encryptionVersion: 1 as const,
         },
         accounts: [0, 1].map(() => ({
@@ -248,6 +293,22 @@ async function createUser(label: string) {
   });
   userIds.push(user.id);
   return user;
+}
+
+async function createCryptoProfile(userId: string) {
+  return prisma.userCryptoProfile.create({
+    data: {
+      userId,
+      vaultUnlockSalt: bytes("synthetic-salt"),
+      wrappedUserRootKey: bytes("synthetic-wrapped-root-key"),
+      rootKeyWrappingVersion: 1,
+      encryptedPersonalVaultKey: bytes("synthetic-personal-key"),
+      personalVaultKeyEncryptionVersion: 1,
+      userEncryptionPublicKey: publicKey,
+      encryptedUserPrivateKey: bytes("synthetic-encrypted-private-key"),
+      userEncryptionKeyVersion: 1,
+    },
+  });
 }
 
 async function createVault(ownerId: string, type: "PERSONAL" | "SHARED") {

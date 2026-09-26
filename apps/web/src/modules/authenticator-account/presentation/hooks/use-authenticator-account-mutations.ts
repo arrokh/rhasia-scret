@@ -34,6 +34,7 @@ export function useUpdateEncryptedAuthenticatorAccountMutation() {
       expectedRevision,
       encryptedPayload,
       encryptionVersion,
+      keyVersion,
     }: {
       vaultId: string;
       vaultType: "PERSONAL" | "SHARED";
@@ -41,9 +42,10 @@ export function useUpdateEncryptedAuthenticatorAccountMutation() {
       expectedRevision: number;
       encryptedPayload: string;
       encryptionVersion: 1;
+      keyVersion?: number;
     }) =>
       updateEncryptedAuthenticatorAccount(
-        { vaultId, vaultType },
+        { vaultId, vaultType, keyVersion },
         { accountId, expectedRevision, encryptedPayload, encryptionVersion },
       ),
   });
@@ -58,12 +60,18 @@ export function useCreateEncryptedAuthenticatorAccountMutation() {
       encryptedPayload,
       encryptionVersion,
       source,
+      keyVersion,
     }: {
       vaultId: string;
       vaultType: "PERSONAL" | "SHARED";
       encryptedPayload: string;
       encryptionVersion: 1;
       source?: "LOCAL_VAULT_COPY";
-    }) => createEncryptedAuthenticatorAccount({ vaultId, vaultType }, { encryptedPayload, encryptionVersion, source }),
+      keyVersion?: number;
+    }) =>
+      createEncryptedAuthenticatorAccount(
+        { vaultId, vaultType, keyVersion },
+        { encryptedPayload, encryptionVersion, source },
+      ),
   });
 }

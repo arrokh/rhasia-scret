@@ -71,6 +71,7 @@ describe("AuthenticatorAccountCreator", () => {
           type: "PERSONAL" as const,
           role: "OWNER" as const,
           effectiveAccountPermissions: ownerPermissions,
+          keyVersion: 1,
           key: new Uint8Array(32),
         },
         {
@@ -79,6 +80,7 @@ describe("AuthenticatorAccountCreator", () => {
           type: "SHARED" as const,
           role: "OWNER" as const,
           effectiveAccountPermissions: ownerPermissions,
+          keyVersion: 1,
           key: new Uint8Array(32),
         },
       ],
@@ -151,6 +153,7 @@ describe("AuthenticatorAccountCreator", () => {
           type: "SHARED",
           role: "OWNER",
           effectiveAccountPermissions: ownerPermissions,
+          keyVersion: 1,
           key: sharedKey,
         },
       ],
@@ -213,6 +216,7 @@ describe("AuthenticatorAccountCreator", () => {
       "/api/v1/shared-vaults/shared-1/accounts",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({ expectedKeyVersion: 1 });
     expect(mocks.push).toHaveBeenCalledWith("/vaults");
     expect(mocks.refresh).not.toHaveBeenCalled();
   });

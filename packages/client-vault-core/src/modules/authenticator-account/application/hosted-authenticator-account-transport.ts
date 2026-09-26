@@ -7,6 +7,7 @@ import type {
 export type HostedAuthenticatorAccountDestination = Readonly<{
   vaultId: string;
   vaultType: "PERSONAL" | "SHARED";
+  keyVersion?: number;
 }>;
 
 export type HostedAuthenticatorAccountCreated = Readonly<{ id: string; revision: number }>;
@@ -36,6 +37,7 @@ export class HostedAuthenticatorAccountTransport {
       encryptedPayload: input.encryptedPayload,
       encryptionVersion: input.encryptionVersion,
       ...(input.source ? { source: input.source } : {}),
+      ...(destination.vaultType === "SHARED" ? { expectedKeyVersion: requireKeyVersion(destination) } : {}),
     });
   }
 
@@ -53,6 +55,7 @@ export class HostedAuthenticatorAccountTransport {
       expectedRevision: input.expectedRevision,
       encryptedPayload: input.encryptedPayload,
       encryptionVersion: input.encryptionVersion,
+      ...(destination.vaultType === "SHARED" ? { expectedKeyVersion: requireKeyVersion(destination) } : {}),
     });
   }
 
@@ -143,6 +146,17 @@ async function requestError(response: PlatformHttpResponse): Promise<HostedAuthe
 function validateDestination(destination: HostedAuthenticatorAccountDestination): void {
   validateIdentifier(destination.vaultId, "vaultId");
   if (destination.vaultType !== "PERSONAL" && destination.vaultType !== "SHARED") invalidResponse();
+  if (destination.keyVersion !== undefined) validateKeyVersion(destination.keyVersion);
+}
+
+function requireKeyVersion(destination: HostedAuthenticatorAccountDestination): number {
+  if (destination.keyVersion === undefined) invalidResponse();
+  validateKeyVersion(destination.keyVersion);
+  return destination.keyVersion;
+}
+
+function validateKeyVersion(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 1) invalidResponse();
 }
 
 function validateIdentifier(value: string, _field: string): void {

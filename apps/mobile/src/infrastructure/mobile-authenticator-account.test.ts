@@ -17,7 +17,7 @@ describe("MobileAuthenticatorAccountRepository", () => {
     const key = new Uint8Array(32).fill(9);
 
     const account = await repository.importTotpUri(
-      { id: "vault_1", name: "Personal", type: "PERSONAL", key },
+      { id: "vault_1", name: "Personal", type: "PERSONAL", key, keyVersion: 1 },
       "otpauth://totp/Example:alice%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
     );
 
@@ -77,11 +77,12 @@ describe("MobileAuthenticatorAccountRepository", () => {
     const repository = new MobileAuthenticatorAccountRepository(transport);
     const key = new Uint8Array(32).fill(7);
     const account = await repository.importTotpUri(
-      { id: "shared_1", name: "Team", type: "SHARED", key },
+      { id: "shared_1", name: "Team", type: "SHARED", key, keyVersion: 4 },
       "otpauth://totp/Example:bob?secret=JBSWY3DPEHPK3PXP&issuer=Example",
     );
 
     expect(transport.requests[0].url).toBe("/v1/shared-vaults/shared_1/accounts");
+    expect(JSON.parse(String(transport.requests[0].body))).toMatchObject({ expectedKeyVersion: 4 });
     expect(account.vaultType).toBe("SHARED");
     account.secret.fill(0);
   });

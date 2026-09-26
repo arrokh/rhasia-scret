@@ -79,6 +79,7 @@ function createPreviewWorkspace(labels: {
         type: "PERSONAL",
         role: "OWNER",
         effectiveAccountPermissions: ownerPermissions,
+        keyVersion: 1,
         key: Uint8Array.from({ length: 32 }, (_, index) => index + 1),
       },
       {
@@ -87,6 +88,7 @@ function createPreviewWorkspace(labels: {
         type: "SHARED",
         role: "OWNER",
         effectiveAccountPermissions: ownerPermissions,
+        keyVersion: 1,
         key: Uint8Array.from({ length: 32 }, (_, index) => 25 + index),
       },
       {
@@ -95,6 +97,7 @@ function createPreviewWorkspace(labels: {
         type: "SHARED",
         role: "VIEWER",
         effectiveAccountPermissions: viewerPermissions,
+        keyVersion: 1,
         key: Uint8Array.from({ length: 32 }, (_, index) => 50 + index),
       },
     ],

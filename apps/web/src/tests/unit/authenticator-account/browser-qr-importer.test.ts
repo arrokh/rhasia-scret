@@ -3,17 +3,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  decodeFromVideoDevice: vi.fn(),
+  getUserMedia: vi.fn(),
+  stopTrack: vi.fn(),
   decodeQr: vi.fn(),
   canvasWidth: 640,
   canvasHeight: 480,
   canvasData: new Uint8ClampedArray([0, 0, 0, 255]),
-}));
-
-vi.mock("@zxing/browser", () => ({
-  BrowserQRCodeReader: class {
-    public decodeFromVideoDevice = mocks.decodeFromVideoDevice;
-  },
 }));
 
 vi.mock("jsqr", () => ({ default: mocks.decodeQr }));
@@ -31,8 +26,13 @@ describe("browser QR importer", () => {
     mocks.canvasWidth = 640;
     mocks.canvasHeight = 480;
     mocks.canvasData = new Uint8ClampedArray([0, 0, 0, 255]);
-    mocks.decodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() });
+    mocks.getUserMedia.mockResolvedValue({ getTracks: () => [{ stop: mocks.stopTrack }] } as unknown as MediaStream);
     mocks.decodeQr.mockReturnValue({ data: "otpauth://totp/Example" });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: mocks.getUserMedia },
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     Object.assign(URL, { createObjectURL: vi.fn(() => "blob:qr"), revokeObjectURL: vi.fn() });
 
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
@@ -118,24 +118,48 @@ describe("browser QR importer", () => {
     });
   });
 
-  it("keeps scanning after transient undecodable camera frames", async () => {
+  it("keeps scanning transiently undecodable camera frames and stops tracks after a match", async () => {
     const onValue = vi.fn();
     const video = document.createElement("video");
+    Object.defineProperties(video, {
+      readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
+      videoWidth: { configurable: true, value: 640 },
+      videoHeight: { configurable: true, value: 480 },
+      srcObject: { configurable: true, writable: true, value: null },
+    });
+    const frames: FrameRequestCallback[] = [];
+    const requestFrame = vi.fn((callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const cancelFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelFrame);
+    mocks.decodeQr
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(null)
+      .mockReturnValue({ data: "otpauth://totp/Example" });
 
-    await scanQrCamera(video, onValue);
-    const callback = mocks.decodeFromVideoDevice.mock.calls[0]?.[2] as (
-      result: { getText(): string } | undefined,
-      error: Error | undefined,
-    ) => void;
+    const controls = await scanQrCamera(video, onValue);
 
-    for (const name of ["NotFoundException", "ChecksumException", "FormatException"]) {
-      const error = new Error("Frame does not contain a decodable QR code.");
-      error.name = name;
-      callback(undefined, error);
-    }
-    callback({ getText: () => "otpauth://totp/Example" }, undefined);
+    expect(mocks.getUserMedia).toHaveBeenCalledWith({
+      audio: false,
+      video: { facingMode: { ideal: "environment" } },
+    });
+    expect(video.play).toHaveBeenCalledOnce();
+    frames[0]?.(0);
+    frames[1]?.(500);
+    expect(onValue).not.toHaveBeenCalled();
+    frames[2]?.(1000);
 
     expect(onValue).toHaveBeenCalledOnce();
     expect(onValue).toHaveBeenCalledWith("otpauth://totp/Example");
+    expect(mocks.decodeQr).toHaveBeenCalledTimes(3);
+    expect(mocks.stopTrack).toHaveBeenCalledOnce();
+    expect(cancelFrame).toHaveBeenCalledOnce();
+    expect(video.srcObject).toBeNull();
+
+    controls.stop();
+    expect(mocks.stopTrack).toHaveBeenCalledOnce();
   });
 });

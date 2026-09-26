@@ -5,6 +5,7 @@ import {
   type AuthorizedWorkspaceResponse,
   type EncryptedOnlineWorkspaceBundle,
   type EncryptedPersonalOfflineSnapshot,
+  type EncryptedUserEncryptionIdentityProfile,
 } from "../../sync/domain/offline-vault-bundle";
 import type { OfflineSyncState } from "../../sync/domain/offline-sync-state";
 import type { EffectiveSharedVaultAccountPermissions } from "../../vault-membership/domain/shared-vault-account-permissions";
@@ -17,6 +18,7 @@ export type UnlockedVault = {
   type: "PERSONAL" | "SHARED";
   role: "OWNER" | "VIEWER";
   effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
+  keyVersion: number;
   key: Uint8Array;
 };
 
@@ -53,6 +55,7 @@ export type UnlockedVaultWorkspace = {
   accounts: WorkspaceAuthenticatorAccount[];
   unavailableAccounts: UnavailableWorkspaceAuthenticatorAccount[];
   unavailableSharedVaults: number;
+  userEncryptionPublicKey?: EncryptedUserEncryptionIdentityProfile["publicKey"];
 };
 
 export async function loadUnlockedVaultWorkspace(
@@ -249,10 +252,18 @@ async function decryptAndPersistOnlineBundle(
   signal?: CancellationPort,
 ): Promise<UnlockedVaultWorkspace> {
   let workspace: UnlockedVaultWorkspace | undefined;
-  const bundle = composeOnlineWorkspaceBundle(response);
+  let activeResponse: AuthorizedWorkspaceResponse;
+  try {
+    activeResponse = await ensureUserEncryptionIdentity(response, userRootKey, ports, signal);
+  } catch (error) {
+    userRootKey.fill(0);
+    personalVaultKey.fill(0);
+    throw error;
+  }
+  const bundle = composeOnlineWorkspaceBundle(activeResponse);
   const persistedBundle = migratedProfile
-    ? withMigratedProfile(response.personalSnapshot, migratedProfile)
-    : response.personalSnapshot;
+    ? withMigratedProfile(activeResponse.personalSnapshot, migratedProfile)
+    : activeResponse.personalSnapshot;
   const migration = migratedProfile
     ? ports.crypto.rewrapUserCryptoProfile({
         vaultUnlockSalt: bytesToBase64(migratedProfile.vaultUnlockSalt),
@@ -274,7 +285,15 @@ async function decryptAndPersistOnlineBundle(
   });
   try {
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
-    workspace = await loadWorkspace(bundle, userRootKey, personalVaultKey, "CURRENT", ports, signal);
+    workspace = await loadWorkspace(
+      bundle,
+      userRootKey,
+      personalVaultKey,
+      "CURRENT",
+      ports,
+      signal,
+      activeResponse.userEncryptionIdentity,
+    );
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
     await migration;
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
@@ -303,6 +322,62 @@ async function decryptAndPersistOnlineBundle(
   }
 }
 
+async function ensureUserEncryptionIdentity(
+  response: AuthorizedWorkspaceResponse,
+  userRootKey: Uint8Array,
+  ports: VaultWorkspacePlatformPorts,
+  signal?: CancellationPort,
+): Promise<AuthorizedWorkspaceResponse> {
+  if (response.userEncryptionIdentity) return response;
+
+  let identity: Awaited<ReturnType<VaultWorkspacePlatformPorts["crypto"]["createUserEncryptionIdentity"]>> | undefined;
+  let encryptedPrivateKey: Uint8Array | undefined;
+  try {
+    identity = await ports.crypto.createUserEncryptionIdentity(userRootKey);
+    if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
+    encryptedPrivateKey = ports.crypto.serializeEncryptedEnvelope(identity.encryptedPrivateKey);
+    const registered = await ports.data.registerUserEncryptionIdentity(
+      { publicKey: identity.publicKey, encryptedPrivateKey, encryptionVersion: 1 },
+      signal,
+    );
+    if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
+    if (registered) {
+      return {
+        ...response,
+        userEncryptionIdentity: {
+          publicKey: identity.publicKey,
+          encryptedPrivateKey: bytesToBase64(encryptedPrivateKey),
+          encryptionVersion: 1,
+        },
+      };
+    }
+    const refreshed = await ports.data.fetchAuthorizedWorkspaceBundle(signal);
+    if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
+    if (!sameWorkspaceProfile(response, refreshed) || !refreshed.userEncryptionIdentity) return response;
+    return refreshed;
+  } catch (error) {
+    if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
+    return response;
+  } finally {
+    encryptedPrivateKey?.fill(0);
+    identity?.encryptedPrivateKey.nonce.fill(0);
+    identity?.encryptedPrivateKey.ciphertext.fill(0);
+  }
+}
+
+function sameWorkspaceProfile(left: AuthorizedWorkspaceResponse, right: AuthorizedWorkspaceResponse): boolean {
+  return (
+    left.personalSnapshot.profileId === right.personalSnapshot.profileId &&
+    left.personalSnapshot.personalVault.vaultId === right.personalSnapshot.personalVault.vaultId &&
+    left.personalSnapshot.cryptoProfile.vaultUnlockSalt === right.personalSnapshot.cryptoProfile.vaultUnlockSalt &&
+    left.personalSnapshot.cryptoProfile.wrappedUserRootKey ===
+      right.personalSnapshot.cryptoProfile.wrappedUserRootKey &&
+    left.personalSnapshot.cryptoProfile.encryptedPersonalVaultKey ===
+      right.personalSnapshot.cryptoProfile.encryptedPersonalVaultKey &&
+    left.personalSnapshot.cryptoProfile.encryptionVersion === right.personalSnapshot.cryptoProfile.encryptionVersion
+  );
+}
+
 async function loadWorkspace(
   bundle: EncryptedOnlineWorkspaceBundle | EncryptedPersonalOfflineSnapshot,
   userRootKey: Uint8Array,
@@ -310,6 +385,7 @@ async function loadWorkspace(
   syncState: OfflineSyncState,
   ports: VaultWorkspacePlatformPorts,
   signal?: CancellationPort,
+  encryptedUserEncryptionIdentity?: EncryptedUserEncryptionIdentityProfile,
 ): Promise<UnlockedVaultWorkspace> {
   const personalVault: UnlockedVault = {
     id: bundle.personalVault.vaultId,
@@ -325,11 +401,22 @@ async function loadWorkspace(
       permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
       sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
     },
+    keyVersion: 1,
     key: personalVaultKey,
   };
   const personalAccountResult = await decryptAccounts(bundle.personalVault.accounts, personalVault, ports, signal);
   const sharedVaults = "sharedVaults" in bundle ? bundle.sharedVaults : [];
   const sharedVaultKeys = new Set<Uint8Array>();
+  let userEncryptionPrivateKey:
+    Awaited<ReturnType<VaultWorkspacePlatformPorts["crypto"]["recoverUserEncryptionPrivateKey"]>> | undefined;
+  if (sharedVaults.length && encryptedUserEncryptionIdentity) {
+    const encryptedPrivateKey = base64ToBytes(encryptedUserEncryptionIdentity.encryptedPrivateKey);
+    try {
+      userEncryptionPrivateKey = await ports.crypto.recoverUserEncryptionPrivateKey(userRootKey, encryptedPrivateKey);
+    } finally {
+      encryptedPrivateKey.fill(0);
+    }
+  }
   const disposeSharedKeyCancellation = signal?.subscribe(() => {
     for (const key of sharedVaultKeys) key.fill(0);
   });
@@ -344,7 +431,12 @@ async function loadWorkspace(
           userRootKey,
           base64ToBytes(encryptedVault.encryptedVaultKey),
           base64ToBytes(encryptedVault.encryptedName),
-          encryptedVault.vaultId,
+          {
+            vaultId: encryptedVault.vaultId,
+            recipientId: bundle.profileId,
+            keyVersion: encryptedVault.keyVersion,
+            ...(userEncryptionPrivateKey ? { userEncryptionPrivateKey } : {}),
+          },
         );
         if (signal?.aborted) {
           unlocked.vaultKey.fill(0);
@@ -357,6 +449,7 @@ async function loadWorkspace(
           type: "SHARED",
           role: encryptedVault.role,
           effectiveAccountPermissions: encryptedVault.effectiveAccountPermissions,
+          keyVersion: encryptedVault.keyVersion,
           key: unlocked.vaultKey,
         };
         try {
@@ -377,6 +470,7 @@ async function loadWorkspace(
       throw cancellationError("Workspace refresh was cancelled.");
     }
   } finally {
+    userEncryptionPrivateKey = undefined;
     disposeSharedKeyCancellation?.();
   }
   const sharedWorkspaces = sharedResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
@@ -399,6 +493,7 @@ async function loadWorkspace(
     accounts,
     unavailableAccounts,
     unavailableSharedVaults: sharedResults.length - sharedWorkspaces.length,
+    ...(encryptedUserEncryptionIdentity ? { userEncryptionPublicKey: encryptedUserEncryptionIdentity.publicKey } : {}),
   };
 }
 

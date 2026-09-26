@@ -3,6 +3,8 @@
 import {
   rotateUserEncryptionIdentityWithCrypto,
   type EncryptedUserEncryptionIdentity,
+  type UserEncryptionKeyWrap,
+  type CancellationPort,
 } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
 
@@ -14,12 +16,14 @@ import { browserClientCryptoPort } from "./browser-client-crypto-port";
 export function rotateUserEncryptionIdentity(
   userRootKey: Uint8Array,
   encryptedPrivateKey: Uint8Array,
-  wrappedVaultKeys: Uint8Array[],
-): Promise<{ identity: EncryptedUserEncryptionIdentity; wrappedVaultKeys: Uint8Array[] }> {
+  wrappedVaultKeys: UserEncryptionKeyWrap[],
+  signal?: CancellationPort,
+): Promise<{ identity: EncryptedUserEncryptionIdentity; wrappedVaultKeys: UserEncryptionKeyWrap[] }> {
   return rotateUserEncryptionIdentityWithCrypto(
     userRootKey,
     encryptedPrivateKey,
     wrappedVaultKeys,
     browserClientCryptoPort,
+    signal,
   );
 }

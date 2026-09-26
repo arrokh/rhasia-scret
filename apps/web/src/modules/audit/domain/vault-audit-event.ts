@@ -14,6 +14,8 @@ export const VAULT_AUDIT_ACTIONS = [
   "ARCHIVE_IMPORTED",
   "VAULT_DELETED",
   "VAULT_RESTORED",
+  "VAULT_KEY_ROTATED",
+  "USER_ENCRYPTION_KEY_PAIR_ROTATED",
 ] as const;
 
 export type AuditAction = (typeof VAULT_AUDIT_ACTIONS)[number];

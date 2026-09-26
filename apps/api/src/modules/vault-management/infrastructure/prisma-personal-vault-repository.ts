@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import { Vault, type VaultLifecycle } from "../domain/vault";
 import type { PersonalVaultRepository } from "../application/personal-vault-repository";
@@ -52,6 +53,9 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
           rootKeyWrappingVersion: initialization.encryptionVersion,
           encryptedPersonalVaultKey: copyBytes(initialization.encryptedPersonalVaultKey),
           personalVaultKeyEncryptionVersion: initialization.encryptionVersion,
+          userEncryptionPublicKey: initialization.userEncryptionPublicKey as Prisma.InputJsonValue,
+          encryptedUserPrivateKey: copyBytes(initialization.encryptedUserPrivateKey),
+          userEncryptionKeyVersion: initialization.userEncryptionKeyVersion,
         },
       });
       await transaction.vault.update({

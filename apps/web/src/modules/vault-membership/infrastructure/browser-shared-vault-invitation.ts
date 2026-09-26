@@ -10,8 +10,9 @@ export function createSharedVaultInvitation(
   vaultId: string,
   recipientEmail: string,
   vaultKey: Uint8Array,
+  expectedKeyVersion: number,
 ): Promise<{ id: string; secret: string; expiresAt: string }> {
-  return createSecureShareLink(vaultId, recipientEmail, vaultKey, {
+  return createSecureShareLink(vaultId, recipientEmail, vaultKey, expectedKeyVersion, {
     crypto: { createMaterial: createSecureShareLinkMaterial },
     transport: secureShareLinks,
   });

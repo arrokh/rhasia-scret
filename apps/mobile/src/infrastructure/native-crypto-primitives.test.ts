@@ -1,5 +1,10 @@
-import { generateTotp } from "@rhasia-scret/client-vault-core";
-import { RFC6238_SHA1_VECTOR } from "@rhasia-scret/client-vault-core";
+import {
+  createUserEncryptionIdentityWithCrypto,
+  generateTotp,
+  recoverUserEncryptionPrivateKeyWithCrypto,
+  RFC6238_SHA1_VECTOR,
+  unlockSharedVaultWithCrypto,
+} from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
 import { NativeCryptoPrimitives } from "./native-crypto-primitives";
 
@@ -73,6 +78,51 @@ describe("NativeCryptoPrimitives", () => {
         profileId: "other-profile",
       }),
     ).rejects.toThrow("authentication failed");
+    vaultKey.fill(0);
+  });
+
+  it("unlocks a context-bound ECDH Shared Vault package using only native client crypto", async () => {
+    const userRootKey = new Uint8Array(32).fill(21);
+    const vaultKey = new Uint8Array(32).fill(22);
+    const vaultId = "native-vault";
+    const recipientId = "native-user";
+    const keyVersion = 2;
+    const identity = await createUserEncryptionIdentityWithCrypto(userRootKey, nativeClientCrypto);
+    const privateKey = await recoverUserEncryptionPrivateKeyWithCrypto(
+      userRootKey,
+      identity.encryptedPrivateKey,
+      nativeClientCrypto,
+    );
+    const encryptedVaultKey = nativeClientCrypto.serializeKeyWrapEnvelope(
+      await nativeClientCrypto.wrapKeyForRecipientWithContext(vaultKey, identity.publicKey, {
+        purpose: "vault-key-wrap",
+        payloadType: "vault-encryption-key",
+        vaultId,
+        recipientId,
+        keyVersion,
+      }),
+    );
+    const encryptedName = nativeClientCrypto.serializeEncryptedEnvelope(
+      await nativeClientCrypto.encryptPayloadWithContext(vaultKey, new TextEncoder().encode("Native Test Vault"), {
+        purpose: "vault-name",
+        payloadType: "vault-name",
+        vaultId,
+        keyVersion: 1,
+      }),
+    );
+
+    const unlocked = await unlockSharedVaultWithCrypto(
+      nativeClientCrypto,
+      userRootKey,
+      encryptedVaultKey,
+      encryptedName,
+      { vaultId, recipientId, keyVersion, userEncryptionPrivateKey: privateKey },
+    );
+
+    expect(unlocked.name).toBe("Native Test Vault");
+    expect(unlocked.vaultKey).toEqual(vaultKey);
+    unlocked.vaultKey.fill(0);
+    userRootKey.fill(0);
     vaultKey.fill(0);
   });
 

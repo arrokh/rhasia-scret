@@ -4,6 +4,7 @@ import {
   rotateVaultKeyWithCrypto,
   type EncryptedVaultRotationInput,
   type EncryptedVaultRotationResult,
+  type CancellationPort,
 } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
 
@@ -17,6 +18,7 @@ export type { EncryptedVaultRotationInput, EncryptedVaultRotationResult } from "
 export function rotateVaultKey(
   oldVaultKey: Uint8Array,
   input: EncryptedVaultRotationInput,
+  signal?: CancellationPort,
 ): Promise<EncryptedVaultRotationResult> {
-  return rotateVaultKeyWithCrypto(oldVaultKey, input, browserClientCryptoPort);
+  return rotateVaultKeyWithCrypto(oldVaultKey, input, browserClientCryptoPort, signal);
 }

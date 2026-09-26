@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
@@ -53,7 +53,7 @@ import {
   useVaultParticipantsQuery,
 } from "./hooks/use-vault-participants";
 
-type MembershipVault = { id: string; key: Uint8Array };
+type MembershipVault = { id: string; key: Uint8Array; keyVersion: number };
 
 export function VaultMembershipDefaults({
   vaultId,
@@ -93,10 +93,12 @@ export function VaultMembershipOwnerPanel({
   vault,
   active,
   onAudit,
+  onWorkspaceRefresh,
 }: {
   vault: MembershipVault;
   active: boolean;
   onAudit: (participant: BrowserVaultParticipant) => void;
+  onWorkspaceRefresh?: () => Promise<void>;
 }) {
   const participants = useVaultParticipantsQuery(vault.id, active);
   const participantItems = participants.data?.pages.flatMap((page) => page.participants) ?? [];
@@ -111,6 +113,7 @@ export function VaultMembershipOwnerPanel({
       onLoadMore={() => void participants.fetchNextPage()}
       onCreated={() => void participants.refetch()}
       onAudit={onAudit}
+      onWorkspaceRefresh={onWorkspaceRefresh}
     />
   );
 }
@@ -314,23 +317,20 @@ function MemberPermissionsDialog({
               {(field) => (
                 <div className="grid gap-2">
                   <Label htmlFor={`member-permission-${name}`}>{t(label)}</Label>
-                  <Select
+                  <NativeSelect
+                    id={`member-permission-${name}`}
                     value={field.state.value}
-                    onValueChange={(value) => field.handleChange(value as OverrideChoice)}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      if (!isOverrideChoice(value)) return;
+                      field.handleChange(value);
+                    }}
+                    aria-describedby={`member-permission-${name}-description`}
                   >
-                    <SelectTrigger
-                      id={`member-permission-${name}`}
-                      className="w-full"
-                      aria-describedby={`member-permission-${name}-description`}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INHERIT">{t("inherit")}</SelectItem>
-                      <SelectItem value="ALLOW">{t("allow")}</SelectItem>
-                      <SelectItem value="DENY">{t("deny")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="INHERIT">{t("inherit")}</option>
+                    <option value="ALLOW">{t("allow")}</option>
+                    <option value="DENY">{t("deny")}</option>
+                  </NativeSelect>
                   <p id={`member-permission-${name}-description`} className="text-xs leading-4 text-muted-foreground">
                     {t(impact)}{" "}
                     {t("current", {
@@ -398,6 +398,10 @@ const permissionFields = [
   impact: string;
   summary: string;
 }>;
+function isOverrideChoice(value: string): value is OverrideChoice {
+  return value === "INHERIT" || value === "ALLOW" || value === "DENY";
+}
+
 function overrideChoice(value: boolean | null): OverrideChoice {
   return value === null ? "INHERIT" : value ? "ALLOW" : "DENY";
 }
@@ -419,6 +423,7 @@ function InvitationPanel({
   onLoadMore,
   onCreated,
   onAudit,
+  onWorkspaceRefresh,
 }: {
   vault: MembershipVault;
   participants: BrowserVaultParticipant[];
@@ -429,6 +434,7 @@ function InvitationPanel({
   onLoadMore: () => void;
   onCreated: () => void;
   onAudit: (participant: BrowserVaultParticipant) => void;
+  onWorkspaceRefresh?: () => Promise<void>;
 }) {
   const t = useTranslations("VaultManagement.invitations");
   const [participantToDelete, setParticipantToDelete] = useState<BrowserVaultParticipant | null>(null);
@@ -545,7 +551,7 @@ function InvitationPanel({
     setReinvitingInvitationId(participant.invitationId);
     setReinvitationFailed(false);
     try {
-      const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key);
+      const invitation = await createSharedVaultInvitation(vault.id, participant.email, vault.key, vault.keyVersion);
       const link = secureInvitationLink(invitation.secret);
       captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationReissued);
       rememberInvitation(
@@ -553,6 +559,7 @@ function InvitationPanel({
         participant.invitationId,
       );
     } catch {
+      if (onWorkspaceRefresh) await onWorkspaceRefresh().catch(() => undefined);
       captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, {
         operation: "reinvite",
         failure_code: "unknown",
@@ -564,7 +571,11 @@ function InvitationPanel({
   }
   return (
     <div className="grid gap-5">
-      <InvitationForm vault={vault} onCreated={(invitation) => rememberInvitation(invitation)} />
+      <InvitationForm
+        vault={vault}
+        onCreated={(invitation) => rememberInvitation(invitation)}
+        onWorkspaceRefresh={onWorkspaceRefresh}
+      />
       {latestInvitation && <SecureInvitationLink email={latestInvitation.email} link={latestInvitation.link} />}
       {emailConfirmationFailed && (
         <StatusBanner tone="danger" role="alert">
@@ -766,9 +777,11 @@ function InvitationPanel({
 function InvitationForm({
   vault,
   onCreated,
+  onWorkspaceRefresh,
 }: {
   vault: MembershipVault;
   onCreated: (invitation: { id: string; email: string; expiresAt: string; link: string }) => void;
+  onWorkspaceRefresh?: () => Promise<void>;
 }) {
   const t = useTranslations("VaultManagement.invitations");
   const [error, setError] = useState(false);
@@ -778,12 +791,13 @@ function InvitationForm({
       setError(false);
       try {
         const email = value.email.trim().toLowerCase();
-        const invitation = await createSharedVaultInvitation(vault.id, email, vault.key);
+        const invitation = await createSharedVaultInvitation(vault.id, email, vault.key, vault.keyVersion);
         const link = secureInvitationLink(invitation.secret);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultInvitationCreated);
         form.reset();
         onCreated({ id: invitation.id, email, expiresAt: invitation.expiresAt, link });
       } catch {
+        if (onWorkspaceRefresh) await onWorkspaceRefresh().catch(() => undefined);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, {
           operation: "invite",
           failure_code: "unknown",

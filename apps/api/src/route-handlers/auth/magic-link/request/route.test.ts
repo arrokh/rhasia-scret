@@ -286,7 +286,7 @@ function makeRequest(body: unknown, passwordlessAuth: { requestLink: ReturnType<
       },
       userCryptoProfiles: {
         get: async () => null,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey: async () => undefined,
       },
     },

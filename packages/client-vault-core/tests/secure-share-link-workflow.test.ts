@@ -24,13 +24,13 @@ describe("Secure Share Link creation workflow", () => {
       },
     };
 
-    await expect(createSecureShareLink("vault-1", " Viewer@Example.Test ", new Uint8Array(32), ports)).resolves.toEqual(
-      {
-        id: "invitation-1",
-        secret: "client-only-secret",
-        expiresAt: "2026-08-05T12:00:00.000Z",
-      },
-    );
+    await expect(
+      createSecureShareLink("vault-1", " Viewer@Example.Test ", new Uint8Array(32), 4, ports),
+    ).resolves.toEqual({
+      id: "invitation-1",
+      secret: "client-only-secret",
+      expiresAt: "2026-08-05T12:00:00.000Z",
+    });
     expect(delivered).toEqual(["client-only-secret"]);
     expect(transport.created?.recipientEmail).toBe(" Viewer@Example.Test ");
     expect(transport.created?.linkVerifier).not.toContain("client-only-secret");
@@ -49,7 +49,7 @@ describe("Secure Share Link creation workflow", () => {
     };
 
     await expect(
-      createSecureShareLink("vault-1", "recipient@example.test", new Uint8Array(32), ports),
+      createSecureShareLink("vault-1", "recipient@example.test", new Uint8Array(32), 4, ports),
     ).resolves.toEqual({
       id: "invitation-1",
       secret: "client-only-secret",
@@ -72,9 +72,9 @@ describe("Secure Share Link creation workflow", () => {
       },
     };
 
-    await expect(createSecureShareLink("vault-1", "recipient@example.test", new Uint8Array(32), ports)).rejects.toThrow(
-      "delivery cancelled",
-    );
+    await expect(
+      createSecureShareLink("vault-1", "recipient@example.test", new Uint8Array(32), 4, ports),
+    ).rejects.toThrow("delivery cancelled");
     expect(transport.cancelled).toEqual(["vault-1/invitation-1"]);
     expect(material.linkVerifier).toEqual(new Uint8Array(32));
     expect(material.encryptedPackage).toEqual(new Uint8Array(13));
@@ -120,8 +120,12 @@ describe("Secure Share Link creation workflow", () => {
       redeemSecureShareLinkMaterialWithCrypto(
         "client-secret",
         new Uint8Array(29),
-        new Uint8Array(32),
+        {
+          profileId: "profile-1",
+          publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+        },
         "vault-1",
+        1,
         crypto,
         digest,
       ),
@@ -140,13 +144,19 @@ function shareMaterial(): SecureShareLinkMaterial {
 }
 
 class FakeTransport implements SecureShareLinkCreationTransportPort {
-  public created: { recipientEmail: string; linkVerifier: string; encryptedPackage: string } | undefined;
+  public created:
+    { recipientEmail: string; linkVerifier: string; encryptedPackage: string; expectedKeyVersion: number } | undefined;
   public readonly cancelled: string[] = [];
   public cancelError: Error | undefined;
 
   async create(
     _vaultId: string,
-    request: { recipientEmail: string; linkVerifier: string; encryptedPackage: string },
+    request: {
+      recipientEmail: string;
+      linkVerifier: string;
+      encryptedPackage: string;
+      expectedKeyVersion: number;
+    },
   ): Promise<{ id: string; expiresAt: string }> {
     this.created = request;
     return { id: "invitation-1", expiresAt: "2026-08-05T12:00:00.000Z" };

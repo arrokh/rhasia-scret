@@ -1,19 +1,22 @@
 "use client";
 
+import type { PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "@/modules/crypto";
 import { redeemSecureShareLinkMaterialWithCrypto } from "@rhasia-scret/client-vault-core";
 
 export function redeemSecureShareLinkMaterial(
   secret: string,
   encryptedPackage: Uint8Array,
-  userRootKey: Uint8Array,
-  vaultId?: string,
+  recipient: { profileId: string; publicKey: PortableJsonWebKey },
+  vaultId: string,
+  keyVersion: number,
 ): Promise<{ linkVerifier: Uint8Array; encryptedVaultKey: Uint8Array }> {
   return redeemSecureShareLinkMaterialWithCrypto(
     secret,
     encryptedPackage,
-    userRootKey,
+    recipient,
     vaultId,
+    keyVersion,
     browserClientCryptoPort,
     async (value) => new Uint8Array(await crypto.subtle.digest("SHA-256", value.slice())),
   );

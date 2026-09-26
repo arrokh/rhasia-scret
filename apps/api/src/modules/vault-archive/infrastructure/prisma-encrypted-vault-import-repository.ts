@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { appendVaultAuditEvent } from "@api/modules/audit/server";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { effectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core/modules/vault-membership/domain/shared-vault-account-permissions";
 import type { EncryptedVaultImportRepository } from "../application/import-encrypted-vault-archive";
 import {
@@ -16,6 +17,7 @@ type LockedDestination = {
   membersCanAddAccounts: boolean;
   membersCanEditAccounts: boolean;
   membersCanDeleteAccounts: boolean;
+  keyVersion: number | null;
 };
 
 type ImportMembership = {
@@ -23,6 +25,7 @@ type ImportMembership = {
   canAddAccountsOverride: boolean | null;
   canEditAccountsOverride: boolean | null;
   canDeleteAccountsOverride: boolean | null;
+  keyVersion: number;
 };
 
 export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImportRepository {
@@ -31,6 +34,8 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
     if (hasDuplicateImportedAccountIds(request.accounts)) return { status: "CONFLICT" };
     try {
       return await this.database.$transaction(async (transaction) => {
+        if (request.destination.kind === "NEW_SHARED")
+          await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${actorUserId}))`;
         const destination = await lockAuthorizedDestination(transaction, actorUserId, request);
         if (request.destination.kind === "EXISTING" && !destination) return { status: "DESTINATION_UNAVAILABLE" };
         if (request.destination.kind === "NEW_SHARED" && destination) {
@@ -58,7 +63,20 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
           return { status: "CONFLICT" };
         }
 
+        if (
+          request.destination.kind === "EXISTING" &&
+          request.destination.vaultType === "SHARED" &&
+          destination?.keyVersion !== request.destination.expectedKeyVersion
+        )
+          return { status: "CONFLICT" };
+
         if (request.destination.kind === "NEW_SHARED") {
+          const profile = await transaction.userCryptoProfile.findUnique({
+            where: { userId: actorUserId },
+            select: { userEncryptionPublicKey: true },
+          });
+          if (!profile || !samePublicKey(profile.userEncryptionPublicKey, request.destination.expectedOwnerPublicKey))
+            return { status: "CONFLICT" };
           await transaction.vault.create({
             data: {
               id: request.destination.vaultId,
@@ -160,7 +178,8 @@ async function lockAuthorizedDestination(
       "owner_id" AS "ownerId",
       "members_can_add_accounts" AS "membersCanAddAccounts",
       "members_can_edit_accounts" AS "membersCanEditAccounts",
-      "members_can_delete_accounts" AS "membersCanDeleteAccounts"
+      "members_can_delete_accounts" AS "membersCanDeleteAccounts",
+      NULL::integer AS "keyVersion"
     FROM "vaults"
     WHERE "id" = ${request.destination.vaultId}
       AND "type" = ${expectedType}
@@ -170,15 +189,18 @@ async function lockAuthorizedDestination(
   `;
   const destination = rows[0];
   if (!destination) return undefined;
-  if (destination.ownerId === actorUserId) return destination;
-  if (request.destination.kind !== "EXISTING" || request.destination.vaultType !== "SHARED") return undefined;
+  if (destination.type === "PERSONAL") return destination.ownerId === actorUserId ? destination : undefined;
+  const isOwner = destination.ownerId === actorUserId;
+  if (!isOwner && request.destination.kind !== "EXISTING") return undefined;
+  if (request.destination.kind === "EXISTING" && request.destination.vaultType !== "SHARED") return undefined;
 
   const memberships = await transaction.$queryRaw<ImportMembership[]>`
     SELECT
       "role",
       "can_add_accounts_override" AS "canAddAccountsOverride",
       "can_edit_accounts_override" AS "canEditAccountsOverride",
-      "can_delete_accounts_override" AS "canDeleteAccountsOverride"
+      "can_delete_accounts_override" AS "canDeleteAccountsOverride",
+      "key_version" AS "keyVersion"
     FROM "vault_members"
     WHERE "vault_id" = ${destination.id}
       AND "user_id" = ${actorUserId}
@@ -186,7 +208,10 @@ async function lockAuthorizedDestination(
     FOR UPDATE
   `;
   const membership = memberships[0];
-  if (!membership || membership.role !== "VIEWER") return undefined;
+  if (!membership) return undefined;
+  const authorizedDestination = { ...destination, keyVersion: membership.keyVersion };
+  if (isOwner) return membership.role === "OWNER" ? authorizedDestination : undefined;
+  if (membership.role !== "VIEWER") return undefined;
   const effective = effectiveSharedVaultAccountPermissions(
     "VIEWER",
     {
@@ -200,7 +225,7 @@ async function lockAuthorizedDestination(
       canDeleteAccounts: membership.canDeleteAccountsOverride,
     },
   );
-  return effective.permissions.canAddAccounts ? destination : undefined;
+  return effective.permissions.canAddAccounts ? authorizedDestination : undefined;
 }
 
 async function isCurrentlyAuthorized(
@@ -266,6 +291,20 @@ async function replayResult(
         vaultCreated,
       }
     : { status: "CONFLICT" };
+}
+
+function samePublicKey(value: unknown, expected: JsonWebKey): boolean {
+  const parsed = publicEncryptionKeySchema.safeParse(value);
+  if (!parsed.success) return false;
+  const current = parsed.data;
+  return (
+    current.kty === expected.kty &&
+    current.crv === expected.crv &&
+    current.x === expected.x &&
+    current.y === expected.y &&
+    current.ext === expected.ext &&
+    JSON.stringify(current.key_ops) === JSON.stringify(expected.key_ops)
+  );
 }
 
 function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {

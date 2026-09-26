@@ -37,6 +37,19 @@ export class PrismaDestructivePersonalVaultResetRepository implements Destructiv
         where: { ownerId: userId, type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
       });
       if (activeOwnedSharedVaults > 0) throw new ActiveOwnedSharedVaultsPreventResetError(activeOwnedSharedVaults);
+      const activeSharedMemberships = await transaction.vaultMember.findMany({
+        where: {
+          userId,
+          role: "VIEWER",
+          status: "ACTIVE",
+          vault: { type: "SHARED", lifecycle: "ACTIVE", deletedAt: null },
+        },
+        select: { vaultId: true },
+      });
+      for (const vaultId of [...new Set(activeSharedMemberships.map(({ vaultId }) => vaultId))].sort())
+        await transaction.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "vaults" WHERE "id" = ${vaultId} FOR UPDATE
+        `;
 
       const [personalVault, resettingUser] = await Promise.all([
         transaction.vault.findFirst({

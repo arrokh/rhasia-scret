@@ -13,17 +13,20 @@ import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import { useCreateSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
+import type { PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 import { createSharedVaultMaterial } from "../infrastructure/browser-shared-vault-creator";
 
 export function SharedVaultCreator({
-  userRootKey,
+  userEncryptionPublicKey,
+  profileId,
   onCreated,
 }: {
-  userRootKey: Uint8Array;
+  userEncryptionPublicKey?: PortableJsonWebKey;
+  profileId: string;
   onCreated?: (vault: { id: string; name: string; key: Uint8Array }) => void;
 }) {
   const t = useTranslations("VaultManagement.creator");
-  const [status, setStatus] = useState<"offlineError" | "success" | "error" | null>(null);
+  const [status, setStatus] = useState<"offlineError" | "identityUnavailable" | "success" | "error" | null>(null);
   const online = useOnlineStatus();
   const createMutation = useCreateSharedVaultMutation();
   const form = useForm({
@@ -33,13 +36,20 @@ export function SharedVaultCreator({
         setStatus("offlineError");
         return;
       }
+      if (!userEncryptionPublicKey) {
+        setStatus("identityUnavailable");
+        return;
+      }
+      let material: Awaited<ReturnType<typeof createSharedVaultMaterial>> | undefined;
+      let vaultKeyTransferred = false;
       try {
         const vaultId = randomOpaqueId();
-        const material = await createSharedVaultMaterial(userRootKey, value.name, vaultId);
+        material = await createSharedVaultMaterial(userEncryptionPublicKey, profileId, value.name, vaultId);
         const created = await createMutation.mutateAsync({
           vaultId,
           encryptedName: bytesToBase64(material.encryptedName),
           encryptedOwnerVaultKey: bytesToBase64(material.encryptedOwnerVaultKey),
+          expectedOwnerPublicKey: userEncryptionPublicKey,
           encryptionVersion: material.encryptionVersion,
         });
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultCreated);
@@ -47,9 +57,14 @@ export function SharedVaultCreator({
         form.reset();
         setStatus("success");
         onCreated?.({ id: created.id, name: createdName, key: material.vaultKey });
+        vaultKeyTransferred = Boolean(onCreated);
       } catch {
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultCreationFailed);
         setStatus("error");
+      } finally {
+        material?.encryptedName.fill(0);
+        material?.encryptedOwnerVaultKey.fill(0);
+        if (!vaultKeyTransferred) material?.vaultKey.fill(0);
       }
     },
   });
@@ -75,7 +90,7 @@ export function SharedVaultCreator({
               aria-invalid={field.state.meta.errors.length > 0}
               aria-describedby={field.state.meta.errors.length ? "shared-vault-name-error" : undefined}
               required
-              disabled={!online}
+              disabled={!online || !userEncryptionPublicKey}
               autoFocus
             />
             <FormFieldError id="shared-vault-name-error" errors={field.state.meta.errors} />
@@ -83,6 +98,7 @@ export function SharedVaultCreator({
         )}
       </form.Field>
       {!online && <StatusBanner tone="offline">{t("offline")}</StatusBanner>}
+      {!userEncryptionPublicKey && <StatusBanner tone="danger">{t("identityUnavailable")}</StatusBanner>}
       {status && (
         <StatusBanner
           tone={status === "success" ? "success" : "danger"}
@@ -93,7 +109,7 @@ export function SharedVaultCreator({
       )}
       <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <Button type="submit" disabled={!online || isSubmitting} aria-busy={isSubmitting}>
+          <Button type="submit" disabled={!online || !userEncryptionPublicKey || isSubmitting} aria-busy={isSubmitting}>
             {isSubmitting ? t("creating") : t("create")}
           </Button>
         )}

@@ -15,6 +15,7 @@ import { AUTH_RETURN_PATH_COOKIE } from "./application/auth-return-path";
 import { PrismaApplicationUserRepository } from "./infrastructure/prisma-application-user-repository";
 import { PrismaPasskeyRecoveryRepository } from "./infrastructure/prisma-passkey-recovery-repository";
 import { PrismaUserCryptoProfileRepository } from "./infrastructure/prisma-user-crypto-profile-repository";
+import { PrismaUserEncryptionIdentityRotationRepository } from "./infrastructure/prisma-user-encryption-identity-rotation-repository";
 import { PasswordlessSessionTerminator } from "./infrastructure/passwordless-session-terminator";
 import { PasswordlessSessionVerifier } from "./infrastructure/passwordless-session-verifier";
 import {
@@ -192,6 +193,12 @@ export function createPasskeyRecoveryRepository(database: PrismaDatabase): Prism
 
 export function createUserCryptoProfileRepository(database: PrismaDatabase): UserCryptoProfileRepository {
   return new PrismaUserCryptoProfileRepository(database);
+}
+
+export function createUserEncryptionIdentityRotationRepository(
+  database: PrismaDatabase,
+): PrismaUserEncryptionIdentityRotationRepository {
+  return new PrismaUserEncryptionIdentityRotationRepository(database);
 }
 
 export function createApplicationUserRepository(

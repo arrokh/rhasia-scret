@@ -32,6 +32,7 @@ import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/prese
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { encryptSharedVaultName } from "../infrastructure/browser-shared-vault-creator";
+import { VaultKeyRotationPanel } from "./vault-key-rotation-panel";
 import { useDeleteSharedVaultMutation, useRenameSharedVaultMutation } from "./hooks/use-shared-vault-mutations";
 import { VaultAccountManagementList, type ManagedVaultAccountSummary } from "./vault-account-management-list";
 
@@ -40,6 +41,7 @@ export type SharedVaultSummary = {
   id: string;
   name: string;
   role: "OWNER" | "VIEWER";
+  keyVersion: number;
   effectiveAccountPermissions: EffectiveSharedVaultAccountPermissions;
   key: Uint8Array;
   accounts: SharedVaultAccountSummary[];
@@ -145,6 +147,8 @@ export function SharedVaultDetails({
   onAccountEdit,
   onAccountDeleted,
   onDeleted,
+  onWorkspaceRefresh,
+  keyRotationEnabled = true,
 }: {
   vault: SharedVaultSummary;
   ownerEmail: string;
@@ -153,6 +157,8 @@ export function SharedVaultDetails({
   onAccountEdit?: (account: ManagedVaultAccountSummary) => void;
   onAccountDeleted: (vaultId: string, accountId: string, expectedRevision: number) => Promise<void>;
   onDeleted?: (vaultId: string) => void;
+  onWorkspaceRefresh?: () => Promise<void>;
+  keyRotationEnabled?: boolean;
 }) {
   const t = useTranslations("VaultManagement.details");
   const [activeTab, setActiveTab] = useState("details");
@@ -167,12 +173,17 @@ export function SharedVaultDetails({
     onSubmit: async ({ value }) => {
       try {
         const name = value.name.trim();
-        const encryptedName = await encryptSharedVaultName(vault.key, name);
-        await renameMutation.mutateAsync({ vaultId: vault.id, encryptedName: bytesToBase64(encryptedName) });
+        const encryptedName = await encryptSharedVaultName(vault.key, name, vault.id);
+        await renameMutation.mutateAsync({
+          vaultId: vault.id,
+          encryptedName: bytesToBase64(encryptedName),
+          expectedKeyVersion: vault.keyVersion,
+        });
         onRenamed(vault.id, name);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultRenamed);
         setStatus("renamed");
       } catch {
+        if (onWorkspaceRefresh) await onWorkspaceRefresh().catch(() => undefined);
         captureAnalyticsEvent(ANALYTICS_EVENTS.sharedVaultOperationFailed, {
           operation: "rename",
           failure_code: "unknown",
@@ -207,10 +218,19 @@ export function SharedVaultDetails({
     <div className="p-5 sm:p-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {vault.role === "OWNER" && (
-          <TabsList className="grid-cols-3">
-            <TabsTrigger value="details">{t("detailTab")}</TabsTrigger>
-            <TabsTrigger value="invitations">{t("invitationsTab")}</TabsTrigger>
-            <TabsTrigger value="audit">{t("auditTab")}</TabsTrigger>
+          <TabsList className="grid-flow-row grid-cols-2 sm:grid-flow-col sm:grid-cols-4">
+            <TabsTrigger className="min-w-0 px-2 text-center whitespace-normal" value="details">
+              {t("detailTab")}
+            </TabsTrigger>
+            <TabsTrigger className="min-w-0 px-2 text-center whitespace-normal" value="invitations">
+              {t("invitationsTab")}
+            </TabsTrigger>
+            <TabsTrigger className="min-w-0 px-2 text-center whitespace-normal" value="audit">
+              {t("auditTab")}
+            </TabsTrigger>
+            <TabsTrigger className="min-w-0 px-2 text-center whitespace-normal" value="security">
+              {t("securityTab")}
+            </TabsTrigger>
           </TabsList>
         )}
         <TabsContent value="details" className={`grid gap-5 ${vault.role === "OWNER" ? "" : "mt-0"}`}>
@@ -304,6 +324,7 @@ export function SharedVaultDetails({
               onAudit={(participant) =>
                 participant.userId && openAudit({ actorUserId: participant.userId }, participant.email)
               }
+              onWorkspaceRefresh={onWorkspaceRefresh}
             />
           </TabsContent>
         )}
@@ -314,6 +335,18 @@ export function SharedVaultDetails({
               accounts={vault.accounts}
               filter={auditFilter}
               onClearFilter={() => setAuditFilter({ query: {}, label: "" })}
+            />
+          </TabsContent>
+        )}
+        {vault.role === "OWNER" && (
+          <TabsContent value="security" className="grid gap-5">
+            <VaultKeyRotationPanel
+              vaultId={vault.id}
+              vaultName={vault.name}
+              vaultKey={vault.key}
+              keyVersion={vault.keyVersion}
+              onRefresh={onWorkspaceRefresh ?? (async () => undefined)}
+              enabled={keyRotationEnabled && onWorkspaceRefresh !== undefined}
             />
           </TabsContent>
         )}

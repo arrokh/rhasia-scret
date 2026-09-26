@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 import type {
   EncryptedUserCryptoProfile,
@@ -24,34 +24,48 @@ export class PrismaUserCryptoProfileRepository implements UserCryptoProfileRepos
     };
   }
 
-  public async registerUserEncryptionIdentity(userId: string, identity: UserEncryptionIdentity): Promise<void> {
-    const updated = await this.database.userCryptoProfile.updateMany({
-      where: { userId },
-      data: {
-        userEncryptionPublicKey: identity.publicKey as Prisma.InputJsonValue,
-        encryptedUserPrivateKey: copyBytes(identity.encryptedPrivateKey),
-        userEncryptionKeyVersion: identity.encryptionVersion,
-      },
+  public async registerUserEncryptionIdentity(userId: string, identity: UserEncryptionIdentity): Promise<boolean> {
+    return this.database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+      const updated = await tx.userCryptoProfile.updateMany({
+        where: {
+          userId,
+          userEncryptionPublicKey: { equals: Prisma.DbNull },
+          encryptedUserPrivateKey: null,
+          userEncryptionKeyVersion: null,
+        },
+        data: {
+          userEncryptionPublicKey: identity.publicKey as Prisma.InputJsonValue,
+          encryptedUserPrivateKey: copyBytes(identity.encryptedPrivateKey),
+          userEncryptionKeyVersion: identity.encryptionVersion,
+        },
+      });
+      if (updated.count === 1) return true;
+      const profile = await tx.userCryptoProfile.findUnique({ where: { userId }, select: { userId: true } });
+      if (!profile) throw new Error("User crypto profile does not exist.");
+      return false;
     });
-    if (updated.count !== 1) throw new Error("User crypto profile does not exist.");
   }
 
   public async rewrapUserRootKey(userId: string, rewrap: UserRootKeyRewrap): Promise<void> {
-    const updated = await this.database.userCryptoProfile.updateMany({
-      where: { userId },
-      data: {
-        vaultUnlockSalt: copyBytes(rewrap.vaultUnlockSalt),
-        wrappedUserRootKey: copyBytes(rewrap.wrappedUserRootKey),
-        rootKeyWrappingVersion: rewrap.encryptionVersion,
-        ...(rewrap.encryptedPersonalVaultKey
-          ? {
-              encryptedPersonalVaultKey: copyBytes(rewrap.encryptedPersonalVaultKey),
-              personalVaultKeyEncryptionVersion: rewrap.encryptionVersion,
-            }
-          : {}),
-      },
+    await this.database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+      const updated = await tx.userCryptoProfile.updateMany({
+        where: { userId },
+        data: {
+          vaultUnlockSalt: copyBytes(rewrap.vaultUnlockSalt),
+          wrappedUserRootKey: copyBytes(rewrap.wrappedUserRootKey),
+          rootKeyWrappingVersion: rewrap.encryptionVersion,
+          ...(rewrap.encryptedPersonalVaultKey
+            ? {
+                encryptedPersonalVaultKey: copyBytes(rewrap.encryptedPersonalVaultKey),
+                personalVaultKeyEncryptionVersion: rewrap.encryptionVersion,
+              }
+            : {}),
+        },
+      });
+      if (updated.count !== 1) throw new Error("User crypto profile does not exist.");
     });
-    if (updated.count !== 1) throw new Error("User crypto profile does not exist.");
   }
 }
 
