@@ -18,10 +18,6 @@ export async function verifyAccountDeletionOtp(otp: string): Promise<void> {
   await browserApiClient.postEmpty("/api/v1/me/deletion/otp/verify", { otp });
 }
 
-export async function startAccountDeletionOidcReauthentication(): Promise<void> {
-  await browserApiClient.postEmpty("/api/v1/me/deletion/oidc/start");
-}
-
 export async function deleteAccount(
   request: AccountDeletionRequest,
 ): Promise<AccountDeletionResult & { emailDelivery: string }> {

@@ -17,11 +17,11 @@ Set `AUTH_BACKEND=passwordless` and configure:
 
 All API runtimes use Nodemailer exclusively. SMTP port 587 requires STARTTLS; implicit TLS uses port 465 with `SMTP_SECURE=true`. Port 25 is not supported. API request logs contain only a correlation ID, method, path, status, and duration; magic-link dependency failures add a fixed dependency/client label and bounded timing, while Turnstile failures may add only a fixed failure reason and HTTP status, and allowlisted SMTP/database transport codes may be included without messages. Request bodies, cookies, authorization headers, provider payloads, email addresses, and tokens are never logged. The Web API proxy logs only configuration or transport failures because the API owns implementation-route access logs. Never expose API credentials through `NEXT_PUBLIC_` or `EXPO_PUBLIC_` variables.
 
-`AUTH_BACKEND=none` remains available for local-only deployments. `AUTH_BACKEND=oidc` remains an optional provider adapter with its existing server-only configuration. Invalid or incomplete selected-backend configuration fails closed and must fail deployment validation. Non-production runtimes retain the passwordless default; production deployment and runtime validation require `AUTH_BACKEND` to be explicit.
+`AUTH_BACKEND=none` remains available for local-only deployments, and `passwordless` is the only hosted authentication backend. Explicit `oidc` and any other unsupported value fail closed rather than selecting another backend. Invalid or incomplete configuration must fail deployment validation. Non-production runtimes retain the passwordless default; production deployment and runtime validation require `AUTH_BACKEND` to be explicit. Legacy OIDC-only values in ignored local environment files are not bound or forwarded to application runtimes; if such a file still sets `AUTH_BACKEND=oidc`, startup intentionally fails until the operator changes that file manually.
 
 ## Configuration failure behavior
 
-Configuration failures are classified separately from an absent or expired session. The web proxy never converts an invalid backend, origin, session secret, OIDC value, or other selected-backend failure into `none` or `auth=required`; protected pages redirect to `/sign-in?auth=configuration_error`, preserving the safe invitation continuation when present. The public sign-in page validates the web-owned configuration before querying the hosted API, skips that query for explicit `none`, and renders the localized configuration state without raw parser text.
+Configuration failures are classified separately from an absent or expired session. The web proxy never converts an invalid or unsupported backend, origin, session secret, or other configuration failure into `none` or `auth=required`; protected pages redirect to `/sign-in?auth=configuration_error`, preserving the safe invitation continuation when present. The public sign-in page validates the web-owned configuration before querying the hosted API, skips that query for explicit `none`, and renders the localized configuration state without raw parser text.
 
 When a lazy/serverless API composition detects invalid authentication configuration, it returns the additive contract `{ "error": "authentication_misconfigured" }` with HTTP 503, `Cache-Control: no-store`, and the opaque request ID header. The web proxy forwards that response unchanged, and hosted sign-in maps it to the same localized configuration state. Existing missing database or email bindings continue to return `api_misconfigured` with HTTP 503; transient SMTP, database, and Turnstile failures retain their dependency-specific outcomes.
 
@@ -41,12 +41,10 @@ Access and refresh credentials are stored as keyed digests. Native refresh crede
 
 The Account Deletion workflow uses `GET /api/v1/me/deletion/preview`,
 `POST /api/v1/me/deletion/otp/request` and `/otp/verify` for passwordless
-reauthentication, `POST /api/v1/me/deletion/oidc/start` for OIDC reauthentication,
-and `DELETE /api/v1/me` for the final synchronous hard deletion. All mutation
-routes require a same-origin browser request and authenticated application
-mutation rate limits. Passwordless deletion OTPs are six digits, expire after
-10 minutes, are single-use, and lock after five failed attempts. OIDC starts
-with `prompt=login` and `max_age=0` and does not add an OTP.
+reauthentication, and `DELETE /api/v1/me` for the final synchronous hard deletion.
+All mutation routes require a same-origin browser request and authenticated
+application mutation rate limits. Deletion OTPs are six digits, expire after
+10 minutes, are single-use, and lock after five failed attempts.
 
 The final request must include fresh authorization, exact `HAPUS AKUN`, an
 acknowledgement, and a decision for every owned Shared Vault. A selected
@@ -56,12 +54,12 @@ successful deletion removes all hosted user data and sessions in one
 transaction, retains only the documented non-FK ledger/tombstones and
 aggregate metric, and sends a best-effort completion email containing only the
 opaque receipt ID. Identity tombstones preserve timestamp-aware invalidation of
-pre-deletion OIDC sessions and passwordless links while allowing a fresh
+credentials issued before deletion while allowing a fresh passwordless
 registration with the same identity.
 
 ## Identity and migration
 
-Local passwordless identities use issuer `rhasia:passwordless` and a random subject. `ExternalIdentity` remains unique by `(issuer, subject)` and remains the only identity-to-`ApplicationUser` binding. Future Firebase, OIDC, or other providers create separate identity rows. Linking requires explicit reauthentication; email similarity never performs an automatic merge.
+Local passwordless identities use issuer `rhasia:passwordless` and a random subject. `ExternalIdentity` remains provider-neutral, unique by `(issuer, subject)`, and is the only identity-to-`ApplicationUser` binding. No identity-linking or provider-migration flow is exposed; email similarity never links accounts. A future authentication adapter requires a separate architecture and security decision.
 
 The migration is intentionally staged. For production, put the pooled `DATABASE_URL` and direct `DIRECT_URL` in the ignored `.env.prod` file and run `pnpm prod:db:migrate`. It builds the standalone focused migration Compose project, which requires only `DATABASE_URL`, `DIRECT_URL`, `COMMIT_SHA`, and `NODE_ENV`; application runtime secrets such as `PROXY_SECRET` and SMTP credentials are not needed. It applies all migrations through the additive authentication migration, runs preflight, seeds one local identity per existing Application User by that existing user ID, performs staged verification while the legacy column is retained, and only then applies the guarded cleanup migration and remaining migrations. It does not start the Compose-local database dependency. The command is safe to rerun after an interrupted deployment and performs final migration verification; record counts only, never emails, tokens, or database values.
 

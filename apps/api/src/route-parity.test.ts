@@ -24,8 +24,6 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["GET", "/v1/me"],
   ["DELETE", "/v1/me"],
   ["GET", "/v1/me/deletion/preview"],
-  ["POST", "/v1/me/deletion/oidc/start"],
-  ["POST", "/v1/me/deletion/oidc/complete"],
   ["POST", "/v1/me/deletion/otp/request"],
   ["POST", "/v1/me/deletion/otp/verify"],
   ["POST", "/v1/passkey-recovery/registration/options"],
@@ -79,8 +77,8 @@ const routes: ReadonlyArray<readonly [string, string]> = [
 
 describe("canonical API route parity", () => {
   it("covers every registered operation, including deletion and dynamic aliases", () => {
-    expect(routes).toHaveLength(62);
-    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(62);
+    expect(routes).toHaveLength(60);
+    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(60);
     expect(routes).toEqual(API_ROUTE_MANIFEST.map(([method, path]) => [method, materialize(path)]));
   });
 
@@ -124,6 +122,22 @@ describe("canonical API route parity", () => {
     },
   );
 
+  it.each(["/v1/me/deletion/oidc/start", "/v1/me/deletion/oidc/complete"])(
+    "does not register removed OIDC deletion route %s",
+    async (path) => {
+      const response = await app.request(
+        `https://api.example.test${path}`,
+        { method: "POST" },
+        {
+          ...bindings,
+          AUTH_BACKEND: "none",
+          DATABASE_CLIENT: {} as NonNullable<ApiBindings["DATABASE_CLIENT"]>,
+        },
+      );
+      expect(response.status).toBe(404);
+    },
+  );
+
   it("provides Hono HEAD behavior for public system routes", async () => {
     for (const path of ["/v1/health", "/v1/time"]) {
       const response = await app.request(`https://api.example.test${path}`, { method: "HEAD" }, bindings);
@@ -151,11 +165,6 @@ function expectedBoundaryStatus(method: string, path: string): number {
     return 400;
   if (path === "/v1/auth/session/refresh") return 400;
   if (path === "/v1/auth/session/revoke") return 204;
-  if (
-    path === "/v1/me/deletion/oidc/start" ||
-    path === "/v1/me/deletion/oidc/complete" ||
-    path === "/v1/me/deletion/otp/request"
-  )
-    return 409;
+  if (path === "/v1/me/deletion/otp/request") return 409;
   return 401;
 }

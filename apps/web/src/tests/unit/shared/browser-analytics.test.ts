@@ -319,7 +319,6 @@ describe("browser analytics", () => {
     ["/offline", "/offline"],
     ["/totp", "/totp"],
     ["/sign-in", "/sign-in"],
-    ["/auth/oidc/callback", "/auth/oidc/callback"],
     ["/ui-preview/vaults", "/ui-preview/vaults"],
     ["/unknown-user-value", "/[redacted]"],
     ["/vaults/manage/new/", "/vaults/manage/new/"],

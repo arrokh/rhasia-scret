@@ -4,7 +4,7 @@ Expo SDK 57 / React Native client for iOS and Android. This project is the nativ
 
 ## Configure
 
-From the repository root, copy `.env.example` to `.env` and set the values in the **Native mobile build** section. `apps/mobile/app.config.ts` reads that root file when Expo evaluates the app configuration; no app-local `.env` or `.env.local` file is supported. Set only public client values for the mobile build. Never add an authentication secret, OIDC client secret, Vault material, OTP, archive key, or Secure Share Link fragment to Expo environment variables.
+From the repository root, copy `.env.example` to `.env` and set the values in the **Native mobile build** section. `apps/mobile/app.config.ts` reads that root file when Expo evaluates the app configuration; no app-local `.env` or `.env.local` file is supported. Set only public client values for the mobile build. Never add an authentication secret, Vault material, OTP, archive key, or Secure Share Link fragment to Expo environment variables.
 
 Production authentication callbacks use the verified universal/app link `${EXPO_PUBLIC_WEB_ORIGIN}/auth/mobile`, where `EXPO_PUBLIC_WEB_ORIGIN` is the deployed HTTPS web origin. Development builds may use `rhasia-scret://auth/magic-link`. The web host creates and redeems the one-time passwordless link. The iOS Associated Domain and Android verified App Link also accept `/vaults/invitations/redeem`; the fragment remains client-only.
 

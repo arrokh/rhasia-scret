@@ -63,6 +63,9 @@ describe("SignInPage", () => {
 
     expect(mocks.loadServerVaultPageContext).not.toHaveBeenCalled();
     expect(markup).toContain("Autentikasi jarak jauh dinonaktifkan. Gunakan Brankas Lokal.");
+    expect(markup).not.toContain('aria-label="Formulir masuk"');
+    expect(markup).toContain('href="/local"');
+    expect(markup).toContain('href="/offline"');
   });
 
   it("renders a localized configuration state for invalid web configuration", async () => {

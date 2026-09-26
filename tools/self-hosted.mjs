@@ -10,7 +10,7 @@ export const SELF_HOSTED_COMPOSE_FILES = ["docker-compose.yml"];
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requiredComposeValues = ["POSTGRES_PASSWORD", "PROXY_SECRET", "API_PROXY_SECRET", "CRON_SECRET"];
 const requiredOrigins = ["WEB_ORIGIN", "API_ORIGIN"];
-const supportedAuthBackends = new Set(["none", "passwordless", "oidc"]);
+const supportedAuthBackends = new Set(["none", "passwordless"]);
 const placeholderPattern = /^replace-with-/i;
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -57,9 +57,9 @@ export function validateSelfHostedEnvironment(values) {
 
   const backend = values.AUTH_BACKEND?.trim();
   if (!backend) {
-    errors.push("AUTH_BACKEND must be set explicitly to none, passwordless, or oidc.");
+    errors.push("AUTH_BACKEND must be set explicitly to none or passwordless.");
   } else if (!supportedAuthBackends.has(backend)) {
-    errors.push("AUTH_BACKEND must be none, passwordless, or oidc.");
+    errors.push("AUTH_BACKEND must be none or passwordless.");
   }
 
   for (const name of requiredOrigins) {
@@ -71,10 +71,6 @@ export function validateSelfHostedEnvironment(values) {
   }
 
   if (values.AUTH_APP_ORIGIN?.trim()) requireHttpsOrigin(values.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN", errors);
-  if (backend === "oidc" && values.OIDC_REDIRECT_URI?.trim()) {
-    requireHttpsOrigin(values.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI", errors, { originOnly: false });
-  }
-
   return errors;
 }
 
@@ -215,7 +211,7 @@ function setup(root) {
   const environment = ensureLocalEnvironment({ root, commitSha });
   if (environment.created) {
     console.log("Created .env with local-only authentication and generated local secrets.");
-    console.log("Set AUTH_BACKEND=passwordless or oidc before selfhosted:up when hosted authentication is required.");
+    console.log("Set AUTH_BACKEND=passwordless before selfhosted:up when hosted authentication is required.");
   } else if (environment.updated) {
     console.log("Replaced missing/example local Compose values in .env; existing configured values were preserved.");
   }
@@ -338,7 +334,7 @@ function readCommitSha(root) {
   return commitSha;
 }
 
-function requireHttpsOrigin(value, name, errors, { originOnly = true } = {}) {
+function requireHttpsOrigin(value, name, errors) {
   if (!value?.trim()) {
     errors.push(`${name} must be set in .env.`);
     return;
@@ -350,8 +346,7 @@ function requireHttpsOrigin(value, name, errors, { originOnly = true } = {}) {
       errors.push(`${name} must use HTTPS unless this is localhost HTTP self-hosting.`);
     }
     if (parsed.username || parsed.password) errors.push(`${name} must not contain credentials.`);
-    if (originOnly && (parsed.pathname !== "/" || parsed.search || parsed.hash))
-      errors.push(`${name} must contain only an origin.`);
+    if (parsed.pathname !== "/" || parsed.search || parsed.hash) errors.push(`${name} must contain only an origin.`);
   } catch {
     errors.push(`${name} must be a valid URL.`);
   }

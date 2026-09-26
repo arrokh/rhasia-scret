@@ -30,6 +30,8 @@ test("validates the minimum local Compose contract", () => {
     API_ORIGIN: "http://localhost:8787",
   };
   assert.deepEqual(validateSelfHostedEnvironment(valid), []);
+  const unsupportedBackendErrors = validateSelfHostedEnvironment({ ...valid, AUTH_BACKEND: "oidc" });
+  assert.ok(unsupportedBackendErrors.some((error) => error.includes("AUTH_BACKEND must be none or passwordless")));
 
   const errors = validateSelfHostedEnvironment({ ...valid, PROXY_SECRET: "replace-with-a-secret" });
   assert.ok(errors.some((error) => error.includes("PROXY_SECRET")));

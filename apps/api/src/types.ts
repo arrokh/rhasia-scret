@@ -30,11 +30,6 @@ export type ApiBindings = Readonly<{
   E2E_BROWSER_TEST_USERS?: string;
   PASSKEY_RP_ID?: string;
   PASSKEY_ORIGIN?: string;
-  OIDC_ISSUER?: string;
-  OIDC_CLIENT_ID?: string;
-  OIDC_AUDIENCE?: string;
-  OIDC_SESSION_SECRET?: string;
-  AUTH_ADMITTED_EMAILS?: string;
   /** Process-scoped client supplied by a standalone runtime adapter. */
   DATABASE_CLIENT?: PrismaDatabase;
   /** Process-scoped email delivery ports supplied by a runtime adapter. */

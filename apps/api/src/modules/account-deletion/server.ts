@@ -17,10 +17,8 @@ import {
 } from "./domain/account-deletion-errors";
 import {
   ACCOUNT_DELETION_AUTHORIZATION_COOKIE,
-  ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
   clearDeletionCookies,
   setDeletionAuthorizationCookie,
-  setDeletionOidcChallengeCookie,
 } from "./infrastructure/account-deletion-authorization";
 import {
   isBrowserAccountDeletionReadRequest,
@@ -39,7 +37,6 @@ export type {
 export { completeAccountDeletion };
 export {
   ACCOUNT_DELETION_AUTHORIZATION_COOKIE,
-  ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE,
   AccountDeletionAuthorizationError,
   AccountDeletionChallengeUnavailableError,
   AccountDeletionOtpInvalidError,
@@ -50,14 +47,13 @@ export {
   isBrowserAccountDeletionRequest,
   noStoreHeaders,
   setDeletionAuthorizationCookie,
-  setDeletionOidcChallengeCookie,
 };
 
 export function createAccountDeletionRepository(
   database: PrismaDatabase,
   bindings: ApiBindings,
 ): AccountDeletionRepository {
-  const configuration = bindings.AUTH_BACKEND === "oidc" ? bindings.OIDC_SESSION_SECRET : bindings.AUTH_SESSION_SECRET;
+  const configuration = bindings.AUTH_SESSION_SECRET;
   if (!configuration || configuration.length < 32)
     throw new Error("Account deletion session secret is not configured.");
   const anonymousSecret = bindings.AUTH_MAGIC_LINK_SECRET;
@@ -71,7 +67,6 @@ export function createAccountDeletionRepository(
 }
 
 export function accountDeletionBackend(bindings: ApiBindings): AccountDeletionAuthBackend {
-  if (bindings.AUTH_BACKEND === "oidc") return "oidc";
   if (bindings.AUTH_BACKEND === "passwordless") return "passwordless";
   throw new Error("Account deletion requires an authentication backend.");
 }

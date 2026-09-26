@@ -32,6 +32,12 @@ describe("workspace environment contract", () => {
         "SMTP_PASSWORD",
         "AUTH_EMAIL_FROM",
         "AUTH_ADMITTED_EMAILS",
+        "OIDC_ISSUER",
+        "OIDC_CLIENT_ID",
+        "OIDC_AUDIENCE",
+        "OIDC_CLIENT_SECRET",
+        "OIDC_REDIRECT_URI",
+        "OIDC_SESSION_SECRET",
         "TURNSTILE_SECRET_KEY",
       ])
         expect(launcher).toContain(`"${key}"`);

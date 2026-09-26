@@ -45,7 +45,7 @@ Evidence-driven decisions:
 
 Each page under `src/app/vaults/**/page.tsx` currently performs most or all of this sequence:
 
-1. the configured passwordless/OIDC session verifier validates the browser assertion or bearer credential;
+1. the configured passwordless session verifier validates the browser assertion or bearer credential;
 2. `PrismaApplicationUserRepository.provision()` performs an `upsert`;
 3. `PrismaPersonalVaultRepository.ensureForOwner()` opens a transaction, acquires a PostgreSQL advisory lock, and reads the Personal Vault; and
 4. the page waits for all of that work before returning any page-specific UI.
@@ -238,4 +238,4 @@ A production build succeeds when supplied non-secret local `DATABASE_URL` and `D
 - [Next.js prefetching: static versus dynamic routes](https://nextjs.org/docs/app/guides/prefetching)
 - [Next.js authentication: request-scoped DAL memoization and layout cautions](https://nextjs.org/docs/app/guides/authentication)
 - [Next.js Cache Components and React Activity state preservation](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheComponents)
-- [`authentication-configuration.md`](authentication-configuration.md) — passwordless/OIDC session and route-boundary configuration
+- [`authentication-configuration.md`](authentication-configuration.md) — passwordless session and route-boundary configuration

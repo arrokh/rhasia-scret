@@ -137,7 +137,8 @@ describe("API extraction ownership boundaries", () => {
     expect(localDev).toContain('["--dir", "apps/api", "run", "dev"]');
     expect(existsSync(resolve(repositoryRoot, "apps/api/src/index.ts"))).toBe(false);
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
-    expect(compose).toContain("AUTH_ADMITTED_EMAILS: ${AUTH_ADMITTED_EMAILS:-}");
+    expect(compose).not.toContain("OIDC_");
+    expect(compose).not.toContain("AUTH_ADMITTED_EMAILS");
     expect(productionMigrationCompose).toContain(
       "DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env.prod}",
     );

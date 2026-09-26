@@ -79,7 +79,7 @@
         "title": "Provider",
         "description": "Provider autentikasi, hosting, database, email, dan analitik opsional memiliki tanggung jawab operasi yang terpisah.",
         "items": {
-          "auth": "Layanan passwordless yang dikelola sendiri atau adaptor OIDC opsional menangani metadata identitas, event autentikasi, dan sesi buram; layanan tersebut tidak menerima plaintext Vault dari aplikasi ini.",
+          "auth": "Layanan passwordless yang dikelola sendiri menangani metadata identitas, event autentikasi, dan sesi buram; layanan tersebut tidak menerima plaintext Vault dari aplikasi ini.",
           "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.",
           "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses database dari browser bukan bagian dari batas yang didukung.",
           "analytics": "PostHog dan Cloudflare Web Analytics bersifat opsional dan default-nya nonaktif. Saat diaktifkan, allowlist dan tinjauan payload operator berlaku."
@@ -330,11 +330,9 @@
       "openLocalVault": "Buka Brankas Lokal",
       "openOffline": "Buka snapshot luring",
       "backHome": "Kembali ke beranda",
-      "oidcSignIn": "Lanjutkan dengan organisasi Anda",
       "authenticationDisabled": "Autentikasi jarak jauh dinonaktifkan. Gunakan Brankas Lokal.",
       "localOnly": "Deployment ini hanya mendukung Brankas Lokal.",
       "emailAccess": "Masuk atau buat akun dengan alamat email terverifikasi.",
-      "organizationAccess": "Gunakan masuk organisasi Anda untuk mengakses Hosted Vault.",
       "notice": {
         "required": "Silakan masuk untuk melanjutkan.",
         "invitationRequired": "Masuk untuk menerima undangan. Biarkan tab ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
@@ -462,7 +460,6 @@
       "otpInvalid": "Masukkan kode enam digit dari email penghapusan.",
       "verifyCode": "Verifikasi kode",
       "verifying": "Memverifikasi…",
-      "reauthenticateWithProvider": "Autentikasi ulang dengan provider OIDC",
       "reauthError": "Autentikasi ulang tidak dapat diselesaikan. Coba lagi.",
       "confirmTitle": "Konfirmasi penghapusan permanen",
       "confirmDescription": "Ketik frasa persis di bawah ini. Penghapusan dimulai segera dan tidak dapat dipulihkan.",

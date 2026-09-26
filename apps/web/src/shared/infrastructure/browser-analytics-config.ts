@@ -177,7 +177,6 @@ const STATIC_ANALYTICS_ROUTES = [
   "/auth/pwa-confirm",
   "/auth/complete",
   "/auth/logout",
-  "/auth/oidc/callback",
   "/vaults",
   "/vaults/recovery",
   "/vaults/accounts/new",

@@ -31,11 +31,6 @@ const API_BINDING_NAMES = [
   "E2E_BROWSER_TEST_USERS",
   "PASSKEY_RP_ID",
   "PASSKEY_ORIGIN",
-  "OIDC_ISSUER",
-  "OIDC_CLIENT_ID",
-  "OIDC_AUDIENCE",
-  "OIDC_SESSION_SECRET",
-  "AUTH_ADMITTED_EMAILS",
 ] as const satisfies readonly (keyof ApiBindings)[];
 
 export function loadLocalApiEnvironment(source: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
@@ -56,7 +51,14 @@ export function sanitizeApiRuntimeEnvironment(source: ApiEnvironmentSource): Rec
     "POSTGRES_DB",
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
+    // Discard stale provider-specific values while leaving AUTH_BACKEND for fail-closed parsing.
+    "OIDC_ISSUER",
+    "OIDC_CLIENT_ID",
+    "OIDC_AUDIENCE",
     "OIDC_CLIENT_SECRET",
+    "OIDC_REDIRECT_URI",
+    "OIDC_SESSION_SECRET",
+    "AUTH_ADMITTED_EMAILS",
   ]) {
     delete environment[key];
   }

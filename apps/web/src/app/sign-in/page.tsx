@@ -69,20 +69,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </StatusBanner>
           )}
           {backend === "passwordless" && <EmailSignInForm nextPath={nextPath} turnstileSiteKey={turnstileSiteKey} />}
-          {backend === "oidc" && (
-            <Button asChild>
-              <Link
-                href={
-                  nextPath === INVITATION_AUTH_RETURN_PATH
-                    ? `/auth/oidc?next=${encodeURIComponent(nextPath)}`
-                    : "/auth/oidc"
-                }
-                {...(nextPath === INVITATION_AUTH_RETURN_PATH ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-              >
-                {t("oidcSignIn")}
-              </Link>
-            </Button>
-          )}
           {backend === "none" && (
             <p className="text-center text-sm text-muted-foreground">{t("authenticationDisabled")}</p>
           )}
@@ -98,7 +84,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </Button>
           {backend !== "invalid" && (
             <p className="text-center text-xs leading-5 text-muted-foreground">
-              {t(backend === "none" ? "localOnly" : backend === "passwordless" ? "emailAccess" : "organizationAccess")}
+              {t(backend === "none" ? "localOnly" : "emailAccess")}
             </p>
           )}
           <Separator />

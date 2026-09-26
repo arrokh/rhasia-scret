@@ -33,8 +33,6 @@ export const API_ROUTE_MANIFEST = [
   ["GET", "/me"],
   ["DELETE", "/me"],
   ["GET", "/me/deletion/preview"],
-  ["POST", "/me/deletion/oidc/start"],
-  ["POST", "/me/deletion/oidc/complete"],
   ["POST", "/me/deletion/otp/request"],
   ["POST", "/me/deletion/otp/verify"],
   ["POST", "/passkey-recovery/registration/options"],

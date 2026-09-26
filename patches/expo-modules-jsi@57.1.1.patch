@@ -6,14 +6,14 @@
 @@ -193 +193 @@
 -            try context.get(propertyName).writeJSIValue(to: resultPtr)
 +            try context.get(propertyName).writeJSIValue(to: resultPtr.value)
-@@ -755,0 +756,7 @@
+@@ -753,0 +754,7 @@
++}
++
 +/// Packages call-scoped raw pointers for the synchronous actor hop used by the JSI bridge.
 +/// The callback never escapes the C++ invocation, so the pointers remain valid until the actor
 +/// operation completes. Swift's strict concurrency checker cannot infer that lifetime guarantee.
 +private struct UncheckedSendable<Value>: @unchecked Sendable {
 +  let value: Value
-+}
-+
 @@ -777,3 +784,3 @@
 -    nonisolated(unsafe) let thisPtr = thisPtr
 -    nonisolated(unsafe) let argumentsPtr = argumentsPtr
