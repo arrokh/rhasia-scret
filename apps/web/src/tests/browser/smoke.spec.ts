@@ -357,6 +357,21 @@ test("renders representative English OTP, Shared Vault, validation, and recovery
 
   await page.setViewportSize({ width: 390, height: 844 });
   const permissionHelp = page.getByRole("button", { name: "Open guide: Shared Vault member permissions" });
+  const permissionTitle = page.getByText("Default member account permissions", { exact: true });
+  const permissionToggle = page.getByRole("button", { name: /Default member account permissions/ });
+  const chevron = await permissionToggle.locator("svg").boundingBox();
+  const [permissionControlBounds, titleBounds, cardRight] = await Promise.all([
+    permissionHelp.boundingBox(),
+    permissionTitle.boundingBox(),
+    permissionHelp.evaluate((button) => button.closest("form")?.getBoundingClientRect().right ?? null),
+  ]);
+  expect(permissionControlBounds).not.toBeNull();
+  expect(titleBounds).not.toBeNull();
+  expect(cardRight).not.toBeNull();
+  expect(chevron).not.toBeNull();
+  expect(Math.abs((permissionControlBounds?.y ?? 0) - (titleBounds?.y ?? 0))).toBeLessThanOrEqual(4);
+  expect(Math.abs((chevron?.y ?? 0) - (titleBounds?.y ?? 0))).toBeLessThanOrEqual(4);
+  expect((permissionControlBounds?.x ?? 0) + (permissionControlBounds?.width ?? 0)).toBeLessThan((cardRight ?? 0) - 8);
   await permissionHelp.focus();
   await page.keyboard.press("Enter");
   const defaultHelpDialog = page.getByRole("dialog");

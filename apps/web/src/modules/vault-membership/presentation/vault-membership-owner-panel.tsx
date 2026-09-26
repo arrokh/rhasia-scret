@@ -168,11 +168,11 @@ function VaultDefaultPermissionsForm({
       }}
     >
       <Collapsible open={expanded} onOpenChange={setExpanded}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2 pr-3">
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
-              className="h-auto min-h-12 flex-1 justify-between gap-3 rounded-b-none p-4 text-left whitespace-normal"
+              className="h-auto min-h-12 flex-1 items-start justify-between gap-3 rounded-b-none p-4 text-left whitespace-normal"
               type="button"
             >
               <span>
@@ -180,12 +180,14 @@ function VaultDefaultPermissionsForm({
                 <span className="mt-1 block text-sm font-normal text-muted-foreground">{t("defaultsDescription")}</span>
               </span>
               <ChevronDown
-                className={`size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+                className={`mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
                 aria-hidden="true"
               />
             </Button>
           </CollapsibleTrigger>
-          <ContextualHelpButton topic="sharedVaultPermissions" />
+          <div className="pt-4">
+            <ContextualHelpButton topic="sharedVaultPermissions" />
+          </div>
         </div>
         <CollapsibleContent>
           <div className="grid gap-3 border-t p-4">
