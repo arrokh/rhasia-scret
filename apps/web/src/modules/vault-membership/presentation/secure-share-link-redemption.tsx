@@ -7,7 +7,8 @@ import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StatusBanner } from "@/shared/presentation/app-ui";
+import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { redeemSecureShareLink } from "../infrastructure/browser-secure-share-link-workflow";
 
 export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8Array }) {
@@ -30,15 +31,12 @@ export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8A
   }
   return (
     <div className="grid gap-5 p-5 sm:p-6">
-      <div className="grid justify-items-center gap-3 text-center">
-        <span className="grid size-14 place-items-center rounded-xl bg-gold-soft text-ink-strong">
-          <KeyRound />
-        </span>
-        <div>
-          <h2 className="font-bold text-ink-strong">{t("title")}</h2>
-          <p className="mt-1 text-sm leading-5 text-muted-foreground">{t("description")}</p>
-        </div>
-      </div>
+      <SectionHeading
+        icon={KeyRound}
+        title={t("title")}
+        description={t("description")}
+        action={<ContextualHelpButton topic="sharedVaultInvitations" />}
+      />
       {!secret && (
         <>
           <StatusBanner tone="danger" role="alert">

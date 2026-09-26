@@ -324,9 +324,100 @@ test("renders representative English OTP, Shared Vault, validation, and recovery
   await expect(page.getByText("Sample service", { exact: true })).toBeVisible();
   await expect(page.getByText("Work account", { exact: true })).toBeVisible();
 
+  await page.route("**/api/v1/shared-vaults/shared-preview/participants**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        owner: { id: "preview-owner", email: "owner@local.invalid" },
+        vaultDefaultAccountPermissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+        vaultDefaultAccountPermissionsRevision: 1,
+        participants: [
+          {
+            key: "member:preview-member",
+            email: "member@local.invalid",
+            kind: "MEMBER",
+            userId: "preview-member",
+            invitationId: null,
+            invitationState: null,
+            invitedAt: "2026-07-26T12:00:00.000Z",
+            expiresAt: null,
+            permissionOverrides: { canAddAccounts: null, canEditAccounts: null, canDeleteAccounts: null },
+            effectiveAccountPermissions: {
+              permissions: { canAddAccounts: false, canEditAccounts: false, canDeleteAccounts: false },
+              sources: { canAddAccounts: "VAULT", canEditAccounts: "VAULT", canDeleteAccounts: "VAULT" },
+            },
+            permissionsRevision: 1,
+          },
+        ],
+        nextCursor: null,
+      }),
+    }),
+  );
   await page.goto("/ui-preview/vaults");
   await expect(page.getByRole("heading", { level: 1, name: "Vaults" })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const permissionHelp = page.getByRole("button", { name: "Open guide: Shared Vault member permissions" });
+  const permissionTitle = page.getByText("Default member account permissions", { exact: true });
+  const permissionToggle = page.getByRole("button", { name: /Default member account permissions/ });
+  const chevron = await permissionToggle.locator("svg").boundingBox();
+  const [permissionControlBounds, titleBounds, cardRight] = await Promise.all([
+    permissionHelp.boundingBox(),
+    permissionTitle.boundingBox(),
+    permissionHelp.evaluate((button) => button.closest("form")?.getBoundingClientRect().right ?? null),
+  ]);
+  expect(permissionControlBounds).not.toBeNull();
+  expect(titleBounds).not.toBeNull();
+  expect(cardRight).not.toBeNull();
+  expect(chevron).not.toBeNull();
+  expect(Math.abs((permissionControlBounds?.y ?? 0) - (titleBounds?.y ?? 0))).toBeLessThanOrEqual(4);
+  expect(Math.abs((chevron?.y ?? 0) - (titleBounds?.y ?? 0))).toBeLessThanOrEqual(4);
+  expect((permissionControlBounds?.x ?? 0) + (permissionControlBounds?.width ?? 0)).toBeLessThan((cardRight ?? 0) - 8);
+  await permissionHelp.focus();
+  await page.keyboard.press("Enter");
+  const defaultHelpDialog = page.getByRole("dialog");
+  await expect(defaultHelpDialog.getByRole("heading", { name: "Shared Vault member permissions" })).toBeVisible();
+  const helpBounds = await defaultHelpDialog.boundingBox();
+  expect(helpBounds).not.toBeNull();
+  expect(helpBounds?.x).toBeGreaterThanOrEqual(0);
+  expect((helpBounds?.x ?? 0) + (helpBounds?.width ?? 0)).toBeLessThanOrEqual(390);
+  expect(helpBounds?.height).toBeLessThanOrEqual(844);
+  expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(defaultHelpDialog).toHaveCount(0);
+  await expect(permissionHelp).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("tab", { name: "Invitations" }).click();
+  const invitationEmail = page.getByLabel("Recipient email");
+  await invitationEmail.fill("reader@local.invalid");
+  const invitationHelp = page.getByRole("button", { name: "Open guide: Shared Vault invitations" });
+  await invitationHelp.focus();
+  await page.keyboard.press("Enter");
+  const invitationHelpDialog = page.getByRole("dialog");
+  await expect(invitationHelpDialog.getByRole("heading", { name: "Shared Vault invitations" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(invitationHelpDialog).toHaveCount(0);
+  await expect(invitationHelp).toBeFocused();
+  await expect(invitationEmail).toHaveValue("reader@local.invalid");
+
+  await expect(page.getByText("member@local.invalid")).toBeVisible();
+  const memberHelp = page.getByRole("button", { name: "Open guide: Shared Vault member permissions" });
+  await memberHelp.click();
+  const memberHelpDialog = page.getByRole("dialog");
+  await expect(memberHelpDialog.getByRole("heading", { name: "Shared Vault member permissions" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(memberHelpDialog).toHaveCount(0);
+  await expect(memberHelp).toBeFocused();
+
+  await page.getByRole("button", { name: "Configure account permissions for member@local.invalid" }).click();
+  const memberPermissionsDialog = page.getByRole("dialog");
+  await expect(memberPermissionsDialog.getByRole("heading", { name: "Member account permissions" })).toBeVisible();
+  await memberPermissionsDialog.getByRole("button", { name: "Cancel" }).click();
+  await invitationEmail.fill("");
+
   await page.getByRole("button", { name: "Create invitation" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
 

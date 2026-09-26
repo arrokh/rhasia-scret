@@ -14,6 +14,7 @@ import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -131,14 +132,18 @@ export function VaultWorkspaceUnlock({
         void form.handleSubmit();
       }}
     >
-      <div className="grid justify-items-center gap-3 text-center">
-        <span className="grid size-16 place-items-center rounded-xl bg-gold-soft text-ink-strong" aria-hidden="true">
+      <div className="flex items-start gap-3">
+        <span
+          className="grid size-16 shrink-0 place-items-center rounded-xl bg-gold-soft text-ink-strong"
+          aria-hidden="true"
+        >
           <KeyRound className="size-7" />
         </span>
-        <div>
+        <div className="min-w-0 flex-1 pt-1 text-center">
           <h2 className="text-xl font-bold text-ink-strong">{t("title")}</h2>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">{t("description")}</p>
         </div>
+        <ContextualHelpButton topic="personalVaultUnlock" />
       </div>
       <form.Field
         name="secret"

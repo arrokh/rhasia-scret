@@ -19,6 +19,21 @@
       "title": "Something went wrong",
       "description": "Please try again.",
       "retry": "Try again"
+    },
+    "contextualHelp": {
+      "open": "Open guide: {topic}",
+      "close": "Close guide",
+      "topics": {
+        "personalVaultSetup": "Set up your Personal Vault",
+        "personalVaultUnlock": "Unlock your Vault session",
+        "authenticatorAccountImport": "Import an Authenticator Account",
+        "sharedVaultInvitations": "Shared Vault invitations",
+        "sharedVaultPermissions": "Shared Vault member permissions"
+      },
+      "purpose": "Purpose",
+      "nextStep": "What happens next",
+      "consequences": "Important outcomes",
+      "cancelOrRecover": "Cancel or recover"
     }
   },
   "Locale": {

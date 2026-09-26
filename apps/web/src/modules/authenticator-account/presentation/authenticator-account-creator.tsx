@@ -16,6 +16,7 @@ import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
+import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import {
   encryptAccountConfiguration,
@@ -208,7 +209,12 @@ export function AuthenticatorAccountCreator({
           void unlockForm.handleSubmit();
         }}
       >
-        <SectionHeading icon={KeyRound} title={t("unlockTitle")} description={t("unlockDescription")} />
+        <SectionHeading
+          icon={KeyRound}
+          title={t("unlockTitle")}
+          description={t("unlockDescription")}
+          action={<ContextualHelpButton topic="personalVaultUnlock" />}
+        />
         <unlockForm.Field
           name="secret"
           validators={{ onSubmit: ({ value }) => (value.trim() ? undefined : t("passphraseRequired")) }}
@@ -274,9 +280,12 @@ export function AuthenticatorAccountCreator({
                 title={t("reviewTitle")}
                 description={t("reviewDescription")}
                 action={
-                  <Button type="button" variant="ghost" size="sm" onClick={clearImportedAuthenticator}>
-                    {t("importAnother")}
-                  </Button>
+                  <span className="flex items-center gap-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={clearImportedAuthenticator}>
+                      {t("importAnother")}
+                    </Button>
+                    <ContextualHelpButton topic="authenticatorAccountImport" size="icon-sm" />
+                  </span>
                 }
               />
               <accountForm.Field
