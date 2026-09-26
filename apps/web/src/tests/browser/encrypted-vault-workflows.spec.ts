@@ -1134,6 +1134,7 @@ async function unlockVault(page: Page, secret: string): Promise<void> {
     exact: true,
   });
   await expect(input).toBeVisible();
+  // The server-rendered input can appear before React handles it; wait for a controlled state change.
   const revealPassphrase = input.locator("..").getByRole("button");
   await expect
     .poll(

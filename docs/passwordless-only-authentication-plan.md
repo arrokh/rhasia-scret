@@ -147,6 +147,12 @@ Focused verification results:
 
 The final full gate passed with CI-matched E2E concurrency. Earlier three-worker browser failures were not reproduced by the one- and two-worker full browser-gate replays or the final root gate. No Prisma schema or migration files were changed; all migration/test-data operations were confined to the explicitly authorized disposable PostgreSQL Testcontainers, and no non-disposable database was touched.
 
+Latest PR handoff verification after synchronizing #236 with `main` at `47e0f2a`:
+
+- The first post-sync full-gate attempt exposed a Shared Vault E2E hydration race: Playwright filled the visible server-rendered passphrase input before React handled it, so submission saw an empty field. The browser helper now waits for a controlled visibility-toggle state change before filling; no production unlock behavior changed.
+- A fresh `PLAYWRIGHT_E2E_WORKERS=2 mise exec -- pnpm run test:full` passed after that fix: 50 client-vault-core, 2 API-client, 3 API-contract, 348 API, 479 web, and 99 mobile tests; Chromium smoke 40/40, E2E 8/8, and PWA 5/5; deployment bundles, web assets and route budgets, mobile verification, and release bundles also passed.
+- After pushing `c32ef7d`, all GitHub checks passed, including repository policy/dependencies, quality/database, mobile, Chromium smoke/E2E, production PWA/performance, CodeQL, format, dependency review, secret scan, GitGuardian, and the existing API Vercel context. GitHub reports the PR as mergeable but still `REVIEW_REQUIRED`; it was not merged.
+
 ## Done when
 
 All issue acceptance criteria pass, passwordless behavior is unchanged across supported web/PWA/native surfaces, Local Vault and Offline remain separate, OIDC is unsupported and absent from active runtime/configuration, current docs/locales agree, and the full required verification gate passes.
