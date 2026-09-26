@@ -6,6 +6,7 @@ const repositoryRoot = resolve(import.meta.dirname, "..");
 const environmentFile = resolve(repositoryRoot, ".env");
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const children = new Set();
+// Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
   "DIRECT_URL",
   "API_PROXY_SECRET",
@@ -14,7 +15,13 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
   "POSTGRES_PASSWORD",
   "APP_PORT",
   "COMMIT_SHA",
+  "OIDC_ISSUER",
+  "OIDC_CLIENT_ID",
+  "OIDC_AUDIENCE",
   "OIDC_CLIENT_SECRET",
+  "OIDC_REDIRECT_URI",
+  "OIDC_SESSION_SECRET",
+  "AUTH_ADMITTED_EMAILS",
 ];
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "DATABASE_URL",
@@ -27,6 +34,12 @@ const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "AUTH_MAGIC_LINK_TTL_SECONDS",
   "AUTH_ACCESS_TOKEN_TTL_SECONDS",
   "AUTH_REFRESH_TOKEN_TTL_SECONDS",
+  "OIDC_ISSUER",
+  "OIDC_CLIENT_ID",
+  "OIDC_AUDIENCE",
+  "OIDC_CLIENT_SECRET",
+  "OIDC_REDIRECT_URI",
+  "OIDC_SESSION_SECRET",
   "AUTH_ADMITTED_EMAILS",
   "SMTP_HOST",
   "SMTP_PORT",

@@ -82,4 +82,4 @@ minimumReleaseAgeExclude:
   - obug@2.2.1
 auditConfig: { ignoreGhsas: [GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq] }
 patchedDependencies:
-  expo-modules-jsi@57.1.0: patches/expo-modules-jsi@57.1.0.patch
+  expo-modules-jsi@57.1.1: patches/expo-modules-jsi@57.1.1.patch

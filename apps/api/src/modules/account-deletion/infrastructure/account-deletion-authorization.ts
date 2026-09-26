@@ -1,7 +1,6 @@
 import { constantTimeEqual, hmacSha256 } from "@api/shared/infrastructure/crypto";
 
 export const ACCOUNT_DELETION_AUTHORIZATION_COOKIE = "rhsia-account-deletion-authorization";
-export const ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE = "rhsia-account-deletion-oidc-challenge";
 
 type DeletionCookieOptions = Readonly<{
   httpOnly: boolean;
@@ -30,13 +29,8 @@ export function setDeletionAuthorizationCookie(cookieStore: DeletionCookieStore,
   cookieStore.set(ACCOUNT_DELETION_AUTHORIZATION_COOKIE, token, deletionCookieOptions(maxAge));
 }
 
-export function setDeletionOidcChallengeCookie(cookieStore: DeletionCookieStore, challengeId: string): void {
-  cookieStore.set(ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE, challengeId, deletionCookieOptions(600, "lax"));
-}
-
 export function clearDeletionCookies(cookieStore: DeletionCookieStore): void {
-  for (const name of [ACCOUNT_DELETION_AUTHORIZATION_COOKIE, ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE])
-    cookieStore.set(name, "", deletionCookieOptions(0));
+  cookieStore.set(ACCOUNT_DELETION_AUTHORIZATION_COOKIE, "", deletionCookieOptions(0));
 }
 
 export function digestDeletionValue(secret: Uint8Array, context: string, value: string): Uint8Array {

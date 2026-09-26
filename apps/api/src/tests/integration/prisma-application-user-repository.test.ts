@@ -38,11 +38,12 @@ describe("PrismaApplicationUserRepository", () => {
   });
 
   it.skipIf(!process.env.DATABASE_URL)(
-    "returns the identity that authenticated when an Application User has multiple providers",
+    "returns the identity that authenticated when an Application User has multiple External Identities",
     async () => {
       const localSubject = randomUUID();
-      const oidcSubject = randomUUID();
-      subjects.push(localSubject, oidcSubject);
+      const externalSubject = randomUUID();
+      const externalIssuer = "https://identity.example.test";
+      subjects.push(localSubject, externalSubject);
       const repository = new PrismaApplicationUserRepository(prisma);
       const user = await repository.provision({
         issuer: "rhasia:passwordless",
@@ -54,24 +55,24 @@ describe("PrismaApplicationUserRepository", () => {
       await prisma.externalIdentity.create({
         data: {
           applicationUserId: user.id,
-          issuer: "oidc",
-          subject: oidcSubject,
+          issuer: externalIssuer,
+          subject: externalSubject,
           email: "multi-provider@example.test",
           emailVerifiedAt: new Date(),
         },
       });
 
       const resolved = await repository.provision({
-        issuer: "oidc",
-        subject: oidcSubject,
+        issuer: externalIssuer,
+        subject: externalSubject,
         email: "multi-provider@example.test",
         emailVerified: true,
         assurance: "active-session",
       });
 
       expect(resolved.id).toBe(user.id);
-      expect(resolved.issuer).toBe("oidc");
-      expect(resolved.subject).toBe(oidcSubject);
+      expect(resolved.issuer).toBe(externalIssuer);
+      expect(resolved.subject).toBe(externalSubject);
     },
   );
 
@@ -82,7 +83,7 @@ describe("PrismaApplicationUserRepository", () => {
       subjects.push(subject);
       const repository = new PrismaApplicationUserRepository(prisma);
       const principal = {
-        issuer: "oidc",
+        issuer: "https://identity.example.test",
         subject,
         email: "concurrent@example.test",
         emailVerified: true,
@@ -92,7 +93,9 @@ describe("PrismaApplicationUserRepository", () => {
       const [first, second] = await Promise.all([repository.provision(principal), repository.provision(principal)]);
 
       expect(second.id).toBe(first.id);
-      await expect(prisma.externalIdentity.count({ where: { issuer: "oidc", subject } })).resolves.toBe(1);
+      await expect(
+        prisma.externalIdentity.count({ where: { issuer: "https://identity.example.test", subject } }),
+      ).resolves.toBe(1);
     },
   );
 

@@ -2,9 +2,7 @@ export const ACCOUNT_DELETION_CONFIRMATION = "HAPUS AKUN";
 export const ACCOUNT_DELETION_OTP_DIGITS = 6;
 export const ACCOUNT_DELETION_OTP_TTL_SECONDS = 600;
 export const ACCOUNT_DELETION_OTP_MAX_ATTEMPTS = 5;
-export const ACCOUNT_DELETION_AUTHORIZATION_TTL_SECONDS = 600;
-
-export type AccountDeletionAuthBackend = "passwordless" | "oidc";
+export type AccountDeletionAuthBackend = "passwordless";
 export type OwnedSharedVaultAction = "DELETE" | "TRANSFER";
 
 export type OwnedSharedVaultDecision = Readonly<{

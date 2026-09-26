@@ -114,7 +114,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   );
 }
 
-function readWebAuthBackend(): "none" | "passwordless" | "oidc" | "invalid" {
+function readWebAuthBackend(): "none" | "passwordless" | "invalid" {
   try {
     return readAuthConfiguration().backend;
   } catch {

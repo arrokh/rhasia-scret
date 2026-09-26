@@ -1,11 +1,10 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const approvedProviderPaths = [
   join(process.cwd(), "src/modules/identity"),
   join(process.cwd(), "src/app/auth/confirm"),
-  join(process.cwd(), "src/app/auth/oidc"),
 ];
 const forbiddenProviderImports = /from ["'](?:openid-client|jose)|require\(["'](?:openid-client|jose)/;
 
@@ -19,6 +18,18 @@ describe("provider-neutral identity boundaries", () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it("omits provider-specific sign-in and incomplete identity-linking entry points", () => {
+    const removedEntries = [
+      "src/app/auth/oidc",
+      "src/modules/identity/infrastructure/oidc-client.ts",
+      "src/modules/identity/infrastructure/oidc-session-verifier.ts",
+      "src/modules/identity/application/identity-linking.ts",
+      "../api/src/modules/identity/application/identity-linking.ts",
+      "../api/src/modules/identity/infrastructure/prisma-identity-link-repository.ts",
+    ];
+    for (const path of removedEntries) expect(existsSync(join(process.cwd(), path))).toBe(false);
   });
 
   it("models External Identity independently from Application User and uniquely by issuer and subject", () => {

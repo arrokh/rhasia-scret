@@ -46,7 +46,6 @@
     "test:browser:smoke": "pnpm --filter @rhasia-scret/web test:browser:smoke",
     "test:browser:e2e": "pnpm --filter @rhasia-scret/web test:browser:e2e",
     "test:browser:pwa": "pnpm --filter @rhasia-scret/web test:browser:pwa",
-    "test:browser:oidc": "pnpm --filter @rhasia-scret/web test:browser:oidc",
     "clean:next-dev": "pnpm --filter @rhasia-scret/web clean:next-dev",
     "test:architecture": "pnpm --filter @rhasia-scret/web test:architecture",
     "test:full:core": "pnpm --filter @rhasia-scret/client-vault-core test:full",

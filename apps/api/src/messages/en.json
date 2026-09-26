@@ -64,7 +64,7 @@
         "title": "Providers",
         "description": "Authentication, hosting, database, email, and optional analytics providers have separate operational responsibilities.",
         "items": {
-          "auth": "The self-managed passwordless service or optional OIDC adapter handles identity metadata, authentication events, and opaque sessions; it does not receive Vault plaintext from this application.",
+          "auth": "The self-managed passwordless service handles identity metadata, authentication events, and opaque sessions; it does not receive Vault plaintext from this application.",
           "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.",
           "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser database access is not part of the supported boundary.",
           "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply."
@@ -315,11 +315,9 @@
       "openLocalVault": "Open Local Vault",
       "openOffline": "Open offline snapshot",
       "backHome": "Back to home",
-      "oidcSignIn": "Continue with your organization",
       "authenticationDisabled": "Remote authentication is disabled. Use Local Vault.",
       "localOnly": "This deployment supports Local Vault only.",
       "emailAccess": "Sign in or create an account with a verified email address.",
-      "organizationAccess": "Use your organization’s sign-in to access the hosted Vault.",
       "notice": {
         "required": "Sign in to continue.",
         "invitationRequired": "Sign in to accept the invitation. Keep this tab open; it will continue automatically after verification.",
@@ -447,7 +445,6 @@
       "otpInvalid": "Enter the six-digit code from your deletion email.",
       "verifyCode": "Verify code",
       "verifying": "Verifying…",
-      "reauthenticateWithProvider": "Reauthenticate with OIDC provider",
       "reauthError": "Reauthentication could not be completed. Try again.",
       "confirmTitle": "Confirm permanent deletion",
       "confirmDescription": "Type the exact phrase below. The deletion starts immediately and cannot be recovered.",

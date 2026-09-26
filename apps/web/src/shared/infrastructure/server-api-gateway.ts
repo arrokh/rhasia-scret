@@ -70,15 +70,10 @@ export async function loadServerDestructiveResetEligibility(): Promise<Destructi
   return value as DestructiveResetEligibility;
 }
 
-export async function loadServerAccountDeletionContext(): Promise<{
-  email: string;
-  authBackend: "passwordless" | "oidc";
-} | null> {
+export async function loadServerAccountDeletionContext(): Promise<{ email: string } | null> {
   const context = await loadServerVaultPageContext();
   if (!context) return null;
-  const backend = process.env.AUTH_BACKEND;
-  if (backend !== "passwordless" && backend !== "oidc") throw new Error("Account deletion requires an auth backend.");
-  return { email: context.user.email, authBackend: backend };
+  return { email: context.user.email };
 }
 
 export async function requestApi(path: string, init?: RequestInit): Promise<Response> {

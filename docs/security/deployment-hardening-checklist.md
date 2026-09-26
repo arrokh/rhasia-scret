@@ -15,15 +15,14 @@ Use this checklist for every production release. A checked repository item is no
 
 ## Authentication and sessions
 
-Review the passwordless implementation, SMTP provider, and OIDC issuer documentation/changelog before each release. Record the review date, exact dependency versions, callback configuration, and session/revocation evidence.
+Review the passwordless implementation, SMTP provider, and relevant dependency advisories before each release. Record the review date, exact dependency versions, callback configuration, and session/revocation evidence.
 
-- [ ] `AUTH_BACKEND` is explicitly set to `none`, `passwordless`, or `oidc`; invalid or incomplete configuration fails closed in both deployment validation and runtime composition, while non-production passwordless defaulting remains intentional.
+- [ ] `AUTH_BACKEND` is explicitly set to `none` or `passwordless`; invalid, unsupported (including `oidc`), or incomplete configuration fails closed in both deployment validation and runtime composition, while non-production passwordless defaulting remains intentional.
 - [ ] Invalid web authentication configuration redirects protected pages to the localized `configuration_error` state and never becomes `none` or ordinary `required` authentication.
 - [ ] Invalid serverless/lazy API authentication composition returns only `authentication_misconfigured` with HTTP 503, `Cache-Control: no-store`, and an opaque request ID; standalone startup exits before listener creation.
 - [ ] Configuration diagnostics contain only the fixed category, bounded field name, and correlation context; no raw configuration values, secrets, cookies, tokens, provider payloads, or exception text are logged or returned.
 - [ ] Passwordless link token format, fragment-only delivery, fragment clearing, one-time consumption, expiry, generic responses, SMTP TLS, request limits, session lifetimes, refresh rotation/reuse detection, cookie flags, native secure storage, and revocation/logout scope are verified.
-- [ ] OIDC discovery issuer, audience, redirect URI, state, nonce, PKCE, ID-token expiry/signature, verified-email admission, and callback error handling are verified when enabled.
-- [ ] Browser-visible configuration contains public values only. Database URLs, tokens, cookies, authorization headers, SMTP/OIDC secrets, and session credentials are absent from bundles, logs, telemetry, and caches.
+- [ ] Browser-visible configuration contains public values only. Database URLs, tokens, cookies, authorization headers, SMTP credentials, and session credentials are absent from bundles, logs, telemetry, and caches.
 - [ ] Sensitive online mutations require a current authorized identity and configured freshness/revocation assurance. Offline Local Vault use does not depend on hosted authentication.
 - [ ] Logout clears unlocked server workspaces, Personal-only server-derived snapshots, and Remembered Browser material according to their ADRs while preserving independent encrypted Local Profile data.
 - [ ] Synthetic browser/native storage inspection proves hosted snapshots contain Personal Vault data only, legacy Shared-containing snapshots are cleaned up, and Shared Vault access remains online-only.
@@ -38,7 +37,7 @@ Review the passwordless implementation, SMTP provider, and OIDC issuer documenta
 
 ## Provider, database, and platform evidence
 
-- [ ] Passwordless SMTP/account settings, secret rotation, session-revocation checks, OIDC settings when enabled, and authentication changelog reviews are attached.
+- [ ] Passwordless SMTP/account settings, secret rotation, session-revocation checks, unsupported-backend rejection, and authentication dependency reviews are attached.
 - [ ] PostgreSQL roles, pooled/direct URL use, TLS, migrations, passwordless identity seed verification, backups/PITR, restore drill, purge jobs, audit retention, and monitoring evidence are attached.
 - [ ] Vercel or equivalent host environment scopes, deployment protection, headers, source-map policy, CDN/cache behavior, forced update path, and release provenance are attached.
 - [ ] The API is deployed as a separate Node/Bun service/project; Web has no API secrets, database URLs, SMTP credentials, or migration URL, and API provider log/retention settings are documented.

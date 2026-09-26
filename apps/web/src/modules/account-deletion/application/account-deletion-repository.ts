@@ -11,7 +11,7 @@ export type AccountDeletionPreview = Readonly<{
   ownedSharedVaults: readonly AccountDeletionVaultPreview[];
 }>;
 
-export type AccountDeletionChallengePurpose = "PASSWORDLESS_OTP" | "OIDC_REAUTH";
+export type AccountDeletionChallengePurpose = "PASSWORDLESS_OTP";
 
 export type AccountDeletionChallenge = Readonly<{
   id: string;
@@ -44,13 +44,6 @@ export interface AccountDeletionRepository {
   verifyPasswordlessOtp(
     applicationUserId: string,
     otp: string,
-    now: Date,
-  ): Promise<Readonly<{ authorizationToken: string }>>;
-  createOidcReauthenticationChallenge(applicationUserId: string, now: Date): Promise<string>;
-  completeOidcReauthentication(
-    challengeId: string,
-    issuer: string,
-    subject: string,
     now: Date,
   ): Promise<Readonly<{ authorizationToken: string }>>;
   findCompletedDeletion(authorizationToken: string): Promise<CompletedAccountDeletion | null>;

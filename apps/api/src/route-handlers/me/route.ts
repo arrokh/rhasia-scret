@@ -88,7 +88,7 @@ export function createDeleteMeHandler({
     const parsed = await safeParseJsonBody(request, deletionRequestSchema);
     if (!parsed.success)
       return ApiResponse.json({ error: "invalid_deletion_request" }, { status: 400, headers: noStoreHeaders() });
-    const authBackend = user.issuer === "rhasia:passwordless" ? "passwordless" : "oidc";
+    const authBackend = "passwordless";
     try {
       const { deletion, emailDelivery } = await completeAccountDeletion({
         repository,

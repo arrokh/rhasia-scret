@@ -28,8 +28,8 @@ checked.push(`${target} PostgreSQL runtime configuration`);
 if (production && !process.env.AUTH_BACKEND?.trim()) errors.push("AUTH_BACKEND must be set explicitly for production.");
 const configuredBackend = process.env.AUTH_BACKEND?.trim();
 const backend = configuredBackend || "passwordless";
-if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc")) {
-  errors.push("AUTH_BACKEND must be none, passwordless, or oidc.");
+if (!(["none", "passwordless"] as const).includes(backend as "none" | "passwordless")) {
+  errors.push("AUTH_BACKEND must be none or passwordless.");
 } else if (backend === "passwordless") {
   try {
     const configuration = readAuthConfiguration(
@@ -49,13 +49,6 @@ if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "p
   } catch (error: unknown) {
     errors.push(error instanceof Error ? error.message : "SMTP email delivery configuration is invalid.");
   }
-} else if (backend === "oidc") {
-  validateRequiredUrl("OIDC_ISSUER");
-  requireValue("OIDC_CLIENT_ID");
-  requireValue("OIDC_SESSION_SECRET");
-  if ((process.env.OIDC_SESSION_SECRET?.trim().length ?? 0) < 32)
-    errors.push("OIDC_SESSION_SECRET must contain at least 32 characters.");
-  checked.push("OIDC API session verification configuration");
 }
 
 if (errors.length) {
@@ -85,12 +78,6 @@ function validateUrl(name: "DATABASE_URL" | "DIRECT_URL", required: boolean): vo
 
 function validateOptionalUrl(name: "DIRECT_URL"): void {
   if (process.env[name]?.trim()) validateUrl(name, false);
-}
-
-function validateRequiredUrl(name: "OIDC_ISSUER"): void {
-  const value = requireValue(name);
-  if (!value) return;
-  validateOrigin(name, false);
 }
 
 function validateOrigin(name: string, originOnly: boolean): void {

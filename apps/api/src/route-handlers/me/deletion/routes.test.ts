@@ -8,13 +8,10 @@ const mocks = vi.hoisted(() => ({
   authenticateMutation: vi.fn(),
   repo: {
     getPreview: vi.fn(),
-    createOidcReauthenticationChallenge: vi.fn(),
-    completeOidcReauthentication: vi.fn(),
     createPasswordlessOtpChallenge: vi.fn(),
     verifyPasswordlessOtp: vi.fn(),
   },
   sendDeletionOtpEmail: vi.fn(),
-  sessionVerify: vi.fn(),
   AccountDeletionOtpLockedError: class extends Error {},
   AccountDeletionOtpInvalidError: class extends Error {},
   AccountDeletionChallengeUnavailableError: class extends Error {},
@@ -25,7 +22,6 @@ vi.mock("@api/shared/infrastructure/authenticated-application-request", () => ({
   authenticateApplicationMutation: mocks.authenticateMutation,
 }));
 vi.mock("@api/modules/account-deletion/server", () => ({
-  ACCOUNT_DELETION_OIDC_CHALLENGE_COOKIE: "rhsia-deletion-oidc-challenge",
   createAccountDeletionRepository: () => mocks.repo,
   isBrowserAccountDeletionReadRequest: () => true,
   isBrowserAccountDeletionRequest: () => true,
@@ -36,21 +32,13 @@ vi.mock("@api/modules/account-deletion/server", () => ({
   ) => {
     cookies.set("rhsia-deletion-authorization", token, { httpOnly: true, maxAge: 600 });
   },
-  setDeletionOidcChallengeCookie: (
-    cookies: { set: (name: string, value: string, options: Record<string, unknown>) => void },
-    challengeId: string,
-  ) => {
-    cookies.set("rhsia-deletion-oidc-challenge", challengeId, { httpOnly: true, maxAge: 600 });
-  },
   AccountDeletionOtpLockedError: mocks.AccountDeletionOtpLockedError,
   AccountDeletionOtpInvalidError: mocks.AccountDeletionOtpInvalidError,
   AccountDeletionChallengeUnavailableError: mocks.AccountDeletionChallengeUnavailableError,
 }));
-vi.mock("@api/modules/identity/server", () => ({ authBackend: () => "oidc" }));
+vi.mock("@api/modules/identity/server", () => ({ authBackend: () => "passwordless" }));
 
 import { GET as preview } from "@api/route-handlers/me/deletion/preview/route";
-import { createStartOidcDeletionReauthenticationHandler } from "@api/route-handlers/me/deletion/oidc/start/route";
-import { POST as completeOidc } from "@api/route-handlers/me/deletion/oidc/complete/route";
 import { createRequestDeletionOtpHandler } from "@api/route-handlers/me/deletion/otp/request/route";
 import { createVerifyDeletionOtpHandler } from "@api/route-handlers/me/deletion/otp/verify/route";
 
@@ -65,7 +53,6 @@ const request = (path: string, init: RequestInit = {}, context: Record<string, u
 beforeEach(() => {
   mocks.authenticateReader.mockResolvedValue(user);
   mocks.authenticateMutation.mockResolvedValue(user);
-  mocks.sessionVerify.mockResolvedValue({ issuer: "issuer", subject: "subject", email: user.email });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -84,48 +71,6 @@ describe("account deletion API routes", () => {
       activeOwnedSharedVaults: 1,
       activeOwnedSharedVaultIds: ["vault-1"],
     });
-  });
-
-  it("issues an OIDC reauthentication challenge only for same-origin browser requests", async () => {
-    mocks.repo.createOidcReauthenticationChallenge.mockResolvedValue("challenge-1");
-    const authenticate = mocks.authenticateMutation;
-    const handler = createStartOidcDeletionReauthenticationHandler({
-      authenticate,
-      backend: () => "oidc",
-      repository: mocks.repo,
-    });
-    const response = await handler(request("/v1/me/deletion/oidc/start", { method: "POST" }));
-    expect(response.status).toBe(204);
-    expect(response.cookies.getAll().some((cookie) => cookie.startsWith("rhsia-deletion-oidc-challenge="))).toBe(true);
-    expect(mocks.repo.createOidcReauthenticationChallenge).toHaveBeenCalledWith("user-1", expect.any(Date));
-  });
-
-  it("consumes the OIDC challenge and issues a short-lived deletion authorization cookie", async () => {
-    mocks.repo.completeOidcReauthentication.mockResolvedValue({ authorizationToken: "authorization-token" });
-    const response = await completeOidc(
-      request(
-        "/v1/me/deletion/oidc/complete",
-        { method: "POST", headers: { cookie: "rhsia-deletion-oidc-challenge=challenge-1" } },
-        {
-          bindings: { ...testApiBindings, AUTH_BACKEND: "oidc" },
-          identity: {
-            sessionVerifier: { verify: mocks.sessionVerify },
-            sessionTerminator: { terminateCurrentSession: async () => undefined },
-            passwordlessAuth: {} as never,
-            applicationUsers: {} as never,
-            userCryptoProfiles: {} as never,
-          },
-        },
-      ),
-    );
-    expect(response.status).toBe(204);
-    expect(response.cookies.getAll().some((cookie) => cookie.includes("authorization-token"))).toBe(true);
-    expect(mocks.repo.completeOidcReauthentication).toHaveBeenCalledWith(
-      "challenge-1",
-      "issuer",
-      "subject",
-      expect.any(Date),
-    );
   });
 
   it("issues passwordless OTPs without returning or logging the OTP", async () => {

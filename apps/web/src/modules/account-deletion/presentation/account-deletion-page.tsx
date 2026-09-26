@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
@@ -28,13 +27,11 @@ import {
   deleteAccount,
   loadAccountDeletionPreview,
   requestAccountDeletionOtp,
-  startAccountDeletionOidcReauthentication,
   verifyAccountDeletionOtp,
 } from "../infrastructure/browser-account-deletion-client";
 import type { AccountDeletionPreview } from "../application/account-deletion-repository";
 import {
   ACCOUNT_DELETION_CONFIRMATION,
-  type AccountDeletionAuthBackend,
   type AccountDeletionRequest,
   type OwnedSharedVaultDecision,
 } from "../domain/account-deletion-policy";
@@ -49,23 +46,15 @@ type PersistedFlow = Readonly<{
   decisions: readonly OwnedSharedVaultDecision[];
 }>;
 
-export function AccountDeletionPage({
-  email,
-  authBackend,
-  initialReauthenticated = false,
-}: {
-  email: string;
-  authBackend: AccountDeletionAuthBackend;
-  initialReauthenticated?: boolean;
-}) {
+export function AccountDeletionPage({ email }: { email: string }) {
   const t = useTranslations("AccountDeletion.page") as unknown as Translation;
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const persisted = readPersistedFlow();
   const [preview, setPreview] = useState<AccountDeletionPreview | null>(null);
-  const [step, setStep] = useState<Step>(initialReauthenticated ? "confirm" : "choice");
+  const [step, setStep] = useState<Step>("choice");
   const [backup, setBackup] = useState<BackupState | null>(persisted?.backup ?? null);
   const [decisions, setDecisions] = useState<readonly OwnedSharedVaultDecision[]>(persisted?.decisions ?? []);
-  const [reauthenticated, setReauthenticated] = useState(initialReauthenticated);
+  const [reauthenticated, setReauthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,10 +71,6 @@ export function AccountDeletionPage({
       .catch(() => setError("loadFailed"))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (initialReauthenticated) window.history.replaceState(window.history.state, "", window.location.pathname);
-  }, [initialReauthenticated]);
 
   useEffect(() => {
     writePersistedFlow({ backup, decisions });
@@ -140,7 +125,6 @@ export function AccountDeletionPage({
         {step === "reauth" && (
           <ReauthenticationStep
             t={t}
-            authBackend={authBackend}
             onComplete={() => {
               setReauthenticated(true);
               setStep("confirm");
@@ -486,18 +470,7 @@ function ResolutionStep({
   );
 }
 
-function ReauthenticationStep({
-  t,
-  authBackend,
-  onComplete,
-  onBack,
-}: {
-  t: Translation;
-  authBackend: AccountDeletionAuthBackend;
-  onComplete(): void;
-  onBack(): void;
-}) {
-  const router = useRouter();
+function ReauthenticationStep({ t, onComplete, onBack }: { t: Translation; onComplete(): void; onBack(): void }) {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "error">("idle");
   const form = useForm({
     defaultValues: { otp: "" },
@@ -520,65 +493,47 @@ function ReauthenticationStep({
       setStatus("error");
     }
   }
-  async function startOidc() {
-    setStatus("sending");
-    try {
-      await startAccountDeletionOidcReauthentication();
-      router.push("/auth/oidc?next=/account/delete/reauth");
-    } catch {
-      setStatus("error");
-    }
-  }
   return (
     <SurfaceCard className="grid gap-5 p-5 sm:p-6">
       <SectionHeading icon={ShieldCheck} title={t("reauthTitle")} description={t("reauthDescription")} />
-      {authBackend === "passwordless" ? (
-        <>
-          <Button type="button" onClick={() => void sendOtp()} disabled={status === "sending"}>
-            {status === "sending" && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {status === "sent" ? t("resendCode") : t("sendCode")}
-          </Button>
-          <form
-            noValidate
-            className="grid gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void form.handleSubmit();
-            }}
-          >
-            <form.Field
-              name="otp"
-              validators={{ onSubmit: ({ value }) => (/^\d{6}$/.test(value) ? undefined : t("otpInvalid")) }}
-            >
-              {(field) => (
-                <div className="grid gap-2">
-                  <Label htmlFor="account-deletion-otp">{t("otpLabel")}</Label>
-                  <Input
-                    id="account-deletion-otp"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={field.state.meta.errors.length > 0}
-                    aria-describedby="account-deletion-otp-error"
-                  />
-                  <FormFieldError id="account-deletion-otp-error" errors={field.state.meta.errors} />
-                </div>
-              )}
-            </form.Field>
-            <Button type="submit" disabled={status === "verifying"}>
-              {status === "verifying" ? t("verifying") : t("verifyCode")}
-            </Button>
-          </form>
-        </>
-      ) : (
-        <Button type="button" onClick={() => void startOidc()} disabled={status === "sending"}>
-          {status === "sending" && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          {t("reauthenticateWithProvider")}
+      <Button type="button" onClick={() => void sendOtp()} disabled={status === "sending"}>
+        {status === "sending" && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+        {status === "sent" ? t("resendCode") : t("sendCode")}
+      </Button>
+      <form
+        noValidate
+        className="grid gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
+        <form.Field
+          name="otp"
+          validators={{ onSubmit: ({ value }) => (/^\d{6}$/.test(value) ? undefined : t("otpInvalid")) }}
+        >
+          {(field) => (
+            <div className="grid gap-2">
+              <Label htmlFor="account-deletion-otp">{t("otpLabel")}</Label>
+              <Input
+                id="account-deletion-otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                aria-invalid={field.state.meta.errors.length > 0}
+                aria-describedby="account-deletion-otp-error"
+              />
+              <FormFieldError id="account-deletion-otp-error" errors={field.state.meta.errors} />
+            </div>
+          )}
+        </form.Field>
+        <Button type="submit" disabled={status === "verifying"}>
+          {status === "verifying" ? t("verifying") : t("verifyCode")}
         </Button>
-      )}
+      </form>
       {status === "error" && <StatusBanner tone="danger">{t("reauthError")}</StatusBanner>}
       <Button type="button" variant="ghost" onClick={onBack}>
         <ArrowLeft aria-hidden="true" />

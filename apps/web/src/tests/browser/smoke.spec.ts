@@ -168,7 +168,9 @@ test("renders email authentication and signup at sign in", async ({ page }) => {
   await page.goto("/sign-in");
   await expect(page.getByLabel("Alamat email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Lanjutkan dengan email" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Buka Brankas Lokal" })).toHaveAttribute("href", "/local");
   await expect(page.getByRole("link", { name: "Buka snapshot luring" })).toHaveAttribute("href", "/offline");
+  await expect(page.locator('a[href^="/auth/oidc"]')).toHaveCount(0);
 });
 
 test("renders the localized configuration failure state", async ({ page }) => {

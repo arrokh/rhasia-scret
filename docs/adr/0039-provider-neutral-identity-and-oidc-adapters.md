@@ -1,6 +1,6 @@
 # Provider-neutral identity with passwordless and OIDC adapters
 
-- Status: Accepted
+- Status: Superseded in part by ADR-0053 for active OIDC support; provider-neutral identity and persistence decisions remain
 - Date: 2026-07-29 (updated 2026-09-14)
 - Deciders: rhasia-scret maintainers
 - Related: ADR-0011, ADR-0023, ADR-0031, ADR-0049

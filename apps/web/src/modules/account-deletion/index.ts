@@ -39,6 +39,5 @@ export {
   deleteAccount,
   loadAccountDeletionPreview,
   requestAccountDeletionOtp,
-  startAccountDeletionOidcReauthentication,
   verifyAccountDeletionOtp,
 } from "./infrastructure/browser-account-deletion-client";

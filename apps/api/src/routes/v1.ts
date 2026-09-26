@@ -45,16 +45,6 @@ const routes: readonly LazyRouteDefinition[] = [
   },
   {
     method: "post",
-    path: "/me/deletion/oidc/start",
-    load: () => import("@api/route-handlers/me/deletion/oidc/start/route"),
-  },
-  {
-    method: "post",
-    path: "/me/deletion/oidc/complete",
-    load: () => import("@api/route-handlers/me/deletion/oidc/complete/route"),
-  },
-  {
-    method: "post",
     path: "/me/deletion/otp/request",
     load: () => import("@api/route-handlers/me/deletion/otp/request/route"),
   },

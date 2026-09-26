@@ -1,4 +1,4 @@
-export type AuthBackend = "none" | "passwordless" | "oidc";
+export type AuthBackend = "none" | "passwordless";
 export type AuthConfigurationField =
   | "AUTH_BACKEND"
   | "AUTH_APP_ORIGIN"
@@ -9,12 +9,7 @@ export type AuthConfigurationField =
   | "AUTH_ACCESS_TOKEN_TTL_SECONDS"
   | "AUTH_REFRESH_TOKEN_TTL_SECONDS"
   | "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
-  | "TURNSTILE_SECRET_KEY"
-  | "OIDC_ISSUER"
-  | "OIDC_CLIENT_ID"
-  | "OIDC_CLIENT_SECRET"
-  | "OIDC_REDIRECT_URI"
-  | "OIDC_SESSION_SECRET";
+  | "TURNSTILE_SECRET_KEY";
 
 export class AuthenticationConfigurationError extends Error {
   public readonly code = "authentication_misconfigured" as const;
@@ -48,19 +43,8 @@ export type PasswordlessConfiguration = {
   refreshTokenTtlSeconds: number;
 };
 
-export type OidcConfiguration = {
-  issuer: URL;
-  clientId: string;
-  clientSecret: string;
-  redirectUri: URL;
-  audience?: string;
-  sessionSecret: Uint8Array;
-};
-
 export type AuthConfiguration =
-  | { backend: "none" }
-  | { backend: "passwordless"; passwordless: PasswordlessConfiguration }
-  | { backend: "oidc"; oidc: OidcConfiguration };
+  { backend: "none" } | { backend: "passwordless"; passwordless: PasswordlessConfiguration };
 
 export function readAuthConfiguration(
   env: Readonly<Record<string, string | undefined>>,
@@ -71,26 +55,9 @@ export function readAuthConfiguration(
     throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be set explicitly in production.");
   const backend = configuredBackend || "passwordless";
   if (backend === "none") return { backend };
-  if (backend === "passwordless") return { backend, passwordless: readPasswordlessConfiguration(env, options) };
-  if (backend !== "oidc") throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none, passwordless, or oidc.");
-  const issuer = readUrl(env.OIDC_ISSUER, "OIDC_ISSUER");
-  const redirectUri = readUrl(env.OIDC_REDIRECT_URI, "OIDC_REDIRECT_URI");
-  const clientId = readRequired(env.OIDC_CLIENT_ID, "OIDC_CLIENT_ID");
-  const clientSecret = readRequired(env.OIDC_CLIENT_SECRET, "OIDC_CLIENT_SECRET");
-  const sessionSecretText = readRequired(env.OIDC_SESSION_SECRET, "OIDC_SESSION_SECRET");
-  if (sessionSecretText.length < 32)
-    throw configurationError("OIDC_SESSION_SECRET", "OIDC_SESSION_SECRET must contain at least 32 characters.");
-  return {
-    backend,
-    oidc: {
-      issuer,
-      clientId,
-      clientSecret,
-      redirectUri,
-      audience: env.OIDC_AUDIENCE || undefined,
-      sessionSecret: new TextEncoder().encode(sessionSecretText),
-    },
-  };
+  if (backend !== "passwordless")
+    throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none or passwordless.");
+  return { backend, passwordless: readPasswordlessConfiguration(env, options) };
 }
 
 function readPasswordlessConfiguration(

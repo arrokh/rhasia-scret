@@ -27,7 +27,6 @@ const API_ONLY_ENVIRONMENT_KEYS = [
   "SMTP_PASSWORD",
   "AUTH_EMAIL_FROM",
   "AUTH_EMAIL_FROM_NAME",
-  "AUTH_ADMITTED_EMAILS",
   "CRON_SECRET",
 ] as const;
 
@@ -36,8 +35,8 @@ for (const name of API_ONLY_ENVIRONMENT_KEYS) {
 }
 
 if (production && !process.env.AUTH_BACKEND?.trim()) errors.push("AUTH_BACKEND must be set explicitly for production.");
-if (!(["none", "passwordless", "oidc"] as const).includes(backend as "none" | "passwordless" | "oidc"))
-  errors.push("AUTH_BACKEND must be none, passwordless, or oidc.");
+if (!(["none", "passwordless"] as const).includes(backend as "none" | "passwordless"))
+  errors.push("AUTH_BACKEND must be none or passwordless.");
 
 validateOrigin("API_ORIGIN", true);
 const proxySecret = requireValue("API_PROXY_SECRET");
@@ -61,19 +60,6 @@ if (backend === "passwordless") {
   }
   checked.add("Passwordless browser session verification");
 }
-if (backend === "oidc") {
-  try {
-    const configuration = readAuthConfiguration({
-      ...process.env,
-      NODE_ENV: production ? "production" : process.env.NODE_ENV,
-    });
-    if (configuration.backend !== "oidc") throw new Error("OIDC configuration is invalid.");
-    checked.add("OIDC configuration");
-  } catch (error: unknown) {
-    errors.push(error instanceof Error ? error.message : "OIDC configuration is invalid.");
-  }
-}
-
 validateOptionalPair("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "NEXT_PUBLIC_POSTHOG_HOST");
 if (process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim()) validateOrigin("NEXT_PUBLIC_POSTHOG_HOST", false);
 

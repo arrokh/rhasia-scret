@@ -16,13 +16,7 @@ export function isSameOrigin(request: NextRequest): boolean {
  * cannot be redirected or authorized by client-supplied proxy metadata.
  */
 export function requestPublicOrigin(request: NextRequest): string {
-  const configuredCandidates =
-    process.env.AUTH_BACKEND === "oidc"
-      ? ([[process.env.OIDC_REDIRECT_URI, false]] as const)
-      : ([
-          [process.env.AUTH_APP_ORIGIN, true],
-          [process.env.OIDC_REDIRECT_URI, false],
-        ] as const);
+  const configuredCandidates = [[process.env.AUTH_APP_ORIGIN, true]] as const;
   for (const [candidate, originOnly] of configuredCandidates) {
     if (!candidate?.trim()) continue;
     try {

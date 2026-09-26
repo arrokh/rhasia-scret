@@ -32,7 +32,7 @@ release.
 
 The lockfile is the complete dependency input for the web, mobile, and shared
 client packages. At the current lockfile revision, the mise-managed command
-reviews 1,278 dependency entries across 23 license expressions. The observed
+reviews 1,379 dependency entries across 23 license expressions. The observed
 license families include MIT, Apache-2.0, ISC, BSD-2-Clause, BSD-3-Clause,
 BlueOak-1.0.0, CC0-1.0, CC-BY-4.0, EPL-2.0, LGPL-3.0-or-later, MPL-2.0,
 Unlicense, and selectable dual-license expressions. Packages with an `OR`
@@ -42,8 +42,7 @@ terms. SMTP delivery uses Nodemailer and its associated transport typings.
 The most relevant direct packages include Next.js (MIT), React (MIT), Prisma
 (Apache-2.0), Nodemailer (MIT), PostHog (Apache-2.0 and MIT), Radix UI
 (MIT), Lucide React (ISC), React Icons (MIT), Expo (MIT), the Noble crypto
-packages (MIT), `jsqr` (Apache-2.0), ZXing (Apache-2.0), `openid-client` (MIT),
-and `pg` (MIT). The authoritative current inventory is regenerated from the
+packages (MIT), `jsqr` (Apache-2.0), ZXing (Apache-2.0), and `pg` (MIT). The authoritative current inventory is regenerated from the
 lockfile by:
 
 ```bash

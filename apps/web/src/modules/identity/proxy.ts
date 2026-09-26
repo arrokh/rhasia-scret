@@ -11,16 +11,13 @@ export function createIdentityProxyVerifier(): ProxySessionVerifier {
   try {
     const authConfiguration = readAuthConfiguration();
     if (authConfiguration.backend === "none") return createProxySessionVerifier(authConfiguration);
-    if (authConfiguration.backend === "passwordless") {
-      const secret = process.env.AUTH_SESSION_SECRET?.trim();
-      if (!secret || secret.length < 32) throw new Error("AUTH_SESSION_SECRET is not configured.");
-      const configuration: ProxyAuthConfiguration = {
-        backend: authConfiguration.backend,
-        sessionSecret: new TextEncoder().encode(secret),
-      };
-      return createProxySessionVerifier(configuration);
-    }
-    return createProxySessionVerifier({ backend: authConfiguration.backend, ...authConfiguration.oidc });
+    const secret = process.env.AUTH_SESSION_SECRET?.trim();
+    if (!secret || secret.length < 32) throw new Error("AUTH_SESSION_SECRET is not configured.");
+    const configuration: ProxyAuthConfiguration = {
+      backend: authConfiguration.backend,
+      sessionSecret: new TextEncoder().encode(secret),
+    };
+    return createProxySessionVerifier(configuration);
   } catch {
     return async () => "configuration_error";
   }

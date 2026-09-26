@@ -6,13 +6,20 @@ const webOrigin = `http://127.0.0.1:${webPort}`;
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
+// Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
   "DIRECT_URL",
   "API_PROXY_SECRET",
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
+  "OIDC_ISSUER",
+  "OIDC_CLIENT_ID",
+  "OIDC_AUDIENCE",
   "OIDC_CLIENT_SECRET",
+  "OIDC_REDIRECT_URI",
+  "OIDC_SESSION_SECRET",
+  "AUTH_ADMITTED_EMAILS",
 ];
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "DATABASE_URL",
@@ -25,6 +32,12 @@ const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "AUTH_MAGIC_LINK_TTL_SECONDS",
   "AUTH_ACCESS_TOKEN_TTL_SECONDS",
   "AUTH_REFRESH_TOKEN_TTL_SECONDS",
+  "OIDC_ISSUER",
+  "OIDC_CLIENT_ID",
+  "OIDC_AUDIENCE",
+  "OIDC_CLIENT_SECRET",
+  "OIDC_REDIRECT_URI",
+  "OIDC_SESSION_SECRET",
   "AUTH_ADMITTED_EMAILS",
   "SMTP_HOST",
   "SMTP_PORT",

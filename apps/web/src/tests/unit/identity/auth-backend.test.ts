@@ -7,16 +7,6 @@ const requiredPasswordless = {
   AUTH_APP_ORIGIN: "http://localhost:3000",
 };
 
-const requiredOidc = {
-  AUTH_BACKEND: "oidc",
-  NODE_ENV: "test",
-  OIDC_ISSUER: "https://issuer.example.test",
-  OIDC_CLIENT_ID: "client-id",
-  OIDC_CLIENT_SECRET: "server-secret",
-  OIDC_REDIRECT_URI: "http://localhost:3000/auth/oidc/callback",
-  OIDC_SESSION_SECRET: "12345678901234567890123456789012",
-};
-
 describe("web authentication configuration", () => {
   it("allows localhost HTTP authentication in a production container", () => {
     expect(readAuthConfiguration({ ...requiredPasswordless, NODE_ENV: "production" })).toMatchObject({
@@ -55,35 +45,17 @@ describe("web authentication configuration", () => {
     ).toThrow("approved callback");
   });
 
-  it("supports local-only mode and the web-owned OIDC callback configuration", () => {
+  it("supports local-only mode and rejects OIDC as an unsupported backend", () => {
     expect(readAuthConfiguration({ AUTH_BACKEND: "none" })).toEqual({ backend: "none" });
-    expect(readAuthConfiguration(requiredOidc).backend).toBe("oidc");
-    expect(() => readAuthConfiguration({ ...requiredOidc, OIDC_SESSION_SECRET: "short" })).toThrow(
-      "OIDC_SESSION_SECRET",
-    );
-    expect(() => readAuthConfiguration({ AUTH_BACKEND: "oidc", NODE_ENV: "test" })).toThrow("OIDC_ISSUER");
+    expect(() => readAuthConfiguration({ AUTH_BACKEND: "oidc", NODE_ENV: "test" })).toThrow("AUTH_BACKEND");
   });
 
   it("requires an explicit backend in production", () => {
     expect(() => readAuthConfiguration({ NODE_ENV: "production" })).toThrow("explicitly");
   });
 
-  it("rejects invalid backend and insecure production redirects", () => {
+  it("rejects invalid and unsupported backends", () => {
     expect(() => readAuthConfiguration({ AUTH_BACKEND: "rhasia:passwordless" })).toThrow("AUTH_BACKEND");
-    expect(readAuthConfiguration({ ...requiredOidc, NODE_ENV: "production" })).toMatchObject({ backend: "oidc" });
-    expect(() =>
-      readAuthConfiguration({
-        ...requiredOidc,
-        NODE_ENV: "production",
-        OIDC_ISSUER: "http://issuer.example.test",
-      }),
-    ).toThrow("OIDC_ISSUER");
-    expect(() =>
-      readAuthConfiguration({
-        ...requiredOidc,
-        NODE_ENV: "production",
-        OIDC_REDIRECT_URI: "http://oidc.example.test/auth/oidc/callback",
-      }),
-    ).toThrow("OIDC_REDIRECT_URI");
+    expect(() => readAuthConfiguration({ AUTH_BACKEND: "oidc", NODE_ENV: "production" })).toThrow("AUTH_BACKEND");
   });
 });

@@ -277,28 +277,29 @@ describe("PrismaAccountDeletionRepository", () => {
   );
 
   it.skipIf(!process.env.DATABASE_URL)(
-    "rejects credentials issued before deletion but admits a fresh identity registration",
+    "rejects passwordless credentials issued before deletion but admits a fresh identity registration",
     async () => {
       const deletingUser = await createUser("resurrection@example.test");
       const subject = randomUUID();
       await prisma.externalIdentity.create({
         data: {
           applicationUserId: deletingUser.id,
-          issuer: "oidc",
+          issuer: "rhasia:passwordless",
           subject,
           email: deletingUser.email,
           emailVerifiedAt: new Date(),
+          passwordlessIdentity: { create: { normalizedEmail: deletingUser.email } },
         },
       });
       const repository = new PrismaAccountDeletionRepository(bytes("deletion-secret-2"), prisma);
       const issuedAt = new Date(Date.now() - 10_000);
-      const challenge = await repository.createOidcReauthenticationChallenge(deletingUser.id, new Date());
-      challengeIds.push(challenge);
-      const authorization = await repository.completeOidcReauthentication(challenge, "oidc", subject, new Date());
+      const challenge = await repository.createPasswordlessOtpChallenge(deletingUser.id, new Date());
+      challengeIds.push(challenge.challengeId);
+      const authorization = await repository.verifyPasswordlessOtp(deletingUser.id, challenge.otp, new Date());
       const result = await repository.deleteUser(
         deletingUser.id,
         authorization.authorizationToken,
-        "oidc",
+        "passwordless",
         { confirmation: "HAPUS AKUN", acknowledged: true, vaultDecisions: [] },
         new Date(),
       );
@@ -306,7 +307,7 @@ describe("PrismaAccountDeletionRepository", () => {
 
       await expect(
         new PrismaApplicationUserRepository(prisma).provision({
-          issuer: "oidc",
+          issuer: "rhasia:passwordless",
           subject,
           email: deletingUser.email,
           emailVerified: true,
@@ -315,7 +316,7 @@ describe("PrismaAccountDeletionRepository", () => {
         }),
       ).rejects.toThrow("issued before account deletion");
       const fresh = await new PrismaApplicationUserRepository(prisma).provision({
-        issuer: "oidc",
+        issuer: "rhasia:passwordless",
         subject,
         email: deletingUser.email,
         emailVerified: true,

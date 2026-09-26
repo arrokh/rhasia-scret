@@ -31,7 +31,7 @@ This runbook is intentionally provider- and deployment-neutral. Record only opaq
 ## Stolen session or authentication compromise
 
 - Revoke the affected provider session(s), review session IDs/freshness, and clear unlocked server workspaces and Personal-only snapshots. A global authentication failure may retain the encrypted Personal snapshot for explicit offline unlock, but must not retain an active Shared Vault workspace.
-- Review user switching, invitation/admission, identity-linking, and sensitive-operation events. Do not automatically link or transfer identities by email.
+- Review user switching, invitation/admission, identity resolution, and sensitive-operation events. Never link or transfer identities automatically based on email similarity.
 - The Local Profile is independent: preserve it unless the user explicitly clears it, and require a separate local action for any copy.
 
 ## Vault/member compromise

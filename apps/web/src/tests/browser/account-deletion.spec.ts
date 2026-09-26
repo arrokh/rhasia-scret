@@ -9,10 +9,6 @@ test("web Account Deletion completes the guarded flow and preserves Local Profil
   context,
   browserName,
 }) => {
-  test.skip(
-    process.env.E2E_AUTH_BACKEND === "oidc",
-    "The deterministic deletion E2E exercises passwordless OTP reauthentication.",
-  );
   const alias = e2eUserAlias(browserName, "delete");
   await cleanBrowserE2eUsers([e2eUserEmail(alias)]);
   await authenticate(context, alias);

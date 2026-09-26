@@ -40,14 +40,4 @@ describe("request origin", () => {
     vi.stubEnv("AUTH_TRUST_PROXY_HEADERS", "true");
     expect(requestClientIp(request)).toBe("198.51.100.10");
   });
-
-  it("uses the configured OIDC redirect origin even when its callback has a path", () => {
-    vi.stubEnv("AUTH_BACKEND", "oidc");
-    vi.stubEnv("OIDC_REDIRECT_URI", "https://vault.example.test/auth/oidc/callback");
-    const request = new NextRequest("http://internal:3000/auth/logout", {
-      headers: { origin: "https://vault.example.test", "x-forwarded-host": "attacker.example.test" },
-    });
-
-    expect(requestPublicOrigin(request)).toBe("https://vault.example.test");
-  });
 });

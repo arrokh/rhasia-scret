@@ -9,7 +9,6 @@ import type {
 } from "../application/account-deletion-repository";
 import type { AccountDeletionAuthBackend, AccountDeletionRequest } from "../domain/account-deletion-policy";
 import {
-  ACCOUNT_DELETION_AUTHORIZATION_TTL_SECONDS,
   ACCOUNT_DELETION_OTP_MAX_ATTEMPTS,
   ACCOUNT_DELETION_OTP_TTL_SECONDS,
   isValidOtp,
@@ -25,7 +24,6 @@ import {
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 
 const PASSWORDLESS_PURPOSE: AccountDeletionChallengePurpose = "PASSWORDLESS_OTP";
-const OIDC_PURPOSE: AccountDeletionChallengePurpose = "OIDC_REAUTH";
 const OTP_CONTEXT = "rhasia:account-deletion:otp:";
 const AUTHORIZATION_CONTEXT = "rhasia:account-deletion:authorization:";
 
@@ -151,58 +149,6 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
     if (result === "locked") throw new AccountDeletionOtpLockedError();
     if (result === "invalid") throw new AccountDeletionOtpInvalidError();
     if (result !== "verified") throw new AccountDeletionChallengeUnavailableError();
-    return { authorizationToken };
-  }
-
-  public async createOidcReauthenticationChallenge(applicationUserId: string, now: Date): Promise<string> {
-    const expiresAt = new Date(now.getTime() + ACCOUNT_DELETION_AUTHORIZATION_TTL_SECONDS * 1_000);
-    const created = await this.database.$transaction(async (transaction) => {
-      await this.removeOpenChallenges(transaction, applicationUserId, OIDC_PURPOSE);
-      return transaction.accountDeletionChallenge.create({
-        data: {
-          applicationUserId,
-          purpose: OIDC_PURPOSE,
-          authorizationDigest: this.digest(AUTHORIZATION_CONTEXT, randomBase64Url(32)),
-          expiresAt,
-        },
-        select: { id: true },
-      });
-    });
-    return created.id;
-  }
-
-  public async completeOidcReauthentication(
-    challengeId: string,
-    issuer: string,
-    subject: string,
-    now: Date,
-  ): Promise<Readonly<{ authorizationToken: string }>> {
-    const authorizationToken = randomBase64Url(32);
-    await this.database.$transaction(async (transaction) => {
-      const challenge = await transaction.accountDeletionChallenge.findUnique({ where: { id: challengeId } });
-      const identity = await transaction.externalIdentity.findUnique({
-        where: { issuer_subject: { issuer, subject } },
-        select: { applicationUserId: true },
-      });
-      if (
-        !challenge ||
-        !identity ||
-        challenge.applicationUserId !== identity.applicationUserId ||
-        challenge.purpose !== OIDC_PURPOSE ||
-        challenge.verifiedAt !== null ||
-        challenge.consumedAt !== null ||
-        challenge.expiresAt.getTime() <= now.getTime()
-      )
-        throw new AccountDeletionAuthorizationError("OIDC reauthentication did not match the deleting user.");
-      const updated = await transaction.accountDeletionChallenge.updateMany({
-        where: { id: challenge.id, verifiedAt: null, consumedAt: null, expiresAt: { gt: now } },
-        data: {
-          verifiedAt: now,
-          authorizationDigest: this.digest(AUTHORIZATION_CONTEXT, authorizationToken),
-        },
-      });
-      if (updated.count !== 1) throw new AccountDeletionChallengeUnavailableError();
-    });
     return { authorizationToken };
   }
 
@@ -455,7 +401,7 @@ function toArrayBuffer(value: Uint8Array): Uint8Array<ArrayBuffer> {
 }
 
 function toDeletionResult(record: DeletionRecord): AccountDeletionResult {
-  if (record.authBackend !== "passwordless" && record.authBackend !== "oidc")
+  if (record.authBackend !== "passwordless")
     throw new Error("Account deletion record has an invalid authentication backend.");
   return {
     receiptId: record.id,

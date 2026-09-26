@@ -20,7 +20,7 @@ rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaul
 | Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.                                                                                                                                                                                                                                                      |
 | TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.                                                                                                                                                                                                                                           |
 
-The web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless or optional OIDC authentication. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
+The web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless email-link authentication. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
 
 ## Architecture
 
@@ -53,7 +53,7 @@ flowchart TB
         api --> prisma --> database
     end
 
-    auth["Passwordless or OIDC<br/>Authentication"] --> api
+    auth["Passwordless email-link<br/>Authentication"] --> api
     browser -- "Encrypted payloads + opaque metadata" --> proxy
     mobile -- "Encrypted payloads + opaque metadata" --> api
     plaintext["Client-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
@@ -91,7 +91,7 @@ mise run setup
 
 1. Clone the repository and enter its root.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the passwordless standalone API SMTP settings in `.env`, or select `AUTH_BACKEND=oidc` and provide the documented OIDC values. Local Vault workflows do not require hosted authentication.
+3. If exercising hosted authentication locally, configure the passwordless standalone API SMTP settings in `.env`. Set `AUTH_BACKEND=none` for a local-only deployment. Local Vault workflows do not require hosted authentication.
 4. Install and initialize the workspace:
 
 ```bash
@@ -140,9 +140,9 @@ one does not exist. For an existing file, it repairs non-database
 `replace-with-*` example placeholders and preserves configured values. Set
 `POSTGRES_PASSWORD` manually because setup never rotates an existing database
 credential. Change
-the authentication settings before `selfhosted:up` when passwordless or OIDC
-is required; rerun setup to validate the changed configuration before migrating
-again. The Compose containers use production builds. Localhost HTTP is allowed
+the authentication settings before `selfhosted:up` when passwordless
+hosted authentication is required; rerun setup to validate the changed
+configuration before migrating again. The Compose containers use production builds. Localhost HTTP is allowed
 for local self-hosting; use HTTPS for any non-local web, API, or authentication
 origin. `selfhosted:up` builds application images before starting services and
 waits for health checks; failures include sanitized Compose status. Database
@@ -152,7 +152,7 @@ For a production migration, create the ignored `.env.prod` file with the
 production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
 The command builds and runs the standalone focused migration Compose project, so it does not parse or require application runtime secrets such as `PROXY_SECRET` or SMTP credentials. It does not start the Compose `db` dependency and requires typing `yes` before applying migrations.
 
-The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, OIDC client secrets, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
+The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 
 ## Run and verify
 
@@ -220,7 +220,6 @@ pnpm run test:browser
 pnpm run test:browser:smoke
 pnpm run test:browser:e2e
 pnpm run test:browser:pwa
-pnpm run test:browser:oidc
 pnpm run test:performance
 
 # API database and repository policy checks
@@ -250,7 +249,6 @@ For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobil
 
 - **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
 - **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the server-only Nodemailer SMTP settings, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md). Bun, self-hosted, Node.js, and Vercel API deployments use the same SMTP adapter.
-- **OIDC:** `AUTH_BACKEND=oidc`; configure the provider-neutral OIDC adapter and admitted verified emails using the same document.
 
 Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.
 

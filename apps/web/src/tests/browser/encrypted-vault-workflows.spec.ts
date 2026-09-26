@@ -1045,7 +1045,9 @@ async function authenticate(context: BrowserContext, alias: string): Promise<voi
 
 async function initializePersonalVault(page: Page, name: string, secret: string): Promise<void> {
   await page.getByLabel("Nama Brankas").fill(name);
-  await page.getByLabel("Buat sendiri").click();
+  const customPassphraseOption = page.getByLabel("Buat sendiri");
+  await customPassphraseOption.click();
+  await expect(customPassphraseOption).toHaveAttribute("aria-checked", "true");
   await page.getByRole("textbox", { name: "Passphrase Brankas Anda" }).fill(secret);
   await page.getByRole("textbox", { name: "Masukkan kembali Passphrase Brankas" }).fill(secret);
   await page.getByLabel(/Saya memahami/).click();

@@ -92,15 +92,15 @@ The limited server-visible information allowed by the zero-knowledge contract: o
 _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
 **Authentication Provider**:
-A replaceable server-side adapter that verifies an external identity and exposes a provider-neutral Verified Principal. The hosted default is the self-managed passwordless adapter; OIDC remains an optional interoperability adapter. Provider SDKs, OAuth/OIDC protocol types, provider cookies, tokens, and callback mechanics never cross the Identity bounded-context boundary.
-_Avoid_: provider user in domain code, provider-owned Application User, email-based account merge
+The currently supported server-side method for hosted identity verification: self-managed passwordless email-link authentication, which exposes a provider-neutral Verified Principal. `AUTH_BACKEND=none` means hosted authentication is disabled, not that another provider is selected; any future authentication adapter requires a separate architecture and security decision.
+_Avoid_: OIDC as a currently supported adapter, provider user in domain code, provider-owned Application User, email-based account merge
 
 **API Application Runtime**:
 The request-scoped server composition module that exposes named bounded-context capabilities to HTTP route handlers. It owns adapter construction and memoization while hiding Prisma and database wiring; it does not own authorization policy or encrypted-content interpretation.
 _Avoid_: route-local repository factory, global repository singleton, Prisma in route handlers
 
 **Identity Runtime**:
-The request-scoped identity composition module that selects the configured Authentication Provider and shares the resulting lifecycle adapters for passwordless redemption, session verification, refresh, PWA handoff, and termination. It exposes provider-neutral application interfaces and never exposes provider credentials or client-only secrets.
+The request-scoped identity composition module that enables passwordless authentication when configured and shares its lifecycle adapters for magic-link redemption, session verification, refresh, PWA handoff, and termination. In local-only mode it fails hosted authentication closed; it exposes provider-neutral application interfaces and never exposes authentication credentials or client-only secrets.
 _Avoid_: route-local backend selection, duplicate passwordless service, provider session in HTTP handlers
 
 **Application User Deletion Completion Workflow**:
@@ -128,23 +128,15 @@ The web-only, immediate and permanent destruction of one hosted Application User
 _Avoid_: Authenticator Account reset, Local Profile deletion, soft-delete recovery window, email-based identity deletion
 
 **Account Deletion Ledger**:
-The intentionally retained, non-foreign-key record of a completed Application User Deletion. It contains an opaque receipt ID, email, former Application User ID, issuer/subject identity tombstones, timestamps, authentication backend, delivery status, and bounded deletion counts so old stateless OIDC sessions and pre-deletion passwordless links cannot resurrect access. It is not a Vault audit record and never contains archive keys, Vault Names, TOTP configuration, or decrypted content.
+The intentionally retained, non-foreign-key record of a completed Application User Deletion. It contains an opaque receipt ID, email, former Application User ID, issuer/subject identity tombstones, timestamps, authentication backend, delivery status, and bounded deletion counts so pre-deletion credentials cannot resurrect access. It is not a Vault audit record and never contains archive keys, Vault Names, TOTP configuration, or decrypted content.
 _Avoid_: preserved user account, retained Vault audit history, deletion backup
 
 **Application Admission**:
-The separate policy decision that determines whether a Verified Principal may use the application. In the passwordless deployment, redemption of a verified email link admits the local principal; OIDC remains governed by configured admission. Shared Vault membership remains invitation-based and provider-neutral.
+The separate policy decision that determines whether a Verified Principal may use the application. In the current hosted mode, redemption of a verified passwordless email link admits the principal; Shared Vault membership remains invitation-based and provider-neutral.
 _Avoid_: Authentication equals admission, unverified-email access, automatic Shared Vault membership
 
-**Identity Linking**:
-An explicit reauthentication ceremony proving control of an existing and proposed External Identity before associating them with one Application User. It creates a redacted security event and never changes Vault key material or encrypted content.
-_Avoid_: Automatic email linking, silent account merge, key re-encryption during login
-
-**Provider Migration**:
-An auditable, rollback-safe change from one Authentication Provider to another that preserves the Application User identifier, ownership, memberships, audit history, rate limits, recovery enrollment, crypto profiles, and ciphertext. A partial migration leaves the old identity active.
-_Avoid_: Provider account migration by email, new Application User on provider change, key rotation during migration
-
 **Admitted User**:
-A person admitted by the configured Application Admission policy before they can access the application. In the passwordless deployment, verified-email link redemption admits a person to the hosted application; an Invitation separately grants access to a Shared Vault after one-time client-side key delivery.
+A person admitted by the configured Application Admission policy before they can access the application. In the current hosted mode, verified-email link redemption admits a person to the hosted application; an Invitation separately grants access to a Shared Vault after one-time client-side key delivery.
 _Avoid_: Authentication equals Shared Vault membership, unverified signup, separate email allowlist
 
 **Application Mutation Rate Limit**:
