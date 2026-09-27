@@ -80,6 +80,14 @@ test("extracts only the reviewed changelog section and records the exact full so
   );
 });
 
+test("removes an unterminated HTML comment from release notes", () => {
+  const changelog = `## [0.2.0]\n\n### Changes\n\n- Reviewed release item.\n\n<!-- Draft text must not be published.`;
+  assert.equal(
+    extractReleaseNotes(changelog, "0.2.0", sourceSha),
+    `### Changes\n\n- Reviewed release item.\n\n---\nSource commit: ${sourceSha}\n`,
+  );
+});
+
 test("fails closed for missing or empty changelog sections and abbreviated source SHAs", () => {
   assert.throws(() => extractReleaseNotes("# Changelog\n", "0.1.0", sourceSha), /missing the reviewed/);
   assert.throws(

@@ -49,7 +49,7 @@ export function extractReleaseNotes(changelog, version, sourceSha) {
   const section = lines.slice(start + 1, end < 0 ? lines.length : end);
   const body = section
     .join("\n")
-    .replace(/<!--[^]*?-->/g, "")
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
     .trim();
   if (!body || !/^###\s+\S/m.test(body)) throw new Error(`${heading} must contain reviewed release notes.`);
   return `${body}\n\n---\nSource commit: ${sourceSha}\n`;
