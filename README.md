@@ -68,7 +68,7 @@ The server stores only encrypted content and permitted authorization/lifecycle m
 
 See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
 
-Release candidates follow the [release process](docs/release-process.md) and must have a completed [current launch-readiness record](docs/release-readiness/2026-09-20.md) before a tag or GitHub Release is published.
+Repository release candidates follow the [release process](docs/release-process.md) and require an explicitly selected, version-matched readiness record. `pnpm run release:prepare` drafts a candidate locally; after a dedicated release PR is reviewed and merged, `.github/workflows/release.yml` runs exact-SHA checks and publishes the annotated tag and GitHub Release. Repository publication does not deploy API or Web or distribute native mobile builds.
 
 ## Prerequisites
 
@@ -233,8 +233,14 @@ pnpm run verify:prisma-connections
 pnpm run verify:dependency-licenses
 pnpm run verify:ci-policy
 pnpm run verify:version-alignment
-pnpm run verify:build-output
+pnpm run verify:release-evidence:current
+pnpm run test:release-process
 pnpm run build
+pnpm run verify:build-output
+
+# Repository release-candidate preparation (local working-tree edits only)
+pnpm run release:prepare
+pnpm run release:prepare -- patch
 
 # Native release evidence (requires platform toolchains/devices)
 pnpm --dir apps/mobile run verify

@@ -25,10 +25,12 @@ This index is the public entry point for the repository's product, operating, ar
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.
 - [`mobile-release-configuration.md`](mobile-release-configuration.md) — verified links, native cryptography validation, and release evidence.
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
-- [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and rollout blockers.
+- [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation and verification record for local version preparation and exact-SHA source-tag/GitHub Release publication.
+- [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and historical rollout guidance.
 - [`api-architecture-deepening.md`](api-architecture-deepening.md) — implemented API composition, identity lifecycle, authenticated-access, and account-deletion seams.
 - [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
-- [`release-readiness/2026-09-21.md`](release-readiness/2026-09-21.md) — current API architecture-hardening readiness decision, local gate evidence, and external deployment blockers.
+- [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md) — API/Web `0.1.0` candidate readiness, maintainer-reported operational evidence, and native mobile scope exclusion.
+- [`release-readiness/2026-09-21.md`](release-readiness/2026-09-21.md) — historical API architecture-hardening readiness snapshot superseded by the 2026-09-26 record.
 - [`release-readiness/2026-09-20.md`](release-readiness/2026-09-20.md) — historical standalone API readiness snapshot superseded by the 2026-09-21 record.
 - [`release-readiness/2026-09-18.md`](release-readiness/2026-09-18.md) — historical standalone API readiness snapshot superseded by the 2026-09-20 record.
 - [`release-readiness/2026-09-16.md`](release-readiness/2026-09-16.md) — historical API extraction snapshot superseded by the standalone API records.

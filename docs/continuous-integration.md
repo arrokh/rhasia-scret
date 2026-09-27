@@ -19,7 +19,7 @@ Do not add secrets to pull-request jobs. GitHub does not expose repository secre
 
 The main-push and pull-request workflow targets a sub-five-minute critical path by selecting only affected applications and running independent checks concurrently:
 
-- **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, formatting, production dependency audit, and license review.
+- **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, release-automation tests, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
 - **Quality:** Prisma generation/schema and staged passwordless migration verification, API lint/typecheck/unit/real-PostgreSQL integration/build checks, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
 - **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
@@ -39,7 +39,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - **CodeQL:** JavaScript/TypeScript analysis runs on pull requests, `main`, and manual dispatch. Fork analysis runs without uploading results when the token cannot write security events.
 - **Secret scanning:** GitHub secret scanning and push protection are enabled for this public repository. The checked-in Gitleaks workflow remains an independent backstop: it scans changed commits on pull requests/pushes and runs a full-history scan on manual or weekly scheduled dispatches, redacting findings in output. Reviewed historical exceptions are documented in [`secret-scan-exceptions.md`](security/secret-scan-exceptions.md) and remain commit-scoped.
-- **Repository release evidence:** The manually dispatched `Repository release evidence` workflow validates the dated readiness record, version/policy invariants, full repository gate, and non-sensitive commit/toolchain/lockfile metadata from a clean checkout. It never deploys or publishes a release.
+- **Repository release evidence/publication:** The manually dispatched `Repository release evidence` workflow accepts an explicit version-specific readiness record and remains evidence-only. The main-push `Repository release publication` workflow skips ordinary merges; it accepts only a dedicated release PR, verifies the exact merge SHA and release-only diff, runs candidate readiness/version checks and the complete isolated `pnpm run test:full:container` gate, then publishes an annotated tag and GitHub Release. Verification is read-only; only the final publish job receives `contents: write`. Provenance artifacts contain commit/version/toolchain/check metadata and digests, never service/native build bundles. The test gate can apply checked-in migrations only to its disposable Testcontainers database; the release workflow never migrates an operational database or deploys Vercel.
 - **Dependency review:** the pull-request workflow inspects changed dependency manifests and lockfile changes; the main-push quality job also runs the production audit and license policy.
 - **Dependabot:** weekly updates cover the root npm/pnpm workspace and GitHub Actions. Updates must preserve the single root `pnpm-lock.yaml` boundary.
 - **Action pinning:** third-party actions are pinned to immutable commit SHAs. Dependabot owns their updates.
@@ -68,6 +68,7 @@ mise run setup
 pnpm install --frozen-lockfile
 pnpm run format:check
 pnpm run verify:ci-policy
+pnpm run test:release-process
 pnpm run test:full
 ```
 
@@ -80,7 +81,7 @@ CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_E2E_WORKERS=2 pnpm run test:browser:e2e 
 
 `BROWSER_TEST_SEQUENTIAL=1` remains available for constrained local machines, but is not used by the distributed CI workflow.
 
-For local verification, Docker must be running: `pnpm test` and `pnpm run test:full` automatically use disposable Testcontainers PostgreSQL gates. The focused equivalents are:
+For local verification, Docker must be running: `pnpm test` and `pnpm run test:full` automatically use disposable Testcontainers PostgreSQL gates. Release preparation itself does not contact remotes or change Git refs; use `pnpm run release:prepare` on a clean, current `main` checkout. The focused equivalents are:
 
 ```bash
 pnpm run test:integration:container

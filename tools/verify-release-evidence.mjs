@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isValidSemVer } from "./release-version.mjs";
+import { verifyReleaseWorkflowPolicy } from "./verify-release-workflow-policy.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-export const defaultRecord = "docs/release-readiness/2026-09-18.md";
 const validDecisions = ["HOLD", "READY FOR HUMAN RELEASE REVIEW"];
 
 const requiredFiles = [
@@ -12,6 +13,7 @@ const requiredFiles = [
   ".github/workflows/codeql.yml",
   ".github/workflows/dependency-review.yml",
   ".github/workflows/release-evidence.yml",
+  ".github/workflows/release.yml",
   ".github/workflows/secret-scan.yml",
   ".github/dependabot.yml",
   "SECURITY.md",
@@ -23,7 +25,12 @@ const requiredFiles = [
   "pnpm-lock.yaml",
 ];
 
-export function parseReadinessRecord(source, recordPath = defaultRecord) {
+export function currentReadinessRecord(version) {
+  if (!isValidSemVer(version)) throw new Error(`Invalid SemVer release version: ${String(version)}.`);
+  return `docs/release-readiness/v${version}.md`;
+}
+
+export function parseReadinessRecord(source, recordPath) {
   const failures = [];
   const sections = [
     "## Decision",
@@ -43,7 +50,7 @@ export function parseReadinessRecord(source, recordPath = defaultRecord) {
   }
 
   const candidateVersion = source.match(/^Candidate version:\s*`([^`]+)`\s*$/m)?.[1];
-  if (!candidateVersion || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(candidateVersion)) {
+  if (!candidateVersion || !isValidSemVer(candidateVersion)) {
     failures.push(`${recordPath} must contain a valid Candidate version.`);
   }
   if (!/^Repository baseline reviewed:\s*`[0-9a-f]{7,40}`(?:\s+.*)?$/m.test(source)) {
@@ -62,6 +69,20 @@ export function parseReadinessRecord(source, recordPath = defaultRecord) {
   }
 
   return { valid: failures.length === 0, failures, decision, candidateVersion };
+}
+
+export function verifyCandidateReadiness({ source, recordPath, expectedVersion, requireReady = false }) {
+  const result = parseReadinessRecord(source, recordPath);
+  const failures = [...result.failures];
+  if (result.candidateVersion && result.candidateVersion !== expectedVersion) {
+    failures.push(
+      `${recordPath} Candidate version ${result.candidateVersion} does not match root version ${expectedVersion}.`,
+    );
+  }
+  if (requireReady && result.decision !== "READY FOR HUMAN RELEASE REVIEW") {
+    failures.push(`${recordPath} must say READY FOR HUMAN RELEASE REVIEW before publication.`);
+  }
+  return { ...result, valid: failures.length === 0, failures };
 }
 
 export async function verifyRepositoryPolicy(root = repositoryRoot) {
@@ -84,6 +105,10 @@ export async function verifyRepositoryPolicy(root = repositoryRoot) {
   if (!/schedule:\s*\n\s+- cron:/.test(secretScan))
     failures.push("The secret-scan workflow must include scheduled coverage.");
 
+  const releaseWorkflow = contents.get(".github/workflows/release.yml") ?? "";
+  const releaseWorkflowPolicy = verifyReleaseWorkflowPolicy(releaseWorkflow);
+  failures.push(...releaseWorkflowPolicy.failures.map((failure) => `Release workflow policy: ${failure}`));
+
   const releaseEvidence = contents.get(".github/workflows/release-evidence.yml") ?? "";
   for (const command of [
     "pnpm install --frozen-lockfile",
@@ -93,12 +118,19 @@ export async function verifyRepositoryPolicy(root = repositoryRoot) {
   ]) {
     if (!releaseEvidence.includes(command)) failures.push(`The release-evidence workflow must run ${command}.`);
   }
+  if (!/readiness_record/.test(releaseEvidence)) {
+    failures.push("The manual release-evidence workflow must require an explicit candidate readiness record.");
+  }
 
   const packageJson = contents.get("package.json") ?? "";
-  if (!packageJson.includes('"verify:release-evidence"'))
-    failures.push("package.json must expose verify:release-evidence.");
-  if (!packageJson.includes('"test:release-evidence"'))
-    failures.push("package.json must expose test:release-evidence.");
+  for (const script of [
+    '"verify:release-evidence"',
+    '"verify:release-evidence:ready"',
+    '"test:release-evidence"',
+    '"verify:version-alignment"',
+  ]) {
+    if (!packageJson.includes(script)) failures.push(`package.json must expose ${script.slice(1, -1)}.`);
+  }
 
   const dependencyExceptions = contents.get("docs/security/dependency-audit-exceptions.md") ?? "";
   if (!/\|\s*Owner\s*\|\s*Review by\s*\|/.test(dependencyExceptions))
@@ -129,7 +161,7 @@ function section(source, heading) {
 }
 
 function parseArguments(argumentsList) {
-  const options = { record: defaultRecord, requireReady: false };
+  const options = { record: undefined, useCurrent: false, requireReady: false };
   for (let index = 0; index < argumentsList.length; index += 1) {
     const argument = argumentsList[index];
     if (argument === "--record") {
@@ -137,33 +169,58 @@ function parseArguments(argumentsList) {
       if (!value) throw new Error("--record requires a path.");
       options.record = value;
       index += 1;
+    } else if (argument === "--current") {
+      options.useCurrent = true;
     } else if (argument === "--require-ready") {
       options.requireReady = true;
     } else if (argument === "--help") {
-      console.log("Usage: node tools/verify-release-evidence.mjs [--record path] [--require-ready]");
+      console.log("Usage: node tools/verify-release-evidence.mjs (--record path | --current) [--require-ready]");
       process.exit(0);
     } else {
       throw new Error(`Unknown argument: ${argument}`);
     }
   }
+  if (options.useCurrent === Boolean(options.record)) {
+    throw new Error("Choose exactly one readiness record with --record path or --current.");
+  }
   return options;
+}
+
+function validateRecordPath(recordPath) {
+  if (typeof recordPath !== "string" || recordPath.length === 0)
+    throw new Error("A candidate readiness record is required.");
+  if (recordPath.includes("\\")) throw new Error("Candidate readiness record paths must use forward slashes.");
+  const absolutePath = resolve(repositoryRoot, recordPath);
+  const relativePath = relative(repositoryRoot, absolutePath);
+  const readinessDirectory = `docs${sep}release-readiness${sep}`;
+  if (!relativePath.startsWith(readinessDirectory) || relativePath.split(sep).includes("..")) {
+    throw new Error("Candidate readiness record must be inside docs/release-readiness/.");
+  }
+  return { absolutePath, relativePath: relativePath.split(sep).join("/") };
 }
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
-  const recordPath = resolve(repositoryRoot, options.record);
-  const recordSource = existsSync(recordPath) ? await readFile(recordPath, "utf8") : "";
-  const record = parseReadinessRecord(recordSource, options.record);
+  const packageJson = JSON.parse(await readFile(resolve(repositoryRoot, "package.json"), "utf8"));
+  const expectedVersion = packageJson.version;
+  if (!isValidSemVer(expectedVersion)) throw new Error("Root package.json must define a valid SemVer release version.");
+  const chosenRecord = options.useCurrent ? currentReadinessRecord(expectedVersion) : options.record;
+  const { absolutePath, relativePath } = validateRecordPath(chosenRecord);
+  const recordSource = existsSync(absolutePath) ? await readFile(absolutePath, "utf8") : "";
+  const record = verifyCandidateReadiness({
+    source: recordSource,
+    recordPath: relativePath,
+    expectedVersion,
+    requireReady: options.requireReady,
+  });
   const policy = await verifyRepositoryPolicy();
   const failures = [...record.failures, ...policy.failures];
-  if (options.requireReady && record.decision !== "READY FOR HUMAN RELEASE REVIEW") {
-    failures.push("The readiness record must say READY FOR HUMAN RELEASE REVIEW when --require-ready is used.");
-  }
   const result = {
     valid: failures.length === 0,
-    record: options.record,
+    record: relativePath,
     decision: record.decision,
     candidateVersion: record.candidateVersion,
+    expectedVersion,
     repositoryPolicy: policy.valid,
     failures,
   };

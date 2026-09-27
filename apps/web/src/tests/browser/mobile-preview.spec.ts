@@ -1,4 +1,5 @@
 import { devices, expect, test, type Locator } from "@playwright/test";
+import productMetadata from "../../../../../package.json";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 
@@ -165,6 +166,9 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretolehnooroctavian\.id/);
+  await expect(page.locator("footer [data-slot='app-footer-release-version']")).toHaveText(
+    `v${productMetadata.version}Versi rilis ${productMetadata.version}`,
+  );
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
   const developerLink = page.locator("footer").getByRole("link", { name: "nooroctavian.id" });
   await expect(developerLink).toHaveAttribute("href", "https://nooroctavian.id/");
@@ -787,6 +791,11 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
   const footerBox = await footer.boundingBox();
   expect(Math.abs((footerBox?.y ?? 0) + (footerBox?.height ?? 0) - 900)).toBeLessThan(2);
   await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toHaveCount(0);
+  await expect(footer.locator("[data-slot='app-footer-release-version'] > span").first()).toHaveText(
+    `v${productMetadata.version}`,
+  );
+  await expect(footer.getByRole("link", { name: "Privasi" })).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Dukungan" })).toBeVisible();
   const footerContentBox = await footer.locator("> div").boundingBox();
   const footerBrandBox = await footer.locator("p").boundingBox();
   expect(Math.abs((footerBrandBox?.x ?? 0) - (footerContentBox?.x ?? 0))).toBeLessThan(2);
@@ -794,6 +803,7 @@ test("aligns the shared header action and sticky footer on desktop", async ({ pa
 
 test("aligns every shared footer item across mobile and desktop viewports", async ({ page }) => {
   for (const viewport of [
+    { width: 320, height: 844 },
     { width: 390, height: 844 },
     { width: 600, height: 844 },
   ]) {
@@ -819,7 +829,11 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
     expect(alignment.display).toBe("flex");
     expect(alignment.items.every(({ center }) => Math.abs(center - alignment.center) < 2)).toBe(true);
     expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
-    await expect(page.locator("footer").getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
+    const footer = page.locator("footer");
+    await expect(footer.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
+    await expect(footer.locator("[data-slot='app-footer-release-version'] > span").first()).toHaveText(
+      `v${productMetadata.version}`,
+    );
   }
 
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -846,6 +860,60 @@ test("aligns every shared footer item across mobile and desktop viewports", asyn
   expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
   expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
   await expect(page.locator("footer").getByRole("button")).toContainText("Bahasa");
+});
+
+test("orders the release version and footer links around the conditional language switcher", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const locale of ["id", "en"] as const) {
+    await page.goto("/offline");
+    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: new URL(page.url()).origin }]);
+    await page.reload();
+
+    const navigation = page.locator("footer nav");
+    const expectedLocaleLabel = locale === "id" ? "Bahasa" : "Language";
+    const expectedPrivacyLabel = locale === "id" ? "Privasi" : "Privacy";
+    const expectedSupportLabel = locale === "id" ? "Dukungan" : "Support";
+    const expectedVersionLabel = locale === "id" ? "Versi rilis" : "Release version";
+    await expect(navigation.locator("[data-slot='app-footer-release-version'] > span").first()).toHaveText(
+      `v${productMetadata.version}`,
+    );
+    await expect(navigation.locator("[data-slot='app-footer-release-version'] .sr-only")).toHaveText(
+      `${expectedVersionLabel} ${productMetadata.version}`,
+    );
+    await expect(navigation.getByRole("button", { name: expectedLocaleLabel })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: expectedPrivacyLabel })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: expectedSupportLabel })).toBeVisible();
+
+    const order = await navigation.evaluate((nav) =>
+      [...nav.children].map((child) => {
+        if (child.matches("[data-slot='app-footer-release-version']")) return "version";
+        if (child.matches("[data-slot='app-footer-locale-switcher']")) return "language";
+        if (child.getAttribute("aria-hidden") === "true") return "separator";
+        if (child.getAttribute("href") === "/privacy") return "privacy";
+        if (child.getAttribute("href") === "/support") return "support";
+        return "unknown";
+      }),
+    );
+    expect(order).toEqual(["version", "language", "separator", "privacy", "separator", "support"]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+
+  await page.goto("/ui-preview/vaults");
+  const vaultNavigation = page.locator("footer nav");
+  await expect(vaultNavigation.getByRole("button")).toHaveCount(0);
+  await expect(vaultNavigation.locator("[data-slot='app-footer-release-version'] > span").first()).toHaveText(
+    `v${productMetadata.version}`,
+  );
+  const hiddenLanguageOrder = await vaultNavigation.evaluate((nav) =>
+    [...nav.children].map((child) => {
+      if (child.matches("[data-slot='app-footer-release-version']")) return "version";
+      if (child.getAttribute("aria-hidden") === "true") return "separator";
+      if (child.getAttribute("href") === "/privacy") return "privacy";
+      if (child.getAttribute("href") === "/support") return "support";
+      return "unknown";
+    }),
+  );
+  expect(hiddenLanguageOrder).toEqual(["version", "separator", "privacy", "separator", "support"]);
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {
