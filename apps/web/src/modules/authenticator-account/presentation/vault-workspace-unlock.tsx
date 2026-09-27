@@ -53,6 +53,7 @@ export function VaultWorkspaceUnlock({
           method: "passphrase",
           failure_code: failure.failureCode,
         });
+        console.warn("[vault-unlock] Unlock failed", { failure_code: failure.failureCode });
         setStatus(failure.status);
       }
     },

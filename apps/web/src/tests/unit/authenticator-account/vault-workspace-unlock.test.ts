@@ -36,6 +36,7 @@ afterEach(async () => {
   root = undefined;
   document.body.innerHTML = "";
   mocks.passkeyEnrolled = false;
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -89,7 +90,8 @@ describe("locked Vault session", () => {
     );
   });
 
-  it("reports a root-key wrapping failure separately from an invalid passphrase", async () => {
+  it("reports a root-key wrapping failure without logging sensitive error details", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("ROOT_KEY_WRAP_FAILED");
     mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic root-key unwrap failure"));
     const container = document.createElement("div");
@@ -112,6 +114,9 @@ describe("locked Vault session", () => {
     );
     expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.vaultUnlockFailed, {
       method: "passphrase",
+      failure_code: "root_key_wrap_failed",
+    });
+    expect(warn).toHaveBeenCalledWith("[vault-unlock] Unlock failed", {
       failure_code: "root_key_wrap_failed",
     });
   });
