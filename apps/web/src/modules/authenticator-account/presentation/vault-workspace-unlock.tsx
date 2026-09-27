@@ -186,16 +186,20 @@ export function VaultWorkspaceUnlock({
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}
           </div>
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => void unlockRememberedBrowser()}
-            disabled={rememberedUnlocking || passkeyUnlocking}
-            aria-busy={rememberedUnlocking}
-          >
-            {rememberedUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
-            {rememberedUnlocking ? t("verifyingDevice") : t("localVerification")}
-          </Button>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => void unlockRememberedBrowser()}
+                disabled={isSubmitting || rememberedUnlocking || passkeyUnlocking}
+                aria-busy={rememberedUnlocking}
+              >
+                {rememberedUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
+                {rememberedUnlocking ? t("verifyingDevice") : t("localVerification")}
+              </Button>
+            )}
+          </form.Subscribe>
           <p className="text-center text-xs leading-5 text-muted-foreground">{t("rememberedHelp")}</p>
         </>
       )}
@@ -204,16 +208,20 @@ export function VaultWorkspaceUnlock({
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}
           </div>
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => void unlockWithPasskey()}
-            disabled={passkeyUnlocking || rememberedUnlocking}
-            aria-busy={passkeyUnlocking}
-          >
-            {passkeyUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
-            {passkeyUnlocking ? t("verifyingPasskey") : t("passkey")}
-          </Button>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => void unlockWithPasskey()}
+                disabled={isSubmitting || passkeyUnlocking || rememberedUnlocking}
+                aria-busy={passkeyUnlocking}
+              >
+                {passkeyUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
+                {passkeyUnlocking ? t("verifyingPasskey") : t("passkey")}
+              </Button>
+            )}
+          </form.Subscribe>
         </>
       )}
       <Button variant="link" asChild>
