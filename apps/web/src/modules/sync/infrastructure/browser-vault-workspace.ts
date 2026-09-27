@@ -30,6 +30,7 @@ import {
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   LocalStorageSyncError,
   PersonalVaultUnlockError,
+  UserEncryptionPrivateKeyRecoveryError,
   VaultWorkspaceUnlockError,
   type UnlockedVaultWorkspace,
   type WorkspaceAuthenticatorAccount,
@@ -56,6 +57,10 @@ export type BrowserVaultWorkspaceUnlockFailure =
   | "WORKSPACE_PROCESSING_FAILED"
   | "WORKSPACE_RESPONSE_FAILED"
   | "VAULT_CONTENT_DECRYPTION_FAILED"
+  | "USER_ENCRYPTION_ENVELOPE_INVALID"
+  | "USER_ENCRYPTION_LEGACY_ENVELOPE"
+  | "USER_ENCRYPTION_KEY_DECRYPTION_FAILED"
+  | "USER_ENCRYPTION_PRIVATE_KEY_INVALID"
   | "USER_ENCRYPTION_KEY_RECOVERY_FAILED"
   | "SYNC"
   | "UNKNOWN";
@@ -64,6 +69,12 @@ export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): Brow
   if (error instanceof AuthorizedWorkspaceTransportError)
     return error.status === 401 || (error.status === 403 && error.code === "inactive_user") ? "AUTHENTICATION" : "SYNC";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
+  if (error instanceof UserEncryptionPrivateKeyRecoveryError) {
+    if (error.stage === "envelope-invalid") return "USER_ENCRYPTION_ENVELOPE_INVALID";
+    if (error.stage === "legacy-envelope") return "USER_ENCRYPTION_LEGACY_ENVELOPE";
+    if (error.stage === "decryption-failed") return "USER_ENCRYPTION_KEY_DECRYPTION_FAILED";
+    if (error.stage === "payload-invalid") return "USER_ENCRYPTION_PRIVATE_KEY_INVALID";
+  }
   if (error instanceof PersonalVaultUnlockError) {
     if (error.stage === "invalid-secret") return "PASSPHRASE";
     if (error.stage === "invalid-profile") return "PROFILE_DATA_INVALID";
@@ -113,8 +124,15 @@ function browserPorts(): VaultWorkspacePlatformPorts {
       },
       decryptPayloadWithContext,
       deserializeEncryptedEnvelope,
-      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) =>
-        recoverUserEncryptionPrivateKey(userRootKey, deserializeEncryptedEnvelope(encryptedPrivateKey)),
+      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) => {
+        let envelope;
+        try {
+          envelope = deserializeEncryptedEnvelope(encryptedPrivateKey);
+        } catch (error) {
+          throw new UserEncryptionPrivateKeyRecoveryError("envelope-invalid", error);
+        }
+        return recoverUserEncryptionPrivateKey(userRootKey, envelope);
+      },
       createUserEncryptionIdentity,
       serializeEncryptedEnvelope,
       unlockSharedVault,

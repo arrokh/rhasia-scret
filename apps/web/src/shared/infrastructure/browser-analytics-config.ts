@@ -134,7 +134,11 @@ type AnalyticsEventProperties = {
       | "workspace_processing_failed"
       | "workspace_response_failed"
       | "vault_content_decryption_failed"
-      | "user_encryption_key_recovery_failed";
+      | "user_encryption_key_recovery_failed"
+      | "user_encryption_envelope_invalid"
+      | "user_encryption_key_decryption_failed"
+      | "user_encryption_legacy_envelope"
+      | "user_encryption_private_key_invalid";
   };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
   offline_vault_unlock_failed: {
@@ -407,6 +411,10 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
       "workspace_response_failed",
       "vault_content_decryption_failed",
       "user_encryption_key_recovery_failed",
+      "user_encryption_envelope_invalid",
+      "user_encryption_key_decryption_failed",
+      "user_encryption_legacy_envelope",
+      "user_encryption_private_key_invalid",
       "migration_required",
       "permission_denied",
       "duplicate",

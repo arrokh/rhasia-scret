@@ -6,6 +6,19 @@ export type EncryptedUserEncryptionIdentity = {
   encryptedPrivateKey: EncryptedEnvelope;
 };
 
+export type UserEncryptionPrivateKeyRecoveryFailureStage =
+  "envelope-invalid" | "legacy-envelope" | "decryption-failed" | "payload-invalid";
+
+export class UserEncryptionPrivateKeyRecoveryError extends Error {
+  public constructor(
+    public readonly stage: UserEncryptionPrivateKeyRecoveryFailureStage,
+    cause?: unknown,
+  ) {
+    super("User Encryption Private Key recovery failed.", { cause });
+    this.name = "UserEncryptionPrivateKeyRecoveryError";
+  }
+}
+
 export async function createUserEncryptionIdentityWithCrypto(
   userRootKey: Uint8Array,
   crypto: ClientCryptoPort,
@@ -32,19 +45,26 @@ export async function recoverUserEncryptionPrivateKeyWithCrypto(
   encryptedPrivateKey: EncryptedEnvelope,
   crypto: ClientCryptoPort,
 ): Promise<PortableJsonWebKey> {
-  const plaintext = await crypto.decryptPayloadWithContext(
-    userRootKey,
-    encryptedPrivateKey,
-    userEncryptionIdentityContext(),
-  );
+  if (encryptedPrivateKey.version !== 2) throw new UserEncryptionPrivateKeyRecoveryError("legacy-envelope");
+
+  let plaintext: Uint8Array;
+  try {
+    plaintext = await crypto.decryptPayloadWithContext(
+      userRootKey,
+      encryptedPrivateKey,
+      userEncryptionIdentityContext(),
+    );
+  } catch (error) {
+    throw new UserEncryptionPrivateKeyRecoveryError("decryption-failed", error);
+  }
   try {
     let parsed: unknown;
     try {
       parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext));
-    } catch {
-      throw new Error("Encrypted private key is invalid.");
+    } catch (error) {
+      throw new UserEncryptionPrivateKeyRecoveryError("payload-invalid", error);
     }
-    if (!isPrivateKey(parsed)) throw new Error("Encrypted private key is invalid.");
+    if (!isPrivateKey(parsed)) throw new UserEncryptionPrivateKeyRecoveryError("payload-invalid");
     return parsed;
   } finally {
     plaintext.fill(0);

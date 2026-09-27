@@ -130,6 +130,10 @@ describe("locked Vault session", () => {
     ["SYNC", "sync_failed"],
     ["PERSONAL_VAULT_NAME_DECRYPTION_FAILED", "personal_vault_name_decryption_failed"],
     ["USER_ENCRYPTION_KEY_RECOVERY_FAILED", "user_encryption_key_recovery_failed"],
+    ["USER_ENCRYPTION_ENVELOPE_INVALID", "user_encryption_envelope_invalid"],
+    ["USER_ENCRYPTION_LEGACY_ENVELOPE", "user_encryption_legacy_envelope"],
+    ["USER_ENCRYPTION_KEY_DECRYPTION_FAILED", "user_encryption_key_decryption_failed"],
+    ["USER_ENCRYPTION_PRIVATE_KEY_INVALID", "user_encryption_private_key_invalid"],
   ] as const)("logs %s failures using a bounded code", async (failure, failureCode) => {
     mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue(failure);
     mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic transport or storage detail"));

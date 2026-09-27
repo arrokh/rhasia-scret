@@ -46,6 +46,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 import {
   AuthorizedWorkspaceTransportError,
   PersonalVaultUnlockError,
+  UserEncryptionPrivateKeyRecoveryError,
   VaultWorkspaceUnlockError,
   type AuthorizedWorkspaceResponse,
 } from "@rhasia-scret/client-vault-core";
@@ -106,6 +107,18 @@ describe("Vault workspace loading", () => {
     expect(
       classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("user-encryption-private-key-recovery")),
     ).toBe("USER_ENCRYPTION_KEY_RECOVERY_FAILED");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new UserEncryptionPrivateKeyRecoveryError("envelope-invalid")),
+    ).toBe("USER_ENCRYPTION_ENVELOPE_INVALID");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new UserEncryptionPrivateKeyRecoveryError("legacy-envelope")),
+    ).toBe("USER_ENCRYPTION_LEGACY_ENVELOPE");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new UserEncryptionPrivateKeyRecoveryError("decryption-failed")),
+    ).toBe("USER_ENCRYPTION_KEY_DECRYPTION_FAILED");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new UserEncryptionPrivateKeyRecoveryError("payload-invalid")),
+    ).toBe("USER_ENCRYPTION_PRIVATE_KEY_INVALID");
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("crypto-unlock"))).toBe(
       "CRYPTO_UNLOCK_FAILED",
     );

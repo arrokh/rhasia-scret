@@ -12,6 +12,7 @@ import type { OfflineSyncState } from "../../sync/domain/offline-sync-state";
 import type { EffectiveSharedVaultAccountPermissions } from "../../vault-membership/domain/shared-vault-account-permissions";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
 import { PersonalVaultUnlockError } from "../../crypto/application/unlock-personal-vault";
+import { UserEncryptionPrivateKeyRecoveryError } from "../../crypto/application/user-encryption-identity";
 import type { VaultWorkspacePlatformPorts, WorkspacePersonalVaultProfile } from "./vault-workspace-ports";
 
 export type UnlockedVault = {
@@ -126,6 +127,7 @@ export async function loadUnlockedVaultWorkspace(
     if (
       error instanceof LocalStorageSyncError ||
       error instanceof AuthorizedWorkspaceTransportError ||
+      error instanceof UserEncryptionPrivateKeyRecoveryError ||
       error instanceof VaultWorkspaceUnlockError
     )
       throw error;
@@ -363,7 +365,12 @@ async function decryptAndPersistOnlineBundle(
         activeResponse.userEncryptionIdentity,
       );
     } catch (error) {
-      if (isCancellationError(error) || error instanceof VaultWorkspaceUnlockError) throw error;
+      if (
+        isCancellationError(error) ||
+        error instanceof UserEncryptionPrivateKeyRecoveryError ||
+        error instanceof VaultWorkspaceUnlockError
+      )
+        throw error;
       throw new VaultWorkspaceUnlockError("vault-content-decryption", error);
     }
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
@@ -497,7 +504,7 @@ async function loadWorkspace(
     try {
       userEncryptionPrivateKey = await ports.crypto.recoverUserEncryptionPrivateKey(userRootKey, encryptedPrivateKey);
     } catch (error) {
-      if (isCancellationError(error)) throw error;
+      if (isCancellationError(error) || error instanceof UserEncryptionPrivateKeyRecoveryError) throw error;
       throw new VaultWorkspaceUnlockError("user-encryption-private-key-recovery", error);
     } finally {
       encryptedPrivateKey.fill(0);

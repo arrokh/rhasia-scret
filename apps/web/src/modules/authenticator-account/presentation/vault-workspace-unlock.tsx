@@ -314,7 +314,11 @@ type UnlockAnalyticsFailureCode =
   | "workspace_processing_failed"
   | "workspace_response_failed"
   | "vault_content_decryption_failed"
-  | "user_encryption_key_recovery_failed";
+  | "user_encryption_key_recovery_failed"
+  | "user_encryption_envelope_invalid"
+  | "user_encryption_key_decryption_failed"
+  | "user_encryption_legacy_envelope"
+  | "user_encryption_private_key_invalid";
 
 function classifyWorkspaceUnlockFailure(
   error: unknown,
@@ -350,6 +354,10 @@ function workspaceDiagnosticFailureCode(
   if (failure === "CRYPTO_UNLOCK_FAILED") return "crypto_unlock_failed";
   if (failure === "PERSONAL_VAULT_MISMATCH") return "personal_vault_mismatch";
   if (failure === "PERSONAL_VAULT_NAME_DECRYPTION_FAILED") return "personal_vault_name_decryption_failed";
+  if (failure === "USER_ENCRYPTION_ENVELOPE_INVALID") return "user_encryption_envelope_invalid";
+  if (failure === "USER_ENCRYPTION_LEGACY_ENVELOPE") return "user_encryption_legacy_envelope";
+  if (failure === "USER_ENCRYPTION_KEY_DECRYPTION_FAILED") return "user_encryption_key_decryption_failed";
+  if (failure === "USER_ENCRYPTION_PRIVATE_KEY_INVALID") return "user_encryption_private_key_invalid";
   if (failure === "USER_ENCRYPTION_KEY_RECOVERY_FAILED") return "user_encryption_key_recovery_failed";
   if (failure === "PROFILE_REWRAP_FAILED") return "profile_rewrap_failed";
   if (failure === "VAULT_CONTENT_DECRYPTION_FAILED") return "vault_content_decryption_failed";

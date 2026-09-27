@@ -237,6 +237,20 @@ describe("browser analytics", () => {
       method: "passphrase",
       failure_code: "personal_vault_name_decryption_failed",
     });
+
+    const privateKeyRecoveryFailure = sanitizeAnalyticsCapture({
+      uuid: "private-key-recovery-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "user_encryption_key_decryption_failed",
+        encrypted_private_key: "private-key-material",
+      },
+    });
+    expect(privateKeyRecoveryFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "user_encryption_key_decryption_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {
