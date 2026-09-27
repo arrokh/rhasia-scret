@@ -195,6 +195,20 @@ describe("browser analytics", () => {
       method: "passphrase",
       failure_code: "root_key_wrap_failed",
     });
+
+    const keyDerivationFailure = sanitizeAnalyticsCapture({
+      uuid: "key-derivation-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "key_derivation_failed",
+        profile_id: "private-profile-id",
+      },
+    });
+    expect(keyDerivationFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "key_derivation_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {

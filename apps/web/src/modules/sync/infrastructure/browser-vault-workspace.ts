@@ -41,8 +41,11 @@ export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
 export type BrowserVaultWorkspaceUnlockFailure =
   | "AUTHENTICATION"
   | "LOCAL_STORAGE"
+  | "KEY_DERIVATION_FAILED"
   | "PASSPHRASE"
   | "PERSONAL_VAULT_KEY_WRAP_FAILED"
+  | "PROFILE_DATA_INVALID"
+  | "PROFILE_MIGRATION_FAILED"
   | "ROOT_KEY_WRAP_FAILED"
   | "SYNC"
   | "UNKNOWN";
@@ -53,8 +56,11 @@ export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): Brow
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
   if (error instanceof PersonalVaultUnlockError) {
     if (error.stage === "invalid-secret") return "PASSPHRASE";
+    if (error.stage === "invalid-profile") return "PROFILE_DATA_INVALID";
+    if (error.stage === "key-derivation") return "KEY_DERIVATION_FAILED";
     if (error.stage === "user-root-key") return "ROOT_KEY_WRAP_FAILED";
     if (error.stage === "personal-vault-key") return "PERSONAL_VAULT_KEY_WRAP_FAILED";
+    if (error.stage === "profile-migration") return "PROFILE_MIGRATION_FAILED";
     return "UNKNOWN";
   }
   return "UNKNOWN";

@@ -115,7 +115,10 @@ type AnalyticsEventProperties = {
     method: AnalyticsVaultUnlockMethod;
     failure_code:
       | "invalid_secret"
+      | "key_derivation_failed"
       | "personal_vault_key_wrap_failed"
+      | "profile_data_invalid"
+      | "profile_migration_failed"
       | "root_key_wrap_failed"
       | "remembered_browser_error"
       | "passkey_error"
@@ -126,7 +129,10 @@ type AnalyticsEventProperties = {
     method: AnalyticsOfflineUnlockMethod;
     failure_code:
       | "invalid_secret"
+      | "key_derivation_failed"
       | "personal_vault_key_wrap_failed"
+      | "profile_data_invalid"
+      | "profile_migration_failed"
       | "root_key_wrap_failed"
       | "remembered_browser_error"
       | "unknown";
@@ -365,7 +371,10 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
       "rate_limited",
       "provider_error",
       "invalid_secret",
+      "key_derivation_failed",
       "personal_vault_key_wrap_failed",
+      "profile_data_invalid",
+      "profile_migration_failed",
       "root_key_wrap_failed",
       "remembered_browser_error",
       "passkey_error",

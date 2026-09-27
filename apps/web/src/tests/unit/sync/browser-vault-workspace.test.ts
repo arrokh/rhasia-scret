@@ -75,13 +75,21 @@ describe("Vault workspace loading", () => {
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("invalid-secret"))).toBe(
       "PASSPHRASE",
     );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("invalid-profile"))).toBe(
+      "PROFILE_DATA_INVALID",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("key-derivation"))).toBe(
+      "KEY_DERIVATION_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("profile-migration"))).toBe(
+      "PROFILE_MIGRATION_FAILED",
+    );
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("user-root-key"))).toBe(
       "ROOT_KEY_WRAP_FAILED",
     );
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("personal-vault-key"))).toBe(
       "PERSONAL_VAULT_KEY_WRAP_FAILED",
     );
-    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("key-derivation"))).toBe("UNKNOWN");
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("unexpected decrypt failure"))).toBe("UNKNOWN");
   });
 

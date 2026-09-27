@@ -295,7 +295,10 @@ type UnlockStatus =
 type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error" | "unlock_error">;
 type UnlockAnalyticsFailureCode =
   | "invalid_secret"
+  | "key_derivation_failed"
   | "personal_vault_key_wrap_failed"
+  | "profile_data_invalid"
+  | "profile_migration_failed"
   | "root_key_wrap_failed"
   | "remembered_browser_error"
   | "passkey_error";
@@ -308,6 +311,10 @@ function classifyWorkspaceUnlockFailure(
   const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
   if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "unknown" };
   if (failure === "LOCAL_STORAGE" || failure === "SYNC") return { status: "sync_error", failureCode: "unknown" };
+  if (failure === "KEY_DERIVATION_FAILED") return { status: "unlock_error", failureCode: "key_derivation_failed" };
+  if (failure === "PROFILE_DATA_INVALID") return { status: "unlock_error", failureCode: "profile_data_invalid" };
+  if (failure === "PROFILE_MIGRATION_FAILED")
+    return { status: "unlock_error", failureCode: "profile_migration_failed" };
   if (failure === "ROOT_KEY_WRAP_FAILED") return { status: "unlock_error", failureCode: "root_key_wrap_failed" };
   if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED")
     return { status: "unlock_error", failureCode: "personal_vault_key_wrap_failed" };

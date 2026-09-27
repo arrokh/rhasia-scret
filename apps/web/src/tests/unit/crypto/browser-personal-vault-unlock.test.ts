@@ -31,6 +31,10 @@ describe("unlockPersonalVault", () => {
       name: "PersonalVaultUnlockError",
       stage: "invalid-secret",
     } satisfies Partial<PersonalVaultUnlockError>);
+    await expect(unlockPersonalVault(secret, { ...material, encryptionVersion: 2 })).rejects.toMatchObject({
+      name: "PersonalVaultUnlockError",
+      stage: "invalid-profile",
+    } satisfies Partial<PersonalVaultUnlockError>);
     await expect(unlockPersonalVaultWithUserRootKey(unlocked.userRootKey, material)).resolves.toEqual(
       unlocked.personalVaultKey,
     );

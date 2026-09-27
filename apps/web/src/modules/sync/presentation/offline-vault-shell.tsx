@@ -228,8 +228,18 @@ export function OfflineVaultShell() {
 
 function offlineUnlockFailureCode(
   failure: BrowserVaultWorkspaceUnlockFailure,
-): "invalid_secret" | "personal_vault_key_wrap_failed" | "root_key_wrap_failed" | "unknown" {
+):
+  | "invalid_secret"
+  | "key_derivation_failed"
+  | "personal_vault_key_wrap_failed"
+  | "profile_data_invalid"
+  | "profile_migration_failed"
+  | "root_key_wrap_failed"
+  | "unknown" {
   if (failure === "PASSPHRASE") return "invalid_secret";
+  if (failure === "KEY_DERIVATION_FAILED") return "key_derivation_failed";
+  if (failure === "PROFILE_DATA_INVALID") return "profile_data_invalid";
+  if (failure === "PROFILE_MIGRATION_FAILED") return "profile_migration_failed";
   if (failure === "ROOT_KEY_WRAP_FAILED") return "root_key_wrap_failed";
   if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED") return "personal_vault_key_wrap_failed";
   return "unknown";
