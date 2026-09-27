@@ -209,6 +209,20 @@ describe("browser analytics", () => {
       method: "passphrase",
       failure_code: "key_derivation_failed",
     });
+
+    const workspaceProcessingFailure = sanitizeAnalyticsCapture({
+      uuid: "workspace-processing-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "workspace_processing_failed",
+        workspace_id: "private-workspace-id",
+      },
+    });
+    expect(workspaceProcessingFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "workspace_processing_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {

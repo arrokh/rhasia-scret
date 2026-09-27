@@ -59,6 +59,10 @@ describe("locked Vault session", () => {
     });
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("Sesi masuk Anda telah berakhir");
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.vaultUnlockFailed, {
+      method: "passphrase",
+      failure_code: "authentication_failed",
+    });
     const signInLink = [...container.querySelectorAll("a")].find((link) => link.textContent === "Masuk lagi");
     expect(signInLink?.getAttribute("href")).toBe("/sign-in?auth=required&next=%2Fvaults");
     expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("Passphrase Brankas tidak dapat");
@@ -119,6 +123,62 @@ describe("locked Vault session", () => {
     expect(warn).toHaveBeenCalledWith("[vault-unlock] Unlock failed", {
       failure_code: "root_key_wrap_failed",
     });
+  });
+
+  it.each([
+    ["LOCAL_STORAGE", "local_storage_failed"],
+    ["SYNC", "sync_failed"],
+  ] as const)("logs %s failures using a bounded code", async (failure, failureCode) => {
+    mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue(failure);
+    mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic transport or storage detail"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector<HTMLInputElement>("#vault-unlock-secret"), "synthetic passphrase"),
+    );
+    await act(async () => {
+      container.querySelector<HTMLFormElement>("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.vaultUnlockFailed, {
+      method: "passphrase",
+      failure_code: failureCode,
+    });
+  });
+
+  it("logs the workspace-processing phase without logging the original error", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("WORKSPACE_PROCESSING_FAILED");
+    mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic decrypted data detail"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector<HTMLInputElement>("#vault-unlock-secret"), "synthetic passphrase"),
+    );
+    await act(async () => {
+      container.querySelector<HTMLFormElement>("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.vaultUnlockFailed, {
+      method: "passphrase",
+      failure_code: "workspace_processing_failed",
+    });
+    expect(warn).toHaveBeenCalledWith("[vault-unlock] Unlock failed", {
+      failure_code: "workspace_processing_failed",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("prevents overlapping passphrase and passkey unlock attempts", async () => {

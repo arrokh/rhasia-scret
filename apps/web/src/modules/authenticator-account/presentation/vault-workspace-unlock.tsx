@@ -18,6 +18,7 @@ import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
+  type BrowserVaultWorkspaceUnlockFailure,
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser,
@@ -294,14 +295,24 @@ type UnlockStatus =
   | "unlock_error";
 type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error" | "unlock_error">;
 type UnlockAnalyticsFailureCode =
+  | "authentication_failed"
+  | "crypto_unlock_failed"
   | "invalid_secret"
   | "key_derivation_failed"
+  | "local_storage_failed"
   | "personal_vault_key_wrap_failed"
+  | "personal_vault_mismatch"
   | "profile_data_invalid"
+  | "profile_rewrap_failed"
   | "profile_migration_failed"
   | "root_key_wrap_failed"
   | "remembered_browser_error"
-  | "passkey_error";
+  | "sync_failed"
+  | "passkey_error"
+  | "workspace_bundle_invalid"
+  | "workspace_processing_failed"
+  | "workspace_response_failed"
+  | "vault_content_decryption_failed";
 
 function classifyWorkspaceUnlockFailure(
   error: unknown,
@@ -309,8 +320,9 @@ function classifyWorkspaceUnlockFailure(
   fallbackCode: UnlockAnalyticsFailureCode,
 ): { status: UnlockStatus; failureCode: UnlockAnalyticsFailureCode | "unknown" } {
   const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
-  if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "unknown" };
-  if (failure === "LOCAL_STORAGE" || failure === "SYNC") return { status: "sync_error", failureCode: "unknown" };
+  if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "authentication_failed" };
+  if (failure === "LOCAL_STORAGE") return { status: "sync_error", failureCode: "local_storage_failed" };
+  if (failure === "SYNC") return { status: "sync_error", failureCode: "sync_failed" };
   if (failure === "KEY_DERIVATION_FAILED") return { status: "unlock_error", failureCode: "key_derivation_failed" };
   if (failure === "PROFILE_DATA_INVALID") return { status: "unlock_error", failureCode: "profile_data_invalid" };
   if (failure === "PROFILE_MIGRATION_FAILED")
@@ -318,8 +330,27 @@ function classifyWorkspaceUnlockFailure(
   if (failure === "ROOT_KEY_WRAP_FAILED") return { status: "unlock_error", failureCode: "root_key_wrap_failed" };
   if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED")
     return { status: "unlock_error", failureCode: "personal_vault_key_wrap_failed" };
+  const diagnosticFailureCode = workspaceDiagnosticFailureCode(failure);
+  if (diagnosticFailureCode)
+    return {
+      status: fallbackStatus === "secret_error" ? "unlock_error" : fallbackStatus,
+      failureCode: diagnosticFailureCode,
+    };
   if (failure === "PASSPHRASE") return { status: fallbackStatus, failureCode: fallbackCode };
   if (failure === "UNKNOWN" && fallbackStatus !== "secret_error")
     return { status: fallbackStatus, failureCode: fallbackCode };
   return { status: "unlock_error", failureCode: "unknown" };
+}
+
+function workspaceDiagnosticFailureCode(
+  failure: BrowserVaultWorkspaceUnlockFailure,
+): UnlockAnalyticsFailureCode | undefined {
+  if (failure === "CRYPTO_UNLOCK_FAILED") return "crypto_unlock_failed";
+  if (failure === "PERSONAL_VAULT_MISMATCH") return "personal_vault_mismatch";
+  if (failure === "PROFILE_REWRAP_FAILED") return "profile_rewrap_failed";
+  if (failure === "VAULT_CONTENT_DECRYPTION_FAILED") return "vault_content_decryption_failed";
+  if (failure === "WORKSPACE_BUNDLE_INVALID") return "workspace_bundle_invalid";
+  if (failure === "WORKSPACE_PROCESSING_FAILED") return "workspace_processing_failed";
+  if (failure === "WORKSPACE_RESPONSE_FAILED") return "workspace_response_failed";
+  return undefined;
 }

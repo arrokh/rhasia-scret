@@ -229,13 +229,19 @@ export function OfflineVaultShell() {
 function offlineUnlockFailureCode(
   failure: BrowserVaultWorkspaceUnlockFailure,
 ):
+  | "authentication_failed"
   | "invalid_secret"
   | "key_derivation_failed"
+  | "local_storage_failed"
   | "personal_vault_key_wrap_failed"
   | "profile_data_invalid"
   | "profile_migration_failed"
   | "root_key_wrap_failed"
+  | "sync_failed"
   | "unknown" {
+  if (failure === "AUTHENTICATION") return "authentication_failed";
+  if (failure === "LOCAL_STORAGE") return "local_storage_failed";
+  if (failure === "SYNC") return "sync_failed";
   if (failure === "PASSPHRASE") return "invalid_secret";
   if (failure === "KEY_DERIVATION_FAILED") return "key_derivation_failed";
   if (failure === "PROFILE_DATA_INVALID") return "profile_data_invalid";

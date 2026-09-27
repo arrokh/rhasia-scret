@@ -1,4 +1,5 @@
 import type { CancellationPort } from "../../../shared/application/platform-ports";
+import { AuthorizedWorkspaceTransportError } from "../../sync/application/authorized-workspace-transport";
 import { base64ToBytes, bytesToBase64 } from "../../../shared/application/base64";
 import {
   composeOnlineWorkspaceBundle,
@@ -10,6 +11,7 @@ import {
 import type { OfflineSyncState } from "../../sync/domain/offline-sync-state";
 import type { EffectiveSharedVaultAccountPermissions } from "../../vault-membership/domain/shared-vault-account-permissions";
 import type { DecryptedAuthenticatorAccount } from "./account-payload-ports";
+import { PersonalVaultUnlockError } from "../../crypto/application/unlock-personal-vault";
 import type { VaultWorkspacePlatformPorts, WorkspacePersonalVaultProfile } from "./vault-workspace-ports";
 
 export type UnlockedVault = {
@@ -45,6 +47,25 @@ export class LocalStorageSyncError extends Error {
   }
 }
 
+export type VaultWorkspaceUnlockFailureStage =
+  | "workspace-response"
+  | "workspace-bundle"
+  | "personal-vault-selection"
+  | "crypto-unlock"
+  | "vault-content-decryption"
+  | "profile-rewrap"
+  | "workspace-processing";
+
+export class VaultWorkspaceUnlockError extends Error {
+  public constructor(
+    public readonly stage: VaultWorkspaceUnlockFailureStage,
+    cause?: unknown,
+  ) {
+    super("Vault workspace unlock failed.", { cause });
+    this.name = "VaultWorkspaceUnlockError";
+  }
+}
+
 export type UnlockedVaultWorkspace = {
   profileId: string;
   synchronizedAt: string;
@@ -63,20 +84,51 @@ export async function loadUnlockedVaultWorkspace(
   personalVaultId: string,
   ports: VaultWorkspacePlatformPorts,
 ): Promise<UnlockedVaultWorkspace> {
-  const response = await fetchMeasuredAuthorizedWorkspaceBundle(ports);
-  const bundle = composeOnlineWorkspaceBundle(response);
-  assertPersonalVault(bundle, personalVaultId);
-  const unlocked = await ports.crypto.unlockPersonalVault(
-    vaultUnlockSecret,
-    profileMaterial(response.personalSnapshot),
-  );
-  return decryptAndPersistOnlineBundle(
-    response,
-    unlocked.userRootKey,
-    unlocked.personalVaultKey,
-    ports,
-    unlocked.migratedProfile,
-  );
+  let response: AuthorizedWorkspaceResponse;
+  try {
+    response = await fetchMeasuredAuthorizedWorkspaceBundle(ports);
+  } catch (error) {
+    if (error instanceof AuthorizedWorkspaceTransportError) throw error;
+    throw new VaultWorkspaceUnlockError("workspace-response", error);
+  }
+
+  let bundle: EncryptedOnlineWorkspaceBundle;
+  try {
+    bundle = composeOnlineWorkspaceBundle(response);
+  } catch (error) {
+    throw new VaultWorkspaceUnlockError("workspace-bundle", error);
+  }
+  try {
+    assertPersonalVault(bundle, personalVaultId);
+  } catch (error) {
+    throw new VaultWorkspaceUnlockError("personal-vault-selection", error);
+  }
+
+  let unlocked: Awaited<ReturnType<VaultWorkspacePlatformPorts["crypto"]["unlockPersonalVault"]>>;
+  try {
+    unlocked = await ports.crypto.unlockPersonalVault(vaultUnlockSecret, profileMaterial(response.personalSnapshot));
+  } catch (error) {
+    if (error instanceof PersonalVaultUnlockError) throw error;
+    throw new VaultWorkspaceUnlockError("crypto-unlock", error);
+  }
+
+  try {
+    return await decryptAndPersistOnlineBundle(
+      response,
+      unlocked.userRootKey,
+      unlocked.personalVaultKey,
+      ports,
+      unlocked.migratedProfile,
+    );
+  } catch (error) {
+    if (
+      error instanceof LocalStorageSyncError ||
+      error instanceof AuthorizedWorkspaceTransportError ||
+      error instanceof VaultWorkspaceUnlockError
+    )
+      throw error;
+    throw new VaultWorkspaceUnlockError("workspace-processing", error);
+  }
 }
 
 export async function loadUnlockedVaultWorkspaceWithRememberedBrowser(
@@ -270,14 +322,21 @@ async function decryptAndPersistOnlineBundle(
   const persistedBundle = migratedProfile
     ? withMigratedProfile(activeResponse.personalSnapshot, migratedProfile)
     : activeResponse.personalSnapshot;
-  const migration = migratedProfile
-    ? ports.crypto.rewrapUserCryptoProfile({
-        vaultUnlockSalt: bytesToBase64(migratedProfile.vaultUnlockSalt),
-        wrappedUserRootKey: bytesToBase64(migratedProfile.wrappedUserRootKey),
-        encryptedPersonalVaultKey: bytesToBase64(migratedProfile.encryptedPersonalVaultKey),
-        encryptionVersion: migratedProfile.encryptionVersion,
-      })
-    : Promise.resolve();
+  let migration: Promise<void>;
+  try {
+    migration = migratedProfile
+      ? ports.crypto.rewrapUserCryptoProfile({
+          vaultUnlockSalt: bytesToBase64(migratedProfile.vaultUnlockSalt),
+          wrappedUserRootKey: bytesToBase64(migratedProfile.wrappedUserRootKey),
+          encryptedPersonalVaultKey: bytesToBase64(migratedProfile.encryptedPersonalVaultKey),
+          encryptionVersion: migratedProfile.encryptionVersion,
+        })
+      : Promise.resolve();
+  } catch (error) {
+    userRootKey.fill(0);
+    personalVaultKey.fill(0);
+    throw new VaultWorkspaceUnlockError("profile-rewrap", error);
+  }
   const persistence = signal
     ? null
     : Promise.resolve()
@@ -291,17 +350,26 @@ async function decryptAndPersistOnlineBundle(
   });
   try {
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
-    workspace = await loadWorkspace(
-      bundle,
-      userRootKey,
-      personalVaultKey,
-      "CURRENT",
-      ports,
-      signal,
-      activeResponse.userEncryptionIdentity,
-    );
+    try {
+      workspace = await loadWorkspace(
+        bundle,
+        userRootKey,
+        personalVaultKey,
+        "CURRENT",
+        ports,
+        signal,
+        activeResponse.userEncryptionIdentity,
+      );
+    } catch (error) {
+      if (isCancellationError(error)) throw error;
+      throw new VaultWorkspaceUnlockError("vault-content-decryption", error);
+    }
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
-    await migration;
+    try {
+      await migration;
+    } catch (error) {
+      throw new VaultWorkspaceUnlockError("profile-rewrap", error);
+    }
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
     if (persistence) {
       const result = await persistence;
@@ -662,6 +730,10 @@ function clearUserEncryptionPrivateKey(
   Reflect.set(privateKey, "x", "");
   Reflect.set(privateKey, "y", "");
   Reflect.set(privateKey, "d", "");
+}
+
+function isCancellationError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function cancellationError(message: string): Error {

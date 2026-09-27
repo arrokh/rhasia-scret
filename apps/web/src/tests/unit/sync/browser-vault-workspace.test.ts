@@ -46,6 +46,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 import {
   AuthorizedWorkspaceTransportError,
   PersonalVaultUnlockError,
+  VaultWorkspaceUnlockError,
   type AuthorizedWorkspaceResponse,
 } from "@rhasia-scret/client-vault-core";
 import {
@@ -90,7 +91,60 @@ describe("Vault workspace loading", () => {
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("personal-vault-key"))).toBe(
       "PERSONAL_VAULT_KEY_WRAP_FAILED",
     );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("workspace-response"))).toBe(
+      "WORKSPACE_RESPONSE_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("workspace-bundle"))).toBe(
+      "WORKSPACE_BUNDLE_INVALID",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("personal-vault-selection"))).toBe(
+      "PERSONAL_VAULT_MISMATCH",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("crypto-unlock"))).toBe(
+      "CRYPTO_UNLOCK_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("vault-content-decryption"))).toBe(
+      "VAULT_CONTENT_DECRYPTION_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("profile-rewrap"))).toBe(
+      "PROFILE_REWRAP_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("workspace-processing"))).toBe(
+      "WORKSPACE_PROCESSING_FAILED",
+    );
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("unexpected decrypt failure"))).toBe("UNKNOWN");
+  });
+
+  it("tags unexpected bundle-response and workspace-processing failures by phase only", async () => {
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(workspaceResponse());
+    await expect(loadUnlockedVaultWorkspace("secret", "unexpected-vault-id")).rejects.toMatchObject({
+      name: "VaultWorkspaceUnlockError",
+      stage: "personal-vault-selection",
+    });
+
+    mocks.unlockPersonalVault.mockRejectedValue(new Error("synthetic crypto failure"));
+    await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
+      name: "VaultWorkspaceUnlockError",
+      stage: "crypto-unlock",
+    });
+
+    mocks.fetchAuthorizedWorkspaceBundle.mockRejectedValue(new Error("synthetic response failure"));
+    await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
+      name: "VaultWorkspaceUnlockError",
+      stage: "workspace-response",
+      message: "Vault workspace unlock failed.",
+    });
+
+    const response = workspaceResponse();
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
+    mocks.decryptPayloadWithContext.mockRejectedValue(new Error("synthetic content failure"));
+
+    await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
+      name: "VaultWorkspaceUnlockError",
+      stage: "vault-content-decryption",
+      message: "Vault workspace unlock failed.",
+    });
   });
 
   it("decrypts and persists the Personal-only snapshot while keeping Shared Vault data transient", async () => {

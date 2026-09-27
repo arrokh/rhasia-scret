@@ -30,6 +30,7 @@ import {
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   LocalStorageSyncError,
   PersonalVaultUnlockError,
+  VaultWorkspaceUnlockError,
   type UnlockedVaultWorkspace,
   type WorkspaceAuthenticatorAccount,
 } from "@rhasia-scret/client-vault-core";
@@ -40,13 +41,20 @@ export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
 
 export type BrowserVaultWorkspaceUnlockFailure =
   | "AUTHENTICATION"
+  | "CRYPTO_UNLOCK_FAILED"
   | "LOCAL_STORAGE"
   | "KEY_DERIVATION_FAILED"
   | "PASSPHRASE"
   | "PERSONAL_VAULT_KEY_WRAP_FAILED"
   | "PROFILE_DATA_INVALID"
   | "PROFILE_MIGRATION_FAILED"
+  | "PROFILE_REWRAP_FAILED"
+  | "PERSONAL_VAULT_MISMATCH"
   | "ROOT_KEY_WRAP_FAILED"
+  | "WORKSPACE_BUNDLE_INVALID"
+  | "WORKSPACE_PROCESSING_FAILED"
+  | "WORKSPACE_RESPONSE_FAILED"
+  | "VAULT_CONTENT_DECRYPTION_FAILED"
   | "SYNC"
   | "UNKNOWN";
 
@@ -61,6 +69,16 @@ export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): Brow
     if (error.stage === "user-root-key") return "ROOT_KEY_WRAP_FAILED";
     if (error.stage === "personal-vault-key") return "PERSONAL_VAULT_KEY_WRAP_FAILED";
     if (error.stage === "profile-migration") return "PROFILE_MIGRATION_FAILED";
+    return "UNKNOWN";
+  }
+  if (error instanceof VaultWorkspaceUnlockError) {
+    if (error.stage === "workspace-response") return "WORKSPACE_RESPONSE_FAILED";
+    if (error.stage === "workspace-bundle") return "WORKSPACE_BUNDLE_INVALID";
+    if (error.stage === "personal-vault-selection") return "PERSONAL_VAULT_MISMATCH";
+    if (error.stage === "crypto-unlock") return "CRYPTO_UNLOCK_FAILED";
+    if (error.stage === "vault-content-decryption") return "VAULT_CONTENT_DECRYPTION_FAILED";
+    if (error.stage === "profile-rewrap") return "PROFILE_REWRAP_FAILED";
+    if (error.stage === "workspace-processing") return "WORKSPACE_PROCESSING_FAILED";
     return "UNKNOWN";
   }
   return "UNKNOWN";
