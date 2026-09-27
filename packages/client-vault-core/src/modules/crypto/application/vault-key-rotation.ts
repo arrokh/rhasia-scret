@@ -12,11 +12,18 @@ export type EncryptedVaultRotationResult = EncryptedVaultRotationInput & {
   vaultKey: Uint8Array;
 };
 
+/** Validates decrypted payloads against their owning domain contracts before rotation re-encrypts them. */
+export type VaultKeyRotationPayloadValidator = Readonly<{
+  validateVaultName(plaintext: Uint8Array): void;
+  validateAuthenticatorAccount(plaintext: Uint8Array): void;
+}>;
+
 /** Rotates Vault Encryption Key material entirely through the injected client crypto protocol. */
 export async function rotateVaultKeyWithCrypto(
   oldVaultKey: Uint8Array,
   input: EncryptedVaultRotationInput,
   crypto: ClientCryptoPort,
+  payloadValidator: VaultKeyRotationPayloadValidator,
   signal?: CancellationPort,
 ): Promise<EncryptedVaultRotationResult> {
   assertNotCancelled(signal);
@@ -29,7 +36,11 @@ export async function rotateVaultKeyWithCrypto(
     vaultId: input.vaultId,
     keyVersion: 1,
   };
-  const rotate = async (ciphertext: Uint8Array, context: CryptoEnvelopeContext): Promise<Uint8Array> => {
+  const rotate = async (
+    ciphertext: Uint8Array,
+    context: CryptoEnvelopeContext,
+    validatePlaintext: (plaintext: Uint8Array) => void,
+  ): Promise<Uint8Array> => {
     assertNotCancelled(signal);
     const sourceEnvelope = crypto.deserializeEncryptedEnvelope(ciphertext);
     let plaintext: Uint8Array;
@@ -43,6 +54,8 @@ export async function rotateVaultKeyWithCrypto(
       sourceEnvelope.ciphertext.fill(0);
     }
     try {
+      assertNotCancelled(signal);
+      validatePlaintext(plaintext);
       assertNotCancelled(signal);
       const envelope = await crypto.encryptPayloadWithContext(vaultKey, plaintext, context);
       try {
@@ -58,15 +71,21 @@ export async function rotateVaultKeyWithCrypto(
   };
 
   try {
-    encryptedName = await rotate(input.encryptedName, nameContext);
+    encryptedName = await rotate(input.encryptedName, nameContext, (plaintext) =>
+      payloadValidator.validateVaultName(plaintext),
+    );
     for (const ciphertext of input.encryptedAccounts) {
       encryptedAccounts.push(
-        await rotate(ciphertext, {
-          purpose: "authenticator-account",
-          payloadType: "totp-configuration",
-          vaultId: input.vaultId,
-          keyVersion: 1,
-        }),
+        await rotate(
+          ciphertext,
+          {
+            purpose: "authenticator-account",
+            payloadType: "totp-configuration",
+            vaultId: input.vaultId,
+            keyVersion: 1,
+          },
+          (plaintext) => payloadValidator.validateAuthenticatorAccount(plaintext),
+        ),
       );
     }
     assertNotCancelled(signal);

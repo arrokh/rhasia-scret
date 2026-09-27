@@ -4,6 +4,7 @@ import {
   bytesToBase64Url,
   createClientCryptoPort,
   createUserEncryptionIdentityWithCrypto,
+  parseDecryptedAccountPayload,
   recoverUserEncryptionPrivateKeyWithCrypto,
   rotateUserEncryptionIdentityWithCrypto,
   rotateVaultKeyWithCrypto,
@@ -290,7 +291,7 @@ describe("client crypto key-wrap protocol", () => {
     const crypto = createClientCryptoPort(new FakeCryptoPrimitives());
     const oldKey = new Uint8Array(32).fill(7);
     const name = new TextEncoder().encode("encrypted-name-placeholder");
-    const account = new TextEncoder().encode("encrypted-account-placeholder");
+    const account = syntheticAccountPayload();
     const nameContext = {
       purpose: "vault-name",
       payloadType: "vault-name",
@@ -313,6 +314,7 @@ describe("client crypto key-wrap protocol", () => {
       oldKey,
       { encryptedName, encryptedAccounts: [encryptedAccount], vaultId: "vault-1" },
       crypto,
+      testVaultKeyRotationPayloadValidator,
     );
 
     await expect(
@@ -340,7 +342,7 @@ describe("client crypto key-wrap protocol", () => {
     const oldKey = new Uint8Array(32).fill(18);
     const vaultId = "vault-legacy";
     const name = new TextEncoder().encode("Synthetic legacy name");
-    const account = new Uint8Array([4, 5, 6]);
+    const account = syntheticAccountPayload();
     const encryptedName = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(oldKey, name));
     const encryptedAccount = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(oldKey, account));
 
@@ -348,6 +350,7 @@ describe("client crypto key-wrap protocol", () => {
       oldKey,
       { vaultId, encryptedName, encryptedAccounts: [encryptedAccount] },
       crypto,
+      testVaultKeyRotationPayloadValidator,
     );
     const rotatedName = crypto.deserializeEncryptedEnvelope(rotated.encryptedName);
     const rotatedAccount = crypto.deserializeEncryptedEnvelope(rotated.encryptedAccounts[0]!);
@@ -408,7 +411,13 @@ describe("client crypto key-wrap protocol", () => {
     };
 
     await expect(
-      rotateVaultKeyWithCrypto(oldKey, { encryptedName, encryptedAccounts: [] }, crypto, signal),
+      rotateVaultKeyWithCrypto(
+        oldKey,
+        { encryptedName, encryptedAccounts: [] },
+        crypto,
+        testVaultKeyRotationPayloadValidator,
+        signal,
+      ),
     ).rejects.toMatchObject({ name: "AbortError" });
     expect(generatedKey).toBeDefined();
     expect([...generatedKey!].every((byte) => byte === 0)).toBe(true);
@@ -428,10 +437,10 @@ describe("client crypto key-wrap protocol", () => {
       await baseCrypto.encryptPayloadWithContext(oldKey, new TextEncoder().encode("synthetic"), nameContext),
     );
     const firstAccount = baseCrypto.serializeEncryptedEnvelope(
-      await baseCrypto.encryptPayloadWithContext(oldKey, new Uint8Array([1]), accountContext),
+      await baseCrypto.encryptPayloadWithContext(oldKey, syntheticAccountPayload(), accountContext),
     );
     const secondAccount = baseCrypto.serializeEncryptedEnvelope(
-      await baseCrypto.encryptPayloadWithContext(oldKey, new Uint8Array([2]), accountContext),
+      await baseCrypto.encryptPayloadWithContext(oldKey, syntheticAccountPayload(), accountContext),
     );
     let generatedKey: Uint8Array | undefined;
     let tracking = false;
@@ -457,7 +466,12 @@ describe("client crypto key-wrap protocol", () => {
     tracking = true;
 
     await expect(
-      rotateVaultKeyWithCrypto(oldKey, { encryptedName, encryptedAccounts: [firstAccount, secondAccount] }, crypto),
+      rotateVaultKeyWithCrypto(
+        oldKey,
+        { encryptedName, encryptedAccounts: [firstAccount, secondAccount] },
+        crypto,
+        testVaultKeyRotationPayloadValidator,
+      ),
     ).rejects.toThrow("synthetic decryption failure");
     expect(generatedKey).toBeDefined();
     expect([...generatedKey!].every((byte) => byte === 0)).toBe(true);
@@ -513,6 +527,30 @@ describe("client crypto key-wrap protocol", () => {
     ).rejects.toThrow("32-byte key");
   });
 });
+
+const testVaultKeyRotationPayloadValidator = {
+  validateVaultName(plaintext: Uint8Array): void {
+    const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
+    if (!name || name.length > 120) throw new Error("Vault name is invalid.");
+  },
+  validateAuthenticatorAccount(plaintext: Uint8Array): void {
+    const account = parseDecryptedAccountPayload(plaintext);
+    account.secret.fill(0);
+  },
+};
+
+function syntheticAccountPayload(): Uint8Array {
+  return new TextEncoder().encode(
+    JSON.stringify({
+      issuer: "Example Issuer",
+      accountName: "demo@example.invalid",
+      secret: "AQID",
+      algorithm: "SHA-1",
+      digits: 6,
+      period: 30,
+    }),
+  );
+}
 
 class FakeCryptoPrimitives implements CryptoPrimitivePort {
   private counter = 1;

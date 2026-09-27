@@ -118,6 +118,7 @@ describe("Vault workspace loading", () => {
     expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
     expect(response.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
     expect(mocks.replace.mock.calls[0]?.[0]).not.toHaveProperty("userEncryptionIdentity");
+    expect(privateKey).toMatchObject({ x: "", y: "", d: "" });
   });
 
   it("enrolls a missing User Encryption identity once and keeps its private-key backup out of offline storage", async () => {

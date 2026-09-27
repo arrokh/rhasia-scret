@@ -417,14 +417,15 @@ async function loadWorkspace(
       encryptedPrivateKey.fill(0);
     }
   }
-  const disposeSharedKeyCancellation = signal?.subscribe(() => {
-    for (const key of sharedVaultKeys) key.fill(0);
-  });
+  let disposeSharedKeyCancellation: (() => void) | undefined;
   let sharedResults: PromiseSettledResult<{
     vault: UnlockedVault;
     accountResult: Awaited<ReturnType<typeof decryptAccounts>>;
   }>[];
   try {
+    disposeSharedKeyCancellation = signal?.subscribe(() => {
+      for (const key of sharedVaultKeys) key.fill(0);
+    });
     sharedResults = await Promise.allSettled(
       sharedVaults.map(async (encryptedVault) => {
         const unlocked = await ports.crypto.unlockSharedVault(
@@ -470,6 +471,7 @@ async function loadWorkspace(
       throw cancellationError("Workspace refresh was cancelled.");
     }
   } finally {
+    clearUserEncryptionPrivateKey(userEncryptionPrivateKey);
     userEncryptionPrivateKey = undefined;
     disposeSharedKeyCancellation?.();
   }
@@ -640,6 +642,15 @@ function sortWorkspaceAccounts(accounts: WorkspaceAuthenticatorAccount[]): Works
       left.accountName.localeCompare(right.accountName) ||
       left.vaultName.localeCompare(right.vaultName),
   );
+}
+
+function clearUserEncryptionPrivateKey(
+  privateKey: Awaited<ReturnType<VaultWorkspacePlatformPorts["crypto"]["recoverUserEncryptionPrivateKey"]>> | undefined,
+): void {
+  if (!privateKey) return;
+  Reflect.set(privateKey, "x", "");
+  Reflect.set(privateKey, "y", "");
+  Reflect.set(privateKey, "d", "");
 }
 
 function cancellationError(message: string): Error {
