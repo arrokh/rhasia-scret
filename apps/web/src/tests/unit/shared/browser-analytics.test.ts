@@ -223,6 +223,20 @@ describe("browser analytics", () => {
       method: "passphrase",
       failure_code: "workspace_processing_failed",
     });
+
+    const vaultNameFailure = sanitizeAnalyticsCapture({
+      uuid: "vault-name-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "personal_vault_name_decryption_failed",
+        vault_name: "private-vault-name",
+      },
+    });
+    expect(vaultNameFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "personal_vault_name_decryption_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {

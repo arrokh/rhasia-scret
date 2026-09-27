@@ -234,16 +234,20 @@ function offlineUnlockFailureCode(
   | "key_derivation_failed"
   | "local_storage_failed"
   | "personal_vault_key_wrap_failed"
+  | "personal_vault_name_decryption_failed"
   | "profile_data_invalid"
   | "profile_migration_failed"
   | "root_key_wrap_failed"
   | "sync_failed"
-  | "unknown" {
+  | "unknown"
+  | "user_encryption_key_recovery_failed" {
   if (failure === "AUTHENTICATION") return "authentication_failed";
   if (failure === "LOCAL_STORAGE") return "local_storage_failed";
   if (failure === "SYNC") return "sync_failed";
   if (failure === "PASSPHRASE") return "invalid_secret";
   if (failure === "KEY_DERIVATION_FAILED") return "key_derivation_failed";
+  if (failure === "PERSONAL_VAULT_NAME_DECRYPTION_FAILED") return "personal_vault_name_decryption_failed";
+  if (failure === "USER_ENCRYPTION_KEY_RECOVERY_FAILED") return "user_encryption_key_recovery_failed";
   if (failure === "PROFILE_DATA_INVALID") return "profile_data_invalid";
   if (failure === "PROFILE_MIGRATION_FAILED") return "profile_migration_failed";
   if (failure === "ROOT_KEY_WRAP_FAILED") return "root_key_wrap_failed";

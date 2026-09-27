@@ -50,11 +50,13 @@ export type BrowserVaultWorkspaceUnlockFailure =
   | "PROFILE_MIGRATION_FAILED"
   | "PROFILE_REWRAP_FAILED"
   | "PERSONAL_VAULT_MISMATCH"
+  | "PERSONAL_VAULT_NAME_DECRYPTION_FAILED"
   | "ROOT_KEY_WRAP_FAILED"
   | "WORKSPACE_BUNDLE_INVALID"
   | "WORKSPACE_PROCESSING_FAILED"
   | "WORKSPACE_RESPONSE_FAILED"
   | "VAULT_CONTENT_DECRYPTION_FAILED"
+  | "USER_ENCRYPTION_KEY_RECOVERY_FAILED"
   | "SYNC"
   | "UNKNOWN";
 
@@ -75,6 +77,8 @@ export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): Brow
     if (error.stage === "workspace-response") return "WORKSPACE_RESPONSE_FAILED";
     if (error.stage === "workspace-bundle") return "WORKSPACE_BUNDLE_INVALID";
     if (error.stage === "personal-vault-selection") return "PERSONAL_VAULT_MISMATCH";
+    if (error.stage === "personal-vault-name-decryption") return "PERSONAL_VAULT_NAME_DECRYPTION_FAILED";
+    if (error.stage === "user-encryption-private-key-recovery") return "USER_ENCRYPTION_KEY_RECOVERY_FAILED";
     if (error.stage === "crypto-unlock") return "CRYPTO_UNLOCK_FAILED";
     if (error.stage === "vault-content-decryption") return "VAULT_CONTENT_DECRYPTION_FAILED";
     if (error.stage === "profile-rewrap") return "PROFILE_REWRAP_FAILED";

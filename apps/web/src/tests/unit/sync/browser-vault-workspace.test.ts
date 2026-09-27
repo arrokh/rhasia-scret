@@ -100,6 +100,12 @@ describe("Vault workspace loading", () => {
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("personal-vault-selection"))).toBe(
       "PERSONAL_VAULT_MISMATCH",
     );
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("personal-vault-name-decryption")),
+    ).toBe("PERSONAL_VAULT_NAME_DECRYPTION_FAILED");
+    expect(
+      classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("user-encryption-private-key-recovery")),
+    ).toBe("USER_ENCRYPTION_KEY_RECOVERY_FAILED");
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new VaultWorkspaceUnlockError("crypto-unlock"))).toBe(
       "CRYPTO_UNLOCK_FAILED",
     );
@@ -115,7 +121,7 @@ describe("Vault workspace loading", () => {
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("unexpected decrypt failure"))).toBe("UNKNOWN");
   });
 
-  it("tags unexpected bundle-response and workspace-processing failures by phase only", async () => {
+  it("tags unexpected online unlock failures by phase without exposing the cause", async () => {
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(workspaceResponse());
     await expect(loadUnlockedVaultWorkspace("secret", "unexpected-vault-id")).rejects.toMatchObject({
       name: "VaultWorkspaceUnlockError",
@@ -142,7 +148,23 @@ describe("Vault workspace loading", () => {
 
     await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
       name: "VaultWorkspaceUnlockError",
-      stage: "vault-content-decryption",
+      stage: "personal-vault-name-decryption",
+      message: "Vault workspace unlock failed.",
+    });
+
+    const responseWithIdentity = workspaceResponse();
+    responseWithIdentity.userEncryptionIdentity = {
+      publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+      encryptedPrivateKey: "AQ==",
+      encryptionVersion: 1,
+    };
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(responseWithIdentity);
+    mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Personal Vault"));
+    mocks.recoverUserEncryptionPrivateKey.mockRejectedValue(new Error("synthetic private key failure"));
+
+    await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
+      name: "VaultWorkspaceUnlockError",
+      stage: "user-encryption-private-key-recovery",
       message: "Vault workspace unlock failed.",
     });
   });

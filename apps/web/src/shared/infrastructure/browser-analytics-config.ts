@@ -121,6 +121,7 @@ type AnalyticsEventProperties = {
       | "local_storage_failed"
       | "personal_vault_key_wrap_failed"
       | "personal_vault_mismatch"
+      | "personal_vault_name_decryption_failed"
       | "profile_data_invalid"
       | "profile_migration_failed"
       | "profile_rewrap_failed"
@@ -132,7 +133,8 @@ type AnalyticsEventProperties = {
       | "workspace_bundle_invalid"
       | "workspace_processing_failed"
       | "workspace_response_failed"
-      | "vault_content_decryption_failed";
+      | "vault_content_decryption_failed"
+      | "user_encryption_key_recovery_failed";
   };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
   offline_vault_unlock_failed: {
@@ -143,12 +145,14 @@ type AnalyticsEventProperties = {
       | "key_derivation_failed"
       | "local_storage_failed"
       | "personal_vault_key_wrap_failed"
+      | "personal_vault_name_decryption_failed"
       | "profile_data_invalid"
       | "profile_migration_failed"
       | "root_key_wrap_failed"
       | "remembered_browser_error"
       | "sync_failed"
-      | "unknown";
+      | "unknown"
+      | "user_encryption_key_recovery_failed";
   };
   offline_vault_locked: undefined;
   offline_vault_cleared: undefined;
@@ -390,6 +394,7 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
       "local_storage_failed",
       "personal_vault_key_wrap_failed",
       "personal_vault_mismatch",
+      "personal_vault_name_decryption_failed",
       "profile_data_invalid",
       "profile_migration_failed",
       "profile_rewrap_failed",
@@ -401,6 +406,7 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
       "workspace_processing_failed",
       "workspace_response_failed",
       "vault_content_decryption_failed",
+      "user_encryption_key_recovery_failed",
       "migration_required",
       "permission_denied",
       "duplicate",

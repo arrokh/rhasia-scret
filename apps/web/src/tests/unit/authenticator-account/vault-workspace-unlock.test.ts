@@ -128,6 +128,8 @@ describe("locked Vault session", () => {
   it.each([
     ["LOCAL_STORAGE", "local_storage_failed"],
     ["SYNC", "sync_failed"],
+    ["PERSONAL_VAULT_NAME_DECRYPTION_FAILED", "personal_vault_name_decryption_failed"],
+    ["USER_ENCRYPTION_KEY_RECOVERY_FAILED", "user_encryption_key_recovery_failed"],
   ] as const)("logs %s failures using a bounded code", async (failure, failureCode) => {
     mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue(failure);
     mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic transport or storage detail"));

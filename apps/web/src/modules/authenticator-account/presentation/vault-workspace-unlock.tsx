@@ -302,6 +302,7 @@ type UnlockAnalyticsFailureCode =
   | "local_storage_failed"
   | "personal_vault_key_wrap_failed"
   | "personal_vault_mismatch"
+  | "personal_vault_name_decryption_failed"
   | "profile_data_invalid"
   | "profile_rewrap_failed"
   | "profile_migration_failed"
@@ -312,7 +313,8 @@ type UnlockAnalyticsFailureCode =
   | "workspace_bundle_invalid"
   | "workspace_processing_failed"
   | "workspace_response_failed"
-  | "vault_content_decryption_failed";
+  | "vault_content_decryption_failed"
+  | "user_encryption_key_recovery_failed";
 
 function classifyWorkspaceUnlockFailure(
   error: unknown,
@@ -347,6 +349,8 @@ function workspaceDiagnosticFailureCode(
 ): UnlockAnalyticsFailureCode | undefined {
   if (failure === "CRYPTO_UNLOCK_FAILED") return "crypto_unlock_failed";
   if (failure === "PERSONAL_VAULT_MISMATCH") return "personal_vault_mismatch";
+  if (failure === "PERSONAL_VAULT_NAME_DECRYPTION_FAILED") return "personal_vault_name_decryption_failed";
+  if (failure === "USER_ENCRYPTION_KEY_RECOVERY_FAILED") return "user_encryption_key_recovery_failed";
   if (failure === "PROFILE_REWRAP_FAILED") return "profile_rewrap_failed";
   if (failure === "VAULT_CONTENT_DECRYPTION_FAILED") return "vault_content_decryption_failed";
   if (failure === "WORKSPACE_BUNDLE_INVALID") return "workspace_bundle_invalid";

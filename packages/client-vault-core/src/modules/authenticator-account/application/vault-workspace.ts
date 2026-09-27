@@ -52,6 +52,8 @@ export type VaultWorkspaceUnlockFailureStage =
   | "workspace-bundle"
   | "personal-vault-selection"
   | "crypto-unlock"
+  | "personal-vault-name-decryption"
+  | "user-encryption-private-key-recovery"
   | "vault-content-decryption"
   | "profile-rewrap"
   | "workspace-processing";
@@ -361,7 +363,7 @@ async function decryptAndPersistOnlineBundle(
         activeResponse.userEncryptionIdentity,
       );
     } catch (error) {
-      if (isCancellationError(error)) throw error;
+      if (isCancellationError(error) || error instanceof VaultWorkspaceUnlockError) throw error;
       throw new VaultWorkspaceUnlockError("vault-content-decryption", error);
     }
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
@@ -461,14 +463,21 @@ async function loadWorkspace(
   signal?: CancellationPort,
   encryptedUserEncryptionIdentity?: EncryptedUserEncryptionIdentityProfile,
 ): Promise<UnlockedVaultWorkspace> {
-  const personalVault: UnlockedVault = {
-    id: bundle.personalVault.vaultId,
-    name: await decryptName(
+  let personalVaultName: string;
+  try {
+    personalVaultName = await decryptName(
       personalVaultKey,
       bundle.personalVault.encryptedName,
       { purpose: "vault-name", payloadType: "vault-name", keyVersion: bundle.cryptoProfile.encryptionVersion },
       ports,
-    ),
+    );
+  } catch (error) {
+    if (isCancellationError(error)) throw error;
+    throw new VaultWorkspaceUnlockError("personal-vault-name-decryption", error);
+  }
+  const personalVault: UnlockedVault = {
+    id: bundle.personalVault.vaultId,
+    name: personalVaultName,
     type: "PERSONAL",
     role: "OWNER",
     effectiveAccountPermissions: {
@@ -487,6 +496,9 @@ async function loadWorkspace(
     const encryptedPrivateKey = base64ToBytes(encryptedUserEncryptionIdentity.encryptedPrivateKey);
     try {
       userEncryptionPrivateKey = await ports.crypto.recoverUserEncryptionPrivateKey(userRootKey, encryptedPrivateKey);
+    } catch (error) {
+      if (isCancellationError(error)) throw error;
+      throw new VaultWorkspaceUnlockError("user-encryption-private-key-recovery", error);
     } finally {
       encryptedPrivateKey.fill(0);
     }
