@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { verifyReleaseWorkflowPolicy } from "./verify-release-workflow-policy.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -22,6 +23,7 @@ const formatWorkflow = read(".github/workflows/format.yml");
 const codeql = read(".github/workflows/codeql.yml");
 const dependencyReview = read(".github/workflows/dependency-review.yml");
 const releaseEvidence = read(".github/workflows/release-evidence.yml");
+const releaseWorkflow = read(".github/workflows/release.yml");
 const secretScan = read(".github/workflows/secret-scan.yml");
 const dependabot = read(".github/dependabot.yml");
 const monorepo = read("docs/monorepo.md");
@@ -50,6 +52,7 @@ for (const command of [
   "pnpm --filter @rhasia-scret/web run lint",
   "pnpm run typecheck:web",
   "pnpm run test:release-evidence",
+  "pnpm run test:release-process",
   "pnpm run test:web",
   "pnpm run test:architecture",
   "pnpm run build",
@@ -147,6 +150,9 @@ requireText(
   /schedule:\s*\n\s+- cron:/,
   "run a scheduled full-history scan",
 );
+const releaseWorkflowPolicy = verifyReleaseWorkflowPolicy(releaseWorkflow);
+for (const failure of releaseWorkflowPolicy.failures) failures.push(`.github/workflows/release.yml ${failure}`);
+
 for (const command of [
   "pnpm install --frozen-lockfile",
   "pnpm run verify:release-evidence",
@@ -181,6 +187,7 @@ const workflowPaths = [
   ".github/workflows/codeql.yml",
   ".github/workflows/dependency-review.yml",
   ".github/workflows/release-evidence.yml",
+  ".github/workflows/release.yml",
   ".github/workflows/secret-scan.yml",
 ];
 for (const relativePath of workflowPaths) {
@@ -199,5 +206,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "CI policy verified: main/PR quality gates, affected-package selection, bounded job budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
+  "CI policy verified: main/PR quality gates, exact-SHA release publication, affected-package selection, bounded budgets, fork-safe security checks, least privilege, coverage, and immutable action pins are present.",
 );

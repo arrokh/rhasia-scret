@@ -26,6 +26,9 @@ export function AppFooterLocaleSwitcher() {
       data-slot="app-footer-locale-switcher"
       className={footerLanguageIsMobileOnly(pathname) ? "contents sm:hidden" : "contents"}
     >
+      <span aria-hidden="true" className="select-none text-muted-foreground">
+        |
+      </span>
       <LocaleSwitcher triggerLabel={t("footerLabel")} />
     </span>
   );

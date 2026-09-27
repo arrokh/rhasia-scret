@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isValidSemVer } from "./release-version.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const serviceRoots = {
@@ -78,8 +80,47 @@ export function changedPathsBetween(previousSha, currentSha, cwd = repositoryRoo
     .filter(Boolean);
 }
 
+export function filterVersionOnlyManifestChanges(previousSha, currentSha, changedPaths, cwd = repositoryRoot) {
+  return changedPaths.filter((changedPath) => {
+    if (changedPath !== "package.json" && !/^(?:apps|packages)\/[^/]+\/package\.json$/.test(changedPath)) return true;
+    return !isVersionOnlyManifestChange(previousSha, currentSha, changedPath, cwd);
+  });
+}
+
+export function isVersionOnlyManifestChange(previousSha, currentSha, manifestPath, cwd = repositoryRoot) {
+  const previous = readManifestAtRevision(previousSha, manifestPath, cwd);
+  const current = readManifestAtRevision(currentSha, manifestPath, cwd);
+  if (
+    !previous ||
+    !current ||
+    typeof previous.version !== "string" ||
+    typeof current.version !== "string" ||
+    !isValidSemVer(previous.version) ||
+    !isValidSemVer(current.version)
+  ) {
+    throw new Error(`Cannot safely compare product versions in ${manifestPath}.`);
+  }
+  if (previous.version === current.version) return false;
+
+  delete previous.version;
+  delete current.version;
+  return isDeepStrictEqual(previous, current);
+}
+
 export function shouldIgnoreDeployment(service, changedPaths, root = repositoryRoot) {
   return !isServiceAffected(service, changedPaths, root);
+}
+
+function readManifestAtRevision(revision, manifestPath, cwd) {
+  const source = execFileSync("git", ["show", `${revision}:${manifestPath}`], {
+    cwd,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+  });
+  const manifest = JSON.parse(source);
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) return null;
+  return structuredClone(manifest);
 }
 
 function workspaceDependencyNames(manifest) {
@@ -128,7 +169,8 @@ function run() {
   }
 
   try {
-    if (shouldIgnoreDeployment(service, changedPaths)) {
+    const effectivePaths = filterVersionOnlyManifestChanges(previousSha, targetSha, changedPaths);
+    if (shouldIgnoreDeployment(service, effectivePaths)) {
       console.info(`[vercel-ignore] ${service}: no affected files; skipping deployment.`);
       return 0;
     }

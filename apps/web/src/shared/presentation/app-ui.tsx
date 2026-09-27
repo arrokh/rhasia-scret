@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AppFooterLocaleSwitcher } from "@/shared/presentation/app-footer-locale-switcher";
+import productMetadata from "../../../../../package.json";
 
 export function AppPage({
   children,
@@ -131,17 +132,31 @@ export function AppFooterContent({
       </p>
       <nav
         aria-label={t("footerNavigation")}
-        className="flex items-center justify-self-center gap-3 text-xs font-bold text-muted-foreground sm:col-start-3 sm:row-start-1 sm:justify-self-end"
+        className="flex items-center justify-self-center gap-2 text-xs font-bold text-muted-foreground sm:col-start-3 sm:row-start-1 sm:justify-self-end"
       >
+        <span data-slot="app-footer-release-version" className="whitespace-nowrap">
+          <span aria-hidden="true">{`v${productMetadata.version}`}</span>
+          <span className="sr-only">{t("releaseVersion", { version: productMetadata.version })}</span>
+        </span>
         <AppFooterLocaleSwitcher />
-        <Link href="/privacy" className="underline-offset-4 hover:text-primary hover:underline">
+        <FooterSeparator />
+        <Link href="/privacy" className="whitespace-nowrap underline-offset-4 hover:text-primary hover:underline">
           {t("privacy")}
         </Link>
-        <Link href="/support" className="underline-offset-4 hover:text-primary hover:underline">
+        <FooterSeparator />
+        <Link href="/support" className="whitespace-nowrap underline-offset-4 hover:text-primary hover:underline">
           {t("support")}
         </Link>
       </nav>
     </div>
+  );
+}
+
+function FooterSeparator() {
+  return (
+    <span aria-hidden="true" className="select-none text-border">
+      |
+    </span>
   );
 }
 

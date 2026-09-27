@@ -181,6 +181,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     language: "language",
     phrase: "HAPUS AKUN",
     receiptId: "receipt-id",
+    version: "0.1.0",
     name: "name",
     newVault: "no",
     number: 2,

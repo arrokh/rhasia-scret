@@ -12,6 +12,18 @@ All production and development-preview presentation copy is available in Indones
 The unauthenticated root presentation that explains Local and hosted Vault choices and links into their workflows. It owns marketing composition and preview-only demonstrations, not Vault state, authentication, cryptography, or TOTP behavior.
 _Avoid_: Landing Vault, public Vault
 
+**Product Release Version**:
+The shared SemVer identifier for a versioned repository release. It is distinct from encrypted-protocol versions and native store build numbers.
+_Avoid_: protocol version, native build number
+
+**Repository Release**:
+An immutable, versioned source snapshot of the repository, identified by its source commit and published as a release record. It does not itself change which service implementation is running or distribute native mobile builds.
+_Avoid_: service deployment, mobile store release
+
+**Service Deployment**:
+A change to the running implementation of an individual service. It is operationally distinct from publishing a Repository Release.
+_Avoid_: repository release, product version
+
 **Vault**:
 A named collection of authenticator accounts controlled by its owner and, when shared, accessible to its members.
 

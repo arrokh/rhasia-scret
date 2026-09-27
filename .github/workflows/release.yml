@@ -1,0 +1,249 @@
+name: Repository release publication
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Identify dedicated release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      publish: ${{ steps.candidate.outputs.publish }}
+      version: ${{ steps.candidate.outputs.version }}
+      tag: ${{ steps.candidate.outputs.tag }}
+      readiness_record: ${{ steps.candidate.outputs.readiness_record }}
+      pull_request: ${{ steps.candidate.outputs.pull_request }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+      - name: Confirm this is a dedicated release PR merge
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')"
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "::error::Root product version is not stable SemVer."; exit 1; }
+          TAG="v${VERSION}"
+          EXPECTED_TITLE="[infra][chore] Prepare release ${TAG}"
+          JQ_FILTER=".[] | select(.base.ref == \"main\" and .merged_at != null and .title == \"${EXPECTED_TITLE}\") | .number"
+          PR_NUMBERS="$(gh api "repos/${GH_REPOSITORY}/commits/${SOURCE_SHA}/pulls" --jq "$JQ_FILTER")"
+          if [[ -z "$PR_NUMBERS" ]]; then
+            printf '%s\n' 'publish=false' >> "$GITHUB_OUTPUT"
+            echo "No merged dedicated release PR for ${TAG}; publication is skipped."
+            exit 0
+          fi
+          if [[ "$(printf '%s\n' "$PR_NUMBERS" | wc -l | tr -d ' ')" != "1" ]]; then
+            echo "::error::More than one merged release PR claims ${TAG}."
+            exit 1
+          fi
+          PR_NUMBER="$PR_NUMBERS"
+          PR_BASE_SHA="$(gh api "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}/commits" --jq '.[0].parents[0].sha')"
+          FILES="$(gh api --paginate "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
+          RECORD="docs/release-readiness/${TAG}.md"
+          grep -Fxq "CHANGELOG.md" <<< "$FILES" || { echo "::error::Release PR must update CHANGELOG.md."; exit 1; }
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              CHANGELOG.md|"$RECORD"|package.json|apps/*/package.json|packages/*/package.json|apps/mobile/app.config.ts) ;;
+              *) echo "::error::Release PR contains out-of-scope file ${path}."; exit 1 ;;
+            esac
+          done <<< "$FILES"
+          node tools/verify-release-pr-changes.mjs --version "$VERSION" --sha "$SOURCE_SHA" --base "$PR_BASE_SHA"
+          {
+            printf 'publish=true\n'
+            printf 'version=%s\n' "$VERSION"
+            printf 'tag=%s\n' "$TAG"
+            printf 'readiness_record=%s\n' "$RECORD"
+            printf 'pull_request=%s\n' "$PR_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+          {
+            printf '### Release candidate %s\n' "$TAG"
+            printf '%s\n' "- Merged release PR: #${PR_NUMBER}"
+            printf -- '- Source commit: `%s`\n' "$SOURCE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    name: Verify exact release source
+    needs: candidate
+    if: needs.candidate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.17.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify candidate readiness
+        env:
+          RELEASE_READINESS_RECORD: ${{ needs.candidate.outputs.readiness_record }}
+        run: pnpm run verify:release-evidence:ready
+      - name: Verify version alignment and publication notes
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          pnpm run verify:version-alignment
+          node tools/release-publication.mjs --sha "$SOURCE_SHA" --notes-file "$RUNNER_TEMP/release-notes.md"
+      - name: Run the complete isolated repository gate
+        run: pnpm run test:full:container
+      - name: Record exact-source verification evidence
+        id: source
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          [[ "$ACTUAL_SHA" == "$EXPECTED_SHA" ]]
+          mkdir -p "$RUNNER_TEMP/repository-release-evidence"
+          printf '%s\n' "$ACTUAL_SHA" > "$RUNNER_TEMP/repository-release-evidence/source-commit.txt"
+          printf '%s\n' "$VERSION" > "$RUNNER_TEMP/repository-release-evidence/version.txt"
+          node --version > "$RUNNER_TEMP/repository-release-evidence/toolchain.txt"
+          pnpm --version >> "$RUNNER_TEMP/repository-release-evidence/toolchain.txt"
+          sha256sum pnpm-lock.yaml > "$RUNNER_TEMP/repository-release-evidence/lockfile.sha256"
+          sha256sum "$RUNNER_TEMP/release-notes.md" > "$RUNNER_TEMP/repository-release-evidence/release-notes.sha256"
+          printf '%s\n' \
+            'candidate-readiness=passed' \
+            'version-alignment=passed' \
+            'workflow-policy=passed' \
+            'format=passed' \
+            'release-process-tests=passed' \
+            'test-full-container=passed' > "$RUNNER_TEMP/repository-release-evidence/checks.txt"
+          echo "sha=${ACTUAL_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Upload exact-source verification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repository-release-${{ needs.candidate.outputs.version }}-${{ github.sha }}
+          path: ${{ runner.temp }}/repository-release-evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish annotated tag and GitHub Release
+    needs: [candidate, verify]
+    if: needs.candidate.outputs.publish == 'true' && needs.verify.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: repository-release-publish-${{ needs.candidate.outputs.tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.17.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+      - name: Revalidate exact tested source and prepare notes
+        env:
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
+          node tools/release-publication.mjs --sha "$SOURCE_SHA" --notes-file "$RUNNER_TEMP/release-notes.md"
+      - name: Create or verify the immutable annotated release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.candidate.outputs.tag }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/tags/${TAG}"; then
+            EXISTING_SHA="$(git rev-parse "${TAG}^{commit}")"
+            OBJECT_TYPE="$(git cat-file -t "refs/tags/${TAG}")"
+            [[ "$EXISTING_SHA" == "$SOURCE_SHA" ]] || { echo "::error::${TAG} points at ${EXISTING_SHA}, not tested commit ${SOURCE_SHA}."; exit 1; }
+            [[ "$OBJECT_TYPE" == "tag" ]] || { echo "::error::${TAG} is lightweight; refusing replacement."; exit 1; }
+            echo "Verified existing annotated tag ${TAG} at ${SOURCE_SHA}."
+          else
+            git tag -a "$TAG" "$SOURCE_SHA" -m "Repository release ${TAG}"
+            git push origin "refs/tags/${TAG}"
+          fi
+      - name: Create or verify the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.candidate.outputs.tag }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/existing-release-body.md" 2>/dev/null; then
+            grep -Fq "Source commit: ${SOURCE_SHA}" "$RUNNER_TEMP/existing-release-body.md" || {
+              echo "::error::Existing GitHub Release ${TAG} does not identify the tested source commit."; exit 1;
+            }
+            echo "Verified existing GitHub Release ${TAG} for ${SOURCE_SHA}."
+          else
+            gh release create "$TAG" \
+              --title "rhasia-scret v${VERSION}" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+      - name: Record and upload publication provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.candidate.outputs.tag }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/repository-release-publication"
+          printf '%s\n' "$SOURCE_SHA" > "$RUNNER_TEMP/repository-release-publication/source-commit.txt"
+          printf '%s\n' "$VERSION" > "$RUNNER_TEMP/repository-release-publication/version.txt"
+          printf '%s\n' "$TAG" > "$RUNNER_TEMP/repository-release-publication/tag.txt"
+          git rev-parse "${TAG}^{commit}" > "$RUNNER_TEMP/repository-release-publication/tag-target.txt"
+          git cat-file -t "refs/tags/${TAG}" > "$RUNNER_TEMP/repository-release-publication/tag-object-type.txt"
+          gh release view "$TAG" --json url --jq .url > "$RUNNER_TEMP/repository-release-publication/github-release-url.txt"
+          node --version > "$RUNNER_TEMP/repository-release-publication/toolchain.txt"
+          pnpm --version >> "$RUNNER_TEMP/repository-release-publication/toolchain.txt"
+          sha256sum pnpm-lock.yaml > "$RUNNER_TEMP/repository-release-publication/lockfile.sha256"
+          sha256sum "$RUNNER_TEMP/release-notes.md" > "$RUNNER_TEMP/repository-release-publication/release-notes.sha256"
+          printf '%s\n' \
+            'candidate-readiness=passed' \
+            'version-alignment=passed' \
+            'workflow-policy=passed' \
+            'format=passed' \
+            'release-process-tests=passed' \
+            'test-full-container=passed' \
+            'annotated-tag=verified' \
+            'github-release=created-or-verified' > "$RUNNER_TEMP/repository-release-publication/checks.txt"
+      - name: Upload publication provenance
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repository-release-publication-${{ needs.candidate.outputs.version }}-${{ github.sha }}
+          path: ${{ runner.temp }}/repository-release-publication/
+          if-no-files-found: error
+          retention-days: 90

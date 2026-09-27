@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultRecord, findUnpinnedActionReferences, parseReadinessRecord } from "./verify-release-evidence.mjs";
+import {
+  currentReadinessRecord,
+  findUnpinnedActionReferences,
+  parseReadinessRecord,
+  verifyCandidateReadiness,
+} from "./verify-release-evidence.mjs";
 
 const validRecord = `# Launch readiness — 2026-09-08
 
@@ -36,8 +41,13 @@ Evidence owner: repository maintainers
 1. Record repository evidence.
 `;
 
-test("accepts a complete repository readiness record", () => {
-  const result = parseReadinessRecord(validRecord, "fixture.md");
+test("accepts a complete candidate readiness record with a matching version", () => {
+  const result = verifyCandidateReadiness({
+    source: validRecord,
+    recordPath: "fixture.md",
+    expectedVersion: "0.1.0",
+    requireReady: true,
+  });
   assert.equal(result.valid, true);
   assert.equal(result.decision, "READY FOR HUMAN RELEASE REVIEW");
   assert.equal(result.candidateVersion, "0.1.0");
@@ -52,10 +62,37 @@ test("rejects a readiness record with missing metadata and sections", () => {
   assert.ok(result.failures.some((failure) => failure.includes("## External evidence")));
 });
 
-test("uses the current readiness record by default", () => {
-  assert.equal(defaultRecord, "docs/release-readiness/2026-09-18.md");
-  const result = parseReadinessRecord("");
-  assert.ok(result.failures.every((failure) => failure.includes(defaultRecord)));
+test("selects readiness records by candidate version rather than a historical date", () => {
+  assert.equal(currentReadinessRecord("0.1.0"), "docs/release-readiness/v0.1.0.md");
+  assert.throws(() => currentReadinessRecord("not-semver"), /Invalid SemVer/);
+});
+
+test("rejects a candidate whose version differs from the root release version", () => {
+  const result = verifyCandidateReadiness({
+    source: validRecord,
+    recordPath: "fixture.md",
+    expectedVersion: "0.1.1",
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.failures.some((failure) => failure.includes("does not match root version 0.1.1")));
+});
+
+test("rejects HOLD when publication readiness is required", () => {
+  const holdRecord = validRecord.replace("**READY FOR HUMAN RELEASE REVIEW**", "**HOLD**");
+  const result = verifyCandidateReadiness({
+    source: holdRecord,
+    recordPath: "fixture.md",
+    expectedVersion: "0.1.0",
+    requireReady: true,
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.failures.some((failure) => failure.includes("must say READY FOR HUMAN RELEASE REVIEW")));
+});
+
+test("fails closed when an explicit readiness record is missing", () => {
+  const result = parseReadinessRecord("", "docs/release-readiness/v0.1.0.md");
+  assert.equal(result.valid, false);
+  assert.ok(result.failures.every((failure) => failure.includes("docs/release-readiness/v0.1.0.md")));
 });
 
 test("finds unpinned actions in YAML list items", () => {

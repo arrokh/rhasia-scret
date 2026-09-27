@@ -1,41 +1,84 @@
-import { readFile } from "node:fs/promises";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { isValidSemVer } from "./release-version.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
-const packageFiles = [
-  "package.json",
-  "apps/web/package.json",
-  "apps/mobile/package.json",
-  "packages/client-vault-core/package.json",
-];
-
-const packageVersions = await Promise.all(
-  packageFiles.map(async (relativePath) => {
-    const contents = await readFile(resolve(repositoryRoot, relativePath), "utf8");
-    const packageJson = JSON.parse(contents);
-    return [relativePath, packageJson.version];
-  }),
-);
-
-const appConfig = await readFile(resolve(repositoryRoot, "apps/mobile/app.config.ts"), "utf8");
-const appConfigVersion = appConfig.match(/^\s*version:\s*"([^"]+)"\s*,?\s*$/m)?.[1];
-const versions = [...packageVersions, ["apps/mobile/app.config.ts", appConfigVersion]];
-const [sourcePath, sourceVersion] = versions[0];
-
-if (typeof sourceVersion !== "string" || !versionPattern.test(sourceVersion)) {
-  throw new Error(`${sourcePath} must define a valid SemVer release version.`);
+export function versionedPackageFiles(root = repositoryRoot) {
+  const files = ["package.json"];
+  for (const parent of ["apps", "packages"]) {
+    const directory = resolve(root, parent);
+    if (!existsSync(directory)) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const relativePath = `${parent}/${entry.name}/package.json`;
+      if (existsSync(resolve(root, relativePath))) files.push(relativePath);
+    }
+  }
+  return files.sort((left, right) =>
+    left === "package.json" ? -1 : right === "package.json" ? 1 : left.localeCompare(right),
+  );
 }
 
-const mismatches = versions.filter(
-  ([, version]) => version !== sourceVersion || typeof version !== "string" || !versionPattern.test(version),
-);
-if (mismatches.length > 0) {
-  const details = mismatches.map(([path, version]) => `${path}=${String(version)}`).join(", ");
-  throw new Error(`Release version ${sourceVersion} is not aligned: ${details}`);
+export function verifyVersionAlignment(root = repositoryRoot) {
+  const failures = [];
+  const versions = [];
+  for (const relativePath of versionedPackageFiles(root)) {
+    let packageJson;
+    try {
+      packageJson = JSON.parse(readFileSync(resolve(root, relativePath), "utf8"));
+    } catch {
+      failures.push(`${relativePath} must contain valid JSON.`);
+      continue;
+    }
+    if (!packageJson || typeof packageJson !== "object" || Array.isArray(packageJson)) {
+      failures.push(`${relativePath} must contain a JSON object.`);
+      continue;
+    }
+    versions.push([relativePath, packageJson.version]);
+  }
+
+  const appConfigPath = "apps/mobile/app.config.ts";
+  let appConfig = "";
+  if (!existsSync(resolve(root, appConfigPath))) {
+    failures.push(`${appConfigPath} is missing.`);
+  } else {
+    appConfig = readFileSync(resolve(root, appConfigPath), "utf8");
+  }
+  const appConfigVersion = appConfig.match(/^\s*version:\s*"([^"]+)"\s*,?\s*$/m)?.[1];
+  versions.push([appConfigPath, appConfigVersion]);
+
+  const sourcePath = versions.find(([path]) => path === "package.json")?.[0] ?? "package.json";
+  const sourceVersion = versions.find(([path]) => path === sourcePath)?.[1];
+  if (typeof sourceVersion !== "string" || !isValidSemVer(sourceVersion)) {
+    failures.push(`${sourcePath} must define a valid SemVer release version.`);
+  }
+
+  for (const [path, version] of versions) {
+    if (typeof version !== "string" || !isValidSemVer(version)) {
+      failures.push(`${path} must define a valid SemVer release version.`);
+      continue;
+    }
+    if (typeof sourceVersion === "string" && version !== sourceVersion) {
+      failures.push(`${path}=${version} does not match root release version ${sourceVersion}.`);
+    }
+  }
+
+  return { valid: failures.length === 0, sourceVersion, versions, failures };
 }
 
-console.info(
-  `Release version ${sourceVersion} is aligned across the root, web, mobile, core, and Expo app configuration.`,
-);
+function main() {
+  const result = verifyVersionAlignment();
+  if (!result.valid) {
+    console.error("Release version alignment verification failed:");
+    for (const failure of result.failures) console.error(`- ${failure}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.info(
+    `Release version ${result.sourceVersion} is aligned across ${result.versions.length} manifests and the Expo app configuration.`,
+  );
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

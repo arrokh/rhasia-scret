@@ -1,5 +1,7 @@
 # Mobile release configuration
 
+This guide applies to native iOS/Android distribution. The API/Web repository release keeps the mobile workspace version metadata aligned but does not require native compilation, signing, store submission, or real-device checks. Those remain required before a separate native distribution release.
+
 The Expo SDK 57 React Native client uses the stable identifiers `com.arrokh.rhasiascret` on iOS and Android. Its HTTPS web-link host is configured through `EXPO_PUBLIC_WEB_ORIGIN` and must match the deployed web origin. The release target covers hosted Personal Vault use, partial Shared Vault access/invitation implementations, and read-only encrypted Personal-only offline snapshots; Shared Vault use remains online-only. Full native Shared Vault management and the remaining native Authenticator Account lifecycle/TOTP UX are tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183) and [#184](https://github.com/arrokh/rhasia-scret/issues/184); browser Local Profile/Local Vault and native WebAuthn PRF-equivalent recovery are outside this target.
 
 ## Verified links
