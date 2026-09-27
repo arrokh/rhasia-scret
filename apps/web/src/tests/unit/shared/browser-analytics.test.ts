@@ -181,6 +181,20 @@ describe("browser analytics", () => {
       method: "passkey",
       failure_code: "passkey_error",
     });
+
+    const rootKeyWrapFailure = sanitizeAnalyticsCapture({
+      uuid: "root-key-wrap-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "root_key_wrap_failed",
+        passphrase: "must-not-be-captured",
+      },
+    });
+    expect(rootKeyWrapFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "root_key_wrap_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {

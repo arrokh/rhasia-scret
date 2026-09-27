@@ -113,12 +113,23 @@ type AnalyticsEventProperties = {
   vault_unlocked: { method: AnalyticsVaultUnlockMethod };
   vault_unlock_failed: {
     method: AnalyticsVaultUnlockMethod;
-    failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error" | "unknown";
+    failure_code:
+      | "invalid_secret"
+      | "personal_vault_key_wrap_failed"
+      | "root_key_wrap_failed"
+      | "remembered_browser_error"
+      | "passkey_error"
+      | "unknown";
   };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
   offline_vault_unlock_failed: {
     method: AnalyticsOfflineUnlockMethod;
-    failure_code: "invalid_secret" | "remembered_browser_error";
+    failure_code:
+      | "invalid_secret"
+      | "personal_vault_key_wrap_failed"
+      | "root_key_wrap_failed"
+      | "remembered_browser_error"
+      | "unknown";
   };
   offline_vault_locked: undefined;
   offline_vault_cleared: undefined;
@@ -354,6 +365,8 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
       "rate_limited",
       "provider_error",
       "invalid_secret",
+      "personal_vault_key_wrap_failed",
+      "root_key_wrap_failed",
       "remembered_browser_error",
       "passkey_error",
       "migration_required",

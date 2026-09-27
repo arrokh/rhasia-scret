@@ -12,6 +12,8 @@ import {
   unlockPersonalVaultWithUserRootKey,
 } from "@/modules/crypto/infrastructure/browser-personal-vault-unlock";
 import { deriveVaultUnlockKey } from "@/modules/crypto/infrastructure/browser-vault-unlock-key";
+import { wrapUserRootKeyWithVaultUnlockSecret } from "@/modules/crypto/infrastructure/browser-vault-unlock-secret-change";
+import { PersonalVaultUnlockError } from "@rhasia-scret/client-vault-core";
 
 describe("unlockPersonalVault", () => {
   it("recovers the Personal Vault Encryption Key only with the Vault Unlock Secret", async () => {
@@ -21,12 +23,56 @@ describe("unlockPersonalVault", () => {
       personalVaultKey: expect.any(Uint8Array),
     });
     const unlocked = await unlockPersonalVault(secret, material);
-    await expect(unlockPersonalVault("golf hotel india juliet kilo lima", material)).rejects.toThrow(
-      "authentication failed",
-    );
+    await expect(unlockPersonalVault("golf hotel india juliet kilo lima", material)).rejects.toMatchObject({
+      name: "PersonalVaultUnlockError",
+      stage: "user-root-key",
+    } satisfies Partial<PersonalVaultUnlockError>);
+    await expect(unlockPersonalVault("x", material)).rejects.toMatchObject({
+      name: "PersonalVaultUnlockError",
+      stage: "invalid-secret",
+    } satisfies Partial<PersonalVaultUnlockError>);
     await expect(unlockPersonalVaultWithUserRootKey(unlocked.userRootKey, material)).resolves.toEqual(
       unlocked.personalVaultKey,
     );
+  });
+
+  it("unlocks with the replacement passphrase after the User Root Key is rewrapped", async () => {
+    const originalSecret = "original alpha bravo charlie";
+    const replacementSecret = "replacement delta echo foxtrot";
+    const profile = await initializePersonalVaultInBrowser(originalSecret, "Personal Vault");
+    let originalUnlock: Awaited<ReturnType<typeof unlockPersonalVault>> | undefined;
+    let replacementUnlock: Awaited<ReturnType<typeof unlockPersonalVault>> | undefined;
+    let replacementProfile: { vaultUnlockSalt: Uint8Array; wrappedUserRootKey: Uint8Array } | undefined;
+
+    try {
+      originalUnlock = await unlockPersonalVault(originalSecret, profile);
+      replacementProfile = await wrapUserRootKeyWithVaultUnlockSecret(originalUnlock.userRootKey, replacementSecret);
+      const rewrappedProfile = {
+        ...profile,
+        vaultUnlockSalt: replacementProfile.vaultUnlockSalt,
+        wrappedUserRootKey: replacementProfile.wrappedUserRootKey,
+      };
+      replacementUnlock = await unlockPersonalVault(replacementSecret, rewrappedProfile);
+
+      expect(replacementUnlock.userRootKey).toEqual(originalUnlock.userRootKey);
+      expect(replacementUnlock.personalVaultKey).toEqual(originalUnlock.personalVaultKey);
+      await expect(unlockPersonalVault(originalSecret, rewrappedProfile)).rejects.toMatchObject({
+        name: "PersonalVaultUnlockError",
+        stage: "user-root-key",
+      });
+    } finally {
+      originalUnlock?.userRootKey.fill(0);
+      originalUnlock?.personalVaultKey.fill(0);
+      replacementUnlock?.userRootKey.fill(0);
+      replacementUnlock?.personalVaultKey.fill(0);
+      replacementProfile?.vaultUnlockSalt.fill(0);
+      replacementProfile?.wrappedUserRootKey.fill(0);
+      profile.vaultUnlockSalt.fill(0);
+      profile.wrappedUserRootKey.fill(0);
+      profile.encryptedPersonalVaultKey.fill(0);
+      profile.encryptedVaultName.fill(0);
+      profile.encryptedUserPrivateKey.fill(0);
+    }
   });
 
   it("migrates a legacy profile envelope during unlock instead of rejecting a correct secret", async () => {

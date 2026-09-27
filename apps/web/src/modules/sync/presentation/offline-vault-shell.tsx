@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  classifyBrowserVaultWorkspaceUnlockFailure,
   loadOfflineVaultWorkspace,
   loadOfflineVaultWorkspaceWithRememberedBrowser,
+  type BrowserVaultWorkspaceUnlockFailure,
   type UnlockedVaultWorkspace,
 } from "../infrastructure/browser-vault-workspace";
 import { TotpAccountButton } from "@/modules/otp-runtime";
@@ -44,12 +46,14 @@ export function OfflineVaultShell() {
         replaceWorkspace(await loadOfflineVaultWorkspace(value.profileId, value.secret));
         captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlocked, { method: "passphrase" });
         form.setFieldValue("secret", "");
-      } catch {
+      } catch (error) {
+        const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
+        const failureCode = offlineUnlockFailureCode(failure);
         captureAnalyticsEvent(ANALYTICS_EVENTS.offlineVaultUnlockFailed, {
           method: "passphrase",
-          failure_code: "invalid_secret",
+          failure_code: failureCode,
         });
-        setStatus("unlock_error");
+        setStatus(failure === "LOCAL_STORAGE" ? "storage_error" : "unlock_error");
       }
     },
   });
@@ -220,6 +224,15 @@ export function OfflineVaultShell() {
       </SurfaceCard>
     </AppPage>
   );
+}
+
+function offlineUnlockFailureCode(
+  failure: BrowserVaultWorkspaceUnlockFailure,
+): "invalid_secret" | "personal_vault_key_wrap_failed" | "root_key_wrap_failed" | "unknown" {
+  if (failure === "PASSPHRASE") return "invalid_secret";
+  if (failure === "ROOT_KEY_WRAP_FAILED") return "root_key_wrap_failed";
+  if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED") return "personal_vault_key_wrap_failed";
+  return "unknown";
 }
 
 function UnlockedOfflineWorkspace({

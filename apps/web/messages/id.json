@@ -625,6 +625,7 @@
       "authenticationError": "Sesi masuk Anda telah berakhir. Masuk lagi sebelum membuka brankas.",
       "signInAgain": "Masuk lagi",
       "syncError": "Data brankas terenkripsi tidak dapat dimuat. Coba lagi.",
+      "unlockError": "Brankas gagal dibuka karena masalah yang tidak terduga. Muat ulang halaman atau coba Buka dengan passkey. Jika masalah berlanjut, hubungi dukungan.",
       "passkeyError": "Passkey tidak dapat membuka brankas. Coba lagi atau gunakan Passphrase Brankas.",
       "rememberedError": "Verifikasi Lokal gagal atau paket browser tidak valid. Gunakan Passphrase Brankas; tidak ada kunci yang dilepas tanpa verifikasi."
     },

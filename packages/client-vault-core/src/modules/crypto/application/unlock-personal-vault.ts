@@ -21,6 +21,19 @@ export type PersonalVaultUnlockResult = {
   migratedProfile?: EncryptedPersonalVaultProfile;
 };
 
+export type PersonalVaultUnlockFailureStage =
+  "invalid-secret" | "key-derivation" | "user-root-key" | "personal-vault-key";
+
+export class PersonalVaultUnlockError extends Error {
+  public constructor(
+    public readonly stage: PersonalVaultUnlockFailureStage,
+    cause?: unknown,
+  ) {
+    super("Personal Vault cryptographic unlock failed.", { cause });
+    this.name = "PersonalVaultUnlockError";
+  }
+}
+
 export type PersonalVaultUnlockPorts = {
   crypto: ClientCryptoPort;
   keyDerivation: KeyDerivationPort;
@@ -32,32 +45,49 @@ export async function unlockPersonalVault(
   ports: PersonalVaultUnlockPorts,
 ): Promise<PersonalVaultUnlockResult> {
   if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
-  validateVaultUnlockSecret(vaultUnlockSecret);
+  try {
+    validateVaultUnlockSecret(vaultUnlockSecret);
+  } catch (error) {
+    throw new PersonalVaultUnlockError("invalid-secret", error);
+  }
   if (profile.vaultUnlockSalt.length !== 16) throw new Error("A 16-byte Vault Unlock salt is required.");
-  const unlockKey = await ports.keyDerivation.deriveArgon2id(vaultUnlockSecret, profile.vaultUnlockSalt, {
-    memoryKiB: ARGON2_MEMORY_KIB,
-    iterations: ARGON2_ITERATIONS,
-    parallelism: ARGON2_PARALLELISM,
-    outputBytes: VAULT_UNLOCK_KEY_BYTES,
-  });
+  let unlockKey: Uint8Array;
+  try {
+    unlockKey = await ports.keyDerivation.deriveArgon2id(vaultUnlockSecret, profile.vaultUnlockSalt, {
+      memoryKiB: ARGON2_MEMORY_KIB,
+      iterations: ARGON2_ITERATIONS,
+      parallelism: ARGON2_PARALLELISM,
+      outputBytes: VAULT_UNLOCK_KEY_BYTES,
+    });
+  } catch (error) {
+    throw new PersonalVaultUnlockError("key-derivation", error);
+  }
   let userRootKey: Uint8Array | undefined;
   let personalVaultKey: Uint8Array | undefined;
   try {
     const wrappedUserRootKey = ports.crypto.deserializeEncryptedEnvelope(profile.wrappedUserRootKey);
-    userRootKey = await decryptProfilePayload(
-      unlockKey,
-      wrappedUserRootKey,
-      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
-      ports.crypto,
-    );
+    try {
+      userRootKey = await decryptProfilePayload(
+        unlockKey,
+        wrappedUserRootKey,
+        { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
+        ports.crypto,
+      );
+    } catch (error) {
+      throw new PersonalVaultUnlockError("user-root-key", error);
+    }
     const encryptedPersonalVaultKey = ports.crypto.deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey);
-    personalVaultKey = await decryptProfilePayload(
-      userRootKey,
-      encryptedPersonalVaultKey,
-      { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
-      ports.crypto,
-    );
-    if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
+    try {
+      personalVaultKey = await decryptProfilePayload(
+        userRootKey,
+        encryptedPersonalVaultKey,
+        { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
+        ports.crypto,
+      );
+      if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
+    } catch (error) {
+      throw new PersonalVaultUnlockError("personal-vault-key", error);
+    }
     const migratedProfile =
       wrappedUserRootKey.version === 1 || encryptedPersonalVaultKey.version === 1
         ? await migrateLegacyProfile(

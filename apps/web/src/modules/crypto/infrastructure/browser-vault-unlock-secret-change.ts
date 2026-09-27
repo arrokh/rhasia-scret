@@ -19,13 +19,20 @@ export async function changeVaultUnlockSecret(
   currentSalt: Uint8Array,
   currentWrappedUserRootKey: Uint8Array,
 ): Promise<RewrappedUserRootKey> {
-  const currentUnlockKey = await deriveVaultUnlockKey(currentSecret, currentSalt);
-  const userRootKey = await decryptPayloadWithContext(
-    currentUnlockKey,
-    deserializeEncryptedEnvelope(currentWrappedUserRootKey),
-    { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
-  );
-  return wrapUserRootKeyWithVaultUnlockSecret(userRootKey, nextSecret);
+  let currentUnlockKey: Uint8Array | undefined;
+  let userRootKey: Uint8Array | undefined;
+  try {
+    currentUnlockKey = await deriveVaultUnlockKey(currentSecret, currentSalt);
+    userRootKey = await decryptPayloadWithContext(
+      currentUnlockKey,
+      deserializeEncryptedEnvelope(currentWrappedUserRootKey),
+      { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
+    );
+    return await wrapUserRootKeyWithVaultUnlockSecret(userRootKey, nextSecret);
+  } finally {
+    currentUnlockKey?.fill(0);
+    userRootKey?.fill(0);
+  }
 }
 
 export async function wrapUserRootKeyWithVaultUnlockSecret(
@@ -33,17 +40,22 @@ export async function wrapUserRootKeyWithVaultUnlockSecret(
   nextSecret: string,
 ): Promise<RewrappedUserRootKey> {
   const vaultUnlockSalt = randomBytes(16);
-  const nextUnlockKey = await deriveVaultUnlockKey(nextSecret, vaultUnlockSalt);
-  return {
-    vaultUnlockSalt,
-    wrappedUserRootKey: serializeEncryptedEnvelope(
-      await encryptPayloadWithContext(nextUnlockKey, userRootKey, {
-        purpose: "user-root-key-wrap",
-        payloadType: "user-root-key",
-        keyVersion: 1,
-      }),
-    ),
-  };
+  let nextUnlockKey: Uint8Array | undefined;
+  try {
+    nextUnlockKey = await deriveVaultUnlockKey(nextSecret, vaultUnlockSalt);
+    return {
+      vaultUnlockSalt,
+      wrappedUserRootKey: serializeEncryptedEnvelope(
+        await encryptPayloadWithContext(nextUnlockKey, userRootKey, {
+          purpose: "user-root-key-wrap",
+          payloadType: "user-root-key",
+          keyVersion: 1,
+        }),
+      ),
+    };
+  } finally {
+    nextUnlockKey?.fill(0);
+  }
 }
 
 function randomBytes(length: number): Uint8Array {

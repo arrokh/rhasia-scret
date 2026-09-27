@@ -22,6 +22,7 @@ vi.mock("@/modules/sync", () => ({
 vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 
 import { VaultWorkspaceUnlock } from "@/modules/authenticator-account/presentation/vault-workspace-unlock";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -55,6 +56,59 @@ describe("locked Vault session", () => {
     const signInLink = [...container.querySelectorAll("a")].find((link) => link.textContent === "Masuk lagi");
     expect(signInLink?.getAttribute("href")).toBe("/sign-in?auth=required&next=%2Fvaults");
     expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("Passphrase Brankas tidak dapat");
+  });
+
+  it("does not label an unclassified workspace failure as a bad Vault Passphrase", async () => {
+    mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("UNKNOWN");
+    mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("unexpected decrypt failure"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector<HTMLInputElement>("#vault-unlock-secret"), "valid passphrase"),
+    );
+    await act(async () => {
+      container.querySelector<HTMLFormElement>("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Brankas gagal dibuka karena masalah yang tidak terduga",
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).not.toContain(
+      "Passphrase Brankas tidak dapat membuka",
+    );
+  });
+
+  it("reports a root-key wrapping failure separately from an invalid passphrase", async () => {
+    mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("ROOT_KEY_WRAP_FAILED");
+    mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("synthetic root-key unwrap failure"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    await act(async () =>
+      setInputValue(container.querySelector<HTMLInputElement>("#vault-unlock-secret"), "synthetic passphrase"),
+    );
+    await act(async () => {
+      container.querySelector<HTMLFormElement>("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Brankas gagal dibuka karena masalah yang tidak terduga",
+    );
+    expect(mocks.captureAnalyticsEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.vaultUnlockFailed, {
+      method: "passphrase",
+      failure_code: "root_key_wrap_failed",
+    });
   });
 
   it("offers contextual help without replacing the entered Vault Passphrase", async () => {

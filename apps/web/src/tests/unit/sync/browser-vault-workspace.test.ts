@@ -43,7 +43,11 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
   decryptAccountConfiguration: mocks.decryptAccountConfiguration,
 }));
 
-import { AuthorizedWorkspaceTransportError, type AuthorizedWorkspaceResponse } from "@rhasia-scret/client-vault-core";
+import {
+  AuthorizedWorkspaceTransportError,
+  PersonalVaultUnlockError,
+  type AuthorizedWorkspaceResponse,
+} from "@rhasia-scret/client-vault-core";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -60,7 +64,7 @@ describe("Vault workspace loading", () => {
     mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Personal Vault"));
   });
 
-  it("classifies authorization, synchronization, storage, and passphrase failures separately", () => {
+  it("classifies authorization, synchronization, storage, and cryptographic unlock failures separately", () => {
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new AuthorizedWorkspaceTransportError(401, "unauthorized"))).toBe(
       "AUTHENTICATION",
     );
@@ -68,7 +72,17 @@ describe("Vault workspace loading", () => {
       "SYNC",
     );
     expect(classifyBrowserVaultWorkspaceUnlockFailure(new LocalStorageSyncError())).toBe("LOCAL_STORAGE");
-    expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("invalid passphrase"))).toBe("PASSPHRASE");
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("invalid-secret"))).toBe(
+      "PASSPHRASE",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("user-root-key"))).toBe(
+      "ROOT_KEY_WRAP_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("personal-vault-key"))).toBe(
+      "PERSONAL_VAULT_KEY_WRAP_FAILED",
+    );
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new PersonalVaultUnlockError("key-derivation"))).toBe("UNKNOWN");
+    expect(classifyBrowserVaultWorkspaceUnlockFailure(new Error("unexpected decrypt failure"))).toBe("UNKNOWN");
   });
 
   it("decrypts and persists the Personal-only snapshot while keeping Shared Vault data transient", async () => {
@@ -151,6 +165,28 @@ describe("Vault workspace loading", () => {
     expect(workspace.userEncryptionPublicKey).toEqual(publicKey);
     expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
     expect(mocks.replace.mock.calls[0]?.[0]).not.toHaveProperty("userEncryptionIdentity");
+  });
+
+  it("classifies offline snapshot migration persistence failures as local storage errors", async () => {
+    const response = workspaceResponse();
+    const userRootKey = Uint8Array.of(1);
+    const personalVaultKey = Uint8Array.of(2);
+    mocks.read.mockResolvedValue(response.personalSnapshot);
+    mocks.unlockPersonalVault.mockResolvedValue({
+      userRootKey,
+      personalVaultKey,
+      migratedProfile: {
+        vaultUnlockSalt: Uint8Array.from({ length: 16 }, (_, index) => index),
+        wrappedUserRootKey: Uint8Array.of(3),
+        encryptedPersonalVaultKey: Uint8Array.of(4),
+        encryptionVersion: 1,
+      },
+    });
+    mocks.replace.mockRejectedValue(new Error("synthetic snapshot persistence failure"));
+
+    await expect(loadOfflineVaultWorkspace("profile-1", "secret")).rejects.toBeInstanceOf(LocalStorageSyncError);
+    expect(userRootKey).toEqual(Uint8Array.of(0));
+    expect(personalVaultKey).toEqual(Uint8Array.of(0));
   });
 
   it("loads the Personal-only snapshot offline without contacting the workspace transport", async () => {

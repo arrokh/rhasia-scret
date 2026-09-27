@@ -266,14 +266,30 @@ export function VaultWorkspaceUnlock({
           {t("syncError")}
         </StatusBanner>
       )}
+      {status === "unlock_error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("unlockError")}
+        </StatusBanner>
+      )}
     </form>
   );
 }
 
 type UnlockStatus =
-  "idle" | "secret_error" | "passkey_error" | "remembered_error" | "authentication_error" | "sync_error";
-type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error">;
-type UnlockAnalyticsFailureCode = "invalid_secret" | "remembered_browser_error" | "passkey_error";
+  | "idle"
+  | "secret_error"
+  | "passkey_error"
+  | "remembered_error"
+  | "authentication_error"
+  | "sync_error"
+  | "unlock_error";
+type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error" | "unlock_error">;
+type UnlockAnalyticsFailureCode =
+  | "invalid_secret"
+  | "personal_vault_key_wrap_failed"
+  | "root_key_wrap_failed"
+  | "remembered_browser_error"
+  | "passkey_error";
 
 function classifyWorkspaceUnlockFailure(
   error: unknown,
@@ -283,5 +299,11 @@ function classifyWorkspaceUnlockFailure(
   const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
   if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "unknown" };
   if (failure === "LOCAL_STORAGE" || failure === "SYNC") return { status: "sync_error", failureCode: "unknown" };
-  return { status: fallbackStatus, failureCode: fallbackCode };
+  if (failure === "ROOT_KEY_WRAP_FAILED") return { status: "unlock_error", failureCode: "root_key_wrap_failed" };
+  if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED")
+    return { status: "unlock_error", failureCode: "personal_vault_key_wrap_failed" };
+  if (failure === "PASSPHRASE") return { status: fallbackStatus, failureCode: fallbackCode };
+  if (failure === "UNKNOWN" && fallbackStatus !== "secret_error")
+    return { status: fallbackStatus, failureCode: fallbackCode };
+  return { status: "unlock_error", failureCode: "unknown" };
 }

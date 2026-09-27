@@ -136,7 +136,13 @@ export async function loadOfflineVaultWorkspace(
   const unlocked = await ports.crypto.unlockPersonalVault(vaultUnlockSecret, profileMaterial(bundle));
   try {
     const migratedBundle = unlocked.migratedProfile ? withMigratedProfile(bundle, unlocked.migratedProfile) : bundle;
-    if (unlocked.migratedProfile) await ports.data.snapshotStore.replace(migratedBundle);
+    if (unlocked.migratedProfile) {
+      try {
+        await ports.data.snapshotStore.replace(migratedBundle);
+      } catch (error) {
+        throw new LocalStorageSyncError(error);
+      }
+    }
     return await loadWorkspace(
       migratedBundle,
       unlocked.userRootKey,
@@ -510,7 +516,12 @@ async function loadLocalBundle(
   profileId: string,
   ports: VaultWorkspacePlatformPorts,
 ): Promise<EncryptedPersonalOfflineSnapshot> {
-  const bundle = await ports.data.snapshotStore.read(profileId);
+  let bundle: EncryptedPersonalOfflineSnapshot | null;
+  try {
+    bundle = await ports.data.snapshotStore.read(profileId);
+  } catch (error) {
+    throw new LocalStorageSyncError(error);
+  }
   if (!bundle) throw new Error("Local Vault Snapshot was not found.");
   return bundle;
 }

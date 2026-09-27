@@ -29,6 +29,7 @@ import {
   loadUnlockedVaultWorkspaceWithRememberedBrowser as loadUnlockedWorkspaceWithRememberedBrowser,
   refreshUnlockedVaultWorkspace as refreshWorkspace,
   LocalStorageSyncError,
+  PersonalVaultUnlockError,
   type UnlockedVaultWorkspace,
   type WorkspaceAuthenticatorAccount,
 } from "@rhasia-scret/client-vault-core";
@@ -37,13 +38,26 @@ import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-cor
 export { clearUnlockedVaultWorkspace, evictSharedVaultWorkspace, LocalStorageSyncError };
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
 
-export type BrowserVaultWorkspaceUnlockFailure = "AUTHENTICATION" | "LOCAL_STORAGE" | "PASSPHRASE" | "SYNC";
+export type BrowserVaultWorkspaceUnlockFailure =
+  | "AUTHENTICATION"
+  | "LOCAL_STORAGE"
+  | "PASSPHRASE"
+  | "PERSONAL_VAULT_KEY_WRAP_FAILED"
+  | "ROOT_KEY_WRAP_FAILED"
+  | "SYNC"
+  | "UNKNOWN";
 
 export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): BrowserVaultWorkspaceUnlockFailure {
   if (error instanceof AuthorizedWorkspaceTransportError)
     return error.status === 401 || (error.status === 403 && error.code === "inactive_user") ? "AUTHENTICATION" : "SYNC";
   if (error instanceof LocalStorageSyncError) return "LOCAL_STORAGE";
-  return "PASSPHRASE";
+  if (error instanceof PersonalVaultUnlockError) {
+    if (error.stage === "invalid-secret") return "PASSPHRASE";
+    if (error.stage === "user-root-key") return "ROOT_KEY_WRAP_FAILED";
+    if (error.stage === "personal-vault-key") return "PERSONAL_VAULT_KEY_WRAP_FAILED";
+    return "UNKNOWN";
+  }
+  return "UNKNOWN";
 }
 
 function browserPorts(): VaultWorkspacePlatformPorts {

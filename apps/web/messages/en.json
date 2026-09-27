@@ -625,6 +625,7 @@
       "authenticationError": "Your sign-in session has expired. Sign in again before unlocking your vaults.",
       "signInAgain": "Sign in again",
       "syncError": "Your encrypted vault data could not be loaded. Try again.",
+      "unlockError": "Vault unlocking failed for an unexpected reason. Refresh the page or try Passkey-Assisted Unlock. If it persists, contact support.",
       "passkeyError": "The passkey could not unlock your vaults. Try again or use your Vault Passphrase.",
       "rememberedError": "Local Verification failed or the browser package is invalid. Use your Vault Passphrase; no key was released without verification."
     },
