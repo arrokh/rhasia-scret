@@ -3,7 +3,7 @@ import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
 import { z } from "zod";
-import { type SharedVaultRepository } from "@api/modules/vault-management/server";
+import { SharedVaultKeyVersionConflictError, type SharedVaultRepository } from "@api/modules/vault-management/server";
 import {
   authenticateApplicationMutation,
   authenticateApplicationReader,
@@ -13,6 +13,7 @@ const renameSchema = z
   .object({
     encryptedName: boundedEncryptedBlobSchema(),
     encryptionVersion: z.literal(1),
+    expectedKeyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   })
   .strict();
 
@@ -53,15 +54,22 @@ export function createRenameSharedVaultHandler({
     const parsed = await safeParseJsonBody(request, renameSchema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_vault_name" }, { status: 400 });
     const { vaultId } = await params;
-    const renamed = await sharedVaults.rename(
-      user.id,
-      vaultId,
-      Buffer.from(parsed.data.encryptedName, "base64"),
-      parsed.data.encryptionVersion,
-    );
-    return renamed
-      ? new ApiResponse(null, { status: 204 })
-      : ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
+    try {
+      const renamed = await sharedVaults.rename(
+        user.id,
+        vaultId,
+        Buffer.from(parsed.data.encryptedName, "base64"),
+        parsed.data.encryptionVersion,
+        parsed.data.expectedKeyVersion,
+      );
+      return renamed
+        ? new ApiResponse(null, { status: 204 })
+        : ApiResponse.json({ error: "owner_access_required" }, { status: 404 });
+    } catch (error) {
+      if (error instanceof SharedVaultKeyVersionConflictError)
+        return ApiResponse.json({ error: "stale_key_version" }, { status: 409 });
+      throw error;
+    }
   };
 }
 

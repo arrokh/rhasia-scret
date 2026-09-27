@@ -166,6 +166,12 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
   const values = {
     account: "account",
     count: 2,
+    current: 2,
+    next: 3,
+    recoverable: 2,
+    accounts: 2,
+    members: 2,
+    invitations: 2,
     date: "date",
     email: "user@example.test",
     link: "https://example.test/invitation#secret",

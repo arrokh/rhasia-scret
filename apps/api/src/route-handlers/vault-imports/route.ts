@@ -2,6 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { z } from "zod";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { readBoundedRequestBody } from "@api/http/validation";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 import {
@@ -24,25 +25,32 @@ const accountSchema = z
     encryptionVersion: z.literal(1),
   })
   .strict();
-const existingDestination = z
-  .object({
-    kind: z.literal("EXISTING"),
-    vaultId: z.string().min(1).max(128),
-    vaultType: z.enum(["PERSONAL", "SHARED"]),
-  })
-  .strict();
+const existingDestination = z.union([
+  z
+    .object({ kind: z.literal("EXISTING"), vaultId: z.string().min(1).max(128), vaultType: z.literal("PERSONAL") })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("EXISTING"),
+      vaultId: z.string().min(1).max(128),
+      vaultType: z.literal("SHARED"),
+      expectedKeyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict(),
+]);
 const newSharedDestination = z
   .object({
     kind: z.literal("NEW_SHARED"),
     vaultId: z.uuid(),
     encryptedName: encryptedBlob(1024),
     encryptedOwnerVaultKey: encryptedBlob(1024),
+    expectedOwnerPublicKey: publicEncryptionKeySchema,
     encryptionVersion: z.literal(1),
   })
   .strict();
 const importSchema = z
   .object({
-    destination: z.discriminatedUnion("kind", [existingDestination, newSharedDestination]),
+    destination: z.union([existingDestination, newSharedDestination]),
     accounts: z.array(accountSchema).max(MAX_VAULT_ARCHIVE_IMPORT_ACCOUNTS),
   })
   .strict()

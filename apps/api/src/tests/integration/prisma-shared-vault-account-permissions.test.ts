@@ -121,13 +121,19 @@ describe("Shared Vault account permission persistence", () => {
       );
       const now = new Date("2026-07-28T00:00:00.000Z");
       const accounts = new PrismaSharedAccountRepository(prisma, () => now);
+      await expect(accounts.create(member.id, vault.id, bytes("stale-create"), 1, 2)).resolves.toEqual({
+        status: "STALE_KEY_VERSION",
+      });
 
-      const created = await accounts.create(member.id, vault.id, bytes("member-created"), 1);
+      const created = await accounts.create(member.id, vault.id, bytes("member-created"), 1, 1);
       expect(created.status).toBe("SUCCESS");
       if (created.status !== "SUCCESS") throw new Error("Expected account creation.");
       const accountId = created.value.id;
+      await expect(accounts.update(member.id, vault.id, accountId, 1, bytes("stale-update"), 1, 2)).resolves.toEqual({
+        status: "STALE_KEY_VERSION",
+      });
 
-      const updated = await accounts.update(member.id, vault.id, accountId, 1, bytes("member-updated"), 1);
+      const updated = await accounts.update(member.id, vault.id, accountId, 1, bytes("member-updated"), 1, 1);
       expect(updated.status).toBe("SUCCESS");
       await expect(accounts.delete(member.id, vault.id, accountId, 2)).resolves.toEqual({
         status: "PERMISSION_DENIED",

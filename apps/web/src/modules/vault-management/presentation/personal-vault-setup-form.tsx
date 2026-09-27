@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  clearPersonalVaultInitializationMaterial,
   generateVaultUnlockSecret,
   initializePersonalVaultInBrowser,
   validateVaultUnlockSecret,
@@ -48,13 +49,17 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
     },
     onSubmit: async ({ value }) => {
       setStatus("idle");
+      let material: Awaited<ReturnType<typeof initializePersonalVaultInBrowser>> | undefined;
       try {
-        const material = await initializePersonalVaultInBrowser(value.secret, value.vaultName);
+        material = await initializePersonalVaultInBrowser(value.secret, value.vaultName);
         await initializeMutation.mutateAsync({
           vaultUnlockSalt: bytesToBase64(material.vaultUnlockSalt),
           wrappedUserRootKey: bytesToBase64(material.wrappedUserRootKey),
           encryptedPersonalVaultKey: bytesToBase64(material.encryptedPersonalVaultKey),
           encryptedVaultName: bytesToBase64(material.encryptedVaultName),
+          userEncryptionPublicKey: material.userEncryptionPublicKey,
+          encryptedUserPrivateKey: bytesToBase64(material.encryptedUserPrivateKey),
+          userEncryptionKeyVersion: material.userEncryptionKeyVersion,
           encryptionVersion: material.encryptionVersion,
         });
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitialized);
@@ -72,6 +77,8 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
       } catch {
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitializationFailed);
         setStatus("setup_error");
+      } finally {
+        if (material) clearPersonalVaultInitializationMaterial(material);
       }
     },
   });

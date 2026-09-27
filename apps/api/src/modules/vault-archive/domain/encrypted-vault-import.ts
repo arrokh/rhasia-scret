@@ -9,17 +9,16 @@ export type EncryptedImportedAccount = {
   encryptionVersion: 1;
 };
 
-export type ExistingVaultImportDestination = {
-  kind: "EXISTING";
-  vaultId: string;
-  vaultType: "PERSONAL" | "SHARED";
-};
+export type ExistingVaultImportDestination =
+  | { kind: "EXISTING"; vaultId: string; vaultType: "PERSONAL" }
+  | { kind: "EXISTING"; vaultId: string; vaultType: "SHARED"; expectedKeyVersion: number };
 
 export type NewSharedVaultImportDestination = {
   kind: "NEW_SHARED";
   vaultId: string;
   encryptedName: Uint8Array;
   encryptedOwnerVaultKey: Uint8Array;
+  expectedOwnerPublicKey: JsonWebKey;
   encryptionVersion: 1;
 };
 

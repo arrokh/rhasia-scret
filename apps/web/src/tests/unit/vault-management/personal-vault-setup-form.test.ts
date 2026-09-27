@@ -10,6 +10,21 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const cryptoMocks = vi.hoisted(() => ({
   generateVaultUnlockSecret: vi.fn(),
   initializePersonalVaultInBrowser: vi.fn(),
+  clearPersonalVaultInitializationMaterial: vi.fn(
+    (material: {
+      vaultUnlockSalt: Uint8Array;
+      wrappedUserRootKey: Uint8Array;
+      encryptedPersonalVaultKey: Uint8Array;
+      encryptedVaultName: Uint8Array;
+      encryptedUserPrivateKey: Uint8Array;
+    }) => {
+      material.vaultUnlockSalt.fill(0);
+      material.wrappedUserRootKey.fill(0);
+      material.encryptedPersonalVaultKey.fill(0);
+      material.encryptedVaultName.fill(0);
+      material.encryptedUserPrivateKey.fill(0);
+    },
+  ),
   validateVaultUnlockSecret: vi.fn((secret: string) => {
     if (secret.trim().length < 3) throw new Error("At least three characters are required.");
   }),
@@ -71,13 +86,7 @@ describe("PersonalVaultSetupForm", () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
     cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
     cryptoMocks.initializePersonalVaultInBrowser.mockReset();
-    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
-      vaultUnlockSalt: new Uint8Array(16),
-      wrappedUserRootKey: new Uint8Array(13),
-      encryptedPersonalVaultKey: new Uint8Array(13),
-      encryptedVaultName: new Uint8Array(13),
-      encryptionVersion: 1,
-    });
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue(initializationMaterial());
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
@@ -154,13 +163,7 @@ describe("PersonalVaultSetupForm", () => {
   it("returns to invitation redemption while preserving its client-only fragment after setup", async () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
     cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
-    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
-      vaultUnlockSalt: new Uint8Array(16),
-      wrappedUserRootKey: new Uint8Array(13),
-      encryptedPersonalVaultKey: new Uint8Array(13),
-      encryptedVaultName: new Uint8Array(13),
-      encryptionVersion: 1,
-    });
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue(initializationMaterial());
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     window.history.replaceState(null, "", "/vaults/invitations/redeem#client-only-secret");
@@ -199,13 +202,7 @@ describe("PersonalVaultSetupForm", () => {
   it("lets TanStack Form explain missing confirmation or acknowledgement instead of silently disabling submit", async () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
     cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
-    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue({
-      vaultUnlockSalt: new Uint8Array(16),
-      wrappedUserRootKey: new Uint8Array(13),
-      encryptedPersonalVaultKey: new Uint8Array(13),
-      encryptedVaultName: new Uint8Array(13),
-      encryptionVersion: 1,
-    });
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue(initializationMaterial());
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     const container = document.createElement("div");
@@ -244,6 +241,19 @@ describe("PersonalVaultSetupForm", () => {
     await act(async () => root?.unmount());
   });
 });
+
+function initializationMaterial() {
+  return {
+    vaultUnlockSalt: new Uint8Array(16),
+    wrappedUserRootKey: new Uint8Array(13),
+    encryptedPersonalVaultKey: new Uint8Array(13),
+    encryptedVaultName: new Uint8Array(13),
+    userEncryptionPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+    encryptedUserPrivateKey: new Uint8Array(61),
+    userEncryptionKeyVersion: 1 as const,
+    encryptionVersion: 1,
+  };
+}
 
 function setInputValue(input: HTMLInputElement | null, value: string) {
   if (!input) throw new Error("Expected the confirmation input.");

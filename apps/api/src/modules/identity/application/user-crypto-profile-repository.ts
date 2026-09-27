@@ -22,6 +22,6 @@ export type UserEncryptionIdentity = {
 
 export interface UserCryptoProfileRepository {
   get(userId: string): Promise<EncryptedUserCryptoProfile | null>;
-  registerUserEncryptionIdentity(userId: string, identity: UserEncryptionIdentity): Promise<void>;
+  registerUserEncryptionIdentity(userId: string, identity: UserEncryptionIdentity): Promise<boolean>;
   rewrapUserRootKey(userId: string, rewrap: UserRootKeyRewrap): Promise<void>;
 }

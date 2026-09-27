@@ -23,6 +23,7 @@ type LockedMembership = {
   canAddAccountsOverride: boolean | null;
   canEditAccountsOverride: boolean | null;
   canDeleteAccountsOverride: boolean | null;
+  keyVersion: number;
 };
 
 export class PrismaSharedAccountRepository implements SharedAccountRepository {
@@ -36,9 +37,10 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
     vaultId: string,
     encryptedPayload: Uint8Array,
     encryptionVersion: number,
+    expectedKeyVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>> {
     return this.database.$transaction(async (transaction) => {
-      const access = await authorize(transaction, actorUserId, vaultId, "ADD");
+      const access = await authorize(transaction, actorUserId, vaultId, "ADD", expectedKeyVersion);
       if (access.status !== "AUTHORIZED") return access.result;
       const account = await transaction.authenticatorAccount.create({
         data: { vaultId, encryptedPayload: copyBytes(encryptedPayload), encryptionVersion },
@@ -55,9 +57,10 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
     expectedRevision: number,
     encryptedPayload: Uint8Array,
     encryptionVersion: number,
+    expectedKeyVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>> {
     return this.database.$transaction(async (transaction) => {
-      const access = await authorize(transaction, actorUserId, vaultId, "EDIT");
+      const access = await authorize(transaction, actorUserId, vaultId, "EDIT", expectedKeyVersion);
       if (access.status !== "AUTHORIZED") return access.result;
       const updated = await transaction.authenticatorAccount.updateMany({
         where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null },
@@ -122,6 +125,7 @@ async function authorize(
   actorUserId: string,
   vaultId: string,
   operation: SharedVaultAccountPermission,
+  expectedKeyVersion?: number,
 ): Promise<
   { status: "AUTHORIZED"; vault: LockedVault } | { status: "REJECTED"; result: SharedAccountMutationResult<never> }
 > {
@@ -132,7 +136,8 @@ async function authorize(
       "role",
       "can_add_accounts_override" AS "canAddAccountsOverride",
       "can_edit_accounts_override" AS "canEditAccountsOverride",
-      "can_delete_accounts_override" AS "canDeleteAccountsOverride"
+      "can_delete_accounts_override" AS "canDeleteAccountsOverride",
+      "key_version" AS "keyVersion"
     FROM "vault_members"
     WHERE "vault_id" = ${vaultId}
       AND "user_id" = ${actorUserId}
@@ -142,6 +147,9 @@ async function authorize(
   const membership = memberships[0];
   if (!membership || (membership.role !== "OWNER" && membership.role !== "VIEWER")) {
     return { status: "REJECTED", result: { status: "VAULT_UNAVAILABLE" } };
+  }
+  if (expectedKeyVersion !== undefined && membership.keyVersion !== expectedKeyVersion) {
+    return { status: "REJECTED", result: { status: "STALE_KEY_VERSION" } };
   }
   const effective = effectiveSharedVaultAccountPermissions(
     membership.role,

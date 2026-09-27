@@ -574,6 +574,32 @@
       "submit": "Reset passphrase",
       "error": "The passphrase could not be reset. Make sure the access-recovery key is available and try again.",
       "success": "The passphrase was reset. Store the new passphrase, then use it to unlock your vaults."
+    },
+    "userEncryptionRotation": {
+      "title": "Rotate User Encryption Key Pair",
+      "description": "Create a fresh browser-only ECDH identity and re-wrap your current Shared Vault key packages. This does not change your User Root Key or Passphrase.",
+      "identityUnavailable": "The current User Encryption Key Pair is unavailable. Refresh the online workspace before continuing.",
+      "memberships": "{count, plural, one {# Shared Vault membership will be updated.} other {# Shared Vault memberships will be updated.}}",
+      "irreversibleWarning": "Rotation cannot erase keys or Vault data already copied by another person or device.",
+      "preparing": "Preparing new key packages in this browser…",
+      "cancelPreparation": "Cancel preparation",
+      "review": "Review rotation",
+      "discard": "Discard prepared rotation",
+      "confirmTitle": "Rotate this User Encryption Key Pair?",
+      "confirmDescription": "Replace the current identity and update {count, plural, one {# Shared Vault membership} other {# Shared Vault memberships}}. The change is atomic; the previous identity cannot unlock the new packages.",
+      "confirm": "Rotate key pair",
+      "submitting": "Saving the rotation and checking its result…",
+      "success": "The User Encryption Key Pair was rotated. The workspace has been refreshed.",
+      "notApplied": "No rotation was saved. Prepare a new rotation from the refreshed workspace before retrying.",
+      "conflict": "The identity or memberships changed. The workspace was refreshed; review the current state before trying again.",
+      "unknown": "The rotation result could not be verified. Do not repeat it yet; check the status or reload the workspace.",
+      "failed": "The rotation could not be prepared. Nothing was saved. Refresh the workspace and try again.",
+      "cancelled": "Preparation was cancelled. No rotation was saved.",
+      "refreshFailed": "The rotation status is known, but the workspace could not refresh. Refresh before using or rotating keys again.",
+      "checkStatus": "Check rotation status",
+      "refreshWorkspace": "Refresh workspace",
+      "prepare": "Prepare key-pair rotation",
+      "rotateAgain": "Prepare another rotation"
     }
   },
   "AuthenticatorAccount": {
@@ -878,6 +904,7 @@
       "detailTab": "Details",
       "invitationsTab": "Invitations",
       "auditTab": "Audit",
+      "securityTab": "Security",
       "owner": "Owner",
       "loading": "Loading…",
       "unavailable": "Unavailable",
@@ -894,6 +921,35 @@
       "deleteConfirmAction": "Delete vault",
       "deleteError": "The Shared Vault could not be deleted. Try again.",
       "unavailableAccountWarning": "One or more encrypted account records could not be opened. The owner can identify them by opaque ID, review the audit actor, and remove the invalid records."
+    },
+    "keyRotation": {
+      "title": "Rotate Vault Encryption Key",
+      "description": "Create a fresh key for {name} and re-encrypt its name and recoverable account records in this browser.",
+      "generation": "Key generation {current} will become {next}.",
+      "accounts": "{count, plural, one {# account record will be re-encrypted} other {# account records will be re-encrypted}}; {recoverable, plural, one {# is recoverable after deletion} other {# are recoverable after deletion}}.",
+      "members": "New encrypted key packages will be prepared for {count, plural, one {# active member} other {# active members}}.",
+      "invitations": "{count, plural, one {# pending Secure Share Link will be invalidated} other {# pending Secure Share Links will be invalidated}}.",
+      "irreversibleWarning": "Rotation cannot erase keys, TOTP data, or copies another person already obtained.",
+      "preparing": "Re-encrypting all recoverable records in this browser…",
+      "cancelPreparation": "Cancel preparation",
+      "review": "Review rotation",
+      "discard": "Discard prepared rotation",
+      "confirmTitle": "Rotate this Vault Encryption Key?",
+      "confirmDescription": "Advance key generation {current} to {next}, re-encrypt {accounts} account records, update {members} member packages, and invalidate {invitations} pending Secure Share Links. This cannot revoke copies already obtained.",
+      "confirm": "Rotate Vault key",
+      "submitting": "Saving the rotation and checking its result…",
+      "success": "The Vault Encryption Key was rotated and the workspace was refreshed.",
+      "notApplied": "No rotation was saved. Prepare a new rotation from the refreshed workspace before retrying.",
+      "conflict": "The Vault or its membership changed. The workspace was refreshed; review the current state before trying again.",
+      "unknown": "The rotation result could not be verified. Do not repeat it yet; check the status or reload the workspace.",
+      "failed": "The rotation could not be prepared. Nothing was saved. Refresh the workspace and try again.",
+      "cancelled": "Preparation was cancelled. No rotation was saved.",
+      "refreshFailed": "The rotation status is known, but the workspace could not refresh. Refresh before using or rotating keys again.",
+      "checkStatus": "Check rotation status",
+      "refreshWorkspace": "Refresh workspace",
+      "prepare": "Prepare Vault key rotation",
+      "rotateAgain": "Prepare another rotation",
+      "previewDisabled": "Rotation is disabled in this development preview."
     },
     "permissions": {
       "defaultsTitle": "Default member account permissions",
@@ -961,6 +1017,7 @@
     },
     "creator": {
       "offlineError": "You are offline. Shared Vault creation is unavailable until you reconnect.",
+      "identityUnavailable": "Your User Encryption identity is unavailable. Reload the workspace while online, then try again.",
       "success": "Shared Vault created. Invite members from its settings.",
       "error": "Shared Vault could not be created.",
       "name": "Shared Vault name",
@@ -1058,6 +1115,8 @@
       "vaultMemberDefaultsUpdated": "Default member account permissions updated",
       "vaultDeleted": "Vault deleted",
       "vaultRestored": "Vault restored",
+      "vaultKeyRotated": "Shared Vault Encryption Key rotated",
+      "userEncryptionKeyPairRotated": "User Encryption Key Pair rotated",
       "securityActivity": "Security activity",
       "archiveExported": "Vault archive exported",
       "archiveImported": "Vault archive imported"
@@ -1190,7 +1249,8 @@
       "backToVaults": "Back to vaults",
       "redeeming": "Accepting invitation…",
       "redeem": "Accept invitation",
-      "error": "The invitation cannot be used. The link may already have been used or may belong to another account."
+      "error": "The invitation cannot be used. The link may already have been used or may belong to another account.",
+      "identityChanged": "Your encryption identity changed. Your workspace was refreshed; try accepting the invitation again."
     }
   },
   "Sync": {

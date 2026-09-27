@@ -31,6 +31,25 @@ function personalSnapshot() {
   };
 }
 
+function keyWrapEnvelope() {
+  return Buffer.from(
+    JSON.stringify({
+      version: 2,
+      nonce: Buffer.alloc(12, 3).toString("base64"),
+      ciphertext: Buffer.alloc(32, 4).toString("base64"),
+      ephemeralPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+    }),
+  ).toString("base64");
+}
+
+function userEncryptionIdentity() {
+  return {
+    publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43), ext: true, key_ops: [] },
+    encryptedPrivateKey: envelope,
+    encryptionVersion: 1,
+  };
+}
+
 function sharedVault() {
   return {
     vaultId: "shared_1",
@@ -46,7 +65,7 @@ function sharedVault() {
     },
     encryptedName: envelope,
     encryptionVersion: 1 as const,
-    encryptedVaultKey: envelope,
+    encryptedVaultKey: keyWrapEnvelope(),
     keyVersion: 1,
     accounts: [],
   };
@@ -69,10 +88,28 @@ describe("offline and online workspace bundle contracts", () => {
     );
   });
 
-  it("keeps Shared Vault data in the authorized online response only", () => {
-    const response = parseAuthorizedWorkspaceResponse(workspaceResponse());
+  it("keeps Shared Vault data and the encrypted identity in the authorized online response only", () => {
+    const response = parseAuthorizedWorkspaceResponse({
+      ...workspaceResponse(),
+      userEncryptionIdentity: userEncryptionIdentity(),
+    });
     expect(response.sharedVaults).toHaveLength(1);
+    expect(response.sharedVaults[0]?.encryptedVaultKey).toBe(keyWrapEnvelope());
+    expect(response.userEncryptionIdentity).toEqual(userEncryptionIdentity());
     expect(response.personalSnapshot).not.toHaveProperty("sharedVaults");
+    expect(response.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
+  });
+
+  it("rejects malformed or private public identity keys", () => {
+    expect(() =>
+      parseAuthorizedWorkspaceResponse({
+        ...workspaceResponse(),
+        userEncryptionIdentity: {
+          ...userEncryptionIdentity(),
+          publicKey: { ...userEncryptionIdentity().publicKey, d: "private-material" },
+        },
+      }),
+    ).toThrow(/publicKey is invalid/);
   });
 
   it("rejects mismatched synchronization metadata and unsupported response versions", () => {

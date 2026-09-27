@@ -7,6 +7,7 @@ import {
   type AuthenticatedTransport,
   type UnlockedVaultWorkspace,
   type WorkspaceAuthenticatorAccount,
+  HostedAuthenticatorAccountTransportError,
 } from "@rhasia-scret/client-vault-core";
 import type { MobileMessages } from "../localization";
 import {
@@ -63,7 +64,13 @@ export function MobileAuthenticatorAccounts({
           return;
         }
         setImportStatus("idle");
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof HostedAuthenticatorAccountTransportError &&
+          error.status === 409 &&
+          error.code === "stale_key_version"
+        )
+          await refreshWorkspaceAuthorization().catch(() => undefined);
         setImportStatus("error");
       } finally {
         account?.secret.fill(0);

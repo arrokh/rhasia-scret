@@ -42,6 +42,7 @@ export { browserClientCryptoPort } from "./infrastructure/browser-client-crypto-
 export { browserCryptoPrimitives } from "./infrastructure/browser-crypto-primitives";
 export { browserArgon2idPort } from "./infrastructure/browser-vault-unlock-key";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
+export { clearPersonalVaultInitializationMaterial } from "@rhasia-scret/client-vault-core";
 export type { PersonalVaultInitializationMaterial } from "./infrastructure/browser-personal-vault-initializer";
 export {
   unlockPersonalVault,
@@ -61,7 +62,9 @@ export {
   createUserEncryptionIdentity,
   recoverUserEncryptionPrivateKey,
 } from "./infrastructure/browser-user-encryption-identity";
+export { registerUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-identity-client";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
+export type { UserEncryptionKeyWrap } from "@rhasia-scret/client-vault-core";
 export {
   BrowserDeviceBoundVerificationPort,
   browserDeviceBoundVerificationPort,

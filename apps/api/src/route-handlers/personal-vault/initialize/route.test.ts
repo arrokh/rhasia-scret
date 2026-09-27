@@ -8,6 +8,16 @@ const payload = {
   wrappedUserRootKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   encryptedPersonalVaultKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   encryptedVaultName: "ZW5jcnlwdGVkLXBlcnNvbmFsLXZhdWx0LW5hbWU=",
+  userEncryptionPublicKey: {
+    kty: "EC",
+    crv: "P-256",
+    x: "A".repeat(43),
+    y: "A".repeat(43),
+    ext: true,
+    key_ops: [],
+  },
+  encryptedUserPrivateKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  userEncryptionKeyVersion: 1 as const,
   encryptionVersion: 1 as const,
 };
 
@@ -35,6 +45,31 @@ describe("POST /v1/personal-vault/initialize contract", () => {
     expect(new TextDecoder().decode(initialize.mock.calls[0]?.[1].encryptedVaultName)).toBe(
       "encrypted-personal-vault-name",
     );
+    expect(initialize.mock.calls[0]?.[1]).toMatchObject({
+      userEncryptionPublicKey: payload.userEncryptionPublicKey,
+      userEncryptionKeyVersion: 1,
+      encryptedUserPrivateKey: expect.any(Uint8Array),
+    });
+  });
+
+  it("rejects private key members in the public identity before persistence", async () => {
+    const initialize = vi.fn();
+    const response = await createInitializePersonalVaultHandler({
+      authenticate: async () => user,
+      personalVaults: { initialize },
+    })(
+      new ApiRequest("https://api.example.test/v1/personal-vault/initialize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          userEncryptionPublicKey: { ...payload.userEncryptionPublicKey, d: "synthetic-private-material" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(initialize).not.toHaveBeenCalled();
   });
 
   it("rejects malformed payloads before persistence", async () => {

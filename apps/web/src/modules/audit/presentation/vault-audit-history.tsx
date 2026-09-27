@@ -30,6 +30,8 @@ export type VaultAuditEventMessageKey =
   | "vaultMemberDefaultsUpdated"
   | "vaultDeleted"
   | "vaultRestored"
+  | "vaultKeyRotated"
+  | "userEncryptionKeyPairRotated"
   | "securityActivity";
 
 export function VaultAuditHistory({
@@ -155,6 +157,8 @@ export function vaultAuditEventMessageKey(eventType: RedactedAuditAction): Vault
     VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED: "vaultMemberDefaultsUpdated",
     VAULT_DELETED: "vaultDeleted",
     VAULT_RESTORED: "vaultRestored",
+    VAULT_KEY_ROTATED: "vaultKeyRotated",
+    USER_ENCRYPTION_KEY_PAIR_ROTATED: "userEncryptionKeyPairRotated",
   };
   return keys[eventType] ?? "securityActivity";
 }

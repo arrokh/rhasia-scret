@@ -22,7 +22,7 @@ describe("GET /v1/user-crypto-profile contract", () => {
       authenticate: async () => user,
       cryptoProfiles: {
         get: async () => profile,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey: async () => undefined,
       },
     });
@@ -45,7 +45,7 @@ describe("GET /v1/user-crypto-profile contract", () => {
       authenticate: async () => user,
       cryptoProfiles: {
         get: async () => null,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey: async () => undefined,
       },
     });
@@ -55,7 +55,7 @@ describe("GET /v1/user-crypto-profile contract", () => {
         get: async () => {
           throw new Error("must not read");
         },
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey: async () => undefined,
       },
     });

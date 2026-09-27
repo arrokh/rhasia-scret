@@ -18,8 +18,15 @@ export function useCreateSharedVaultMutation() {
 export function useRenameSharedVaultMutation() {
   return useMutation({
     mutationKey: ["vault-management", "shared-vault", "rename"],
-    mutationFn: ({ vaultId, encryptedName }: { vaultId: string; encryptedName: string }) =>
-      renameSharedVault(vaultId, encryptedName),
+    mutationFn: ({
+      vaultId,
+      encryptedName,
+      expectedKeyVersion,
+    }: {
+      vaultId: string;
+      encryptedName: string;
+      expectedKeyVersion: number;
+    }) => renameSharedVault(vaultId, encryptedName, expectedKeyVersion),
   });
 }
 

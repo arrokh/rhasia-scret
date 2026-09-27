@@ -16,6 +16,7 @@ const schema = z
     recipientEmail: z.string().trim().min(1).max(MAX_INVITATION_RECIPIENT_EMAIL_LENGTH).email(),
     linkVerifier: z.base64().refine((value) => Buffer.byteLength(value, "base64") === 32),
     encryptedPackage: boundedEncryptedBlobSchema(),
+    expectedKeyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   })
   .strict();
 
@@ -33,6 +34,7 @@ export async function POST(request: ApiRequest, { params }: { params: Promise<{ 
       {
         linkVerifier: Buffer.from(parsed.data.linkVerifier, "base64"),
         encryptedPackage: Buffer.from(parsed.data.encryptedPackage, "base64"),
+        expectedKeyVersion: parsed.data.expectedKeyVersion,
       },
       getApiRequestContext(request).applicationRuntime.secureShareLinks(),
     );

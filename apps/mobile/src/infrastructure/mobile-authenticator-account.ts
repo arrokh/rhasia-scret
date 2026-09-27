@@ -44,7 +44,7 @@ export class MobileAuthenticatorAccountRepository {
   }
 
   public async importTotpUri(
-    vault: { id: string; name: string; type: "PERSONAL" | "SHARED"; key: Uint8Array },
+    vault: { id: string; name: string; type: "PERSONAL" | "SHARED"; key: Uint8Array; keyVersion: number },
     uri: string,
   ): Promise<WorkspaceAuthenticatorAccount> {
     const configuration = parseTotpUri(uri.trim());
@@ -57,7 +57,7 @@ export class MobileAuthenticatorAccountRepository {
         keyVersion: 1,
       });
       const created = await this.hostedAccounts.create(
-        { vaultId: vault.id, vaultType: vault.type },
+        { vaultId: vault.id, vaultType: vault.type, keyVersion: vault.keyVersion },
         { encryptedPayload: bytesToBase64(encryptedPayload), encryptionVersion: 1 },
       );
       return {

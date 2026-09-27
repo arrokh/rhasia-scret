@@ -28,7 +28,7 @@ describe("createSharedVaultInvitation", () => {
       json: async () => ({ id: "invitation-1", expiresAt: "2026-08-05T12:00:00.000Z" }),
     });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey)).resolves.toEqual({
+    await expect(createSharedVaultInvitation("vault-1", " Viewer@Example.Test ", vaultKey, 1)).resolves.toEqual({
       id: "invitation-1",
       secret: "client-only-secret",
       expiresAt: "2026-08-05T12:00:00.000Z",
@@ -40,6 +40,7 @@ describe("createSharedVaultInvitation", () => {
       recipientEmail: "viewer@example.test",
       linkVerifier: expect.any(String),
       encryptedPackage: expect.any(String),
+      expectedKeyVersion: 1,
     });
     expect(JSON.stringify(body)).not.toContain("client-only-secret");
     expect(JSON.stringify(body)).not.toContain(Array.from(vaultKey).join(","));

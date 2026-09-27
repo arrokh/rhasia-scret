@@ -61,6 +61,9 @@ describe("MobilePersonalVaultRepository", () => {
       wrappedUserRootKey: Uint8Array.of(2, 3, 4),
       encryptedPersonalVaultKey: Uint8Array.of(5, 6, 7),
       encryptedVaultName: Uint8Array.of(8, 9, 10),
+      userEncryptionPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+      encryptedUserPrivateKey: Uint8Array.of(11, 12, 13),
+      userEncryptionKeyVersion: 1,
       encryptionVersion: 1,
     });
 
@@ -74,6 +77,9 @@ describe("MobilePersonalVaultRepository", () => {
       wrappedUserRootKey: "AgME",
       encryptedPersonalVaultKey: "BQYH",
       encryptedVaultName: "CAkK",
+      userEncryptionPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+      encryptedUserPrivateKey: "CwwN",
+      userEncryptionKeyVersion: 1,
       encryptionVersion: 1,
     });
   });

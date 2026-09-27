@@ -39,6 +39,8 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["GET", "/v1/user-crypto-profile"],
   ["POST", "/v1/user-crypto-profile/rewrap"],
   ["PUT", "/v1/user-encryption-identity"],
+  ["GET", "/v1/user-encryption-identity/rotation"],
+  ["PATCH", "/v1/user-encryption-identity/rotation"],
   ["POST", "/v1/vault-imports"],
   ["GET", "/v1/shared-vaults"],
   ["POST", "/v1/shared-vaults"],
@@ -58,6 +60,7 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["PATCH", "/v1/shared-vaults/vault_1/members/user_1"],
   ["DELETE", "/v1/shared-vaults/vault_1/members/user_1"],
   ["GET", "/v1/shared-vaults/vault_1/participants"],
+  ["GET", "/v1/shared-vaults/vault_1/rotation"],
   ["PATCH", "/v1/shared-vaults/vault_1/rotation"],
   ["POST", "/v1/shared-vaults/vault_1/share-links"],
   ["DELETE", "/v1/shared-vaults/vault_1/share-links/invitation_1"],
@@ -77,8 +80,8 @@ const routes: ReadonlyArray<readonly [string, string]> = [
 
 describe("canonical API route parity", () => {
   it("covers every registered operation, including deletion and dynamic aliases", () => {
-    expect(routes).toHaveLength(60);
-    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(60);
+    expect(routes).toHaveLength(63);
+    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(63);
     expect(routes).toEqual(API_ROUTE_MANIFEST.map(([method, path]) => [method, materialize(path)]));
   });
 

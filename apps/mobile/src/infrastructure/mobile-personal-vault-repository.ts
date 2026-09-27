@@ -58,6 +58,9 @@ export class MobilePersonalVaultRepository {
         wrappedUserRootKey: bytesToBase64(material.wrappedUserRootKey),
         encryptedPersonalVaultKey: bytesToBase64(material.encryptedPersonalVaultKey),
         encryptedVaultName: bytesToBase64(material.encryptedVaultName),
+        userEncryptionPublicKey: material.userEncryptionPublicKey,
+        encryptedUserPrivateKey: bytesToBase64(material.encryptedUserPrivateKey),
+        userEncryptionKeyVersion: material.userEncryptionKeyVersion,
         encryptionVersion: material.encryptionVersion,
       }),
     });

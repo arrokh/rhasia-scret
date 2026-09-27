@@ -16,20 +16,25 @@ describe("rotateUserEncryptionIdentity", () => {
     const rootKey = generateSymmetricKey();
     const vaultKey = generateSymmetricKey();
     const original = await createUserEncryptionIdentity(rootKey);
-    const context = { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 } as const;
+    const membership = { vaultId: "vault-1", recipientId: "user-1", keyVersion: 2 } as const;
+    const context = {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      ...membership,
+    } as const;
     const packageBytes = serializeKeyWrapEnvelope(
       await wrapKeyForRecipientWithContext(vaultKey, original.publicKey, context),
     );
     const rotated = await rotateUserEncryptionIdentity(
       rootKey,
       serializeEncryptedEnvelope(original.encryptedPrivateKey),
-      [packageBytes],
+      [{ ...membership, encryptedVaultKey: packageBytes }],
     );
     expect(rotated.identity.publicKey).not.toEqual(original.publicKey);
     const freshPrivateKey = await recoverUserEncryptionPrivateKey(rootKey, rotated.identity.encryptedPrivateKey);
     await expect(
       unwrapKeyForRecipientWithContext(
-        deserializeKeyWrapEnvelope(rotated.wrappedVaultKeys[0]),
+        deserializeKeyWrapEnvelope(rotated.wrappedVaultKeys[0]!.encryptedVaultKey),
         freshPrivateKey,
         context,
       ),

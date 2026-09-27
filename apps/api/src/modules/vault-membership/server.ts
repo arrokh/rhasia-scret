@@ -26,6 +26,7 @@ export {
   InvitationRecipientUnavailableError,
   MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
   SecureShareLinkUnavailableError,
+  StaleRecipientEncryptionIdentityError,
 } from "./application/secure-share-link-repository";
 export type { SharedVaultAccessRepository } from "./application/shared-vault-access-repository";
 export { parseVaultParticipantCursorKey } from "./application/vault-participant-repository";

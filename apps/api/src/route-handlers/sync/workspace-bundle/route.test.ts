@@ -29,6 +29,11 @@ const responseBody: AuthorizedWorkspaceResponse = {
       accounts: [{ id: "account_1", encryptedPayload: ciphertext, encryptionVersion: 1, revision: 1 }],
     },
   },
+  userEncryptionIdentity: {
+    publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43), ext: true, key_ops: [] },
+    encryptedPrivateKey: ciphertext,
+    encryptionVersion: 1,
+  },
   sharedVaults: [
     {
       vaultId: "shared_1",
@@ -65,7 +70,9 @@ describe("GET /v1/sync/workspace-bundle contract", () => {
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(response.headers.get("etag")).toBeNull();
     expect(body.sharedVaults).toHaveLength(1);
+    expect(body.userEncryptionIdentity).toEqual(responseBody.userEncryptionIdentity);
     expect(body.personalSnapshot).not.toHaveProperty("sharedVaults");
+    expect(body.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
     expect(readAuthorizedWorkspaceResponse).toHaveBeenCalledWith("user_1");
   });
 

@@ -34,7 +34,14 @@ describe("PrismaOfflineSyncBundleReader", () => {
           rootKeyWrappingVersion: 1,
           encryptedPersonalVaultKey: opaque,
           personalVaultKeyEncryptionVersion: 1,
-          userEncryptionPublicKey: { kty: "EC", crv: "P-256", x: "opaque", y: "opaque" },
+          userEncryptionPublicKey: {
+            kty: "EC",
+            crv: "P-256",
+            x: "A".repeat(43),
+            y: "A".repeat(43),
+            ext: true,
+            key_ops: [],
+          },
           encryptedUserPrivateKey: opaque,
           userEncryptionKeyVersion: 1,
         },
@@ -77,7 +84,20 @@ describe("PrismaOfflineSyncBundleReader", () => {
 
       const authorizedWorkspace = await reader.readAuthorizedWorkspaceResponse(user.id);
       expect(authorizedWorkspace).not.toBeNull();
-      expect(authorizedWorkspace?.workspaceSynchronizationToken).toBe(bundle?.synchronizationToken);
+      expect(authorizedWorkspace?.workspaceSynchronizationToken).not.toBe(bundle?.synchronizationToken);
+      expect(authorizedWorkspace?.userEncryptionIdentity).toEqual({
+        publicKey: {
+          kty: "EC",
+          crv: "P-256",
+          x: "A".repeat(43),
+          y: "A".repeat(43),
+          ext: true,
+          key_ops: [],
+        },
+        encryptedPrivateKey: Buffer.from(opaque).toString("base64"),
+        encryptionVersion: 1,
+      });
+      expect(authorizedWorkspace?.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
       expect(authorizedWorkspace?.personalSnapshot).not.toHaveProperty("sharedVaults");
       expect(authorizedWorkspace?.personalSnapshot.personalVault.vaultId).toBe(personal.id);
       expect(authorizedWorkspace?.sharedVaults.map(({ vaultId }) => vaultId)).toEqual(

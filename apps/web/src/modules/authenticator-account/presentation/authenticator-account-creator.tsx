@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { parseTotpUri, TotpConfigurationError, type TotpConfigurationErrorCode } from "@/modules/otp-runtime";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
@@ -150,15 +150,19 @@ export function AuthenticatorAccountCreator({
       created = await createAccountMutation.mutateAsync({
         vaultId: vault.id,
         vaultType: vault.type,
+        keyVersion: vault.keyVersion,
         encryptedPayload: bytesToBase64(encryptedPayload),
         encryptionVersion: 1,
       });
     } catch (error) {
-      if (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") {
+      if (
+        (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") ||
+        (error instanceof BrowserApiError && error.status === 409 && error.code === "stale_key_version")
+      ) {
         await refreshWorkspaceAuthorization();
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
           operation: "create",
-          failure_code: "permission_denied",
+          failure_code: error.status === 403 ? "permission_denied" : "unknown",
         });
         throw new AccountCreatorError("destinationUnavailable");
       }
@@ -295,23 +299,24 @@ export function AuthenticatorAccountCreator({
                 {(field) => (
                   <Field>
                     <Label htmlFor="account-target-vault">{t("saveTo")}</Label>
-                    <Select value={field.state.value} onValueChange={field.handleChange}>
-                      <SelectTrigger
-                        id="account-target-vault"
-                        className="h-12 w-full bg-card"
-                        aria-invalid={field.state.meta.errors.length > 0}
-                        aria-describedby={field.state.meta.errors.length ? "account-target-vault-error" : undefined}
-                      >
-                        <SelectValue placeholder={t("selectVault")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {writableVaults.map((vault) => (
-                          <SelectItem key={vault.id} value={vault.id}>
-                            {vault.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <NativeSelect
+                      id="account-target-vault"
+                      value={field.state.value}
+                      onChange={(event) => field.handleChange(event.currentTarget.value)}
+                      className="h-12"
+                      aria-invalid={field.state.meta.errors.length > 0}
+                      aria-describedby={field.state.meta.errors.length ? "account-target-vault-error" : undefined}
+                      required
+                    >
+                      <option value="" disabled>
+                        {t("selectVault")}
+                      </option>
+                      {writableVaults.map((vault) => (
+                        <option key={vault.id} value={vault.id}>
+                          {vault.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
                     <FormFieldError id="account-target-vault-error" errors={field.state.meta.errors} />
                   </Field>
                 )}

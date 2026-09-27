@@ -16,15 +16,21 @@ describe("HostedAuthenticatorAccountTransport", () => {
   ])("selects the %s endpoint and returns a strict created account", async (vaultType, url) => {
     const transport = new StubTransport(response(201, { id: "account_1", revision: 1 }));
     const protocol = new HostedAuthenticatorAccountTransport(transport);
-    await expect(
-      protocol.create({ vaultId: "vault_1", vaultType }, { encryptedPayload: ciphertext, encryptionVersion: 1 }),
-    ).resolves.toEqual({ id: "account_1", revision: 1 });
+    const destination =
+      vaultType === "SHARED" ? { vaultId: "vault_1", vaultType, keyVersion: 4 } : { vaultId: "vault_1", vaultType };
+    await expect(protocol.create(destination, { encryptedPayload: ciphertext, encryptionVersion: 1 })).resolves.toEqual(
+      { id: "account_1", revision: 1 },
+    );
     expect(transport.requests).toEqual([
       {
         url,
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ encryptedPayload: ciphertext, encryptionVersion: 1 }),
+        body: JSON.stringify({
+          encryptedPayload: ciphertext,
+          encryptionVersion: 1,
+          ...(vaultType === "SHARED" ? { expectedKeyVersion: 4 } : {}),
+        }),
         cache: "no-store",
       },
     ]);

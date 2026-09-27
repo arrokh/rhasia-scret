@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
@@ -9,23 +9,54 @@ import { KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
+import { SecureShareLinkHttpTransportError, type PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
 import { redeemSecureShareLink } from "../infrastructure/browser-secure-share-link-workflow";
 
-export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8Array }) {
+export function SecureShareLinkRedemption({
+  profileId,
+  userEncryptionPublicKey,
+  onIdentityStale,
+}: {
+  profileId: string;
+  userEncryptionPublicKey?: PortableJsonWebKey;
+  onIdentityStale?: () => Promise<void>;
+}) {
   const t = useTranslations("VaultMembership.redemption");
   const secret = useSyncExternalStore(subscribeToHash, readHash, () => "");
-  const [status, setStatus] = useState<"idle" | "redeeming" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "redeeming" | "error" | "identity-stale">("idle");
+
+  useEffect(() => {
+    function resetRedemptionStatus() {
+      setStatus("idle");
+    }
+    window.addEventListener("hashchange", resetRedemptionStatus);
+    return () => window.removeEventListener("hashchange", resetRedemptionStatus);
+  }, []);
+
   async function redeem() {
-    if (!secret) {
+    if (!secret || !userEncryptionPublicKey) {
       setStatus("error");
       return;
     }
     setStatus("redeeming");
     try {
-      await redeemSecureShareLink(secret, userRootKey);
+      await redeemSecureShareLink(secret, { profileId, publicKey: userEncryptionPublicKey });
       captureAnalyticsEvent(ANALYTICS_EVENTS.secureShareLinkRedeemed);
       window.location.replace(new URL("/vaults", window.location.origin).toString());
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof SecureShareLinkHttpTransportError &&
+        error.code === "stale_user_encryption_identity" &&
+        onIdentityStale
+      ) {
+        try {
+          await onIdentityStale();
+          setStatus("identity-stale");
+          return;
+        } catch {
+          // Keep the ordinary failure state if workspace authorization cannot be refreshed.
+        }
+      }
       setStatus("error");
     }
   }
@@ -57,9 +88,9 @@ export function SecureShareLinkRedemption({ userRootKey }: { userRootKey: Uint8A
         {status === "redeeming" && <LoaderCircle className="animate-spin" />}
         {status === "redeeming" ? t("redeeming") : t("redeem")}
       </Button>
-      {status === "error" && secret && (
+      {(status === "error" || status === "identity-stale") && secret && (
         <StatusBanner tone="danger" role="alert">
-          {t("error")}
+          {status === "identity-stale" ? t("identityChanged") : t("error")}
         </StatusBanner>
       )}
     </div>

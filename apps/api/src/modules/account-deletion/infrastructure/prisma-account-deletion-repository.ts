@@ -175,7 +175,12 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
     validateAccountDeletionRequest(request);
     const authorizationDigest = this.digest(AUTHORIZATION_CONTEXT, authorizationToken);
     return this.database.$transaction(async (transaction) => {
-      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${applicationUserId}))`;
+      const userIdsToLock = new Set([applicationUserId]);
+      for (const decision of request.vaultDecisions) {
+        if (decision.action === "TRANSFER" && decision.transferToUserId) userIdsToLock.add(decision.transferToUserId);
+      }
+      for (const userId of [...userIdsToLock].sort())
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
       const challenge = await transaction.accountDeletionChallenge.findUnique({
         where: { authorizationDigest },
       });
@@ -199,13 +204,26 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
       });
       if (!user) throw new AccountDeletionAuthorizationError();
 
-      const [personalVaults, sharedVaults] = await Promise.all([
+      const [personalVaults, sharedVaults, activeMemberships] = await Promise.all([
         transaction.vault.findMany({ where: { ownerId: applicationUserId, type: "PERSONAL" }, select: { id: true } }),
         transaction.vault.findMany({
           where: { ownerId: applicationUserId, type: "SHARED" },
           select: { id: true, lifecycle: true },
         }),
+        transaction.vaultMember.findMany({
+          where: { userId: applicationUserId, status: "ACTIVE", vault: { type: "SHARED" } },
+          select: { vaultId: true },
+        }),
       ]);
+      const vaultIdsToLock = new Set([
+        ...personalVaults.map(({ id }) => id),
+        ...sharedVaults.map(({ id }) => id),
+        ...activeMemberships.map(({ vaultId }) => vaultId),
+      ]);
+      for (const vaultId of [...vaultIdsToLock].sort())
+        await transaction.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "vaults" WHERE "id" = ${vaultId} FOR UPDATE
+        `;
       const decisions = new Map(request.vaultDecisions.map((decision) => [decision.vaultId, decision]));
       if (decisions.size !== sharedVaults.length || sharedVaults.some(({ id }) => !decisions.has(id)))
         throw new AccountDeletionPlanStaleError();

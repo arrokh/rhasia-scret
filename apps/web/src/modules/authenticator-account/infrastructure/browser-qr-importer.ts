@@ -2,7 +2,9 @@
 
 import type { QrImportPort } from "@rhasia-scret/client-vault-core";
 import type { PlatformFile } from "@rhasia-scret/client-vault-core";
-import type { IScannerControls } from "@zxing/browser";
+export type QrCameraScannerControls = { stop(): void };
+
+const CAMERA_SCAN_INTERVAL_MS = 500;
 
 const IMAGE_MEDIA_TYPES_BY_EXTENSION: Readonly<Record<string, string>> = {
   ".avif": "image/avif",
@@ -50,7 +52,7 @@ async function decodeQrImageBlob(file: Blob): Promise<string> {
 }
 
 type LoadedQrImage = {
-  source: HTMLImageElement | ImageBitmap;
+  source: CanvasImageSource;
   width: number;
   height: number;
   release: () => void;
@@ -60,15 +62,26 @@ type QrDecoder = typeof import("jsqr").default;
 
 function decodeQrImageSource(decodeQr: QrDecoder, image: LoadedQrImage): ReturnType<QrDecoder> {
   const canvas = document.createElement("canvas");
-  canvas.width = image.width;
-  canvas.height = image.height;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("QR image decoding is unavailable.");
+  return decodeQrCanvasSource(decodeQr, image.source, image.width, image.height, canvas, context);
+}
+
+function decodeQrCanvasSource(
+  decodeQr: QrDecoder,
+  source: CanvasImageSource,
+  width: number,
+  height: number,
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+): ReturnType<QrDecoder> {
+  canvas.width = width;
+  canvas.height = height;
   context.fillStyle = "#fff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image.source, 0, 0);
-  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-  const result = decodeQr(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
+  context.fillRect(0, 0, width, height);
+  context.drawImage(source, 0, 0);
+  const imageData = context.getImageData(0, 0, width, height);
+  const result = decodeQr(imageData.data, width, height, { inversionAttempts: "attemptBoth" });
   if (result) return result;
 
   const cropped = cropToDarkContent(imageData);
@@ -179,10 +192,58 @@ function resolveImageMediaType(file: PlatformFile): string {
 export async function scanQrCamera(
   video: HTMLVideoElement,
   onValue: (value: string) => void,
-): Promise<IScannerControls> {
-  const { BrowserQRCodeReader } = await import("@zxing/browser");
-  const reader = new BrowserQRCodeReader();
-  return reader.decodeFromVideoDevice(undefined, video, (result) => {
-    if (result) onValue(result.getText());
+): Promise<QrCameraScannerControls> {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: { ideal: "environment" } },
   });
+  video.srcObject = stream;
+
+  const stopStream = () => {
+    stream.getTracks().forEach((track) => track.stop());
+    if (video.srcObject === stream) video.srcObject = null;
+  };
+
+  try {
+    await video.play();
+    const { default: decodeQr } = await import("jsqr");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("QR camera scanning is unavailable.");
+
+    let stopped = false;
+    let frameId: number | null = null;
+    let lastScanAt = -CAMERA_SCAN_INTERVAL_MS;
+    const controls: QrCameraScannerControls = {
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        stopStream();
+      },
+    };
+    const scan = (timestamp: number) => {
+      if (stopped) return;
+      if (
+        timestamp - lastScanAt >= CAMERA_SCAN_INTERVAL_MS &&
+        video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
+        lastScanAt = timestamp;
+        const result = decodeQrCanvasSource(decodeQr, video, video.videoWidth, video.videoHeight, canvas, context);
+        if (result) {
+          controls.stop();
+          onValue(result.data);
+          return;
+        }
+      }
+      frameId = requestAnimationFrame(scan);
+    };
+    frameId = requestAnimationFrame(scan);
+    return controls;
+  } catch (error) {
+    stopStream();
+    throw error;
+  }
 }

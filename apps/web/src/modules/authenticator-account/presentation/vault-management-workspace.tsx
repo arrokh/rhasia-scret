@@ -133,6 +133,7 @@ export function SharedVaultDetailWorkspace({
       <SharedVaultDetails
         vault={vault}
         ownerEmail={ownerEmail}
+        onWorkspaceRefresh={refreshWorkspaceAuthorization}
         onAccountEdit={(summary) => {
           const account = workspace.accounts.find(
             (candidate) => candidate.id === summary.id && candidate.vaultId === vaultId,
@@ -197,6 +198,7 @@ export function SharedVaultDetailWorkspace({
         <WorkspaceAuthenticatorAccountManager
           account={managedAccount}
           vaultKey={vault.key}
+          keyVersion={vault.keyVersion}
           canEdit={vault.effectiveAccountPermissions.permissions.canEditAccounts}
           canDelete={vault.effectiveAccountPermissions.permissions.canDeleteAccounts}
           onPermissionChanged={refreshWorkspaceAuthorization}
@@ -211,6 +213,7 @@ export function SharedVaultDetailWorkspace({
 function WorkspaceAuthenticatorAccountManager({
   account,
   vaultKey,
+  keyVersion,
   canEdit,
   canDelete,
   onPermissionChanged,
@@ -219,6 +222,7 @@ function WorkspaceAuthenticatorAccountManager({
 }: {
   account: WorkspaceAuthenticatorAccount;
   vaultKey: Uint8Array;
+  keyVersion?: number;
   canEdit: boolean;
   canDelete: boolean;
   onPermissionChanged?: () => Promise<void>;
@@ -230,6 +234,7 @@ function WorkspaceAuthenticatorAccountManager({
     <AuthenticatorAccountManagerDialog
       account={account}
       vaultKey={vaultKey}
+      keyVersion={keyVersion}
       canEdit={canEdit}
       canDelete={canDelete}
       onPermissionChanged={onPermissionChanged}
@@ -267,10 +272,16 @@ function WorkspaceAuthenticatorAccountManager({
 }
 
 export function InvitationRedemptionWorkspace({ personalVaultId }: { personalVaultId: string }) {
-  const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
+  const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
-  return <SecureShareLinkRedemption userRootKey={workspace.userRootKey} />;
+  return (
+    <SecureShareLinkRedemption
+      profileId={workspace.profileId}
+      userEncryptionPublicKey={workspace.userEncryptionPublicKey}
+      onIdentityStale={refreshWorkspaceAuthorization}
+    />
+  );
 }
 
 export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaultId: string }) {
@@ -281,7 +292,8 @@ export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaul
   return (
     <div className="p-5 sm:p-6">
       <SharedVaultCreator
-        userRootKey={workspace.userRootKey}
+        userEncryptionPublicKey={workspace.userEncryptionPublicKey}
+        profileId={workspace.profileId}
         onCreated={(vault) => {
           setWorkspace((current) =>
             current
@@ -293,6 +305,7 @@ export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaul
                       ...vault,
                       type: "SHARED",
                       role: "OWNER",
+                      keyVersion: 1,
                       effectiveAccountPermissions: {
                         permissions: ALL_ACCOUNT_PERMISSIONS,
                         sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
@@ -355,6 +368,7 @@ function sharedVaultSummaries(
       id: vault.id,
       name: vault.name,
       role: vault.role,
+      keyVersion: vault.keyVersion,
       effectiveAccountPermissions: vault.effectiveAccountPermissions,
       key: vault.key,
       accounts: [

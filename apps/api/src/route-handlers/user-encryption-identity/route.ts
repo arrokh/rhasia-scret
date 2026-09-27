@@ -2,22 +2,14 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { z } from "zod";
 import { type UserCryptoProfileRepository } from "@api/modules/identity/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
 
-const publicKeySchema = z
-  .object({
-    kty: z.literal("EC"),
-    crv: z.literal("P-256"),
-    x: z.string().min(1).max(128),
-    y: z.string().min(1).max(128),
-  })
-  .passthrough()
-  .refine((key) => !("d" in key));
 const schema = z
   .object({
-    publicKey: publicKeySchema,
+    publicKey: publicEncryptionKeySchema,
     encryptedPrivateKey: boundedEncryptedBlobSchema(),
     encryptionVersion: z.literal(1),
   })
@@ -33,11 +25,12 @@ export function createUserEncryptionIdentityHandler({ authenticate, cryptoProfil
     if (user instanceof ApiResponse) return user;
     const parsed = await safeParseJsonBody(request, schema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_identity" }, { status: 400 });
-    await cryptoProfiles.registerUserEncryptionIdentity(user.id, {
+    const registered = await cryptoProfiles.registerUserEncryptionIdentity(user.id, {
       publicKey: parsed.data.publicKey as JsonWebKey,
       encryptedPrivateKey: Buffer.from(parsed.data.encryptedPrivateKey, "base64"),
       encryptionVersion: parsed.data.encryptionVersion,
     });
+    if (!registered) return ApiResponse.json({ error: "identity_already_registered" }, { status: 409 });
     return new ApiResponse(null, { status: 204 });
   };
 }

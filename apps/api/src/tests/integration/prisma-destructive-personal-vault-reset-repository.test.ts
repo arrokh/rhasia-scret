@@ -9,6 +9,7 @@ import { PrismaSecureShareLinkRepository } from "@api/modules/vault-membership/i
 import { prisma } from "@api/tests/integration/prisma";
 
 const userIds: string[] = [];
+const publicKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) } satisfies JsonWebKey;
 
 async function createUser() {
   const user = await prisma.applicationUser.create({
@@ -38,7 +39,7 @@ async function createInitializedPersonalVault(userId: string) {
       rootKeyWrappingVersion: 1,
       encryptedPersonalVaultKey: bytes("personal-vault-key"),
       personalVaultKeyEncryptionVersion: 1,
-      userEncryptionPublicKey: { kty: "EC" },
+      userEncryptionPublicKey: publicKey,
       encryptedUserPrivateKey: bytes("private-key"),
       userEncryptionKeyVersion: 1,
     },
@@ -155,17 +156,32 @@ describe("PrismaDestructivePersonalVaultResetRepository", () => {
         }),
       ).resolves.toEqual({ status: "ACTIVE" });
 
+      await prisma.userCryptoProfile.create({
+        data: {
+          userId: resettingUser.id,
+          vaultUnlockSalt: new Uint8Array(16).fill(2),
+          wrappedUserRootKey: bytes("replacement-wrapped-root-key"),
+          rootKeyWrappingVersion: 1,
+          encryptedPersonalVaultKey: bytes("replacement-personal-vault-key"),
+          personalVaultKeyEncryptionVersion: 1,
+          userEncryptionPublicKey: publicKey,
+          encryptedUserPrivateKey: bytes("replacement-private-key"),
+          userEncryptionKeyVersion: 1,
+        },
+      });
       const shareLinks = new PrismaSecureShareLinkRepository(prisma);
       const replacementInvitation = await shareLinks.create(sharedOwner.id, sharedVault.id, {
         recipientUserId: resettingUser.id,
         linkVerifier: bytes(randomUUID()),
         encryptedPackage: bytes("replacement-package"),
+        expectedKeyVersion: 1,
       });
       await shareLinks.redeem(
         { userId: resettingUser.id, email: resettingUser.email },
         replacementInvitation.id,
         bytes("replacement-viewer-key"),
-        2,
+        1,
+        publicKey,
       );
       await expect(
         prisma.vaultMember.findUnique({
@@ -175,7 +191,7 @@ describe("PrismaDestructivePersonalVaultResetRepository", () => {
       ).resolves.toEqual({
         status: "ACTIVE",
         encryptedVaultKey: bytes("replacement-viewer-key"),
-        keyVersion: 2,
+        keyVersion: 1,
         revokedAt: null,
       });
     },

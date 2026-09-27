@@ -115,6 +115,7 @@ function workspace(): UnlockedVaultWorkspace {
           permissions: { canAddAccounts: true, canEditAccounts: true, canDeleteAccounts: true },
           sources: { canAddAccounts: "OWNER", canEditAccounts: "OWNER", canDeleteAccounts: "OWNER" },
         },
+        keyVersion: 1,
         key: Uint8Array.of(2),
       },
     ],

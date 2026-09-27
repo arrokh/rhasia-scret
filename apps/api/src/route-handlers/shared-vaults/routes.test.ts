@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   leave: vi.fn(),
   revoke: vi.fn(),
   rotate: vi.fn(),
+  snapshotRotation: vi.fn(),
   secureLinks: {},
   findLink: vi.fn(),
   redeemLink: vi.fn(),
@@ -28,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   InvitationConflictError: class extends Error {},
   InvitationRecipientUnavailableError: class extends Error {},
   SecureShareLinkUnavailableError: class extends Error {},
+  StaleRecipientEncryptionIdentityError: class extends Error {},
   MAX_INVITATION_RECIPIENT_EMAIL_LENGTH: 254,
   MembershipUnavailableError: class extends Error {},
 }));
@@ -52,7 +54,7 @@ vi.mock("@api/modules/vault-membership/server", () => ({
   leaveVaultMembership: mocks.leave,
   revokeVaultMembership: mocks.revoke,
   MembershipUnavailableError: mocks.MembershipUnavailableError,
-  createVaultKeyRotationRepository: () => ({ rotate: mocks.rotate }),
+  createVaultKeyRotationRepository: () => ({ rotate: mocks.rotate, snapshot: mocks.snapshotRotation }),
   createSecureShareLinkRepository: () => mocks.secureLinks,
   findSecureShareLinkForRecipient: mocks.findLink,
   redeemSecureShareLinkForRecipient: mocks.redeemLink,
@@ -60,13 +62,14 @@ vi.mock("@api/modules/vault-membership/server", () => ({
   InvitationConflictError: mocks.InvitationConflictError,
   InvitationRecipientUnavailableError: mocks.InvitationRecipientUnavailableError,
   SecureShareLinkUnavailableError: mocks.SecureShareLinkUnavailableError,
+  StaleRecipientEncryptionIdentityError: mocks.StaleRecipientEncryptionIdentityError,
   MAX_INVITATION_RECIPIENT_EMAIL_LENGTH: mocks.MAX_INVITATION_RECIPIENT_EMAIL_LENGTH,
   parseVaultParticipantCursorKey: (key: string) => (key.startsWith("member:") ? key : null),
 }));
 vi.mock("@api/modules/vault-management/server", () => ({
   createSharedVaultRepository: () => mocks.sharedVaults,
   createSharedVaultRecoveryRepository: () => mocks.lifecycle,
-  createVaultKeyRotationRepository: () => ({ rotate: mocks.rotate }),
+  createVaultKeyRotationRepository: () => ({ rotate: mocks.rotate, snapshot: mocks.snapshotRotation }),
 }));
 vi.mock("@api/modules/audit/server", () => ({
   createVaultAuditRepository: () => ({ listForOwner: mocks.listAudit, recordAccountAccess: mocks.recordSharedAccess }),
@@ -95,7 +98,7 @@ import {
   POST as lifecycleRestore,
 } from "@api/route-handlers/shared-vaults/[vaultId]/lifecycle/route";
 import { POST as leave } from "@api/route-handlers/shared-vaults/[vaultId]/leave/route";
-import { PATCH as rotate } from "@api/route-handlers/shared-vaults/[vaultId]/rotation/route";
+import { GET as rotationGet, PATCH as rotate } from "@api/route-handlers/shared-vaults/[vaultId]/rotation/route";
 import { POST as invite } from "@api/route-handlers/shared-vaults/[vaultId]/share-links/route";
 import { DELETE as cancel } from "@api/route-handlers/shared-vaults/[vaultId]/share-links/[invitationId]/route";
 import { GET as secureLinkGet, POST as secureLinkPost } from "@api/route-handlers/secure-share-links/route";
@@ -104,7 +107,11 @@ import { POST as sharedAuditPost } from "@api/route-handlers/shared-vaults/[vaul
 
 const user = { id: "owner-1", email: "owner@example.test" };
 const owner = user;
-const accountPayload = { encryptedPayload: Buffer.alloc(29, 1).toString("base64"), encryptionVersion: 1 };
+const accountPayload = {
+  encryptedPayload: Buffer.alloc(29, 1).toString("base64"),
+  encryptionVersion: 1,
+  expectedKeyVersion: 1,
+};
 const params = { params: Promise.resolve({ vaultId: "vault-1" }) };
 const request = (path: string, init: RequestInit = {}) => apiTestRequest(path, init);
 
@@ -123,7 +130,7 @@ describe("Shared Vault account and lifecycle routes", () => {
       params,
     );
     expect(created.status).toBe(201);
-    expect(mocks.sharedAccounts.create).toHaveBeenCalledWith("owner-1", "vault-1", expect.any(Uint8Array), 1);
+    expect(mocks.sharedAccounts.create).toHaveBeenCalledWith("owner-1", "vault-1", expect.any(Uint8Array), 1, 1);
 
     mocks.sharedAccounts.update.mockResolvedValue({ status: "STALE_REVISION" });
     const updated = await sharedAccountPatch(
@@ -165,7 +172,8 @@ describe("Shared Vault account and lifecycle routes", () => {
   it("maps shared-account permission and availability outcomes without exposing Vault data", async () => {
     mocks.sharedAccounts.create
       .mockResolvedValueOnce({ status: "PERMISSION_DENIED" })
-      .mockResolvedValueOnce({ status: "VAULT_UNAVAILABLE" });
+      .mockResolvedValueOnce({ status: "VAULT_UNAVAILABLE" })
+      .mockResolvedValueOnce({ status: "STALE_KEY_VERSION" });
     const denied = await sharedAccountPost(
       request("/v1/shared-vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(accountPayload) }),
       params,
@@ -174,8 +182,14 @@ describe("Shared Vault account and lifecycle routes", () => {
       request("/v1/shared-vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(accountPayload) }),
       params,
     );
+    const staleGeneration = await sharedAccountPost(
+      request("/v1/shared-vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(accountPayload) }),
+      params,
+    );
     expect(denied.status).toBe(403);
     expect(unavailable.status).toBe(404);
+    expect(staleGeneration.status).toBe(409);
+    await expect(staleGeneration.json()).resolves.toEqual({ error: "stale_key_version" });
     expect(await unavailable.text()).not.toContain("encrypted");
   });
 
@@ -201,12 +215,16 @@ describe("Shared Vault account and lifecycle routes", () => {
     const renamed = await sharedVaultPatch(
       request("/v1/shared-vaults/vault-1", {
         method: "PATCH",
-        body: JSON.stringify({ encryptedName: Buffer.alloc(13, 2).toString("base64"), encryptionVersion: 1 }),
+        body: JSON.stringify({
+          encryptedName: Buffer.alloc(13, 2).toString("base64"),
+          encryptionVersion: 1,
+          expectedKeyVersion: 1,
+        }),
       }),
       params,
     );
     expect(renamed.status).toBe(204);
-    expect(mocks.sharedVaults.rename).toHaveBeenCalledWith("owner-1", "vault-1", expect.any(Uint8Array), 1);
+    expect(mocks.sharedVaults.rename).toHaveBeenCalledWith("owner-1", "vault-1", expect.any(Uint8Array), 1, 1);
   });
 
   it("deletes, restores, and leaves a Shared Vault through the lifecycle repository", async () => {
@@ -306,13 +324,69 @@ describe("Shared Vault membership and permission routes", () => {
     expect(mocks.cancelInvitation).toHaveBeenCalledWith("owner-1", "vault-1", "invitation-1", expect.anything());
   });
 
+  it("returns owner-authorized opaque rotation material and active member public keys", async () => {
+    mocks.snapshotRotation.mockResolvedValue({
+      vaultId: "vault-1",
+      encryptedName: Uint8Array.of(1, 2, 3),
+      encryptionVersion: 1,
+      currentKeyVersion: 2,
+      pendingInvitationCount: 3,
+      accounts: [
+        {
+          id: "account-1",
+          encryptedPayload: Uint8Array.of(4, 5, 6),
+          encryptionVersion: 1,
+          revision: 7,
+          deletedAt: new Date("2026-08-01T00:00:00.000Z"),
+        },
+      ],
+      members: [
+        {
+          userId: "member-1",
+          keyVersion: 2,
+          publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+        },
+      ],
+    });
+
+    const response = await rotationGet(request("/v1/shared-vaults/vault-1/rotation"), params);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      vaultId: "vault-1",
+      encryptedName: "AQID",
+      encryptionVersion: 1,
+      currentKeyVersion: 2,
+      pendingInvitationCount: 3,
+      accounts: [
+        {
+          id: "account-1",
+          encryptedPayload: "BAUG",
+          encryptionVersion: 1,
+          revision: 7,
+          recoverableDeleted: true,
+        },
+      ],
+      members: [
+        {
+          userId: "member-1",
+          keyVersion: 2,
+          publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+        },
+      ],
+    });
+  });
+
   it("rejects rotations with more than the bounded item count", async () => {
     const body = {
+      expectedEncryptedName: Buffer.alloc(13, 9).toString("base64"),
       encryptedName: Buffer.alloc(13, 1).toString("base64"),
       encryptionVersion: 1,
+      expectedKeyVersion: 1,
       keyVersion: 2,
       accounts: Array.from({ length: 501 }, (_, index) => ({
         id: `account-${index}`,
+        revision: 1,
         encryptedPayload: Buffer.alloc(13, 2).toString("base64"),
       })),
       memberPackages: [],
@@ -325,14 +399,67 @@ describe("Shared Vault membership and permission routes", () => {
     expect(mocks.rotate).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      label: "account IDs",
+      accounts: [
+        { id: "account-1", revision: 1, encryptedPayload: Buffer.alloc(13, 2).toString("base64") },
+        { id: "account-1", revision: 1, encryptedPayload: Buffer.alloc(13, 3).toString("base64") },
+      ],
+      memberPackages: [],
+    },
+    {
+      label: "member IDs",
+      accounts: [],
+      memberPackages: [
+        {
+          userId: "member-1",
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+          encryptedVaultKey: Buffer.alloc(13, 3).toString("base64"),
+        },
+        {
+          userId: "member-1",
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+          encryptedVaultKey: Buffer.alloc(13, 4).toString("base64"),
+        },
+      ],
+    },
+  ])("rejects duplicate $label before persistence", async ({ accounts, memberPackages }) => {
+    const response = await rotate(
+      request("/v1/shared-vaults/vault-1/rotation", {
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedEncryptedName: Buffer.alloc(13, 9).toString("base64"),
+          encryptedName: Buffer.alloc(13, 1).toString("base64"),
+          encryptionVersion: 1,
+          expectedKeyVersion: 1,
+          keyVersion: 2,
+          accounts,
+          memberPackages,
+        }),
+      }),
+      params,
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.rotate).not.toHaveBeenCalled();
+  });
+
   it("rotates encrypted member packages without returning key material", async () => {
     mocks.rotate.mockResolvedValue(true);
     const body = {
+      expectedEncryptedName: Buffer.alloc(13, 9).toString("base64"),
       encryptedName: Buffer.alloc(13, 1).toString("base64"),
       encryptionVersion: 1,
+      expectedKeyVersion: 1,
       keyVersion: 2,
-      accounts: [{ id: "account-1", encryptedPayload: Buffer.alloc(13, 2).toString("base64") }],
-      memberPackages: [{ userId: "member-1", encryptedVaultKey: Buffer.alloc(13, 3).toString("base64") }],
+      accounts: [{ id: "account-1", revision: 1, encryptedPayload: Buffer.alloc(13, 2).toString("base64") }],
+      memberPackages: [
+        {
+          userId: "member-1",
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+          encryptedVaultKey: Buffer.alloc(13, 3).toString("base64"),
+        },
+      ],
     };
     const response = await rotate(
       request("/v1/shared-vaults/vault-1/rotation", { method: "PATCH", body: JSON.stringify(body) }),
@@ -340,6 +467,15 @@ describe("Shared Vault membership and permission routes", () => {
     );
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
+    expect(mocks.rotate).toHaveBeenCalledWith(
+      "owner-1",
+      "vault-1",
+      expect.objectContaining({
+        expectedEncryptedName: expect.any(Uint8Array),
+        expectedKeyVersion: 1,
+        keyVersion: 2,
+      }),
+    );
   });
 });
 
@@ -352,6 +488,7 @@ describe("Secure Share Link routes", () => {
           recipientEmail: `${"a".repeat(250)}@example.test`,
           linkVerifier: Buffer.alloc(32, 1).toString("base64"),
           encryptedPackage: Buffer.alloc(13, 2).toString("base64"),
+          expectedKeyVersion: 1,
         }),
       }),
       params,
@@ -369,6 +506,7 @@ describe("Secure Share Link routes", () => {
           recipientEmail: "viewer@example.test",
           linkVerifier: Buffer.alloc(32, 1).toString("base64"),
           encryptedPackage: Buffer.alloc(13, 2).toString("base64"),
+          expectedKeyVersion: 1,
         }),
       }),
       params,
@@ -386,12 +524,18 @@ describe("Secure Share Link routes", () => {
       id: "invitation-1",
       vaultId: "vault-1",
       encryptedPackage: Uint8Array.of(2, 3, 4),
+      keyVersion: 3,
     });
     const found = await secureLinkGet(
       request(`/v1/secure-share-links?verifier=${Buffer.alloc(32, 1).toString("base64")}`),
     );
     expect(found.status).toBe(200);
-    await expect(found.json()).resolves.toEqual({ id: "invitation-1", vaultId: "vault-1", encryptedPackage: "AgME" });
+    await expect(found.json()).resolves.toEqual({
+      id: "invitation-1",
+      vaultId: "vault-1",
+      encryptedPackage: "AgME",
+      keyVersion: 3,
+    });
 
     mocks.redeemLink.mockResolvedValue(undefined);
     const redeemed = await secureLinkPost(
@@ -400,7 +544,8 @@ describe("Secure Share Link routes", () => {
         body: JSON.stringify({
           invitationId: "invitation-1",
           encryptedVaultKey: Buffer.alloc(13, 3).toString("base64"),
-          keyVersion: 1,
+          keyVersion: 3,
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
         }),
       }),
     );
@@ -418,6 +563,7 @@ describe("Secure Share Link routes", () => {
               recipientEmail: "viewer@example.test",
               linkVerifier: Buffer.alloc(32).toString("base64"),
               encryptedPackage: Buffer.alloc(13).toString("base64"),
+              expectedKeyVersion: 1,
             }),
           }),
           params,
@@ -432,10 +578,46 @@ describe("Secure Share Link routes", () => {
           invitationId: "invitation-1",
           encryptedVaultKey: Buffer.alloc(13).toString("base64"),
           keyVersion: 1,
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
         }),
       }),
     );
     expect(response.status).toBe(404);
+
+    const invalidPrivateKey = await secureLinkPost(
+      request("/v1/secure-share-links", {
+        method: "POST",
+        body: JSON.stringify({
+          invitationId: "invitation-1",
+          encryptedVaultKey: Buffer.alloc(13).toString("base64"),
+          keyVersion: 1,
+          expectedPublicKey: {
+            kty: "EC",
+            crv: "P-256",
+            x: "A".repeat(43),
+            y: "B".repeat(43),
+            d: "synthetic-private-material",
+          },
+        }),
+      }),
+    );
+    expect(invalidPrivateKey.status).toBe(400);
+    expect(mocks.redeemLink).toHaveBeenCalledOnce();
+
+    mocks.redeemLink.mockRejectedValueOnce(new mocks.StaleRecipientEncryptionIdentityError("identity changed"));
+    const staleIdentity = await secureLinkPost(
+      request("/v1/secure-share-links", {
+        method: "POST",
+        body: JSON.stringify({
+          invitationId: "invitation-1",
+          encryptedVaultKey: Buffer.alloc(13).toString("base64"),
+          keyVersion: 1,
+          expectedPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+        }),
+      }),
+    );
+    expect(staleIdentity.status).toBe(409);
+    await expect(staleIdentity.json()).resolves.toEqual({ error: "stale_user_encryption_identity" });
   });
 });
 

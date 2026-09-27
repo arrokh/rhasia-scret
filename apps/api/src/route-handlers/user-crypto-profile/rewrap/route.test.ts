@@ -18,7 +18,7 @@ describe("POST /v1/user-crypto-profile/rewrap contract", () => {
       authenticate: async () => user,
       cryptoProfiles: {
         get: async () => null,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey,
       },
     });
@@ -35,7 +35,7 @@ describe("POST /v1/user-crypto-profile/rewrap contract", () => {
       authenticate: async () => user,
       cryptoProfiles: {
         get: async () => null,
-        registerUserEncryptionIdentity: async () => undefined,
+        registerUserEncryptionIdentity: async () => true,
         rewrapUserRootKey,
       },
     });

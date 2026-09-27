@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { StaleRecipientEncryptionIdentityError } from "@api/modules/vault-membership/application/secure-share-link-repository";
 import { PrismaSecureShareLinkRepository } from "@api/modules/vault-membership/infrastructure/prisma-secure-share-link-repository";
 import { prisma } from "@api/tests/integration/prisma";
 
 const userIds: string[] = [];
 const vaultIds: string[] = [];
+const publicKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) } satisfies JsonWebKey;
+const stalePublicKey = { ...publicKey, x: "C".repeat(43) };
 afterEach(async () => {
   await prisma.vaultInvitation.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.vaultMember.deleteMany({ where: { vaultId: { in: vaultIds } } });
@@ -26,7 +29,9 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
           lifecycle: "ACTIVE",
           encryptedName: bytes("name"),
           encryptionVersion: 1,
-          members: { create: { userId: owner.id, role: "OWNER" } },
+          members: {
+            create: { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+          },
         },
       });
       vaultIds.push(vault.id);
@@ -36,6 +41,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       const invitation = await repository.createForEmail(owner.id, vault.id, recipientEmail.toUpperCase(), {
         linkVerifier: verifier,
         encryptedPackage: bytes("encrypted-package"),
+        expectedKeyVersion: 1,
       });
       await expect(
         prisma.vaultInvitation.findUnique({
@@ -48,11 +54,21 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       await expect(
         repository.findForRecipient({ userId: recipient.id, email: recipientEmail.toUpperCase() }, verifier),
       ).resolves.toEqual(expect.objectContaining({ id: invitation.id, vaultId: vault.id }));
+      await expect(
+        repository.redeem(
+          { userId: recipient.id, email: recipientEmail },
+          invitation.id,
+          bytes("stale-wrapped-vault-key"),
+          1,
+          stalePublicKey,
+        ),
+      ).rejects.toBeInstanceOf(StaleRecipientEncryptionIdentityError);
       await repository.redeem(
         { userId: recipient.id, email: recipientEmail },
         invitation.id,
         bytes("wrapped-vault-key"),
         1,
+        publicKey,
       );
 
       await expect(
@@ -85,7 +101,9 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
           lifecycle: "ACTIVE",
           encryptedName: bytes("name"),
           encryptionVersion: 1,
-          members: { create: { userId: owner.id, role: "OWNER" } },
+          members: {
+            create: { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+          },
         },
       });
       vaultIds.push(vault.id);
@@ -105,11 +123,18 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       const repository = new PrismaSecureShareLinkRepository(prisma, () => now);
 
       await expect(
-        repository.redeem({ userId: recipient.id, email: recipient.email }, expired.id, bytes("wrapped-vault-key"), 1),
+        repository.redeem(
+          { userId: recipient.id, email: recipient.email },
+          expired.id,
+          bytes("wrapped-vault-key"),
+          1,
+          publicKey,
+        ),
       ).rejects.toThrow("unavailable");
       const replacement = await repository.createForEmail(owner.id, vault.id, recipient.email, {
         linkVerifier: replacementVerifier,
         encryptedPackage: bytes("replacement-package"),
+        expectedKeyVersion: 1,
       });
 
       expect(replacement.expiresAt).toEqual(new Date("2026-08-05T12:00:00.000Z"));
@@ -135,7 +160,9 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
           lifecycle: "ACTIVE",
           encryptedName: bytes("name"),
           encryptionVersion: 1,
-          members: { create: { userId: owner.id, role: "OWNER" } },
+          members: {
+            create: { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+          },
         },
       });
       vaultIds.push(vault.id);
@@ -145,6 +172,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       const invitation = await repository.createForEmail(owner.id, vault.id, recipient.email.toUpperCase(), {
         linkVerifier: verifier,
         encryptedPackage: bytes("encrypted-package"),
+        expectedKeyVersion: 1,
       });
 
       await expect(
@@ -154,6 +182,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
         repository.createForEmail(owner.id, vault.id, recipient.email, {
           linkVerifier: new Uint8Array(32).fill(2),
           encryptedPackage: bytes("another-package"),
+          expectedKeyVersion: 1,
         }),
       ).rejects.toThrow("pending invitation");
 
@@ -181,7 +210,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
           encryptionVersion: 1,
           members: {
             create: [
-              { userId: owner.id, role: "OWNER" },
+              { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
               {
                 userId: recipient.id,
                 role: "VIEWER",
@@ -199,6 +228,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       const invitation = await repository.createForEmail(owner.id, vault.id, recipient.email, {
         linkVerifier: new Uint8Array(32).fill(8),
         encryptedPackage: bytes("encrypted-package"),
+        expectedKeyVersion: 1,
       });
 
       await repository.redeem(
@@ -206,6 +236,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
         invitation.id,
         bytes("wrapped-vault-key"),
         1,
+        publicKey,
       );
 
       await expect(
@@ -242,7 +273,9 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
           lifecycle: "ACTIVE",
           encryptedName: bytes("name"),
           encryptionVersion: 1,
-          members: { create: { userId: owner.id, role: "OWNER" } },
+          members: {
+            create: { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+          },
         },
       });
       vaultIds.push(vault.id);
@@ -251,6 +284,7 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       await repository.createForEmail(owner.id, vault.id, originalEmail, {
         linkVerifier: verifier,
         encryptedPackage: bytes("encrypted-package"),
+        expectedKeyVersion: 1,
       });
 
       await prisma.applicationUser.update({
@@ -269,6 +303,19 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
 async function user(label: string, email = `${label}-${randomUUID()}@example.test`) {
   const result = await prisma.applicationUser.create({ data: { email } });
   userIds.push(result.id);
+  await prisma.userCryptoProfile.create({
+    data: {
+      userId: result.id,
+      vaultUnlockSalt: bytes("synthetic-salt"),
+      wrappedUserRootKey: bytes("synthetic-wrapped-root-key"),
+      rootKeyWrappingVersion: 1,
+      encryptedPersonalVaultKey: bytes("synthetic-personal-key"),
+      personalVaultKeyEncryptionVersion: 1,
+      userEncryptionPublicKey: publicKey,
+      encryptedUserPrivateKey: bytes("synthetic-encrypted-private-key"),
+      userEncryptionKeyVersion: 1,
+    },
+  });
   return result;
 }
 function bytes(value: string) {

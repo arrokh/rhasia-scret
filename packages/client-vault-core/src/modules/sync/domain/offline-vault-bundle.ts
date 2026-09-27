@@ -1,3 +1,6 @@
+import { deserializeKeyWrapEnvelope } from "../../crypto/application/client-crypto-protocol";
+import type { PortableJsonWebKey } from "../../crypto/application/crypto-ports";
+import { base64ToBytes } from "../../../shared/application/base64";
 import type { EffectiveSharedVaultAccountPermissions } from "../../vault-membership/domain/shared-vault-account-permissions";
 
 export const OFFLINE_BUNDLE_SCHEMA_VERSION = 3 as const;
@@ -56,12 +59,19 @@ export type EncryptedOnlineWorkspaceBundle = {
   sharedVaults: EncryptedOnlineSharedVault[];
 };
 
+export type EncryptedUserEncryptionIdentityProfile = {
+  publicKey: PortableJsonWebKey;
+  encryptedPrivateKey: string;
+  encryptionVersion: 1;
+};
+
 export type AuthorizedWorkspaceResponse = {
   responseVersion: typeof AUTHORIZED_WORKSPACE_RESPONSE_VERSION;
   workspaceSynchronizationToken: string;
   synchronizedAt: string;
   personalSnapshot: EncryptedPersonalOfflineSnapshot;
   sharedVaults: EncryptedOnlineSharedVault[];
+  userEncryptionIdentity?: EncryptedUserEncryptionIdentityProfile;
 };
 
 export class LegacySharedVaultSnapshotError extends Error {
@@ -140,11 +150,15 @@ export function parseEncryptedOnlineWorkspaceBundle(value: unknown): EncryptedOn
 
 export function parseAuthorizedWorkspaceResponse(value: unknown): AuthorizedWorkspaceResponse {
   const response = object(value, "Authorized workspace response");
-  exactKeys(
-    response,
-    ["responseVersion", "workspaceSynchronizationToken", "synchronizedAt", "personalSnapshot", "sharedVaults"],
-    "Authorized workspace response",
-  );
+  const expectedKeys = [
+    "responseVersion",
+    "workspaceSynchronizationToken",
+    "synchronizedAt",
+    "personalSnapshot",
+    "sharedVaults",
+    ...(Object.hasOwn(response, "userEncryptionIdentity") ? ["userEncryptionIdentity"] : []),
+  ];
+  exactKeys(response, expectedKeys, "Authorized workspace response");
   if (response.responseVersion !== AUTHORIZED_WORKSPACE_RESPONSE_VERSION)
     invalid("unsupported authorized workspace response version");
   const synchronizedAt = timestamp(response.synchronizedAt, "synchronizedAt");
@@ -169,6 +183,9 @@ export function parseAuthorizedWorkspaceResponse(value: unknown): AuthorizedWork
     synchronizedAt,
     personalSnapshot,
     sharedVaults,
+    ...(Object.hasOwn(response, "userEncryptionIdentity")
+      ? { userEncryptionIdentity: parseUserEncryptionIdentity(response.userEncryptionIdentity) }
+      : {}),
   };
 }
 
@@ -260,10 +277,46 @@ function parseSharedVault(
         : parseEffectivePermissions(vault.effectiveAccountPermissions, `${label}.effectiveAccountPermissions`),
     encryptedName: encryptedEnvelope(vault.encryptedName, `${label}.encryptedName`),
     encryptionVersion: OFFLINE_ENCRYPTION_VERSION,
-    encryptedVaultKey: encryptedEnvelope(vault.encryptedVaultKey, `${label}.encryptedVaultKey`),
+    encryptedVaultKey: encryptedKeyPackage(vault.encryptedVaultKey, `${label}.encryptedVaultKey`),
     keyVersion: positiveInteger(vault.keyVersion, `${label}.keyVersion`),
     accounts: parseAccounts(vault.accounts, `${label}.accounts`),
   };
+}
+
+function parseUserEncryptionIdentity(value: unknown): EncryptedUserEncryptionIdentityProfile {
+  const identity = object(value, "userEncryptionIdentity");
+  exactKeys(identity, ["publicKey", "encryptedPrivateKey", "encryptionVersion"], "userEncryptionIdentity");
+  if (identity.encryptionVersion !== 1) invalid("unsupported user encryption identity version");
+  const publicKey = parsePublicEncryptionKey(identity.publicKey);
+  return {
+    publicKey,
+    encryptedPrivateKey: encryptedEnvelope(identity.encryptedPrivateKey, "userEncryptionIdentity.encryptedPrivateKey"),
+    encryptionVersion: 1,
+  };
+}
+
+function parsePublicEncryptionKey(value: unknown): PortableJsonWebKey {
+  const key = object(value, "userEncryptionIdentity.publicKey");
+  const required = ["kty", "crv", "x", "y"];
+  const optional = ["ext", "key_ops"];
+  const actual = Object.keys(key).sort();
+  const allowed = [...required, ...optional].sort();
+  if (
+    required.some((name) => !Object.hasOwn(key, name)) ||
+    actual.some((name) => !allowed.includes(name)) ||
+    key.kty !== "EC" ||
+    key.crv !== "P-256" ||
+    typeof key.x !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(key.x) ||
+    typeof key.y !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(key.y) ||
+    (Object.hasOwn(key, "ext") && typeof key.ext !== "boolean") ||
+    (Object.hasOwn(key, "key_ops") &&
+      (!Array.isArray(key.key_ops) || key.key_ops.some((operation) => typeof operation !== "string")))
+  ) {
+    invalid("userEncryptionIdentity.publicKey is invalid");
+  }
+  return { ...key };
 }
 
 function parseEffectivePermissions(value: unknown, label: string): EffectiveSharedVaultAccountPermissions {
@@ -356,10 +409,33 @@ function positiveInteger(value: unknown, label: string): number {
 
 function encryptedEnvelope(value: unknown, label: string): string {
   const blob = base64Blob(value, label, 29);
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const firstByte = (alphabet.indexOf(blob[0] ?? "") << 2) | (alphabet.indexOf(blob[1] ?? "") >> 4);
+  const firstByte = firstDecodedByte(blob);
   if (firstByte !== 1 && firstByte !== 2) invalid(`${label} has an unsupported envelope version`);
   return blob;
+}
+
+function encryptedKeyPackage(value: unknown, label: string): string {
+  const blob = base64Blob(value, label, 29, 32_768);
+  const firstByte = firstDecodedByte(blob);
+  if (firstByte === 1 || firstByte === 2) return blob;
+  if (firstByte !== 0x7b) invalid(`${label} has an unsupported key package format`);
+  const bytes = base64ToBytes(blob);
+  try {
+    const envelope = deserializeKeyWrapEnvelope(bytes);
+    envelope.nonce.fill(0);
+    envelope.ciphertext.fill(0);
+    if (envelope.version !== 2) invalid(`${label} has an unsupported key package version`);
+    return blob;
+  } catch {
+    invalid(`${label} has an invalid key package`);
+  } finally {
+    bytes.fill(0);
+  }
+}
+
+function firstDecodedByte(blob: string): number {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  return (alphabet.indexOf(blob[0] ?? "") << 2) | (alphabet.indexOf(blob[1] ?? "") >> 4);
 }
 
 function base64Blob(value: unknown, label: string, minimumBytes: number, maximumBytes = 10_000_000): string {

@@ -1,11 +1,15 @@
 "use client";
 
 import {
+  createUserEncryptionIdentity,
   decryptPayloadWithContext,
   deserializeEncryptedEnvelope,
   recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser,
+  recoverUserEncryptionPrivateKey,
+  registerUserEncryptionIdentity,
   rewrapUserCryptoProfile,
+  serializeEncryptedEnvelope,
   unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey,
 } from "@/modules/crypto";
@@ -49,6 +53,7 @@ function browserPorts(): VaultWorkspacePlatformPorts {
     data: {
       snapshotStore,
       fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(signal),
+      registerUserEncryptionIdentity: (identity, signal) => registerUserEncryptionIdentity(identity, signal),
     },
     crypto: {
       unlockPersonalVault,
@@ -66,6 +71,10 @@ function browserPorts(): VaultWorkspacePlatformPorts {
       },
       decryptPayloadWithContext,
       deserializeEncryptedEnvelope,
+      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) =>
+        recoverUserEncryptionPrivateKey(userRootKey, deserializeEncryptedEnvelope(encryptedPrivateKey)),
+      createUserEncryptionIdentity,
+      serializeEncryptedEnvelope,
       unlockSharedVault,
       decryptAccountConfiguration,
     },

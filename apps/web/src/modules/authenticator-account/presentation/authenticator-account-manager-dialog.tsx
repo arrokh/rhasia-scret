@@ -33,6 +33,7 @@ import {
 export function AuthenticatorAccountManagerDialog({
   account,
   vaultKey,
+  keyVersion,
   canEdit = true,
   canDelete = true,
   onUpdated,
@@ -42,6 +43,7 @@ export function AuthenticatorAccountManagerDialog({
 }: {
   account: WorkspaceAuthenticatorAccount;
   vaultKey: Uint8Array;
+  keyVersion?: number;
   canEdit?: boolean;
   canDelete?: boolean;
   onUpdated: (account: WorkspaceAuthenticatorAccount) => void;
@@ -71,6 +73,7 @@ export function AuthenticatorAccountManagerDialog({
         const updated = await updateMutation.mutateAsync({
           vaultId: account.vaultId,
           vaultType: account.vaultType,
+          keyVersion,
           accountId: account.id,
           expectedRevision: account.revision,
           encryptedPayload: bytesToBase64(encryptedPayload),
@@ -81,11 +84,12 @@ export function AuthenticatorAccountManagerDialog({
         setStatus("updated");
       } catch (error) {
         const permissionDenied = isPermissionChange(error);
+        const staleKeyVersion = isStaleKeyVersion(error);
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
           operation: "update",
           failure_code: permissionDenied ? "permission_denied" : "unknown",
         });
-        if (permissionDenied) await onPermissionChanged?.();
+        if (permissionDenied || staleKeyVersion) await onPermissionChanged?.();
         setStatus("updateError");
       }
     },
@@ -219,4 +223,8 @@ export function AuthenticatorAccountManagerDialog({
 
 function isPermissionChange(error: unknown): boolean {
   return error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required";
+}
+
+function isStaleKeyVersion(error: unknown): boolean {
+  return error instanceof BrowserApiError && error.status === 409 && error.code === "stale_key_version";
 }

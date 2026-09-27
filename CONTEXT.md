@@ -31,6 +31,10 @@ _Avoid_: Ready vault, empty vault
 The secret key that protects the encrypted contents of one Vault.
 _Avoid_: Vault password, master key
 
+**Vault Encryption Key Rotation**:
+The owner-initiated replacement of an active Shared Vault's Vault Encryption Key. The client re-encrypts the Vault Name and every active or still-recoverable Authenticator Account, wraps the new key for every active member, and submits one atomic change.
+_Avoid_: Server-side re-encryption, scheduled rotation, partial rotation
+
 **Vault Unlock Secret**:
 An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase but accepts a user-created passphrase whose trimmed value is at least three characters long. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas** and the English product label is **Vault Passphrase**.
 _Avoid_: Rahasia Pembuka Brankas, PIN, Vault password, master key
@@ -74,6 +78,10 @@ _Avoid_: UI-owned sync state machine, uncancelled refresh, shared plaintext work
 **User Encryption Key Pair**:
 A user-specific public and private key pair used to wrap Vault Encryption Keys for the user. Its private key is encrypted before server storage.
 _Avoid_: Device key pair, vault key
+
+**User Encryption Key Pair Rotation**:
+The user's client-initiated replacement of their User Encryption Key Pair. The client re-wraps Vault Encryption Keys for every active Shared Vault membership, and the server atomically stores the new public key, encrypted private key, and replacement envelopes; Personal Vault encryption is unchanged.
+_Avoid_: Vault content rotation, remote key revocation
 
 **Honest-but-Curious Server**:
 The assumed server behavior: it correctly serves the application and enforces authorization but cannot be trusted with stored encrypted data or plaintext secrets. An actively malicious application host or native application supply chain is outside the MVP security boundary. Zero knowledge does not hide permitted ciphertext size/timing or authorization/lifecycle metadata and does not protect secrets after decryption in a client served by an actively malicious host.

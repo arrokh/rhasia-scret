@@ -23,6 +23,7 @@ export async function createUserEncryptionIdentityWithCrypto(
     };
   } finally {
     plaintext.fill(0);
+    clearPrivateKeyMaterial(pair.privateKey);
   }
 }
 
@@ -52,6 +53,12 @@ export async function recoverUserEncryptionPrivateKeyWithCrypto(
 
 export function userEncryptionIdentityContext(): CryptoEnvelopeContext {
   return { purpose: "user-encryption-private-key", payloadType: "user-encryption-private-key", keyVersion: 1 };
+}
+
+function clearPrivateKeyMaterial(privateKey: PortableJsonWebKey): void {
+  Reflect.set(privateKey, "x", "");
+  Reflect.set(privateKey, "y", "");
+  Reflect.set(privateKey, "d", "");
 }
 
 function isPrivateKey(value: unknown): value is PortableJsonWebKey {

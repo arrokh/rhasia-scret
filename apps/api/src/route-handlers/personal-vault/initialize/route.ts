@@ -2,6 +2,7 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { z } from "zod";
 import { initializePersonalVault, type PersonalVaultInitializer } from "@api/modules/vault-management/server";
 import { authenticateApplicationMutation } from "@api/shared/infrastructure/authenticated-application-request";
@@ -13,6 +14,9 @@ const initializationSchema = z
     wrappedUserRootKey: opaqueBlob,
     encryptedPersonalVaultKey: opaqueBlob,
     encryptedVaultName: opaqueBlob,
+    userEncryptionPublicKey: publicEncryptionKeySchema,
+    encryptedUserPrivateKey: opaqueBlob,
+    userEncryptionKeyVersion: z.literal(1),
     encryptionVersion: z.literal(1),
   })
   .strict();
@@ -35,6 +39,9 @@ export function createInitializePersonalVaultHandler({ authenticate, personalVau
         wrappedUserRootKey: Buffer.from(parsed.data.wrappedUserRootKey, "base64"),
         encryptedPersonalVaultKey: Buffer.from(parsed.data.encryptedPersonalVaultKey, "base64"),
         encryptedVaultName: Buffer.from(parsed.data.encryptedVaultName, "base64"),
+        userEncryptionPublicKey: parsed.data.userEncryptionPublicKey as JsonWebKey,
+        encryptedUserPrivateKey: Buffer.from(parsed.data.encryptedUserPrivateKey, "base64"),
+        userEncryptionKeyVersion: parsed.data.userEncryptionKeyVersion,
         encryptionVersion: parsed.data.encryptionVersion,
       },
       personalVaults,

@@ -8,6 +8,7 @@ import { Vault } from "@api/modules/vault-management/domain/vault";
 const payload = {
   encryptedName: btoa("encrypted-shared-vault-name"),
   encryptedOwnerVaultKey: btoa("encrypted-owner-vault-key"),
+  expectedOwnerPublicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
   encryptionVersion: 1,
 };
 const user = new ApplicationUser("user-1", "rhasia:passwordless", "local-1", "person@example.test", "ACTIVE");
@@ -70,13 +71,13 @@ describe("Shared Vault route contracts", () => {
     const response = await handler(
       request("/v1/shared-vaults/vault-1", {
         method: "PATCH",
-        body: JSON.stringify({ encryptedName, encryptionVersion: 1 }),
+        body: JSON.stringify({ encryptedName, encryptionVersion: 1, expectedKeyVersion: 1 }),
       }),
       { params: Promise.resolve({ vaultId: "vault-1" }) },
     );
 
     expect(response.status).toBe(204);
-    expect(rename).toHaveBeenCalledWith("user-1", "vault-1", expect.any(Uint8Array), 1);
+    expect(rename).toHaveBeenCalledWith("user-1", "vault-1", expect.any(Uint8Array), 1, 1);
     expect(Buffer.from(rename.mock.calls[0][2]).toString("utf8")).toBe("encrypted-renamed-vault");
   });
 
@@ -118,6 +119,7 @@ describe("Shared Vault route contracts", () => {
         encryptionVersion: 1,
         encryptedName: expect.any(Uint8Array),
         encryptedOwnerVaultKey: expect.any(Uint8Array),
+        expectedOwnerPublicKey: payload.expectedOwnerPublicKey,
       }),
     );
   });

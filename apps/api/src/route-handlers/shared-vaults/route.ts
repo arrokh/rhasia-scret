@@ -2,8 +2,9 @@ import { getApiRequestContext } from "@api/http/api-context";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { boundedEncryptedBlobSchema, safeParseJsonBody } from "@api/http/validation";
+import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { z } from "zod";
-import { type SharedVaultRepository } from "@api/modules/vault-management/server";
+import { SharedVaultIdentityConflictError, type SharedVaultRepository } from "@api/modules/vault-management/server";
 import { type SharedVaultAccessRepository } from "@api/modules/vault-membership/server";
 import {
   authenticateApplicationMutation,
@@ -19,6 +20,7 @@ const schema = z
       .optional(),
     encryptedName: blob,
     encryptedOwnerVaultKey: blob,
+    expectedOwnerPublicKey: publicEncryptionKeySchema,
     encryptionVersion: z.literal(1),
   })
   .strict();
@@ -33,13 +35,20 @@ export function createSharedVaultHandler({ authenticate, sharedVaults }: Depende
     if (user instanceof ApiResponse) return user;
     const parsed = await safeParseJsonBody(request, schema);
     if (!parsed.success) return ApiResponse.json({ error: "invalid_vault" }, { status: 400 });
-    const vault = await sharedVaults.create(user.id, {
-      id: parsed.data.vaultId,
-      encryptedName: Buffer.from(parsed.data.encryptedName, "base64"),
-      encryptedOwnerVaultKey: Buffer.from(parsed.data.encryptedOwnerVaultKey, "base64"),
-      encryptionVersion: parsed.data.encryptionVersion,
-    });
-    return ApiResponse.json({ id: vault.id }, { status: 201 });
+    try {
+      const vault = await sharedVaults.create(user.id, {
+        id: parsed.data.vaultId,
+        encryptedName: Buffer.from(parsed.data.encryptedName, "base64"),
+        encryptedOwnerVaultKey: Buffer.from(parsed.data.encryptedOwnerVaultKey, "base64"),
+        expectedOwnerPublicKey: parsed.data.expectedOwnerPublicKey,
+        encryptionVersion: parsed.data.encryptionVersion,
+      });
+      return ApiResponse.json({ id: vault.id }, { status: 201 });
+    } catch (error) {
+      if (error instanceof SharedVaultIdentityConflictError)
+        return ApiResponse.json({ error: "stale_user_encryption_identity" }, { status: 409 });
+      throw error;
+    }
   };
 }
 

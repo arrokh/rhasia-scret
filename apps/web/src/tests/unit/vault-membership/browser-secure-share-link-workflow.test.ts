@@ -21,7 +21,10 @@ describe("redeemSecureShareLink", () => {
     const encryptedVaultKey = new Uint8Array(13).fill(3);
     const expectedEncryptedPackage = encryptedPackage.slice();
     const expectedEncryptedVaultKey = Buffer.from(encryptedVaultKey).toString("base64");
-    const userRootKey = new Uint8Array(32).fill(4);
+    const recipient = {
+      profileId: "profile-1",
+      publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+    };
     const secret = "client-only-secret";
     const linkVerifier = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret)));
     let receivedEncryptedPackage: Uint8Array | undefined;
@@ -29,6 +32,7 @@ describe("redeemSecureShareLink", () => {
       id: "invitation-1",
       vaultId: "vault-1",
       encryptedPackage: Buffer.from(encryptedPackage).toString("base64"),
+      keyVersion: 7,
     };
     mocks.request.mockImplementation(async (request: { method: string }) =>
       response(request.method === "GET" ? 200 : 204, request.method === "GET" ? lookup : null),
@@ -37,7 +41,7 @@ describe("redeemSecureShareLink", () => {
       receivedEncryptedPackage = packageBytes.slice();
       return { linkVerifier, encryptedVaultKey };
     });
-    await redeemSecureShareLink(secret, userRootKey);
+    await redeemSecureShareLink(secret, recipient);
 
     expect(mocks.request).toHaveBeenNthCalledWith(
       1,
@@ -52,8 +56,9 @@ describe("redeemSecureShareLink", () => {
     expect(mocks.redeemSecureShareLinkMaterial).toHaveBeenCalledWith(
       secret,
       expect.any(Uint8Array),
-      userRootKey,
+      recipient,
       "vault-1",
+      7,
     );
     expect(mocks.request).toHaveBeenNthCalledWith(
       2,
@@ -63,21 +68,32 @@ describe("redeemSecureShareLink", () => {
         body: JSON.stringify({
           invitationId: "invitation-1",
           encryptedVaultKey: expectedEncryptedVaultKey,
-          keyVersion: 1,
+          keyVersion: 7,
+          expectedPublicKey: recipient.publicKey,
         }),
       }),
     );
   });
 
   it("does not redeem when decrypted material does not match the requested verifier", async () => {
-    const lookup = { id: "invitation-1", vaultId: "vault-1", encryptedPackage: Buffer.alloc(13).toString("base64") };
+    const lookup = {
+      id: "invitation-1",
+      vaultId: "vault-1",
+      encryptedPackage: Buffer.alloc(13).toString("base64"),
+      keyVersion: 7,
+    };
     mocks.request.mockResolvedValue(response(200, lookup));
     mocks.redeemSecureShareLinkMaterial.mockResolvedValue({
       linkVerifier: new Uint8Array(32).fill(9),
       encryptedVaultKey: new Uint8Array(13).fill(3),
     });
 
-    await expect(redeemSecureShareLink("client-only-secret", new Uint8Array(32))).rejects.toThrow("verifier mismatch");
+    await expect(
+      redeemSecureShareLink("client-only-secret", {
+        profileId: "profile-1",
+        publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
+      }),
+    ).rejects.toThrow("verifier mismatch");
     expect(mocks.request).toHaveBeenCalledTimes(1);
   });
 });

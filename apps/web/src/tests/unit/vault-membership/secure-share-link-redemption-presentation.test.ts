@@ -34,7 +34,7 @@ describe("Secure Share Link redemption presentation", () => {
         createElement(
           TestIntlProvider,
           { locale: "id", messages: idMessages },
-          createElement(SecureShareLinkRedemption, { userRootKey: new Uint8Array() }),
+          createElement(SecureShareLinkRedemption, { profileId: "profile-1" }),
         ),
       ),
     );

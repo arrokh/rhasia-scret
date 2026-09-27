@@ -5,6 +5,7 @@ export type SharedAccountMutationResult<T> =
   | { status: "VAULT_UNAVAILABLE" }
   | { status: "PERMISSION_DENIED" }
   | { status: "STALE_REVISION" }
+  | { status: "STALE_KEY_VERSION" }
   | { status: "ACCOUNT_UNAVAILABLE" };
 
 export interface SharedAccountRepository {
@@ -13,6 +14,7 @@ export interface SharedAccountRepository {
     vaultId: string,
     encryptedPayload: Uint8Array,
     encryptionVersion: number,
+    expectedKeyVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>>;
 
   update(
@@ -22,6 +24,7 @@ export interface SharedAccountRepository {
     expectedRevision: number,
     encryptedPayload: Uint8Array,
     encryptionVersion: number,
+    expectedKeyVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>>;
 
   delete(

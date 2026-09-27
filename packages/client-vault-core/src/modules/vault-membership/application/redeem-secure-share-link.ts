@@ -1,9 +1,10 @@
 import { base64ToBytes, bytesToBase64, bytesToBase64Url } from "../../../shared/application/base64";
+import type { PortableJsonWebKey } from "../../crypto/application/crypto-ports";
 import type { SecureShareLinkWorkflowPorts } from "./secure-share-link-workflow-ports";
 
 export async function redeemSecureShareLink(
   secret: string,
-  userRootKey: Uint8Array,
+  recipient: { profileId: string; publicKey: PortableJsonWebKey },
   ports: SecureShareLinkWorkflowPorts,
 ): Promise<void> {
   const verifier = await ports.crypto.digestSha256(new TextEncoder().encode(secret));
@@ -12,13 +13,14 @@ export async function redeemSecureShareLink(
   try {
     const link = await ports.transport.lookup(bytesToBase64(verifier));
     encryptedPackage = base64ToBytes(link.encryptedPackage);
-    material = await ports.crypto.redeemMaterial(secret, encryptedPackage, userRootKey, link.vaultId);
+    material = await ports.crypto.redeemMaterial(secret, encryptedPackage, recipient, link.vaultId, link.keyVersion);
     if (bytesToBase64Url(material.linkVerifier) !== bytesToBase64Url(verifier))
       throw new Error("Secure Share Link verifier mismatch.");
     await ports.transport.redeem({
       invitationId: link.id,
       encryptedVaultKey: bytesToBase64(material.encryptedVaultKey),
-      keyVersion: 1,
+      keyVersion: link.keyVersion,
+      expectedPublicKey: recipient.publicKey,
     });
   } finally {
     verifier.fill(0);
