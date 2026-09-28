@@ -32,7 +32,7 @@ describe("browser account payload", () => {
     expect(sortAccounts([first, second]).map((account) => account.issuer)).toEqual(["Another", "Example"]);
   });
 
-  it("reads a legacy context-free account envelope during the explicit unlock migration path", async () => {
+  it("rejects a legacy context-free account envelope outside the explicit workspace migration path", async () => {
     const vaultKey = generateSymmetricKey();
     const legacy = {
       issuer: "Legacy Issuer",
@@ -45,7 +45,9 @@ describe("browser account payload", () => {
     const plaintext = new TextEncoder().encode(JSON.stringify({ ...legacy, secret: bytesToBase64(legacy.secret) }));
     try {
       const encrypted = serializeEncryptedEnvelope(await encryptPayload(vaultKey, plaintext));
-      await expect(decryptAccountConfiguration(vaultKey, encrypted)).resolves.toEqual(legacy);
+      await expect(decryptAccountConfiguration(vaultKey, encrypted)).rejects.toThrow(
+        "Legacy account payload requires explicit migration.",
+      );
     } finally {
       plaintext.fill(0);
       vaultKey.fill(0);

@@ -20,11 +20,7 @@ describe("PUT /v1/user-encryption-identity contract", () => {
     const registerUserEncryptionIdentity = vi.fn().mockResolvedValue(true);
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity,
-        rewrapUserRootKey: async () => undefined,
-      },
+      cryptoProfiles: { registerUserEncryptionIdentity },
     });
 
     const response = await handler(request(payload));
@@ -39,11 +35,7 @@ describe("PUT /v1/user-encryption-identity contract", () => {
   it("fails closed when another client already registered an identity", async () => {
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity: async () => false,
-        rewrapUserRootKey: async () => undefined,
-      },
+      cryptoProfiles: { registerUserEncryptionIdentity: async () => false },
     });
 
     const response = await handler(request(payload));
@@ -55,11 +47,7 @@ describe("PUT /v1/user-encryption-identity contract", () => {
   it("rejects a private JWK", async () => {
     const handler = createUserEncryptionIdentityHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey: async () => undefined,
-      },
+      cryptoProfiles: { registerUserEncryptionIdentity: async () => true },
     });
 
     const response = await handler(request({ ...payload, publicKey: { ...payload.publicKey, d: "private" } }));

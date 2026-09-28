@@ -4,6 +4,7 @@ import {
   unlockPersonalVault as unlockPersonalVaultWithPorts,
   unlockPersonalVaultWithUserRootKey as unlockPersonalVaultWithRootKeyAndPort,
   type EncryptedPersonalVaultProfile,
+  type PersonalVaultKeyUnlockResult,
   type PersonalVaultUnlockResult,
 } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
@@ -24,6 +25,6 @@ export function unlockPersonalVault(
 export function unlockPersonalVaultWithUserRootKey(
   userRootKey: Uint8Array,
   profile: EncryptedPersonalVaultProfile,
-): Promise<Uint8Array> {
+): Promise<PersonalVaultKeyUnlockResult> {
   return unlockPersonalVaultWithRootKeyAndPort(userRootKey, profile, browserClientCryptoPort);
 }

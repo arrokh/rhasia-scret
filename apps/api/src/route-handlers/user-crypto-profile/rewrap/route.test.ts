@@ -16,11 +16,7 @@ describe("POST /v1/user-crypto-profile/rewrap contract", () => {
     const rewrapUserRootKey = vi.fn().mockResolvedValue(undefined);
     const handler = createRewrapUserRootKeyHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey,
-      },
+      cryptoProfiles: { rewrapUserRootKey },
     });
 
     const response = await handler(request({ method: "POST", body: JSON.stringify(payload) }));
@@ -33,11 +29,7 @@ describe("POST /v1/user-crypto-profile/rewrap contract", () => {
     const rewrapUserRootKey = vi.fn().mockResolvedValue(undefined);
     const handler = createRewrapUserRootKeyHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey,
-      },
+      cryptoProfiles: { rewrapUserRootKey },
     });
     const encryptedPersonalVaultKey = btoa("new-personal-vault-key-material");
 

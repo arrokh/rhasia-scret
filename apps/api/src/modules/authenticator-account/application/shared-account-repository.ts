@@ -1,3 +1,7 @@
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import type { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
 
 export type SharedAccountMutationResult<T> =
@@ -17,6 +21,14 @@ export interface SharedAccountRepository {
     expectedKeyVersion: number,
   ): Promise<SharedAccountMutationResult<EncryptedAuthenticatorAccount>>;
 
+  migratePayload(
+    actorUserId: string,
+    vaultId: string,
+    accountId: string,
+    expectedRevision: number,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult>;
   update(
     actorUserId: string,
     vaultId: string,

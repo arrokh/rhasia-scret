@@ -1,22 +1,31 @@
 "use client";
 
 import {
+  browserClientCryptoPort,
+  browserSha256Digest,
   createUserEncryptionIdentity,
   decryptPayloadWithContext,
+  encryptPayloadWithContext,
   deserializeEncryptedEnvelope,
+  migrateUserCryptoProfile,
   recoverUserRootKeyWithPasskey,
   recoverUserRootKeyWithRememberedBrowser,
-  recoverUserEncryptionPrivateKey,
   registerUserEncryptionIdentity,
-  rewrapUserCryptoProfile,
   serializeEncryptedEnvelope,
   unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey,
 } from "@/modules/crypto";
-import { decryptAccountConfiguration } from "@/modules/authenticator-account/client";
+import { decryptAccountConfiguration, parseDecryptedAccountPayload } from "@/modules/authenticator-account/client";
 import { BrowserOfflineVaultRepository, fetchAuthorizedWorkspaceBundle } from "@/modules/sync";
 import { browserNetworkStatus } from "@/shared/infrastructure/browser-platform-ports";
-import { unlockSharedVault } from "@/modules/vault-membership";
+import {
+  migratePersonalAuthenticatorAccount,
+  migratePersonalVaultName,
+  migrateSharedAuthenticatorAccount,
+  migrateSharedVaultKeyWrap as commitSharedVaultKeyWrapMigration,
+  migrateSharedVaultName,
+} from "@/modules/vault-management";
+import { unwrapSharedVaultKeyWithCrypto } from "@rhasia-scret/client-vault-core";
 import type { CancellationPort } from "@rhasia-scret/client-vault-core";
 import {
   AuthorizedWorkspaceTransportError,
@@ -74,6 +83,7 @@ export function classifyBrowserVaultWorkspaceUnlockFailure(error: unknown): Brow
     if (error.stage === "legacy-envelope") return "USER_ENCRYPTION_LEGACY_ENVELOPE";
     if (error.stage === "decryption-failed") return "USER_ENCRYPTION_KEY_DECRYPTION_FAILED";
     if (error.stage === "payload-invalid") return "USER_ENCRYPTION_PRIVATE_KEY_INVALID";
+    return "USER_ENCRYPTION_KEY_RECOVERY_FAILED";
   }
   if (error instanceof PersonalVaultUnlockError) {
     if (error.stage === "invalid-secret") return "PASSPHRASE";
@@ -107,7 +117,19 @@ function browserPorts(): VaultWorkspacePlatformPorts {
       snapshotStore,
       fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(signal),
       registerUserEncryptionIdentity: (identity, signal) => registerUserEncryptionIdentity(identity, signal),
+      migrateUserCryptoProfile: (migration, signal) => migrateUserCryptoProfile(migration, signal),
+      migratePersonalVaultName: (vaultId, keyVersion, migration, signal) =>
+        migratePersonalVaultName(vaultId, keyVersion, migration, signal),
+      migrateSharedVaultName: (vaultId, keyVersion, migration, signal) =>
+        migrateSharedVaultName(vaultId, keyVersion, migration, signal),
+      migrateSharedVaultKeyWrap: (vaultId, keyVersion, migration, signal) =>
+        commitSharedVaultKeyWrapMigration(vaultId, keyVersion, migration, signal),
+      migratePersonalAuthenticatorAccount: (vaultId, accountId, revision, keyVersion, migration, signal) =>
+        migratePersonalAuthenticatorAccount(vaultId, accountId, revision, keyVersion, migration, signal),
+      migrateSharedAuthenticatorAccount: (vaultId, accountId, revision, keyVersion, migration, signal) =>
+        migrateSharedAuthenticatorAccount(vaultId, accountId, revision, keyVersion, migration, signal),
     },
+    migrationDigest: browserSha256Digest,
     crypto: {
       unlockPersonalVault,
       unlockPersonalVaultWithUserRootKey,
@@ -116,27 +138,31 @@ function browserPorts(): VaultWorkspacePlatformPorts {
           ? recoverUserRootKeyWithRememberedBrowser(profileId, signals[0] as AbortSignal | undefined)
           : recoverUserRootKeyWithRememberedBrowser(profileId),
       recoverUserRootKeyWithPasskey,
-      rewrapUserCryptoProfile,
-      decryptPayload: async (key, envelope) => {
-        const cryptoPort = await import("@/modules/crypto");
-        if (!cryptoPort.decryptPayload) throw new Error("Legacy payload decryption is unavailable.");
-        return cryptoPort.decryptPayload(key, envelope);
-      },
+      decryptPayload: async (key, envelope) => (await import("@/modules/crypto")).decryptPayload(key, envelope),
       decryptPayloadWithContext,
+      encryptPayloadWithContext,
       deserializeEncryptedEnvelope,
-      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) => {
-        let envelope;
-        try {
-          envelope = deserializeEncryptedEnvelope(encryptedPrivateKey);
-        } catch (error) {
-          throw new UserEncryptionPrivateKeyRecoveryError("envelope-invalid", error);
-        }
-        return recoverUserEncryptionPrivateKey(userRootKey, envelope);
-      },
+      recoverOrMigratePrivateKey: async (...args) => (await import("@/modules/crypto/migration")).recover(...args),
       createUserEncryptionIdentity,
       serializeEncryptedEnvelope,
-      unlockSharedVault,
+      unwrapSharedVaultKey: (rootKey, encryptedKey, context) =>
+        unwrapSharedVaultKeyWithCrypto(browserClientCryptoPort, rootKey, encryptedKey, context),
+      migrateSharedVaultKeyWrap: async (rootKey, ciphertext, privateKey, publicKey, context, store) => {
+        const { migrateLegacySharedVaultKeyWrapWithCrypto } =
+          await import("@rhasia-scret/client-vault-core/modules/vault-membership/application/shared-vault-key-wrap-migration");
+        return migrateLegacySharedVaultKeyWrapWithCrypto(
+          rootKey,
+          ciphertext,
+          privateKey,
+          publicKey,
+          context,
+          browserClientCryptoPort,
+          browserSha256Digest,
+          store,
+        );
+      },
       decryptAccountConfiguration,
+      parseDecryptedAccountPayload,
     },
   };
 }

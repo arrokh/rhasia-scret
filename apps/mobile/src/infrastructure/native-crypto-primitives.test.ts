@@ -11,6 +11,15 @@ import { NativeCryptoPrimitives } from "./native-crypto-primitives";
 describe("NativeCryptoPrimitives", () => {
   const primitives = new NativeCryptoPrimitives();
 
+  it("computes the SHA-256 ciphertext fingerprint vector", async () => {
+    const input = new TextEncoder().encode("abc");
+    const digest = await primitives.digestSha256(input);
+
+    expect(bytesToHex(digest)).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    input.fill(0);
+    digest.fill(0);
+  });
+
   it("matches a Web Crypto AES-256-GCM ciphertext and tag vector", async () => {
     const key = Uint8Array.from({ length: 32 }, (_, index) => index);
     const nonce = Uint8Array.from({ length: 12 }, (_, index) => index + 32);

@@ -35,7 +35,7 @@ type Dependencies = {
     operation: "account_mutation",
     assurance: SessionAssurance,
   ): Promise<ApplicationAuthenticationResult>;
-  accounts: PersonalAccountRepository;
+  accounts: Pick<PersonalAccountRepository, "create" | "list" | "update" | "delete" | "restore">;
 };
 type Context = { params: Promise<{ vaultId: string }> };
 

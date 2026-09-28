@@ -79,7 +79,7 @@ describe("unlockSharedVault", () => {
     ).resolves.toMatchObject({ name: "Browser Test Vault", vaultKey });
   });
 
-  it("reads legacy member key and name envelopes during the explicit unlock migration path", async () => {
+  it("rejects legacy member keys outside the explicit migration path", async () => {
     const userRootKey = generateSymmetricKey();
     const vaultKey = generateSymmetricKey();
     const encryptedVaultKey = serializeEncryptedEnvelope(await encryptPayload(userRootKey, vaultKey));
@@ -92,6 +92,6 @@ describe("unlockSharedVault", () => {
         recipientId: "user-1",
         keyVersion: 1,
       }),
-    ).resolves.toMatchObject({ name: "Legacy Family", vaultKey });
+    ).rejects.toThrow("Legacy envelope requires an explicit migration before use.");
   });
 });

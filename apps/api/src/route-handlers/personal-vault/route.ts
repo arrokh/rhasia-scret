@@ -5,7 +5,7 @@ import { authenticateApplicationReader } from "@api/shared/infrastructure/authen
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationReader;
-  personalVaults: PersonalVaultRepository;
+  personalVaults: Pick<PersonalVaultRepository, "ensureForOwner">;
 };
 
 export function createGetPersonalVaultHandler({ authenticate, personalVaults }: Dependencies) {

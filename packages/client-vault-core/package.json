@@ -13,7 +13,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./modules/sync/domain/offline-vault-bundle": "./src/modules/sync/domain/offline-vault-bundle.ts",
-    "./modules/vault-membership/domain/shared-vault-account-permissions": "./src/modules/vault-membership/domain/shared-vault-account-permissions.ts"
+    "./modules/vault-membership/domain/shared-vault-account-permissions": "./src/modules/vault-membership/domain/shared-vault-account-permissions.ts",
+    "./modules/crypto/application/user-encryption-private-key-migration": "./src/modules/crypto/application/user-encryption-private-key-migration.ts",
+    "./modules/vault-membership/application/shared-vault-key-wrap-migration": "./src/modules/vault-membership/application/shared-vault-key-wrap-migration.ts",
+    "./modules/crypto/application/encrypted-payload-migration": "./src/modules/crypto/application/encrypted-payload-migration.ts",
+    "./modules/crypto/application/user-encryption-identity-migration-transport": "./src/modules/crypto/application/user-encryption-identity-migration-transport.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit --project tsconfig.json",

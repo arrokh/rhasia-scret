@@ -16,7 +16,7 @@ const schema = z
   .strict();
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
-  cryptoProfiles: UserCryptoProfileRepository;
+  cryptoProfiles: Pick<UserCryptoProfileRepository, "registerUserEncryptionIdentity">;
 };
 
 export function createUserEncryptionIdentityHandler({ authenticate, cryptoProfiles }: Dependencies) {

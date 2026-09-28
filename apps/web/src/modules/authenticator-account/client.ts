@@ -1,1 +1,1 @@
-export { decryptAccountConfiguration } from "./infrastructure/browser-account-payload";
+export { decryptAccountConfiguration, parseDecryptedAccountPayload } from "./infrastructure/browser-account-payload";

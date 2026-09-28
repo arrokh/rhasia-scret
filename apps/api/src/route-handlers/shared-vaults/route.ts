@@ -26,7 +26,7 @@ const schema = z
   .strict();
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
-  sharedVaults: SharedVaultRepository;
+  sharedVaults: Pick<SharedVaultRepository, "create">;
 };
 
 export function createSharedVaultHandler({ authenticate, sharedVaults }: Dependencies) {
@@ -57,7 +57,7 @@ export function createListSharedVaultsHandler({
   sharedVaultAccess,
 }: {
   authenticate: typeof authenticateApplicationReader;
-  sharedVaultAccess: SharedVaultAccessRepository;
+  sharedVaultAccess: Pick<SharedVaultAccessRepository, "listForMember">;
 }) {
   return async function GET(request: ApiRequest) {
     const user = await authenticate(request, "fresh-provider-user");

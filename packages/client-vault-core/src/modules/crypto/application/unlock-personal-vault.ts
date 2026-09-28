@@ -21,6 +21,11 @@ export type PersonalVaultUnlockResult = {
   migratedProfile?: EncryptedPersonalVaultProfile;
 };
 
+export type PersonalVaultKeyUnlockResult = {
+  personalVaultKey: Uint8Array;
+  migratedProfile?: EncryptedPersonalVaultProfile;
+};
+
 export type PersonalVaultUnlockFailureStage =
   | "invalid-secret"
   | "invalid-profile"
@@ -83,6 +88,7 @@ export async function unlockPersonalVault(
         { purpose: "user-root-key-wrap", payloadType: "user-root-key", keyVersion: 1 },
         ports.crypto,
       );
+      if (userRootKey.length !== 32) throw new Error("User Root Key is invalid.");
     } catch (error) {
       throw new PersonalVaultUnlockError("user-root-key", error);
     }
@@ -134,19 +140,53 @@ export async function unlockPersonalVaultWithUserRootKey(
   userRootKey: Uint8Array,
   profile: EncryptedPersonalVaultProfile,
   crypto: ClientCryptoPort,
-): Promise<Uint8Array> {
+): Promise<PersonalVaultKeyUnlockResult> {
   if (profile.encryptionVersion !== 1) throw new Error("Unsupported encryption version.");
-  const personalVaultKey = await decryptProfilePayload(
-    userRootKey,
-    crypto.deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey),
-    { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
-    crypto,
-  );
-  if (personalVaultKey.length !== 32) {
-    personalVaultKey.fill(0);
-    throw new Error("Personal Vault Encryption Key is invalid.");
+  if (userRootKey.length !== 32) throw new PersonalVaultUnlockError("invalid-profile");
+  const encryptedPersonalVaultKey = crypto.deserializeEncryptedEnvelope(profile.encryptedPersonalVaultKey);
+  let personalVaultKey: Uint8Array | undefined;
+  let replacementCiphertext: Uint8Array | undefined;
+  try {
+    personalVaultKey = await decryptProfilePayload(
+      userRootKey,
+      encryptedPersonalVaultKey,
+      { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", keyVersion: 1 },
+      crypto,
+    );
+    if (personalVaultKey.length !== 32) throw new Error("Personal Vault Encryption Key is invalid.");
+    if (encryptedPersonalVaultKey.version !== 1) return { personalVaultKey };
+
+    let replacementEnvelope: EncryptedEnvelope | undefined;
+    try {
+      replacementEnvelope = await crypto.encryptPayloadWithContext(userRootKey, personalVaultKey, {
+        purpose: "vault-key-wrap",
+        payloadType: "vault-encryption-key",
+        keyVersion: 1,
+      });
+      replacementCiphertext = crypto.serializeEncryptedEnvelope(replacementEnvelope);
+    } catch (error) {
+      throw new PersonalVaultUnlockError("profile-migration", error);
+    } finally {
+      replacementEnvelope?.nonce.fill(0);
+      replacementEnvelope?.ciphertext.fill(0);
+    }
+    return {
+      personalVaultKey,
+      migratedProfile: {
+        vaultUnlockSalt: profile.vaultUnlockSalt.slice(),
+        wrappedUserRootKey: profile.wrappedUserRootKey.slice(),
+        encryptedPersonalVaultKey: replacementCiphertext,
+        encryptionVersion: profile.encryptionVersion,
+      },
+    };
+  } catch (error) {
+    personalVaultKey?.fill(0);
+    replacementCiphertext?.fill(0);
+    throw error;
+  } finally {
+    encryptedPersonalVaultKey.nonce.fill(0);
+    encryptedPersonalVaultKey.ciphertext.fill(0);
   }
-  return personalVaultKey;
 }
 
 async function decryptProfilePayload(

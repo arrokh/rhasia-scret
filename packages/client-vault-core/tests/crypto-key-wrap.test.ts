@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   base64UrlToBytes,
   bytesToBase64Url,
   createClientCryptoPort,
   createUserEncryptionIdentityWithCrypto,
+  migrateLegacySharedVaultKeyWrapWithCrypto,
+  EncryptedPayloadMigrationError,
   parseDecryptedAccountPayload,
   recoverUserEncryptionPrivateKeyWithCrypto,
   rotateUserEncryptionIdentityWithCrypto,
@@ -13,7 +15,14 @@ import {
   type CryptoPrimitivePort,
   type PortableEcdhKeyPair,
   type PortableJsonWebKey,
+  type Sha256DigestPort,
 } from "../src/index";
+import {
+  migrateLegacyEncryptedPayloadWithCrypto,
+  RetryableEncryptedPayloadMigrationCommitError,
+  type EncryptedPayloadMigrationStore,
+} from "../src/modules/crypto/application/encrypted-payload-migration";
+import { migrateUserEncryptionPrivateKeyWithCrypto } from "../src/modules/crypto/application/user-encryption-private-key-migration";
 
 describe("client crypto key-wrap protocol", () => {
   it("wraps and unwraps context-bound keys while rejecting context substitution", async () => {
@@ -54,6 +63,103 @@ describe("client crypto key-wrap protocol", () => {
       }),
     ).toThrow("explicit migration");
     vaultKey.fill(0);
+  });
+
+  it("migrates a legacy member key wrap with a stable ciphertext-only retry", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const userRootKey = new Uint8Array(32).fill(21);
+    const vaultKey = new Uint8Array(32).fill(22);
+    const identity = await crypto.generateUserEncryptionKeyPair();
+    const legacyEnvelope = await crypto.wrapKeyForRecipient(vaultKey, identity.publicKey);
+    const legacyCiphertext = crypto.serializeKeyWrapEnvelope(legacyEnvelope);
+    const context = { vaultId: "vault-legacy", recipientId: "user-legacy", keyVersion: 3 } as const;
+    const requests: Uint8Array[] = [];
+    let attempts = 0;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async (request) => {
+        expect(request).not.toHaveProperty("vaultKey");
+        expect(request).not.toHaveProperty("plaintext");
+        requests.push(request.replacementCiphertext.slice());
+        attempts += 1;
+        if (attempts === 1) throw new RetryableEncryptedPayloadMigrationCommitError();
+        return "committed";
+      },
+    };
+
+    const result = await migrateLegacySharedVaultKeyWrapWithCrypto(
+      userRootKey,
+      legacyCiphertext,
+      identity.privateKey,
+      identity.publicKey,
+      context,
+      crypto,
+      primitives,
+      store,
+    );
+
+    expect(result.status).toBe("migrated");
+    expect(attempts).toBe(2);
+    expect(requests).toHaveLength(2);
+    expect(requests[1]).toEqual(requests[0]);
+    expect(legacyCiphertext[0]).toBe(0x7b);
+    if (result.status !== "migrated") throw new Error("Expected migrated member key-wrap ciphertext.");
+    const migratedEnvelope = crypto.deserializeKeyWrapEnvelope(result.encryptedVaultKey);
+    expect(migratedEnvelope.version).toBe(2);
+    const unwrapped = await crypto.unwrapKeyForRecipientWithContext(migratedEnvelope, identity.privateKey, {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      ...context,
+    });
+    expect(unwrapped).toEqual(vaultKey);
+    unwrapped.fill(0);
+    result.encryptedVaultKey.fill(0);
+    migratedEnvelope.nonce.fill(0);
+    migratedEnvelope.ciphertext.fill(0);
+    for (const request of requests) request.fill(0);
+    legacyEnvelope.nonce.fill(0);
+    legacyEnvelope.ciphertext.fill(0);
+    legacyCiphertext.fill(0);
+    vaultKey.fill(0);
+    userRootKey.fill(0);
+    clearJwk(identity.privateKey);
+  });
+
+  it("retains the legacy member key-wrap source when its compare-and-swap conflicts", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const userRootKey = new Uint8Array(32).fill(27);
+    const vaultKey = new Uint8Array(32).fill(28);
+    const identity = await crypto.generateUserEncryptionKeyPair();
+    const legacyEnvelope = await crypto.wrapKeyForRecipient(vaultKey, identity.publicKey);
+    const legacyCiphertext = crypto.serializeKeyWrapEnvelope(legacyEnvelope);
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => "conflict",
+    };
+
+    await expect(
+      migrateLegacySharedVaultKeyWrapWithCrypto(
+        userRootKey,
+        legacyCiphertext,
+        identity.privateKey,
+        identity.publicKey,
+        { vaultId: "vault-conflict", recipientId: "user-conflict", keyVersion: 1 },
+        crypto,
+        primitives,
+        store,
+      ),
+    ).rejects.toMatchObject({ name: EncryptedPayloadMigrationError.name, stage: "persistence-conflict" });
+    expect(legacyCiphertext[0]).toBe(0x7b);
+    const stillLegacy = crypto.deserializeKeyWrapEnvelope(legacyCiphertext);
+    expect(stillLegacy.version).toBe(1);
+    stillLegacy.nonce.fill(0);
+    stillLegacy.ciphertext.fill(0);
+    legacyEnvelope.nonce.fill(0);
+    legacyEnvelope.ciphertext.fill(0);
+    legacyCiphertext.fill(0);
+    vaultKey.fill(0);
+    userRootKey.fill(0);
+    clearJwk(identity.privateKey);
   });
 
   it("creates, recovers, and rotates a user encryption identity with per-membership contexts", async () => {
@@ -528,6 +634,374 @@ describe("client crypto key-wrap protocol", () => {
   });
 });
 
+describe("legacy encrypted payload migration", () => {
+  it("migrates and persists a legacy User Encryption Private Key without rotating the identity", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(41);
+    const pair = await crypto.generateUserEncryptionKeyPair();
+    const originalPublicKey = { ...pair.publicKey };
+    const privateKey = { ...pair.privateKey };
+    const plaintext = new TextEncoder().encode(JSON.stringify(privateKey));
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    const store = createMemoryMigrationStore(primitives, legacyCiphertext);
+    plaintext.fill(0);
+
+    const migratedPrivateKey = await migrateUserEncryptionPrivateKeyWithCrypto(
+      rootKey,
+      legacyCiphertext,
+      pair.publicKey,
+      crypto,
+      primitives,
+      store.store,
+    );
+    const migratedCiphertext = store.currentCiphertext();
+    const originalEnvelope = crypto.deserializeEncryptedEnvelope(legacyCiphertext);
+    const migratedEnvelope = crypto.deserializeEncryptedEnvelope(migratedCiphertext);
+    const migratedPlaintext = await crypto.decryptPayloadWithContext(rootKey, migratedEnvelope, {
+      purpose: "user-encryption-private-key",
+      payloadType: "user-encryption-private-key",
+      keyVersion: 1,
+    });
+
+    expect(migratedPrivateKey).toEqual(privateKey);
+    expect(migratedCiphertext[0]).toBe(2);
+    expect(migratedEnvelope.nonce).not.toEqual(originalEnvelope.nonce);
+    expect(JSON.parse(new TextDecoder().decode(migratedPlaintext))).toEqual(privateKey);
+    await expect(
+      crypto.decryptPayloadWithContext(rootKey, migratedEnvelope, {
+        purpose: "vault-name",
+        payloadType: "vault-name",
+        keyVersion: 1,
+      }),
+    ).rejects.toThrow();
+    expect(pair.publicKey).toEqual(originalPublicKey);
+    clearJwk(migratedPrivateKey);
+    clearJwk(privateKey);
+    clearJwk(pair.privateKey);
+    migratedPlaintext.fill(0);
+    originalEnvelope.nonce.fill(0);
+    originalEnvelope.ciphertext.fill(0);
+    migratedEnvelope.nonce.fill(0);
+    migratedEnvelope.ciphertext.fill(0);
+    migratedCiphertext.fill(0);
+    legacyCiphertext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("rejects a private key whose scalar does not match the registered public key", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(29);
+    const pair = await crypto.generateUserEncryptionKeyPair();
+    const invalidPrivateKey = { ...pair.privateKey, d: bytesToBase64Url(new Uint8Array(32).fill(201)) };
+    const plaintext = new TextEncoder().encode(JSON.stringify(invalidPrivateKey));
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    let committed = false;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => {
+        committed = true;
+        return "committed";
+      },
+    };
+
+    await expect(
+      migrateUserEncryptionPrivateKeyWithCrypto(rootKey, legacyCiphertext, pair.publicKey, crypto, primitives, store),
+    ).rejects.toMatchObject({ name: "UserEncryptionPrivateKeyRecoveryError", stage: "payload-invalid" });
+
+    expect(committed).toBe(false);
+    expect(legacyCiphertext[0]).toBe(1);
+    clearJwk(invalidPrivateKey);
+    clearJwk(pair.privateKey);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("clears private key fields from a malformed parsed legacy payload", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(33);
+    const pair = await crypto.generateUserEncryptionKeyPair();
+    const plaintext = new TextEncoder().encode("synthetic malformed private key");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    const candidate = {
+      kty: "RSA",
+      crv: "P-256",
+      x: "synthetic-public-x",
+      y: "synthetic-public-y",
+      d: "synthetic-private-scalar",
+    };
+    const parse = vi.spyOn(JSON, "parse").mockReturnValue(candidate);
+    const commitEncryptedPayloadMigration = vi.fn(async () => "committed" as const);
+
+    try {
+      await expect(
+        migrateUserEncryptionPrivateKeyWithCrypto(rootKey, legacyCiphertext, pair.publicKey, crypto, primitives, {
+          commitEncryptedPayloadMigration,
+        }),
+      ).rejects.toMatchObject({ name: "UserEncryptionPrivateKeyRecoveryError", stage: "payload-invalid" });
+      expect(candidate).toMatchObject({ x: "", y: "", d: "" });
+      expect(commitEncryptedPayloadMigration).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+      clearJwk(pair.privateKey);
+      legacyCiphertext.fill(0);
+      plaintext.fill(0);
+      rootKey.fill(0);
+    }
+  });
+
+  it("reuses the same migration engine for a different synthetic payload context", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(17);
+    const context = {
+      purpose: "vault-name",
+      payloadType: "vault-name",
+      profileId: "synthetic-profile",
+      keyVersion: 1,
+    } as const;
+    const plaintext = new TextEncoder().encode("Synthetic Personal Vault");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    const store = createMemoryMigrationStore(primitives, legacyCiphertext);
+
+    const migratedName = await migrateLegacyEncryptedPayloadWithCrypto(
+      rootKey,
+      legacyCiphertext,
+      {
+        context,
+        validatePlaintext: (value) => {
+          const name = new TextDecoder("utf-8", { fatal: true }).decode(value);
+          if (name !== "Synthetic Personal Vault") throw new Error("Synthetic Vault Name is invalid.");
+          return name;
+        },
+        clearValidatedPayload: () => undefined,
+      },
+      crypto,
+      primitives,
+      store.store,
+    );
+    const migratedCiphertext = store.currentCiphertext();
+    const migratedEnvelope = crypto.deserializeEncryptedEnvelope(migratedCiphertext);
+
+    expect(migratedName).toBe("Synthetic Personal Vault");
+    expect(migratedEnvelope.version).toBe(2);
+    await expect(crypto.decryptPayloadWithContext(rootKey, migratedEnvelope, context)).resolves.toEqual(plaintext);
+    migratedEnvelope.nonce.fill(0);
+    migratedEnvelope.ciphertext.fill(0);
+    migratedCiphertext.fill(0);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("retries a transient lost response with the identical prepared ciphertext", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(29);
+    const plaintext = new TextEncoder().encode("Synthetic retry payload");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    const memory = createMemoryMigrationStore(primitives, legacyCiphertext);
+    const operationIds: string[] = [];
+    const replacements: Uint8Array[] = [];
+    let attempts = 0;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async (request) => {
+        attempts += 1;
+        operationIds.push(request.operationId);
+        replacements.push(request.replacementCiphertext.slice());
+        const result = await memory.store.commitEncryptedPayloadMigration(request);
+        if (attempts === 1) throw new RetryableEncryptedPayloadMigrationCommitError();
+        return result;
+      },
+    };
+
+    await expect(
+      migrateLegacyEncryptedPayloadWithCrypto(
+        rootKey,
+        legacyCiphertext,
+        {
+          context: { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
+          validatePlaintext: (value) => new TextDecoder().decode(value),
+          clearValidatedPayload: () => undefined,
+        },
+        crypto,
+        primitives,
+        store,
+      ),
+    ).resolves.toBe("Synthetic retry payload");
+
+    expect(attempts).toBe(2);
+    expect(operationIds[0]).toBe(operationIds[1]);
+    expect(replacements[0]).toEqual(replacements[1]);
+    const migratedCiphertext = memory.currentCiphertext();
+    expect(migratedCiphertext).toEqual(replacements[0]);
+    expect(migratedCiphertext[0]).toBe(2);
+
+    for (const replacement of replacements) replacement.fill(0);
+    migratedCiphertext.fill(0);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("retains legacy ciphertext when the single transient retry also fails", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(37);
+    const plaintext = new TextEncoder().encode("Synthetic retry failure");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    let attempts = 0;
+    let cleared = false;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => {
+        attempts += 1;
+        throw new RetryableEncryptedPayloadMigrationCommitError();
+      },
+    };
+
+    await expect(
+      migrateLegacyEncryptedPayloadWithCrypto(
+        rootKey,
+        legacyCiphertext,
+        {
+          context: { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
+          validatePlaintext: (value) => new TextDecoder().decode(value),
+          clearValidatedPayload: () => {
+            cleared = true;
+          },
+        },
+        crypto,
+        primitives,
+        store,
+      ),
+    ).rejects.toMatchObject({ name: "EncryptedPayloadMigrationError", stage: "persistence-failed" });
+
+    expect(attempts).toBe(2);
+    expect(cleared).toBe(true);
+    expect(legacyCiphertext[0]).toBe(1);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("does not retry a definitive commit failure and retains legacy ciphertext", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(41);
+    const plaintext = new TextEncoder().encode("Synthetic permanent failure");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    let attempts = 0;
+    let cleared = false;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => {
+        attempts += 1;
+        throw new Error("synthetic permanent failure");
+      },
+    };
+
+    await expect(
+      migrateLegacyEncryptedPayloadWithCrypto(
+        rootKey,
+        legacyCiphertext,
+        {
+          context: { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
+          validatePlaintext: (value) => new TextDecoder().decode(value),
+          clearValidatedPayload: () => {
+            cleared = true;
+          },
+        },
+        crypto,
+        primitives,
+        store,
+      ),
+    ).rejects.toMatchObject({ name: "EncryptedPayloadMigrationError", stage: "persistence-failed" });
+
+    expect(attempts).toBe(1);
+    expect(cleared).toBe(true);
+    expect(legacyCiphertext[0]).toBe(1);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("clears validated data and retains legacy ciphertext when persistence is interrupted", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(31);
+    const plaintext = new TextEncoder().encode("Synthetic interrupted payload");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    const memory = createMemoryMigrationStore(primitives, legacyCiphertext);
+    let cleared = false;
+    const interruptedStore: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => {
+        throw new DOMException("interrupted", "AbortError");
+      },
+    };
+
+    await expect(
+      migrateLegacyEncryptedPayloadWithCrypto(
+        rootKey,
+        legacyCiphertext,
+        {
+          context: { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
+          validatePlaintext: (value) => new TextDecoder().decode(value),
+          clearValidatedPayload: () => {
+            cleared = true;
+          },
+        },
+        crypto,
+        primitives,
+        interruptedStore,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    const currentCiphertext = memory.currentCiphertext();
+    expect(cleared).toBe(true);
+    expect(currentCiphertext[0]).toBe(1);
+    currentCiphertext.fill(0);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+
+  it("clears validated private data and retains legacy ciphertext when compare-and-swap conflicts", async () => {
+    const primitives = new FakeCryptoPrimitives();
+    const crypto = createClientCryptoPort(primitives);
+    const rootKey = new Uint8Array(32).fill(23);
+    const plaintext = new TextEncoder().encode("Synthetic legacy payload");
+    const legacyCiphertext = crypto.serializeEncryptedEnvelope(await crypto.encryptPayload(rootKey, plaintext));
+    let cleared = false;
+    const store: EncryptedPayloadMigrationStore = {
+      commitEncryptedPayloadMigration: async () => "conflict",
+    };
+
+    await expect(
+      migrateLegacyEncryptedPayloadWithCrypto(
+        rootKey,
+        legacyCiphertext,
+        {
+          context: { purpose: "vault-name", payloadType: "vault-name", keyVersion: 1 },
+          validatePlaintext: (value) => new TextDecoder().decode(value),
+          clearValidatedPayload: () => {
+            cleared = true;
+          },
+        },
+        crypto,
+        primitives,
+        store,
+      ),
+    ).rejects.toMatchObject({ name: "EncryptedPayloadMigrationError", stage: "persistence-conflict" });
+
+    expect(cleared).toBe(true);
+    expect(legacyCiphertext[0]).toBe(1);
+    legacyCiphertext.fill(0);
+    plaintext.fill(0);
+    rootKey.fill(0);
+  });
+});
+
 const testVaultKeyRotationPayloadValidator = {
   validateVaultName(plaintext: Uint8Array): void {
     const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
@@ -538,6 +1012,38 @@ const testVaultKeyRotationPayloadValidator = {
     account.secret.fill(0);
   },
 };
+
+function createMemoryMigrationStore(digest: Sha256DigestPort, originalCiphertext: Uint8Array) {
+  let currentCiphertext = originalCiphertext.slice();
+  const store: EncryptedPayloadMigrationStore = {
+    commitEncryptedPayloadMigration: async (request) => {
+      const currentDigest = await digest.digestSha256(currentCiphertext);
+      const currentDigestBase64 = bytesToBase64Url(currentDigest);
+      currentDigest.fill(0);
+      if (request.operationId !== request.replacementCiphertextDigest) return "conflict";
+      if (equalBytes(currentCiphertext, request.replacementCiphertext)) return "already-committed";
+      if (
+        currentCiphertext[0] !== request.expectedEnvelopeVersion ||
+        currentDigestBase64 !== request.expectedCiphertextDigest
+      )
+        return "conflict";
+      currentCiphertext.fill(0);
+      currentCiphertext = request.replacementCiphertext.slice();
+      return "committed";
+    },
+  };
+  return { store, currentCiphertext: () => currentCiphertext.slice() };
+}
+
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function clearJwk(privateKey: PortableJsonWebKey): void {
+  Reflect.set(privateKey, "x", "");
+  Reflect.set(privateKey, "y", "");
+  Reflect.set(privateKey, "d", "");
+}
 
 function syntheticAccountPayload(): Uint8Array {
   return new TextEncoder().encode(
@@ -557,6 +1063,15 @@ class FakeCryptoPrimitives implements CryptoPrimitivePort {
 
   randomBytes(length: number): Uint8Array {
     return Uint8Array.from({ length }, () => this.counter++ & 0xff);
+  }
+
+  async digestSha256(message: Uint8Array): Promise<Uint8Array> {
+    const digest = new Uint8Array(32);
+    for (let index = 0; index < message.length; index += 1) {
+      const slot = index % digest.length;
+      digest[slot] = (digest[slot] + message[index] + index) & 0xff;
+    }
+    return digest;
   }
 
   async encryptAesGcm(request: {

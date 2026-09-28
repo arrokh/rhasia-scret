@@ -112,46 +112,63 @@ export async function unlockLocalVault(
   let rootKey: Uint8Array | undefined;
   let vaultKey: Uint8Array | undefined;
   try {
-    unlockKey = await dependencies.crypto.deriveVaultUnlockKey(passphrase, base64ToBytes(record.kdf.salt));
-    rootKey = await dependencies.crypto.decryptPayloadWithContext(
-      unlockKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.wrappedLocalRootKey)),
-      { purpose: "local-root-key-wrap", payloadType: "local-root-key", profileId: record.profileId, keyVersion: 1 },
-    );
+    const salt = base64ToBytes(record.kdf.salt);
+    try {
+      unlockKey = await dependencies.crypto.deriveVaultUnlockKey(passphrase, salt);
+    } finally {
+      salt.fill(0);
+    }
+    rootKey = (
+      await decryptLocalPayload(
+        unlockKey,
+        record.wrappedLocalRootKey,
+        { purpose: "local-root-key-wrap", payloadType: "local-root-key", profileId: record.profileId, keyVersion: 1 },
+        dependencies,
+        false,
+      )
+    ).plaintext;
     if (rootKey.length !== 32) throw new Error("The Local Root Key is invalid.");
-    vaultKey = await dependencies.crypto.decryptPayloadWithContext(
-      rootKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.encryptedLocalVaultKey)),
-      { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: record.profileId, keyVersion: 1 },
-    );
+    vaultKey = (
+      await decryptLocalPayload(
+        rootKey,
+        record.encryptedLocalVaultKey,
+        { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: record.profileId, keyVersion: 1 },
+        dependencies,
+        false,
+      )
+    ).plaintext;
     if (vaultKey.length !== 32) throw new Error("The Local Vault Encryption Key is invalid.");
-    const nameBytes = await dependencies.crypto.decryptPayloadWithContext(
-      vaultKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.encryptedVaultName)),
-      { purpose: "vault-name", payloadType: "vault-name", profileId: record.profileId, keyVersion: 1 },
-    );
+    const nameBytes = (
+      await decryptLocalPayload(
+        vaultKey,
+        record.encryptedVaultName,
+        { purpose: "vault-name", payloadType: "vault-name", profileId: record.profileId, keyVersion: 1 },
+        dependencies,
+        false,
+      )
+    ).plaintext;
     let name: string;
     try {
-      name = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes).trim();
-      if (!name || name.length > 120) throw new Error("The Local Vault name is invalid.");
+      name = validateLocalVaultName(nameBytes);
     } finally {
       nameBytes.fill(0);
     }
     const accounts: UnlockedLocalVaultAccount[] = [];
     try {
       for (const account of record.accounts) {
-        const decrypted = await dependencies.accountPayload.decryptAccountConfiguration(
-          vaultKey,
-          base64ToBytes(account.encryptedPayload),
-          {
+        const ciphertext = base64ToBytes(account.encryptedPayload);
+        try {
+          const decrypted = await dependencies.accountPayload.decryptAccountConfiguration(vaultKey, ciphertext, {
             purpose: "authenticator-account",
             payloadType: "totp-configuration",
             profileId: record.profileId,
             accountId: account.id,
             keyVersion: account.encryptionVersion,
-          },
-        );
-        accounts.push({ ...decrypted, id: account.id, revision: account.revision });
+          });
+          accounts.push({ ...decrypted, id: account.id, revision: account.revision });
+        } finally {
+          ciphertext.fill(0);
+        }
       }
       return {
         profileId: record.profileId,
@@ -187,78 +204,103 @@ export async function migrateLegacyLocalVault(
   let unlockKey: Uint8Array | undefined;
   let rootKey: Uint8Array | undefined;
   let vaultKey: Uint8Array | undefined;
-  const plaintextAccounts: Uint8Array[] = [];
   let nameBytes: Uint8Array | undefined;
   try {
     unlockKey = await dependencies.crypto.deriveVaultUnlockKey(passphrase, salt);
-    rootKey = await dependencies.crypto.decryptPayload(
+    const root = await decryptLocalPayload(
       unlockKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.wrappedLocalRootKey)),
+      record.wrappedLocalRootKey,
+      { purpose: "local-root-key-wrap", payloadType: "local-root-key", profileId: record.profileId, keyVersion: 1 },
+      dependencies,
+      true,
     );
-    vaultKey = await dependencies.crypto.decryptPayload(
+    rootKey = root.plaintext;
+    if (rootKey.length !== 32) throw new Error("The Local Root Key is invalid.");
+    const vault = await decryptLocalPayload(
       rootKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.encryptedLocalVaultKey)),
+      record.encryptedLocalVaultKey,
+      { purpose: "vault-key-wrap", payloadType: "vault-encryption-key", profileId: record.profileId, keyVersion: 1 },
+      dependencies,
+      true,
     );
-    nameBytes = await dependencies.crypto.decryptPayload(
+    vaultKey = vault.plaintext;
+    if (vaultKey.length !== 32) throw new Error("The Local Vault Encryption Key is invalid.");
+    const name = await decryptLocalPayload(
       vaultKey,
-      dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(record.encryptedVaultName)),
+      record.encryptedVaultName,
+      { purpose: "vault-name", payloadType: "vault-name", profileId: record.profileId, keyVersion: 1 },
+      dependencies,
+      true,
     );
+    nameBytes = name.plaintext;
+    validateLocalVaultName(nameBytes);
     const migratedAccounts = [];
     for (const account of record.accounts) {
-      const plaintext = await dependencies.crypto.decryptPayload(
-        vaultKey,
-        dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(account.encryptedPayload)),
-      );
-      plaintextAccounts.push(plaintext);
-      migratedAccounts.push({
-        ...account,
-        encryptedPayload: bytesToBase64(
-          dependencies.crypto.serializeEncryptedEnvelope(
-            await dependencies.crypto.encryptPayloadWithContext(vaultKey, plaintext, {
-              purpose: "authenticator-account",
-              payloadType: "totp-configuration",
-              profileId: record.profileId,
-              accountId: account.id,
-              keyVersion: 1,
-            }),
-          ),
-        ),
-      });
+      const context = {
+        purpose: "authenticator-account" as const,
+        payloadType: "totp-configuration" as const,
+        profileId: record.profileId,
+        accountId: account.id,
+        keyVersion: account.encryptionVersion,
+      };
+      const opened = await decryptLocalPayload(vaultKey, account.encryptedPayload, context, dependencies, true);
+      let validatedAccount: DecryptedAuthenticatorAccount | undefined;
+      let canonicalPlaintext: Uint8Array | undefined;
+      try {
+        validatedAccount = dependencies.accountPayload.parseDecryptedAccountPayload(opened.plaintext);
+        let encryptedPayload = account.encryptedPayload;
+        if (opened.version === 1) {
+          canonicalPlaintext = dependencies.accountPayload.serializeDecryptedAccountPayload(validatedAccount);
+          encryptedPayload = await encryptLocalPayload(vaultKey, canonicalPlaintext, context, dependencies);
+        }
+        migratedAccounts.push({ ...account, encryptedPayload });
+      } finally {
+        opened.plaintext.fill(0);
+        validatedAccount?.secret.fill(0);
+        canonicalPlaintext?.fill(0);
+      }
     }
-    const migrated: LocalVaultRecord = {
+    const migrated = parseLocalVaultRecord({
       ...record,
-      wrappedLocalRootKey: bytesToBase64(
-        dependencies.crypto.serializeEncryptedEnvelope(
-          await dependencies.crypto.encryptPayloadWithContext(unlockKey, rootKey, {
-            purpose: "local-root-key-wrap",
-            payloadType: "local-root-key",
-            profileId: record.profileId,
-            keyVersion: 1,
-          }),
-        ),
-      ),
-      encryptedLocalVaultKey: bytesToBase64(
-        dependencies.crypto.serializeEncryptedEnvelope(
-          await dependencies.crypto.encryptPayloadWithContext(rootKey, vaultKey, {
-            purpose: "vault-key-wrap",
-            payloadType: "vault-encryption-key",
-            profileId: record.profileId,
-            keyVersion: 1,
-          }),
-        ),
-      ),
-      encryptedVaultName: bytesToBase64(
-        dependencies.crypto.serializeEncryptedEnvelope(
-          await dependencies.crypto.encryptPayloadWithContext(vaultKey, nameBytes, {
-            purpose: "vault-name",
-            payloadType: "vault-name",
-            profileId: record.profileId,
-            keyVersion: 1,
-          }),
-        ),
-      ),
+      wrappedLocalRootKey:
+        root.version === 1
+          ? await encryptLocalPayload(
+              unlockKey,
+              rootKey,
+              {
+                purpose: "local-root-key-wrap",
+                payloadType: "local-root-key",
+                profileId: record.profileId,
+                keyVersion: 1,
+              },
+              dependencies,
+            )
+          : record.wrappedLocalRootKey,
+      encryptedLocalVaultKey:
+        vault.version === 1
+          ? await encryptLocalPayload(
+              rootKey,
+              vaultKey,
+              {
+                purpose: "vault-key-wrap",
+                payloadType: "vault-encryption-key",
+                profileId: record.profileId,
+                keyVersion: 1,
+              },
+              dependencies,
+            )
+          : record.encryptedLocalVaultKey,
+      encryptedVaultName:
+        name.version === 1
+          ? await encryptLocalPayload(
+              vaultKey,
+              nameBytes,
+              { purpose: "vault-name", payloadType: "vault-name", profileId: record.profileId, keyVersion: 1 },
+              dependencies,
+            )
+          : record.encryptedVaultName,
       accounts: migratedAccounts,
-    };
+    });
     await repository.replace(migrated);
     return migrated;
   } finally {
@@ -267,7 +309,6 @@ export async function migrateLegacyLocalVault(
     rootKey?.fill(0);
     vaultKey?.fill(0);
     nameBytes?.fill(0);
-    for (const plaintext of plaintextAccounts) plaintext.fill(0);
   }
 }
 
@@ -579,7 +620,67 @@ function hasLegacyEnvelope(record: LocalVaultRecord, dependencies: LocalVaultWor
     record.encryptedLocalVaultKey,
     record.encryptedVaultName,
     ...record.accounts.map((account) => account.encryptedPayload),
-  ].some((encoded) => dependencies.crypto.deserializeEncryptedEnvelope(base64ToBytes(encoded)).version === 1);
+  ].some((encoded) => readLocalEnvelopeVersion(encoded, dependencies) === 1);
+}
+
+async function decryptLocalPayload(
+  key: Uint8Array,
+  encodedCiphertext: string,
+  context: Parameters<LocalVaultWorkflowDependencies["crypto"]["decryptPayloadWithContext"]>[2],
+  dependencies: LocalVaultWorkflowDependencies,
+  allowLegacy: boolean,
+): Promise<{ plaintext: Uint8Array; version: 1 | 2 }> {
+  const ciphertext = base64ToBytes(encodedCiphertext);
+  let envelope: ReturnType<LocalVaultWorkflowDependencies["crypto"]["deserializeEncryptedEnvelope"]> | undefined;
+  try {
+    envelope = dependencies.crypto.deserializeEncryptedEnvelope(ciphertext);
+    if (envelope.version === 1) {
+      if (!allowLegacy) throw new LocalVaultMigrationRequiredError();
+      return { plaintext: await dependencies.crypto.decryptPayload(key, envelope), version: 1 };
+    }
+    return { plaintext: await dependencies.crypto.decryptPayloadWithContext(key, envelope, context), version: 2 };
+  } finally {
+    ciphertext.fill(0);
+    envelope?.nonce.fill(0);
+    envelope?.ciphertext.fill(0);
+  }
+}
+
+function readLocalEnvelopeVersion(encodedCiphertext: string, dependencies: LocalVaultWorkflowDependencies): 1 | 2 {
+  const ciphertext = base64ToBytes(encodedCiphertext);
+  let envelope: ReturnType<LocalVaultWorkflowDependencies["crypto"]["deserializeEncryptedEnvelope"]> | undefined;
+  try {
+    envelope = dependencies.crypto.deserializeEncryptedEnvelope(ciphertext);
+    return envelope.version;
+  } finally {
+    ciphertext.fill(0);
+    envelope?.nonce.fill(0);
+    envelope?.ciphertext.fill(0);
+  }
+}
+
+async function encryptLocalPayload(
+  key: Uint8Array,
+  plaintext: Uint8Array,
+  context: Parameters<LocalVaultWorkflowDependencies["crypto"]["encryptPayloadWithContext"]>[2],
+  dependencies: LocalVaultWorkflowDependencies,
+): Promise<string> {
+  const envelope = await dependencies.crypto.encryptPayloadWithContext(key, plaintext, context);
+  let serialized: Uint8Array | undefined;
+  try {
+    serialized = dependencies.crypto.serializeEncryptedEnvelope(envelope);
+    return bytesToBase64(serialized);
+  } finally {
+    envelope.nonce.fill(0);
+    envelope.ciphertext.fill(0);
+    serialized?.fill(0);
+  }
+}
+
+function validateLocalVaultName(plaintext: Uint8Array): string {
+  const name = new TextDecoder("utf-8", { fatal: true }).decode(plaintext).trim();
+  if (!name || name.length > 120) throw new Error("The Local Vault name is invalid.");
+  return name;
 }
 
 function randomOpaqueId(dependencies: LocalVaultWorkflowDependencies): string {

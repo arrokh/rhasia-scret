@@ -1,8 +1,24 @@
 "use client";
 
-import type { CancellationPort, PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
-import { bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import type {
+  CancellationPort,
+  PortableJsonWebKey,
+  UserCryptoProfileMigrationRequest,
+  UserCryptoProfileMigrationResult,
+} from "@rhasia-scret/client-vault-core";
+import { bytesToBase64, commitUserCryptoProfileMigration } from "@rhasia-scret/client-vault-core";
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
+
+export function migrateUserCryptoProfile(
+  migration: UserCryptoProfileMigrationRequest,
+  signal?: CancellationPort,
+): Promise<UserCryptoProfileMigrationResult> {
+  return commitUserCryptoProfileMigration(
+    { request: (request) => browserApiClient.requestPlatform(request) },
+    migration,
+    signal,
+  );
+}
 
 export async function registerUserEncryptionIdentity(
   identity: {

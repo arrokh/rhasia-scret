@@ -28,6 +28,10 @@ export interface CryptoPrimitivePort {
   signHmac(algorithm: "SHA-1" | "SHA-256" | "SHA-512", key: Uint8Array, message: Uint8Array): Promise<Uint8Array>;
 }
 
+export interface Sha256DigestPort {
+  digestSha256(message: Uint8Array): Promise<Uint8Array>;
+}
+
 /** JWK-shaped data is deliberately plain data so native crypto adapters need no Web Crypto types. */
 export type PortableJsonWebKey = Readonly<Record<string, unknown>>;
 

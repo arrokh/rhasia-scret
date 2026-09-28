@@ -1,3 +1,7 @@
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import type { Vault } from "../domain/vault";
 
 export type NewSharedVault = {
@@ -20,4 +24,10 @@ export interface SharedVaultRepository {
     encryptionVersion: number,
     expectedKeyVersion: number,
   ): Promise<boolean>;
+  migrateName(
+    actorUserId: string,
+    vaultId: string,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult>;
 }

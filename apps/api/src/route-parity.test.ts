@@ -34,11 +34,14 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["DELETE", "/v1/passkey-recovery"],
   ["GET", "/v1/personal-vault"],
   ["POST", "/v1/personal-vault/initialize"],
+  ["POST", "/v1/personal-vault/name/migration"],
   ["GET", "/v1/personal-vault/destructive-reset"],
   ["POST", "/v1/personal-vault/destructive-reset"],
   ["GET", "/v1/user-crypto-profile"],
   ["POST", "/v1/user-crypto-profile/rewrap"],
+  ["POST", "/v1/user-crypto-profile/migration"],
   ["PUT", "/v1/user-encryption-identity"],
+  ["POST", "/v1/user-encryption-identity/migration"],
   ["GET", "/v1/user-encryption-identity/rotation"],
   ["PATCH", "/v1/user-encryption-identity/rotation"],
   ["POST", "/v1/vault-imports"],
@@ -46,6 +49,9 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["POST", "/v1/shared-vaults"],
   ["GET", "/v1/shared-vaults/vault_1"],
   ["PATCH", "/v1/shared-vaults/vault_1"],
+  ["POST", "/v1/shared-vaults/vault_1/name/migration"],
+  ["POST", "/v1/shared-vaults/vault_1/key-wrap/migration"],
+  ["POST", "/v1/shared-vaults/vault_1/accounts/migration"],
   ["POST", "/v1/shared-vaults/vault_1/accounts"],
   ["PATCH", "/v1/shared-vaults/vault_1/accounts"],
   ["DELETE", "/v1/shared-vaults/vault_1/accounts"],
@@ -67,6 +73,7 @@ const routes: ReadonlyArray<readonly [string, string]> = [
   ["GET", "/v1/secure-share-links"],
   ["POST", "/v1/secure-share-links"],
   ["GET", "/v1/vaults/vault_1/accounts"],
+  ["POST", "/v1/vaults/vault_1/accounts/migration"],
   ["POST", "/v1/vaults/vault_1/accounts"],
   ["PATCH", "/v1/vaults/vault_1/accounts"],
   ["DELETE", "/v1/vaults/vault_1/accounts"],
@@ -80,8 +87,8 @@ const routes: ReadonlyArray<readonly [string, string]> = [
 
 describe("canonical API route parity", () => {
   it("covers every registered operation, including deletion and dynamic aliases", () => {
-    expect(routes).toHaveLength(63);
-    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(63);
+    expect(routes).toHaveLength(70);
+    expect(new Set(routes.map(([method, path]) => `${method} ${path}`)).size).toBe(70);
     expect(routes).toEqual(API_ROUTE_MANIFEST.map(([method, path]) => [method, materialize(path)]));
   });
 

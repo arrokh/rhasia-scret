@@ -1,5 +1,10 @@
 import type { ClientCryptoPort, PortableJsonWebKey } from "./crypto-ports";
 import type { CryptoEnvelopeContext, EncryptedEnvelope } from "./encrypted-envelope-types";
+import {
+  clearPrivateJwk,
+  clearPrivateJwkCandidate,
+  isUserEncryptionPrivateKey,
+} from "./user-encryption-private-key-payload";
 
 export type EncryptedUserEncryptionIdentity = {
   publicKey: PortableJsonWebKey;
@@ -36,7 +41,7 @@ export async function createUserEncryptionIdentityWithCrypto(
     };
   } finally {
     plaintext.fill(0);
-    clearPrivateKeyMaterial(pair.privateKey);
+    clearPrivateJwk(pair.privateKey);
   }
 }
 
@@ -64,7 +69,10 @@ export async function recoverUserEncryptionPrivateKeyWithCrypto(
     } catch (error) {
       throw new UserEncryptionPrivateKeyRecoveryError("payload-invalid", error);
     }
-    if (!isPrivateKey(parsed)) throw new UserEncryptionPrivateKeyRecoveryError("payload-invalid");
+    if (!isUserEncryptionPrivateKey(parsed)) {
+      clearPrivateJwkCandidate(parsed);
+      throw new UserEncryptionPrivateKeyRecoveryError("payload-invalid");
+    }
     return parsed;
   } finally {
     plaintext.fill(0);
@@ -73,23 +81,4 @@ export async function recoverUserEncryptionPrivateKeyWithCrypto(
 
 export function userEncryptionIdentityContext(): CryptoEnvelopeContext {
   return { purpose: "user-encryption-private-key", payloadType: "user-encryption-private-key", keyVersion: 1 };
-}
-
-function clearPrivateKeyMaterial(privateKey: PortableJsonWebKey): void {
-  Reflect.set(privateKey, "x", "");
-  Reflect.set(privateKey, "y", "");
-  Reflect.set(privateKey, "d", "");
-}
-
-function isPrivateKey(value: unknown): value is PortableJsonWebKey {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    (value as Record<string, unknown>).kty === "EC" &&
-    (value as Record<string, unknown>).crv === "P-256" &&
-    typeof (value as Record<string, unknown>).x === "string" &&
-    typeof (value as Record<string, unknown>).y === "string" &&
-    typeof (value as Record<string, unknown>).d === "string"
-  );
 }

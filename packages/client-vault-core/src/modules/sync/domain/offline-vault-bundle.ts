@@ -424,7 +424,7 @@ function encryptedKeyPackage(value: unknown, label: string): string {
     const envelope = deserializeKeyWrapEnvelope(bytes);
     envelope.nonce.fill(0);
     envelope.ciphertext.fill(0);
-    if (envelope.version !== 2) invalid(`${label} has an unsupported key package version`);
+    if (envelope.version !== 1 && envelope.version !== 2) invalid(`${label} has an unsupported key package version`);
     return blob;
   } catch {
     invalid(`${label} has an invalid key package`);

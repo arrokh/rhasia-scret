@@ -3,34 +3,38 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   decryptAccountConfiguration: vi.fn(),
   decryptPayloadWithContext: vi.fn(),
+  encryptPayloadWithContext: vi.fn(),
   createUserEncryptionIdentity: vi.fn(),
   fetchAuthorizedWorkspaceBundle: vi.fn(),
+  migrateUserCryptoProfile: vi.fn(),
   registerUserEncryptionIdentity: vi.fn(),
   serializeEncryptedEnvelope: vi.fn(),
   read: vi.fn(),
   recoverUserRootKeyWithPasskey: vi.fn(),
-  recoverUserEncryptionPrivateKey: vi.fn(),
+  recoverOrMigratePrivateKey: vi.fn(),
   recoverUserRootKeyWithRememberedBrowser: vi.fn(),
-  rewrapUserCryptoProfile: vi.fn(),
   replace: vi.fn(),
   unlockPersonalVault: vi.fn(),
   unlockPersonalVaultWithUserRootKey: vi.fn(),
-  unlockSharedVault: vi.fn(),
+  sharedVaultKey: undefined as Uint8Array | undefined,
 }));
 
 vi.mock("@/modules/crypto", () => ({
+  browserClientCryptoPort: {},
+  browserSha256Digest: { digestSha256: vi.fn() },
   createUserEncryptionIdentity: mocks.createUserEncryptionIdentity,
   decryptPayloadWithContext: mocks.decryptPayloadWithContext,
-  deserializeEncryptedEnvelope: vi.fn((value) => value),
+  encryptPayloadWithContext: mocks.encryptPayloadWithContext,
+  deserializeEncryptedEnvelope: vi.fn(() => ({ version: 2, nonce: Uint8Array.of(1), ciphertext: Uint8Array.of(2) })),
   recoverUserRootKeyWithPasskey: mocks.recoverUserRootKeyWithPasskey,
-  recoverUserEncryptionPrivateKey: mocks.recoverUserEncryptionPrivateKey,
   recoverUserRootKeyWithRememberedBrowser: mocks.recoverUserRootKeyWithRememberedBrowser,
+  migrateUserCryptoProfile: mocks.migrateUserCryptoProfile,
   registerUserEncryptionIdentity: mocks.registerUserEncryptionIdentity,
-  rewrapUserCryptoProfile: mocks.rewrapUserCryptoProfile,
   serializeEncryptedEnvelope: mocks.serializeEncryptedEnvelope,
   unlockPersonalVault: mocks.unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey: mocks.unlockPersonalVaultWithUserRootKey,
 }));
+vi.mock("@/modules/crypto/migration", () => ({ recover: mocks.recoverOrMigratePrivateKey }));
 vi.mock("@/modules/sync", () => ({
   BrowserOfflineVaultRepository: class {
     read = mocks.read;
@@ -38,7 +42,16 @@ vi.mock("@/modules/sync", () => ({
   },
   fetchAuthorizedWorkspaceBundle: mocks.fetchAuthorizedWorkspaceBundle,
 }));
-vi.mock("@/modules/vault-membership", () => ({ unlockSharedVault: mocks.unlockSharedVault }));
+vi.mock("@rhasia-scret/client-vault-core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@rhasia-scret/client-vault-core")>();
+  return {
+    ...actual,
+    unwrapSharedVaultKeyWithCrypto: vi.fn(async () => mocks.sharedVaultKey ?? new Uint8Array(32).fill(3)),
+  };
+});
+vi.mock("@rhasia-scret/client-vault-core/modules/vault-membership/application/shared-vault-key-wrap-migration", () => ({
+  migrateLegacySharedVaultKeyWrapWithCrypto: vi.fn(async () => ({ status: "already-current" as const })),
+}));
 vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload", () => ({
   decryptAccountConfiguration: mocks.decryptAccountConfiguration,
 }));
@@ -48,8 +61,10 @@ import {
   PersonalVaultUnlockError,
   UserEncryptionPrivateKeyRecoveryError,
   VaultWorkspaceUnlockError,
+  unwrapSharedVaultKeyWithCrypto,
   type AuthorizedWorkspaceResponse,
 } from "@rhasia-scret/client-vault-core";
+import { migrateLegacySharedVaultKeyWrapWithCrypto } from "@rhasia-scret/client-vault-core/modules/vault-membership/application/shared-vault-key-wrap-migration";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -62,8 +77,13 @@ import {
 describe("Vault workspace loading", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mocks.sharedVaultKey = undefined;
     vi.stubGlobal("navigator", { onLine: false });
-    mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Personal Vault"));
+    vi.mocked(migrateLegacySharedVaultKeyWrapWithCrypto).mockResolvedValue({ status: "already-current" });
+    vi.mocked(unwrapSharedVaultKeyWithCrypto).mockImplementation(
+      async () => mocks.sharedVaultKey ?? new Uint8Array(32).fill(3),
+    );
+    mocks.decryptPayloadWithContext.mockImplementation(async () => new TextEncoder().encode("Personal Vault"));
   });
 
   it("classifies authorization, synchronization, storage, and cryptographic unlock failures separately", () => {
@@ -168,12 +188,12 @@ describe("Vault workspace loading", () => {
     const responseWithIdentity = workspaceResponse();
     responseWithIdentity.userEncryptionIdentity = {
       publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "B".repeat(43) },
-      encryptedPrivateKey: "AQ==",
+      encryptedPrivateKey: "Ag==",
       encryptionVersion: 1,
     };
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(responseWithIdentity);
     mocks.decryptPayloadWithContext.mockResolvedValue(new TextEncoder().encode("Personal Vault"));
-    mocks.recoverUserEncryptionPrivateKey.mockRejectedValue(new Error("synthetic private key failure"));
+    mocks.recoverOrMigratePrivateKey.mockRejectedValue(new Error("synthetic private key failure"));
 
     await expect(loadUnlockedVaultWorkspace("secret", "personal-1")).rejects.toMatchObject({
       name: "VaultWorkspaceUnlockError",
@@ -188,7 +208,6 @@ describe("Vault workspace loading", () => {
     const personalVaultKey = Uint8Array.of(2);
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey });
-    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
     mocks.decryptAccountConfiguration
       .mockResolvedValueOnce(account("Personal", "owner"))
       .mockResolvedValueOnce(account("Shared", "member"));
@@ -204,28 +223,26 @@ describe("Vault workspace loading", () => {
     const response = workspaceResponse();
     response.userEncryptionIdentity = {
       publicKey: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
-      encryptedPrivateKey: "AQ==",
+      encryptedPrivateKey: "Ag==",
       encryptionVersion: 1,
     };
     const userRootKey = Uint8Array.of(1);
     const privateKey = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43), d: "A".repeat(43) };
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey: Uint8Array.of(2) });
-    mocks.recoverUserEncryptionPrivateKey.mockResolvedValue(privateKey);
-    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
+    let recoveredCiphertext: Uint8Array | undefined;
+    mocks.recoverOrMigratePrivateKey.mockImplementation(async (_rootKey, ciphertext) => {
+      recoveredCiphertext = ciphertext.slice();
+      return privateKey;
+    });
     mocks.decryptAccountConfiguration
       .mockResolvedValueOnce(account("Personal", "owner"))
       .mockResolvedValueOnce(account("Shared", "member"));
 
-    await loadUnlockedVaultWorkspace("secret", "personal-1");
+    const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
 
-    expect(mocks.recoverUserEncryptionPrivateKey).toHaveBeenCalledWith(userRootKey, Uint8Array.of(0));
-    expect(mocks.unlockSharedVault).toHaveBeenCalledWith(userRootKey, Uint8Array.of(5), Uint8Array.of(5), {
-      vaultId: "shared-1",
-      recipientId: "profile-1",
-      keyVersion: 1,
-      userEncryptionPrivateKey: privateKey,
-    });
+    expect(recoveredCiphertext).toEqual(Uint8Array.of(2));
+    expect(workspace.vaults[1]).toMatchObject({ id: "shared-1", type: "SHARED", name: "Personal Vault" });
     expect(mocks.replace).toHaveBeenCalledWith(response.personalSnapshot);
     expect(response.personalSnapshot).not.toHaveProperty("userEncryptionIdentity");
     expect(mocks.replace.mock.calls[0]?.[0]).not.toHaveProperty("userEncryptionIdentity");
@@ -247,8 +264,7 @@ describe("Vault workspace loading", () => {
       registeredEncryptedPrivateKey = identity.encryptedPrivateKey.slice();
       return true;
     });
-    mocks.recoverUserEncryptionPrivateKey.mockResolvedValue({ ...publicKey, d: "A".repeat(43) });
-    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
+    mocks.recoverOrMigratePrivateKey.mockResolvedValue({ ...publicKey, d: "A".repeat(43) });
     mocks.decryptAccountConfiguration
       .mockResolvedValueOnce(account("Personal", "owner"))
       .mockResolvedValueOnce(account("Shared", "member"));
@@ -339,6 +355,7 @@ describe("Vault workspace loading", () => {
     const userRootKey = Uint8Array.of(1);
     const personalVaultKey = Uint8Array.of(2);
     const sharedVaultKey = Uint8Array.of(3);
+    mocks.sharedVaultKey = sharedVaultKey;
     const personalSecret = Uint8Array.of(18);
     const lateSecret = Uint8Array.of(19);
     let resolveSharedAccount: ((value: ReturnType<typeof account>) => void) | undefined;
@@ -354,8 +371,7 @@ describe("Vault workspace loading", () => {
       },
     };
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
-    mocks.unlockPersonalVaultWithUserRootKey.mockResolvedValue(personalVaultKey);
-    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: sharedVaultKey, name: "Team" });
+    mocks.unlockPersonalVaultWithUserRootKey.mockResolvedValue({ personalVaultKey });
     mocks.decryptAccountConfiguration.mockImplementation(async (key) => {
       if (key === sharedVaultKey) return new Promise((resolve) => (resolveSharedAccount = resolve));
       return account("Personal", "owner", personalSecret);
@@ -381,7 +397,6 @@ describe("Vault workspace loading", () => {
     mocks.unlockPersonalVault.mockResolvedValue({ userRootKey: Uint8Array.of(1), personalVaultKey: Uint8Array.of(2) });
     const secret = Uint8Array.of(9);
     mocks.decryptAccountConfiguration.mockResolvedValue(account("Issuer", "account", secret));
-    mocks.unlockSharedVault.mockResolvedValue({ vaultKey: Uint8Array.of(3), name: "Team" });
     const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
     clearUnlockedVaultWorkspace(workspace);
     expect([...workspace.userRootKey]).toEqual([0]);

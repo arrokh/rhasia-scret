@@ -4,7 +4,10 @@ import { ApiResponse, type ApiRequest } from "@api/http/api-request";
 import { type UserCryptoProfileRepository } from "@api/modules/identity/server";
 import { authenticateApplicationReader } from "@api/shared/infrastructure/authenticated-application-request";
 
-type Dependencies = { authenticate: typeof authenticateApplicationReader; cryptoProfiles: UserCryptoProfileRepository };
+type Dependencies = {
+  authenticate: typeof authenticateApplicationReader;
+  cryptoProfiles: Pick<UserCryptoProfileRepository, "get">;
+};
 
 export function createGetUserCryptoProfileHandler({ authenticate, cryptoProfiles }: Dependencies) {
   return async function GET(request: ApiRequest) {

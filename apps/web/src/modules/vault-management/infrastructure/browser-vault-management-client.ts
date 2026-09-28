@@ -1,7 +1,13 @@
 "use client";
 
-import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
-import type { PortableJsonWebKey } from "@rhasia-scret/client-vault-core";
+import { browserAuthenticatedTransport, browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import type {
+  CancellationPort,
+  EncryptedPayloadMigrationCommit,
+  EncryptedPayloadMigrationCommitResult,
+  PortableJsonWebKey,
+} from "@rhasia-scret/client-vault-core";
+import { commitEncryptedPayloadMigrationTransport } from "@rhasia-scret/client-vault-core";
 
 export type PersonalVaultInitializationRequest = {
   vaultUnlockSalt: string;
@@ -34,6 +40,85 @@ export function initializePersonalVault(request: PersonalVaultInitializationRequ
 
 export function createSharedVault(request: SharedVaultCreationRequest): Promise<{ id: string }> {
   return browserApiClient.postJson("/api/v1/shared-vaults", request);
+}
+
+export function migratePersonalVaultName(
+  vaultId: string,
+  expectedKeyVersion: number,
+  migration: EncryptedPayloadMigrationCommit,
+  signal?: CancellationPort,
+): Promise<EncryptedPayloadMigrationCommitResult> {
+  return commitEncryptedPayloadMigrationTransport(
+    browserAuthenticatedTransport,
+    "/v1/personal-vault/name/migration",
+    { vaultId, expectedKeyVersion },
+    migration,
+    signal,
+  );
+}
+
+export function migrateSharedVaultName(
+  vaultId: string,
+  expectedKeyVersion: number,
+  migration: EncryptedPayloadMigrationCommit,
+  signal?: CancellationPort,
+): Promise<EncryptedPayloadMigrationCommitResult> {
+  return commitEncryptedPayloadMigrationTransport(
+    browserAuthenticatedTransport,
+    `/v1/shared-vaults/${encodeURIComponent(vaultId)}/name/migration`,
+    { expectedKeyVersion },
+    migration,
+    signal,
+  );
+}
+
+export function migrateSharedVaultKeyWrap(
+  vaultId: string,
+  expectedKeyVersion: number,
+  migration: EncryptedPayloadMigrationCommit,
+  signal?: CancellationPort,
+): Promise<EncryptedPayloadMigrationCommitResult> {
+  return commitEncryptedPayloadMigrationTransport(
+    browserAuthenticatedTransport,
+    `/v1/shared-vaults/${encodeURIComponent(vaultId)}/key-wrap/migration`,
+    { expectedKeyVersion },
+    migration,
+    signal,
+  );
+}
+
+export function migratePersonalAuthenticatorAccount(
+  vaultId: string,
+  accountId: string,
+  expectedRevision: number,
+  expectedKeyVersion: number,
+  migration: EncryptedPayloadMigrationCommit,
+  signal?: CancellationPort,
+): Promise<EncryptedPayloadMigrationCommitResult> {
+  return commitEncryptedPayloadMigrationTransport(
+    browserAuthenticatedTransport,
+    `/v1/vaults/${encodeURIComponent(vaultId)}/accounts/migration`,
+    { accountId, expectedRevision, expectedKeyVersion },
+    migration,
+    signal,
+  );
+}
+
+export function migrateSharedAuthenticatorAccount(
+  vaultId: string,
+  accountId: string,
+  expectedRevision: number,
+  expectedKeyVersion: number,
+  migration: EncryptedPayloadMigrationCommit,
+  signal?: CancellationPort,
+): Promise<EncryptedPayloadMigrationCommitResult> {
+  return commitEncryptedPayloadMigrationTransport(
+    browserAuthenticatedTransport,
+    `/v1/shared-vaults/${encodeURIComponent(vaultId)}/accounts/migration`,
+    { accountId, expectedRevision, expectedKeyVersion },
+    migration,
+    signal,
+  );
 }
 
 export function renameSharedVault(vaultId: string, encryptedName: string, expectedKeyVersion: number): Promise<void> {

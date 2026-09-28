@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaSharedAccountRepository } from "@api/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
+import type { EncryptedPayloadMigration } from "@api/shared/application/encrypted-payload-migration";
+import { sha256Digest, toBase64Url } from "@api/shared/infrastructure/crypto";
 import { PrismaMembershipLifecycleRepository } from "@api/modules/vault-membership/infrastructure/prisma-membership-lifecycle-repository";
 import { PrismaSharedVaultAccountPermissionRepository } from "@api/modules/vault-membership/infrastructure/prisma-shared-vault-account-permission-repository";
 import { prisma } from "@api/tests/integration/prisma";
@@ -73,6 +75,45 @@ describe("Shared Vault account permission persistence", () => {
         { eventType: "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED", actorUserId: owner.id, targetId: null },
         { eventType: "MEMBER_PERMISSIONS_UPDATED", actorUserId: owner.id, targetId: member.id },
       ]);
+    },
+  );
+
+  it.skipIf(!process.env.DATABASE_URL)(
+    "migrates account ciphertext only for an authorized current member and preserves revision",
+    async () => {
+      const { owner, member, vault } = await createSharedVault();
+      await prisma.vaultMember.update({
+        where: { vaultId_userId: { vaultId: vault.id, userId: owner.id } },
+        data: { keyVersion: 2 },
+      });
+      await prisma.vaultMember.update({
+        where: { vaultId_userId: { vaultId: vault.id, userId: member.id } },
+        data: { keyVersion: 2 },
+      });
+      const repository = new PrismaSharedAccountRepository(prisma);
+      const source = Uint8Array.from([1, 2, 3, 4]);
+      const replacement = Uint8Array.from([2, ...new Array<number>(40).fill(9)]);
+      const created = await repository.create(owner.id, vault.id, source, 1, 2);
+      if (created.status !== "SUCCESS") throw new Error("Expected synthetic Shared Vault account creation.");
+      const migration = encryptedMigration(source, replacement);
+
+      await expect(repository.migratePayload(member.id, vault.id, created.value.id, 1, 2, migration)).resolves.toBe(
+        "committed",
+      );
+      await expect(repository.migratePayload(owner.id, vault.id, created.value.id, 1, 2, migration)).resolves.toBe(
+        "already-committed",
+      );
+      await expect(repository.migratePayload(owner.id, vault.id, created.value.id, 1, 2, migration)).resolves.toBe(
+        "already-committed",
+      );
+      await expect(
+        prisma.authenticatorAccount.findUnique({
+          where: { id: created.value.id },
+          select: { encryptedPayload: true, revision: true },
+        }),
+      ).resolves.toEqual({ encryptedPayload: replacement, revision: 1 });
+      source.fill(0);
+      replacement.fill(0);
     },
   );
 
@@ -221,6 +262,28 @@ async function createUser() {
   });
   userIds.push(user.id);
   return user;
+}
+
+function encryptedMigration(expected: Uint8Array, replacement: Uint8Array): EncryptedPayloadMigration {
+  const expectedDigest = digest(expected);
+  const replacementDigest = digest(replacement);
+  return {
+    expectedEnvelopeVersion: 1,
+    replacementEnvelopeVersion: 2,
+    expectedCiphertextDigest: expectedDigest,
+    replacementCiphertextDigest: replacementDigest,
+    replacementCiphertext: replacement,
+    operationId: replacementDigest,
+  };
+}
+
+function digest(bytes: Uint8Array): string {
+  const value = sha256Digest(bytes);
+  try {
+    return toBase64Url(value);
+  } finally {
+    value.fill(0);
+  }
 }
 
 function bytes(value: string): Uint8Array<ArrayBuffer> {

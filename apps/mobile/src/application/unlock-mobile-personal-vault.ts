@@ -2,6 +2,7 @@ import {
   unlockPersonalVault,
   unlockPersonalVaultWithUserRootKey,
   type EncryptedPersonalVaultProfile,
+  type PersonalVaultKeyUnlockResult,
   type PersonalVaultUnlockResult,
 } from "@rhasia-scret/client-vault-core";
 import { nativeArgon2idPort } from "../infrastructure/native-argon2id";
@@ -20,6 +21,6 @@ export function unlockMobilePersonalVault(
 export function unlockMobilePersonalVaultWithUserRootKey(
   userRootKey: Uint8Array,
   profile: EncryptedPersonalVaultProfile,
-): Promise<Uint8Array> {
+): Promise<PersonalVaultKeyUnlockResult> {
   return unlockPersonalVaultWithUserRootKey(userRootKey, profile, nativeClientCrypto);
 }
