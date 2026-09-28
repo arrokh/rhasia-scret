@@ -9,7 +9,7 @@ type ApiDependencyLogFields = Readonly<{
     | "passwordless_challenge_database"
     | "smtp_email_delivery"
     | "passwordless_authentication";
-  client?: "web" | "pwa" | "mobile";
+  client?: "web" | "pwa";
   durationMs?: number;
   reason?: "transport" | "http_error" | "malformed_response" | "factory_error";
   providerStatus?: number | null;

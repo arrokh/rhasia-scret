@@ -18,7 +18,6 @@ test("accepts a dedicated release diff that changes only aligned version metadat
   assert.ok(result.changedPaths.includes("CHANGELOG.md"));
   assert.ok(result.changedPaths.includes("docs/release-readiness/v0.1.1.md"));
   assert.ok(result.changedPaths.includes("apps/api/package.json"));
-  assert.ok(result.changedPaths.includes("apps/mobile/app.config.ts"));
 });
 
 test("checks the complete multi-commit release PR instead of only the final commit", (t) => {
@@ -63,7 +62,7 @@ test("rejects dependency or script changes hidden in workspace manifests", (t) =
   );
 });
 
-test("rejects unrelated files and non-version Expo configuration changes", (t) => {
+test("rejects unrelated application changes from release PRs", (t) => {
   const unrelated = createFixture(t);
   prepareCandidate(unrelated.root);
   writeText(unrelated.root, "apps/web/src/page.tsx", "export const page = true;\n");
@@ -71,15 +70,6 @@ test("rejects unrelated files and non-version Expo configuration changes", (t) =
   assert.throws(
     () => verifyReleaseCommit({ root: unrelated.root, version, sourceSha: unrelatedSha }),
     /non-release changes/,
-  );
-
-  const expo = createFixture(t);
-  prepareCandidate(expo.root);
-  writeText(expo.root, "apps/mobile/app.config.ts", 'export default {\n  version: "0.1.1",\n  name: "changed",\n};\n');
-  const expoSha = commit(expo.root, "change expo config beyond version");
-  assert.throws(
-    () => verifyReleaseCommit({ root: expo.root, version, sourceSha: expoSha }),
-    /beyond its Expo version field/,
   );
 });
 
@@ -93,12 +83,10 @@ function createFixture(t) {
     ["package.json", "fixture-root"],
     ["apps/api/package.json", "@fixture/api"],
     ["apps/web/package.json", "@fixture/web"],
-    ["apps/mobile/package.json", "@fixture/mobile"],
     ["packages/shared/package.json", "@fixture/shared"],
   ]) {
     writeJson(root, path, { name, version: "0.1.0", scripts: { test: "node test.js" } });
   }
-  writeText(root, "apps/mobile/app.config.ts", 'export default {\n  version: "0.1.0",\n};\n');
   writeText(root, "CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Keep future notes.\n");
   writeText(root, "docs/release-readiness/v0.1.0.md", "baseline readiness\n");
   writeText(
@@ -116,14 +104,12 @@ function prepareCandidate(root, { preserveReadiness = false } = {}) {
     "package.json",
     "apps/api/package.json",
     "apps/web/package.json",
-    "apps/mobile/package.json",
     "packages/shared/package.json",
   ]) {
     const manifest = JSON.parse(readFile(root, path));
     manifest.version = version;
     writeJson(root, path, manifest);
   }
-  writeText(root, "apps/mobile/app.config.ts", 'export default {\n  version: "0.1.1",\n};\n');
   writeText(
     root,
     "CHANGELOG.md",

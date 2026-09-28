@@ -55,9 +55,9 @@ export const STATE_CHANGING_ROUTE_RATE_LIMIT_EXCLUSIONS = {
     "One-time link redemption has no authenticated Application User and is governed by challenge consumption.",
   "POST /auth/logout": "Idempotent session termination must remain available without an application user.",
   "POST /api/v1/auth/session/refresh":
-    "Native refresh-token rotation and browser session keepalive have no authenticated Application User and are governed by the session family or active browser assertion.",
+    "Read-only browser-session assertion checks have no authenticated Application User and are governed by the active browser assertion.",
   "POST /api/v1/auth/pwa/session":
     "PWA session handoff rotates a transient refresh credential and has no authenticated Application User before cookie issuance.",
   "POST /api/v1/auth/session/revoke":
-    "Idempotent native session termination is authenticated by the bearer session credential.",
+    "Idempotent browser session termination is authenticated by the verified proxy session assertion.",
 } as const;

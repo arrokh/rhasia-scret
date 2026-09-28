@@ -12,23 +12,19 @@ export class PasswordlessSessionTerminator implements SessionTerminator {
   public constructor(private readonly service: PasswordlessAuthService) {}
 
   public async terminateCurrentSession(request: Request, cookies: ResponseCookieStore): Promise<void> {
-    const bearerToken = readBearerToken(request.headers.get("authorization"));
-    if (bearerToken) {
-      const principal = await this.service.verifyAccessToken(bearerToken);
-      if (principal?.sessionId) await this.service.revoke(principal.sessionId);
-    } else {
-      const values = parseCookies(request.headers.get("cookie"));
-      const refreshToken = values.get(PASSWORDLESS_REFRESH_COOKIE);
-      if (refreshToken) {
-        const sessionId = refreshToken.split(".", 1)[0];
-        if (sessionId) await this.service.revoke(sessionId);
-      }
-      const accessToken = values.get(PASSWORDLESS_ACCESS_COOKIE);
-      if (accessToken && !refreshToken) {
-        const principal = await this.service.verifyAccessToken(accessToken);
-        if (principal?.sessionId) await this.service.revoke(principal.sessionId);
-      }
+    const values = parseCookies(request.headers.get("cookie"));
+    const refreshToken = values.get(PASSWORDLESS_REFRESH_COOKIE);
+    if (refreshToken) {
+      const sessionId = refreshToken.split(".", 1)[0];
+      if (sessionId) await this.service.revoke(sessionId);
     }
+
+    const accessToken = values.get(PASSWORDLESS_ACCESS_COOKIE);
+    if (accessToken && !refreshToken) {
+      const principal = await this.service.verifyAccessToken(accessToken);
+      if (principal?.sessionId) await this.service.revoke(principal.sessionId);
+    }
+
     clearPasswordlessSessionCookies(cookies);
     cookies.set(PASSWORDLESS_ASSERTION_COOKIE, "", {
       httpOnly: true,
@@ -38,11 +34,6 @@ export class PasswordlessSessionTerminator implements SessionTerminator {
       path: "/",
     });
   }
-}
-
-function readBearerToken(value: string | null): string | null {
-  const match = value ? /^Bearer ([A-Za-z0-9_.-]{1,512})$/.exec(value) : null;
-  return match?.[1] ?? null;
 }
 
 function parseCookies(value: string | null): Map<string, string> {

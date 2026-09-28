@@ -80,7 +80,6 @@ describe("browser test gate inventory", () => {
       'AUTH_BACKEND: "passwordless"',
       "AUTH_APP_ORIGIN: baseURL",
       "AUTH_SESSION_SECRET:",
-      "AUTH_MOBILE_REDIRECT_URL:",
       'E2E_BROWSER_TESTS: "1"',
       "E2E_BROWSER_TEST_USERS:",
     ]) {

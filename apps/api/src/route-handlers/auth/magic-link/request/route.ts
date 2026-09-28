@@ -22,13 +22,6 @@ const magicLinkRequestSchema = z.discriminatedUnion("client", [
     .strict(),
   z
     .object({
-      client: z.literal("mobile"),
-      email: z.string().trim().min(1).max(254).email(),
-      returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
-    })
-    .strict(),
-  z
-    .object({
       client: z.literal("pwa"),
       email: z.string().trim().min(1).max(254).email(),
       returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
@@ -44,13 +37,11 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   if (!parsed.success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
   const body = parsed.data;
-  if (!isClientOriginAllowed(request, body.client))
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
+  if (!isClientOriginAllowed(request)) return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
 
   const handoffId = body.client === "pwa" ? body.handoffId : undefined;
   const handoffVerifier = body.client === "pwa" ? body.handoffVerifier : undefined;
-  const turnstileResult =
-    body.client === "mobile" ? "valid" : await validateTurnstile(request, body.turnstileToken, body.client);
+  const turnstileResult = await validateTurnstile(request, body.turnstileToken, body.client);
   if (turnstileResult === "invalid")
     return ApiResponse.json({ error: "turnstile_failed" }, { status: 403, headers: noStoreHeaders() });
   if (turnstileResult === "unavailable")

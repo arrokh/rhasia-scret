@@ -32,7 +32,7 @@ export interface Sha256DigestPort {
   digestSha256(message: Uint8Array): Promise<Uint8Array>;
 }
 
-/** JWK-shaped data is deliberately plain data so native crypto adapters need no Web Crypto types. */
+/** JWK-shaped data is plain data so crypto adapters need no Web Crypto types. */
 export type PortableJsonWebKey = Readonly<Record<string, unknown>>;
 
 export type PortableEcdhKeyPair = {
@@ -58,11 +58,11 @@ export interface KeyDerivationPort {
 
 export type DeviceBoundCapability = {
   supported: boolean;
-  kind: "browser-webauthn-prf" | "native-passkey" | "unsupported";
+  kind: "browser-webauthn-prf" | "unsupported";
   reason?: "secure-context-required" | "user-verification-unavailable" | "prf-unavailable" | "not-implemented";
 };
 
-/** Explicitly reports capability; it must not claim native passkeys are WebAuthn PRF compatible. */
+/** Explicitly reports whether the browser supports the WebAuthn PRF capability. */
 export interface DeviceBoundVerificationPort {
   capability(): Promise<DeviceBoundCapability>;
   enroll(request: DeviceBoundEnrollmentRequest): Promise<DeviceBoundEnrollment>;

@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const allChecks = () => ({ core: true, web: true, mobile: true });
+const allChecks = () => ({ core: true, web: true });
 const documentationFiles = new Set([
   "README.md",
   "CHANGELOG.md",
@@ -17,11 +17,10 @@ const documentationFiles = new Set([
 ]);
 
 export function affectedChecks(paths) {
-  const checks = { core: false, web: false, mobile: false };
+  const checks = { core: false, web: false };
   for (const path of paths) {
     if (path.startsWith("apps/web/")) checks.web = true;
-    else if (path.startsWith("apps/mobile/")) checks.mobile = true;
-    // Shared packages affect both clients. Unknown packages/configuration run
+    // Shared packages affect both consumers. Unknown packages/configuration run
     // everything rather than silently missing a new dependency or workspace.
     else if (path.startsWith("docs/adr/") || path.startsWith("docs/security/")) return allChecks();
     else if (path.startsWith("docs/") || documentationFiles.has(path)) continue;

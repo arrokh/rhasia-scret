@@ -17,7 +17,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Browser/OS or native platform, and hosted versus self-hosted.
+      description: Browser/OS and device class (desktop or mobile), and hosted versus self-hosted.
     validations:
       required: true
   - type: textarea

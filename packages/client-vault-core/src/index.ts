@@ -43,4 +43,3 @@ export * from "./shared/application/archive-parameters";
 export * from "./shared/application/base64";
 export * from "./shared/application/crypto-parameters";
 export * from "./shared/application/platform-ports";
-export * from "./shared/infrastructure/bearer-token-transport";

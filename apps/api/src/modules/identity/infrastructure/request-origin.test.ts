@@ -5,15 +5,9 @@ describe("request origin policy", () => {
   const requestUrl = "https://api.example.test/v1/auth/session";
 
   it("requires a matching origin for browser clients", () => {
-    expect(isClientOriginAllowed(requestWithOrigin("https://api.example.test"), "web")).toBe(true);
-    expect(isClientOriginAllowed(requestWithOrigin("https://other.example.test"), "pwa")).toBe(false);
-    expect(isClientOriginAllowed(new Request(requestUrl), "web")).toBe(false);
-  });
-
-  it("allows native clients without an Origin header", () => {
-    expect(isClientOriginAllowed(new Request(requestUrl), "mobile")).toBe(true);
-    expect(isClientOriginAllowed(requestWithOrigin("https://api.example.test"), "mobile")).toBe(true);
-    expect(isClientOriginAllowed(requestWithOrigin("https://other.example.test"), "mobile")).toBe(false);
+    expect(isClientOriginAllowed(requestWithOrigin("https://api.example.test"))).toBe(true);
+    expect(isClientOriginAllowed(requestWithOrigin("https://other.example.test"))).toBe(false);
+    expect(isClientOriginAllowed(new Request(requestUrl))).toBe(false);
   });
 
   it("validates an Origin only when the request supplies one", () => {

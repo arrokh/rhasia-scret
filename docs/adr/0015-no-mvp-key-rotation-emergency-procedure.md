@@ -1,6 +1,6 @@
 # No MVP key-rotation emergency procedure
 
-> **Status:** Accepted for the MVP compromise response; normal browser rotation is implemented but not yet released. Native rotation UX remains out of scope here and is tracked by [#228](https://github.com/arrokh/rhasia-scret/issues/228).
+> **Status:** Accepted for the MVP compromise response; normal browser rotation is implemented but not yet released. The native rotation follow-up formerly tracked by [#228](https://github.com/arrokh/rhasia-scret/issues/228) is retired under ADR-0054 and is not a current work item.
 
 This decision concerns a suspected compromise, not routine cryptographic maintenance. A successful key rotation changes the current encrypted Vault state and member envelopes, but cannot erase keys, ciphertext, or TOTP secrets already copied by an authorized member or device. Authorization revocation likewise prevents future access but cannot recall material already obtained.
 

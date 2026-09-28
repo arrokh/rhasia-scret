@@ -34,14 +34,7 @@ export function prepareRelease({ root = repositoryRoot, bump, initialCommitSha =
     path,
     updateJsonVersion(readText(root, path), path, targetVersion),
   ]);
-  const appConfigPath = "apps/mobile/app.config.ts";
-  const appConfig = updateExpoVersion(readText(root, appConfigPath), targetVersion);
-  const changes = new Map([
-    ...packageUpdates,
-    [appConfigPath, appConfig],
-    [changelogPath, draft],
-    ...readinessRecord.changes,
-  ]);
+  const changes = new Map([...packageUpdates, [changelogPath, draft], ...readinessRecord.changes]);
   const originalContents = new Map(
     [...changes.keys()].map((path) => [path, existsSync(resolve(root, path)) ? readText(root, path) : undefined]),
   );
@@ -190,7 +183,7 @@ function prepareCandidateRecord(root, relativePath, version, baseSha) {
     return { created: false, changes: [] };
   }
 
-  const contents = `# API/Web repository release readiness — ${version}\n\n## Decision\n\n**HOLD**\n\nCandidate version: \`${version}\`\nRepository baseline reviewed: Not Verifiable\nEvidence captured: Not Verifiable\nEvidence owner: Maintainer review required\n\n## Issue and PR ledger\n\n| Scope | Status |\n| --- | --- |\n| API/Web repository release | Review required |\n| Native iOS/Android distribution | Out of scope for this repository release |\n\n## Repository evidence captured\n\nThe exact release-candidate repository checks have not been recorded.\n\n## External evidence\n\n| Readiness area | Result and provenance |\n| --- | --- |\n| API/Web operations | Not Verifiable |\n\n## Required exit conditions\n\n1. Review and record the readiness evidence for this candidate version.\n2. Run the exact-commit repository release checks.\n3. Keep deployment and database migration approval separate from source-release publication.\n`;
+  const contents = `# API/Web repository release readiness — ${version}\n\n## Decision\n\n**HOLD**\n\nCandidate version: \`${version}\`\nRepository baseline reviewed: Not Verifiable\nEvidence captured: Not Verifiable\nEvidence owner: Maintainer review required\n\n## Issue and PR ledger\n\n| Scope | Status |\n| --- | --- |\n| API/Web repository release | Review required |\n\n## Repository evidence captured\n\nThe exact release-candidate repository checks have not been recorded.\n\n## External evidence\n\n| Readiness area | Result and provenance |\n| --- | --- |\n| API/Web operations | Not Verifiable |\n\n## Required exit conditions\n\n1. Review and record the readiness evidence for this candidate version.\n2. Run the exact-commit repository release checks.\n3. Keep deployment and database migration approval separate from source-release publication.\n`;
   return { created: true, changes: [[relativePath, contents]] };
 }
 
@@ -205,17 +198,6 @@ function updateJsonVersion(source, path, version) {
   const updated = source.replace(matcher, (_, prefix, suffix) => `${prefix}${version}${suffix}`);
   if (updated === source && parsed.version !== version)
     throw new Error(`Could not update the top-level version field in ${path}.`);
-  return updated;
-}
-
-function updateExpoVersion(source, version) {
-  const matcher = /^(\s*version:\s*")[^"]+("\s*,?\s*)$/m;
-  const matches = [...source.matchAll(/^\s*version:\s*"[^"]+"\s*,?\s*$/gm)];
-  if (matches.length !== 1) throw new Error("apps/mobile/app.config.ts must define exactly one Expo version field.");
-  const updated = source.replace(matcher, (_, prefix, suffix) => `${prefix}${version}${suffix}`);
-  if (updated === source && !source.includes(`version: "${version}"`)) {
-    throw new Error("Could not update the Expo app version in apps/mobile/app.config.ts.");
-  }
   return updated;
 }
 

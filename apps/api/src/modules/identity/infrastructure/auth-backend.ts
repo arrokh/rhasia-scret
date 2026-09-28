@@ -2,7 +2,6 @@ export type AuthBackend = "none" | "passwordless";
 export type AuthConfigurationField =
   | "AUTH_BACKEND"
   | "AUTH_APP_ORIGIN"
-  | "AUTH_MOBILE_REDIRECT_URL"
   | "AUTH_MAGIC_LINK_SECRET"
   | "AUTH_SESSION_SECRET"
   | "AUTH_MAGIC_LINK_TTL_SECONDS"
@@ -34,7 +33,6 @@ export type TurnstileConfiguration = {
 
 export type PasswordlessConfiguration = {
   appOrigin: URL;
-  mobileRedirectUrl: URL;
   magicLinkSecret: Uint8Array;
   sessionSecret: Uint8Array;
   turnstile: TurnstileConfiguration;
@@ -65,7 +63,6 @@ function readPasswordlessConfiguration(
   options: Readonly<{ requireTurnstileSiteKey?: boolean }>,
 ): PasswordlessConfiguration {
   const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
-  const mobileRedirectUrl = readMobileRedirectUrl(env.AUTH_MOBILE_REDIRECT_URL, appOrigin, env.NODE_ENV);
   const magicLinkSecretText = readRequired(env.AUTH_MAGIC_LINK_SECRET, "AUTH_MAGIC_LINK_SECRET");
   const sessionSecretText = readRequired(env.AUTH_SESSION_SECRET, "AUTH_SESSION_SECRET");
   if (magicLinkSecretText.length < 32)
@@ -80,7 +77,6 @@ function readPasswordlessConfiguration(
   const turnstile = readTurnstileConfiguration(env, env.NODE_ENV, options.requireTurnstileSiteKey ?? true);
   return {
     appOrigin,
-    mobileRedirectUrl,
     magicLinkSecret: new TextEncoder().encode(magicLinkSecretText),
     sessionSecret: new TextEncoder().encode(sessionSecretText),
     turnstile,
@@ -163,33 +159,6 @@ function readOrigin(value: string | undefined, name: AuthConfigurationField): UR
   const parsed = readUrl(value, name);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password)
     throw configurationError(name, `${name} must contain only an origin.`);
-  return parsed;
-}
-
-function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEnv: string | undefined): URL {
-  if (!value?.trim()) return new URL("/auth/mobile", appOrigin);
-  let parsed: URL;
-  try {
-    parsed = new URL(value.trim());
-  } catch {
-    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL must be a valid URL.");
-  }
-  const isDevelopmentCustomScheme =
-    parsed.protocol === "rhasia-scret:" &&
-    nodeEnv !== "production" &&
-    parsed.hostname === "auth" &&
-    parsed.port === "" &&
-    parsed.pathname === "/magic-link";
-  const isWebCallback =
-    parsed.origin === appOrigin.origin && parsed.pathname === "/auth/mobile" && parsed.protocol === appOrigin.protocol;
-  if (
-    (!isDevelopmentCustomScheme && !isWebCallback) ||
-    parsed.username ||
-    parsed.password ||
-    parsed.search ||
-    parsed.hash
-  )
-    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL is not an approved callback.");
   return parsed;
 }
 

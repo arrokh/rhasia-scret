@@ -4,6 +4,8 @@
 - **Date:** 2026-09-15
 - **Related:** ADR-0035, ADR-0039, ADR-0049
 
+> The native sign-in statements in this record describe the former client and were retired under ADR-0054; the installed-PWA handoff remains supported.
+
 ## Context
 
 An installed web PWA can use a browser storage and cookie partition that is separate from the browser opened by an email application. A passwordless link that is redeemed only in that browser therefore authenticates the browser while the already-open PWA remains anonymous. The PWA cannot receive an HttpOnly cookie by navigating the browser response.
@@ -14,7 +16,7 @@ A passwordless request made from an installed PWA is classified as `pwa` and rec
 
 When the link opens in a browser, the callback redeems the one-time challenge without setting browser cookies and sends the resulting refresh credential and handoff identifier to the same-origin `POST /api/auth/pwa/session` publisher. The server rotates that credential and binds the resulting session to the matching, still-unpublished handoff row only when the redeemed session belongs to the normalized request email. The open PWA polls the endpoint with its handoff identifier and verifier; the server atomically consumes the handoff, creates a fresh session, and sets ordinary HttpOnly browser session cookies in the PWA context. Refresh rotation, one-time consumption, expiry, and existing session-family reuse detection remain server-authoritative. If the operating system opens the callback directly in the installed PWA, the callback first reads the verifier from its own session-scoped state or requests it from the still-open sign-in window over a same-origin, one-shot `BroadcastChannel` exchange, then publishes and redeems the handoff.
 
-The existing web flow remains unchanged for ordinary browser requests, and the native flow remains unchanged with its verified `/auth/mobile` links and secure native token storage. The service worker continues to bypass all `/auth/` and `/api/` requests.
+The ordinary browser flow and the installed-PWA handoff remain supported. The former native flow and its `/auth/mobile` links and secure token storage are retired under ADR-0054. The service worker continues to bypass all `/auth/` and `/api/` requests.
 
 ## Security and compatibility
 

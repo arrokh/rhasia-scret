@@ -22,16 +22,10 @@ function isSafeActionUrl(value: URL): boolean {
   const isWebActionUrl =
     value.protocol === "https:" ||
     (value.protocol === "http:" && (value.hostname === "localhost" || value.hostname === "127.0.0.1"));
-  const isDevelopmentMobileActionUrl =
-    value.protocol === "rhasia-scret:" &&
-    value.hostname === "auth" &&
-    value.port === "" &&
-    value.pathname === "/magic-link";
   const isPwaActionUrl = isWebActionUrl && value.pathname === "/auth/pwa-confirm";
   const isBrowserActionUrl = isWebActionUrl && (value.pathname === "/auth/confirm" || isPwaActionUrl);
-  const isNativeWebActionUrl = isWebActionUrl && value.pathname === "/auth/mobile";
   if (
-    (!isBrowserActionUrl && !isNativeWebActionUrl && !isDevelopmentMobileActionUrl) ||
+    !isBrowserActionUrl ||
     value.username ||
     value.password ||
     value.search !== "" ||

@@ -6,7 +6,7 @@ import { SurfaceCard } from "@/shared/presentation/app-ui";
 
 export function VaultManagementPreview() {
   const t = useTranslations("Preview.vaults");
-  const sample = useTranslations("Preview.mobile");
+  const sample = useTranslations("Preview.authenticatorAccounts");
   const vault = {
     id: "shared-preview",
     name: sample("operations"),

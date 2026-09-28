@@ -25,9 +25,8 @@ decisions before opening a change.
   `apps/web/src/modules/<context>/{domain,application,infrastructure,presentation}`.
 - Keep `apps/web/src/app` limited to Next.js App Router convention files and
   thin composition.
-- Keep `apps/mobile` as the Expo composition layer. It must not import `apps/web`
-  or browser-only APIs.
-- Put cross-platform client workflows in `packages/*` with a public entry point.
+- Keep browser-facing product code in `apps/web`; put platform-neutral client
+  workflows in `packages/*` with a public entry point.
 - Keep domain and application code free from React, Next.js, Prisma,
   browser APIs, HTTP types, and localization libraries.
 - Cross bounded-context access must use a public module API; do not reach into
@@ -56,12 +55,11 @@ not a public issue.
 
 ## Localization and presentation
 
-Every user-facing web and native surface must remain complete in Indonesian
+Every user-facing web and PWA surface must remain complete in Indonesian
 (`id`) and English (`en`) with exact catalog key parity. Update
-`apps/web/messages/id.json`, `apps/web/messages/en.json`, and
-`apps/mobile/src/localization.ts` together when the surface applies to those
-clients. Do not localize domain or infrastructure contracts, routes, APIs,
-encrypted content, or user-provided Vault/account labels.
+`apps/web/messages/id.json` and `apps/web/messages/en.json` together. Do not
+localize domain or infrastructure contracts, routes, APIs, encrypted content,
+or user-provided Vault/account labels.
 
 ## Database and migration rules
 
@@ -92,17 +90,17 @@ mise exec -- pnpm run build
 mise exec -- pnpm run test:full
 ```
 
-`test:full` includes the web, mobile, shared client, browser, build, policy,
-and performance checks. If a phase needs unavailable provider credentials,
-native toolchains, browsers, or database services, report the exact blocked
-phase and output rather than claiming the gate passed.
+`test:full` includes the web, shared client, browser, build, policy, and
+performance checks. If a phase needs unavailable provider credentials, browsers, or database
+services, report the exact blocked phase and output rather than claiming the
+gate passed.
 
 ## Pull requests
 
 - Use a focused branch and describe the issue, behavior, security impact, and
   verification evidence.
-- Add or update unit, integration, contract, architecture, browser, or native
-  tests with each vertical change.
+- Add or update unit, integration, contract, architecture, and browser tests
+  with each vertical change.
 - Update `CONTEXT.md` when domain language is resolved and add an ADR for a
   hard-to-reverse trade-off.
 - Preserve the PR checklist and request review from the repository owners.

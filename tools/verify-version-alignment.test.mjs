@@ -8,31 +8,24 @@ import { verifyVersionAlignment, versionedPackageFiles } from "./verify-version-
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 
-test("validates every direct workspace package manifest and the Expo app version", () => {
+test("validates every direct workspace package manifest", () => {
   const result = verifyVersionAlignment(repositoryRoot);
   assert.equal(result.valid, true, result.failures.join("\n"));
   assert.ok(result.versions.some(([path]) => path === "apps/api/package.json"));
-  assert.ok(result.versions.some(([path]) => path === "apps/mobile/package.json"));
   assert.ok(result.versions.some(([path]) => path === "apps/web/package.json"));
   assert.ok(result.versions.some(([path]) => path === "packages/api-client/package.json"));
   assert.ok(result.versions.some(([path]) => path === "packages/api-contract/package.json"));
   assert.ok(result.versions.some(([path]) => path === "packages/client-vault-core/package.json"));
-  assert.ok(!result.versions.some(([path]) => path.includes("native-argon2id")));
 });
 
-test("fails for a mismatch in every package manifest and the Expo app config", () => {
-  const paths = [...versionedPackageFiles(repositoryRoot), "apps/mobile/app.config.ts"];
-  for (const path of paths) {
+test("fails for a mismatch in every package manifest", () => {
+  for (const path of versionedPackageFiles(repositoryRoot)) {
     const root = fixtureRoot();
     try {
       const filePath = join(root, path);
-      if (path.endsWith("app.config.ts")) {
-        writeFileSync(filePath, 'export default { version: "1.2.4" };\n');
-      } else {
-        const packageJson = JSON.parse(readFileSync(filePath, "utf8"));
-        packageJson.version = "1.2.4";
-        writeFileSync(filePath, JSON.stringify(packageJson, null, 2));
-      }
+      const packageJson = JSON.parse(readFileSync(filePath, "utf8"));
+      packageJson.version = "1.2.4";
+      writeFileSync(filePath, JSON.stringify(packageJson, null, 2));
       const result = verifyVersionAlignment(root);
       assert.equal(result.valid, false, `${path} mismatch should fail`);
       assert.ok(
@@ -92,8 +85,5 @@ function fixtureRoot() {
     mkdirSync(dirname(filePath), { recursive: true });
     writeFileSync(filePath, JSON.stringify({ name: relativePath, version: "1.2.3" }, null, 2));
   }
-  mkdirSync(join(root, "apps/mobile/modules/native-argon2id"), { recursive: true });
-  writeFileSync(join(root, "apps/mobile/modules/native-argon2id/package.json"), JSON.stringify({ version: "9.9.9" }));
-  writeFileSync(join(root, "apps/mobile/app.config.ts"), 'export default { version: "1.2.3" };\n');
   return root;
 }

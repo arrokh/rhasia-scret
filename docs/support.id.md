@@ -6,8 +6,8 @@
   [panduan self-hosting](self-hosting.md). Operator self-hosted bertanggung
   jawab atas provider, deployment, database, backup, dan dukungan retensinya.
 - **Bug yang dapat direproduksi:** gunakan [template laporan bug](../.github/ISSUE_TEMPLATE/bug_report.yml).
-  Sertakan commit atau release, browser atau platform native, dan langkah
-  reproduksi sintetis. Jangan sertakan konten Vault atau credential.
+  Sertakan commit atau release, browser serta kelas perangkat (desktop atau
+  mobile), dan langkah reproduksi sintetis. Jangan sertakan konten Vault atau credential.
 - **Permintaan fitur atau dokumentasi:** gunakan template publik yang sesuai.
   Fokuskan usulan pada perilaku produk, dokumentasi, atau pemeliharaan.
 - **Kerentanan keamanan:** jangan membuka issue publik. Gunakan [formulir

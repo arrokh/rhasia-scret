@@ -18,7 +18,6 @@ const requiredFiles = [
   ".github/dependabot.yml",
   "SECURITY.md",
   "docs/adr/0004-honest-but-curious-server-threat-model.md",
-  "docs/mobile-release-configuration.md",
   "docs/release-process.md",
   "docs/security/dependency-audit-exceptions.md",
   "package.json",

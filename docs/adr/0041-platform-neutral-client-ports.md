@@ -5,6 +5,8 @@
 - **Related:** ADR-0016, ADR-0018, ADR-0023, ADR-0024, ADR-0028, ADR-0033, ADR-0037, ADR-0038, ADR-0039
 - **Issue:** #95
 
+> Current applicability: the platform-neutral policies and contracts remain consumed by the web application and API. References below to Expo/React Native adapters describe the former implementation, retired by ADR-0054; they are not current support or release requirements.
+
 ## Decision
 
 Client application workflows use typed platform ports. Browser APIs remain in explicit web adapters selected by the Next.js composition layer, and the Expo React Native composition in `apps/mobile` supplies native adapters without importing browser APIs into shared workflows.

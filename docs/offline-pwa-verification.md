@@ -1,10 +1,10 @@
 # Offline PWA verification
 
-This checklist covers the web PWA only. Native offline snapshot storage and AppState lock behavior are verified through `apps/mobile` tests and the release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
+This checklist verifies the web application’s installable PWA and browser-owned offline snapshot. It is the sole offline client surface.
 
 ## Automated baseline
 
-Run the production service-worker suite and all supported Playwright engines with:
+Run the production service-worker suite with the supported Chromium browser project:
 
 ```sh
 pnpm run test:browser

@@ -65,7 +65,7 @@
         "description": "Data Local Vault tetap di browser. Workflow Vault hosted mengirim payload terenkripsi dan hanya metadata yang diizinkan untuk operasinya.",
         "items": {
           "local": "Data Local Profile dan Local Vault, label, konfigurasi TOTP, rahasia, dan OTP tidak dikirim ke server rhasia-scret.",
-          "hosted": "Client web dan native yang berwenang membuka konten Vault hosted dan membuat OTP; server menyimpan konten terenkripsi serta metadata siklus hidup dan otorisasi yang diizinkan."
+          "hosted": "Client web yang berwenang membuka konten Vault hosted dan membuat OTP; server menyimpan konten terenkripsi serta metadata siklus hidup dan otorisasi yang diizinkan."
         }
       },
       "server": {
@@ -1436,7 +1436,7 @@
     }
   },
   "Preview": {
-    "mobile": {
+    "authenticatorAccounts": {
       "title": "Akun autentikator",
       "description": "Tidak ada materi akun, passphrase, OTP, atau kunci yang digunakan dalam data contoh ini.",
       "listLabel": "Daftar akun autentikator",

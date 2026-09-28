@@ -49,7 +49,7 @@
         "description": "Local Vault data stays in the browser. Hosted Vault workflows send encrypted payloads and only the permitted metadata needed to operate them.",
         "items": {
           "local": "Local Profile and Local Vault data, labels, TOTP configuration, secrets, and generated OTPs are not sent to the rhasia-scret server.",
-          "hosted": "Authorized web and native clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata."
+          "hosted": "Authorized web clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata."
         }
       },
       "server": {
@@ -1356,7 +1356,7 @@
     }
   },
   "Preview": {
-    "mobile": {
+    "authenticatorAccounts": {
       "title": "Authenticator accounts",
       "description": "No account material, passphrase, OTP, or key is used in this sample data.",
       "listLabel": "Authenticator account list",

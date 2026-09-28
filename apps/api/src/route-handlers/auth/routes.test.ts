@@ -4,18 +4,16 @@ import type { ApiRequestContext } from "@api/http/api-context";
 import { apiTestRequest } from "@api/tests/support/api-request";
 
 const mocks = vi.hoisted(() => ({
-  passwordlessAuth: { redeem: vi.fn(), redeemPwaHandoff: vi.fn(), publishPwaHandoff: vi.fn(), refresh: vi.fn() },
+  passwordlessAuth: { redeem: vi.fn(), redeemPwaHandoff: vi.fn(), publishPwaHandoff: vi.fn() },
   sessionVerifier: { verify: vi.fn() },
   sessionTerminator: { terminateCurrentSession: vi.fn() },
 }));
 
 vi.mock("@api/modules/identity/server", () => ({
   AUTH_RETURN_PATH_COOKIE: "rhsia-return-path",
-  isPasswordlessClient: (value: unknown) => value === "web" || value === "pwa" || value === "mobile",
-  isClientOriginAllowed: (request: Request, client: "web" | "mobile" | "pwa") =>
-    client === "mobile"
-      ? !request.headers.has("origin") || request.headers.get("origin") === new URL(request.url).origin
-      : request.headers.get("origin") === new URL(request.url).origin,
+  isPasswordlessClient: (value: unknown) => value === "web" || value === "pwa",
+  isClientOriginAllowed: (request: Request, _client: "web" | "pwa") =>
+    request.headers.get("origin") === new URL(request.url).origin,
   isSameOriginIfPresent: (request: Request) =>
     !request.headers.has("origin") || request.headers.get("origin") === new URL(request.url).origin,
   isSafePwaHandoffId: (value: string) => value === "handoff",
@@ -76,25 +74,16 @@ beforeEach(() => {
   mocks.passwordlessAuth.redeem.mockResolvedValue({ session, returnPath: "/vaults" });
   mocks.passwordlessAuth.redeemPwaHandoff.mockResolvedValue(null);
   mocks.passwordlessAuth.publishPwaHandoff.mockResolvedValue(undefined);
-  mocks.passwordlessAuth.refresh.mockResolvedValue(session);
   mocks.sessionVerifier.verify.mockResolvedValue({ id: "user-1" });
 });
 
 afterEach(() => vi.clearAllMocks());
 
 describe("passwordless authentication route contracts", () => {
-  it("returns native credentials without issuing browser cookies", async () => {
+  it("rejects requests for the retired native client before issuing credentials", async () => {
     const response = await redeem(request("/v1/auth/magic-link/redeem", { token: "token", client: "mobile" }));
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      accessToken: "access-token",
-      refreshToken: "refresh-token",
-      accessExpiresAt: "2026-09-16T00:10:00.000Z",
-      refreshExpiresAt: "2026-09-17T00:00:00.000Z",
-      email: "person@example.test",
-      returnPath: "/vaults",
-    });
-    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.status).toBe(400);
+    expect(mocks.passwordlessAuth.redeem).not.toHaveBeenCalled();
   });
 
   it("sets cookies for web redemption and exposes only the safe continuation path", async () => {
@@ -149,13 +138,12 @@ describe("passwordless authentication route contracts", () => {
     expect(mocks.passwordlessAuth.redeemPwaHandoff).toHaveBeenCalledTimes(2);
   });
 
-  it("refreshes mobile sessions only from the body and keeps web refresh read-only", async () => {
-    const mobile = await refresh(
+  it("keeps browser session refresh read-only and rejects the retired native contract", async () => {
+    const retiredClient = await refresh(
       request("/v1/auth/session/refresh", { client: "mobile", refreshToken: "refresh-token" }),
     );
-    expect(mobile.status).toBe(200);
-    await expect(mobile.json()).resolves.toMatchObject({ accessToken: "access-token", refreshToken: "refresh-token" });
-    expect(mocks.passwordlessAuth.refresh).toHaveBeenCalledWith("refresh-token");
+    expect(retiredClient.status).toBe(400);
+    expect(mocks.sessionVerifier.verify).not.toHaveBeenCalled();
 
     const web = await refresh(
       request(
@@ -171,14 +159,10 @@ describe("passwordless authentication route contracts", () => {
 
   it("rejects wrong-channel credentials and clears expired browser sessions", async () => {
     const wrongChannel = await refresh(
-      request(
-        "/v1/auth/session/refresh",
-        { client: "mobile", refreshToken: "token" },
-        { authorization: "Bearer token" },
-      ),
+      request("/v1/auth/session/refresh", { client: "web", refreshToken: "token" }, { authorization: "Bearer token" }),
     );
     expect(wrongChannel.status).toBe(400);
-    expect(mocks.passwordlessAuth.refresh).not.toHaveBeenCalled();
+    expect(mocks.sessionVerifier.verify).not.toHaveBeenCalled();
 
     mocks.sessionVerifier.verify.mockResolvedValue(null);
     const expired = await refresh(
@@ -233,7 +217,7 @@ describe("passwordless authentication route contracts", () => {
         context,
       ),
     );
-    expect(bearer.status).toBe(204);
+    expect(bearer.status).toBe(400);
     const conflicting = await revoke(
       apiTestRequest(
         "/v1/auth/session/revoke",
@@ -257,7 +241,7 @@ describe("passwordless authentication route contracts", () => {
       request("/v1/auth/session/refresh", { client: "web" }, { origin: "https://api.example.test" }),
     );
     expect(response.status).toBe(401);
-    expect(mocks.passwordlessAuth.refresh).not.toHaveBeenCalled();
+    expect(mocks.sessionVerifier.verify).toHaveBeenCalledOnce();
     expect(response).toBeInstanceOf(ApiResponse);
   });
 });

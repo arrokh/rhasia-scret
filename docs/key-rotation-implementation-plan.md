@@ -6,6 +6,8 @@
 
 Issue: [#186 — Complete user-facing key rotation workflows](https://github.com/arrokh/rhasia-scret/issues/186)
 
+This implementation record predates native-client retirement under ADR-0054. Any compatibility or native-test references below are historical evidence only; the responsive web/PWA is the sole supported client now.
+
 ## Goal and boundaries
 
 Deliver two deliberate, manually initiated, browser-only ceremonies:

@@ -26,23 +26,11 @@ describe("web authentication configuration", () => {
       backend: "passwordless",
       passwordless: {
         appOrigin: new URL("http://localhost:3000/"),
-        mobileRedirectUrl: new URL("http://localhost:3000/auth/mobile"),
       },
     });
     expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_APP_ORIGIN: "https://host.test/path" })).toThrow(
       "origin",
     );
-    expect(
-      readAuthConfiguration({ ...requiredPasswordless, AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth/magic-link" }),
-    ).toMatchObject({ passwordless: { mobileRedirectUrl: new URL("rhasia-scret://auth/magic-link") } });
-    expect(() =>
-      readAuthConfiguration({
-        ...requiredPasswordless,
-        NODE_ENV: "production",
-        AUTH_APP_ORIGIN: "https://host.test",
-        AUTH_MOBILE_REDIRECT_URL: "rhasia-scret://auth/magic-link",
-      }),
-    ).toThrow("approved callback");
   });
 
   it("supports local-only mode and rejects OIDC as an unsupported backend", () => {

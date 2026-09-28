@@ -18,8 +18,8 @@ rhasia-scret supports two distinct paths:
   to the rhasia-scret server.
 - Hosted Personal Vaults and Shared Vaults send encrypted payloads and the
   permitted metadata required for authorization, synchronization, lifecycle,
-  audit, rate limiting, and operations. The authorized browser or native app
-  decrypts Vault content and generates OTPs.
+  audit, rate limiting, and operations. The authorized browser decrypts Vault
+  content and generates OTPs.
 
 The application can handle account identity and operational data such as an
 email address supplied by an authentication provider, an opaque Application
@@ -49,9 +49,8 @@ and lifecycle metadata are not hidden by this model.
 | PostHog browser analytics (optional)                       | Allowlisted aggregate product events, redacted static route paths, bounded web vitals, and a browser identifier derived from a SHA-256 hash | Disabled unless both `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` are set. The sanitizer drops Vault content, labels, emails, URLs with queries/fragments, DOM text, and unapproved properties.     |
 | Cloudflare Web Analytics (optional)                        | Provider-defined web analytics beacon data for the configured deployment                                                                    | Disabled unless `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set. The operator must review the provider configuration and its current terms before enabling it.                                                        |
 
-The native client currently has no analytics integration. A self-hosting
-operator must not add provider SDKs, server-side event forwarding, or custom
-telemetry without a separate privacy and security review.
+A self-hosting operator must not add provider SDKs, server-side event
+forwarding, or custom telemetry without a separate privacy and security review.
 
 ## Retention, deletion, and recovery limits
 
