@@ -17,8 +17,8 @@ rhasia-scret memiliki dua jalur yang berbeda:
   rhasia-scret.
 - Personal Vault dan Shared Vault hosted mengirim payload terenkripsi serta
   metadata yang diizinkan untuk otorisasi, sinkronisasi, siklus hidup, audit,
-  pembatasan laju, dan operasi. Browser atau aplikasi native yang berwenang
-  membuka konten Vault dan membuat OTP.
+  pembatasan laju, dan operasi. Browser yang berwenang membuka konten Vault
+  dan membuat OTP.
 
 Aplikasi dapat menangani identitas akun dan data operasional seperti alamat
 email dari penyedia autentikasi, ID Application User yang buram, ID Vault
@@ -48,9 +48,8 @@ metadata siklus hidup tidak disembunyikan oleh model ini.
 | Analitik browser PostHog (opsional)                        | Event produk agregat yang diizinkan, path statis yang direduksi, web vitals terbatas, dan ID browser dari hash SHA-256 | Nonaktif kecuali `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` dan `NEXT_PUBLIC_POSTHOG_HOST` diisi. Sanitizer menghapus konten Vault, label, email, URL dengan query/fragment, teks DOM, dan properti yang tidak diizinkan.                       |
 | Cloudflare Web Analytics (opsional)                        | Data beacon analitik web sesuai provider untuk deployment yang dikonfigurasi                                           | Nonaktif kecuali `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` diisi. Operator harus meninjau konfigurasi dan ketentuan provider sebelum mengaktifkannya.                                                                                 |
 
-Aplikasi native saat ini tidak memiliki integrasi analitik. Operator self-hosting
-tidak boleh menambahkan SDK provider, penerusan event server, atau telemetri
-khusus tanpa tinjauan privasi dan keamanan terpisah.
+Operator self-hosting tidak boleh menambahkan SDK provider, penerusan event
+server, atau telemetri khusus tanpa tinjauan privasi dan keamanan terpisah.
 
 ## Retensi, penghapusan, dan batas pemulihan
 

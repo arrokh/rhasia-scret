@@ -21,11 +21,11 @@ Review the passwordless implementation, SMTP provider, and relevant dependency a
 - [ ] Invalid web authentication configuration redirects protected pages to the localized `configuration_error` state and never becomes `none` or ordinary `required` authentication.
 - [ ] Invalid serverless/lazy API authentication composition returns only `authentication_misconfigured` with HTTP 503, `Cache-Control: no-store`, and an opaque request ID; standalone startup exits before listener creation.
 - [ ] Configuration diagnostics contain only the fixed category, bounded field name, and correlation context; no raw configuration values, secrets, cookies, tokens, provider payloads, or exception text are logged or returned.
-- [ ] Passwordless link token format, fragment-only delivery, fragment clearing, one-time consumption, expiry, generic responses, SMTP TLS, request limits, session lifetimes, refresh rotation/reuse detection, cookie flags, native secure storage, and revocation/logout scope are verified.
+- [ ] Passwordless link token format, fragment-only delivery, fragment clearing, one-time consumption, expiry, generic responses, SMTP TLS, request limits, browser/PWA session handling, cookie flags, and revocation/logout scope are verified.
 - [ ] Browser-visible configuration contains public values only. Database URLs, tokens, cookies, authorization headers, SMTP credentials, and session credentials are absent from bundles, logs, telemetry, and caches.
 - [ ] Sensitive online mutations require a current authorized identity and configured freshness/revocation assurance. Offline Local Vault use does not depend on hosted authentication.
 - [ ] Logout clears unlocked server workspaces, Personal-only server-derived snapshots, and Remembered Browser material according to their ADRs while preserving independent encrypted Local Profile data.
-- [ ] Synthetic browser/native storage inspection proves hosted snapshots contain Personal Vault data only, legacy Shared-containing snapshots are cleaned up, and Shared Vault access remains online-only.
+- [ ] Synthetic browser storage inspection proves hosted snapshots contain Personal Vault data only, legacy Shared-containing snapshots are cleaned up, and Shared Vault access remains online-only.
 
 ## Supply chain and CI
 

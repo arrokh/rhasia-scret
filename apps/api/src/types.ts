@@ -8,7 +8,6 @@ export type ApiBindings = Readonly<{
   PROXY_SECRET?: string;
   AUTH_BACKEND?: string;
   AUTH_APP_ORIGIN?: string;
-  AUTH_MOBILE_REDIRECT_URL?: string;
   AUTH_MAGIC_LINK_SECRET?: string;
   AUTH_SESSION_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;

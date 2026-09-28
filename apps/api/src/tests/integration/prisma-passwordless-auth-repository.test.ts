@@ -10,7 +10,6 @@ const sessionSecret = new TextEncoder().encode("integration-passwordless-session
 const magicLinkSecret = new TextEncoder().encode("integration-passwordless-magic-link-secret-1234567890");
 const configuration = {
   appOrigin: new URL("http://localhost:3000"),
-  mobileRedirectUrl: new URL("http://localhost:3000/auth/mobile"),
   magicLinkSecret,
   sessionSecret,
   turnstile: {

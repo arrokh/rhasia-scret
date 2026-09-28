@@ -39,16 +39,6 @@ export function verifyVersionAlignment(root = repositoryRoot) {
     versions.push([relativePath, packageJson.version]);
   }
 
-  const appConfigPath = "apps/mobile/app.config.ts";
-  let appConfig = "";
-  if (!existsSync(resolve(root, appConfigPath))) {
-    failures.push(`${appConfigPath} is missing.`);
-  } else {
-    appConfig = readFileSync(resolve(root, appConfigPath), "utf8");
-  }
-  const appConfigVersion = appConfig.match(/^\s*version:\s*"([^"]+)"\s*,?\s*$/m)?.[1];
-  versions.push([appConfigPath, appConfigVersion]);
-
   const sourcePath = versions.find(([path]) => path === "package.json")?.[0] ?? "package.json";
   const sourceVersion = versions.find(([path]) => path === sourcePath)?.[1];
   if (typeof sourceVersion !== "string" || !isValidSemVer(sourceVersion)) {
@@ -77,7 +67,7 @@ function main() {
     return;
   }
   console.info(
-    `Release version ${result.sourceVersion} is aligned across ${result.versions.length} manifests and the Expo app configuration.`,
+    `Release version ${result.sourceVersion} is aligned across ${result.versions.length} workspace manifests.`,
   );
 }
 

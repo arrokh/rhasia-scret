@@ -37,7 +37,6 @@ export default defineConfig({
           AUTH_EMAIL_FROM: "no-reply@performance-e2e.invalid",
           AUTH_EMAIL_FROM_NAME: "rhasia-scret",
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
-          AUTH_MOBILE_REDIRECT_URL: `${baseURL}/auth/mobile`,
           E2E_BROWSER_TESTS: "1",
           E2E_BROWSER_TEST_USERS: JSON.stringify(configuredE2eBrowserUsers()),
           NEXT_PUBLIC_E2E_BROWSER_TESTS: "1",

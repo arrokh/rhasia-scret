@@ -22,16 +22,13 @@ The main-push and pull-request workflow targets a sub-five-minute critical path 
 - **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, release-automation tests, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
 - **Quality:** Prisma generation/schema and staged passwordless migration verification, API lint/typecheck/unit/real-PostgreSQL integration/build checks, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
-- **Mobile:** Expo lint/typecheck/tests/doctor and iOS/Android JavaScript exports when mobile code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
-Standard CI jobs have an eight-minute hard timeout; the combined production PWA and navigation performance job has a twelve-minute ceiling because it runs two browser stages after cold setup. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks. The mobile verification job intentionally does not claim native compilation or real-device evidence; those remain release checks in [`mobile-release-configuration.md`](mobile-release-configuration.md).
+Standard CI jobs have an eight-minute hard timeout; the combined production PWA and navigation performance job has a twelve-minute ceiling because it runs two browser stages after cold setup. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks.
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
 JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
-repository schema. Prisma migration files are generated with the Prisma CLI and reviewed as migration artifacts; they are not reformatted by Prettier. The passwordless cleanup artifact contains a reviewed database precondition so destructive cleanup fails closed before an identity seed is complete. The vendored Argon2 C/C++ implementation and native platform
-adapters remain outside this automatic formatter until the project adopts
-dedicated, compatible formatters for those languages.
+repository schema. Prisma migration files are generated with the Prisma CLI and reviewed as migration artifacts; they are not reformatted by Prettier. The passwordless cleanup artifact contains a reviewed database precondition so destructive cleanup fails closed before an identity seed is complete. The vendored Argon2 C/C++ implementation remains outside this automatic formatter until the project adopts a dedicated, compatible formatter.
 
 The dependency-review job runs on pull requests and rejects newly introduced dependencies with a high or critical advisory. `pnpm audit --prod --audit-level=high` and the repository license policy remain required main-push quality steps.
 
@@ -39,7 +36,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - **CodeQL:** JavaScript/TypeScript analysis runs on pull requests, `main`, and manual dispatch. Fork analysis runs without uploading results when the token cannot write security events.
 - **Secret scanning:** GitHub secret scanning and push protection are enabled for this public repository. The checked-in Gitleaks workflow remains an independent backstop: it scans changed commits on pull requests/pushes and runs a full-history scan on manual or weekly scheduled dispatches, redacting findings in output. Reviewed historical exceptions are documented in [`secret-scan-exceptions.md`](security/secret-scan-exceptions.md) and remain commit-scoped.
-- **Repository release evidence/publication:** The manually dispatched `Repository release evidence` workflow accepts an explicit version-specific readiness record and remains evidence-only. The main-push `Repository release publication` workflow skips ordinary merges; it accepts only a dedicated release PR, verifies the exact merge SHA and release-only diff, runs candidate readiness/version checks and the complete isolated `pnpm run test:full:container` gate, then publishes an annotated tag and GitHub Release. Verification is read-only; only the final publish job receives `contents: write`. Provenance artifacts contain commit/version/toolchain/check metadata and digests, never service/native build bundles. The test gate can apply checked-in migrations only to its disposable Testcontainers database; the release workflow never migrates an operational database or deploys Vercel.
+- **Repository release evidence/publication:** The manually dispatched `Repository release evidence` workflow accepts an explicit version-specific readiness record and remains evidence-only. The main-push `Repository release publication` workflow skips ordinary merges; it accepts only a dedicated release PR, verifies the exact merge SHA and release-only diff, runs candidate readiness/version checks and the complete isolated `pnpm run test:full:container` gate, then publishes an annotated tag and GitHub Release. Verification is read-only; only the final publish job receives `contents: write`. Provenance artifacts contain commit/version/toolchain/check metadata and digests, never service build bundles. The test gate can apply checked-in migrations only to its disposable Testcontainers database; the release workflow never migrates an operational database or deploys Vercel.
 - **Dependency review:** the pull-request workflow inspects changed dependency manifests and lockfile changes; the main-push quality job also runs the production audit and license policy.
 - **Dependabot:** weekly updates cover the root npm/pnpm workspace and GitHub Actions. Updates must preserve the single root `pnpm-lock.yaml` boundary.
 - **Action pinning:** third-party actions are pinned to immutable commit SHAs. Dependabot owns their updates.
@@ -50,7 +47,7 @@ The dependency-review job runs on pull requests and rejects newly introduced dep
 
 - one pull-request approval before merge;
 - stale approval dismissal after new commits;
-- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, `Secret scan`, and all CI jobs (`Detect affected packages`, `Repository policy and dependencies`, `Shared client package verification`, `Quality and database test suite`, `Mobile verification`, `Browser smoke (chromium)`, `Browser e2e (chromium)`, and `Production PWA and navigation performance`);
+- required pull-request checks: `Format check`, `CodeQL JavaScript and TypeScript`, `Dependency review`, `Secret scan`, and all CI jobs (`Detect affected packages`, `Repository policy and dependencies`, `Shared client package verification`, `Quality and database test suite`, `Browser smoke (chromium)`, `Browser e2e (chromium)`, and `Production PWA and navigation performance`);
 - strict up-to-date-branch checks and required conversation resolution;
 - linear history enforcement;
 - force-push and branch-deletion restrictions; and

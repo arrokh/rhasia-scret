@@ -1,6 +1,6 @@
 # Provider-neutral identity with passwordless and OIDC adapters
 
-- Status: Superseded in part by ADR-0053 for active OIDC support; provider-neutral identity and persistence decisions remain
+- Status: Superseded in part by ADR-0053 for active OIDC support and ADR-0054 for native-client support; provider-neutral identity and persistence decisions remain
 - Date: 2026-07-29 (updated 2026-09-14)
 - Deciders: rhasia-scret maintainers
 - Related: ADR-0011, ADR-0023, ADR-0031, ADR-0049
@@ -12,7 +12,7 @@ Identity is a provider-neutral application boundary. The Identity bounded contex
 Supported deployment modes are selected by validated server-only `AUTH_BACKEND` configuration:
 
 - `none`: Local Profile and Local Vault only. Remote authentication, synchronization, membership, server recovery, audit, and hosted Vault APIs fail closed.
-- `passwordless`: self-managed email-link authentication. One-time link challenges, local sessions, native/PWA refresh rotation, browser assertion keepalive, revocation, and anonymous abuse limits are persisted through the application database; Bun, self-hosted Node.js, and Vercel API deployments deliver email through the same server-only Nodemailer/SMTP adapter using SMTP port 465 or 587; port 25 remains prohibited.
+- `passwordless`: self-managed email-link authentication. One-time link challenges, local browser sessions, installed-PWA handoff, browser assertion checks, revocation, and anonymous abuse limits are persisted through the application database; Bun, self-hosted Node.js, and Vercel API deployments deliver email through the same server-only Nodemailer/SMTP adapter using SMTP port 465 or 587; port 25 remains prohibited.
 - `oidc`: Authorization Code with PKCE against one configured OIDC issuer, using discovery metadata and maintained protocol libraries; tokens and client secrets remain server-only.
 
 OIDC remains the interoperability contract for future external providers. Auth.js/NextAuth is not installed as a transparent proxy because it would introduce a second identity and persistence authority. A future managed-auth framework may be added only as an adapter behind this boundary after separate release and security review.
@@ -39,7 +39,7 @@ The staged Prisma-generated migration creates local passwordless identity/challe
 
 ## Implementation status
 
-Passwordless web and native flows, provider-neutral identity persistence, OIDC composition, migration preflight/seed/verification, and local session lifecycle are shipped. A future external provider may be added through the same adapter contract; automatic linking remains prohibited.
+Passwordless browser/PWA flows, provider-neutral identity persistence, migration preflight/seed/verification, and local session lifecycle are shipped. Native-client authentication was retired by ADR-0054. Active OIDC composition was removed by ADR-0053. A future external provider may be added through the same adapter contract; automatic linking remains prohibited.
 
 ## Failure behavior
 

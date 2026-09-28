@@ -12,20 +12,11 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
     "artifacts/**",
-    "apps/mobile/android/**",
-    "apps/mobile/ios/**",
-    "apps/mobile/dist/**",
   ]),
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    },
-  },
-  {
-    files: ["apps/mobile/**/*.{ts,tsx}"],
-    rules: {
-      "@next/next/no-html-link-for-pages": "off",
     },
   },
 ]);

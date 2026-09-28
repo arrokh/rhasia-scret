@@ -111,7 +111,9 @@ describe("browser-delivery security boundaries", () => {
     expect(read("scripts/verify-dependency-licenses.ts")).toContain("Prohibited dependency licenses");
     expect(read("../../docs/security/incident-response.md")).toContain("Stolen session");
     expect(read("../../docs/security/deployment-hardening-checklist.md")).toContain("Not Verifiable");
-    expect(read("../../docs/security/dependency-audit-exceptions.md")).toContain("GHSA-w3rx-r6r6-pgpr");
-    expect(read("../../pnpm-workspace.yaml")).toContain("ignoreGhsas");
+    expect(read("../../docs/security/dependency-audit-exceptions.md")).toContain(
+      "There are no ignored dependency advisories.",
+    );
+    expect(read("../../pnpm-workspace.yaml")).not.toContain("ignoreGhsas");
   });
 });

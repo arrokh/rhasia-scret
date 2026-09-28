@@ -25,14 +25,7 @@ export function createPasswordlessAuthServiceForApi(
     generateToken: () => tokenGenerator.generate(),
     digestToken: (token) => tokenGenerator.digest(token),
     buildActionUrl: (client, rawToken, returnPath, handoffId) =>
-      buildActionUrl(
-        authConfiguration.appOrigin,
-        authConfiguration.mobileRedirectUrl,
-        client,
-        rawToken,
-        returnPath,
-        handoffId,
-      ),
+      buildActionUrl(authConfiguration.appOrigin, client, rawToken, returnPath, handoffId),
     magicLinkTtlSeconds: authConfiguration.magicLinkTtlSeconds,
   });
 }
@@ -54,7 +47,6 @@ export function readApiPasswordlessConfiguration(bindings: ApiConfigBindings): P
 
 export function buildActionUrl(
   appOrigin: URL,
-  mobileRedirectUrl: URL,
   client: PasswordlessClient,
   rawToken: string,
   returnPath: PasswordlessReturnPath,
@@ -63,8 +55,8 @@ export function buildActionUrl(
   if (client === "pwa" && (!handoffId || !isSafePwaHandoffId(handoffId)))
     throw new Error("PWA authentication handoff is invalid.");
   if (client !== "pwa" && handoffId !== undefined) throw new Error("PWA authentication handoff is invalid.");
-  const actionPath = client === "web" ? "/auth/confirm" : client === "pwa" ? "/auth/pwa-confirm" : null;
-  const actionUrl = actionPath ? new URL(actionPath, appOrigin) : new URL(mobileRedirectUrl.toString());
+  const actionPath = client === "pwa" ? "/auth/pwa-confirm" : "/auth/confirm";
+  const actionUrl = new URL(actionPath, appOrigin);
   const fragment = new URLSearchParams({ token: rawToken, next: returnPath });
   if (client === "pwa" && handoffId) fragment.set("handoff", handoffId);
   actionUrl.hash = fragment.toString();
@@ -72,7 +64,7 @@ export function buildActionUrl(
 }
 
 export function isPasswordlessClient(value: unknown): value is PasswordlessClient {
-  return value === "web" || value === "mobile" || value === "pwa";
+  return value === "web" || value === "pwa";
 }
 
 export { isSafePwaHandoffId, isSafePwaHandoffVerifier };

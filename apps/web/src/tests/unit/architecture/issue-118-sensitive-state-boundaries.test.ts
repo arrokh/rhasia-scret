@@ -32,8 +32,6 @@ describe("issue 118 architecture and sensitive-state boundaries", () => {
       "src/modules/authenticator-account/presentation/personal-vault-accounts.tsx",
       "src/modules/local-vault/presentation/local-vault-page.tsx",
       "src/modules/local-vault/presentation/local-vault-copy-panel.tsx",
-      "../mobile/src/presentation/mobile-personal-vault.tsx",
-      "../mobile/src/presentation/mobile-authenticator-accounts.tsx",
     ]
       .map(read)
       .join("\n");
@@ -42,11 +40,11 @@ describe("issue 118 architecture and sensitive-state boundaries", () => {
     );
   });
 
-  it("keeps lifecycle and Local Vault cleanup explicit", () => {
-    const nativeLifecycle = read("../mobile/src/infrastructure/mobile-workspace-lifecycle.ts");
+  it("keeps browser workspace and Local Vault cleanup explicit", () => {
+    const browserLifecycle = read("src/modules/sync/infrastructure/browser-workspace-lifecycle.ts");
     const localSession = read("src/modules/local-vault/application/local-vault-session.ts");
-    expect(nativeLifecycle).toContain("clearUnlockedVaultWorkspace");
-    expect(nativeLifecycle).toContain("WorkspaceLifecycleCancelledError");
+    expect(browserLifecycle).toContain("clearUnlockedVaultWorkspace");
+    expect(browserLifecycle).toContain("browserApplicationLifecycle");
     expect(localSession).toContain("this.ports.clearVault(previous)");
     expect(localSession).toContain("this.clearCurrentVault()");
   });

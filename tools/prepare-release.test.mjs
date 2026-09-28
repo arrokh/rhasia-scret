@@ -39,7 +39,6 @@ test("prepares the inaugural v0.1.0 draft without bumping versions or replacing 
     assert.equal(readJson(fixture.root, "package.json").nested.version, "9.9.9");
     assert.equal(readJson(fixture.root, "apps/api/package.json").version, "0.1.0");
     assert.equal(readJson(fixture.root, "packages/shared/package.json").version, "0.1.0");
-    assert.match(readText(fixture.root, "apps/mobile/app.config.ts"), /version: "0\.1\.0"/);
 
     const record = readText(fixture.root, result.readinessRecord);
     assert.match(record, /\*\*HOLD\*\*/);
@@ -83,7 +82,6 @@ test("prepares explicit semver bumps from the latest release and only first-pare
       "package.json",
       "apps/api/package.json",
       "apps/web/package.json",
-      "apps/mobile/package.json",
       "packages/shared/package.json",
     ]) {
       assert.equal(readJson(fixture.root, path).version, "0.1.1", `${path} must update`);
@@ -93,7 +91,6 @@ test("prepares explicit semver bumps from the latest release and only first-pare
       delete before.version;
       assert.deepEqual(after, before, `${path} may only change its top-level version field`);
     }
-    assert.match(readText(fixture.root, "apps/mobile/app.config.ts"), /version: "0\.1\.1"/);
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }
@@ -203,14 +200,12 @@ function createReleaseFixture() {
       "apps/web/package.json",
       { name: "@fixture/web", version: initialVersion, dependencies: { "@fixture/shared": "workspace:*" } },
     ],
-    ["apps/mobile/package.json", { name: "@fixture/mobile", version: initialVersion }],
     [
       "packages/shared/package.json",
       { name: "@fixture/shared", version: initialVersion, dependencies: { "@fixture/shared": "workspace:*" } },
     ],
   ];
   for (const [path, contents] of manifests) writeJson(root, path, contents);
-  writeText(root, "apps/mobile/app.config.ts", 'export default {\n  version: "0.1.0",\n};\n');
   writeText(root, "CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Keep this section.\n");
   writeText(root, "tools/fixture.mjs", "export const fixture = true;\n");
   mkdirSync(join(root, "docs/release-readiness"), { recursive: true });

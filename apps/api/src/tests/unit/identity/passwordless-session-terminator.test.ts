@@ -4,25 +4,7 @@ import { PasswordlessSessionTerminator } from "@api/modules/identity/infrastruct
 import { ResponseCookieStore } from "@api/http/cookies";
 
 describe("PasswordlessSessionTerminator", () => {
-  it("revokes a native bearer session and clears browser credentials", async () => {
-    const verifyAccessToken = vi.fn().mockResolvedValue({ sessionId: "session-1" });
-    const revoke = vi.fn().mockResolvedValue(undefined);
-    const service = { verifyAccessToken, revoke } as unknown as PasswordlessAuthService;
-    const cookies = new ResponseCookieStore();
-
-    await new PasswordlessSessionTerminator(service).terminateCurrentSession(
-      new Request("https://api.example.test/v1/auth/session/revoke", {
-        headers: { authorization: "Bearer access.token" },
-      }),
-      cookies,
-    );
-
-    expect(verifyAccessToken).toHaveBeenCalledWith("access.token");
-    expect(revoke).toHaveBeenCalledWith("session-1");
-    expect(cookies.getAll().join("\n")).toContain("Max-Age=0");
-  });
-
-  it("prefers a refresh cookie and does not verify an access token twice", async () => {
+  it("revokes a refresh-cookie session and clears browser credentials", async () => {
     const verifyAccessToken = vi.fn();
     const revoke = vi.fn().mockResolvedValue(undefined);
     const service = { verifyAccessToken, revoke } as unknown as PasswordlessAuthService;
@@ -30,12 +12,30 @@ describe("PasswordlessSessionTerminator", () => {
 
     await new PasswordlessSessionTerminator(service).terminateCurrentSession(
       new Request("https://api.example.test/v1/auth/session/revoke", {
-        headers: { cookie: "rhsia-passwordless-refresh=session-2.refresh; rhsia-passwordless-access=access" },
+        headers: { cookie: "rhsia-passwordless-refresh=session-1.refresh-token" },
       }),
       cookies,
     );
 
-    expect(revoke).toHaveBeenCalledWith("session-2");
+    expect(revoke).toHaveBeenCalledWith("session-1");
     expect(verifyAccessToken).not.toHaveBeenCalled();
+    expect(cookies.getAll().join("\n")).toContain("Max-Age=0");
+  });
+
+  it("revokes the session behind an access cookie when no refresh cookie exists", async () => {
+    const verifyAccessToken = vi.fn().mockResolvedValue({ sessionId: "session-2" });
+    const revoke = vi.fn().mockResolvedValue(undefined);
+    const service = { verifyAccessToken, revoke } as unknown as PasswordlessAuthService;
+    const cookies = new ResponseCookieStore();
+
+    await new PasswordlessSessionTerminator(service).terminateCurrentSession(
+      new Request("https://api.example.test/v1/auth/session/revoke", {
+        headers: { cookie: "rhsia-passwordless-access=access.token" },
+      }),
+      cookies,
+    );
+
+    expect(verifyAccessToken).toHaveBeenCalledWith("access.token");
+    expect(revoke).toHaveBeenCalledWith("session-2");
   });
 });

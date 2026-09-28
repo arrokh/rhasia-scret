@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented.** The Personal-only v3 snapshot, transient online workspace contract, browser/native migration, lifecycle eviction, documentation, and validation changes are in the working tree. Release gates and deployment evidence remain required before rollout.
+**Implemented (historical plan).** This record describes the browser and native-client design and verification at the time it was implemented. Issue #243 later retired the native client and its storage adapters; references to `apps/mobile` below are preserved as historical evidence, not current support requirements. The sole supported implementation is the responsive web/PWA, with its Personal-only v3 snapshot, transient online workspace contract, lifecycle eviction, documentation, and browser coverage.
 
 This plan changes hosted offline access so that only the server-backed **Personal Vault** is available through a **Local Vault Snapshot**. Shared Vaults remain online-only. The independent writable **Local Vault** remains unchanged.
 

@@ -37,5 +37,5 @@
     ".next/analytics-debug/types/**/*.ts",
     ".next/analytics-debug/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "../../apps/mobile"]
+  "exclude": ["node_modules"]
 }

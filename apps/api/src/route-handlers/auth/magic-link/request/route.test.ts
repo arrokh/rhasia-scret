@@ -9,7 +9,7 @@ import { attachApiRequestContext, type ApiRequestContext } from "@api/http/api-c
 const mocks = vi.hoisted(() => ({
   createAnonymousAuthRateLimiter: vi.fn(),
   createTurnstileValidator: vi.fn(),
-  isPasswordlessClient: vi.fn((value: unknown) => value === "web" || value === "mobile" || value === "pwa"),
+  isPasswordlessClient: vi.fn((value: unknown) => value === "web" || value === "pwa"),
   isPasswordlessReturnPath: vi.fn((value: unknown) => value === "/vaults"),
   isSafePwaHandoffId: vi.fn((value: string) => value === "pwa-handoff-123456"),
   isSafePwaHandoffVerifier: vi.fn((value: string) => value === "v".repeat(43)),
@@ -89,13 +89,14 @@ describe("POST /v1/auth/magic-link/request contract", () => {
     expect(service.requestLink).not.toHaveBeenCalled();
   });
 
-  it("allows native requests without Turnstile while rejecting browser token failures before limiting", async () => {
-    const nativeService = { requestLink: vi.fn().mockResolvedValue(undefined) };
+  it("rejects retired native requests and rejects browser token failures before limiting", async () => {
+    const nativeService = { requestLink: vi.fn() };
     const native = await POST(
       makeRequest({ email: "person@example.test", client: "mobile", returnPath: "/vaults" }, nativeService),
     );
-    expect(native.status).toBe(200);
+    expect(native.status).toBe(400);
     expect(mocks.createTurnstileValidator).not.toHaveBeenCalled();
+    expect(nativeService.requestLink).not.toHaveBeenCalled();
 
     mocks.createTurnstileValidator.mockReturnValue({
       validate: vi.fn().mockResolvedValue("invalid"),
@@ -109,7 +110,7 @@ describe("POST /v1/auth/magic-link/request contract", () => {
     );
     expect(browser.status).toBe(403);
     await expect(browser.json()).resolves.toEqual({ error: "turnstile_failed" });
-    expect(mocks.createAnonymousAuthRateLimiter).toHaveBeenCalledOnce();
+    expect(mocks.createAnonymousAuthRateLimiter).not.toHaveBeenCalled();
   });
 
   it("logs Turnstile provider diagnostics without logging token or response content", async () => {
@@ -274,7 +275,6 @@ function makeRequest(body: unknown, passwordlessAuth: { requestLink: ReturnType<
         redeem: async () => null,
         verifyAccessToken: async () => null,
         verifyBrowserSession: async () => null,
-        refresh: async () => null,
         revoke: async () => undefined,
         publishPwaHandoff: async () => undefined,
         redeemPwaHandoff: async () => null,

@@ -1,4 +1,4 @@
-export type PasswordlessClient = "web" | "mobile" | "pwa";
+export type PasswordlessClient = "web" | "pwa";
 export type PasswordlessReturnPath = "/vaults" | "/vaults/invitations/redeem";
 
 export function isSafePwaHandoffId(value: string): boolean {

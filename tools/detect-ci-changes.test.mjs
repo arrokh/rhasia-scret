@@ -6,17 +6,13 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import { affectedChecks, detectAffectedChecks } from "./detect-ci-changes.mjs";
 
-const all = { core: true, web: true, mobile: true };
-const none = { core: false, web: false, mobile: false };
+const all = { core: true, web: true };
+const none = { core: false, web: false };
 
-test("selects only the affected application and combines mixed pushes", () => {
+test("selects the web application and conservatively runs all checks for retired app paths", () => {
   assert.deepEqual(affectedChecks(["apps/web/src/app/page.tsx"]), { ...none, web: true });
-  assert.deepEqual(affectedChecks(["apps/mobile/src/localization.ts"]), { ...none, mobile: true });
-  assert.deepEqual(affectedChecks(["apps/mobile/App.tsx", "apps/web/messages/en.json"]), {
-    ...none,
-    web: true,
-    mobile: true,
-  });
+  assert.deepEqual(affectedChecks(["apps/mobile/src/localization.ts"]), all);
+  assert.deepEqual(affectedChecks(["apps/mobile/App.tsx", "apps/web/messages/en.json"]), all);
 });
 
 test("runs shared packages and both consumers for shared inputs or unknown workspaces", () => {
@@ -69,7 +65,6 @@ test("wires package selection to every consuming job without cancelling a differ
   for (const [name, scope, timeout, concurrencyGroup] of [
     ["core", "core", 8, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
     ["quality", "web", 8, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],
-    ["mobile", "mobile", 8, "ci-mobile-${{ github.workflow }}-${{ github.ref_name }}"],
     [
       "browser",
       "web",
@@ -96,7 +91,7 @@ test("wires package selection to every consuming job without cancelling a differ
       "CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}",
     ),
   );
-  for (const scope of ["core", "web", "mobile"]) {
+  for (const scope of ["core", "web"]) {
     assert.ok(job("changes").includes(scope + ": ${{ steps.detect.outputs." + scope + " }}"));
   }
   assert.doesNotMatch(workflow, /^concurrency:/m);
@@ -126,13 +121,13 @@ test("detects a complete multi-commit push, moves, deletions, and unavailable hi
   save("apps/mobile/new.ts", "mobile\n");
   const mixed = commit();
   assert.deepEqual(detectAffectedChecks({ cwd, before, after: web }), { ...none, web: true });
-  assert.deepEqual(detectAffectedChecks({ cwd, before, after: mixed }), { ...none, web: true, mobile: true });
+  assert.deepEqual(detectAffectedChecks({ cwd, before, after: mixed }), all);
   renameSync(join(cwd, "apps/web/space and\nnewline.ts"), join(cwd, "apps/mobile/moved.ts"));
   const moved = commit();
-  assert.deepEqual(detectAffectedChecks({ cwd, before: mixed, after: moved }), { ...none, web: true, mobile: true });
+  assert.deepEqual(detectAffectedChecks({ cwd, before: mixed, after: moved }), all);
   rmSync(join(cwd, "apps/mobile/moved.ts"));
   const deleted = commit();
-  assert.deepEqual(detectAffectedChecks({ cwd, before: moved, after: deleted }), { ...none, mobile: true });
+  assert.deepEqual(detectAffectedChecks({ cwd, before: moved, after: deleted }), all);
   assert.deepEqual(detectAffectedChecks({ cwd, before: "a".repeat(40), after: deleted }), all);
 
   const output = join(cwd, "output");
@@ -140,5 +135,5 @@ test("detects a complete multi-commit push, moves, deletions, and unavailable hi
     cwd,
     env: { ...process.env, CI_BASE_SHA: moved, GITHUB_SHA: deleted, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: "" },
   });
-  assert.equal(readFileSync(output, "utf8"), "core=false\nweb=false\nmobile=true\n");
+  assert.equal(readFileSync(output, "utf8"), "core=true\nweb=true\n");
 });

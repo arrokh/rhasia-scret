@@ -23,6 +23,6 @@ Completion email delivery is best-effort and contains only the opaque receipt ID
 
 ## Consequences
 
-Account deletion is not recoverable and is an explicit exception to ADR-0013's ordinary 30-day Shared Vault retention. The deletion route is browser-only; native clients receive no UI or client workflow. Browser cleanup clears the current hosted workspace, offline snapshots, Remembered Browser packages, and authentication cookies, but never clears the Local Profile or Local Vault. The completion page remains public and offers sign-in and the public landing page.
+Account deletion is not recoverable and is an explicit exception to ADR-0013's ordinary 30-day Shared Vault retention. The deletion workflow is available through the responsive web/PWA client, which is the sole supported client under ADR-0054. Browser cleanup clears the current hosted workspace, offline snapshots, Remembered Browser packages, and authentication cookies, but never clears the Local Profile or Local Vault. The completion page remains public and offers sign-in and the public landing page.
 
-The retained ledger is a deliberate privacy and security exception: it contains limited identity metadata but no encrypted Vault content or cryptographic material. Any future change to ledger retention, third-party deletion guarantees, transfer eligibility, or native account deletion requires a new ADR or amendment.
+The retained ledger is a deliberate privacy and security exception: it contains limited identity metadata but no encrypted Vault content or cryptographic material. Any future change to ledger retention, third-party deletion guarantees, transfer eligibility, or client support boundaries requires a new ADR or amendment.

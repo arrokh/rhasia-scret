@@ -5,7 +5,7 @@
 rhasia-scret is a zero-knowledge TOTP application with an honest-but-curious
 server model. The server enforces authorization but must not receive plaintext
 Vault content or client-held secrets. An actively malicious hosted client or
-native application supply chain is outside the current MVP guarantee. Read the
+its delivery infrastructure is outside the current MVP guarantee. Read the
 [threat model](docs/adr/0004-honest-but-curious-server-threat-model.md) and
 [security documentation](docs/README.md#security) before relying on a
 deployment.

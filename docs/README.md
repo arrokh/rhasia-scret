@@ -8,13 +8,13 @@ This index is the public entry point for the repository's product, operating, ar
 - [`encrypted-vault-backup.md`](encrypted-vault-backup.md) — encrypted archive export/import contracts and key handling.
 - [`offline-pwa-verification.md`](offline-pwa-verification.md) — read-only encrypted offline snapshots and PWA verification.
 - [`browser-acceptance-tests.md`](browser-acceptance-tests.md) — supported browser acceptance coverage.
-- [`ui-reference/`](ui-reference/) — web and native presentation references, including mobile behavior.
+- [`ui-design-consistency.md`](ui-design-consistency.md) — shared responsive web presentation and accessibility contracts.
 
 ## Privacy, support, and provenance
 
 - [`privacy.md`](privacy.md) / [`privacy.id.md`](privacy.id.md) — user- and operator-facing privacy and hosted-service disclosures.
 - [`support.md`](support.md) / [`support.id.md`](support.id.md) — public support channels, safe report boundaries, and triage.
-- [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) — native, UI, font, icon, asset, dependency, and generated-material provenance.
+- [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) — UI, font, icon, asset, dependency, and generated-material provenance.
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md), [`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md), [`../GOVERNANCE.md`](../GOVERNANCE.md) — contributor and maintainer workflow.
 
 ## Deployment and operations
@@ -23,13 +23,12 @@ This index is the public entry point for the repository's product, operating, ar
 - [`self-hosting.md`](self-hosting.md) — supported host/database/authentication matrix, environment contract, deployment procedure, local setup, and smoke test.
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.
-- [`mobile-release-configuration.md`](mobile-release-configuration.md) — verified links, native cryptography validation, and release evidence.
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
 - [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation and verification record for local version preparation and exact-SHA source-tag/GitHub Release publication.
 - [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and historical rollout guidance.
 - [`api-architecture-deepening.md`](api-architecture-deepening.md) — implemented API composition, identity lifecycle, authenticated-access, and account-deletion seams.
 - [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
-- [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md) — API/Web `0.1.0` candidate readiness, maintainer-reported operational evidence, and native mobile scope exclusion.
+- [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md) — preserved historical API/Web `0.1.0` candidate readiness and maintainer-reported operational evidence.
 - [`release-readiness/2026-09-21.md`](release-readiness/2026-09-21.md) — historical API architecture-hardening readiness snapshot superseded by the 2026-09-26 record.
 - [`release-readiness/2026-09-20.md`](release-readiness/2026-09-20.md) — historical standalone API readiness snapshot superseded by the 2026-09-21 record.
 - [`release-readiness/2026-09-18.md`](release-readiness/2026-09-18.md) — historical standalone API readiness snapshot superseded by the 2026-09-20 record.
@@ -43,9 +42,9 @@ This index is the public entry point for the repository's product, operating, ar
 
 - [`../CONTEXT.md`](../CONTEXT.md) — authoritative product language, security model, and domain terminology.
 - [`app-router-composition.md`](app-router-composition.md) — App Router composition rules.
-- [`shared-code-inventory.md`](shared-code-inventory.md) — platform-neutral client capability inventory.
-- [`i18n-implementation-plan.md`](i18n-implementation-plan.md) — bilingual web/native localization contract and coverage plan.
-- [`adr/`](adr/) — Architecture Decision Records, including the threat model, crypto protocols, authentication boundaries, retention, localization, and native client foundation.
+- [`shared-code-inventory.md`](shared-code-inventory.md) — platform-neutral client capability inventory and current web-only consumer boundaries.
+- [`i18n-implementation-plan.md`](i18n-implementation-plan.md) — bilingual web localization contract and coverage plan.
+- [`adr/`](adr/) — Architecture Decision Records, including the threat model, crypto protocols, authentication boundaries, retention, localization, and the superseded native-client decision.
 
 ## Security
 
@@ -74,7 +73,6 @@ This index is the public entry point for the repository's product, operating, ar
 
 ## Source and generated artifacts
 
-- Repository-owned native Argon2 wrapper and upstream notices: [`../apps/mobile/modules/native-argon2id/`](../apps/mobile/modules/native-argon2id/).
 - Workspace dependency lockfile: [`../pnpm-lock.yaml`](../pnpm-lock.yaml).
 - CI workflows and security automation: [`../.github/workflows/`](../.github/workflows/).
 
