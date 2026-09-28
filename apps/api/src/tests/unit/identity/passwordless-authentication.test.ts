@@ -244,7 +244,7 @@ describe("passwordless authentication application service", () => {
       createChallenge: vi.fn(),
       consumeChallenge: vi.fn().mockResolvedValue({
         email: "person@example.test",
-        client: "mobile",
+        client: "web",
         returnPath: "/vaults",
       }),
       findOrCreateAccount: vi.fn().mockResolvedValue({
@@ -266,12 +266,12 @@ describe("passwordless authentication application service", () => {
       sender: { sendMagicLinkEmail: vi.fn() },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
       digestToken: vi.fn(() => new Uint8Array([9])),
-      buildActionUrl: () => new URL("https://vault.example.test/auth/mobile"),
+      buildActionUrl: () => new URL("https://vault.example.test/auth/confirm"),
       magicLinkTtlSeconds: 900,
     });
 
-    await expect(service.redeem(token, "mobile")).resolves.toEqual({ session: createdSession, returnPath: "/vaults" });
-    expect(repository.consumeChallenge).toHaveBeenCalledWith(new Uint8Array([9]), "mobile", expect.any(Date));
+    await expect(service.redeem(token, "web")).resolves.toEqual({ session: createdSession, returnPath: "/vaults" });
+    expect(repository.consumeChallenge).toHaveBeenCalledWith(new Uint8Array([9]), "web", expect.any(Date));
     expect(repository.findOrCreateAccount).toHaveBeenCalledWith("person@example.test", expect.any(Date));
     expect(repository.createSession).toHaveBeenCalledWith(
       expect.objectContaining({ applicationUserId: "user-id" }),
@@ -279,7 +279,7 @@ describe("passwordless authentication application service", () => {
     );
   });
 
-  it("rejects malformed credentials before touching persistence and delegates refresh validation", async () => {
+  it("rejects malformed credentials before touching persistence", async () => {
     const repository = {
       createChallenge: vi.fn(),
       consumeChallenge: vi.fn(),
@@ -302,13 +302,11 @@ describe("passwordless authentication application service", () => {
     });
 
     await expect(service.redeem("malformed", "web")).resolves.toBeNull();
-    await expect(service.refresh(`${"0123456789abcdef"}.${token}`)).resolves.toBeNull();
+    await expect(service.verifyAccessToken("malformed")).resolves.toBeNull();
+    await service.revoke("invalid");
     expect(repository.consumeChallenge).not.toHaveBeenCalled();
-    expect(repository.rotateRefreshToken).toHaveBeenCalledWith(
-      new Uint8Array([9]),
-      "0123456789abcdef",
-      expect.any(Date),
-    );
+    expect(repository.verifyAccessToken).not.toHaveBeenCalled();
+    expect(repository.rotateRefreshToken).not.toHaveBeenCalled();
     expect(repository.revokeSession).not.toHaveBeenCalled();
   });
 });

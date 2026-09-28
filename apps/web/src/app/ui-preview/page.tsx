@@ -6,10 +6,10 @@ import { AppPage, PageHeader } from "@/shared/presentation/app-ui";
 
 export const dynamic = "force-dynamic";
 
-/** Fixture khusus pengembangan tanpa ciphertext untuk memeriksa tata letak seluler. */
-export default async function MobilePreviewPage() {
+/** Ciphertext-free development fixture for the responsive authenticator-account layout. */
+export default async function ResponsiveAuthenticatorAccountsPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  const t = await getTranslations("Preview.mobile");
+  const t = await getTranslations("Preview.authenticatorAccounts");
   return (
     <AppPage>
       <PageHeader title={t("title")} description={t("description")} action={<PreviewAccountMenu />} />

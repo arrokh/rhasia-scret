@@ -31,16 +31,9 @@ export interface PlatformHttpResponse {
   text(): Promise<string>;
 }
 
-/**
- * Authenticated transport boundary. Web uses a cookie-session adapter; a native
- * client can wrap the same contract with a bearer-token adapter.
- */
+/** Cookie-authenticated transport boundary used by browser-facing workflows. */
 export interface AuthenticatedTransport {
   request(request: PlatformHttpRequest): Promise<PlatformHttpResponse>;
-}
-
-export interface BearerTokenProvider {
-  getToken(): Promise<string | null>;
 }
 
 export interface NetworkStatusPort {

@@ -45,7 +45,7 @@ Evidence-driven decisions:
 
 Each page under `src/app/vaults/**/page.tsx` currently performs most or all of this sequence:
 
-1. the configured passwordless session verifier validates the browser assertion or bearer credential;
+1. the configured passwordless session verifier validates the browser assertion and cookie session;
 2. `PrismaApplicationUserRepository.provision()` performs an `upsert`;
 3. `PrismaPersonalVaultRepository.ensureForOwner()` opens a transaction, acquires a PostgreSQL advisory lock, and reads the Personal Vault; and
 4. the page waits for all of that work before returning any page-specific UI.

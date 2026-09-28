@@ -12,8 +12,7 @@ export function isSameOriginIfPresent(request: Request): boolean {
   return !request.headers.has("origin") || isSameOrigin(request);
 }
 
-export function isClientOriginAllowed(request: Request, client: "web" | "mobile" | "pwa"): boolean {
-  if (client === "mobile") return isSameOriginIfPresent(request);
+export function isClientOriginAllowed(request: Request): boolean {
   return isSameOrigin(request);
 }
 

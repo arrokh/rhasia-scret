@@ -31,7 +31,7 @@ type PreviewAccount = {
 };
 
 export function AuthenticatorAccountDirectoryPreview() {
-  const t = useTranslations("Preview.mobile");
+  const t = useTranslations("Preview.authenticatorAccounts");
   const { preferences, setPreferences } = useAccountDirectoryPreferences("preview-profile");
   const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
   const { view, vaultFilters, order } = preferences;

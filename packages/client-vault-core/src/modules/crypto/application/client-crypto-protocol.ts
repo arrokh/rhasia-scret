@@ -13,7 +13,7 @@ const maximumKeyWrapBytes = 64 * 1_024;
 const keyWrapPrefix = new TextEncoder().encode("rhasia-scret:key-wrap:v2:");
 const legacyKeyWrapInfo = new TextEncoder().encode("shared-totp-vault:key-wrap:v1");
 
-/** Builds protocol operations over platform-native cryptographic primitives. */
+/** Builds protocol operations over injected cryptographic primitives. */
 export function createClientCryptoPort(primitives: CryptoPrimitivePort): ClientCryptoPort {
   async function encrypt(
     version: 1 | 2,

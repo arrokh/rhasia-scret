@@ -4,43 +4,40 @@
     <img width="250" height="250" alt="rhasia-secret-icon" src="https://github.com/user-attachments/assets/a1864161-da7f-42d2-b307-1c840c3794b3" />
 </p>
 
-rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaults. It starts with a writable, client-only Local Vault and offers explicit encrypted Personal Vault and governed Shared Vault workflows when hosted access is useful.
+rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaults. Its sole product client is the responsive web application, installable as a PWA. It starts with a writable, client-only Local Vault and offers explicit encrypted Personal Vault and governed Shared Vault workflows when hosted access is useful.
 
-> **Security status:** rhasia-scret has not received a formal independent security certification or audit. The repository documents an honest-but-curious server model, but an actively malicious application host or native application supply chain remains outside the MVP security boundary. Review the [honest-but-curious server threat model](docs/adr/0004-honest-but-curious-server-threat-model.md), [security documentation](docs/README.md#security), and [deployment hardening checklist](docs/security/deployment-hardening-checklist.md) before operating the application.
+> **Security status:** rhasia-scret has not received a formal independent security certification or audit. The repository documents an honest-but-curious server model, but an actively malicious application host or web-client supply chain remains outside the MVP security boundary. Review the [honest-but-curious server threat model](docs/adr/0004-honest-but-curious-server-threat-model.md), [security documentation](docs/README.md#security), and [deployment hardening checklist](docs/security/deployment-hardening-checklist.md) before operating the application.
 
 ## Product and support matrix
 
-| Capability                             | Web       | iOS/Android   | Notes                                                                                                                                                                                                                                                                                                                        |
-| -------------------------------------- | --------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local Profile and writable Local Vault | Supported | Not supported | Browser-only, client-owned storage; no sign-in or automatic synchronization.                                                                                                                                                                                                                                                 |
-| Hosted Personal Vault                  | Supported | Supported     | Encrypted content is prepared on the authorized client.                                                                                                                                                                                                                                                                      |
-| Hosted Shared Vault                    | Supported | Partial       | Web supports the full lifecycle and member administration. Native contains partial implementations for existing Shared Vault access, owner audit/default permissions, and Secure Share Link invitation; full native lifecycle/member administration is tracked in [#183](https://github.com/arrokh/rhasia-scret/issues/183). |
-| Read-only encrypted offline snapshot   | Supported | Supported     | OTP generation remains client-side; offline mutations are not queued or replayed.                                                                                                                                                                                                                                            |
-| Passkey-Assisted Unlock/Recovery       | Supported | Not supported | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server.                                                                                                                                                                                                                                          |
-| Encrypted Vault Archive export/import  | Supported | Supported     | Archive keys and opened content exist only in authorized client memory.                                                                                                                                                                                                                                                      |
-| TOTP formats                           | Supported | Supported     | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.                                                                                                                                                                                                                                           |
+| Capability                             | Web browser/PWA | Notes                                                                               |
+| -------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| Local Profile and writable Local Vault | Supported       | Browser-only, client-owned storage; no sign-in or automatic synchronization.        |
+| Hosted Personal Vault                  | Supported       | Encrypted content is prepared in the authorized browser.                            |
+| Hosted Shared Vault                    | Supported       | Full lifecycle and member administration.                                           |
+| Read-only encrypted offline snapshot   | Supported       | OTP generation remains client-side; offline mutations are not queued or replayed.   |
+| Passkey-Assisted Unlock/Recovery       | Supported       | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server. |
+| Encrypted Vault Archive export/import  | Supported       | Archive keys and opened content exist only in authorized browser memory.            |
+| TOTP formats                           | Supported       | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.  |
 
-The web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless email-link authentication. The native client consumes hosted Personal Vault workflows and contains partial Shared Vault workflows; it does not implement the browser-only Local Profile/Local Vault.
+The responsive web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless email-link authentication. Installing the PWA does not create a separate native client.
 
 ## Architecture
 
-The repository is a pnpm workspace with three bounded application/package areas:
+The repository is a pnpm workspace with two applications and platform-neutral client packages:
 
 - `apps/api` — standalone Hono API with Bun-primary and Node.js/Vercel adapters, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, auth/email adapters, retention scheduling, and API tests.
 - `apps/web` — Next.js presentation application, same-origin `/api/v1/**` proxy, SSR API gateway, browser adapters, presentation, localization, and web tests. It has no database or API business-logic ownership.
-- `apps/mobile` — Expo SDK 57 iOS/Android composition layer, native adapters, native cryptography module, presentation, localization, and mobile tests.
-- `packages/api-contract` and `packages/api-client` — client-safe API schemas/types and web/native transport helpers; they contain no server runtime or persistence code.
-- `packages/client-vault-core` — platform-neutral client workflows and contracts. It has no dependency on either application, React, Expo, Prisma, browser APIs, or platform storage.
+- `packages/api-contract` and `packages/api-client` — client-safe API schemas/types and web transport helpers; they contain no server runtime or persistence code.
+- `packages/client-vault-core` — platform-neutral client workflows and contracts shared by the web application and API. It has no dependency on either application, React, Prisma, browser APIs, or platform storage.
 
 ```mermaid
 flowchart TB
-    subgraph clients["Authorized client platforms"]
-        browser["apps/web<br/>Next.js browser client"]
-        mobile["apps/mobile<br/>Expo iOS and Android client"]
-        core["packages/client-vault-core<br/>Platform-neutral client workflows"]
+    subgraph clients["Authorized web client"]
+        browser["apps/web<br/>Responsive Next.js browser/PWA client"]
+        core["packages/client-vault-core<br/>Platform-neutral workflows"]
         local["Browser-owned storage<br/>Local Profile / Local Vault"]
         browser --> core
-        mobile --> core
         browser -. "Local Vault path; no server" .-> local
     end
 
@@ -55,20 +52,18 @@ flowchart TB
 
     auth["Passwordless email-link<br/>Authentication"] --> api
     browser -- "Encrypted payloads + opaque metadata" --> proxy
-    mobile -- "Encrypted payloads + opaque metadata" --> api
-    plaintext["Client-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
+    plaintext["Browser-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
     browser -. "decrypts and uses in client memory" .-> plaintext
-    mobile -. "decrypts and uses in client memory" .-> plaintext
 
     classDef clientOnly fill:#fff4cc,stroke:#b7791f,color:#5f370e;
     classDef hosted fill:#edf2f7,stroke:#4a5568,color:#1a202c;
 ```
 
-The server stores only encrypted content and permitted authorization/lifecycle metadata. Plaintext Vault names, account labels, TOTP configuration, OTPs, QR data, Vault keys, passphrases, private keys, and decrypted content remain on authorized clients.
+The server stores only encrypted content and permitted authorization/lifecycle metadata. Plaintext Vault names, account labels, TOTP configuration, OTPs, QR data, Vault keys, passphrases, private keys, and decrypted content remain in the authorized browser.
 
 See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
 
-Repository release candidates follow the [release process](docs/release-process.md) and require an explicitly selected, version-matched readiness record. `pnpm run release:prepare` drafts a candidate locally; after a dedicated release PR is reviewed and merged, `.github/workflows/release.yml` runs exact-SHA checks and publishes the annotated tag and GitHub Release. Repository publication does not deploy API or Web or distribute native mobile builds.
+Repository release candidates follow the [release process](docs/release-process.md) and require an explicitly selected, version-matched readiness record. `pnpm run release:prepare` drafts a candidate locally; after a dedicated release PR is reviewed and merged, `.github/workflows/release.yml` runs exact-SHA checks and publishes the annotated tag and GitHub Release. Repository publication does not deploy the API or web application.
 
 ## Prerequisites
 
@@ -78,7 +73,6 @@ The repository uses the mise-managed toolchain:
 - pnpm `11.17.0`
 - PostgreSQL 16 or a compatible PostgreSQL development instance for API tests and migrations
 - A supported browser and installed Playwright browsers for browser verification
-- Java 21 and native platform toolchains only for native mobile compilation
 
 Install the pinned toolchain and pnpm:
 
@@ -152,7 +146,7 @@ For a production migration, create the ignored `.env.prod` file with the
 production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
 The command builds and runs the standalone focused migration Compose project, so it does not parse or require application runtime secrets such as `PROXY_SECRET` or SMTP credentials. It does not start the Compose `db` dependency and requires typing `yes` before applying migrations.
 
-The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The mobile public-only setup is documented in [`apps/mobile/README.md`](apps/mobile/README.md). The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
+The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
 
 ## Run and verify
 
@@ -179,12 +173,6 @@ Both API development commands regenerate Prisma Client before startup. The root 
 
 The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/index.ts`.
 
-Mobile development:
-
-```bash
-pnpm --dir apps/mobile start
-```
-
 The main verification commands are:
 
 ```bash
@@ -197,15 +185,14 @@ pnpm run test:browser
 pnpm run test:full
 ```
 
-The root `pnpm test` and `pnpm run test:full` entrypoints automatically use a disposable PostgreSQL 16 Testcontainer locally, apply migrations only inside that container, and remove it afterward; they never use the development/local database. In CI, both commands select the job-scoped PostgreSQL service instead. `pnpm run test:full` is the required repository gate. The gate runs the shared package, API, web, and mobile full verification paths; the mobile path verifies JavaScript bundles and Expo Doctor but does not compile native projects or prove real-device behavior. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
+The root `pnpm test` and `pnpm run test:full` entrypoints automatically use a disposable PostgreSQL 16 Testcontainer locally, apply migrations only inside that container, and remove it afterward; they never use the development/local database. In CI, both commands select the job-scoped PostgreSQL service instead. `pnpm run test:full` is the required repository gate. The gate runs the shared package, API, and web full verification paths. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
 
 Focused and release commands:
 
 ```bash
-# Shared package, API, web, and mobile checks
+# Shared package and web checks
 pnpm run test:full:core
 pnpm run test:full:web
-pnpm run test:full:mobile
 pnpm run test:hosted
 pnpm run test:container
 pnpm run test:full:direct
@@ -242,14 +229,9 @@ pnpm run verify:build-output
 pnpm run release:prepare
 pnpm run release:prepare -- patch
 
-# Native release evidence (requires platform toolchains/devices)
-pnpm --dir apps/mobile run verify
-mise exec -- pnpm --dir apps/mobile run build:android-native
-mise exec -- pnpm --dir apps/mobile run build:ios-simulator
-mise exec -- pnpm --dir apps/mobile run test:android-native
 ```
 
-For release evidence, follow [`docs/mobile-release-configuration.md`](docs/mobile-release-configuration.md). Focused command details, disposable database setup, browser runtime behavior, and CI topology are listed in [`docs/monorepo.md`](docs/monorepo.md), [`docs/browser-test-runtime.md`](docs/browser-test-runtime.md), and [`docs/continuous-integration.md`](docs/continuous-integration.md).
+Focused command details, disposable database setup, browser runtime behavior, and CI topology are listed in [`docs/monorepo.md`](docs/monorepo.md), [`docs/browser-test-runtime.md`](docs/browser-test-runtime.md), and [`docs/continuous-integration.md`](docs/continuous-integration.md).
 
 ## Authentication modes
 
@@ -278,9 +260,7 @@ and the private GitHub Security Advisory channel.
 
 The repository source, documentation, and maintainer-created assets are
 licensed under the [MIT License](LICENSE). Third-party material is listed in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md); native Argon2 wrapper and
-embedded source notices remain beside their source under
-`apps/mobile/modules/native-argon2id/`. Contributions use the
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Contributions use the
 [Developer Certificate of Origin](DCO.md).
 
 The public privacy and hosted-service disclosure is available in

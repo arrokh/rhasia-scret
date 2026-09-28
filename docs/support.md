@@ -6,8 +6,8 @@
   and [self-hosting guide](self-hosting.md). A self-hosted operator owns its
   provider, deployment, database, backup, and retention support.
 - **Reproducible bug:** use the [bug report template](../.github/ISSUE_TEMPLATE/bug_report.yml).
-  Include the commit or release, browser or native platform, and synthetic
-  reproduction steps. Do not include Vault content or credentials.
+  Include the commit or release, browser and device class (desktop or mobile),
+  and synthetic reproduction steps. Do not include Vault content or credentials.
 - **Feature or documentation request:** use the matching public template. Keep
   proposals focused on product behavior, documentation, or maintainability.
 - **Security vulnerability:** do not open a public issue. Use the private

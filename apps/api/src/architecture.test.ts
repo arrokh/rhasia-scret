@@ -150,8 +150,9 @@ describe("API extraction ownership boundaries", () => {
     );
     expect(rootPackage.scripts?.["dev:api"]).toBe("pnpm --dir apps/api run dev");
     expect(rootPackage.scripts?.["ci:local"]).toBeUndefined();
-    expect(rootPackage.scripts?.["mobile:verify"]).toBeUndefined();
     expect(rootPackage.scripts?.["test:vercel-deployment"]).toBeUndefined();
+    expect(Object.keys(rootPackage.scripts ?? {}).filter((script) => /mobile|expo/i.test(script))).toEqual([]);
+    expect(existsSync(resolve(repositoryRoot, "apps/mobile/package.json"))).toBe(false);
     expect(dockerfile).toContain("pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts");
     expect(dockerfile).toContain("cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts");
     expect(dockerfile).not.toContain("pnpm --filter @rhasia-scret/api prisma:generate");

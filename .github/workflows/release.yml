@@ -61,7 +61,7 @@ jobs:
           while IFS= read -r path; do
             [[ -z "$path" ]] && continue
             case "$path" in
-              CHANGELOG.md|"$RECORD"|package.json|apps/*/package.json|packages/*/package.json|apps/mobile/app.config.ts) ;;
+              CHANGELOG.md|"$RECORD"|package.json|apps/*/package.json|packages/*/package.json) ;;
               *) echo "::error::Release PR contains out-of-scope file ${path}."; exit 1 ;;
             esac
           done <<< "$FILES"

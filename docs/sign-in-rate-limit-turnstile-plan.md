@@ -13,7 +13,7 @@ Protect passwordless sign-in link delivery from both high-volume requests and au
 2. **Add a server-side Turnstile gate**
    - Render a visible, centered Cloudflare Turnstile widget on browser and installed-PWA sign-in forms.
    - Validate the one-time token at `challenges.cloudflare.com/turnstile/v0/siteverify` before consuming a rate-limit bucket or creating a magic-link challenge.
-   - Keep the Turnstile secret server-only. Native requests remain supported without a browser widget and retain the PostgreSQL abuse limits.
+   - Keep the Turnstile secret server-only. Browser and installed-PWA requests use the same PostgreSQL abuse limits after Turnstile verification.
 3. **Preserve fail-closed response behavior**
    - Reject missing or malformed browser tokens before delivery work.
    - Return generic no-store responses for invalid Turnstile tokens, Turnstile outages, exhausted rate limits, and limiter outages; do not disclose account existence.

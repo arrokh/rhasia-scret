@@ -12,7 +12,6 @@ vi.mock("@api/modules/identity/infrastructure/passwordless-session", () => ({
 
 const configuration = {
   appOrigin: new URL("https://vault.example.test"),
-  mobileRedirectUrl: new URL("https://vault.example.test/auth/mobile"),
   magicLinkSecret: new Uint8Array(32),
   sessionSecret: new Uint8Array(32),
   turnstile: { siteKey: "site-key", secretKey: "secret-key" },
@@ -20,7 +19,7 @@ const configuration = {
   accessTokenTtlSeconds: 900,
   refreshTokenTtlSeconds: 86_400,
 };
-const bearerPrincipal = {
+const principal = {
   issuer: "rhasia:passwordless",
   subject: "subject-1",
   email: "person@example.test",
@@ -28,18 +27,43 @@ const bearerPrincipal = {
   assurance: "active-session" as const,
   sessionId: "session-1",
 };
-const cookiePrincipal = { ...bearerPrincipal };
 
 function verifier(): PasswordlessSessionVerifier {
   const service: Partial<PasswordlessAuthService> = {
-    verifyAccessToken: vi.fn().mockResolvedValue(bearerPrincipal),
-    verifyBrowserSession: vi.fn(async (sessionId: string) => ({ ...cookiePrincipal, sessionId })),
+    verifyAccessToken: vi.fn().mockResolvedValue(principal),
+    verifyBrowserSession: vi.fn(async (sessionId: string) => ({ ...principal, sessionId })),
   };
   return new PasswordlessSessionVerifier(service as PasswordlessAuthService, configuration);
 }
 
-describe("Passwordless session credential selection", () => {
-  it("accepts a bearer and proxied cookie only when both resolve to the same session", async () => {
+describe("Passwordless browser session credential selection", () => {
+  it("accepts a proxied browser assertion cookie", async () => {
+    mocks.verifyAssertion.mockResolvedValue("session-1");
+    const result = await verifier().verify(
+      new Request("https://api.example.test/v1/me", {
+        headers: {
+          cookie: "rhsia-passwordless-assertion=opaque-assertion",
+          "x-rhasia-proxy-secret": "trusted",
+        },
+      }),
+      "fresh-provider-user",
+    );
+    expect(result).toEqual(principal);
+  });
+
+  it("accepts a proxied browser access cookie", async () => {
+    const result = await verifier().verify(
+      new Request("https://api.example.test/v1/me", {
+        headers: {
+          cookie: "rhsia-passwordless-access=opaque-access-token",
+          "x-rhasia-proxy-secret": "trusted",
+        },
+      }),
+    );
+    expect(result).toEqual(principal);
+  });
+
+  it("rejects bearer credentials even when a browser cookie is present", async () => {
     mocks.verifyAssertion.mockResolvedValue("session-1");
     const result = await verifier().verify(
       new Request("https://api.example.test/v1/me", {
@@ -49,36 +73,11 @@ describe("Passwordless session credential selection", () => {
           "x-rhasia-proxy-secret": "trusted",
         },
       }),
-      "fresh-provider-user",
     );
-    expect(result).toEqual(bearerPrincipal);
-  });
-
-  it("rejects conflicting or malformed credentials instead of falling back", async () => {
-    mocks.verifyAssertion.mockResolvedValue("session-2");
-    expect(
-      await verifier().verify(
-        new Request("https://api.example.test/v1/me", {
-          headers: {
-            authorization: "Bearer valid-token",
-            cookie: "rhsia-passwordless-assertion=opaque-assertion",
-            "x-rhasia-proxy-secret": "trusted",
-          },
-        }),
-      ),
-    ).toBeNull();
-
-    expect(
-      await verifier().verify(
-        new Request("https://api.example.test/v1/me", {
-          headers: { authorization: "invalid token", cookie: "rhsia-passwordless-access=opaque" },
-        }),
-      ),
-    ).toBeNull();
+    expect(result).toBeNull();
   });
 
   it("rejects direct cookie credentials without the trusted proxy marker", async () => {
-    mocks.verifyAssertion.mockResolvedValue("session-1");
     const result = await verifier().verify(
       new Request("https://api.example.test/v1/me", {
         headers: { cookie: "rhsia-passwordless-assertion=opaque-assertion" },

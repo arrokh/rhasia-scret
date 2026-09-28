@@ -4,25 +4,24 @@ This guide describes the supported deployment contract for rhasia-scret. The web
 
 ## Supported deployment matrix
 
-| Layer                 | Reference                                         | Supported alternatives                                                        | Unsupported                                                                              |
-| --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Web host              | Vercel with Node.js 24.x                          | Checked-in Docker Compose or another Node.js host behind HTTPS                | Static export                                                                            |
-| API host              | Bun service / standalone Node.js service          | Vercel Node.js function or another Node/Bun host behind HTTPS                 | Next.js API routes                                                                       |
-| Database              | PostgreSQL 16 compatibility target                | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints | SQLite, MySQL, browser database access                                                   |
-| Web authentication    | `passwordless` (default; sole hosted method)      | `none` for local-only browser work                                            | OIDC or other hosted providers, password-based app auth, email-based account merging     |
-| Native authentication | Self-managed passwordless links from the web host | Development `rhasia-scret://` link scheme                                     | Production custom-scheme-only links, native Local Vault, native WebAuthn PRF assumptions |
+| Layer              | Reference                                    | Supported alternatives                                                        | Unsupported                                                                          |
+| ------------------ | -------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Web host           | Vercel with Node.js 24.x                     | Checked-in Docker Compose or another Node.js host behind HTTPS                | Static export                                                                        |
+| API host           | Bun service / standalone Node.js service     | Vercel Node.js function or another Node/Bun host behind HTTPS                 | Next.js API routes                                                                   |
+| Database           | PostgreSQL 16 compatibility target           | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints | SQLite, MySQL, browser database access                                               |
+| Web authentication | `passwordless` (default; sole hosted method) | `none` for local-only browser work                                            | OIDC or other hosted providers, password-based app auth, email-based account merging |
 
 All providers must satisfy PostgreSQL compatibility, TLS, backup/PITR, restore, retention scheduling, least-privilege access, and pooled/direct connection requirements. CI PostgreSQL proves application compatibility; it is not production infrastructure.
 
 ## Prerequisites and boundaries
 
-Use mise-managed Node.js `24.19.0` and pnpm `11.17.0`, PostgreSQL 16 or compatible, Docker Compose when containerized, Playwright browsers for browser checks, and Java/native tooling only for Expo release builds. Keep Prisma, authentication, retention, and API routes server-only. Never add browser database access or a client-side database API.
+Use mise-managed Node.js `24.19.0` and pnpm `11.17.0`, PostgreSQL 16 or compatible, Docker Compose when containerized, and Playwright browsers for browser checks. Keep Prisma, authentication, retention, and API routes server-only. Never add browser database access or a client-side database API.
 
 The Compose reference provisions PostgreSQL 16, keeps the API-owned migration service behind the explicit `migration` profile, starts web only after the API health check, publishes only the web port, and schedules the bounded retention purge daily through the API. Operators apply migrations separately before starting application traffic and still own HTTPS termination, secret management, backups, monitoring, host hardening, and restore drills. The shared API Prisma factory sets `max: 5` for the `pg` pool. Bun and Node create one process-scoped client and disconnect it on shutdown; Vercel reuses one client per warm function instance. Scheduled purges call the bounded API operation and do not create a second application database client.
 
 ## Environment contract
 
-Copy the single root `.env.example` to `.env`. It separates API persistence values, web proxy/SSR values, browser-visible `NEXT_PUBLIC_*` values, native-visible `EXPO_PUBLIC_*` values, and Docker Compose bootstrap values. `NEXT_PUBLIC_*` and `EXPO_PUBLIC_*` values must contain public values only. Never create app-local `.env` files or commit a credential-bearing URL, SMTP password, authentication secret, database password, session credential, cron secret, token, or key.
+Copy the single root `.env.example` to `.env`. It separates API persistence values, web proxy/SSR values, browser-visible `NEXT_PUBLIC_*` values, and Docker Compose bootstrap values. `NEXT_PUBLIC_*` values must contain public values only. Never create app-local `.env` files or commit a credential-bearing URL, SMTP password, authentication secret, database password, session credential, cron secret, token, or key.
 
 ### Web and server variables
 
@@ -31,36 +30,21 @@ Copy the single root `.env.example` to `.env`. It separates API persistence valu
 | `AUTH_BACKEND`                                                                                                                       | Every deployment; explicit in production                    | `none` or `passwordless`; defaults to `passwordless` outside explicit production configuration.                                                                                                   |
 | `AUTH_APP_ORIGIN`                                                                                                                    | `passwordless`                                              | Exact origin without path/query/fragment/credentials. HTTPS is required except for localhost HTTP self-hosting.                                                                                   |
 | `AUTH_TRUST_PROXY_HEADERS`                                                                                                           | Optional web proxy setting                                  | `false` by default. Set `true` only when a trusted HTTPS proxy strips/replaces forwarded host/protocol metadata. API rate limiting uses the authenticated proxy marker instead.                   |
-| `AUTH_MOBILE_REDIRECT_URL`                                                                                                           | Optional                                                    | Exact `/auth/mobile` callback, or development-only `rhasia-scret://auth/magic-link`.                                                                                                              |
 | `AUTH_SESSION_SECRET`                                                                                                                | `passwordless`                                              | Shared verification secret, at least 32 characters; signs browser assertions.                                                                                                                     |
-| `AUTH_MAGIC_LINK_SECRET`, passwordless TTLs                                                                                          | API passwordless runtime                                    | API-only challenge/session settings; never pass to web or native clients.                                                                                                                         |
-| `TURNSTILE_SECRET_KEY`                                                                                                               | API passwordless runtime                                    | Server-only Turnstile verification secret; never expose it to Web or native clients.                                                                                                              |
+| `AUTH_MAGIC_LINK_SECRET`, passwordless TTLs                                                                                          | API passwordless runtime                                    | API-only challenge/session settings; never pass to the web client.                                                                                                                                |
+| `TURNSTILE_SECRET_KEY`                                                                                                               | API passwordless runtime                                    | Server-only Turnstile verification secret; never expose it to the web client.                                                                                                                     |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASSWORD`, `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME` | Bun, Node/Vercel, and self-hosted API passwordless runtimes | Server-only Nodemailer SMTP settings shared by every API runtime.                                                                                                                                 |
 | `WEB_ORIGIN`, `PROXY_SECRET`                                                                                                         | API runtime                                                 | Exact web origin and private proxy marker; production values use HTTPS and at least 32 random secret characters.                                                                                  |
 | `API_ORIGIN`, `API_PROXY_SECRET`                                                                                                     | Web proxy and SSR gateway                                   | Fixed API origin and private proxy marker; web calls `/v1/**` directly for SSR. Compose may use the private `http://api:8787` service name; public/non-Compose production origins must use HTTPS. |
 | `DATABASE_URL`                                                                                                                       | Every API runtime                                           | Pooled runtime Prisma URL; use TLS in production.                                                                                                                                                 |
 | `DIRECT_URL`                                                                                                                         | API Prisma CLI                                              | Direct migration/admin URL; production pooled and direct endpoints must be distinct.                                                                                                              |
 | `PASSKEY_RP_ID`, `PASSKEY_ORIGIN`                                                                                                    | Passkey recovery/unlock                                     | Server-only WebAuthn settings; origin and RP hostname must agree.                                                                                                                                 |
-| `MOBILE_APPLE_TEAM_ID`, `MOBILE_ANDROID_CERT_SHA256`                                                                                 | Verified native links                                       | Optional association-document values; malformed values fail closed.                                                                                                                               |
 | `CRON_SECRET`                                                                                                                        | Retention scheduler                                         | At least 32 random server characters; required by the scheduler route.                                                                                                                            |
 | `NEXT_PUBLIC_POSTHOG_*`, `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`                                                                | Optional analytics                                          | Public values only; analytics is off when unset.                                                                                                                                                  |
 
 Run `pnpm run verify:deployment-config` before deployment. After deployment, run `SMOKE_API_ORIGIN=https://api.example.com pnpm --filter @rhasia-scret/api smoke:deployment`; this checks health, time, no-store headers, and unauthenticated retention rejection without sending a purge credential. Use `VERIFY_DEPLOYMENT_PRODUCTION=1` to enforce production requirements and set `DEPLOYMENT_TARGET=bun`, `node`, or `vercel` for the API target. It validates URL shape, backend configuration, API proxy credentials, secret length, and conditional variables without printing their values. Both web and API validation reject a missing production `AUTH_BACKEND`; non-production runtimes retain the passwordless default. Runtime traffic uses only `DATABASE_URL`; `DIRECT_URL` is optional in the runtime environment and is reserved for controlled migration/admin commands. The web validation rejects API-only variables, the Web Vercel build runs that validation before `next build`, and the API Vercel build runs the production API validation before generating Prisma Client and bundling the Vercel adapter.
 
 For the standalone API, provision API-only values in the Bun, Node, or Vercel project; do not put SMTP or database values in Vercel Web. At minimum, configure `DATABASE_URL`, `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_APP_ORIGIN`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASSWORD`, `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME`, and `CRON_SECRET`. Add `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` when passkey recovery/unlock is enabled. Use `DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config` for the API Vercel project. Both Vercel project configurations enable Git deployment only for `main`; non-main branches are intentionally skipped. Their ignored-build commands compare the previous and current commits and skip unaffected services: API changes are `apps/api` plus its transitive workspace dependencies, and Web changes are `apps/web` plus its transitive workspace dependencies. Install metadata and the deployment-filter contract fail open and rebuild rather than suppressing a deployment. Never print or commit secret values.
-
-### Native client variables
-
-Native builds read the `Native mobile build` section of the root `.env.example` through `apps/mobile/app.config.ts`:
-
-| Variable                               | Notes                                                                                         |
-| -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`                  | HTTPS API origin without credentials.                                                         |
-| `EXPO_PUBLIC_WEB_ORIGIN`               | HTTPS web origin only; must match the deployment.                                             |
-| `EXPO_PUBLIC_AUTH_REDIRECT_URL`        | Matching `https://.../auth/mobile`, or `rhasia-scret://auth/magic-link` for development only. |
-| `EXPO_PUBLIC_NATIVE_CRYPTO_VALIDATION` | `1` only for local validation builds; never for distributed product builds.                   |
-
-Native link credentials and association evidence are release inputs, not committed configuration. Native session credentials are stored only through `expo-secure-store`.
 
 ## Deployment procedure
 
@@ -153,14 +137,14 @@ Preflight rejects invalid or colliding normalized Application User emails. Seedi
 
 Set `AUTH_BACKEND=passwordless`, the API-only `AUTH_*` values, and the server-only Bun SMTP values. Local self-hosted Compose may use the documented Cloudflare Turnstile testing pair from `.env.example` when both `WEB_ORIGIN` and `AUTH_APP_ORIGIN` are localhost or `127.0.0.1`; non-local production origins still reject testing keys. The user flow is:
 
-1. Web or native client submits an email and a fixed client audience.
+1. The web browser submits an email and the `web` or `pwa` client audience.
 2. The server persists only a keyed token digest and sends a bilingual email.
 3. The raw token appears only in the URL fragment.
-4. Web clears the fragment before redemption; native consumes it in memory.
+4. The browser clears the fragment before redemption.
 5. Redemption atomically consumes the challenge, provisions/loads `rhasia:passwordless`, and creates a database session.
-6. Web uses HttpOnly same-site cookies and a signed browser assertion; native stores opaque access/refresh credentials in secure storage.
+6. The website uses HttpOnly same-site cookies and a signed browser assertion; PWA session separation uses the verifier-backed handoff.
 
-Requests are limited to five per normalized email and twenty per IP per 15-minute window. Sessions use keyed digests, short-lived access credentials, native refresh rotation, reuse detection, revocation, and redacted security events. Browser keepalive validates the signed browser assertion without rotating a refresh credential, avoiding Strict Mode and concurrent-load races. No raw token, session credential, IP address, Vault material, or decrypted content is persisted or logged.
+Requests are limited to five per normalized email and twenty per IP per 15-minute window. Sessions use keyed digests, short-lived access credentials, the verifier-backed PWA refresh handoff, reuse detection, revocation, and redacted security events. Browser keepalive validates the signed browser assertion without rotating a refresh credential, avoiding Strict Mode and concurrent-load races. No raw token, session credential, IP address, Vault material, or decrypted content is persisted or logged.
 
 ### 4. Configure local-only mode
 
@@ -168,14 +152,9 @@ Set `AUTH_BACKEND=none` for local-only browser work. Hosted Personal/Shared Vaul
 
 If the selected backend is malformed or incomplete, protected web routes redirect to the localized `/sign-in?auth=configuration_error` state rather than looking unauthenticated. A serverless API composition returns `{ "error": "authentication_misconfigured" }` with HTTP 503, `Cache-Control: no-store`, and an opaque request ID; the web proxy forwards it without exposing parser text. Standalone Bun/Node startup logs only a fixed category, bounded configuration field, and startup correlation marker before exiting, so no listener is advertised as ready. The existing `api_misconfigured` dependency response remains distinct from authentication configuration failures.
 
-### 5. Configure HTTPS and verified links
+### 5. Configure HTTPS and browser security
 
-Use one exact HTTPS origin for hosted/non-local deployments. Local self-hosting may use `http://localhost` or `http://127.0.0.1`; HTTPS remains required for non-local passwordless origins. Use the configured origin for `AUTH_APP_ORIGIN`, `PASSKEY_ORIGIN`, `EXPO_PUBLIC_WEB_ORIGIN`, and the web/native routes. Verify these association documents without redirects when native is enabled:
-
-- `/.well-known/apple-app-site-association`
-- `/.well-known/assetlinks.json`
-
-The accepted native paths are `/auth/mobile` and `/vaults/invitations/redeem`. The custom scheme is development-only and does not prove production verified links.
+Use one exact HTTPS origin for hosted/non-local deployments. Local self-hosting may use `http://localhost` or `http://127.0.0.1`; HTTPS remains required for non-local passwordless origins. Use the configured origin for `AUTH_APP_ORIGIN` and `PASSKEY_ORIGIN`. The installable PWA uses the same web routes, browser cookies, and service-worker cache policy as the website.
 
 ### 6. Schedule retention purge
 
@@ -203,7 +182,7 @@ AUTH_BACKEND=none pnpm run build
 pnpm run test:browser:smoke
 ```
 
-Do not use production credentials, real accounts, user-provided account data, Vault content, secrets, tokens, or keys in a smoke test. Use synthetic, non-PII identities with reserved example domains and dummy labels. Before merge or release, run a fresh root `pnpm run test:full`; native release evidence additionally requires the Android and iOS simulator build commands.
+Do not use production credentials, real accounts, user-provided account data, Vault content, secrets, tokens, or keys in a smoke test. Use synthetic, non-PII identities with reserved example domains and dummy labels. Before merge or release, run a fresh root `pnpm run test:full`.
 
 ## Operational handoff checklist
 

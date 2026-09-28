@@ -24,18 +24,11 @@ export function verifyReleaseCommit({ root = repositoryRoot, version, sourceSha,
     throw new Error(`Release commit contains non-release changes: ${invalidPaths.join(", ")}.`);
   for (const path of changedPaths.filter(isWorkspaceManifest))
     verifyManifestVersionOnly({ root, baseSha: diffBase, sourceSha, path, version });
-  if (changedPaths.includes("apps/mobile/app.config.ts"))
-    verifyExpoVersionOnly({ root, baseSha: diffBase, sourceSha, version });
   return { baseSha: diffBase, changedPaths };
 }
 
 function isAllowedReleasePath(path, readinessPath) {
-  return (
-    path === "CHANGELOG.md" ||
-    path === readinessPath ||
-    isWorkspaceManifest(path) ||
-    path === "apps/mobile/app.config.ts"
-  );
+  return path === "CHANGELOG.md" || path === readinessPath || isWorkspaceManifest(path);
 }
 
 function isWorkspaceManifest(path) {
@@ -51,22 +44,6 @@ function verifyManifestVersionOnly({ root, baseSha, sourceSha, path, version }) 
   delete before.version;
   delete after.version;
   if (!deepEqual(before, after)) throw new Error(`${path} contains changes beyond its top-level version field.`);
-}
-
-function verifyExpoVersionOnly({ root, baseSha, sourceSha, version }) {
-  const before = git(["show", `${baseSha}:apps/mobile/app.config.ts`], root);
-  const after = git(["show", `${sourceSha}:apps/mobile/app.config.ts`], root);
-  const versionPattern = /^(\s*version:\s*")[^"\r\n]+("\s*,?\s*)$/m;
-  const beforeMatch = before.match(versionPattern);
-  const afterMatch = after.match(versionPattern);
-  const beforeVersion = beforeMatch?.[0].match(/"([^"]+)"/)?.[1];
-  const afterVersion = afterMatch?.[0].match(/"([^"]+)"/)?.[1];
-  if (!isStableSemVer(beforeVersion) || afterVersion !== version) {
-    throw new Error(`apps/mobile/app.config.ts must change only its Expo version to ${version}.`);
-  }
-  if (before.replace(versionPattern, "$1<version>$2") !== after.replace(versionPattern, "$1<version>$2")) {
-    throw new Error("apps/mobile/app.config.ts contains changes beyond its Expo version field.");
-  }
 }
 
 function deepEqual(left, right) {

@@ -221,7 +221,6 @@ function disabledPasswordlessAuthService(): PasswordlessAuthService {
     redeem: async () => null,
     verifyAccessToken: async () => null,
     verifyBrowserSession: async () => null,
-    refresh: async () => null,
     revoke: async () => undefined,
     publishPwaHandoff: async () => undefined,
     redeemPwaHandoff: async () => null,

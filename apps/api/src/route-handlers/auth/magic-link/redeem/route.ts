@@ -12,7 +12,7 @@ import {
 const magicLinkRedeemSchema = z
   .object({
     token: z.string().min(1).max(128),
-    client: z.enum(["web", "mobile", "pwa"]),
+    client: z.enum(["web", "pwa"]),
   })
   .strict();
 
@@ -21,8 +21,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
   if (!parsed.success)
     return ApiResponse.json({ error: "invalid_request" }, { status: 400, headers: noStoreHeaders() });
   const body = parsed.data;
-  if (!isClientOriginAllowed(request, body.client))
-    return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
+  if (!isClientOriginAllowed(request)) return new ApiResponse(null, { status: 403, headers: noStoreHeaders() });
 
   try {
     const context = getApiRequestContext(request);
@@ -31,18 +30,9 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
     const result = await service.redeem(body.token, body.client);
     if (!result) return ApiResponse.json({ error: "link_expired" }, { status: 400, headers: noStoreHeaders() });
     const response = ApiResponse.json(
-      body.client === "mobile"
-        ? {
-            accessToken: result.session.accessToken,
-            refreshToken: result.session.refreshToken,
-            accessExpiresAt: result.session.accessExpiresAt.toISOString(),
-            refreshExpiresAt: result.session.refreshExpiresAt.toISOString(),
-            email: result.session.principal.email,
-            returnPath: result.returnPath,
-          }
-        : body.client === "pwa"
-          ? { refreshToken: result.session.refreshToken, returnPath: result.returnPath }
-          : { returnPath: result.returnPath },
+      body.client === "pwa"
+        ? { refreshToken: result.session.refreshToken, returnPath: result.returnPath }
+        : { returnPath: result.returnPath },
       { headers: noStoreHeaders() },
     );
     if (body.client === "web") {

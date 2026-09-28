@@ -22,7 +22,9 @@ function request(body: unknown, headers: Record<string, string> = {}) {
     database: {},
     bindings: {},
     identity: {
-      sessionVerifier: { verify: async () => ({ assurance: "active-session" }) },
+      sessionVerifier: {
+        verify: async (request: Request) => (request.headers.has("cookie") ? { assurance: "active-session" } : null),
+      },
       sessionTerminator: { terminateCurrentSession: async () => undefined },
       passwordlessAuth: {
         requestLink: async () => undefined,
@@ -51,33 +53,32 @@ function request(body: unknown, headers: Record<string, string> = {}) {
 }
 
 describe("POST /v1/auth/session/refresh credential selection", () => {
-  it("accepts a mobile refresh token only from the request body", async () => {
-    const { request: valid, refresh } = request({ client: "mobile", refreshToken: "refresh-token" });
-    const response = await POST(valid);
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ refreshToken: session.refreshToken });
-    expect(refresh).toHaveBeenCalledWith("refresh-token");
-
-    const cookie = await POST(
-      request({ client: "mobile", refreshToken: "refresh-token" }, { cookie: "refresh=unexpected" }).request,
+  it("accepts only same-origin web requests and never refreshes from a body token", async () => {
+    const browser = request(
+      { client: "web" },
+      { origin: "https://api.example.test", cookie: "rhsia-passwordless-access=opaque" },
     );
-    expect(cookie.status).toBe(400);
+    const response = await POST(browser.request);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ refreshed: true });
+    expect(browser.refresh).not.toHaveBeenCalled();
+
+    const retiredClient = await POST(
+      request({ client: "mobile", refreshToken: "refresh-token" }, { origin: "https://api.example.test" }).request,
+    );
+    expect(retiredClient.status).toBe(400);
+
+    const bodyToken = await POST(
+      request({ client: "web", refreshToken: "refresh-token" }, { origin: "https://api.example.test" }).request,
+    );
+    expect(bodyToken.status).toBe(400);
   });
 
   it("rejects credentials in the wrong client channel", async () => {
-    const browser = request(
-      { client: "web", refreshToken: "unexpected" },
-      {
-        origin: "https://api.example.test",
-        "x-rhasia-expected-origin": "https://api.example.test",
-      },
-    );
-    expect((await POST(browser.request)).status).toBe(400);
-
-    const bearer = request({ client: "mobile", refreshToken: "refresh-token" }, { authorization: "Bearer access" });
+    const bearer = request({ client: "web" }, { authorization: "Bearer access", origin: "https://api.example.test" });
     expect((await POST(bearer.request)).status).toBe(400);
 
-    const missing = request({ client: "mobile" });
+    const missing = request({ client: "web" }, { origin: "https://api.example.test" });
     expect((await POST(missing.request)).status).toBe(401);
   });
 });

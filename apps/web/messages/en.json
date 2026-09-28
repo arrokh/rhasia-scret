@@ -18,8 +18,10 @@
     "footerAuthor": "nooroctavian.id",
     "globalError": {
       "title": "Something went wrong",
-      "description": "Please try again.",
-      "retry": "Try again"
+      "description": "This page could not be loaded. Try again, or continue to a Local Vault or offline snapshot.",
+      "retry": "Try again",
+      "openLocalVault": "Open Local Vault",
+      "openOffline": "Open offline snapshot"
     },
     "contextualHelp": {
       "open": "Open guide: {topic}",
@@ -65,7 +67,7 @@
         "description": "Local Vault data stays in the browser. Hosted Vault workflows send encrypted payloads and only the permitted metadata needed to operate them.",
         "items": {
           "local": "Local Profile and Local Vault data, labels, TOTP configuration, secrets, and generated OTPs are not sent to the rhasia-scret server.",
-          "hosted": "Authorized web and native clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata."
+          "hosted": "Authorized web clients decrypt hosted Vault content and generate OTPs; the server stores encrypted content and permitted lifecycle and authorization metadata."
         }
       },
       "server": {
@@ -343,6 +345,7 @@
         "signedOut": "You have signed out.",
         "logoutFailed": "Sign-out could not be completed. Try again.",
         "configurationError": "The sign-in service is not configured. Contact an administrator.",
+        "serviceUnavailable": "Hosted Vault access is temporarily unavailable. Try again later, or use Local Vault/offline access.",
         "verificationFailed": "The sign-in link could not be verified. Request a new link."
       }
     }
@@ -1440,7 +1443,7 @@
     }
   },
   "Preview": {
-    "mobile": {
+    "authenticatorAccounts": {
       "title": "Authenticator accounts",
       "description": "No account material, passphrase, OTP, or key is used in this sample data.",
       "listLabel": "Authenticator account list",

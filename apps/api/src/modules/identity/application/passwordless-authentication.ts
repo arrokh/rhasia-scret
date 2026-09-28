@@ -2,7 +2,7 @@ import { deliverMagicLinkEmail, type MagicLinkEmailSender } from "./email-delive
 import type { SessionAssurance, VerifiedPrincipal } from "./session-verifier";
 
 export const PASSWORDLESS_ISSUER = "rhasia:passwordless";
-export type PasswordlessClient = "web" | "mobile" | "pwa";
+export type PasswordlessClient = "web" | "pwa";
 
 export class PasswordlessChallengePersistenceError extends Error {
   public readonly cause: unknown;
@@ -104,7 +104,6 @@ export interface PasswordlessAuthService {
   ): Promise<Readonly<{ session: PasswordlessSession; returnPath: PasswordlessReturnPath }> | null>;
   verifyAccessToken(token: string): Promise<VerifiedPrincipal | null>;
   verifyBrowserSession(sessionId: string): Promise<VerifiedPrincipal | null>;
-  refresh(refreshToken: string): Promise<PasswordlessSession | null>;
   revoke(sessionId: string, reason?: string): Promise<void>;
   publishPwaHandoff(refreshToken: string, handoffId: string): Promise<void>;
   redeemPwaHandoff(
@@ -205,13 +204,6 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
     async verifyBrowserSession(sessionId: string): Promise<VerifiedPrincipal | null> {
       if (!isSafeSessionId(sessionId)) return null;
       return dependencies.repository.verifyBrowserSession(sessionId, now());
-    },
-
-    async refresh(refreshToken: string): Promise<PasswordlessSession | null> {
-      if (!isSessionToken(refreshToken)) return null;
-      const sessionId = sessionIdFromCredential(refreshToken);
-      if (!sessionId) return null;
-      return dependencies.repository.rotateRefreshToken(dependencies.digestToken(refreshToken), sessionId, now());
     },
 
     async revoke(sessionId: string, reason = "logout"): Promise<void> {

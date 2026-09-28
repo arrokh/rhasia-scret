@@ -45,7 +45,6 @@ requireText(
 );
 for (const command of [
   "pnpm run test:full:core",
-  "pnpm run test:full:mobile",
   "pnpm audit --prod --audit-level=high",
   "pnpm run verify:dependency-licenses",
   "pnpm run format:check",
@@ -76,9 +75,9 @@ requireText(
 );
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
-if (ciTimeoutCount !== 6)
+if (ciTimeoutCount !== 5)
   failures.push(
-    `.github/workflows/ci.yml must enforce eight-minute timeouts for 6 standard jobs (found ${ciTimeoutCount})`,
+    `.github/workflows/ci.yml must enforce eight-minute timeouts for 5 standard jobs (found ${ciTimeoutCount})`,
   );
 if (!/^  browser-production:[\s\S]*?^    timeout-minutes: 12$/m.test(ci))
   failures.push(".github/workflows/ci.yml must give the production PWA/performance job a twelve-minute ceiling");
@@ -88,7 +87,6 @@ for (const group of [
   "ci-repository-${{ github.workflow }}-${{ github.ref_name }}",
   "ci-core-${{ github.workflow }}-${{ github.ref_name }}",
   "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}",
-  "ci-mobile-${{ github.workflow }}-${{ github.ref_name }}",
   "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
   "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}",
 ]) {

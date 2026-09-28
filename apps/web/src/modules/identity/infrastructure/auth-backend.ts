@@ -1,6 +1,5 @@
 export type AuthBackend = "none" | "passwordless";
-export type AuthConfigurationField =
-  "AUTH_BACKEND" | "AUTH_APP_ORIGIN" | "AUTH_MOBILE_REDIRECT_URL" | "AUTH_SESSION_SECRET";
+export type AuthConfigurationField = "AUTH_BACKEND" | "AUTH_APP_ORIGIN" | "AUTH_SESSION_SECRET";
 
 export class AuthenticationConfigurationError extends Error {
   public readonly code = "authentication_misconfigured" as const;
@@ -20,7 +19,6 @@ export function isAuthenticationConfigurationError(error: unknown): error is Aut
 
 export type PasswordlessConfiguration = {
   appOrigin: URL;
-  mobileRedirectUrl: URL;
 };
 
 export type AuthConfiguration =
@@ -41,10 +39,7 @@ export function readAuthConfiguration(
 
 function readPasswordlessConfiguration(env: Readonly<Record<string, string | undefined>>): PasswordlessConfiguration {
   const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
-  return {
-    appOrigin,
-    mobileRedirectUrl: readMobileRedirectUrl(env.AUTH_MOBILE_REDIRECT_URL, appOrigin, env.NODE_ENV),
-  };
+  return { appOrigin };
 }
 function readRequired(value: string | undefined, name: AuthConfigurationField): string {
   const normalized = value?.trim();
@@ -56,33 +51,6 @@ function readOrigin(value: string | undefined, name: AuthConfigurationField): UR
   const parsed = readUrl(value, name);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password)
     throw configurationError(name, `${name} must contain only an origin.`);
-  return parsed;
-}
-
-function readMobileRedirectUrl(value: string | undefined, appOrigin: URL, nodeEnv: string | undefined): URL {
-  if (!value?.trim()) return new URL("/auth/mobile", appOrigin);
-  let parsed: URL;
-  try {
-    parsed = new URL(value.trim());
-  } catch {
-    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL must be a valid URL.");
-  }
-  const isDevelopmentCustomScheme =
-    parsed.protocol === "rhasia-scret:" &&
-    nodeEnv !== "production" &&
-    parsed.hostname === "auth" &&
-    parsed.port === "" &&
-    parsed.pathname === "/magic-link";
-  const isWebCallback =
-    parsed.origin === appOrigin.origin && parsed.pathname === "/auth/mobile" && parsed.protocol === appOrigin.protocol;
-  if (
-    (!isDevelopmentCustomScheme && !isWebCallback) ||
-    parsed.username ||
-    parsed.password ||
-    parsed.search ||
-    parsed.hash
-  )
-    throw configurationError("AUTH_MOBILE_REDIRECT_URL", "AUTH_MOBILE_REDIRECT_URL is not an approved callback.");
   return parsed;
 }
 

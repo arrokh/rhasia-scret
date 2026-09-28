@@ -1,6 +1,6 @@
 # Expo React Native client foundation
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0054
 - **Date:** 2026-08-11
 - **Related:** ADR-0037, ADR-0041, ADR-0047
 - **Issue:** #96

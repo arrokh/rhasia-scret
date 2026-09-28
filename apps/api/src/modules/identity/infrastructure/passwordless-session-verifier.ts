@@ -18,28 +18,13 @@ export class PasswordlessSessionVerifier implements SessionVerifier {
     request: Request,
     minimumAssurance: SessionAssurance = "fresh-provider-user",
   ): Promise<VerifiedPrincipal | null> {
-    const bearerToken = readBearerToken(request.headers.get("authorization"));
+    if (request.headers.has("authorization")) return null;
+
     const cookies = parseCookies(request.headers.get("cookie"));
     const hasBrowserCredential = cookies.has(PASSWORDLESS_ASSERTION_COOKIE) || cookies.has(PASSWORDLESS_ACCESS_COOKIE);
-    if (hasBrowserCredential && !request.headers.has("x-rhasia-proxy-secret")) return null;
+    if (!hasBrowserCredential || !request.headers.has("x-rhasia-proxy-secret")) return null;
 
-    const bearerPrincipal =
-      bearerToken !== undefined ? await this.verifyAndSatisfy(bearerToken, minimumAssurance) : null;
-    if (bearerToken !== undefined && !hasBrowserCredential) return bearerPrincipal;
-    if (bearerToken !== undefined && !bearerPrincipal) return null;
-
-    const cookiePrincipal = hasBrowserCredential ? await this.verifyCookieSession(cookies, minimumAssurance) : null;
-    if (bearerToken !== undefined) {
-      return bearerPrincipal?.sessionId && cookiePrincipal?.sessionId === bearerPrincipal.sessionId
-        ? bearerPrincipal
-        : null;
-    }
-    return cookiePrincipal;
-  }
-
-  private async verifyAndSatisfy(token: string, minimumAssurance: SessionAssurance): Promise<VerifiedPrincipal | null> {
-    const principal = await this.service.verifyAccessToken(token);
-    return principal && assuranceSatisfies(principal.assurance, minimumAssurance) ? principal : null;
+    return this.verifyCookieSession(cookies, minimumAssurance);
   }
 
   private async verifyCookieSession(
@@ -55,14 +40,10 @@ export class PasswordlessSessionVerifier implements SessionVerifier {
     }
 
     const accessToken = cookies.get(PASSWORDLESS_ACCESS_COOKIE);
-    return accessToken ? this.verifyAndSatisfy(accessToken, minimumAssurance) : null;
+    if (!accessToken) return null;
+    const principal = await this.service.verifyAccessToken(accessToken);
+    return principal && assuranceSatisfies(principal.assurance, minimumAssurance) ? principal : null;
   }
-}
-
-export function readBearerToken(authorization: string | null): string | undefined {
-  if (authorization === null) return undefined;
-  const match = /^Bearer ([A-Za-z0-9_.-]{1,512})$/.exec(authorization);
-  return match?.[1] ?? "";
 }
 
 function parseCookies(value: string | null): Map<string, string> {
