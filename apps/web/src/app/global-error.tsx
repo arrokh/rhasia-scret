@@ -44,6 +44,11 @@ export default function GlobalError({
               <button type="button" onClick={reset}>
                 {copy.retry}
               </button>
+              <p>
+                <a href="/local">{copy.openLocalVault}</a>
+                {" · "}
+                <a href="/offline">{copy.openOffline}</a>
+              </p>
             </>
           )}
         </main>

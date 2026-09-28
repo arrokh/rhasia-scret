@@ -23,6 +23,14 @@ vi.mock("@/modules/vault-management/presentation/load-vault-page-context", () =>
 }));
 vi.mock("@/shared/infrastructure/server-api-gateway", () => ({
   loadServerDestructiveResetEligibility: mocks.getEligibility,
+  isServerApiConfigurationError: (error: unknown) =>
+    Boolean(error && typeof error === "object" && "name" in error && error.name === "ServerApiConfigurationError"),
+  isServerApiUnavailableError: (error: unknown) =>
+    Boolean(error && typeof error === "object" && "name" in error && error.name === "ServerApiUnavailableError"),
+}));
+vi.mock("@/shared/presentation/server-api-unavailable-panel", () => ({
+  ServerApiUnavailablePanel: ({ retryHref }: { retryHref: string }) =>
+    createElement("div", { "data-testid": "api-unavailable", "data-retry-href": retryHref }, "API unavailable"),
 }));
 
 import VaultRecoveryPage from "@/app/vaults/recovery/page";
@@ -60,6 +68,16 @@ describe("VaultRecoveryPage", () => {
     const markup = await renderRecoveryPage();
 
     expect(markup).toContain('data-testid="passkey-reset"');
+    expect(markup).not.toContain('data-testid="destructive-reset"');
+  });
+
+  it("renders a recoverable fallback when reset eligibility is temporarily unavailable", async () => {
+    mocks.getEligibility.mockRejectedValue({ name: "ServerApiUnavailableError" });
+
+    const markup = await renderRecoveryPage();
+
+    expect(markup).toContain('data-testid="api-unavailable"');
+    expect(markup).toContain('data-retry-href="/vaults/recovery"');
     expect(markup).not.toContain('data-testid="destructive-reset"');
   });
 
