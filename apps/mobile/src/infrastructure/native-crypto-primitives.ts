@@ -31,6 +31,15 @@ export class NativeCryptoPrimitives implements CryptoPrimitivePort {
     return nativeRandomBytes(length);
   }
 
+  public async digestSha256(message: Uint8Array): Promise<Uint8Array> {
+    const digest = sha256(message);
+    try {
+      return digest.slice();
+    } finally {
+      digest.fill(0);
+    }
+  }
+
   public async encryptAesGcm(request: {
     key: Uint8Array;
     nonce: Uint8Array;

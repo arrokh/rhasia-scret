@@ -1,5 +1,10 @@
 import { Prisma } from "@prisma/client";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+import { sha256Digest, toBase64Url } from "@api/shared/infrastructure/crypto";
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import { Vault, type VaultLifecycle } from "../domain/vault";
 import type { PersonalVaultRepository } from "../application/personal-vault-repository";
 import type { PersonalVaultInitialization, PersonalVaultInitializer } from "../application/initialize-personal-vault";
@@ -35,6 +40,50 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
     });
   }
 
+  public async migrateName(
+    ownerId: string,
+    vaultId: string,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult> {
+    const replacement = copyBytes(migration.replacementCiphertext);
+    try {
+      if (!validNameMigration(migration, replacement)) return "conflict";
+      return await this.database.$transaction(async (transaction) => {
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
+        const vault = await transaction.vault.findFirst({
+          where: { id: vaultId, ownerId, type: "PERSONAL", lifecycle: "ACTIVE", deletedAt: null },
+          select: { encryptedName: true, encryptionVersion: true },
+        });
+        if (!vault?.encryptedName || vault.encryptionVersion !== expectedKeyVersion) return "conflict";
+        const current = copyBytes(vault.encryptedName);
+        try {
+          const currentDigest = digestString(current);
+          if (currentDigest === migration.replacementCiphertextDigest) return "already-committed";
+          if (current[0] !== migration.expectedEnvelopeVersion || currentDigest !== migration.expectedCiphertextDigest)
+            return "conflict";
+          const updated = await transaction.vault.updateMany({
+            where: {
+              id: vaultId,
+              ownerId,
+              type: "PERSONAL",
+              lifecycle: "ACTIVE",
+              deletedAt: null,
+              encryptionVersion: expectedKeyVersion,
+              encryptedName: current,
+            },
+            data: { encryptedName: replacement },
+          });
+          return updated.count === 1 ? "committed" : "conflict";
+        } finally {
+          current.fill(0);
+        }
+      });
+    } finally {
+      replacement.fill(0);
+    }
+  }
+
   public async initialize(ownerId: string, initialization: PersonalVaultInitialization): Promise<void> {
     await this.database.$transaction(async (transaction) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
@@ -67,6 +116,28 @@ export class PrismaPersonalVaultRepository implements PersonalVaultRepository, P
         },
       });
     });
+  }
+}
+
+function validNameMigration(migration: EncryptedPayloadMigration, replacement: Uint8Array): boolean {
+  return (
+    migration.expectedEnvelopeVersion === 1 &&
+    migration.replacementEnvelopeVersion === 2 &&
+    migration.expectedCiphertextDigest.length === 43 &&
+    migration.replacementCiphertextDigest.length === 43 &&
+    migration.operationId === migration.replacementCiphertextDigest &&
+    replacement.length >= 29 &&
+    replacement[0] === 2 &&
+    digestString(replacement) === migration.replacementCiphertextDigest
+  );
+}
+
+function digestString(bytes: Uint8Array): string {
+  const digest = sha256Digest(bytes);
+  try {
+    return toBase64Url(digest);
+  } finally {
+    digest.fill(0);
   }
 }
 

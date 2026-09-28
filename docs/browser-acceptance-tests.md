@@ -5,12 +5,12 @@ The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-wo
 ## Local setup
 
 1. Install the repository toolchain and dependencies with `mise install && mise run setup`.
-2. Provide the normal local PostgreSQL `DATABASE_URL` and `DIRECT_URL` values for the API-owned test database.
-3. Run the separately confirmed `pnpm run prisma:migrate:deploy`; the staged API migration runner applies the additive migration, preflights/seeds/verifies local identities, and then applies guarded cleanup. Verify the final state with `pnpm run verify:passwordless-migration`.
-4. Install the Playwright browsers when needed with `pnpm exec playwright install`.
-5. Run all browser suites with `pnpm run test:browser`. To run only the encrypted Vault matrix, use `pnpm exec playwright test --config playwright.e2e.config.ts`.
+2. Start Docker. For the default local acceptance gate, run `pnpm run test:full`; its root wrapper creates an isolated PostgreSQL 16 Testcontainer, overrides both database URLs, applies migrations only inside that container, and removes it afterward. It does not route migrations to the database configured in `.env`.
+3. Install the Playwright browsers when needed with `pnpm exec playwright install`.
+4. For focused `pnpm run test:browser` runs outside the root container gate, configure an explicitly authorized non-production test database. Apply migrations to a pre-provisioned database only with current, target-specific human authorization; never point tests or migrations at production.
+5. Run browser suites with `pnpm run test:browser`. To run only the encrypted Vault matrix, use `pnpm exec playwright test --config playwright.e2e.config.ts`.
 
-The default local `pnpm run test:full` creates an isolated PostgreSQL 16 container, runs the complete repository gate including browser suites, and removes the container afterward; it is the documented disposable-database alternative to steps 2–3. Use `pnpm run test:full:container` when invoking the container-backed gate explicitly.
+The default local `pnpm run test:full` is the preferred disposable-database path: it runs the complete repository gate, including browser suites, against its isolated PostgreSQL 16 container. Use `pnpm run test:full:container` when invoking the container-backed gate explicitly.
 
 The dedicated configuration starts the Bun API and Next web proxy on an isolated collision-free port block. The gate allocates the base web port at runtime unless `BROWSER_TEST_PORT` explicitly sets it; the encrypted suite uses the next web port and the API uses the corresponding `+5687` ports. It provisions isolated opaque test identities through API-owned cleanup tooling and removes their application data before and after the run. Tests are retry-safe and use unique identities per browser and scenario. The account-deletion scenario runs in the passwordless suite and exercises OTP reauthentication through the deterministic API session seam. Hosted CI runs each suite/engine pair on its own one-worker runner; this removes cross-engine serialization without weakening the production-strength Argon2 parameters or sharing mutable database fixtures.
 

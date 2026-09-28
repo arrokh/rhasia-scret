@@ -550,6 +550,20 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
             },
             permissionsRevision: 2,
           },
+          {
+            key: "member:viewer-secondary-preview",
+            email: "secondary-viewer@local.invalid",
+            kind: "MEMBER",
+            userId: "viewer-secondary-preview",
+            invitationId: null,
+            invitedAt: "2026-07-26T12:00:00.000Z",
+            permissionOverrides: { canAddAccounts: null, canEditAccounts: true, canDeleteAccounts: false },
+            effectiveAccountPermissions: {
+              permissions: { canAddAccounts: false, canEditAccounts: true, canDeleteAccounts: false },
+              sources: { canAddAccounts: "VAULT", canEditAccounts: "MEMBER", canDeleteAccounts: "MEMBER" },
+            },
+            permissionsRevision: 2,
+          },
         ];
     return route.fulfill({
       status: 200,
@@ -668,7 +682,10 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(secondAuditEvent.getByText("viewer@local.invalid", { exact: true })).toBeVisible();
   await expect(secondAuditEvent.getByText("26 Jul 2026, 20.27", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Undangan" }).click();
-  await expect(page.getByText("viewer@local.invalid")).toBeVisible();
+  await expect(page.getByText("viewer@local.invalid", { exact: true })).toBeVisible();
+  await expect(page.getByText("secondary-viewer@local.invalid", { exact: true })).toBeVisible();
+  const invitedUsers = page.locator('[aria-labelledby="invited-users-title"]');
+  await expect(invitedUsers.getByRole("button", { name: "Buka panduan: Izin anggota Brankas Bersama" })).toHaveCount(1);
   await page.getByLabel("Atur izin akun untuk viewer@local.invalid").click();
   await expect(page.getByRole("heading", { name: "Izin akun anggota" })).toBeVisible();
   await expect(page.getByRole("combobox")).toHaveCount(3);
@@ -754,6 +771,14 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
   await expect(footerDeveloperLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
+  await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: page.url() }]);
+  await page.reload();
+  await page.getByRole("tab", { name: "Invitations" }).click();
+  const invitedUsersEnglish = page.locator('[aria-labelledby="invited-users-title"]');
+  await expect(
+    invitedUsersEnglish.getByRole("button", { name: "Open guide: Shared Vault member permissions" }),
+  ).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(pageErrors).toEqual([]);
 });
 

@@ -1,4 +1,9 @@
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+import { sha256Digest, toBase64Url } from "@api/shared/infrastructure/crypto";
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import { publicEncryptionKeySchema } from "@api/http/public-encryption-key";
 import { Vault } from "../domain/vault";
 import {
@@ -39,6 +44,76 @@ export class PrismaSharedVaultRepository implements SharedVaultRepository {
       });
     });
     return new Vault(created.id, "SHARED", created.ownerId, "ACTIVE");
+  }
+
+  public async migrateName(
+    actorUserId: string,
+    vaultId: string,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult> {
+    const replacement = copyBytes(migration.replacementCiphertext);
+    try {
+      if (!validNameMigration(migration, replacement)) return "conflict";
+      return await this.database.$transaction(async (transaction) => {
+        const access = await transaction.$queryRaw<
+          Array<{
+            encryptedName: Uint8Array | null;
+            encryptionVersion: number;
+            role: string;
+            status: string;
+            keyVersion: number | null;
+          }>
+        >`
+          SELECT
+            vault."encrypted_name" AS "encryptedName",
+            vault."encryption_version" AS "encryptionVersion",
+            member."role" AS "role",
+            member."status" AS "status",
+            member."key_version" AS "keyVersion"
+          FROM "vaults" AS vault
+          INNER JOIN "vault_members" AS member ON member."vault_id" = vault."id"
+          WHERE vault."id" = ${vaultId}
+            AND member."user_id" = ${actorUserId}
+            AND member."status" = 'ACTIVE'
+            AND member."role" IN ('OWNER', 'VIEWER')
+            AND vault."type" = 'SHARED'
+            AND vault."lifecycle" = 'ACTIVE'
+            AND vault."deleted_at" IS NULL
+          FOR UPDATE OF vault, member
+        `;
+        const membership = access[0];
+        if (
+          !membership?.encryptedName ||
+          membership.encryptionVersion !== 1 ||
+          membership.keyVersion !== expectedKeyVersion
+        )
+          return "conflict";
+        const current = copyBytes(membership.encryptedName);
+        try {
+          const currentDigest = digestString(current);
+          if (currentDigest === migration.replacementCiphertextDigest) return "already-committed";
+          if (current[0] !== migration.expectedEnvelopeVersion || currentDigest !== migration.expectedCiphertextDigest)
+            return "conflict";
+          const updated = await transaction.vault.updateMany({
+            where: {
+              id: vaultId,
+              type: "SHARED",
+              lifecycle: "ACTIVE",
+              deletedAt: null,
+              encryptionVersion: membership.encryptionVersion,
+              encryptedName: current,
+            },
+            data: { encryptedName: replacement },
+          });
+          return updated.count === 1 ? "committed" : "conflict";
+        } finally {
+          current.fill(0);
+        }
+      });
+    } finally {
+      replacement.fill(0);
+    }
   }
 
   public async rename(
@@ -91,6 +166,28 @@ function samePublicKey(value: unknown, expected: JsonWebKey): boolean {
     current.ext === expected.ext &&
     JSON.stringify(current.key_ops) === JSON.stringify(expected.key_ops)
   );
+}
+
+function validNameMigration(migration: EncryptedPayloadMigration, replacement: Uint8Array): boolean {
+  return (
+    migration.expectedEnvelopeVersion === 1 &&
+    migration.replacementEnvelopeVersion === 2 &&
+    migration.expectedCiphertextDigest.length === 43 &&
+    migration.replacementCiphertextDigest.length === 43 &&
+    migration.operationId === migration.replacementCiphertextDigest &&
+    replacement.length >= 29 &&
+    replacement[0] === 2 &&
+    digestString(replacement) === migration.replacementCiphertextDigest
+  );
+}
+
+function digestString(bytes: Uint8Array): string {
+  const digest = sha256Digest(bytes);
+  try {
+    return toBase64Url(digest);
+  } finally {
+    digest.fill(0);
+  }
 }
 
 function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {

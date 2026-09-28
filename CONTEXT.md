@@ -103,6 +103,10 @@ _Avoid_: Malicious-server-resistant, trusted key custodian
 A canonical, secret-free protocol context authenticated as AES-GCM additional authenticated data and, for ECDH key wraps, included in HKDF domain separation. It binds payload purpose/type, protocol and encryption/key versions, and applicable opaque Vault, account, recipient, or profile identifiers. A context mismatch fails before plaintext is parsed; user labels, secrets, QR data, OTPs, and decrypted content never enter it.
 _Avoid_: Plaintext AAD, server-readable label, optional context, context-free compatibility fallback
 
+**Legacy Encrypted Payload Migration**:
+An explicit authorized-client operation that reads one identified legacy encrypted payload, validates its current typed content, re-encrypts it with the owning Authenticated Crypto Context, and atomically replaces that ciphertext (or the containing local encrypted snapshot while preserving its other fields). If migration is interrupted or rejected, the last valid ciphertext remains available for a later migration attempt.
+_Avoid_: Transparent decryption fallback, server-side re-encryption, key rotation as a substitute
+
 **Context-Bound Key-Wrap Protocol**:
 The platform-neutral client protocol that creates and opens versioned ECDH/HKDF Key-Wrap Envelopes using an Authenticated Crypto Context. It owns portable key representations, strict envelope parsing, legacy migration gates, and client-only identity/Vault-key rotation above browser or native cryptographic primitives.
 _Avoid_: Browser-only key wrapping, context-free v2 package, server-held private key, server-held Vault Encryption Key

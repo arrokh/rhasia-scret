@@ -24,7 +24,6 @@ export {
   encryptPayloadWithContext,
   generateSymmetricKey,
   generateUserEncryptionKeyPair,
-  migrateLegacyEncryptedPayload,
   serializeCryptoEnvelopeContext,
   serializeEncryptedEnvelope,
   serializeKeyWrapEnvelope,
@@ -39,6 +38,7 @@ export type {
   KeyWrapEnvelope,
 } from "./infrastructure/browser-crypto-envelope";
 export { browserClientCryptoPort } from "./infrastructure/browser-client-crypto-port";
+export { browserSha256Digest } from "./infrastructure/browser-sha256-digest";
 export { browserCryptoPrimitives } from "./infrastructure/browser-crypto-primitives";
 export { browserArgon2idPort } from "./infrastructure/browser-vault-unlock-key";
 export { initializePersonalVaultInBrowser } from "./infrastructure/browser-personal-vault-initializer";
@@ -62,7 +62,10 @@ export {
   createUserEncryptionIdentity,
   recoverUserEncryptionPrivateKey,
 } from "./infrastructure/browser-user-encryption-identity";
-export { registerUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-identity-client";
+export {
+  migrateUserCryptoProfile,
+  registerUserEncryptionIdentity,
+} from "./infrastructure/browser-user-encryption-identity-client";
 export { rotateUserEncryptionIdentity } from "./infrastructure/browser-user-encryption-key-rotation";
 export type { UserEncryptionKeyWrap } from "@rhasia-scret/client-vault-core";
 export {

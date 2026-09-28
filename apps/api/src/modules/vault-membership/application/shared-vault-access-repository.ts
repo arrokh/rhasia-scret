@@ -1,4 +1,8 @@
 import type { EffectiveSharedVaultAccountPermissions } from "@rhasia-scret/client-vault-core/modules/vault-membership/domain/shared-vault-account-permissions";
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 
 export type SharedVaultAccess = {
   vaultId: string;
@@ -14,4 +18,10 @@ export type SharedVaultAccess = {
 export interface SharedVaultAccessRepository {
   getForMember(userId: string, vaultId: string): Promise<SharedVaultAccess | null>;
   listForMember(userId: string): Promise<SharedVaultAccess[]>;
+  migrateKeyWrap(
+    userId: string,
+    vaultId: string,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult>;
 }

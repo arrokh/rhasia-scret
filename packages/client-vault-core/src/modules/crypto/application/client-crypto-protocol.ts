@@ -1,4 +1,5 @@
 import { base64ToBytes, base64UrlToBytes, bytesToBase64 } from "../../../shared/application/base64";
+import { clearPrivateJwk } from "./user-encryption-private-key-payload";
 import type { ClientCryptoPort, CryptoPrimitivePort, PortableJsonWebKey } from "./crypto-ports";
 import type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "./encrypted-envelope-types";
 
@@ -110,10 +111,11 @@ export function createClientCryptoPort(primitives: CryptoPrimitivePort): ClientC
     validateKey(vaultKey);
     validatePublicKey(recipientPublicKey);
     const ephemeral = await primitives.generateEcdhKeyPair();
-    validatePrivateKey(ephemeral.privateKey);
-    validatePublicKey(ephemeral.publicKey);
-    const sharedKey = await deriveKey(ephemeral.privateKey, recipientPublicKey, context);
+    let sharedKey: Uint8Array | undefined;
     try {
+      validatePrivateKey(ephemeral.privateKey);
+      validatePublicKey(ephemeral.publicKey);
+      sharedKey = await deriveKey(ephemeral.privateKey, recipientPublicKey, context);
       const encrypted = context
         ? await encrypt(currentVersion, sharedKey, vaultKey, serializeCryptoEnvelopeContext(context))
         : await encrypt(legacyVersion, sharedKey, vaultKey);
@@ -122,7 +124,8 @@ export function createClientCryptoPort(primitives: CryptoPrimitivePort): ClientC
         ephemeralPublicKey: { ...ephemeral.publicKey },
       };
     } finally {
-      sharedKey.fill(0);
+      sharedKey?.fill(0);
+      clearPrivateJwk(ephemeral.privateKey);
     }
   }
 

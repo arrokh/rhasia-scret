@@ -1,6 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { appendVaultAuditEvent, type AuditAction } from "@api/modules/audit/server";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
+import { sha256Digest, toBase64Url } from "@api/shared/infrastructure/crypto";
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import {
   canPerformSharedVaultAccountOperation,
   effectiveSharedVaultAccountPermissions,
@@ -48,6 +53,50 @@ export class PrismaSharedAccountRepository implements SharedAccountRepository {
       await recordAccountAudit(transaction, access.vault, actorUserId, "ACCOUNT_ADDED", account.id);
       return { status: "SUCCESS", value: encryptedAccount(account) };
     });
+  }
+
+  public async migratePayload(
+    actorUserId: string,
+    vaultId: string,
+    accountId: string,
+    expectedRevision: number,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult> {
+    const replacement = copyBytes(migration.replacementCiphertext);
+    try {
+      if (!validAccountMigration(migration, replacement)) return "conflict";
+      return await this.database.$transaction(async (transaction) => {
+        const access = await authorize(transaction, actorUserId, vaultId, "MIGRATE", expectedKeyVersion);
+        if (access.status !== "AUTHORIZED") return "conflict";
+        const account = await transaction.authenticatorAccount.findUnique({
+          where: { id: accountId },
+          select: { vaultId: true, encryptedPayload: true, encryptionVersion: true, revision: true, deletedAt: true },
+        });
+        if (!account || account.vaultId !== vaultId || account.deletedAt || account.encryptionVersion !== 1)
+          return "conflict";
+        const current = copyBytes(account.encryptedPayload);
+        try {
+          const currentDigest = digestString(current);
+          if (currentDigest === migration.replacementCiphertextDigest) return "already-committed";
+          if (
+            account.revision !== expectedRevision ||
+            current[0] !== migration.expectedEnvelopeVersion ||
+            currentDigest !== migration.expectedCiphertextDigest
+          )
+            return "conflict";
+          const updated = await transaction.authenticatorAccount.updateMany({
+            where: { id: accountId, vaultId, revision: expectedRevision, deletedAt: null, encryptedPayload: current },
+            data: { encryptedPayload: replacement },
+          });
+          return updated.count === 1 ? "committed" : "conflict";
+        } finally {
+          current.fill(0);
+        }
+      });
+    } finally {
+      replacement.fill(0);
+    }
   }
 
   public update(
@@ -124,7 +173,7 @@ async function authorize(
   transaction: Prisma.TransactionClient,
   actorUserId: string,
   vaultId: string,
-  operation: SharedVaultAccountPermission,
+  operation: SharedVaultAccountPermission | "MIGRATE",
   expectedKeyVersion?: number,
 ): Promise<
   { status: "AUTHORIZED"; vault: LockedVault } | { status: "REJECTED"; result: SharedAccountMutationResult<never> }
@@ -164,7 +213,7 @@ async function authorize(
       canDeleteAccounts: membership.canDeleteAccountsOverride,
     },
   );
-  if (!canPerformSharedVaultAccountOperation(effective.permissions, operation)) {
+  if (operation !== "MIGRATE" && !canPerformSharedVaultAccountOperation(effective.permissions, operation)) {
     return { status: "REJECTED", result: { status: "PERMISSION_DENIED" } };
   }
   return { status: "AUTHORIZED", vault };
@@ -221,6 +270,28 @@ function encryptedAccount(account: {
     account.encryptionVersion,
     account.revision,
   );
+}
+
+function validAccountMigration(migration: EncryptedPayloadMigration, replacement: Uint8Array): boolean {
+  return (
+    migration.expectedEnvelopeVersion === 1 &&
+    migration.replacementEnvelopeVersion === 2 &&
+    migration.expectedCiphertextDigest.length === 43 &&
+    migration.replacementCiphertextDigest.length === 43 &&
+    migration.operationId === migration.replacementCiphertextDigest &&
+    replacement.length >= 29 &&
+    replacement[0] === 2 &&
+    digestString(replacement) === migration.replacementCiphertextDigest
+  );
+}
+
+function digestString(bytes: Uint8Array): string {
+  const digest = sha256Digest(bytes);
+  try {
+    return toBase64Url(digest);
+  } finally {
+    digest.fill(0);
+  }
 }
 
 function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {

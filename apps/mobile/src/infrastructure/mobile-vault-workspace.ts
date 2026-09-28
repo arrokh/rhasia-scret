@@ -2,7 +2,13 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import {
   createAuthenticatorAccountPayloadPort,
   createUserEncryptionIdentityWithCrypto,
+  commitUserCryptoProfileMigration,
+  commitEncryptedPayloadMigrationTransport,
+  migrateLegacySharedVaultKeyWrapWithCrypto,
+  unwrapSharedVaultKeyWithCrypto,
 } from "@rhasia-scret/client-vault-core";
+import { commitUserEncryptionPrivateKeyMigration } from "@rhasia-scret/client-vault-core/modules/crypto/application/user-encryption-identity-migration-transport";
+import { migrateUserEncryptionPrivateKeyWithCrypto } from "@rhasia-scret/client-vault-core/modules/crypto/application/user-encryption-private-key-migration";
 import {
   clearUnlockedVaultWorkspace,
   evictSharedVaultWorkspace,
@@ -13,12 +19,10 @@ import {
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
 import { AuthorizedWorkspaceTransport, type AuthorizedWorkspaceResponse } from "@rhasia-scret/client-vault-core";
-import {
-  recoverUserEncryptionPrivateKeyWithCrypto,
-  unlockSharedVaultWithCrypto,
-} from "@rhasia-scret/client-vault-core";
+import { recoverUserEncryptionPrivateKeyWithCrypto } from "@rhasia-scret/client-vault-core";
 import type { CancellationPort, NetworkStatusPort, PortDisposer } from "@rhasia-scret/client-vault-core";
 import { nativeClientCrypto } from "./native-client-crypto";
+import { nativeCryptoPrimitives } from "./native-crypto-primitives";
 import { EncryptedOfflineVaultStore } from "./encrypted-offline-vault-store";
 import { nativeOfflineVaultPersistence, nativeOfflineVaultSecureKeys } from "./native-offline-vault-persistence";
 import { bytesToBase64, type AuthenticatedTransport } from "@rhasia-scret/client-vault-core";
@@ -96,6 +100,61 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
     data: {
       snapshotStore: mobileOfflineVaultStore,
       fetchAuthorizedWorkspaceBundle: (signal) => fetchAuthorizedWorkspaceBundle(transport, signal),
+      migrateUserCryptoProfile: (migration, signal) => commitUserCryptoProfileMigration(transport, migration, signal),
+      migratePersonalVaultName: (vaultId, expectedKeyVersion, migration, signal) =>
+        commitEncryptedPayloadMigrationTransport(
+          transport,
+          "/v1/personal-vault/name/migration",
+          { vaultId, expectedKeyVersion },
+          migration,
+          signal,
+        ),
+      migrateSharedVaultName: (vaultId, expectedKeyVersion, migration, signal) =>
+        commitEncryptedPayloadMigrationTransport(
+          transport,
+          `/v1/shared-vaults/${encodeURIComponent(vaultId)}/name/migration`,
+          { expectedKeyVersion },
+          migration,
+          signal,
+        ),
+      migrateSharedVaultKeyWrap: (vaultId, expectedKeyVersion, migration, signal) =>
+        commitEncryptedPayloadMigrationTransport(
+          transport,
+          `/v1/shared-vaults/${encodeURIComponent(vaultId)}/key-wrap/migration`,
+          { expectedKeyVersion },
+          migration,
+          signal,
+        ),
+      migratePersonalAuthenticatorAccount: (
+        vaultId,
+        accountId,
+        expectedRevision,
+        expectedKeyVersion,
+        migration,
+        signal,
+      ) =>
+        commitEncryptedPayloadMigrationTransport(
+          transport,
+          `/v1/vaults/${encodeURIComponent(vaultId)}/accounts/migration`,
+          { accountId, expectedRevision, expectedKeyVersion },
+          migration,
+          signal,
+        ),
+      migrateSharedAuthenticatorAccount: (
+        vaultId,
+        accountId,
+        expectedRevision,
+        expectedKeyVersion,
+        migration,
+        signal,
+      ) =>
+        commitEncryptedPayloadMigrationTransport(
+          transport,
+          `/v1/shared-vaults/${encodeURIComponent(vaultId)}/accounts/migration`,
+          { accountId, expectedRevision, expectedKeyVersion },
+          migration,
+          signal,
+        ),
       registerUserEncryptionIdentity: async (identity, signal) => {
         const response = await transport.request({
           url: "/v1/user-encryption-identity",
@@ -114,36 +173,54 @@ export function createMobileVaultWorkspacePorts(transport: AuthenticatedTranspor
         throw new Error("User Encryption Identity registration failed.");
       },
     },
+    migrationDigest: nativeCryptoPrimitives,
     crypto: {
       unlockPersonalVault: unlockMobilePersonalVault,
       unlockPersonalVaultWithUserRootKey: unlockMobilePersonalVaultWithUserRootKey,
       recoverUserRootKeyWithRememberedBrowser: async () => unsupportedDeviceRecovery(),
       recoverUserRootKeyWithPasskey: async () => unsupportedDeviceRecovery(),
-      rewrapUserCryptoProfile: async (profile) => {
-        const response = await transport.request({
-          url: "/v1/user-crypto-profile/rewrap",
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(profile),
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error("The migrated crypto profile could not be stored.");
-      },
       decryptPayload: nativeClientCrypto.decryptPayload,
       decryptPayloadWithContext: nativeClientCrypto.decryptPayloadWithContext,
+      encryptPayloadWithContext: nativeClientCrypto.encryptPayloadWithContext,
       serializeEncryptedEnvelope: nativeClientCrypto.serializeEncryptedEnvelope,
       deserializeEncryptedEnvelope: nativeClientCrypto.deserializeEncryptedEnvelope,
-      recoverUserEncryptionPrivateKey: (userRootKey, encryptedPrivateKey) =>
-        recoverUserEncryptionPrivateKeyWithCrypto(
+      recoverOrMigratePrivateKey: (userRootKey, encryptedPrivateKey, publicKey, userEncryptionKeyVersion, signal) => {
+        if (encryptedPrivateKey[0] === 1) {
+          return migrateUserEncryptionPrivateKeyWithCrypto(
+            userRootKey,
+            encryptedPrivateKey,
+            publicKey,
+            nativeClientCrypto,
+            nativeCryptoPrimitives,
+            {
+              commitEncryptedPayloadMigration: (request) =>
+                commitUserEncryptionPrivateKeyMigration(transport, userEncryptionKeyVersion, request, signal),
+            },
+          );
+        }
+        return recoverUserEncryptionPrivateKeyWithCrypto(
           userRootKey,
           nativeClientCrypto.deserializeEncryptedEnvelope(encryptedPrivateKey),
           nativeClientCrypto,
-        ),
+        );
+      },
       createUserEncryptionIdentity: (userRootKey) =>
         createUserEncryptionIdentityWithCrypto(userRootKey, nativeClientCrypto),
-      unlockSharedVault: (userRootKey, encryptedVaultKey, encryptedName, context) =>
-        unlockSharedVaultWithCrypto(nativeClientCrypto, userRootKey, encryptedVaultKey, encryptedName, context),
+      unwrapSharedVaultKey: (userRootKey, encryptedVaultKey, context) =>
+        unwrapSharedVaultKeyWithCrypto(nativeClientCrypto, userRootKey, encryptedVaultKey, context),
+      migrateSharedVaultKeyWrap: (userRootKey, encryptedVaultKey, privateKey, publicKey, context, store) =>
+        migrateLegacySharedVaultKeyWrapWithCrypto(
+          userRootKey,
+          encryptedVaultKey,
+          privateKey,
+          publicKey,
+          context,
+          nativeClientCrypto,
+          nativeCryptoPrimitives,
+          store,
+        ),
       decryptAccountConfiguration: accountPayloads.decryptAccountConfiguration,
+      parseDecryptedAccountPayload: accountPayloads.parseDecryptedAccountPayload,
     },
   };
 }

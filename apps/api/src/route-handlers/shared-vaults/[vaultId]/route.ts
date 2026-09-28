@@ -46,7 +46,7 @@ export function createRenameSharedVaultHandler({
   sharedVaults,
 }: {
   authenticate: typeof authenticateApplicationMutation;
-  sharedVaults: SharedVaultRepository;
+  sharedVaults: Pick<SharedVaultRepository, "rename">;
 }) {
   return async (request: ApiRequest, { params }: { params: Promise<{ vaultId: string }> }) => {
     const user = await authenticate(request, "vault_mutation", "fresh-provider-user");

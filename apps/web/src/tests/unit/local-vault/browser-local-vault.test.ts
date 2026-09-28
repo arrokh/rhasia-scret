@@ -1,7 +1,9 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { serializeDecryptedAccountPayload } from "@/modules/authenticator-account";
-import { createEncryptedVaultArchive, generateSymmetricKey } from "@/modules/crypto";
+import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
+import { createEncryptedVaultArchive, deriveVaultUnlockKey, generateSymmetricKey } from "@/modules/crypto";
+import { browserClientCryptoPort } from "@/modules/crypto/infrastructure/browser-client-crypto-port";
 import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive/infrastructure/browser-vault-archive-workflow";
 import {
   BrowserLocalVaultRepository,
@@ -10,9 +12,12 @@ import {
   clearUnlockedLocalVault,
   createLocalVault,
   deleteLocalAccount,
+  LocalVaultMigrationRequiredError,
+  migrateLegacyLocalVault,
   exportLocalVault,
   importLocalVaultArchive,
   parseLocalVaultRecord,
+  type LocalVaultRecord,
   previewLocalVaultArchive,
   renameLocalVault,
   unlockLocalVault,
@@ -21,8 +26,8 @@ import {
 
 function account() {
   return {
-    issuer: "Example",
-    accountName: "alice@example.com",
+    issuer: "Example Issuer",
+    accountName: "alice@example.invalid",
     secret: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
     algorithm: "SHA-1" as const,
     digits: 6 as const,
@@ -47,6 +52,68 @@ describe("device-local Local Vault", () => {
     expect(unlocked.name).toBe("Device vault");
     expect(unlocked.accounts).toEqual([]);
     clearUnlockedLocalVault(unlocked);
+  });
+
+  it("atomically migrates every validated Local Vault payload and preserves data on failed unlock", async () => {
+    const passphrase = "local-migration-passphrase";
+    const created = await createLocalVault(passphrase, "Synthetic device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    const unlocked = await unlockLocalVault(created, passphrase);
+    await addLocalAccount(unlocked, account());
+    clearUnlockedLocalVault(unlocked);
+    const v2Record = await repository.read();
+    expect(v2Record).not.toBeNull();
+    const legacyRecord = await legacyLocalVaultRecord(v2Record!, passphrase);
+    await repository.replace(legacyRecord);
+
+    await expect(unlockLocalVault(legacyRecord, passphrase)).rejects.toBeInstanceOf(LocalVaultMigrationRequiredError);
+    await expect(migrateLegacyLocalVault("incorrect synthetic passphrase")).rejects.toThrow();
+    expect(await repository.read()).toEqual(legacyRecord);
+
+    const migrated = await migrateLegacyLocalVault(passphrase);
+    const legacyEnvelopes = [
+      legacyRecord.wrappedLocalRootKey,
+      legacyRecord.encryptedLocalVaultKey,
+      legacyRecord.encryptedVaultName,
+      ...legacyRecord.accounts.map(({ encryptedPayload }) => encryptedPayload),
+    ];
+    const migratedEnvelopes = [
+      migrated.wrappedLocalRootKey,
+      migrated.encryptedLocalVaultKey,
+      migrated.encryptedVaultName,
+      ...migrated.accounts.map(({ encryptedPayload }) => encryptedPayload),
+    ];
+    for (const [index, ciphertext] of migratedEnvelopes.entries()) {
+      const bytes = base64ToBytes(ciphertext);
+      const oldNonce = envelopeNonce(legacyEnvelopes[index]!);
+      const newNonce = envelopeNonce(ciphertext);
+      try {
+        expect(bytes[0]).toBe(2);
+        expect(newNonce).not.toEqual(oldNonce);
+      } finally {
+        bytes.fill(0);
+        oldNonce.fill(0);
+        newNonce.fill(0);
+      }
+    }
+    expect(await repository.read()).toEqual(migrated);
+    expect(migrated).not.toEqual(legacyRecord);
+    const reopened = await unlockLocalVault(migrated, passphrase);
+    expect(reopened.name).toBe("Synthetic device vault");
+    expect(reopened.accounts).toMatchObject([{ issuer: "Example Issuer", accountName: "alice@example.invalid" }]);
+    expect([...reopened.accounts[0]!.secret]).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    clearUnlockedLocalVault(reopened);
+
+    const malformedPlaintext = new TextEncoder().encode("not-json");
+    try {
+      const malformedRecord = await legacyLocalVaultRecord(v2Record!, passphrase, malformedPlaintext);
+      await repository.replace(malformedRecord);
+      await expect(migrateLegacyLocalVault(passphrase)).rejects.toThrow();
+      expect(await repository.read()).toEqual(malformedRecord);
+    } finally {
+      malformedPlaintext.fill(0);
+    }
   });
 
   it("atomically persists CRUD, duplicate detection, lock disposal, and malformed-record rejection", async () => {
@@ -135,7 +202,7 @@ describe("device-local Local Vault", () => {
       expect(emptyVault.accounts).toHaveLength(0);
       const refreshed = await unlockLocalVault((await new BrowserLocalVaultRepository().read())!, "local-passphrase");
       expect(refreshed.accounts).toHaveLength(1);
-      expect(refreshed.accounts[0]).toMatchObject({ issuer: "Example", accountName: "alice@example.com" });
+      expect(refreshed.accounts[0]).toMatchObject({ issuer: "Example Issuer", accountName: "alice@example.invalid" });
       clearUnlockedLocalVault(refreshed);
     } finally {
       plaintext.fill(0);
@@ -144,3 +211,96 @@ describe("device-local Local Vault", () => {
     }
   }, 30_000);
 });
+
+async function legacyLocalVaultRecord(
+  record: LocalVaultRecord,
+  passphrase: string,
+  accountPlaintextOverride?: Uint8Array,
+): Promise<LocalVaultRecord> {
+  const salt = base64ToBytes(record.kdf.salt);
+  let unlockKey: Uint8Array | undefined;
+  let rootKey: Uint8Array | undefined;
+  let vaultKey: Uint8Array | undefined;
+  const nameBytes = new TextEncoder().encode("Synthetic device vault");
+  const configuration = account();
+  const accountPlaintext = accountPlaintextOverride?.slice() ?? serializeDecryptedAccountPayload(configuration);
+  try {
+    unlockKey = await deriveVaultUnlockKey(passphrase, salt);
+    rootKey = await decryptV2Payload(unlockKey, record.wrappedLocalRootKey, {
+      purpose: "local-root-key-wrap",
+      payloadType: "local-root-key",
+      profileId: record.profileId,
+      keyVersion: 1,
+    });
+    vaultKey = await decryptV2Payload(rootKey, record.encryptedLocalVaultKey, {
+      purpose: "vault-key-wrap",
+      payloadType: "vault-encryption-key",
+      profileId: record.profileId,
+      keyVersion: 1,
+    });
+    const localVaultKey = vaultKey;
+    return {
+      ...record,
+      wrappedLocalRootKey: await encryptLegacyPayload(unlockKey, rootKey),
+      encryptedLocalVaultKey: await encryptLegacyPayload(rootKey, vaultKey),
+      encryptedVaultName: await encryptLegacyPayload(vaultKey, nameBytes),
+      accounts: await Promise.all(
+        record.accounts.map(async (entry) => ({
+          ...entry,
+          encryptedPayload: await encryptLegacyPayload(localVaultKey, accountPlaintext),
+        })),
+      ),
+    };
+  } finally {
+    salt.fill(0);
+    unlockKey?.fill(0);
+    rootKey?.fill(0);
+    vaultKey?.fill(0);
+    nameBytes.fill(0);
+    configuration.secret.fill(0);
+    accountPlaintext.fill(0);
+  }
+}
+
+function envelopeNonce(encoded: string): Uint8Array {
+  const ciphertext = base64ToBytes(encoded);
+  let envelope: ReturnType<typeof browserClientCryptoPort.deserializeEncryptedEnvelope> | undefined;
+  try {
+    envelope = browserClientCryptoPort.deserializeEncryptedEnvelope(ciphertext);
+    return envelope.nonce.slice();
+  } finally {
+    ciphertext.fill(0);
+    envelope?.nonce.fill(0);
+    envelope?.ciphertext.fill(0);
+  }
+}
+
+async function decryptV2Payload(
+  key: Uint8Array,
+  encoded: string,
+  context: Parameters<typeof browserClientCryptoPort.decryptPayloadWithContext>[2],
+): Promise<Uint8Array> {
+  const ciphertext = base64ToBytes(encoded);
+  let envelope: ReturnType<typeof browserClientCryptoPort.deserializeEncryptedEnvelope> | undefined;
+  try {
+    envelope = browserClientCryptoPort.deserializeEncryptedEnvelope(ciphertext);
+    return await browserClientCryptoPort.decryptPayloadWithContext(key, envelope, context);
+  } finally {
+    ciphertext.fill(0);
+    envelope?.nonce.fill(0);
+    envelope?.ciphertext.fill(0);
+  }
+}
+
+async function encryptLegacyPayload(key: Uint8Array, plaintext: Uint8Array): Promise<string> {
+  const envelope = await browserClientCryptoPort.encryptPayload(key, plaintext);
+  let serialized: Uint8Array | undefined;
+  try {
+    serialized = browserClientCryptoPort.serializeEncryptedEnvelope(envelope);
+    return bytesToBase64(serialized);
+  } finally {
+    envelope.nonce.fill(0);
+    envelope.ciphertext.fill(0);
+    serialized?.fill(0);
+  }
+}

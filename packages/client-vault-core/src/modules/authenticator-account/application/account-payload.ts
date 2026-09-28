@@ -20,14 +20,17 @@ export function createAuthenticatorAccountPayloadPort(crypto: ClientCryptoPort):
     },
     decryptAccountConfiguration: async (vaultKey, encryptedPayload, context = accountContext()) => {
       const envelope = crypto.deserializeEncryptedEnvelope(encryptedPayload);
-      const plaintext =
-        envelope.version === 1
-          ? await crypto.decryptPayload(vaultKey, envelope)
-          : await crypto.decryptPayloadWithContext(vaultKey, envelope, context);
       try {
-        return parseDecryptedAccountPayload(plaintext);
+        if (envelope.version !== 2) throw new Error("Legacy account payload requires explicit migration.");
+        const plaintext = await crypto.decryptPayloadWithContext(vaultKey, envelope, context);
+        try {
+          return parseDecryptedAccountPayload(plaintext);
+        } finally {
+          plaintext.fill(0);
+        }
       } finally {
-        plaintext.fill(0);
+        envelope.nonce.fill(0);
+        envelope.ciphertext.fill(0);
       }
     },
     serializeDecryptedAccountPayload,

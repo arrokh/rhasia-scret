@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { waitForBrowserApi } from "./browser-api-readiness";
 
 const webPort = process.argv[2] ?? process.env.BROWSER_TEST_PORT ?? "3100";
 const apiPort = process.env.BROWSER_API_PORT ?? String(Number(webPort) + 5687);
@@ -81,14 +82,20 @@ async function main(): Promise<void> {
   });
   children.add(api);
 
-  api.once("error", (error) => fail(`API server failed to start: ${error.message}`));
+  let apiStartupFailure: string | undefined;
+  api.once("error", (error) => {
+    apiStartupFailure = `API server failed to start: ${error.message}`;
+    fail(apiStartupFailure);
+  });
   api.once("exit", (code, signal) => {
     children.delete(api);
-    if (!stopping) fail(`API server exited (${code ?? signal ?? "unknown"}).`);
+    if (stopping) return;
+    apiStartupFailure = `API server exited (${code ?? signal ?? "unknown"}).`;
+    fail(apiStartupFailure);
   });
 
   try {
-    await waitForApi(apiOrigin);
+    await waitForBrowserApi(apiOrigin, () => apiStartupFailure);
     const web = spawn(command, ["exec", "next", "dev", "-p", webPort], {
       cwd: process.cwd(),
       env: createScopedEnvironment(
@@ -119,20 +126,6 @@ async function main(): Promise<void> {
 }
 
 void main();
-async function waitForApi(origin: string): Promise<void> {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${origin}/v1/health`);
-      if (response.ok) return;
-    } catch {
-      // The API process may still be starting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error("Timed out waiting for the API browser-test server.");
-}
-
 function createScopedEnvironment(overrides: NodeJS.ProcessEnv, blockedKeys: readonly string[]): NodeJS.ProcessEnv {
   const environment = { ...process.env, ...overrides };
   for (const key of blockedKeys) delete environment[key];

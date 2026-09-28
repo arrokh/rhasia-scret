@@ -17,7 +17,7 @@ const schema = z
 
 type Dependencies = {
   authenticate: typeof authenticateApplicationMutation;
-  cryptoProfiles: UserCryptoProfileRepository;
+  cryptoProfiles: Pick<UserCryptoProfileRepository, "rewrapUserRootKey">;
 };
 
 export function createRewrapUserRootKeyHandler({ authenticate, cryptoProfiles }: Dependencies) {

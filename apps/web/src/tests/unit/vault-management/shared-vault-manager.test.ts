@@ -760,6 +760,14 @@ describe("dedicated Vault management", () => {
         invitedAt: "2026-07-26T12:00:00.000Z",
       },
       {
+        key: "member:viewer-2",
+        email: "second-viewer@example.test",
+        kind: "MEMBER",
+        userId: "viewer-2",
+        invitationId: null,
+        invitedAt: "2026-07-26T12:00:00.000Z",
+      },
+      {
         key: "invitation:pending-1",
         email: "pending@example.test",
         kind: "INVITATION",
@@ -791,7 +799,12 @@ describe("dedicated Vault management", () => {
     );
     await act(async () => clickTab(container, "Undangan"));
     await vi.waitFor(() => expect(container.textContent).toContain("viewer@example.test"));
+    expect(container.textContent).toContain("second-viewer@example.test");
     expect(container.textContent).toContain("pending@example.test");
+    const invitedUsers = container.querySelector('[aria-labelledby="invited-users-title"]');
+    expect(
+      invitedUsers?.querySelectorAll('button[aria-label="Buka panduan: Izin anggota Brankas Bersama"]'),
+    ).toHaveLength(1);
     const copyExistingInvitation = findButton(container, "Tautan undangan tidak tersedia untuk pending@example.test");
     await act(async () => copyExistingInvitation.click());
     expect(container.textContent).toContain("Tautan aman asli hanya tersedia saat undangan dibuat");

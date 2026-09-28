@@ -1,3 +1,7 @@
+import type {
+  EncryptedPayloadMigration,
+  EncryptedPayloadMigrationResult,
+} from "@api/shared/application/encrypted-payload-migration";
 import type { EncryptedAuthenticatorAccount } from "../domain/encrypted-account";
 
 export type NewEncryptedAccount = {
@@ -9,6 +13,14 @@ export type NewEncryptedAccount = {
 export interface PersonalAccountRepository {
   create(ownerId: string, vaultId: string, account: NewEncryptedAccount): Promise<EncryptedAuthenticatorAccount>;
   list(ownerId: string, vaultId: string): Promise<EncryptedAuthenticatorAccount[]>;
+  migratePayload(
+    ownerId: string,
+    vaultId: string,
+    accountId: string,
+    expectedRevision: number,
+    expectedKeyVersion: number,
+    migration: EncryptedPayloadMigration,
+  ): Promise<EncryptedPayloadMigrationResult>;
   update(
     ownerId: string,
     vaultId: string,

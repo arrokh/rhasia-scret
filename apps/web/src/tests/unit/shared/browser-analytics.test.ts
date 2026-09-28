@@ -181,6 +181,76 @@ describe("browser analytics", () => {
       method: "passkey",
       failure_code: "passkey_error",
     });
+
+    const rootKeyWrapFailure = sanitizeAnalyticsCapture({
+      uuid: "root-key-wrap-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "root_key_wrap_failed",
+        passphrase: "must-not-be-captured",
+      },
+    });
+    expect(rootKeyWrapFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "root_key_wrap_failed",
+    });
+
+    const keyDerivationFailure = sanitizeAnalyticsCapture({
+      uuid: "key-derivation-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "key_derivation_failed",
+        profile_id: "private-profile-id",
+      },
+    });
+    expect(keyDerivationFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "key_derivation_failed",
+    });
+
+    const workspaceProcessingFailure = sanitizeAnalyticsCapture({
+      uuid: "workspace-processing-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "workspace_processing_failed",
+        workspace_id: "private-workspace-id",
+      },
+    });
+    expect(workspaceProcessingFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "workspace_processing_failed",
+    });
+
+    const vaultNameFailure = sanitizeAnalyticsCapture({
+      uuid: "vault-name-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "personal_vault_name_decryption_failed",
+        vault_name: "private-vault-name",
+      },
+    });
+    expect(vaultNameFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "personal_vault_name_decryption_failed",
+    });
+
+    const privateKeyRecoveryFailure = sanitizeAnalyticsCapture({
+      uuid: "private-key-recovery-failure-test-uuid",
+      event: ANALYTICS_EVENTS.vaultUnlockFailed,
+      properties: {
+        method: "passphrase",
+        failure_code: "user_encryption_key_decryption_failed",
+        encrypted_private_key: "private-key-material",
+      },
+    });
+    expect(privateKeyRecoveryFailure?.properties).toEqual({
+      method: "passphrase",
+      failure_code: "user_encryption_key_decryption_failed",
+    });
   });
 
   it("keeps error properties only on bounded explicit error events", () => {

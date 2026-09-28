@@ -1,6 +1,5 @@
 "use client";
 
-import type { CryptoEnvelopeContext } from "@rhasia-scret/client-vault-core";
 import { browserClientCryptoPort } from "./browser-client-crypto-port";
 
 export type { CryptoEnvelopeContext, EncryptedEnvelope, KeyWrapEnvelope } from "@rhasia-scret/client-vault-core";
@@ -29,20 +28,3 @@ export const serializeKeyWrapEnvelope = browserClientCryptoPort.serializeKeyWrap
 export const deserializeKeyWrapEnvelope = browserClientCryptoPort.deserializeKeyWrapEnvelope;
 export const unwrapKeyForRecipient = browserClientCryptoPort.unwrapKeyForRecipient;
 export const unwrapKeyForRecipientWithContext = browserClientCryptoPort.unwrapKeyForRecipientWithContext;
-
-export async function migrateLegacyEncryptedPayload(
-  keyBytes: Uint8Array,
-  legacyBytes: Uint8Array,
-  context: CryptoEnvelopeContext,
-): Promise<Uint8Array> {
-  const legacy = browserClientCryptoPort.deserializeEncryptedEnvelope(legacyBytes);
-  if (legacy.version !== 1) throw new Error("Only legacy envelopes can enter the migration path.");
-  const plaintext = await browserClientCryptoPort.decryptPayload(keyBytes, legacy);
-  try {
-    return browserClientCryptoPort.serializeEncryptedEnvelope(
-      await browserClientCryptoPort.encryptPayloadWithContext(keyBytes, plaintext, context),
-    );
-  } finally {
-    plaintext.fill(0);
-  }
-}

@@ -113,12 +113,50 @@ type AnalyticsEventProperties = {
   vault_unlocked: { method: AnalyticsVaultUnlockMethod };
   vault_unlock_failed: {
     method: AnalyticsVaultUnlockMethod;
-    failure_code: "invalid_secret" | "remembered_browser_error" | "passkey_error" | "unknown";
+    failure_code:
+      | "authentication_failed"
+      | "crypto_unlock_failed"
+      | "invalid_secret"
+      | "key_derivation_failed"
+      | "local_storage_failed"
+      | "personal_vault_key_wrap_failed"
+      | "personal_vault_mismatch"
+      | "personal_vault_name_decryption_failed"
+      | "profile_data_invalid"
+      | "profile_migration_failed"
+      | "profile_rewrap_failed"
+      | "root_key_wrap_failed"
+      | "remembered_browser_error"
+      | "passkey_error"
+      | "sync_failed"
+      | "unknown"
+      | "workspace_bundle_invalid"
+      | "workspace_processing_failed"
+      | "workspace_response_failed"
+      | "vault_content_decryption_failed"
+      | "user_encryption_key_recovery_failed"
+      | "user_encryption_envelope_invalid"
+      | "user_encryption_key_decryption_failed"
+      | "user_encryption_legacy_envelope"
+      | "user_encryption_private_key_invalid";
   };
   offline_vault_unlocked: { method: AnalyticsOfflineUnlockMethod };
   offline_vault_unlock_failed: {
     method: AnalyticsOfflineUnlockMethod;
-    failure_code: "invalid_secret" | "remembered_browser_error";
+    failure_code:
+      | "authentication_failed"
+      | "invalid_secret"
+      | "key_derivation_failed"
+      | "local_storage_failed"
+      | "personal_vault_key_wrap_failed"
+      | "personal_vault_name_decryption_failed"
+      | "profile_data_invalid"
+      | "profile_migration_failed"
+      | "root_key_wrap_failed"
+      | "remembered_browser_error"
+      | "sync_failed"
+      | "unknown"
+      | "user_encryption_key_recovery_failed";
   };
   offline_vault_locked: undefined;
   offline_vault_cleared: undefined;
@@ -353,9 +391,30 @@ function isAllowedExplicitProperty(event: string, property: string, value: unkno
     return [
       "rate_limited",
       "provider_error",
+      "authentication_failed",
+      "crypto_unlock_failed",
       "invalid_secret",
+      "key_derivation_failed",
+      "local_storage_failed",
+      "personal_vault_key_wrap_failed",
+      "personal_vault_mismatch",
+      "personal_vault_name_decryption_failed",
+      "profile_data_invalid",
+      "profile_migration_failed",
+      "profile_rewrap_failed",
+      "root_key_wrap_failed",
       "remembered_browser_error",
       "passkey_error",
+      "sync_failed",
+      "workspace_bundle_invalid",
+      "workspace_processing_failed",
+      "workspace_response_failed",
+      "vault_content_decryption_failed",
+      "user_encryption_key_recovery_failed",
+      "user_encryption_envelope_invalid",
+      "user_encryption_key_decryption_failed",
+      "user_encryption_legacy_envelope",
+      "user_encryption_private_key_invalid",
       "migration_required",
       "permission_denied",
       "duplicate",

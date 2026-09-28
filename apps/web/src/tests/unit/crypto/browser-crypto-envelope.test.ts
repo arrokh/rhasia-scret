@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { browserSha256Digest } from "@/modules/crypto/infrastructure/browser-sha256-digest";
 import {
   decryptPayload,
   decryptPayloadWithContext,
-  deserializeEncryptedEnvelope,
   encryptPayload,
   encryptPayloadWithContext,
   generateSymmetricKey,
   generateUserEncryptionKeyPair,
-  migrateLegacyEncryptedPayload,
   serializeKeyWrapEnvelope,
   deserializeKeyWrapEnvelope,
   unwrapKeyForRecipient,
@@ -17,6 +16,15 @@ import {
 } from "@/modules/crypto/infrastructure/browser-crypto-envelope";
 
 describe("browser crypto envelopes", () => {
+  it("computes a SHA-256 ciphertext fingerprint", async () => {
+    const input = new TextEncoder().encode("abc");
+    const digest = await browserSha256Digest.digestSha256(input);
+
+    expect(bytesToHex(digest)).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    input.fill(0);
+    digest.fill(0);
+  });
+
   it("encrypts and authenticates a payload with AES-256-GCM", async () => {
     const key = generateSymmetricKey();
     const plaintext = new TextEncoder().encode("private vault content");
@@ -27,7 +35,7 @@ describe("browser crypto envelopes", () => {
     );
   });
 
-  it("binds version 2 ciphertext to its semantic context and migrates legacy bytes explicitly", async () => {
+  it("binds version 2 ciphertext to its semantic context and rejects v1 contextual reads", async () => {
     const key = generateSymmetricKey();
     const plaintext = new TextEncoder().encode("context-bound content");
     const context = {
@@ -44,13 +52,8 @@ describe("browser crypto envelopes", () => {
     );
     await expect(decryptPayloadWithContext(key, envelope, context)).resolves.toEqual(plaintext);
     const legacy = await encryptPayload(key, plaintext);
-    const migrated = await migrateLegacyEncryptedPayload(
-      key,
-      new Uint8Array([1, ...legacy.nonce, ...legacy.ciphertext]),
-      context,
-    );
-    await expect(decryptPayloadWithContext(key, deserializeEncryptedEnvelope(migrated), context)).resolves.toEqual(
-      plaintext,
+    expect(() => decryptPayloadWithContext(key, legacy, context)).toThrow(
+      "Legacy envelope requires an explicit migration before use.",
     );
   });
 
@@ -74,3 +77,7 @@ describe("browser crypto envelopes", () => {
     await expect(unwrapKeyForRecipient(legacy, pair.privateKey)).resolves.toEqual(vaultKey);
   });
 });
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}

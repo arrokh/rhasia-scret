@@ -1,8 +1,7 @@
 import { LockKeyhole } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { InvitationRedemptionWorkspace } from "@/modules/authenticator-account";
-import { loadVaultPageContext, VaultPageFrame } from "@/modules/vault-management/page";
-import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
+import { loadVaultPageContext, PersonalVaultSetupFormBoundary, VaultPageFrame } from "@/modules/vault-management/page";
 import { SectionHeading } from "@/shared/presentation/app-ui";
 import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 
@@ -38,7 +37,7 @@ async function InvitationContent() {
           description={vaultsT("setupIntro")}
           action={<ContextualHelpButton topic="personalVaultSetup" />}
         />
-        <PersonalVaultSetupForm afterInitializationPath="/vaults/invitations/redeem" />
+        <PersonalVaultSetupFormBoundary afterInitializationPath="/vaults/invitations/redeem" />
       </div>
     );
   return <InvitationRedemptionWorkspace personalVaultId={personalVault.id} />;

@@ -36,7 +36,7 @@ describe("Shared Vault route contracts", () => {
     ]);
     const handler = createListSharedVaultsHandler({
       authenticate: async () => user,
-      sharedVaultAccess: { getForMember: vi.fn(), listForMember },
+      sharedVaultAccess: { listForMember },
     });
 
     const response = await handler(request("/v1/shared-vaults"));
@@ -64,7 +64,7 @@ describe("Shared Vault route contracts", () => {
     const rename = vi.fn().mockResolvedValue(true);
     const handler = createRenameSharedVaultHandler({
       authenticate: async () => user,
-      sharedVaults: { create: vi.fn(), rename },
+      sharedVaults: { rename },
     });
     const encryptedName = btoa("encrypted-renamed-vault");
 
@@ -85,12 +85,12 @@ describe("Shared Vault route contracts", () => {
     const create = vi.fn();
     const unauthenticated = createSharedVaultHandler({
       authenticate: async () => ApiResponse.json({ error: "unauthenticated" }, { status: 401 }),
-      sharedVaults: { create, rename: vi.fn() },
+      sharedVaults: { create },
     });
     const limited = createSharedVaultHandler({
       authenticate: async () =>
         ApiResponse.json({ error: "rate_limited" }, { status: 429, headers: { "retry-after": "20" } }),
-      sharedVaults: { create, rename: vi.fn() },
+      sharedVaults: { create },
     });
 
     const rejected = await unauthenticated(request("/v1/shared-vaults", { method: "POST", body: "invalid" }));
@@ -107,7 +107,7 @@ describe("Shared Vault route contracts", () => {
     const create = vi.fn().mockResolvedValue(new Vault("vault-1", "SHARED", "user-1"));
     const handler = createSharedVaultHandler({
       authenticate: async () => user,
-      sharedVaults: { create, rename: vi.fn() },
+      sharedVaults: { create },
     });
 
     const response = await handler(request("/v1/shared-vaults", { method: "POST", body: JSON.stringify(payload) }));

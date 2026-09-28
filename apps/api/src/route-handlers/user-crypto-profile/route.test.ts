@@ -20,11 +20,7 @@ describe("GET /v1/user-crypto-profile contract", () => {
   it("returns encrypted profile material and no plaintext identity data", async () => {
     const handler = createGetUserCryptoProfileHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => profile,
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey: async () => undefined,
-      },
+      cryptoProfiles: { get: async () => profile },
     });
 
     const response = await handler(request);
@@ -43,11 +39,7 @@ describe("GET /v1/user-crypto-profile contract", () => {
   it("returns a generic initialization miss and does not expose authentication failures", async () => {
     const missing = createGetUserCryptoProfileHandler({
       authenticate: async () => user,
-      cryptoProfiles: {
-        get: async () => null,
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey: async () => undefined,
-      },
+      cryptoProfiles: { get: async () => null },
     });
     const denied = createGetUserCryptoProfileHandler({
       authenticate: async () => ApiResponse.json({ error: "unauthenticated" }, { status: 401 }),
@@ -55,8 +47,6 @@ describe("GET /v1/user-crypto-profile contract", () => {
         get: async () => {
           throw new Error("must not read");
         },
-        registerUserEncryptionIdentity: async () => true,
-        rewrapUserRootKey: async () => undefined,
       },
     });
 

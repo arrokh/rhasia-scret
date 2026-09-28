@@ -18,6 +18,7 @@ import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
+  type BrowserVaultWorkspaceUnlockFailure,
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser,
@@ -53,6 +54,7 @@ export function VaultWorkspaceUnlock({
           method: "passphrase",
           failure_code: failure.failureCode,
         });
+        console.warn("[vault-unlock] Unlock failed", { failure_code: failure.failureCode });
         setStatus(failure.status);
       }
     },
@@ -186,16 +188,20 @@ export function VaultWorkspaceUnlock({
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}
           </div>
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => void unlockRememberedBrowser()}
-            disabled={rememberedUnlocking || passkeyUnlocking}
-            aria-busy={rememberedUnlocking}
-          >
-            {rememberedUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
-            {rememberedUnlocking ? t("verifyingDevice") : t("localVerification")}
-          </Button>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => void unlockRememberedBrowser()}
+                disabled={isSubmitting || rememberedUnlocking || passkeyUnlocking}
+                aria-busy={rememberedUnlocking}
+              >
+                {rememberedUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
+                {rememberedUnlocking ? t("verifyingDevice") : t("localVerification")}
+              </Button>
+            )}
+          </form.Subscribe>
           <p className="text-center text-xs leading-5 text-muted-foreground">{t("rememberedHelp")}</p>
         </>
       )}
@@ -204,16 +210,20 @@ export function VaultWorkspaceUnlock({
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}
           </div>
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => void unlockWithPasskey()}
-            disabled={passkeyUnlocking || rememberedUnlocking}
-            aria-busy={passkeyUnlocking}
-          >
-            {passkeyUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
-            {passkeyUnlocking ? t("verifyingPasskey") : t("passkey")}
-          </Button>
+          <form.Subscribe<boolean> selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => void unlockWithPasskey()}
+                disabled={isSubmitting || passkeyUnlocking || rememberedUnlocking}
+                aria-busy={passkeyUnlocking}
+              >
+                {passkeyUnlocking ? <LoaderCircle className="animate-spin" /> : <Fingerprint />}
+                {passkeyUnlocking ? t("verifyingPasskey") : t("passkey")}
+              </Button>
+            )}
+          </form.Subscribe>
         </>
       )}
       <Button variant="link" asChild>
@@ -266,14 +276,49 @@ export function VaultWorkspaceUnlock({
           {t("syncError")}
         </StatusBanner>
       )}
+      {status === "unlock_error" && (
+        <StatusBanner tone="danger" role="alert">
+          {t("unlockError")}
+        </StatusBanner>
+      )}
     </form>
   );
 }
 
 type UnlockStatus =
-  "idle" | "secret_error" | "passkey_error" | "remembered_error" | "authentication_error" | "sync_error";
-type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error">;
-type UnlockAnalyticsFailureCode = "invalid_secret" | "remembered_browser_error" | "passkey_error";
+  | "idle"
+  | "secret_error"
+  | "passkey_error"
+  | "remembered_error"
+  | "authentication_error"
+  | "sync_error"
+  | "unlock_error";
+type UnlockFallbackStatus = Exclude<UnlockStatus, "idle" | "authentication_error" | "sync_error" | "unlock_error">;
+type UnlockAnalyticsFailureCode =
+  | "authentication_failed"
+  | "crypto_unlock_failed"
+  | "invalid_secret"
+  | "key_derivation_failed"
+  | "local_storage_failed"
+  | "personal_vault_key_wrap_failed"
+  | "personal_vault_mismatch"
+  | "personal_vault_name_decryption_failed"
+  | "profile_data_invalid"
+  | "profile_rewrap_failed"
+  | "profile_migration_failed"
+  | "root_key_wrap_failed"
+  | "remembered_browser_error"
+  | "sync_failed"
+  | "passkey_error"
+  | "workspace_bundle_invalid"
+  | "workspace_processing_failed"
+  | "workspace_response_failed"
+  | "vault_content_decryption_failed"
+  | "user_encryption_key_recovery_failed"
+  | "user_encryption_envelope_invalid"
+  | "user_encryption_key_decryption_failed"
+  | "user_encryption_legacy_envelope"
+  | "user_encryption_private_key_invalid";
 
 function classifyWorkspaceUnlockFailure(
   error: unknown,
@@ -281,7 +326,43 @@ function classifyWorkspaceUnlockFailure(
   fallbackCode: UnlockAnalyticsFailureCode,
 ): { status: UnlockStatus; failureCode: UnlockAnalyticsFailureCode | "unknown" } {
   const failure = classifyBrowserVaultWorkspaceUnlockFailure(error);
-  if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "unknown" };
-  if (failure === "LOCAL_STORAGE" || failure === "SYNC") return { status: "sync_error", failureCode: "unknown" };
-  return { status: fallbackStatus, failureCode: fallbackCode };
+  if (failure === "AUTHENTICATION") return { status: "authentication_error", failureCode: "authentication_failed" };
+  if (failure === "LOCAL_STORAGE") return { status: "sync_error", failureCode: "local_storage_failed" };
+  if (failure === "SYNC") return { status: "sync_error", failureCode: "sync_failed" };
+  if (failure === "KEY_DERIVATION_FAILED") return { status: "unlock_error", failureCode: "key_derivation_failed" };
+  if (failure === "PROFILE_DATA_INVALID") return { status: "unlock_error", failureCode: "profile_data_invalid" };
+  if (failure === "PROFILE_MIGRATION_FAILED")
+    return { status: "unlock_error", failureCode: "profile_migration_failed" };
+  if (failure === "ROOT_KEY_WRAP_FAILED") return { status: "unlock_error", failureCode: "root_key_wrap_failed" };
+  if (failure === "PERSONAL_VAULT_KEY_WRAP_FAILED")
+    return { status: "unlock_error", failureCode: "personal_vault_key_wrap_failed" };
+  const diagnosticFailureCode = workspaceDiagnosticFailureCode(failure);
+  if (diagnosticFailureCode)
+    return {
+      status: fallbackStatus === "secret_error" ? "unlock_error" : fallbackStatus,
+      failureCode: diagnosticFailureCode,
+    };
+  if (failure === "PASSPHRASE") return { status: fallbackStatus, failureCode: fallbackCode };
+  if (failure === "UNKNOWN" && fallbackStatus !== "secret_error")
+    return { status: fallbackStatus, failureCode: fallbackCode };
+  return { status: "unlock_error", failureCode: "unknown" };
+}
+
+function workspaceDiagnosticFailureCode(
+  failure: BrowserVaultWorkspaceUnlockFailure,
+): UnlockAnalyticsFailureCode | undefined {
+  if (failure === "CRYPTO_UNLOCK_FAILED") return "crypto_unlock_failed";
+  if (failure === "PERSONAL_VAULT_MISMATCH") return "personal_vault_mismatch";
+  if (failure === "PERSONAL_VAULT_NAME_DECRYPTION_FAILED") return "personal_vault_name_decryption_failed";
+  if (failure === "USER_ENCRYPTION_ENVELOPE_INVALID") return "user_encryption_envelope_invalid";
+  if (failure === "USER_ENCRYPTION_LEGACY_ENVELOPE") return "user_encryption_legacy_envelope";
+  if (failure === "USER_ENCRYPTION_KEY_DECRYPTION_FAILED") return "user_encryption_key_decryption_failed";
+  if (failure === "USER_ENCRYPTION_PRIVATE_KEY_INVALID") return "user_encryption_private_key_invalid";
+  if (failure === "USER_ENCRYPTION_KEY_RECOVERY_FAILED") return "user_encryption_key_recovery_failed";
+  if (failure === "PROFILE_REWRAP_FAILED") return "profile_rewrap_failed";
+  if (failure === "VAULT_CONTENT_DECRYPTION_FAILED") return "vault_content_decryption_failed";
+  if (failure === "WORKSPACE_BUNDLE_INVALID") return "workspace_bundle_invalid";
+  if (failure === "WORKSPACE_PROCESSING_FAILED") return "workspace_processing_failed";
+  if (failure === "WORKSPACE_RESPONSE_FAILED") return "workspace_response_failed";
+  return undefined;
 }

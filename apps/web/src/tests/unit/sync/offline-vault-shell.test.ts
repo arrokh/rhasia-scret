@@ -8,17 +8,23 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({
   clear: vi.fn(),
   clearWorkspace: vi.fn(),
+  classifyUnlockFailure: vi.fn(),
+  captureAnalytics: vi.fn(),
   listProfiles: vi.fn(),
   loadOffline: vi.fn(),
   loadRemembered: vi.fn(),
   refresh: vi.fn(),
 }));
 vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
+  classifyBrowserVaultWorkspaceUnlockFailure: mocks.classifyUnlockFailure,
   clearUnlockedVaultWorkspace: mocks.clearWorkspace,
   evictSharedVaultWorkspace: (workspace: unknown) => workspace,
   loadOfflineVaultWorkspace: mocks.loadOffline,
   loadOfflineVaultWorkspaceWithRememberedBrowser: mocks.loadRemembered,
   refreshUnlockedVaultWorkspace: mocks.refresh,
+}));
+vi.mock("@/shared/infrastructure/browser-analytics", () => ({
+  captureAnalyticsEvent: mocks.captureAnalytics,
 }));
 vi.mock("@/modules/sync/infrastructure/browser-offline-vault-repository", () => ({
   BrowserOfflineVaultRepository: class {
@@ -27,6 +33,7 @@ vi.mock("@/modules/sync/infrastructure/browser-offline-vault-repository", () => 
   },
 }));
 import { OfflineVaultShell } from "@/modules/sync/presentation/offline-vault-shell";
+import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 
 describe("OfflineVaultShell", () => {
   let root: Root | undefined;
@@ -56,6 +63,34 @@ describe("OfflineVaultShell", () => {
     await act(async () => root?.render(createElement(OfflineVaultShell)));
 
     expect(container.textContent).toContain("Snapshot lama yang berisi Brankas Bersama telah dihapus");
+  });
+
+  it("records a root-key wrap failure without labeling it an invalid passphrase", async () => {
+    mocks.listProfiles.mockResolvedValue({
+      profiles: [
+        {
+          profileId: "profile_1",
+          personalVaultId: "personal_1",
+          synchronizedAt: "2026-01-01T00:00:00.000Z",
+          sharedVaultCount: 0,
+        },
+      ],
+      migrationRequired: false,
+    });
+    mocks.classifyUnlockFailure.mockReturnValue("ROOT_KEY_WRAP_FAILED");
+    mocks.loadOffline.mockRejectedValue(new Error("synthetic decryption failure"));
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(OfflineVaultShell)));
+    await act(async () => setInputValue(container.querySelector("#offline-secret"), "synthetic passphrase"));
+    await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+
+    expect(mocks.captureAnalytics).toHaveBeenCalledWith(ANALYTICS_EVENTS.offlineVaultUnlockFailed, {
+      method: "passphrase",
+      failure_code: "root_key_wrap_failed",
+    });
   });
 
   it("unlocks a Personal-only snapshot read-only and exposes no mutation affordances", async () => {

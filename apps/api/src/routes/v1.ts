@@ -90,6 +90,11 @@ const routes: readonly LazyRouteDefinition[] = [
     load: () => import("@api/route-handlers/personal-vault/initialize/route"),
   },
   {
+    method: "post",
+    path: "/personal-vault/name/migration",
+    load: () => import("@api/route-handlers/personal-vault/name/migration/route"),
+  },
+  {
     method: "get",
     path: "/personal-vault/destructive-reset",
     load: () => import("@api/route-handlers/personal-vault/destructive-reset/route"),
@@ -122,6 +127,16 @@ const routes: readonly LazyRouteDefinition[] = [
     load: () => import("@api/route-handlers/shared-vaults/[vaultId]/route"),
   },
   {
+    method: "post",
+    path: "/shared-vaults/:vaultId/name/migration",
+    load: () => import("@api/route-handlers/shared-vaults/[vaultId]/name/migration/route"),
+  },
+  {
+    method: "post",
+    path: "/shared-vaults/:vaultId/key-wrap/migration",
+    load: () => import("@api/route-handlers/shared-vaults/[vaultId]/key-wrap/migration/route"),
+  },
+  {
     method: "get",
     path: "/shared-vaults/:vaultId/participants",
     load: () => import("@api/route-handlers/shared-vaults/[vaultId]/participants/route"),
@@ -135,6 +150,11 @@ const routes: readonly LazyRouteDefinition[] = [
     method: "patch",
     path: "/shared-vaults/:vaultId/member-permissions",
     load: () => import("@api/route-handlers/shared-vaults/[vaultId]/member-permissions/route"),
+  },
+  {
+    method: "post",
+    path: "/shared-vaults/:vaultId/accounts/migration",
+    load: () => import("@api/route-handlers/shared-vaults/[vaultId]/accounts/migration/route"),
   },
   {
     method: "post",
@@ -222,6 +242,11 @@ const routes: readonly LazyRouteDefinition[] = [
     load: () => import("@api/route-handlers/vaults/[vaultId]/audit-events/route"),
   },
   {
+    method: "post",
+    path: "/vaults/:vaultId/accounts/migration",
+    load: () => import("@api/route-handlers/vaults/[vaultId]/accounts/migration/route"),
+  },
+  {
     method: "get",
     path: "/vaults/:vaultId/accounts",
     load: () => import("@api/route-handlers/vaults/[vaultId]/accounts/route"),
@@ -268,9 +293,19 @@ const routes: readonly LazyRouteDefinition[] = [
     load: () => import("@api/route-handlers/user-crypto-profile/rewrap/route"),
   },
   {
+    method: "post",
+    path: "/user-crypto-profile/migration",
+    load: () => import("@api/route-handlers/user-crypto-profile/migration/route"),
+  },
+  {
     method: "put",
     path: "/user-encryption-identity",
     load: () => import("@api/route-handlers/user-encryption-identity/route"),
+  },
+  {
+    method: "post",
+    path: "/user-encryption-identity/migration",
+    load: () => import("@api/route-handlers/user-encryption-identity/migration/route"),
   },
   {
     method: "get",
