@@ -1,8 +1,11 @@
 import { Suspense } from "react";
 import { LockKeyhole } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { loadVaultPageContext, VaultPageLogoutAction } from "@/modules/vault-management/page";
-import { PersonalVaultSetupForm } from "@/modules/vault-management/presentation/personal-vault-setup-form";
+import {
+  loadVaultPageContext,
+  PersonalVaultSetupFormBoundary,
+  VaultPageLogoutAction,
+} from "@/modules/vault-management/page";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account";
 import { AppPage, PageHeader, SectionHeading, SurfaceCard } from "@/shared/presentation/app-ui";
 import { ContextualHelpButton } from "@/shared/presentation/contextual-help";
@@ -37,7 +40,7 @@ export default async function VaultsPage() {
               description={t("setupIntro")}
               action={<ContextualHelpButton topic="personalVaultSetup" />}
             />
-            <PersonalVaultSetupForm />
+            <PersonalVaultSetupFormBoundary />
           </div>
         ) : (
           <PersonalVaultAccounts vaultId={personalVault.id} />

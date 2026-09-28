@@ -592,11 +592,14 @@ function InvitationPanel({
         />
       )}
       <section className="grid gap-3" aria-labelledby="invited-users-title">
-        <div>
-          <h3 id="invited-users-title" className="font-bold text-ink-strong">
-            {t("usersTitle")}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">{t("usersDescription")}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 id="invited-users-title" className="font-bold text-ink-strong">
+              {t("usersTitle")}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t("usersDescription")}</p>
+          </div>
+          <ContextualHelpButton topic="sharedVaultPermissions" />
         </div>
         {loading && <SectionLoadingPlaceholder rows={2} label={t("loading")} />}
         {failed && (
@@ -680,18 +683,15 @@ function InvitationPanel({
                       </Button>
                     )}
                     {participant.kind === "MEMBER" && (
-                      <>
-                        <ContextualHelpButton topic="sharedVaultPermissions" />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          aria-label={t("configurePermissions", { email: participant.email })}
-                          onClick={() => setParticipantToConfigure(participant)}
-                        >
-                          <Settings2 />
-                        </Button>
-                      </>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        aria-label={t("configurePermissions", { email: participant.email })}
+                        onClick={() => setParticipantToConfigure(participant)}
+                      >
+                        <Settings2 />
+                      </Button>
                     )}
                     <Button
                       variant="ghost"

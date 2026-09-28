@@ -26,7 +26,7 @@ import { useInitializePersonalVaultMutation } from "./hooks/use-personal-vault-m
 
 type SecretMode = "generated" | "custom";
 type SetupStatus = "idle" | "setup_error";
-type PersonalVaultSetupFormProps = Readonly<{
+export type PersonalVaultSetupFormProps = Readonly<{
   afterInitializationPath?: "/vaults/invitations/redeem";
 }>;
 
