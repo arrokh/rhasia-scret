@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Laptop } from "lucide-react";
 import { StatusBanner, AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
-import { isServerApiConfigurationError, loadServerVaultPageContext } from "@/shared/infrastructure/server-api-gateway";
+import {
+  isServerApiConfigurationError,
+  isServerApiUnavailableError,
+  loadServerVaultPageContext,
+} from "@/shared/infrastructure/server-api-gateway";
 import {
   INVITATION_AUTH_RETURN_PATH,
   resolveAuthReturnPath,
@@ -19,7 +23,14 @@ export const dynamic = "force-dynamic";
 
 type SignInPageProps = { searchParams: Promise<{ auth?: string | string[]; next?: string | string[] }> };
 type AuthNotice = {
-  key: "required" | "invitationRequired" | "signedOut" | "logoutFailed" | "configurationError" | "verificationFailed";
+  key:
+    | "required"
+    | "invitationRequired"
+    | "signedOut"
+    | "logoutFailed"
+    | "configurationError"
+    | "serviceUnavailable"
+    | "verificationFailed";
   role: "alert" | "status";
   tone: "danger" | "success" | "info";
 };
@@ -37,20 +48,29 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     configurationError = true;
   }
   let context: Awaited<ReturnType<typeof loadServerVaultPageContext>> = null;
+  let serviceUnavailable = false;
   if (backend !== "none" && backend !== "invalid") {
     try {
       context = await loadServerVaultPageContext();
     } catch (error) {
-      if (!isServerApiConfigurationError(error)) throw error;
-      configurationError = true;
-      backend = "invalid";
+      if (isServerApiConfigurationError(error)) {
+        configurationError = true;
+        backend = "invalid";
+      } else if (isServerApiUnavailableError(error)) {
+        serviceUnavailable = true;
+      } else {
+        throw error;
+      }
     }
   }
   const user = context?.user;
   const turnstileSiteKey = backend === "passwordless" ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY : undefined;
   if (user) redirect(nextPath);
 
-  const notice = authNotice(configurationError ? "configuration_error" : auth, nextPath);
+  const notice = authNotice(
+    serviceUnavailable ? "service_unavailable" : configurationError ? "configuration_error" : auth,
+    nextPath,
+  );
 
   return (
     <AppPage centered>
@@ -104,6 +124,7 @@ function authNotice(auth: string | undefined, nextPath: AuthReturnPath): AuthNot
   if (auth === "signed_out") return { key: "signedOut", role: "status", tone: "success" };
   if (auth === "logout_failed") return { key: "logoutFailed", role: "alert", tone: "danger" };
   if (auth === "configuration_error") return { key: "configurationError", role: "alert", tone: "danger" };
+  if (auth === "service_unavailable") return { key: "serviceUnavailable", role: "alert", tone: "danger" };
   if (auth === "verification_failed") return { key: "verificationFailed", role: "alert", tone: "danger" };
   return null;
 }

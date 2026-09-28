@@ -18,8 +18,10 @@
     "footerAuthor": "nooroctavian.id",
     "globalError": {
       "title": "Terjadi kesalahan",
-      "description": "Coba lagi.",
-      "retry": "Coba lagi"
+      "description": "Halaman tidak dapat dimuat. Coba lagi, atau lanjutkan ke Brankas Lokal atau snapshot luring.",
+      "retry": "Coba lagi",
+      "openLocalVault": "Buka Brankas Lokal",
+      "openOffline": "Buka snapshot luring"
     },
     "contextualHelp": {
       "open": "Buka panduan: {topic}",
@@ -340,6 +342,7 @@
         "signedOut": "Anda telah keluar.",
         "logoutFailed": "Proses keluar tidak dapat diselesaikan. Coba lagi.",
         "configurationError": "Layanan masuk belum dikonfigurasi. Hubungi administrator.",
+        "serviceUnavailable": "Akses Brankas Hosted sedang tidak tersedia. Coba lagi nanti atau gunakan Brankas Lokal/snapshot luring.",
         "verificationFailed": "Tautan masuk tidak dapat diverifikasi. Minta tautan baru."
       }
     }
