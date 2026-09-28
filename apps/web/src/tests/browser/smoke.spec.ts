@@ -205,12 +205,30 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       return nativeMatchMedia(query);
     };
   });
+  // Keep the handoff scenario deterministic instead of relying on Cloudflare's external widget service.
+  await context.route(/^https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `window.turnstile = {
+        render(container, options) {
+          container.style.width = "300px";
+          container.style.height = "65px";
+          const token = "synthetic-browser-smoke-turnstile-token";
+          queueMicrotask(() => options.callback(token));
+          return "browser-smoke-turnstile-widget";
+        },
+        getResponse() { return "synthetic-browser-smoke-turnstile-token"; },
+        remove() {},
+      };`,
+    }),
+  );
   await context.route("**/api/v1/auth/magic-link/request", async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     expect(body.client).toBe("pwa");
     expect(typeof body.handoffId).toBe("string");
     expect(typeof body.handoffVerifier).toBe("string");
-    expect(typeof body.turnstileToken).toBe("string");
+    expect(body.turnstileToken).toBe("synthetic-browser-smoke-turnstile-token");
     handoffId = body.handoffId as string;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sent: true }) });
   });
