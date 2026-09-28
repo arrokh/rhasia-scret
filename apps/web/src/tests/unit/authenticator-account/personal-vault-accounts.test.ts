@@ -352,6 +352,25 @@ describe("PersonalVaultAccounts", () => {
       (item) => item.textContent?.trim() === "Semua penerbit",
     );
     await act(async () => allIssuers?.click());
+    const personalVaultFilter = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
+      (item) => item.textContent?.trim() === "Brankas Pribadi",
+    );
+    const workIssuerFilter = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
+      (item) => item.textContent?.trim() === "Work",
+    );
+    await act(async () => {
+      personalVaultFilter?.click();
+      workIssuerFilter?.click();
+    });
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(0);
+    const clearFilters = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent?.trim() === "Hapus semua filter",
+    );
+    expect(clearFilters).toBeDefined();
+    await act(async () => clearFilters?.click());
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(2);
+    expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).toContain('"vaultFilters":[]');
+    expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).not.toContain("personal-1");
     await act(async () => filterMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
     const directoryMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-menu"]');
     await act(async () => directoryMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));

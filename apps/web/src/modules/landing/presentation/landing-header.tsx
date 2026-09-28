@@ -52,7 +52,7 @@ export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel }
         <BrandLink />
         <div className="flex items-center gap-1 sm:gap-2">
           <GitHubButton label={githubLabel} />
-          <LocaleSwitcher />
+          <LocaleSwitcher compactAtNarrow />
         </div>
       </header>
 
@@ -77,7 +77,7 @@ export function LandingHeader({ localVaultLabel, hostedVaultLabel, githubLabel }
               <Link href="/sign-in">{hostedVaultLabel}</Link>
             </Button>
             <GitHubButton label={githubLabel} />
-            <LocaleSwitcher />
+            <LocaleSwitcher compactAtNarrow />
           </div>
         </div>
       </header>

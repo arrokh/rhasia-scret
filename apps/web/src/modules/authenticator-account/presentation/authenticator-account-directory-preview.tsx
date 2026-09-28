@@ -237,9 +237,21 @@ export function AuthenticatorAccountDirectoryPreview() {
           })}
         </ul>
       ) : (
-        <p className="rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center text-sm text-muted-foreground">
-          {hasActiveFilters ? t("emptyFiltered") : t("empty")}
-        </p>
+        <div className="grid justify-items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
+          <p className="text-sm text-muted-foreground">{hasActiveFilters ? t("emptyFiltered") : t("empty")}</p>
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIssuerFilters([]);
+                setPreferences((current) => ({ ...current, vaultFilters: [] }));
+              }}
+            >
+              {t("clearFilters")}
+            </Button>
+          )}
+        </div>
       )}
     </SurfaceCard>
   );

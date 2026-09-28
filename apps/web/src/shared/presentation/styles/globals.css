@@ -363,6 +363,10 @@
     animation: landing-copy-toast 2s ease-in-out both;
   }
 
+  .landing-copy-toast-error {
+    background: var(--destructive);
+  }
+
   @media (min-width: 64rem) {
     .comparison-flow-device,
     .comparison-flow-service {
@@ -452,7 +456,8 @@
 
   .landing-flow-step,
   .landing-hero-art-image,
-  .comparison-flow-branch-dot {
+  .comparison-flow-branch-dot,
+  .landing-copy-toast {
     animation: none;
   }
 }

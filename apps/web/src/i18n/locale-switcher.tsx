@@ -31,10 +31,12 @@ export function LocaleSwitcher({
   embedded = false,
   onLocaleRequested,
   triggerLabel,
+  compactAtNarrow = false,
 }: {
   embedded?: boolean;
   onLocaleRequested?: (locale: AppLocale) => void;
   triggerLabel?: string;
+  compactAtNarrow?: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("Locale");
@@ -185,12 +187,12 @@ export function LocaleSwitcher({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-11 px-2 text-xs"
+              className={`min-h-11 px-2 text-xs${compactAtNarrow ? " max-[360px]:size-12 max-[360px]:gap-0 max-[360px]:px-0" : ""}`}
               aria-label={t("switcher")}
               title={t("selected", { language: activeLanguage })}
             >
               <Languages aria-hidden="true" />
-              <span>{visibleTriggerLabel}</span>
+              <span className={compactAtNarrow ? "max-[360px]:sr-only" : undefined}>{visibleTriggerLabel}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
