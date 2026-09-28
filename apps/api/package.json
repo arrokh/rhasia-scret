@@ -45,23 +45,23 @@
     "@rhasia-scret/api-contract": "workspace:*",
     "@rhasia-scret/client-vault-core": "workspace:*",
     "@simplewebauthn/server": "^14.0.2",
-    "dotenv": "^18.0.0",
-    "hono": "^4.13.8",
+    "dotenv": "^18.0.3",
+    "hono": "^4.13.9",
     "jose": "6.2.12",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.2",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.15.6",
-    "eslint": "^9.39.1",
+    "eslint": "^10.11.0",
     "prisma": "^7.10.0",
     "testcontainers": "^12.1.0",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.13",
-    "typescript": "^5.9.3",
-    "vitest": "5.0.0"
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "5.0.1"
   }
 }
