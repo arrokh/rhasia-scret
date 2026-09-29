@@ -13,7 +13,6 @@ WORKDIR /workspace
 
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches patches
 COPY apps/api/package.json apps/api/package.json
 COPY packages/api-contract/package.json packages/api-contract/package.json
 COPY packages/client-vault-core/package.json packages/client-vault-core/package.json
@@ -32,14 +31,7 @@ FROM source AS build
 # Prisma Client is generated in the source stage; only bundle the Node artifact here.
 RUN pnpm --filter @rhasia-scret/api build:node
 
-FROM source AS deployable
-# Deploy only the API workspace's production dependency graph instead of copying the
-# complete workspace install (which includes test/build tooling). The workspace patch
-# is mobile-only, so remove its metadata in this API-only build stage before deploy.
-RUN node -e 'const fs = require("fs"); const path = "package.json"; const manifest = JSON.parse(fs.readFileSync(path, "utf8")); delete manifest.patchedDependencies; fs.writeFileSync(path, JSON.stringify(manifest));' \
-  && node -e 'const fs = require("fs"); const path = "pnpm-workspace.yaml"; const source = fs.readFileSync(path, "utf8"); fs.writeFileSync(path, source.replace(/\npatchedDependencies:\n(?:  .*\n?)*$/u, "\n"));'
-
-FROM deployable AS production
+FROM source AS production
 RUN pnpm --filter @rhasia-scret/api deploy --prod --legacy --ignore-scripts /tmp/api \
   && prisma_package="$(find /tmp/api/node_modules/.pnpm -maxdepth 1 -type d -name 'prisma@*' -print -quit)" \
   && test -n "$prisma_package" \
