@@ -61,7 +61,14 @@ describe("API extraction ownership boundaries", () => {
     const compose = read("docker-compose.yml");
     const productionMigrationCompose = read("docker-compose.prod-migration.yml");
     const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+    const migrationManifest = JSON.parse(read("tools/api-migration-runtime/package.json")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
     const dockerfile = read("apps/api/Dockerfile");
+    const migrationDockerfile = read("apps/api/Dockerfile.migration");
+    const migrationEntrypoint = read("apps/api/scripts/deploy-passwordless-migrations.ts");
+    const migrationSchema = read("apps/api/prisma/schema.prisma");
     const webDockerfile = read("apps/web/Dockerfile");
     expect(app).not.toContain("export const app");
     expect(standalone).toContain("createApiRuntimeDependencies");
@@ -160,16 +167,67 @@ describe("API extraction ownership boundaries", () => {
     expect(webDockerfile).not.toContain("patchedDependencies");
     expect(dockerfile).toContain("cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts");
     expect(dockerfile).not.toContain("pnpm --filter @rhasia-scret/api prisma:generate");
-    expect(dockerfile).toContain("pnpm --filter @rhasia-scret/api deploy --prod --legacy --ignore-scripts /tmp/api");
     expect(dockerfile).toContain(
       "pnpm --filter @rhasia-scret/api deploy --prod --no-optional --legacy --ignore-scripts /tmp/api-runtime",
     );
     expect(dockerfile).toContain("FROM production AS runtime-prepared");
-    expect(dockerfile).toContain("FROM base AS migration");
-    expect(dockerfile).toContain(
-      'USER node\nCMD ["node_modules/.bin/tsx", "scripts/deploy-passwordless-migrations.ts"]',
+    expect(dockerfile).not.toContain("AS migration-dependencies");
+    expect(dockerfile).not.toContain("AS migration-prepared");
+    expect(compose).toContain("dockerfile: apps/api/Dockerfile.migration");
+    expect(productionMigrationCompose).toContain("dockerfile: apps/api/Dockerfile.migration");
+    expect(migrationDockerfile).toContain(
+      "pnpm install --frozen-lockfile --filter @rhasia-scret/api-migration-runtime --ignore-scripts",
     );
-    expect(dockerfile).toContain("/tmp/migration-tools");
+    expect(dockerfile).toContain(
+      "COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json",
+    );
+    expect(webDockerfile).toContain(
+      "COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json",
+    );
+    expect(migrationDockerfile).toContain(
+      "pnpm --filter @rhasia-scret/api-migration-runtime deploy --prod --legacy --ignore-scripts /tmp/api-migration",
+    );
+    expect(migrationDockerfile).toContain(
+      "DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma generate",
+    );
+    expect(migrationDockerfile).toContain(
+      "FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS migration",
+    );
+    expect(migrationDockerfile).toContain("COPY --from=dependencies /usr/local/bin/node /usr/local/bin/node");
+    expect(migrationDockerfile).not.toContain("/tmp/migration-tools");
+    expect(migrationManifest.dependencies).toEqual(
+      expect.objectContaining({
+        "@prisma/adapter-pg": expect.any(String),
+        "@prisma/client": expect.any(String),
+        dotenv: expect.any(String),
+        prisma: expect.any(String),
+      }),
+    );
+    expect(Object.keys(migrationManifest.dependencies ?? {}).sort()).toEqual([
+      "@prisma/adapter-pg",
+      "@prisma/client",
+      "dotenv",
+      "prisma",
+    ]);
+    expect(migrationManifest.devDependencies).toEqual({ esbuild: "0.28.2" });
+    expect(migrationDockerfile).toContain("apps/api/scripts/deploy-passwordless-migrations.ts");
+    expect(migrationDockerfile).toContain("--bundle --platform=node --format=esm --packages=external");
+    expect(migrationDockerfile).toContain("--outdir=scripts --out-extension:.js=.mjs");
+    expect(migrationDockerfile).toContain("*postgresql*");
+    expect(migrationDockerfile).toContain("node_modules/.pnpm/@electric-sql+pglite@*");
+    expect(migrationDockerfile).toContain("node_modules/.pnpm/typescript@*");
+    expect(migrationSchema).toContain('provider = "postgresql"');
+    expect(migrationEntrypoint).toContain('process.env.MIGRATION_SCRIPTS_COMPILED === "1"');
+    expect(migrationDockerfile).toContain("COPY --from=migration-prepared --chown=node:node /workspace/apps/api ./");
+    const migrationRuntime = migrationDockerfile.split(" AS migration\n").at(-1) ?? "";
+    expect(migrationRuntime).not.toContain("pnpm");
+    expect(migrationRuntime).not.toContain("corepack");
+    expect(migrationRuntime).not.toContain("tsx");
+    expect(migrationRuntime).not.toContain("esbuild");
+    expect(migrationDockerfile).toContain("ENV MIGRATION_SCRIPTS_COMPILED=1");
+    expect(migrationDockerfile).toContain('USER node\nCMD ["node", "scripts/deploy-passwordless-migrations.mjs"]');
+    expect(compose).toContain('command: ["node", "scripts/deploy-passwordless-migrations.mjs"]');
+    expect(productionMigrationCompose).toContain('command: ["node", "scripts/deploy-passwordless-migrations.mjs"]');
     expect(dockerfile).toContain("COPY --from=runtime-prepared --chown=bun:bun /tmp/api-runtime ./apps/api");
     expect(dockerfile).not.toContain("COPY --from=production /tmp/api ./apps/api");
     expect(dockerfile).not.toContain("COPY --from=build /workspace .");

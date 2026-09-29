@@ -99,11 +99,18 @@ pnpm selfhosted:down
 The self-hosted commands intentionally keep PostgreSQL private on the
 Compose network; the development-only override remains available for
 `pnpm dev:db` when host-side database access is needed. The API runtime uses a
-production-only deployment without Prisma's optional CLI, Studio, and TypeScript
-tooling; the separate migration image retains the Prisma CLI and narrowly
-required `tsx` tool. The web runtime uses an Alpine Node image and Next
-standalone output. The named volume survives `selfhosted:down`; back it up before
-retiring it.
+production-only deployment without Prisma's CLI or TypeScript tooling. The
+migration image has a dedicated `apps/api/Dockerfile.migration` and installs the
+focused dependency manifest in `tools/api-migration-runtime/`. It copies only
+the migration dependency tree, generated Prisma Client, migration scripts,
+schema, and migrations onto a pinned Alpine runtime with the Node.js binary;
+Prisma generation uses the matching musl and OpenSSL platform. The final image
+does not include pnpm/Corepack, TypeScript, React, PGlite, or `tsx`: esbuild
+compiles the migration scripts during image preparation. It retains the Prisma
+CLI, PostgreSQL adapter/client, and `dotenv`, and removes Prisma query-compiler
+assets for non-PostgreSQL providers because the API schema uses PostgreSQL.
+The web runtime uses an Alpine Node image and Next standalone output. The named volume survives
+`selfhosted:down`; back it up before retiring it.
 
 ### 2. Apply PostgreSQL schema and identity migration
 

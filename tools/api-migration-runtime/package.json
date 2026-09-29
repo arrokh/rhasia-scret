@@ -1,0 +1,19 @@
+{
+  "name": "@rhasia-scret/api-migration-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "11.17.0"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^18.0.3",
+    "prisma": "^7.10.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

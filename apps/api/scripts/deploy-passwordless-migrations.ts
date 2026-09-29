@@ -12,6 +12,7 @@ const DESTRUCTIVE_MIGRATION = "20260914035747_remove_legacy_identity_column";
 async function main(): Promise<void> {
   loadWorkspaceEnvironment();
   const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const scriptRuntime = migrationScriptRuntime(appRoot);
   const fullConfig = join(appRoot, "prisma.config.ts");
   const prisma = createAdminPrismaClient();
   let destructiveMigrationApplied = false;
@@ -33,16 +34,29 @@ async function main(): Promise<void> {
     const staging = await createStagedMigrationConfig(appRoot);
     try {
       await run(binary(appRoot, "prisma"), ["migrate", "deploy", "--config", staging.configPath], appRoot);
-      await run(binary(appRoot, "tsx"), ["scripts/preflight-passwordless-migration.ts"], appRoot);
-      await run(binary(appRoot, "tsx"), ["scripts/seed-passwordless-identities.ts"], appRoot);
-      await run(binary(appRoot, "tsx"), ["scripts/verify-passwordless-migration.ts", "--staged"], appRoot);
+      await run(
+        scriptRuntime.command,
+        [`scripts/preflight-passwordless-migration.${scriptRuntime.extension}`],
+        appRoot,
+      );
+      await run(scriptRuntime.command, [`scripts/seed-passwordless-identities.${scriptRuntime.extension}`], appRoot);
+      await run(
+        scriptRuntime.command,
+        [`scripts/verify-passwordless-migration.${scriptRuntime.extension}`, "--staged"],
+        appRoot,
+      );
     } finally {
       await rm(staging.directory, { recursive: true, force: true });
     }
   }
 
   await run(binary(appRoot, "prisma"), ["migrate", "deploy", "--config", fullConfig], appRoot);
-  await run(binary(appRoot, "tsx"), ["scripts/verify-passwordless-migration.ts"], appRoot);
+  await run(scriptRuntime.command, [`scripts/verify-passwordless-migration.${scriptRuntime.extension}`], appRoot);
+}
+
+function migrationScriptRuntime(appRoot: string): { command: string; extension: "mjs" | "ts" } {
+  if (process.env.MIGRATION_SCRIPTS_COMPILED === "1") return { command: process.execPath, extension: "mjs" };
+  return { command: binary(appRoot, "tsx"), extension: "ts" };
 }
 
 function binary(appRoot: string, name: "prisma" | "tsx"): string {
