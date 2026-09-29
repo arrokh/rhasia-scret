@@ -1,5 +1,7 @@
 # Issue #96 final validation evidence
 
+> Historical validation snapshot: ADR-0054 retired native application support. The native build, parity gaps, and hardware/deployment blockers below describe the project on 2026-08-12; they are not current product support or release requirements. See [product status](../product-status.md).
+
 Captured 2026-08-12 on branch `mobile/feature/native-foundation`.
 
 ## Quality gates

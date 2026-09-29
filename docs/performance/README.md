@@ -1,11 +1,11 @@
 # Performance evidence
 
-These versioned baselines compare latest `main` (`e17fcaa`) with the implementation measured on the original performance branch. New measurements are generated into ignored `test-results/performance/` and are not committed.
+These checked-in baselines compare the recorded `main` snapshot at `e17fcaa` with the implementation measured on the original performance branch. They are historical comparison data, not measurements of the current `main`. New measurements are generated into ignored `test-results/performance/` and are not committed.
 
 ## Runtime measurements
 
-- `baseline-navigation-production.json`: latest-main local production build.
-- `baseline-route-bundles.json`: latest-main route chunk baseline.
+- `baseline-navigation-production.json`: local production build of the recorded `main@e17fcaa` snapshot.
+- `baseline-route-bundles.json`: route chunk baseline for that same recorded snapshot.
 - Current navigation and development reports belong under ignored `test-results/performance/`; development compilation latency is not a product budget.
 
 Both production runs used the same local PostgreSQL database, Chromium profile, synthetic, non-PII E2E identity, and machine. To exercise protected pages without production credentials, each measurement build was made in an isolated/local step that temporarily enabled the existing E2E session seam with `PERFORMANCE_TESTS=1`; the source file was restored immediately after compilation. The bypass is not present in the checked source or final production build.

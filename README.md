@@ -1,272 +1,81 @@
 # rhasia-scret
 
 <p align="center">
-    <img width="250" height="250" alt="rhasia-secret-icon" src="https://github.com/user-attachments/assets/a1864161-da7f-42d2-b307-1c840c3794b3" />
+  <img width="250" height="250" alt="rhasia-secret-icon" src="https://github.com/user-attachments/assets/a1864161-da7f-42d2-b307-1c840c3794b3" />
 </p>
 
-rhasia-scret is a zero-knowledge TOTP authenticator for personal and shared Vaults. Its sole product client is the responsive web application, installable as a PWA. It starts with a writable, client-only Local Vault and offers explicit encrypted Personal Vault and governed Shared Vault workflows when hosted access is useful.
+rhasia-scret is an open-source TOTP authenticator for personal and shared Vaults. Its sole supported client is a responsive web application that can be installed as a PWA.
 
-> **Security status:** rhasia-scret has not received a formal independent security certification or audit. The repository documents an honest-but-curious server model, but an actively malicious application host or web-client supply chain remains outside the MVP security boundary. Review the [honest-but-curious server threat model](docs/adr/0004-honest-but-curious-server-threat-model.md), [security documentation](docs/README.md#security), and [deployment hardening checklist](docs/security/deployment-hardening-checklist.md) before operating the application.
+Use a browser-only Local Vault, or self-host the application for encrypted Personal and Shared Vaults. Vault content is encrypted and decrypted in the authorized client.
 
-## Product and support matrix
+## Features
 
-| Capability                             | Web browser/PWA | Notes                                                                               |
-| -------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
-| Local Profile and writable Local Vault | Supported       | Browser-only, client-owned storage; no sign-in or automatic synchronization.        |
-| Hosted Personal Vault                  | Supported       | Encrypted content is prepared in the authorized browser.                            |
-| Hosted Shared Vault                    | Supported       | Full lifecycle and member administration.                                           |
-| Read-only encrypted offline snapshot   | Supported       | OTP generation remains client-side; offline mutations are not queued or replayed.   |
-| Passkey-Assisted Unlock/Recovery       | Supported       | Browser WebAuthn workflow; it does not recover a Vault Unlock Secret on the server. |
-| Encrypted Vault Archive export/import  | Supported       | Archive keys and opened content exist only in authorized browser memory.            |
-| TOTP formats                           | Supported       | SHA-1, SHA-256, or SHA-512; 6 or 8 digits; positive period. HOTP is not supported.  |
+- **Local Vault:** create and use authenticator accounts in the browser without sign-in, a server, or automatic synchronization.
+- **Hosted Vaults:** synchronize encrypted Personal Vaults and collaborate in Shared Vaults with owner-managed membership and account permissions.
+- **Offline access:** use a read-only encrypted snapshot of a hosted Personal Vault. Shared Vaults are online-only; offline writes are not queued.
+- **Encrypted Vault Archives:** export or import a portable client-encrypted archive using a separate archive key.
+- **TOTP:** generate codes locally for supported SHA-1, SHA-256, or SHA-512 configurations with 6 or 8 digits. HOTP is not supported.
+- **Recovery and localization:** optional browser passkey-assisted workflows and Indonesian/English interface.
 
-The responsive web application can run in local-only mode without remote authentication, or in hosted mode with self-managed passwordless email-link authentication. Installing the PWA does not create a separate native client.
+See [product status and supported capabilities](docs/product-status.md) for the complete support matrix and limitations.
+
+## Self-host quickstart
+
+Prerequisites: Git, mise, and Docker with Compose. Run these commands from the repository root:
+
+```bash
+git clone https://github.com/arrokh/rhasia-scret.git
+cd rhasia-scret
+mise install
+mise run setup
+pnpm install --frozen-lockfile
+pnpm selfhosted:setup
+pnpm selfhosted:up
+```
+
+On a clean checkout, setup creates a local-only `.env` and requires confirmation before applying migrations to its Compose database. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
+
+To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. Follow the [authentication configuration](docs/authentication-configuration.md) and [self-hosting guide](docs/self-hosting.md) for the complete environment contract, HTTPS, upgrades, backups, and recovery. Do not expose the local-only configuration as a hosted service.
 
 ## Architecture
 
-The repository is a pnpm workspace with two applications and platform-neutral client packages:
-
-- `apps/api` — standalone Hono API with Bun-primary and Node.js/Vercel adapters, canonical `/v1/**` routes, server application modules, Prisma schema/migrations, persistence, auth/email adapters, retention scheduling, and API tests.
-- `apps/web` — Next.js presentation application, same-origin `/api/v1/**` proxy, SSR API gateway, browser adapters, presentation, localization, and web tests. It has no database or API business-logic ownership.
-- `packages/api-contract` and `packages/api-client` — client-safe API schemas/types and web transport helpers; they contain no server runtime or persistence code.
-- `packages/client-vault-core` — platform-neutral client workflows and contracts shared by the web application and API. It has no dependency on either application, React, Prisma, browser APIs, or platform storage.
-
 ```mermaid
-flowchart TB
-    subgraph clients["Authorized web client"]
-        browser["apps/web<br/>Responsive Next.js browser/PWA client"]
-        core["packages/client-vault-core<br/>Platform-neutral workflows"]
-        local["Browser-owned storage<br/>Local Profile / Local Vault"]
-        browser --> core
-        browser -. "Local Vault path; no server" .-> local
-    end
+flowchart LR
+    Client["Responsive web / PWA<br/>authorized browser"]
+    Crypto["client-vault-core<br/>platform-neutral crypto and TOTP workflows"]
+    BrowserStorage["apps/web browser adapters<br/>Local Vault storage"]
+    Local[("IndexedDB<br/>Local Profile and Local Vault")]
+    Web["apps/web · Next.js<br/>presentation and same-origin /api/v1 proxy"]
+    API["apps/api · Hono<br/>API and authorization"]
+    DB[("PostgreSQL via Prisma<br/>ciphertext and permitted metadata")]
 
-    subgraph hosted["Hosted application boundary"]
-        api["apps/api<br/>Hono / Bun / Node API"]
-        prisma["Prisma repositories"]
-        database[("PostgreSQL<br/>Encrypted content + permitted metadata")]
-        proxy["apps/web<br/>/api/v1/** proxy + SSR gateway"]
-        proxy --> api
-        api --> prisma --> database
-    end
-
-    auth["Passwordless email-link<br/>Authentication"] --> api
-    browser -- "Encrypted payloads + opaque metadata" --> proxy
-    plaintext["Browser-only plaintext<br/>Vault names · TOTP secrets · OTPs · keys"]:::clientOnly
-    browser -. "decrypts and uses in client memory" .-> plaintext
-
-    classDef clientOnly fill:#fff4cc,stroke:#b7791f,color:#5f370e;
-    classDef hosted fill:#edf2f7,stroke:#4a5568,color:#1a202c;
+    Client --> Crypto
+    Client --> BrowserStorage
+    BrowserStorage -->|"persists local encrypted data"| Local
+    Client -->|"encrypted hosted requests"| Web
+    Web -->|"private server-to-server /v1"| API
+    API --> DB
 ```
 
-The server stores only encrypted content and permitted authorization/lifecycle metadata. Plaintext Vault names, account labels, TOTP configuration, OTPs, QR data, Vault keys, passphrases, private keys, and decrypted content remain in the authorized browser.
-
-See the [documentation index](docs/README.md) for architecture decisions, security boundaries, deployment guidance, release evidence, and implementation plans.
-
-Repository release candidates follow the [release process](docs/release-process.md) and require an explicitly selected, version-matched readiness record. `pnpm run release:prepare` drafts a candidate locally; after a dedicated release PR is reviewed and merged, `.github/workflows/release.yml` runs exact-SHA checks and publishes the annotated tag and GitHub Release. Repository publication does not deploy the API or web application.
-
-## Prerequisites
-
-The repository uses the mise-managed toolchain:
-
-- Node.js `24.19.0` (`24.x` in package engines)
-- pnpm `11.17.0`
-- PostgreSQL 16 or a compatible PostgreSQL development instance for API tests and migrations
-- A supported browser and installed Playwright browsers for browser verification
-
-Install the pinned toolchain and pnpm:
-
-```bash
-mise install
-mise run setup
-```
-
-## Clean checkout setup
-
-1. Clone the repository and enter its root.
-2. Copy `.env.example` to `.env` and set `DATABASE_URL` plus `DIRECT_URL` to a local PostgreSQL database. `DIRECT_URL` is required for Prisma migrations and administrative commands; runtime traffic uses `DATABASE_URL`.
-3. If exercising hosted authentication locally, configure the passwordless standalone API SMTP settings in `.env`. Set `AUTH_BACKEND=none` for a local-only deployment. Local Vault workflows do not require hosted authentication.
-4. Install and initialize the workspace:
-
-```bash
-cp .env.example .env
-pnpm install --frozen-lockfile
-# The API workspace postinstall generates Prisma Client with a synthetic URL.
-pnpm run prisma:generate  # Explicit refresh when needed.
-node tools/confirm-database-operation.mjs 'the local development database migration' && pnpm run prisma:migrate:deploy
-```
-
-The API package also regenerates Prisma Client before Bun/Node development and API builds, so a stale ignored client cannot survive a dependency reinstall. Generation only reads the schema and never connects to a database; migrations remain separate and explicit.
-
-The migration command changes the selected database and must be run only after explicit approval for that environment. For the supported deployment matrix, production environment contract, provider setup, backup/restore expectations, retention scheduling, and clean smoke test, see the [self-hosting guide](docs/self-hosting.md).
-
-### Docker-backed local database
-
-To run the web app from the host while using the Compose PostgreSQL container,
-set the root `.env` `DATABASE_URL` and `DIRECT_URL` to the same local URL, using
-`127.0.0.1:${POSTGRES_HOST_PORT:-55432}` and the configured local
-`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`. Then run:
-
-```bash
-pnpm dev:db
-pnpm dev
-```
-
-`pnpm dev:db` starts only `db` and publishes PostgreSQL on loopback; it does
-not run migrations. Run `pnpm dev:db:migrate` separately when the schema needs
-updating. Stop the development Compose stack without deleting its named volume
-with `pnpm dev:db:down`. Migration and shutdown operations require typing
-`yes`. To permanently delete the development database volume, start a fresh
-PostgreSQL container, and apply all development migrations, run
-`pnpm dev:db:reset`; it also requires typing `yes` and is destructive.
-
-For the complete containerized self-hosted flow, use the idempotent commands
-below from the repository root:
-
-```bash
-pnpm selfhosted:setup  # creates local .env if absent, verifies config, starts PostgreSQL, applies migrations
-pnpm selfhosted:up     # verifies config, builds, and starts db, API, web, and retention services
-pnpm selfhosted:down   # verifies Docker and stops the Compose project; preserves the database volume
-```
-
-`selfhosted:setup` creates a local-only (`AUTH_BACKEND=none`) `.env` only when
-one does not exist. For an existing file, it repairs non-database
-`replace-with-*` example placeholders and preserves configured values. Set
-`POSTGRES_PASSWORD` manually because setup never rotates an existing database
-credential. Change
-the authentication settings before `selfhosted:up` when passwordless
-hosted authentication is required; rerun setup to validate the changed
-configuration before migrating again. The Compose containers use production builds. Localhost HTTP is allowed
-for local self-hosting; use HTTPS for any non-local web, API, or authentication
-origin. `selfhosted:up` builds application images before starting services and
-waits for health checks; failures include sanitized Compose status. Database
-migrations remain explicit and require typing `yes`.
-
-For a production migration, create the ignored `.env.prod` file with the
-production `DATABASE_URL` and `DIRECT_URL`, then run `pnpm prod:db:migrate`.
-The command builds and runs the standalone focused migration Compose project, so it does not parse or require application runtime secrets such as `PROXY_SECRET` or SMTP credentials. It does not start the Compose `db` dependency and requires typing `yes` before applying migrations.
-
-The repository's tests and examples use synthetic, non-PII data and local services. Never put user-provided TOTP URIs, account labels, issuer names, QR payloads, authentication credentials, Vault material, OTPs, archive keys, or Secure Share Link fragments in committed files or client environment variables. Use reserved example domains and dummy labels for test fixtures. The repository includes Docker and Docker Compose support for the documented self-hosting path; use the [self-hosting guide](docs/self-hosting.md) for the supported matrix and environment contract.
-
-## Run and verify
-
-Local web/API development:
-
-```bash
-pnpm dev
-```
-
-The root development command starts the Bun API on `http://localhost:8787`, waits
-for `/v1/health`, and then starts the web app on `http://localhost:3000`. Run
-`pnpm dev:db` first when the API needs the local PostgreSQL container. The API
-and web can also be started independently with `pnpm run dev:api` and
-`pnpm run dev:web`.
-
-API development:
-
-```bash
-pnpm --filter @rhasia-scret/api dev
-pnpm --filter @rhasia-scret/api dev:node
-```
-
-Both API development commands regenerate Prisma Client before startup. The root `pnpm dev`, `pnpm run dev:api`, and browser test server use the same Bun development entrypoint; there is no duplicate Bun alias.
-
-The self-hosted Compose deployment runs the same API route tree through the Bun adapter. The separate API Vercel project uses the Node.js function adapter in `apps/api/api/index.ts`.
-
-The main verification commands are:
-
-```bash
-pnpm run lint
-pnpm run typecheck
-pnpm test
-pnpm run test:architecture
-pnpm run build
-pnpm run test:browser
-pnpm run test:full
-```
-
-The root `pnpm test` and `pnpm run test:full` entrypoints automatically use a disposable PostgreSQL 16 Testcontainer locally, apply migrations only inside that container, and remove it afterward; they never use the development/local database. In CI, both commands select the job-scoped PostgreSQL service instead. `pnpm run test:full` is the required repository gate. The gate runs the shared package, API, and web full verification paths. Browser tests require the Playwright browser binaries and PostgreSQL for API-owned persistence; the ordinary browser smoke stage requires the configured passwordless test secrets when hosted authentication is selected. Use `pnpm run test:full:hosted` only when intentionally targeting an already-provisioned PostgreSQL service or approved local database.
-
-Focused and release commands:
-
-```bash
-# Shared package and web checks
-pnpm run test:full:core
-pnpm run test:full:web
-pnpm run test:hosted
-pnpm run test:container
-pnpm run test:full:direct
-pnpm run test:full:hosted
-pnpm run test:parallel
-
-# Web test slices
-pnpm run test:unit
-pnpm run test:integration
-pnpm run test:contract
-pnpm run test:browser
-pnpm run test:browser:smoke
-pnpm run test:browser:e2e
-pnpm run test:browser:pwa
-pnpm run test:performance
-
-# API database and repository policy checks
-pnpm run test:unit:api
-pnpm --filter @rhasia-scret/api test:integration
-pnpm run test:integration:container
-pnpm run prisma:validate
-pnpm run verify:database
-pnpm run verify:deployment-config
-pnpm run verify:prisma-connections
-pnpm run verify:dependency-licenses
-pnpm run verify:ci-policy
-pnpm run verify:version-alignment
-pnpm run verify:release-evidence:current
-pnpm run test:release-process
-pnpm run build
-pnpm run verify:build-output
-
-# Repository release-candidate preparation (local working-tree edits only)
-pnpm run release:prepare
-pnpm run release:prepare -- patch
-
-```
-
-Focused command details, disposable database setup, browser runtime behavior, and CI topology are listed in [`docs/monorepo.md`](docs/monorepo.md), [`docs/browser-test-runtime.md`](docs/browser-test-runtime.md), and [`docs/continuous-integration.md`](docs/continuous-integration.md).
-
-## Authentication modes
-
-- **Local-only:** `AUTH_BACKEND=none`; use the browser Local Vault without server authentication.
-- **Passwordless:** `AUTH_BACKEND=passwordless` (the default); configure the server-only Nodemailer SMTP settings, token/session secrets, and verified callback URLs as described in [`docs/authentication-configuration.md`](docs/authentication-configuration.md). Bun, self-hosted, Node.js, and Vercel API deployments use the same SMTP adapter.
-
-Authentication authorizes application access; it never unlocks encrypted Vault content. Hosted Vault unlock, recovery, archive, and OTP operations remain client-side workflows.
+The browser performs Vault encryption, decryption, and OTP generation. Local Vault data stays in browser storage; hosted requests pass through the web proxy, and the API persists encrypted content plus permitted authorization/lifecycle metadata. See the [documentation index](docs/README.md) and [monorepo guide](docs/monorepo.md) for boundaries and development commands.
 
 ## Security and limitations
 
-The service is honest-but-curious: it enforces authorization but is not trusted with plaintext Vault content or client-held secrets. The design does not hide permitted ciphertext size/timing or authorization/lifecycle metadata. A malicious host could serve altered client code and is outside the MVP guarantee. No production credentials or real Vault content belong in this repository.
+The server follows an honest-but-curious model: it enforces authorization but is not trusted with decrypted Vault content or client-held secrets. Ciphertext sizes, timing, and permitted metadata are not hidden.
 
-The web application defers browser database/API access to the same-origin proxy, while the API owns request-time Prisma access. Operators must follow the deployment, retention, backup, authentication, and security checklists rather than treating repository tests as production security evidence.
+The design does not protect against a malicious application host, compromised web-client supply chain, or compromised browser/device. The project has no formal independent security certification or audit; repository tests and internal records are not a substitute for one. Review the [threat model](docs/adr/0004-honest-but-curious-server-threat-model.md), [security guidance](docs/README.md#security), and [deployment checklist](docs/security/deployment-hardening-checklist.md) before operating a deployment.
 
-## Contributing and public verification
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md). Never include real Vault content, TOTP secrets, QR data, credentials, or keys in issues, logs, or test fixtures.
 
-Pull requests run the public CI checks described in [`docs/continuous-integration.md`](docs/continuous-integration.md). Before proposing a change, read [`AGENTS.md`](AGENTS.md), the relevant ADRs, and the documentation index. Security-sensitive changes must preserve the client/server boundary, localization parity, authorization checks, and the full verification gate.
+## Documentation and contribution
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for architecture boundaries,
-localization parity, migration rules, DCO sign-off, and required verification
-commands. User and operator questions start at [`SUPPORT.md`](SUPPORT.md) and
-[`docs/support.md`](docs/support.md); vulnerabilities use [`SECURITY.md`](SECURITY.md)
-and the private GitHub Security Advisory channel.
+- [Product status and support matrix](docs/product-status.md)
+- [Self-hosting guide](docs/self-hosting.md)
+- [Architecture, security, and operations documentation](docs/README.md)
+- [Support](SUPPORT.md) · [Privacy](docs/privacy.md) · [Indonesian privacy disclosure](docs/privacy.id.md)
+- [Contributing](CONTRIBUTING.md) · [Governance](GOVERNANCE.md) · [Public CI checks](docs/continuous-integration.md)
+- [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Release process](docs/release-process.md)
 
 ## License and provenance
 
-The repository source, documentation, and maintainer-created assets are
-licensed under the [MIT License](LICENSE). Third-party material is listed in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Contributions use the
-[Developer Certificate of Origin](DCO.md).
-
-The public privacy and hosted-service disclosure is available in
-[English](docs/privacy.md) and [Indonesian](docs/privacy.id.md), with product
-links at `/privacy` and `/support` in the web application.
-
-## Project status
-
-The public-launch backlog is tracked in GitHub issues [#142–#150](https://github.com/arrokh/rhasia-scret/issues). A first release is not implied by this README; launch remains conditional on the documented legal, security, CI, deployment, privacy, governance, and release evidence. See the [roadmap](ROADMAP.md), [governance](GOVERNANCE.md), and [changelog](CHANGELOG.md) for the public record.
+Project source, documentation, and maintainer-created assets are licensed under the [MIT License](LICENSE). Third-party material is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Contributions use the [Developer Certificate of Origin](DCO.md).

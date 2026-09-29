@@ -1,13 +1,13 @@
 # Offline PWA verification
 
-This checklist verifies the web application’s installable PWA and browser-owned offline snapshot. It is the sole offline client surface.
+This checklist verifies the web application’s installable PWA and its browser-owned, encrypted Personal-only offline snapshot. It is the sole offline client surface.
 
 ## Automated baseline
 
 Run the production service-worker suite with the supported Chromium browser project:
 
 ```sh
-pnpm run test:browser
+pnpm run test:browser:pwa
 ```
 
 The PWA suite builds and starts the production application separately from the development browser tests. It verifies the configured manifest, the confirmation prompt shown when the active landing page loses connectivity, the cached landing-shell behavior used for a direct offline reload, the public-shell navigation fallback used for other hard offline navigations, static-cache allowlist, API/auth cache denial, offline reload, and preservation of IndexedDB during service-worker activation. The offline authenticator accounts shell also provides localized back-to-sign-in navigation; locking clears the decrypted workspace before navigation. The landing page stays on `/` until the user confirms opening `/offline`; other application routes keep their own offline/read-only behavior. A top-level navigation that cannot load a document still falls back to a cached public shell because the browser has no active document in which to display a modal.
@@ -19,7 +19,7 @@ WebAuthn PRF availability depends on the browser, OS, authenticator, and credent
 1. Sign in online, unlock with the Vault Unlock Secret, and complete one full synchronization.
 2. Enroll **Browser yang Diingat** and complete Local Verification.
 3. Disable all network access, open `/offline`, select the anonymous local profile, and unlock with Local Verification.
-4. Confirm Personal, Owner Shared, and Viewer Shared OTP generation and copying remain usable.
+4. Confirm the synchronized Personal Vault's OTP generation and copying remain usable. Shared Vaults are not included in offline snapshots and cannot be used offline.
 5. Lock explicitly and confirm OTPs disappear; unlock again with the Vault Unlock Secret.
 6. Remove Browser yang Diingat and confirm Local Verification no longer unlocks the snapshot.
 7. When PRF is unavailable or fails, confirm the UI fails closed and offers the Vault Unlock Secret without storing an assertion-only key package.
@@ -31,4 +31,4 @@ Firefox or Safari without usable PRF is conformant when the Vault Unlock Secret 
 
 Use deterministic, synthetic, non-PII, non-production fixtures with reserved example domains and dummy labels; never use user-provided account data. Inspect Cache Storage and the `rhasia-scret-offline-vault` IndexedDB database and confirm they contain no plaintext Vault/account names, TOTP secrets, OTP values, raw QR or `otpauth` data, User Root Keys, Vault Encryption Keys, Vault Unlock Secrets, or decrypted private keys. Cache Storage may contain only `/`, `/offline`, manifest/icon resources, and same-origin versioned `/_next/static/` resources.
 
-Revocation cannot erase ciphertext or secrets already obtained while a member was offline. A revoked or deleted Vault is removed locally only after the next successful authenticated complete synchronization; authentication, network, or validation failure retains the last valid stale read-only bundle.
+Revocation cannot erase ciphertext or secrets already obtained while a member was online or offline. A revoked or deleted Vault is removed from an online workspace after the next successful authenticated complete synchronization; authentication, network, or validation failure retains the last valid stale, read-only Personal Vault snapshot.

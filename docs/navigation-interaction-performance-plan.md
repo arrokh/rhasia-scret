@@ -16,18 +16,18 @@ The original progress indicator improved feedback in its unit test, but its bubb
 
 ## Implementation evidence
 
-All applicable slices below are implemented. Versioned baselines live under [`performance/`](./performance/); fresh reports are generated under ignored `test-results/performance/`.
+All applicable slices below are implemented. The reported baseline is the historical `main@e17fcaa` snapshot, not current `main`. Versioned baselines live under [`performance/`](./performance/); fresh reports are generated under ignored `test-results/performance/`.
 
-| Measure                               | Latest-main baseline |                  Implementation | Result                                             |
-| ------------------------------------- | -------------------: | ------------------------------: | -------------------------------------------------- |
-| Warm navigation click-to-usable p75   |              41.7 ms |                         48.4 ms | 6.7 ms local-run variance; far below 300 ms budget |
-| High-probability prefetched paths p75 |              48.8 ms |                         48.5 ms | Baseline-equivalent while streaming a stable shell |
-| Visible-response p75                  |              41.7 ms |                         30.4 ms | 27.1% faster feedback                              |
-| Navigation visible-response coverage  |                92.9% |                            100% | Meets budget                                       |
-| Maximum navigation RSC requests       |                    1 | 1 (0 on fully prefetched paths) | Meets budget                                       |
-| `/vaults` client JavaScript, gzip     |            312,594 B |                       193,739 B | 38.0% smaller                                      |
-| Other measured Vault routes, gzip     |            310,093 B |                       191,238 B | 38.3% smaller                                      |
-| Cold unlock click-to-usable           |             199.2 ms |                        195.9 ms | 1.7% faster; zero measured long tasks              |
+| Measure                               | Historical baseline |                  Implementation | Result                                             |
+| ------------------------------------- | ------------------: | ------------------------------: | -------------------------------------------------- |
+| Warm navigation click-to-usable p75   |             41.7 ms |                         48.4 ms | 6.7 ms local-run variance; far below 300 ms budget |
+| High-probability prefetched paths p75 |             48.8 ms |                         48.5 ms | Baseline-equivalent while streaming a stable shell |
+| Visible-response p75                  |             41.7 ms |                         30.4 ms | 27.1% faster feedback                              |
+| Navigation visible-response coverage  |               92.9% |                            100% | Meets budget                                       |
+| Maximum navigation RSC requests       |                   1 | 1 (0 on fully prefetched paths) | Meets budget                                       |
+| `/vaults` client JavaScript, gzip     |           312,594 B |                       193,739 B | 38.0% smaller                                      |
+| Other measured Vault routes, gzip     |           310,093 B |                       191,238 B | 38.3% smaller                                      |
+| Cold unlock click-to-usable           |            199.2 ms |                        195.9 ms | 1.7% faster; zero measured long tasks              |
 
 The implementation also proves that 100 mounted accounts sign once per TOTP period rather than once per second, existing protected-page reads avoid provisioning writes and Personal Vault advisory locks, the full participant list stays idle until its tab opens, and unchanged encrypted snapshots can be server-authorized with a `304` before local ciphertext reuse.
 
@@ -39,7 +39,7 @@ Evidence-driven decisions:
 - Reusing one AES key object per Vault was not added because measured decrypt time was 0.1–0.2 ms; it would add key-lifecycle complexity without material gain.
 - Footer blur, shadows, and animations remain unchanged because production navigation and unlock traces recorded no long tasks.
 
-## Current-state findings
+## Original baseline findings (before implementation)
 
 ### 1. Every protected page repeats the expensive request path
 
@@ -101,7 +101,7 @@ Establish the exact baseline before making optimization claims. Use these initia
 
 Track cold and warm navigation separately. Record local, preview-deployment, and throttled-mobile results; local development mode is not a valid navigation benchmark.
 
-## Implementation plan
+## Original implementation plan
 
 ### Slice 1 — Add reproducible measurements
 
@@ -231,7 +231,7 @@ pnpm run test:browser
 pnpm run build
 ```
 
-A production build succeeds when supplied non-secret local `DATABASE_URL` and `DIRECT_URL` values, and its route manifest confirms that every `/vaults` page is dynamically rendered. Next.js did not emit per-route bundle sizes in the default output, so Slice 1 still needs an explicit chunk-reporting step. Use the normal local test configuration—not production credentials—for performance tests.
+The current Web production build has no Prisma or database dependency. The completed implementation uses the explicit route-bundle reporter and budget check (`pnpm run performance:bundles`) rather than relying on Next.js to emit per-route bundle sizes in its default output. Use the normal local test configuration—not production credentials—for performance tests.
 
 ## Framework references
 

@@ -2,16 +2,17 @@
 
 ## Scope
 
-Authenticated application mutations under the API's `/v1/**` route tree use the operation-class inventory in `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts`. The web `/api/v1/**` proxy is transport-only. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
+Authenticated application mutations under the API's `/v1/**` route tree use the budgets in `apps/api/src/modules/rate-limiting/domain/application-rate-limit-policy.ts`. The web `/api/v1/**` proxy is transport-only; its route inventory at `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts` records browser mutation coverage. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
 Anonymous passwordless link requests use two layers: browser and installed-PWA requests first pass Cloudflare Turnstile validation, then all clients use separate PostgreSQL-backed 15-minute windows:
 
-| Bucket                          | Limit |
-| ------------------------------- | ----: |
-| HMAC bucket of normalized email |     5 |
-| HMAC bucket of source IP        |    20 |
+| Bucket                                       | Limit |
+| -------------------------------------------- | ----: |
+| HMAC bucket of normalized email              |     5 |
+| HMAC bucket of trusted source IP             |    20 |
+| Shared HMAC bucket when trusted IP is absent |    20 |
 
-The rate-limit table stores only keyed bucket digests, operation names, window timestamps, expiry, and counts. It does not persist email addresses, IP addresses, Turnstile tokens, link tokens, session credentials, or request bodies. Turnstile validation sends the token only to Cloudflare's server-side verification endpoint and does not persist the response. Link redemption is additionally protected by atomic one-time challenge consumption and expiry.
+The trusted source IP is derived only from the configured proxy marker. When a trusted address is unavailable, callers share the unattributed bucket rather than bypassing the limit. The rate-limit table stores only keyed bucket digests, operation names, window timestamps, expiry, and counts. It does not persist email addresses, IP addresses, Turnstile tokens, link tokens, session credentials, or request bodies. Turnstile validation sends the token only to Cloudflare's server-side verification endpoint and does not persist the response. Link redemption is additionally protected by atomic one-time challenge consumption and expiry.
 
 Authenticated budgets:
 
@@ -24,7 +25,9 @@ Authenticated budgets:
 | Key material registration, rewrap, or rotation |    10 |  5 minutes |
 | Passkey recovery authentication                |    30 |  5 minutes |
 | Passkey recovery enrollment or removal         |    10 | 10 minutes |
+| Account-deletion authentication                |    10 | 10 minutes |
 | Destructive mutation                           |     5 |     1 hour |
+| Encrypted archive export                       |    10 |     1 hour |
 | Encrypted archive import                       |    10 |     1 hour |
 
 Rate limiting occurs after authentication and active-user checks but before body parsing, authorization-sensitive repository work, or mutation. It never replaces authorization, revision checks, one-time-link semantics, or session revocation.

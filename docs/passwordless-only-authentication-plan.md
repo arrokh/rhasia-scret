@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for implementation under [GitHub issue #185](https://github.com/arrokh/rhasia-scret/issues/185). The issue's original Identity Linking and Provider Migration scope is superseded. This is a historical implementation record: native-client requirements and verification results below describe the supported clients at that time, not the current support contract. Native support was retired under ADR-0054; the responsive web/PWA is now the sole supported client.
+Implemented under [GitHub issue #185](https://github.com/arrokh/rhasia-scret/issues/185); the issue's original Identity Linking and Provider Migration scope is superseded. This is a historical implementation record: native-client requirements and verification results below describe the supported clients at that time, not the current support contract. Native support was retired under ADR-0054; the responsive web/PWA is now the sole supported client.
 
 ## Goal
 

@@ -30,6 +30,15 @@ PostHog receives explicit product events from the sole web client through the ty
 - `passkey_recovery_reset_completed`
 - `personal_vault_reset_completed`
 
+### Offline Personal Vault access
+
+- `offline_vault_unlocked` — `method`: `passphrase` or `remembered_browser`
+- `offline_vault_unlock_failed` — `method`, `failure_code` from the bounded client allowlist
+- `offline_vault_locked`
+- `offline_vault_cleared`
+
+These events describe use of the read-only Personal Vault snapshot; they do not indicate offline Shared Vault access or queued mutations.
+
 ### Shared Vault collaboration
 
 - `shared_vault_invitation_created`
@@ -87,7 +96,8 @@ Recommended PostHog views are:
 1. New-user activation funnel: `authentication_session_established` → `personal_vault_initialized` → `vault_unlocked` → `authenticator_account_created`.
 2. Shared collaboration: `shared_vault_created` → `shared_vault_invitation_created` → `secure_share_link_redeemed` → `authenticator_account_created` filtered to `vault_type = SHARED`.
 3. Unlock reliability: compare each successful unlock event with its matching `*_unlock_failed` event by method.
-4. Local adoption: compare local Vault creation, unlock, account, archive, and clear events separately from hosted Vault activity.
+4. Local adoption: compare Local Vault creation, unlock, account, archive, and clear events separately from hosted Vault activity.
+5. Offline access: compare `offline_vault_unlocked`, `offline_vault_unlock_failed`, `offline_vault_locked`, and `offline_vault_cleared` by the documented unlock method; do not combine these with Local Vault or online unlock events.
 
 Do not use raw URLs, event properties, or PostHog autocapture to recover labels or identifiers. Protected routes remain limited to redacted automatic page/performance events, and browser persistence is disabled because PostHog can retain session URL properties before `before_send` runs.
 
