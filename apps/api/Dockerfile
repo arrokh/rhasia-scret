@@ -16,6 +16,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/api-contract/package.json packages/api-contract/package.json
 COPY packages/client-vault-core/package.json packages/client-vault-core/package.json
+COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json
 # Defer workspace lifecycle scripts until the source stage has the Prisma schema.
 RUN --mount=type=cache,id=rhasia-scret-pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts
 
@@ -48,24 +49,6 @@ RUN pnpm --filter @rhasia-scret/api deploy --prod --no-optional --legacy --ignor
   && printf '%s\n' 'import { defineConfig, env } from "prisma/config"; export default defineConfig({ schema: "/tmp/api-runtime/prisma/schema.prisma", datasource: { url: env("DIRECT_URL") } });' > /tmp/api/runtime.prisma.config.ts \
   && cd /tmp/api-runtime \
   && DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate /tmp/api/node_modules/.bin/prisma generate --config /tmp/api/runtime.prisma.config.ts
-
-FROM production AS migration-prepared
-# Migration verification scripts are TypeScript, so add only the tsx tool and its
-# transitive dependencies to the otherwise production-only deployment.
-RUN mkdir -p /tmp/migration-tools \
-  && node -e 'const manifest = require("./apps/api/package.json"); console.log(JSON.stringify({ private: true, dependencies: { tsx: manifest.devDependencies.tsx.replace(/^[^0-9]*/, "") } }));' > /tmp/migration-tools/package.json \
-  && pnpm --dir /tmp/migration-tools install --ignore-scripts --no-lockfile \
-  && cp -a /tmp/migration-tools/node_modules/.pnpm/. /tmp/api/node_modules/.pnpm/. \
-  && cp -a /tmp/migration-tools/node_modules/.bin/tsx /tmp/api/node_modules/.bin/tsx
-
-FROM base AS migration
-WORKDIR /workspace/apps/api
-ENV NODE_ENV=production
-ARG COMMIT_SHA
-LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
-COPY --from=migration-prepared /tmp/api ./
-USER node
-CMD ["node_modules/.bin/tsx", "scripts/deploy-passwordless-migrations.ts"]
 
 FROM oven/bun:1.3.9-alpine@sha256:9028ee7a60a04777190f0c3129ce49c73384d3fc918f3e5c75f5af188e431981 AS runtime
 ARG COMMIT_SHA

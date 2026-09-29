@@ -1,0 +1,73 @@
+# syntax=docker/dockerfile:1
+
+ARG COMMIT_SHA=unknown
+FROM node:24.19.0-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS dependencies
+ENV PNPM_HOME=/pnpm
+ENV PATH=${PNPM_HOME}:${PATH}
+RUN apk add --no-cache ca-certificates libc6-compat openssl \
+  && corepack enable \
+  && corepack prepare pnpm@11.17.0 --activate \
+  && pnpm config set store-dir /pnpm/store
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json
+RUN --mount=type=cache,id=rhasia-scret-pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @rhasia-scret/api-migration-runtime --ignore-scripts
+
+FROM dependencies AS migration-prepared
+RUN pnpm --filter @rhasia-scret/api-migration-runtime deploy --prod --legacy --ignore-scripts /tmp/api-migration
+WORKDIR /workspace/apps/api
+COPY apps/api/prisma ./prisma
+COPY apps/api/prisma.config.ts ./prisma.config.ts
+COPY apps/api/scripts/admin-prisma-client.ts \
+  apps/api/scripts/deploy-passwordless-migrations.ts \
+  apps/api/scripts/load-workspace-environment.ts \
+  apps/api/scripts/preflight-passwordless-migration.ts \
+  apps/api/scripts/seed-passwordless-identities.ts \
+  apps/api/scripts/staged-migration-config.ts \
+  apps/api/scripts/verify-passwordless-migration.ts \
+  ./scripts/
+RUN set -eu; \
+  mkdir -p node_modules; \
+  cp -a /tmp/api-migration/node_modules/. node_modules/; \
+  DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma generate --config prisma.config.ts; \
+  /workspace/tools/api-migration-runtime/node_modules/.bin/esbuild \
+    scripts/deploy-passwordless-migrations.ts \
+    scripts/preflight-passwordless-migration.ts \
+    scripts/seed-passwordless-identities.ts \
+    scripts/verify-passwordless-migration.ts \
+    --bundle --platform=node --format=esm --packages=external \
+    --outdir=scripts --out-extension:.js=.mjs; \
+  for runtime_directory in node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client/runtime; do \
+    [ -d "$runtime_directory" ] || continue; \
+    for compiler in "$runtime_directory"/query_compiler*_bg.*; do \
+      [ -f "$compiler" ] || continue; \
+      case "$compiler" in *postgresql*) ;; *) rm -f "$compiler" ;; esac; \
+    done; \
+  done; \
+  rm -rf node_modules/.pnpm/typescript@* \
+    node_modules/.pnpm/@types+node@* \
+    node_modules/.pnpm/@types+react@* \
+    node_modules/.pnpm/@types+react-dom@* \
+    node_modules/.pnpm/react@* \
+    node_modules/.pnpm/react-dom@* \
+    node_modules/.pnpm/@electric-sql+pglite@* \
+    node_modules/.pnpm/@electric-sql+pglite-socket@* \
+    node_modules/.pnpm/@electric-sql+pglite-tools@*; \
+  DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma --version >/dev/null; \
+  DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma validate --config prisma.config.ts; \
+  DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script >/dev/null; \
+  DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate node_modules/.bin/prisma migrate deploy --help >/dev/null
+
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS migration
+ARG COMMIT_SHA
+LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
+ENV NODE_ENV=production
+RUN apk add --no-cache ca-certificates libc6-compat libstdc++ openssl \
+  && addgroup -S -g 1000 node \
+  && adduser -S -D -H -u 1000 -G node node
+COPY --from=dependencies /usr/local/bin/node /usr/local/bin/node
+WORKDIR /workspace/apps/api
+COPY --from=migration-prepared --chown=node:node /workspace/apps/api ./
+ENV MIGRATION_SCRIPTS_COMPILED=1
+USER node
+CMD ["node", "scripts/deploy-passwordless-migrations.mjs"]

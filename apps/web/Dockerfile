@@ -16,6 +16,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/client-vault-core/package.json packages/client-vault-core/package.json
 COPY packages/api-contract/package.json packages/api-contract/package.json
+COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json
 RUN --mount=type=cache,id=rhasia-scret-pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @rhasia-scret/web...
 
 FROM dependencies AS build

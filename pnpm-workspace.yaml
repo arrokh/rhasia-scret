@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "tools/api-migration-runtime"
 
 overrides:
   hono: 4.13.7

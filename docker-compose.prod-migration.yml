@@ -5,7 +5,7 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.migration
       target: migration
       args:
         COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set in .env.prod}
@@ -16,7 +16,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env.prod}
       DIRECT_URL: ${DIRECT_URL:?DIRECT_URL must be set in .env.prod}
       NODE_ENV: production
-    command: ["node_modules/.bin/tsx", "scripts/deploy-passwordless-migrations.ts"]
+    command: ["node", "scripts/deploy-passwordless-migrations.mjs"]
     networks: [backend]
     read_only: true
     tmpfs: [/tmp]
