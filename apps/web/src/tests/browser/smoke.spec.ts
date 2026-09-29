@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
+
 test("renders the browser smoke page", async ({ page }) => {
   await page.goto("/smoke");
   await expect(page.getByTestId("smoke-ready")).toHaveText("Siap");
@@ -61,6 +63,138 @@ test("renders the public landing page in Bahasa Indonesia", async ({ page }) => 
   await expect(stickyHeader.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
   await expect(stickyHeader.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
+});
+
+test("keeps mobile landing actions readable and navigable at narrow widths", async ({ page }) => {
+  const origin = `http://127.0.0.1:${browserTestPort}`;
+  for (const locale of ["id", "en"] as const) {
+    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.locator("#landing-hero-actions").scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy({ top: window.innerHeight, behavior: "instant" }));
+
+    const mobileHeader = page.locator('header:not([data-testid="landing-sticky-header"])');
+    const localeButton = mobileHeader.getByRole("button", {
+      name: locale === "id" ? "Pilih bahasa" : "Choose language",
+    });
+    await expect(localeButton).toHaveAttribute(
+      "title",
+      locale === "id" ? "Bahasa saat ini: Bahasa Indonesia" : "Current language: English",
+    );
+    await expect(localeButton).toHaveCSS("width", "48px");
+    await expect(localeButton).toHaveCSS("height", "48px");
+
+    const mobileCta = page.locator('[data-slot="landing-mobile-cta"]');
+    await expect(mobileCta).toHaveAttribute("aria-hidden", "false");
+    const localLink = mobileCta.getByRole("link", { name: locale === "id" ? "Coba Local Vault" : "Try Local Vault" });
+    const hostedLink = mobileCta.getByRole("link", {
+      name: locale === "id" ? "Gunakan Hosted Vault" : "Use Hosted Vault",
+    });
+    await expect(localLink).toHaveAttribute("href", "/local?from=landing");
+    await expect(hostedLink).toHaveAttribute("href", "/sign-in");
+    const actionLayout = await mobileCta.locator("a").evaluateAll((links) =>
+      links.map((link) => {
+        const bounds = link.getBoundingClientRect();
+        return {
+          height: Math.round(bounds.height),
+          hasOverflow: link.scrollWidth > link.clientWidth,
+          boundsOverflow: bounds.left < 0 || bounds.right > window.innerWidth,
+        };
+      }),
+    );
+    expect(actionLayout).toEqual([
+      { height: 48, hasOverflow: false, boundsOverflow: false },
+      { height: 48, hasOverflow: false, boundsOverflow: false },
+    ]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await localLink.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/local\?from=landing$/);
+  }
+});
+
+test("copies the displayed landing example code with keyboard feedback in both locales", async ({ page }) => {
+  await page.addInitScript(() => {
+    let clipboardContent = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          clipboardContent = value;
+        },
+        readText: async () => clipboardContent,
+      },
+    });
+  });
+  await page.goto("/");
+  const origin = new URL(page.url()).origin;
+
+  for (const locale of ["id", "en"] as const) {
+    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      const copyCard = page.locator('[data-slot="landing-vault-preview-card"]').first();
+      const button = copyCard.locator('[data-slot="copy-preview"]');
+      const code = (await button.locator('[data-slot="example-code"]').innerText()).replace(/\s/g, "");
+      expect(code).toMatch(/^\d{6}$/);
+      const accessibleName = await button.getAttribute("aria-label");
+      expect(accessibleName).toContain(locale === "id" ? "Salin kode contoh untuk" : "Copy the example code for");
+      expect(accessibleName).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
+
+      await button.focus();
+      await expect(button).toBeFocused();
+      await button.press("Enter");
+      await expect(copyCard.locator('[role="status"]')).toHaveText(
+        locale === "id" ? "Kode contoh disalin" : "Example code copied",
+      );
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(code);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  }
+});
+
+test("announces localized copy failures without motion on a narrow screen", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new DOMException("Clipboard access denied", "NotAllowedError");
+        },
+      },
+    });
+  });
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const origin = `http://127.0.0.1:${browserTestPort}`;
+
+  for (const locale of ["id", "en"] as const) {
+    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    const copyCard = page.locator('[data-slot="landing-vault-preview-card"]').first();
+    const button = copyCard.locator('[data-slot="copy-preview"]');
+    await button.click();
+    const toast = copyCard.locator(".landing-copy-toast");
+    await expect(toast).toHaveText(locale === "id" ? "Gagal menyalin" : "Copy unavailable");
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveCSS("animation-name", "none");
+    await expect(copyCard).toHaveCSS("animation-name", "none");
+    await expect(button.locator('[data-slot="example-code"]')).toHaveCSS("user-select", "text");
+    await expect(copyCard.locator('[role="status"]')).toHaveText(
+      locale === "id"
+        ? "Kode contoh tidak dapat disalin. Pilih dan salin kode yang terlihat, atau masukkan secara manual."
+        : "Could not copy the example code. Select and copy the visible code, or enter it manually.",
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
 });
 
 test("aligns the landing footer as brand and a right-side utility group", async ({ page }) => {

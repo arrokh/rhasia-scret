@@ -213,7 +213,10 @@
           },
           "accountsTitle": "Brankas Anda dalam sekali lihat",
           "accountsDescription": "Tampilan contoh saja; label asli Anda tetap terenkripsi.",
-          "copied": "Tersalin!",
+          "copied": "Kode contoh disalin",
+          "copyExampleCode": "Salin kode contoh untuk {account}",
+          "copyExampleFailed": "Gagal menyalin",
+          "copyExampleFailedAnnouncement": "Kode contoh tidak dapat disalin. Pilih dan salin kode yang terlihat, atau masukkan secara manual.",
           "account": {
             "local": {
               "label": "GitHub · nama-Anda",
@@ -733,7 +736,8 @@
       "emptyCurrent": "Tambahkan akun pertama dengan memindai kode QR.",
       "emptySnapshot": "Snapshot terenkripsi ini tidak berisi akun.",
       "emptyFiltered": "Tidak ada akun yang cocok dengan filter ini",
-      "emptyFilteredDescription": "Pilih brankas atau penerbit lain, atau tambahkan akun autentikator ke brankas ini."
+      "emptyFilteredDescription": "Pilih brankas atau penerbit lain, atau tambahkan akun autentikator ke brankas ini.",
+      "clearFilters": "Hapus semua filter"
     },
     "qr": {
       "title": "Impor kode QR",
@@ -1472,6 +1476,7 @@
       "accountActions": "Tindakan untuk {account}",
       "empty": "Belum ada akun autentikator",
       "emptyFiltered": "Tidak ada akun yang cocok dengan filter ini",
+      "clearFilters": "Hapus semua filter",
       "accounts": "Akun autentikator",
       "personalVault": "Brankas Pribadi",
       "sampleService": "Layanan contoh",

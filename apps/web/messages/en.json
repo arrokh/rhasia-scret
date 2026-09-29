@@ -213,7 +213,10 @@
           },
           "accountsTitle": "Your Vaults at a glance",
           "accountsDescription": "Example layout only; your actual labels remain encrypted.",
-          "copied": "Copied!",
+          "copied": "Example code copied",
+          "copyExampleCode": "Copy the example code for {account}",
+          "copyExampleFailed": "Copy unavailable",
+          "copyExampleFailedAnnouncement": "Could not copy the example code. Select and copy the visible code, or enter it manually.",
           "account": {
             "local": {
               "label": "GitHub · your-name",
@@ -733,7 +736,8 @@
       "emptyCurrent": "Add your first account by scanning a QR code.",
       "emptySnapshot": "This encrypted snapshot contains no accounts.",
       "emptyFiltered": "No accounts match these filters",
-      "emptyFilteredDescription": "Choose another vault or issuer, or add an authenticator account to this vault."
+      "emptyFilteredDescription": "Choose another vault or issuer, or add an authenticator account to this vault.",
+      "clearFilters": "Clear all filters"
     },
     "qr": {
       "title": "Import QR code",
@@ -1472,6 +1476,7 @@
       "accountActions": "Actions for {account}",
       "empty": "No authenticator accounts yet",
       "emptyFiltered": "No accounts match these filters",
+      "clearFilters": "Clear all filters",
       "accounts": "Authenticator accounts",
       "personalVault": "Personal Vault",
       "sampleService": "Sample service",

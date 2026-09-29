@@ -396,6 +396,19 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
                 ? t("emptyCurrent")
                 : t("emptySnapshot")}
           </p>
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2"
+              onClick={() => {
+                setIssuerFilters([]);
+                setPreferences((current) => ({ ...current, vaultFilters: [] }));
+              }}
+            >
+              {t("clearFilters")}
+            </Button>
+          )}
           {current && !workspace.accounts.length && (
             <Button asChild className="mt-2">
               <Link href="/vaults/accounts/new">

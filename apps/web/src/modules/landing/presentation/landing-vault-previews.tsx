@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, LockKeyhole, UsersRound } from "lucide-react";
+import { AlertCircle, Check, LockKeyhole, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
 
@@ -10,14 +10,19 @@ type VaultPreview = {
   account: string;
   detail: string;
   access: string;
-  copyValue: string;
+  copyLabel: string;
   copiedLabel: string;
+  copyFailedLabel: string;
+  copyFailedAnnouncement: string;
 };
 
 export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
   const [seconds, setSeconds] = useState(30);
   const [cycle, setCycle] = useState(0);
-  const [copiedVault, setCopiedVault] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{
+    vault: string;
+    status: "copied" | "failed";
+  } | null>(null);
   const [shakingVault, setShakingVault] = useState<string | null>(null);
   useEffect(() => {
     const interval = window.setInterval(
@@ -32,17 +37,17 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
     return () => window.clearInterval(interval);
   }, []);
   useEffect(() => {
-    if (!copiedVault) return;
-    const timeout = window.setTimeout(() => setCopiedVault(null), 2_000);
+    if (!copyFeedback) return;
+    const timeout = window.setTimeout(() => setCopyFeedback(null), 2_000);
     return () => window.clearTimeout(timeout);
-  }, [copiedVault]);
-  async function copyPreview(entry: VaultPreview) {
+  }, [copyFeedback]);
+  async function copyPreview(entry: VaultPreview, code: string) {
     setShakingVault(entry.vault);
     try {
-      await browserClipboard.writeText(entry.copyValue);
-      setCopiedVault(entry.vault);
+      await browserClipboard.writeText(code);
+      setCopyFeedback({ vault: entry.vault, status: "copied" });
     } catch {
-      setCopiedVault(null);
+      setCopyFeedback({ vault: entry.vault, status: "failed" });
     }
   }
   return (
@@ -50,11 +55,13 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
       {entries.map((entry, index) => {
         const code = String(((cycle + 1) * (index + 3) * 7_919) % 1_000_000).padStart(6, "0");
         const shared = index === entries.length - 1;
-        const copied = copiedVault === entry.vault;
+        const displayCode = `${code.slice(0, 3)} ${code.slice(3)}`;
+        const feedback = copyFeedback?.vault === entry.vault ? copyFeedback.status : null;
         return (
           <article
             key={entry.vault}
-            className={`relative overflow-hidden rounded-lg border border-border bg-card shadow-card transition-colors has-[[data-slot=copy-preview]:focus-visible]:ring-3 has-[[data-slot=copy-preview]:focus-visible]:ring-ring/40 ${shakingVault === entry.vault ? "animate-account-shake" : ""}`}
+            data-slot="landing-vault-preview-card"
+            className={`relative overflow-hidden rounded-lg border border-border bg-card shadow-card transition-colors has-[[data-slot=copy-preview]:focus-visible]:ring-3 has-[[data-slot=copy-preview]:focus-visible]:ring-ring/40 motion-reduce:animate-none ${shakingVault === entry.vault ? "animate-account-shake" : ""}`}
             onAnimationEnd={() => setShakingVault(null)}
           >
             <Button
@@ -62,8 +69,8 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
               variant="ghost"
               type="button"
               className="grid h-auto w-full justify-stretch gap-1 rounded-lg px-4 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40 active:bg-warning-surface sm:p-3"
-              onClick={() => void copyPreview(entry)}
-              aria-label={entry.copyValue}
+              onClick={() => void copyPreview(entry, code)}
+              aria-label={`${entry.copyLabel}, ${displayCode}`}
             >
               <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                 <span className="grid min-w-0 gap-0.5">
@@ -73,12 +80,12 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
                   <span className="truncate text-[0.6rem] text-muted-foreground sm:text-[0.7rem]">{entry.detail}</span>
                 </span>
                 <span className="grid justify-items-end gap-1">
-                  <output
-                    className="font-mono text-xs font-semibold tracking-wide text-ink-strong sm:text-sm"
-                    aria-label={entry.detail}
+                  <span
+                    data-slot="example-code"
+                    className="select-text font-mono text-xs font-semibold tracking-wide text-ink-strong sm:text-sm"
                   >
-                    {code.slice(0, 3)} {code.slice(3)}
-                  </output>
+                    {displayCode}
+                  </span>
                   <Countdown seconds={seconds} />
                 </span>
               </div>
@@ -97,14 +104,18 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
                 </span>
               </span>
             </Button>
-            {copied && (
-              <span className="landing-copy-toast">
-                <Check className="size-3" aria-hidden="true" />
-                {entry.copiedLabel}
+            {feedback && (
+              <span className={`landing-copy-toast${feedback === "failed" ? " landing-copy-toast-error" : ""}`}>
+                {feedback === "copied" ? (
+                  <Check className="size-3" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="size-3" aria-hidden="true" />
+                )}
+                {feedback === "copied" ? entry.copiedLabel : entry.copyFailedLabel}
               </span>
             )}
-            <span className="sr-only" aria-live="polite">
-              {copied ? entry.copiedLabel : ""}
+            <span className="sr-only" role="status" aria-live="polite">
+              {feedback === "copied" ? entry.copiedLabel : feedback === "failed" ? entry.copyFailedAnnouncement : ""}
             </span>
           </article>
         );

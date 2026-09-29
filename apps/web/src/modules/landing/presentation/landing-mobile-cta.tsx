@@ -31,6 +31,7 @@ export function LandingMobileCta({ localVaultLabel, hostedVaultLabel }: LandingM
 
   return (
     <div
+      data-slot="landing-mobile-cta"
       aria-hidden={!showActions}
       inert={showActions ? undefined : true}
       className={cn(
@@ -39,18 +40,21 @@ export function LandingMobileCta({ localVaultLabel, hostedVaultLabel }: LandingM
       )}
     >
       <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
-        <Button asChild className="min-h-12 min-w-0 px-3 text-sm">
+        <Button
+          asChild
+          className="min-h-12 min-w-0 px-3 text-sm max-[360px]:flex-col max-[360px]:gap-0.5 max-[360px]:px-1 max-[360px]:text-xs"
+        >
           <Link href="/local?from=landing">
-            <Laptop aria-hidden="true" />
+            <Laptop className="size-4" aria-hidden="true" />
             {localVaultLabel}
           </Link>
         </Button>
         <Button
           asChild
-          className="min-h-12 min-w-0 bg-[#1b252c] px-3 text-sm text-card hover:bg-[#2b3a44] active:bg-[#11181d]"
+          className="min-h-12 min-w-0 bg-[#1b252c] px-3 text-sm text-card hover:bg-[#2b3a44] active:bg-[#11181d] max-[360px]:flex-col max-[360px]:gap-0.5 max-[360px]:px-1 max-[360px]:text-xs"
         >
           <Link href="/sign-in">
-            <Cloud aria-hidden="true" />
+            <Cloud className="size-4" aria-hidden="true" />
             {hostedVaultLabel}
           </Link>
         </Button>

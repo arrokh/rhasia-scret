@@ -193,6 +193,69 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   }
 });
 
+test("clears empty account filters by touch in the installed mobile PWA layout", async ({ browser }) => {
+  const origin = `http://127.0.0.1:${browserTestPort}`;
+  const context = await browser.newContext({ ...devices["iPhone 12"], baseURL: origin });
+  await context.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => {
+      if (query === "(display-mode: standalone)")
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        };
+      return nativeMatchMedia(query);
+    };
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 320, height: 700 });
+
+  try {
+    for (const locale of ["id", "en"] as const) {
+      await context.addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
+      await page.goto("/ui-preview");
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+
+      const filterLabel = locale === "id" ? "Filter akun" : "Filter accounts";
+      const personalVault = locale === "id" ? "Brankas Pribadi" : "Personal Vault";
+      const workIssuer = locale === "id" ? "Akun kerja" : "Work account";
+      const emptyLabel =
+        locale === "id" ? "Tidak ada akun yang cocok dengan filter ini" : "No accounts match these filters";
+      const clearLabel = locale === "id" ? "Hapus semua filter" : "Clear all filters";
+      await page.getByRole("button", { name: filterLabel }).tap();
+      const filterOptions = page.locator('[data-slot="dropdown-menu-content"]');
+      await filterOptions.getByRole("menuitemcheckbox", { name: personalVault }).tap();
+      await filterOptions.getByRole("menuitemcheckbox", { name: workIssuer }).tap();
+      await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(0);
+      await expect(page.getByText(emptyLabel, { exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      const clearFilters = page.getByRole("button", { name: clearLabel });
+      await expect(clearFilters).toBeVisible();
+      const clearFiltersBox = await clearFilters.boundingBox();
+      expect(clearFiltersBox?.height).toBeGreaterThanOrEqual(44);
+      if (locale === "id") {
+        await clearFilters.tap();
+      } else {
+        await clearFilters.focus();
+        await expect(clearFilters).toBeFocused();
+        await clearFilters.press("Enter");
+      }
+      await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(2);
+      await expect(page.getByText(emptyLabel, { exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test("keeps section action controls the same standard size on mobile and desktop", async ({ page }) => {
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });

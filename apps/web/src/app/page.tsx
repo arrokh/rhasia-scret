@@ -439,8 +439,12 @@ function ConnectionFlow({ t }: { t: LandingTranslator }) {
             account: t(`comparison.flow.account.${vault}.label`),
             detail: t(`comparison.flow.account.${vault}.detail`),
             access: t(`comparison.flow.account.${vault}.access`),
-            copyValue: "https://alvin.vercel.app",
+            copyLabel: t("comparison.flow.copyExampleCode", {
+              account: t(`comparison.flow.account.${vault}.label`),
+            }),
             copiedLabel: t("comparison.flow.copied"),
+            copyFailedLabel: t("comparison.flow.copyExampleFailed"),
+            copyFailedAnnouncement: t("comparison.flow.copyExampleFailedAnnouncement"),
           }))}
         />
       </div>
