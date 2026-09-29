@@ -6,7 +6,7 @@ Run `apps/api` as a standalone Hono service with Bun as the primary runtime and 
 
 ## Implementation status — 2026-09-20 snapshot
 
-> Historical implementation snapshot; current API/Web readiness is recorded in [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md).
+> Historical implementation snapshot; current API/Web readiness is recorded in [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md). Native-client references below describe the implementation and release evidence available on 2026-09-20; they predate ADR-0054 and are not current client support or release requirements.
 
 The repository implementation is complete and locally verified. Bun, generic Node.js, and Vercel adapters, environment isolation, deployment validation, PII controls, provider-neutral deployment smoke checks, bounded request/ciphertext validation, proxy-origin and anonymous-rate-limit hardening, passwordless/PWA handoff fixes, invitation onboarding, account deletion, and offline sign-in navigation are implemented. The browser gate now allocates a collision-free port block by default. The passwordless migration verifier passes against the already-approved database state; no production or persistent database migration was run.
 
@@ -117,4 +117,4 @@ Additional evidence must cover:
 - route parity and encrypted-content/client-only invitation boundaries;
 - temporary-host deployment and Chromium/browser, mobile API, and proxy smoke tests when provider access is available.
 
-The latest repository evidence includes a passing `mise exec -- pnpm run test:full` gate, Chromium smoke/encrypted/PWA coverage, mobile JavaScript and Expo Doctor verification, and the adapter, proxy, route-parity, validation, security, and logging checks listed above. Repository tests do not prove a live deployment. No migration or production cutover has been performed. If approved database state, provider credentials, Vercel access, or deployment authority is unavailable, record the exact blocker and stop before claiming deployment completion.
+The repository evidence recorded for this 2026-09-20 snapshot includes a passing `mise exec -- pnpm run test:full` gate, Chromium smoke/encrypted/PWA coverage, mobile JavaScript and Expo Doctor verification, and the adapter, proxy, route-parity, validation, security, and logging checks listed above. The mobile/Expo checks are historical evidence only under ADR-0054. Repository tests do not prove a live deployment. No migration or production cutover has been performed. If approved database state, provider credentials, Vercel access, or deployment authority is unavailable, record the exact blocker and stop before claiming deployment completion.

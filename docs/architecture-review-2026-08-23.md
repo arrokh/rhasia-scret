@@ -2,6 +2,8 @@
 
 This document records the ownership changes implemented from the `apps/web` architecture review. It does not change the zero-knowledge, authorization, localization, retention, or client/server contracts in `CONTEXT.md` and the accepted ADRs.
 
+> Historical implementation snapshot: the native-app adapters described below reflect the repository on 2026-08-23 and were retired by [ADR-0054](adr/0054-web-pwa-sole-supported-client.md). They are not current client support or release requirements; use the current architecture and code for present-day behavior.
+
 ## Workspace lifecycle
 
 `WorkspaceLifecycle` in `@rhasia-scret/client-vault-core` owns reconciliation state transitions, logical cancellation, write gating, refresh-failure classification, replacement cleanup, lock cleanup, and teardown cleanup. The web Sync context supplies browser network, visibility, lock, write-policy, and workspace adapters through `useWorkspaceLifecycle`; mobile supplies corresponding NetInfo, AppState, lock, write-gate, and refresh adapters through `useMobileWorkspaceLifecycle`. Mobile network status is an application-lifetime platform signal, while each lifecycle controller receives its own lock, AppState subscription, and write gate; disposal removes controller subscriptions and prevents cross-controller lock/write coupling. Native presentation observes the controller and issues commands instead of maintaining a second AppState/refresh policy.

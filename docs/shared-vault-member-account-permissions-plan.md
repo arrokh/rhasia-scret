@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for implementation. Permission resolution uses **Vault-wide member defaults** with an independent nullable per-member override for each account capability.
+Implemented and adopted by [ADR-0047](adr/0047-granular-shared-vault-account-permissions.md). This document preserves the original design, implementation plan, and completion checks for traceability; it is not an outstanding-work checklist. Permission resolution uses **Vault-wide member defaults** with an independent nullable per-member override for each account capability.
 
 ## Goal
 
@@ -132,7 +132,7 @@ This implementation replaces those scattered account-mutation role checks with o
    - `canDeleteAccountsOverride Boolean?`;
    - `permissionsRevision Int @default(1)`.
      Mixed null/non-null values are valid and express independent fallback. Never collapse explicit `false` into `null`.
-5. Generate the migration only through Prisma CLI (`pnpm prisma migrate dev --name add_shared_vault_account_permissions`). Do not hand-author SQL. Non-null Vault defaults migrate existing Vaults to read-only member behavior; null member overrides make existing members inherit that baseline. Owner access remains preserved through the domain bypass.
+5. The migration was generated through Prisma CLI (`pnpm --filter @rhasia-scret/api exec prisma migrate dev --name add_shared_vault_account_permissions`); SQL was not hand-authored. Non-null Vault defaults migrate existing Vaults to read-only member behavior; null member overrides make existing members inherit that baseline. Owner access remains preserved through the domain bypass.
 6. Do not add a permission index; authorization reads already use the `(vaultId, userId)` primary key.
 
 ### 3. Add owner-only permission administration
@@ -301,7 +301,7 @@ Each mutation commit should include its authorization-denial tests; do not merge
 Run with the repository's mise-managed toolchain and required database configuration:
 
 ```sh
-pnpm prisma validate
+pnpm run prisma:validate
 pnpm run lint
 pnpm run typecheck
 pnpm test

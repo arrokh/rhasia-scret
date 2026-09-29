@@ -14,10 +14,10 @@ notes follow the [repository release process](docs/release-process.md).
 - Contributor, security, governance, roadmap, support, and issue-intake
   documentation.
 - Documented the repository release process and API/Web readiness ledger.
-- Defined the repository SemVer release separately from API/Web service
-  deployment, with aligned workspace versions and separate native distribution.
+- Defined repository SemVer source releases separately from API/Web service
+  deployments, with aligned workspace versions.
 - Added local release-candidate preparation and exact-SHA GitHub tag/Release publication automation, gated by a reviewed release PR and version-specific readiness.
-- Enforced product-version alignment across root, API, Web, mobile, shared packages, and Expo metadata; version-only synchronization is excluded from Vercel build triggers.
+- Enforced product-version alignment across root, API, Web, and shared-package manifests; version-only synchronization is excluded from Vercel build triggers.
 - Added the current product version to the shared web footer before conditional language, Privacy, and Support controls.
 
 ### Verification

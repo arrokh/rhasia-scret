@@ -4,7 +4,7 @@
 
 Build a responsive, installable web/PWA client for a zero-knowledge shared authenticator. Users create or access hosted Application Users through verified passwordless email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The Next.js web application is the sole supported client; its responsive layouts support desktop and mobile browsers. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.
 
-This plan is implemented as vertical slices. A slice is complete only with its domain behavior, application use case, persistence/adapter, API contract, usable UI, forbidden-path test, sensitive-data review, and boundary checks.
+This plan records the implemented MVP scope and its original vertical-slice sequence; the numbered slices are not an outstanding-work checklist. Current supported capabilities and release status are in [product status](product-status.md). Each slice was considered complete only with its domain behavior, application use case, persistence/adapter, API contract, usable UI, forbidden-path test, sensitive-data review, and boundary checks.
 
 ## Authoritative language and decisions
 
@@ -17,7 +17,7 @@ This plan is implemented as vertical slices. A slice is complete only with its d
 - A Remembered Browser uses Local Verification (WebAuthn user verification) to unlock client-local protected key material after normal authentication. The vault stays unlocked until explicit lock or logout; there is no automatic timeout. Browsers without Local Verification require the Vault Unlock Secret.
 - AES-256-GCM encrypts payloads. P-256 ECDH, HKDF-SHA-256, and AES-256-GCM create versioned Key-Wrap Envelopes.
 - Vault names, account issuer/name, and normalized TOTP configuration are encrypted vault content. Before unlock, the UI uses generic locked labels.
-- A Shared Vault has exactly one Owner and zero or more Viewers. Owners always manage accounts, membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
+- A Shared Vault has exactly one Owner and zero or more Viewers. Owners always retain every account capability and manage membership, permissions, recovery, and lifecycle. Viewers use accounts and may add, replace, or soft-delete them only through Effective Shared Vault Account Permissions resolved independently from Vault-wide defaults and nullable per-member overrides; they may leave but cannot list members or audit history.
 - Owners may invite an exact email recipient before that person has initialized crypto. The owner client makes a recipient-bound, one-time Secure Share Link and delivers it through a secure out-of-band channel. The recipient signs up or signs in, completes enrollment, redeems the link, and receives Shared Vault access without the owner returning. The link expires exactly seven days after creation; owners may cancel pending links, and may re-invite the same recipient only after expiry with fresh link material.
 - Membership revocation immediately denies future online access and removes Shared Vault material on next successful contact. Personal-only hosted snapshots never contain Shared Vaults; revocation cannot erase copied secrets or old-client caches, and owners must reset the original service's 2FA for full credential revocation.
 - Shared Vaults and accounts soft-delete for 30 days and only owners may restore them. Personal Vaults cannot be deleted. Vault audit history is owner-only, opaque-ID-only, and retained one year after vault deletion.
@@ -36,18 +36,23 @@ Each context owns `domain/`, `application/`, `infrastructure/`, and, where neede
 - **Synchronization** (client): encrypted local snapshots, online revisions, read-only offline status.
 - **Audit**: redacted security events with opaque identifiers.
 
-Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js route handlers and web React components are presentation adapters. Domain modules cannot import Next.js, React, Prisma, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
+Domain code is framework-free TypeScript. Application code depends on ports. Infrastructure implements ports. Next.js App Router conventions compose the web presentation and same-origin API proxy; Hono API handlers translate transport and invoke context use cases. Domain modules cannot import Next.js, React, Prisma, HTTP, or browser APIs. Server modules cannot import client crypto/decryption or OTP runtime modules. Contexts communicate through public module APIs rather than internal database access.
 
 ## Project structure
 
 ```text
 apps/
-  web/
-    src/app/                   # Next.js convention files and route adapters
-    src/modules/               # web bounded contexts and adapters
-    src/tests/                 # unit/integration/contract/browser/architecture tests
+  api/
     prisma/                    # server schema and migrations
+    src/modules/               # server bounded contexts and adapters
+    src/route-handlers/        # canonical Hono API routes
+  web/
+    src/app/                   # recognized Next.js App Router conventions
+    src/modules/               # web bounded contexts and presentation
+    src/tests/                 # unit/integration/contract/browser/architecture tests
 packages/
+  api-contract/                # client-safe API schemas and types
+  api-client/                  # shared browser transport helpers
   client-vault-core/           # platform-neutral client workflows and contracts
 CONTEXT.md
 AGENTS.md
@@ -159,4 +164,4 @@ Threat-model and implement recovery, device lifecycle, normal vault-key rotation
 4. Reliability: Slices 13–15.
 5. Advanced recovery/security: Slice 16.
 
-Do not begin shared-vault implementation until the personal encrypted flow is tested end-to-end and server-side plaintext exclusion is verified.
+Historical sequencing guardrail for the original MVP rollout: shared-vault implementation was gated on testing the personal encrypted flow end-to-end and verifying server-side plaintext exclusion.

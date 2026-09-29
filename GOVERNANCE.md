@@ -8,7 +8,7 @@
 - **Reviewer:** checks the relevant bounded-context boundary, tests, security
   contract, localization parity, and documentation evidence. Reviewers do not
   self-approve their own sensitive changes.
-- **Release owner:** assembles verification, provenance, dependency, native,
+- **Release owner:** assembles verification, provenance, dependency, browser/PWA,
   deployment, and rollback evidence and records the launch or hold decision.
 - **Deployment operator:** controls each hosted or self-hosted environment,
   provider account, production secret, backup, purge scheduler, and incident
@@ -46,7 +46,7 @@ collect sensitive details.
 
 A release requires maintainer approval after the required CI checks pass and
 the release owner has recorded the applicable full verification, dependency
-license/provenance, secret scan, browser, deployment, and native evidence.
+license/provenance, secret scan, browser/PWA, deployment, and rollback evidence.
 Production provider controls are not inferred from repository tests. A release
 is held when a required check fails, a legal/provenance item is unresolved, a
 security finding is unaccepted, or a rollback path is not documented.

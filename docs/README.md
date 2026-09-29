@@ -1,9 +1,35 @@
 # Documentation index
 
-This index is the public entry point for the repository's product, operating, architecture, and security material. Start with the root [`README.md`](../README.md) for setup and the support matrix. Documents describe repository evidence and intended operating procedures; they do not replace a production security review or operator sign-off.
+This index is the public entry point for the repository's product, operating, architecture, and security material. Start with the root [`README.md`](../README.md) for the product overview and self-host quickstart, and [`product-status.md`](product-status.md) for current support scope and release status. Documents describe repository evidence and intended operating procedures; they do not replace a production security review or operator sign-off.
+
+## Quick navigation
+
+```mermaid
+flowchart TD
+    Start["Start here"] --> Readme["README<br/>Product overview and quickstart"]
+    Readme --> Status["Product status<br/>Support and release state"]
+    Readme --> Host["Self-hosting<br/>Deployment and environment"]
+    Status --> Behavior["User and product behavior"]
+    Host --> Operations["Operations and verification"]
+    Behavior --> Boundaries["Architecture, security, and ADRs"]
+    Operations --> Boundaries
+    Operations --> History["Historical audits and validation evidence"]
+```
+
+Use the sections below to open the specific guide or record for each path.
+
+```text
+docs/
+|-- Product/support: product-status.md
+|-- Deploy: self-hosting.md -> authentication-configuration.md
+|-- Develop: monorepo.md -> continuous-integration.md
+|-- Architecture: ../CONTEXT.md -> adr/
+`-- Evidence: audits/ + validation/
+```
 
 ## User and product behavior
 
+- [`product-status.md`](product-status.md) — current product status, supported client/capability matrix, and known limits.
 - [`advanced-recovery-security.md`](advanced-recovery-security.md) — Passkey-Assisted Recovery, Passkey-Assisted Unlock, Remembered Browser, and destructive reset boundaries.
 - [`encrypted-vault-backup.md`](encrypted-vault-backup.md) — encrypted archive export/import contracts and key handling.
 - [`offline-pwa-verification.md`](offline-pwa-verification.md) — read-only encrypted offline snapshots and PWA verification.
@@ -24,7 +50,8 @@ This index is the public entry point for the repository's product, operating, ar
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
-- [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation and verification record for local version preparation and exact-SHA source-tag/GitHub Release publication.
+- [`../ROADMAP.md`](../ROADMAP.md) / [`../CHANGELOG.md`](../CHANGELOG.md) — public launch priorities and unreleased change record.
+- [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation record for local version preparation and exact-SHA source-tag/GitHub Release publication.
 - [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and historical rollout guidance.
 - [`api-architecture-deepening.md`](api-architecture-deepening.md) — implemented API composition, identity lifecycle, authenticated-access, and account-deletion seams.
 - [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
@@ -64,11 +91,11 @@ This index is the public entry point for the repository's product, operating, ar
 
 ## Implementation plans
 
-- [`mvp-plan.md`](mvp-plan.md) — product and MVP sequencing.
+- [`mvp-plan.md`](mvp-plan.md) — implemented product scope and the original MVP vertical-slice sequence.
 - [`i18n-implementation-plan.md`](i18n-implementation-plan.md) — localization implementation and maintenance requirements.
 - [`navigation-interaction-performance-plan.md`](navigation-interaction-performance-plan.md) — navigation and interaction performance work.
-- [`shared-vault-member-account-permissions-plan.md`](shared-vault-member-account-permissions-plan.md) — Shared Vault permission model.
-- [`passwordless-only-authentication-plan.md`](passwordless-only-authentication-plan.md) — remove active OIDC support while preserving passwordless and local/offline behavior.
+- [`shared-vault-member-account-permissions-plan.md`](shared-vault-member-account-permissions-plan.md) — implemented Shared Vault account-permission model and its original implementation plan.
+- [`passwordless-only-authentication-plan.md`](passwordless-only-authentication-plan.md) — completed passwordless-only authentication implementation record; native-client verification references are historical.
 - [`encrypted-vault-backup.md`](encrypted-vault-backup.md) — archive workflow implementation contract.
 
 ## Source and generated artifacts

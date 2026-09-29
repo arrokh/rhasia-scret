@@ -1,6 +1,6 @@
 # Repository release-version automation plan
 
-**Status:** Implemented locally; final verification and review remain in progress.
+**Status:** Implemented. This document records the completed release automation; per-candidate verification and publication approval follow the [release process](release-process.md). No release publication is claimed here.
 
 ## Objective
 
@@ -63,11 +63,11 @@ The candidate gate checks out the exact triggering `github.sha` with full histor
 
 **Evidence:** `tools/release-publication.test.mjs`, `tools/verify-release-pr-changes.test.mjs`, and `tools/verify-release-workflow-policy.test.mjs` cover SemVer advancement, notes, tag retries, release-only changes, permissions, exact-SHA gating, and deployment/migration boundaries.
 
-### 6. Update documentation and verification policy — in progress
+### 6. Update documentation and verification policy — implemented
 
-Keep `CONTEXT.md`, `docs/release-process.md`, the candidate readiness record, `CHANGELOG.md`, `docs/continuous-integration.md`, `docs/monorepo.md`, and `docs/README.md` consistent with implemented commands and boundaries. Preserve historical release/readiness evidence and the operational migration approval policy. The shared footer surfaces the root version without changing deployment scope.
+The current README, product-status page, release process, candidate readiness record, changelog, CI guide, monorepo guide, and documentation index describe the implemented commands and current web/PWA support boundary. Historical release/readiness evidence and the operational migration approval policy are preserved. The shared footer surfaces the root version without changing deployment scope.
 
-Run release-helper and workflow-policy tests, formatting, and the fresh repository `mise exec -- pnpm run test:full` gate after the final implementation change; verify the relevant GitHub issue/check state before handoff.
+Release-helper and workflow-policy tests, formatting, and the fresh full repository gate are per-candidate requirements; see the [release process](release-process.md). This implementation plan does not claim a fresh gate for a future candidate or that a source release has been published.
 
 ## Acceptance criteria
 
