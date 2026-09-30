@@ -282,7 +282,8 @@ test("builds images before starting without a second image pull", () => {
 
 test("publishes the self-hosted web port on loopback by default and honors a bind address override", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const envPath = join(tmpdir(), `rhasia-selfhosted-compose-${process.pid}.env`);
+  const tempRoot = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-compose-"));
+  const envPath = join(tempRoot, ".env");
   const baseValues = [
     "COMMIT_SHA=test-sha",
     "POSTGRES_PASSWORD=synthetic-db-password",
@@ -323,7 +324,7 @@ test("publishes the self-hosted web port on loopback by default and honors a bin
       host_ip: "192.0.2.10",
     });
   } finally {
-    rmSync(envPath, { force: true });
+    rmSync(tempRoot, { recursive: true, force: true });
   }
 });
 
