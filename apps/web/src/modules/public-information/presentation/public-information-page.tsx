@@ -8,7 +8,7 @@ const sections = {
   privacy: [
     { key: "scope", items: ["local", "hosted"] },
     { key: "server", items: ["allowed", "excluded"] },
-    { key: "providers", items: ["auth", "hosting", "database", "analytics"] },
+    { key: "providers", items: ["auth", "hosting", "tailscale", "database", "analytics"] },
     { key: "retention", items: ["vault", "audit", "limits"] },
     { key: "responsibility", items: ["hosted", "selfHosted"] },
     { key: "contact", items: ["support", "security"] },

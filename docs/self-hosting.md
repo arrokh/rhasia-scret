@@ -4,12 +4,12 @@ This guide describes the supported deployment contract for rhasia-scret. The web
 
 ## Supported deployment matrix
 
-| Layer              | Reference                                    | Supported alternatives                                                        | Unsupported                                                                          |
-| ------------------ | -------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Web host           | Vercel with Node.js 24.x                     | Checked-in Docker Compose or another Node.js host behind HTTPS                | Static export                                                                        |
-| API host           | Bun service / standalone Node.js service     | Vercel Node.js function or another Node/Bun host behind HTTPS                 | Next.js API routes                                                                   |
-| Database           | PostgreSQL 16 compatibility target           | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints | SQLite, MySQL, browser database access                                               |
-| Web authentication | `passwordless` (default; sole hosted method) | `none` for local-only browser work                                            | OIDC or other hosted providers, password-based app auth, email-based account merging |
+| Layer              | Reference                                | Supported alternatives                                                        | Unsupported                                                                          |
+| ------------------ | ---------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Web host           | Vercel with Node.js 24.x                 | Checked-in Docker Compose or another Node.js host behind HTTPS                | Static export                                                                        |
+| API host           | Bun service / standalone Node.js service | Vercel Node.js function or another Node/Bun host behind HTTPS                 | Next.js API routes                                                                   |
+| Database           | PostgreSQL 16 compatibility target       | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints | SQLite, MySQL, browser database access                                               |
+| Web authentication | `passwordless` for hosted account access | `none` for local browser use or Tailscale-exposed local-only features         | OIDC or other hosted providers, password-based app auth, email-based account merging |
 
 All providers must satisfy PostgreSQL compatibility, TLS, backup/PITR, restore, retention scheduling, least-privilege access, and pooled/direct connection requirements. CI PostgreSQL proves application compatibility; it is not production infrastructure.
 
@@ -40,6 +40,7 @@ Copy the single root `.env.example` to `.env`. It separates API persistence valu
 | `DIRECT_URL`                                                                                                                         | API Prisma CLI                                              | Direct migration/admin URL; production pooled and direct endpoints must be distinct.                                                                                                              |
 | `PASSKEY_RP_ID`, `PASSKEY_ORIGIN`                                                                                                    | Passkey recovery/unlock                                     | Server-only WebAuthn settings; origin and RP hostname must agree.                                                                                                                                 |
 | `CRON_SECRET`                                                                                                                        | Retention scheduler                                         | At least 32 random server characters; required by the scheduler route.                                                                                                                            |
+| `APP_BIND_ADDRESS`, `APP_PORT`                                                                                                       | Docker Compose self-hosting                                 | The published Web port defaults to `127.0.0.1:3000`; bind another IPv4 interface only for a separately managed proxy, with the direct-access implications understood.                             |
 | `NEXT_PUBLIC_POSTHOG_*`, `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`                                                                | Optional analytics                                          | Public values only; analytics is off when unset.                                                                                                                                                  |
 
 Run `pnpm run verify:deployment-config` before deployment. After deployment, run `SMOKE_API_ORIGIN=https://api.example.com pnpm --filter @rhasia-scret/api smoke:deployment`; this checks health, time, no-store headers, and unauthenticated retention rejection without sending a purge credential. Use `VERIFY_DEPLOYMENT_PRODUCTION=1` to enforce production requirements and set `DEPLOYMENT_TARGET=bun`, `node`, or `vercel` for the API target. It validates URL shape, backend configuration, API proxy credentials, secret length, and conditional variables without printing their values. Both web and API validation reject a missing production `AUTH_BACKEND`; non-production runtimes retain the passwordless default. Runtime traffic uses only `DATABASE_URL`; `DIRECT_URL` is optional in the runtime environment and is reserved for controlled migration/admin commands. The web validation rejects API-only variables, the Web Vercel build runs that validation before `next build`, and the API Vercel build runs the production API validation before generating Prisma Client and bundling the Vercel adapter.
@@ -47,6 +48,64 @@ Run `pnpm run verify:deployment-config` before deployment. After deployment, run
 For the standalone API, provision API-only values in the Bun, Node, or Vercel project; do not put SMTP or database values in Vercel Web. At minimum, configure `DATABASE_URL`, `WEB_ORIGIN`, `PROXY_SECRET`, `AUTH_APP_ORIGIN`, `AUTH_MAGIC_LINK_SECRET`, `AUTH_SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_REQUIRE_TLS`, `SMTP_USER`, `SMTP_PASSWORD`, `AUTH_EMAIL_FROM`, `AUTH_EMAIL_FROM_NAME`, and `CRON_SECRET`. Add `PASSKEY_RP_ID` and `PASSKEY_ORIGIN` when passkey recovery/unlock is enabled. Use `DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config` for the API Vercel project. Both Vercel project configurations enable Git deployment only for `main`; non-main branches are intentionally skipped. Their ignored-build commands compare the previous and current commits and skip unaffected services: API changes are `apps/api` plus its transitive workspace dependencies, and Web changes are `apps/web` plus its transitive workspace dependencies. Install metadata and the deployment-filter contract fail open and rebuild rather than suppressing a deployment. Never print or commit secret values.
 
 ## Deployment procedure
+
+### Docker Compose with optional Tailscale Serve or Funnel
+
+The repository includes two `.env` setup paths. Both produce the root `.env` consumed by the existing Compose lifecycle:
+
+- **Interactive form:** run `pnpm selfhosted:configure --interactive`. It starts a one-time setup form bound only to `127.0.0.1`, offers Indonesian and English, and writes `.env` with mode `0600`. If Tailscale is already connected, the form can use the detected MagicDNS HTTPS origin. It refuses to overwrite `.env`, does not start Docker, and closes after saving or cancellation.
+- **Manual file:** copy `.env.example` to `.env`, edit the required values, and restrict access to the file (for example, `chmod 600 .env` on Unix-like systems). Keep the template as the single tracked environment example.
+
+For local browser use or a Tailscale exposure without Rhasia sign-in, select `AUTH_BACKEND=none`. Hosted Vault, sync, membership, audit, and recovery APIs remain unavailable in this mode. For Tailscale Serve or Funnel, use the exact HTTPS MagicDNS origin for `WEB_ORIGIN` and keep `AUTH_TRUST_PROXY_HEADERS=false`. SMTP and Turnstile settings are not used and are cleared by the wizard. To use hosted account features through another deployment path, configure `AUTH_BACKEND=passwordless` with production Turnstile and SMTP values; the Tailscale helper in this guide is configured for `none`. The wizard generates unique database, proxy, session, magic-link, and scheduler secrets; it never displays submitted provider values after saving. Do not enter Vault or TOTP material.
+
+Continue through the established lifecycle; the setup form never runs a database migration itself:
+
+```bash
+pnpm selfhosted:setup
+pnpm selfhosted:up
+pnpm selfhosted:tailscale --interactive
+```
+
+`selfhosted:setup` verifies the deployment configuration, starts PostgreSQL, and applies the API-owned migration only after its existing interactive confirmation. `selfhosted:up` builds and starts the application, then waits for health checks. The Tailscale command runs only after the Web health endpoint is ready. Tailscale must already be installed and connected on the Docker host; the helper requires CLI 1.52 or later and does not install Tailscale, log in, create auth keys, or change tailnet policy.
+
+The interactive Tailscale step lets the operator choose either mode:
+
+- **Serve** exposes HTTPS within the tailnet. Tailnet ACLs or grants control which people/devices can connect; review that policy separately. Rhasia sign-in is disabled, so only local browser features are available.
+- **Funnel** exposes HTTPS to the public internet. Tailnet ACLs do not limit visitors to the Funnel URL. The helper requires explicit confirmation. Rhasia sign-in is disabled and there is no application login; hosted Vault APIs remain unavailable.
+
+The helper forwards Tailscale HTTPS port `443` to `http://127.0.0.1:${APP_PORT:-3000}`. It checks that the running Web and API containers use `AUTH_BACKEND=none`, that Web proxy-header trust is disabled, and that an exported shell variable cannot make the live app differ from the validated `.env` settings. It also verifies the exact loopback-only Docker port mapping, a healthy app, the MagicDNS HTTPS origin, and an unused HTTPS port. SMTP, Turnstile, and application sign-in are not used by this Tailscale setup. One Rhasia listener is managed at a time. `--bg` keeps the selected Tailscale route across reboot. Check the locally recorded Rhasia route and disable it with:
+
+```bash
+pnpm selfhosted:tailscale status
+pnpm selfhosted:tailscale off
+```
+
+The helper records only the route it created in ignored `.tailscale-rhasia.json`; disabling checks both Serve and Funnel status before removing it. It does not issue `tailscale serve reset` or `tailscale funnel reset`, and a changed or unknown route is left for operator review. If Tailscale cannot confirm that a failed activation left both modes clear, the local marker is retained for review. The app and PostgreSQL containers remain on the private Compose network; only the Web port is published on host loopback.
+
+Tailscale terminates HTTPS on the host and forwards HTTP over loopback to the Web container. The host and its Tailscale daemon remain inside the operator's trust boundary. In this no-sign-in setup, Serve/Funnel control network reachability only and do not create Rhasia identities or enable hosted APIs; neither mode protects a compromised host. Keep Docker Engine at 28.0.0 or later, or add a host firewall rule: Docker documents that localhost-published ports could be reachable from adjacent L2 hosts on earlier Engine versions. A different HTTPS reverse proxy can use an explicit `APP_BIND_ADDRESS` override; that listener may bypass Tailscale Serve access policy. The Tailscale helper supports the node's MagicDNS origin; use a separately managed proxy for custom domains.
+
+This repository setup configures one selected Tailscale mode on HTTPS port `443`. The command-line helpers and fake-CLI tests verify the local configuration contract; they do not establish that a particular tailnet allows Serve or Funnel or that the host firewall prevents LAN access. Funnel is publicly reachable without application sign-in. Record the chosen mode and the corresponding tailnet/public reachability with the deployment before treating it as production-verified.
+
+For a manual host CLI workflow, after `.env` is configured and `pnpm selfhosted:up` reports healthy:
+
+```bash
+# Tailnet-only
+tailscale serve --bg --https=443 http://127.0.0.1:3000
+tailscale serve status --json
+
+# Public internet: verify the prompt and policy approval before enabling
+tailscale funnel --bg --https=443 http://127.0.0.1:3000
+tailscale funnel status --json
+
+# Disable only the listener configured above
+tailscale serve --bg --https=443 http://127.0.0.1:3000 off
+# or
+tailscale funnel --bg --https=443 http://127.0.0.1:3000 off
+```
+
+The manual examples use the default host port `3000`; replace it with the `APP_PORT` value from `.env` if you configured another port. The repository helper reads `.env` and checks the running Docker port mapping before it configures Tailscale.
+
+Funnel supports only Tailscale HTTPS ports `443`, `8443`, and `10000`; the repository helper intentionally uses `443`. Read the upstream [Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve) and [Funnel CLI](https://tailscale.com/docs/reference/tailscale-cli/funnel) documentation before changing the command or host-port contract.
 
 ### 1. Provision the host
 
@@ -153,15 +212,15 @@ Set `AUTH_BACKEND=passwordless`, the API-only `AUTH_*` values, and the server-on
 
 Requests are limited to five per normalized email and twenty per IP per 15-minute window. Sessions use keyed digests, short-lived access credentials, the verifier-backed PWA refresh handoff, reuse detection, revocation, and redacted security events. Browser keepalive validates the signed browser assertion without rotating a refresh credential, avoiding Strict Mode and concurrent-load races. No raw token, session credential, IP address, Vault material, or decrypted content is persisted or logged.
 
-### 4. Configure local-only mode
+### 4. Configure no-sign-in mode
 
-Set `AUTH_BACKEND=none` for local-only browser work. Hosted Personal/Shared Vault, synchronization, memberships, audit, and recovery APIs fail closed in this mode. Passwordless email-link authentication is the only supported hosted sign-in method; explicit unsupported backends fail deployment validation rather than falling back.
+Set `AUTH_BACKEND=none` when Rhasia sign-in is disabled. Hosted Personal/Shared Vault, synchronization, memberships, audit, and recovery APIs fail closed in this mode. The UI can still be exposed through Tailscale Serve or Funnel for browser-local workflows. Serve access follows tailnet ACLs/grants; Funnel is public and has no application login. Tailscale access does not create an application identity or enable hosted APIs. Passwordless email-link authentication remains the only supported hosted sign-in method; explicit unsupported backends fail deployment validation rather than falling back.
 
 If the selected backend is malformed or incomplete, protected web routes redirect to the localized `/sign-in?auth=configuration_error` state rather than looking unauthenticated. A serverless API composition returns `{ "error": "authentication_misconfigured" }` with HTTP 503, `Cache-Control: no-store`, and an opaque request ID; the web proxy forwards it without exposing parser text. Standalone Bun/Node startup logs only a fixed category, bounded configuration field, and startup correlation marker before exiting, so no listener is advertised as ready. The existing `api_misconfigured` dependency response remains distinct from authentication configuration failures.
 
 ### 5. Configure HTTPS and browser security
 
-Use one exact HTTPS origin for hosted/non-local deployments. Local self-hosting may use `http://localhost` or `http://127.0.0.1`; HTTPS remains required for non-local passwordless origins. Use the configured origin for `AUTH_APP_ORIGIN` and `PASSKEY_ORIGIN`. The installable PWA uses the same web routes, browser cookies, and service-worker cache policy as the website.
+Use one exact HTTPS origin for Tailscale-exposed deployments. Local self-hosting may use `http://localhost` or `http://127.0.0.1`; HTTPS remains required for non-local origins. `AUTH_APP_ORIGIN` and `PASSKEY_ORIGIN` are needed only for their respective passwordless/passkey features. The installable PWA uses the same web routes, browser cookies, and service-worker cache policy as the website.
 
 ### 6. Schedule retention purge
 

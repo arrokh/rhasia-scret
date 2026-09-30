@@ -1,6 +1,6 @@
 # Passwordless-only hosted authentication
 
-- Status: Accepted
+- Status: Accepted; Tailscale self-hosted exposure with `AUTH_BACKEND=none` is an explicit deployment exception under ADR-0055
 - Date: 2026-09-25
 - Supersedes: the active OIDC-backend support decision in ADR-0039 and OIDC-availability claims in ADR-0042 and ADR-0051; other decisions in those records remain in force
 

@@ -84,6 +84,7 @@
         "items": {
           "auth": "The self-managed passwordless service handles identity metadata, authentication events, and opaque sessions; it does not receive Vault plaintext from this application.",
           "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.",
+          "tailscale": "Optional Tailscale Serve is limited by tailnet access policy; Funnel is public. The host daemon receives application HTTP after HTTPS termination and forwards it over loopback. The operator controls local request access, logs, and retention.",
           "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser database access is not part of the supported boundary.",
           "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply."
         }

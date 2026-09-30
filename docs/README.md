@@ -45,8 +45,9 @@ docs/
 
 ## Deployment and operations
 
-- [`authentication-configuration.md`](authentication-configuration.md) — passwordless and local-only authentication configuration, route protection, sessions, and logout.
+- [`authentication-configuration.md`](authentication-configuration.md) — passwordless and no-sign-in configuration, route protection, sessions, and logout.
 - [`self-hosting.md`](self-hosting.md) — supported host/database/authentication matrix, environment contract, deployment procedure, local setup, and smoke test.
+- [`self-hosting-tailscale-plan.md`](self-hosting-tailscale-plan.md) — English implementation record and operator-verification checklist for interactive or manual `.env` setup and operator-selected Tailscale Serve or Funnel.
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.

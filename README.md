@@ -29,13 +29,14 @@ cd rhasia-scret
 mise install
 mise run setup
 pnpm install --frozen-lockfile
+pnpm selfhosted:configure --interactive
 pnpm selfhosted:setup
 pnpm selfhosted:up
 ```
 
-On a clean checkout, setup creates a local-only `.env` and requires confirmation before applying migrations to its Compose database. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
+The local form creates `.env` with `AUTH_BACKEND=none` by default; `selfhosted:setup` then verifies it and requires confirmation before applying migrations to its Compose database. To use the manual/default route, skip `selfhosted:configure` and let `selfhosted:setup` create `.env` from the example template. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
 
-To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. Follow the [authentication configuration](docs/authentication-configuration.md) and [self-hosting guide](docs/self-hosting.md) for the complete environment contract, HTTPS, upgrades, backups, and recovery. Do not expose the local-only configuration as a hosted service.
+To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) also documents Tailscale Serve (tailnet access) or Funnel (public access) with `AUTH_BACKEND=none`; this exposes only browser-local features, and Funnel is public without an application login. Tailscale access does not enable hosted Vault APIs.
 
 ## Architecture
 

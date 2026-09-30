@@ -1,11 +1,21 @@
 import { closeSync, constants, existsSync, fchmodSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { isIPv4 } from "node:net";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 export const SELF_HOSTED_PROJECT_NAME = "rhasia-scret-selfhosted";
 export const SELF_HOSTED_COMPOSE_FILES = ["docker-compose.yml"];
+
+export function isDnsName(value) {
+  return (
+    value.length <= 253 &&
+    value
+      .split(".")
+      .every((label) => label.length > 0 && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(label))
+  );
+}
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requiredComposeValues = ["POSTGRES_PASSWORD", "PROXY_SECRET", "API_PROXY_SECRET", "CRON_SECRET"];
@@ -66,6 +76,16 @@ export function validateSelfHostedEnvironment(values) {
     requireHttpsOrigin(values[name], name, errors);
   }
 
+  const bindAddress = values.APP_BIND_ADDRESS?.trim();
+  if (bindAddress && !isIPv4(bindAddress)) {
+    errors.push("APP_BIND_ADDRESS must be a valid IPv4 address.");
+  }
+
+  const appPort = values.APP_PORT?.trim();
+  if (appPort && (!/^\d+$/u.test(appPort) || Number(appPort) < 1 || Number(appPort) > 65535)) {
+    errors.push("APP_PORT must be an integer from 1 to 65535.");
+  }
+
   if (backend === "passwordless" && !values.AUTH_APP_ORIGIN?.trim()) {
     errors.push("AUTH_APP_ORIGIN is required when AUTH_BACKEND=passwordless.");
   }
@@ -77,7 +97,7 @@ export function validateSelfHostedEnvironment(values) {
 export function setEnvValue(source, name, value) {
   const line = `${name}=${value}`;
   const pattern = new RegExp(`^${escapeRegExp(name)}=.*$`, "mu");
-  if (pattern.test(source)) return source.replace(pattern, line);
+  if (pattern.test(source)) return source.replace(pattern, () => line);
   return `${source.trimEnd()}\n${line}\n`;
 }
 
@@ -167,6 +187,15 @@ function writeEnvironmentFile(path, source, createOnly) {
 export function composeArguments(root = repositoryRoot, commandArguments = []) {
   const relativeFiles = SELF_HOSTED_COMPOSE_FILES.map((file) => ["-f", file]).flat();
   return ["compose", ...relativeFiles, ...commandArguments];
+}
+
+export function createSelfHostedCommandEnvironment(context, overrides = {}) {
+  const environment = { ...process.env };
+  const composeSource = SELF_HOSTED_COMPOSE_FILES.map((file) => readFileSync(resolve(context.root, file), "utf8")).join(
+    "\n",
+  );
+  for (const [, name] of composeSource.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)/gu)) delete environment[name];
+  return { ...environment, ...context.values, ...overrides, COMPOSE_PROFILES: "" };
 }
 
 export function selfHostedUpComposeCommands() {
@@ -274,9 +303,10 @@ function verifyEnvironment(context) {
 }
 
 function verifyDeploymentConfiguration(root) {
+  const context = loadContext(root);
   runCommand(pnpmCommand, ["run", "verify:deployment-config"], {
     cwd: root,
-    env: { ...process.env, NODE_ENV: "development" },
+    env: createSelfHostedCommandEnvironment(context, { NODE_ENV: "development" }),
     label: "application configuration verification",
   });
 }
@@ -284,11 +314,10 @@ function verifyDeploymentConfiguration(root) {
 function printComposeStatus(context) {
   const result = spawnSync("docker", composeArguments(context.root, ["ps", "--all"]), {
     cwd: context.root,
-    env: {
-      ...process.env,
+    env: createSelfHostedCommandEnvironment(context, {
       COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME,
       COMMIT_SHA: readCommitSha(context.root),
-    },
+    }),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -297,11 +326,12 @@ function printComposeStatus(context) {
 }
 
 function runCompose(context, commandArguments, { allowMissingEnvironment = false } = {}) {
-  const env = {
-    ...process.env,
+  const env = createSelfHostedCommandEnvironment(context, {
     COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME,
     COMMIT_SHA: readCommitSha(context.root),
-  };
+    APP_BIND_ADDRESS: context.values.APP_BIND_ADDRESS?.trim() || "127.0.0.1",
+    APP_PORT: context.values.APP_PORT?.trim() || "3000",
+  });
 
   if (allowMissingEnvironment) {
     for (const name of requiredComposeValues) {

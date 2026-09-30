@@ -1,22 +1,42 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+import { request as httpRequest } from "node:http";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   composeArguments,
+  createSelfHostedCommandEnvironment,
   ensureLocalEnvironment,
   parseEnvFile,
   selfHostedUpComposeCommands,
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
+import { startConfigurationWizard } from "./self-hosted-configure.mjs";
+import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
+import { createServer } from "node:http";
 
 test("parses simple and quoted dotenv values without exposing values in validation", () => {
   assert.deepEqual(parseEnvFile('AUTH_BACKEND=none\nWEB_ORIGIN="http://localhost:3000"\n# ignored\n'), {
     AUTH_BACKEND: "none",
     WEB_ORIGIN: "http://localhost:3000",
   });
+});
+
+test("parses canonical origins without credentials, paths, queries, or fragments", () => {
+  assert.equal(parseCanonicalOrigin("https://vault.example.test")?.origin, "https://vault.example.test");
+  for (const value of [
+    "https://operator@vault.example.test",
+    "https://vault.example.test/path",
+    "https://vault.example.test?query=value",
+    "https://vault.example.test#fragment",
+    "not a URL",
+  ]) {
+    assert.equal(parseCanonicalOrigin(value), undefined);
+  }
 });
 
 test("validates the minimum local Compose contract", () => {
@@ -92,6 +112,28 @@ test("rejects unsafe database passwords and malformed origins", () => {
   });
   assert.ok(nonLocalHttpErrors.some((error) => error.includes("WEB_ORIGIN") && error.includes("HTTPS")));
   assert.ok(nonLocalHttpErrors.some((error) => error.includes("API_ORIGIN") && error.includes("HTTPS")));
+});
+
+test("validates explicit Docker bind addresses and published ports", () => {
+  const valid = {
+    POSTGRES_PASSWORD: "local-database-password",
+    PROXY_SECRET: "p".repeat(32),
+    API_PROXY_SECRET: "p".repeat(32),
+    CRON_SECRET: "c".repeat(32),
+    AUTH_BACKEND: "none",
+    WEB_ORIGIN: "http://localhost:3000",
+    API_ORIGIN: "http://localhost:8787",
+  };
+
+  assert.deepEqual(validateSelfHostedEnvironment(valid), []);
+  assert.deepEqual(validateSelfHostedEnvironment({ ...valid, APP_BIND_ADDRESS: "192.0.2.10", APP_PORT: "3400" }), []);
+  assert.ok(
+    validateSelfHostedEnvironment({ ...valid, APP_BIND_ADDRESS: "0.0.0.0;echo unsafe" }).some((error) =>
+      error.includes("APP_BIND_ADDRESS"),
+    ),
+  );
+  assert.ok(validateSelfHostedEnvironment({ ...valid, APP_PORT: "65536" }).some((error) => error.includes("APP_PORT")));
+  assert.ok(validateSelfHostedEnvironment({ ...valid, APP_PORT: "0" }).some((error) => error.includes("APP_PORT")));
 });
 
 test("repairs only example placeholders in an existing environment", () => {
@@ -182,10 +224,53 @@ test("creates a local environment once and leaves it unchanged on rerun", () => 
 test("replaces an existing dotenv key without touching comments", () => {
   const source = "# AUTH_BACKEND=comment\nAUTH_BACKEND=passwordless\n";
   assert.equal(setEnvValue(source, "AUTH_BACKEND", "none"), "# AUTH_BACKEND=comment\nAUTH_BACKEND=none\n");
+  assert.equal(
+    setEnvValue("SMTP_PASSWORD=old\n", "SMTP_PASSWORD", "literal-$&-value"),
+    "SMTP_PASSWORD=literal-$&-value\n",
+  );
 });
 
 test("builds a stable Compose project command", () => {
   assert.deepEqual(composeArguments("/repo", ["up", "-d"]), ["compose", "-f", "docker-compose.yml", "up", "-d"]);
+});
+
+test("self-hosted commands use .env values instead of shell overrides for Compose settings", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const variableNames = ["AUTH_BACKEND", "AUTH_TRUST_PROXY_HEADERS", "APP_PORT", "SMTP_PASSWORD", "COMPOSE_PROFILES"];
+  const previousValues = new Map(variableNames.map((name) => [name, process.env[name]]));
+  Object.assign(process.env, {
+    AUTH_BACKEND: "none",
+    AUTH_TRUST_PROXY_HEADERS: "true",
+    APP_PORT: "9999",
+    SMTP_PASSWORD: "unexpected-shell-value",
+    COMPOSE_PROFILES: "migration",
+  });
+
+  try {
+    const environment = createSelfHostedCommandEnvironment(
+      {
+        root,
+        values: {
+          AUTH_BACKEND: "passwordless",
+          AUTH_TRUST_PROXY_HEADERS: "false",
+          APP_PORT: "3400",
+          SMTP_PASSWORD: "synthetic-provider-password",
+          COMPOSE_PROFILES: "migration",
+        },
+      },
+      { COMPOSE_PROJECT_NAME: "rhasia-scret-selfhosted" },
+    );
+    assert.ok(environment.AUTH_BACKEND === "passwordless", "The .env authentication mode should take precedence.");
+    assert.ok(environment.AUTH_TRUST_PROXY_HEADERS === "false", "The .env proxy setting should take precedence.");
+    assert.equal(environment.APP_PORT, "3400");
+    assert.ok(environment.SMTP_PASSWORD === "synthetic-provider-password", "The fixture secret should be preserved.");
+    assert.equal(environment.COMPOSE_PROFILES, "");
+  } finally {
+    for (const [name, value] of previousValues) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
 });
 
 test("builds images before starting without a second image pull", () => {
@@ -194,3 +279,493 @@ test("builds images before starting without a second image pull", () => {
     start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
   });
 });
+
+test("publishes the self-hosted web port on loopback by default and honors a bind address override", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const envPath = join(tmpdir(), `rhasia-selfhosted-compose-${process.pid}.env`);
+  const baseValues = [
+    "COMMIT_SHA=test-sha",
+    "POSTGRES_PASSWORD=synthetic-db-password",
+    `PROXY_SECRET=${"p".repeat(32)}`,
+    `API_PROXY_SECRET=${"p".repeat(32)}`,
+    `CRON_SECRET=${"c".repeat(32)}`,
+  ].join("\n");
+
+  try {
+    const resolveWebBinding = (extraValues = "") => {
+      writeFileSync(envPath, `${baseValues}\n${extraValues}\n`);
+      const result = spawnSync(
+        "docker",
+        ["compose", "--env-file", envPath, "-f", "docker-compose.yml", "config", "--format", "json"],
+        {
+          cwd: root,
+          env: createSelfHostedCommandEnvironment({ root, values: parseEnvFile(readFileSync(envPath, "utf8")) }),
+          encoding: "utf8",
+        },
+      );
+      assert.ok(result.status === 0, "Docker Compose should resolve the synthetic fixture configuration.");
+      const config = JSON.parse(result.stdout);
+      return config.services.web.ports[0];
+    };
+
+    assert.deepEqual(resolveWebBinding(), {
+      mode: "ingress",
+      protocol: "tcp",
+      published: "3000",
+      target: 3000,
+      host_ip: "127.0.0.1",
+    });
+    assert.deepEqual(resolveWebBinding("APP_BIND_ADDRESS=192.0.2.10\nAPP_PORT=3400"), {
+      mode: "ingress",
+      protocol: "tcp",
+      published: "3400",
+      target: 3000,
+      host_ip: "192.0.2.10",
+    });
+  } finally {
+    rmSync(envPath, { force: true });
+  }
+});
+
+test("configuration wizard writes a protected .env through its loopback HTTP form without echoing values", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-"));
+  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  const wizard = await startConfigurationWizard({
+    root,
+    commitSha: "test-sha",
+    tailscaleOrigin: "https://node.example.test",
+  });
+
+  try {
+    const page = await requestWizard(wizard.url);
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get("cache-control"), /no-store/u);
+    assert.match(page.headers.get("content-security-policy"), /frame-ancestors 'none'/u);
+    assert.match(page.headers.get("set-cookie"), /HttpOnly; SameSite=Strict/u);
+    assert.equal(page.body.includes("rhasia_setup_session"), false);
+    assert.match(page.body, /https:\/\/node\.example\.test/u);
+    assert.match(page.body, /src="\/wizard\.js"/u);
+    const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
+    const unauthorizedClient = await requestWizard(`${wizard.url}wizard.js`);
+    assert.equal(unauthorizedClient.status, 403);
+    const wizardClient = await requestWizard(`${wizard.url}wizard.js`, { headers: { cookie: setupCookie } });
+    assert.equal(wizardClient.status, 200);
+    assert.match(wizardClient.headers.get("content-type"), /javascript/u);
+    assert.ok(wizardClient.body.length > 1_000, "The authenticated wizard should receive its form client.");
+    const submission = {
+      authBackend: "passwordless",
+      webOrigin: "https://vault.example.test",
+      turnstileSiteKey: "synthetic-turnstile-site-key",
+      turnstileSecretKey: "synthetic-turnstile-secret-key",
+      smtpHost: "smtp.example.test",
+      smtpPort: "587",
+      smtpUser: "operator@example.test",
+      smtpPassword: "synthetic-smtp-password-$-value",
+      authEmailFrom: "no-reply@example.test",
+      authEmailFromName: "rhasia-scret",
+      passkeyEnabled: false,
+      passkeyRpId: "",
+      passkeyOrigin: "",
+      appBindAddress: "127.0.0.1",
+      appPort: "3000",
+    };
+    const hostileOrigin = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: "https://attacker.example.test",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(submission),
+    });
+    assert.equal(hostileOrigin.status, 403);
+    assert.equal(existsSync(join(root, ".env")), false);
+
+    const unsupportedField = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ ...submission, unexpected: "synthetic" }),
+    });
+    assert.equal(unsupportedField.status, 400);
+    assert.match(unsupportedField.body, /invalid_request/u);
+    assert.equal(existsSync(join(root, ".env")), false);
+
+    const unsupportedSmtpPort = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ ...submission, smtpPort: "2525" }),
+    });
+    assert.equal(unsupportedSmtpPort.status, 400);
+    assert.match(unsupportedSmtpPort.body, /smtpPort:invalid/u);
+    assert.equal(existsSync(join(root, ".env")), false);
+
+    const hostileHost = await requestWizard(wizard.url, { headers: { host: "attacker.example.test" } });
+    assert.equal(hostileHost.status, 403);
+
+    const response = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(submission),
+    });
+
+    assert.equal(response.status, 201, response.body);
+    assert.equal(response.body.includes(submission.smtpPassword), false);
+    await wizard.closed;
+
+    const envSource = readFileSync(join(root, ".env"), "utf8");
+    const values = parseEnvFile(envSource);
+    assert.equal(values.AUTH_BACKEND, "passwordless");
+    assert.equal(values.WEB_ORIGIN, "https://vault.example.test");
+    assert.equal(values.AUTH_APP_ORIGIN, values.WEB_ORIGIN);
+    assert.ok(values.SMTP_PASSWORD === submission.smtpPassword, "The wizard should preserve the submitted SMTP value.");
+    assert.equal(values.AUTH_TRUST_PROXY_HEADERS, "false");
+    assert.equal(values.PROXY_SECRET, values.API_PROXY_SECRET);
+    assert.notEqual(values.AUTH_MAGIC_LINK_SECRET, values.AUTH_SESSION_SECRET);
+    assert.equal(values.PASSKEY_RP_ID, "");
+    assert.deepEqual(validateSelfHostedEnvironment(values), []);
+    assert.equal(readFileSync(join(root, ".env"), "utf8").includes("replace-with-"), false);
+    assert.equal((await import("node:fs")).statSync(join(root, ".env")).mode & 0o777, 0o600);
+
+    const compose = spawnSync("docker", ["compose", "-f", "docker-compose.yml", "config", "--format", "json"], {
+      cwd: root,
+      env: { ...createSelfHostedCommandEnvironment({ root, values: {} }), COMPOSE_PROFILES: "" },
+      encoding: "utf8",
+    });
+    assert.ok(compose.status === 0, "Docker Compose should resolve the synthetic wizard configuration.");
+    const composeConfig = JSON.parse(compose.stdout);
+    assert.equal(composeConfig.services.web.ports[0].host_ip, "127.0.0.1");
+    assert.ok(
+      composeConfig.services.api.environment.SMTP_PASSWORD === submission.smtpPassword.split("$").join("$$"),
+      "Docker Compose should preserve the synthetic SMTP fixture value.",
+    );
+  } finally {
+    await wizard.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("configuration wizard refuses to overwrite an existing .env", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-existing-"));
+  try {
+    const existing = "KEEP_EXISTING_CONFIGURATION=true\n";
+    writeFileSync(join(root, ".env"), existing, { mode: 0o600 });
+    await assert.rejects(startConfigurationWizard({ root }), /will not overwrite/u);
+    assert.equal(readFileSync(join(root, ".env"), "utf8"), existing);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused provider fields", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-local-"));
+  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  const wizard = await startConfigurationWizard({ root, commitSha: "test-sha", tailscaleOrigin: null });
+  try {
+    const page = await requestWizard(wizard.url);
+    const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
+    const submission = {
+      authBackend: "none",
+      webOrigin: "https://node.example.test",
+      turnstileSiteKey: "synthetic-turnstile-site-key",
+      turnstileSecretKey: "synthetic-turnstile-secret-key",
+      smtpHost: "smtp.example.test",
+      smtpPort: "587",
+      smtpUser: "operator@example.test",
+      smtpPassword: "synthetic-smtp-password",
+      authEmailFrom: "no-reply@example.test",
+      authEmailFromName: "rhasia-scret",
+      passkeyEnabled: false,
+      passkeyRpId: "",
+      passkeyOrigin: "",
+      appBindAddress: "127.0.0.1",
+      appPort: "3000",
+    };
+    const response = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(submission),
+    });
+    assert.equal(response.status, 201, response.body);
+    await wizard.closed;
+    const values = parseEnvFile(readFileSync(join(root, ".env"), "utf8"));
+    assert.equal(values.AUTH_BACKEND, "none");
+    assert.equal(values.WEB_ORIGIN, "https://node.example.test");
+    assert.equal(values.AUTH_APP_ORIGIN, "");
+    assert.equal(values.SMTP_PASSWORD, "");
+    assert.equal(values.TURNSTILE_SECRET_KEY, "");
+  } finally {
+    await wizard.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Tailscale Serve and Funnel commands use loopback, require public confirmation, and remove only their recorded listener", async (context) => {
+  if (process.platform === "win32") return context.skip("The fake Tailscale executable uses a Unix shebang.");
+
+  for (const mode of ["serve", "funnel"]) {
+    await context.test(`${mode} lifecycle`, async () => {
+      const root = mkdtempSync(join(tmpdir(), `rhasia-selfhosted-${mode}-`));
+      const bin = join(root, "bin");
+      const fakeStatusPath = join(root, "tailscale-status.json");
+      const fakeLogPath = join(root, "tailscale-commands.jsonl");
+      mkdirSync(bin);
+
+      const healthServer = createServer((request, response) => {
+        if (request.url !== "/api/v1/health") {
+          response.writeHead(404).end();
+          return;
+        }
+        response.writeHead(200, { "content-type": "application/json" }).end('{"status":"ok"}');
+      });
+      await new Promise((resolve) => healthServer.listen(0, "127.0.0.1", resolve));
+      const healthPort = healthServer.address().port;
+      writeTailscaleEnvironment(root, healthPort);
+      const fakeDockerPath = join(bin, "docker");
+      writeFileSync(fakeDockerPath, fakeDockerProgram, { mode: 0o700 });
+      chmodSync(fakeDockerPath, 0o700);
+      const fakeCliPath = join(bin, "tailscale");
+      writeFileSync(fakeCliPath, fakeTailscaleProgram, { mode: 0o700 });
+      chmodSync(fakeCliPath, 0o700);
+
+      try {
+        const runWithEnvironment = (extraEnvironment, ...arguments_) =>
+          runProcess(
+            process.execPath,
+            [new URL("./self-hosted-tailscale.mjs", import.meta.url).pathname, ...arguments_],
+            {
+              cwd: root,
+              env: {
+                ...process.env,
+                PATH: `${bin}:${process.env.PATH}`,
+                FAKE_TAILSCALE_STATUS: fakeStatusPath,
+                FAKE_TAILSCALE_LOG: fakeLogPath,
+                FAKE_APP_PORT: String(healthPort),
+                FAKE_DOCKER_HOST_PORT: String(healthPort),
+                ...extraEnvironment,
+              },
+            },
+          );
+        const run = (...arguments_) => runWithEnvironment({}, ...arguments_);
+        const exposureArguments = mode === "funnel" ? ["funnel", "--confirm-public"] : ["serve"];
+
+        if (mode === "funnel") {
+          const unconfirmed = await run("funnel");
+          assert.notEqual(unconfirmed.status, 0);
+          assert.match(unconfirmed.stderr, /Funnel is public and Rhasia sign-in is disabled/u);
+          assert.equal(readFileIfExists(fakeLogPath), "");
+        }
+
+        writeTailscaleEnvironment(root, healthPort, "passwordless");
+        const wrongAuthBackend = await run(...exposureArguments);
+        assert.notEqual(wrongAuthBackend.status, 0);
+        assert.match(wrongAuthBackend.stderr, /AUTH_BACKEND must be none for Tailscale exposure/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+        writeTailscaleEnvironment(root, healthPort);
+
+        const wrongHostBinding = await runWithEnvironment({ FAKE_DOCKER_HOST_IP: "0.0.0.0" }, ...exposureArguments);
+        assert.notEqual(wrongHostBinding.status, 0);
+        assert.match(wrongHostBinding.stderr, /publish only 3000\/tcp to 127\.0\.0\.1/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const wrongPortBinding = await runWithEnvironment(
+          { FAKE_DOCKER_HOST_PORT: String(healthPort + 1) },
+          ...exposureArguments,
+        );
+        assert.notEqual(wrongPortBinding.status, 0);
+        assert.match(wrongPortBinding.stderr, /APP_PORT configured in \.env/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const wrongWebAuth = await runWithEnvironment({ FAKE_DOCKER_WEB_AUTH: "proxy" }, ...exposureArguments);
+        assert.notEqual(wrongWebAuth.status, 0);
+        assert.match(wrongWebAuth.stderr, /running Web container must use AUTH_BACKEND=none/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const wrongApiAuth = await runWithEnvironment({ FAKE_DOCKER_API_AUTH: "" }, ...exposureArguments);
+        assert.notEqual(wrongApiAuth.status, 0);
+        assert.match(wrongApiAuth.stderr, /running API container must use AUTH_BACKEND=none/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const enabled = await run(mode, ...(mode === "funnel" ? ["--confirm-public"] : []));
+        assert.equal(enabled.status, 0, enabled.stderr);
+        assert.match(enabled.stdout, new RegExp(`${mode} enabled at https://node\\.example\\.test`, "iu"));
+        assert.match(enabled.stdout, /Rhasia application sign-in is disabled/u);
+        if (mode === "funnel") {
+          assert.match(enabled.stdout, /publicly reachable without Rhasia sign-in/u);
+        }
+        const statePath = join(root, ".tailscale-rhasia.json");
+        const state = JSON.parse(readFileSync(statePath, "utf8"));
+        assert.equal(state.mode, mode);
+        assert.equal(state.target, `http://127.0.0.1:${healthPort}`);
+        assert.equal(statSync(statePath).mode & 0o777, 0o600);
+
+        const status = await run("status");
+        assert.equal(status.status, 0, status.stderr);
+        assert.match(status.stdout, new RegExp(`https://node\\.example\\.test`, "u"));
+
+        const activeStatusSource = readFileSync(fakeStatusPath, "utf8");
+        const changedModeStatus = JSON.parse(activeStatusSource);
+        changedModeStatus.AllowFunnel = mode === "serve" ? { "node.example.test:443": true } : {};
+        writeFileSync(fakeStatusPath, JSON.stringify(changedModeStatus));
+        const refusedDisable = await run("off");
+        assert.notEqual(refusedDisable.status, 0);
+        assert.equal(existsSync(statePath), true);
+        writeFileSync(fakeStatusPath, activeStatusSource);
+
+        const disabled = await run("off");
+        assert.equal(disabled.status, 0, disabled.stderr);
+        assert.equal(readFileIfExists(statePath), "");
+        const commands = readFileSync(fakeLogPath, "utf8")
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line));
+        assert.ok(
+          commands.some(
+            (command) =>
+              command[0] === mode &&
+              command.includes("--https=443") &&
+              command.includes(state.target) &&
+              command.includes("off"),
+          ),
+        );
+        assert.equal(
+          commands.some((command) => command.includes("reset")),
+          false,
+        );
+      } finally {
+        await new Promise((resolve) => healthServer.close(resolve));
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
+function requestWizard(url, { method = "GET", headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(url, { method, headers }, (response) => {
+      let responseBody = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => (responseBody += chunk));
+      response.on("end", () =>
+        resolve({
+          status: response.statusCode,
+          headers: new Map(
+            Object.entries(response.headers).map(([key, value]) => [
+              key,
+              Array.isArray(value) ? value.join("; ") : (value ?? ""),
+            ]),
+          ),
+          body: responseBody,
+        }),
+      );
+    });
+    request.on("error", reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+function writeTailscaleEnvironment(root, port, authBackend = "none") {
+  const envSource = [
+    "POSTGRES_PASSWORD=synthetic-database-password",
+    `PROXY_SECRET=${"p".repeat(32)}`,
+    `API_PROXY_SECRET=${"p".repeat(32)}`,
+    `CRON_SECRET=${"c".repeat(32)}`,
+    `AUTH_BACKEND=${authBackend}`,
+    "WEB_ORIGIN=https://node.example.test",
+    "API_ORIGIN=http://localhost:8787",
+    "AUTH_APP_ORIGIN=https://node.example.test",
+    "AUTH_TRUST_PROXY_HEADERS=false",
+    "APP_BIND_ADDRESS=127.0.0.1",
+    `APP_PORT=${port}`,
+  ].join("\n");
+  writeFileSync(join(root, ".env"), `${envSource}\n`, { mode: 0o600 });
+}
+
+function readFileIfExists(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return "";
+    throw error;
+  }
+}
+
+function runProcess(command, args, options) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, options);
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));
+    child.stderr.setEncoding("utf8").on("data", (chunk) => (stderr += chunk));
+    child.once("error", reject);
+    child.once("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+const fakeTailscaleProgram = `#!/usr/bin/env node
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2);
+const statePath = process.env.FAKE_TAILSCALE_STATUS;
+if (args[0] === "version") {
+  process.stdout.write("1.102.4\\n");
+} else if (args[0] === "status" && args[1] === "--json") {
+  process.stdout.write(JSON.stringify({ BackendState: "Running", Self: { DNSName: "node.example.test." } }));
+} else if ((args[0] === "serve" || args[0] === "funnel") && args[1] === "status") {
+  process.stdout.write(existsSync(statePath) ? readFileSync(statePath, "utf8") : "{}");
+  } else if (args[0] === "serve" || args[0] === "funnel") {
+  appendFileSync(process.env.FAKE_TAILSCALE_LOG, JSON.stringify(args) + "\\n");
+  if (args.includes("off")) {
+    writeFileSync(statePath, "{}");
+  } else {
+    const port = process.env.FAKE_APP_PORT;
+    const hostname = "node.example.test";
+    const hostPort = hostname + ":443";
+    writeFileSync(statePath, JSON.stringify({
+      TCP: { "443": { HTTPS: true } },
+      Web: { [hostPort]: { Handlers: { "/": { Proxy: "http://127.0.0.1:" + port } } } },
+      AllowFunnel: args[0] === "funnel" ? { [hostPort]: true } : {},
+    }));
+  }
+} else {
+  process.exitCode = 1;
+}
+`;
+
+const fakeDockerProgram = `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "ps") {
+  const service = args.find((argument) => argument.startsWith("label=com.docker.compose.service="));
+  process.stdout.write(service === "label=com.docker.compose.service=api" ? "synthetic-api-container\\n" : "synthetic-web-container\\n");
+} else if (args[0] === "inspect") {
+  const format = args[2];
+  if (format === "{{json .NetworkSettings.Ports}}") {
+    const ports = {
+      "3000/tcp": [{ HostIp: process.env.FAKE_DOCKER_HOST_IP || "127.0.0.1", HostPort: process.env.FAKE_DOCKER_HOST_PORT }],
+    };
+    process.stdout.write(JSON.stringify(ports) + "\\n");
+  } else if (format.includes("AUTH_TRUST_PROXY_HEADERS=false")) {
+    process.stdout.write(process.env.FAKE_DOCKER_WEB_AUTH || "authproxy");
+  } else {
+    process.stdout.write(process.env.FAKE_DOCKER_API_AUTH === "" ? "" : "auth");
+  }
+} else {
+  process.exitCode = 1;
+}
+`;

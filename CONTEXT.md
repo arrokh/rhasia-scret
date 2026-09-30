@@ -116,7 +116,7 @@ The limited server-visible information allowed by the zero-knowledge contract: o
 _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
 **Authentication Provider**:
-The currently supported server-side method for hosted identity verification: self-managed passwordless email-link authentication, which exposes a provider-neutral Verified Principal. `AUTH_BACKEND=none` means hosted authentication is disabled, not that another provider is selected; any future authentication adapter requires a separate architecture and security decision.
+The currently supported server-side method for hosted identity verification: self-managed passwordless email-link authentication, which exposes a provider-neutral Verified Principal. `AUTH_BACKEND=none` means hosted authentication is disabled, not that another provider is selected; a self-hosted operator may still expose browser-local features through Tailscale Serve or Funnel, but that network access does not create an application identity or enable hosted APIs. Any future authentication adapter requires a separate architecture and security decision.
 _Avoid_: OIDC as a currently supported adapter, provider user in domain code, provider-owned Application User, email-based account merge
 
 **API Application Runtime**:
@@ -124,7 +124,7 @@ The request-scoped server composition module that exposes named bounded-context 
 _Avoid_: route-local repository factory, global repository singleton, Prisma in route handlers
 
 **Identity Runtime**:
-The request-scoped identity composition module that enables passwordless authentication when configured and shares its lifecycle adapters for magic-link redemption, session verification, refresh, PWA handoff, and termination. In local-only mode it fails hosted authentication closed; it exposes provider-neutral application interfaces and never exposes authentication credentials or client-only secrets.
+The request-scoped identity composition module that enables passwordless authentication when configured and shares its lifecycle adapters for magic-link redemption, session verification, refresh, PWA handoff, and termination. When `AUTH_BACKEND=none`, it fails hosted authentication closed even if the self-hosted web application is reachable through Tailscale; it exposes provider-neutral application interfaces and never exposes authentication credentials or client-only secrets.
 _Avoid_: route-local backend selection, duplicate passwordless service, provider session in HTTP handlers
 
 **Application User Deletion Completion Workflow**:

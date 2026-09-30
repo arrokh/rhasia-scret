@@ -27,12 +27,18 @@ importers:
       dependency-cruiser:
         specifier: ^18.4.0
         version: 18.4.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       lint-staged:
         specifier: 17.5.1
         version: 17.5.1
       prettier:
         specifier: 3.9.9
         version: 3.9.9
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   apps/api:
     dependencies:
