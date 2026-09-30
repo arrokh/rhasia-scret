@@ -20,6 +20,7 @@
     "dev:db:down": "node tools/confirm-database-operation.mjs 'stop the development Compose stack' && COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\" docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "selfhosted:setup": "node tools/self-hosted.mjs setup",
     "selfhosted:configure": "node tools/self-hosted-configure.mjs",
+    "selfhosted:install": "node tools/self-hosted-install.mjs",
     "selfhosted:up": "node tools/self-hosted.mjs up",
     "selfhosted:down": "node tools/self-hosted.mjs down",
     "selfhosted:tailscale": "node tools/self-hosted-tailscale.mjs",

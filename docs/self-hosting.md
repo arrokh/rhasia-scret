@@ -59,11 +59,16 @@ The repository includes three `.env` setup paths. Each produces the root `.env` 
 
 Choose `AUTH_BACKEND=none` for browser-local workflows without Rhasia sign-in, or `AUTH_BACKEND=passwordless` with production SMTP and Turnstile settings for hosted account features. Either mode can be combined with Tailscale Serve or Funnel. Use the exact HTTPS MagicDNS origin for `WEB_ORIGIN`; keep `AUTH_TRUST_PROXY_HEADERS=false` with `none`. With passwordless Tailscale exposure, the wizard sets it to `true`; set it manually for equivalent manual setup so the app can use Tailscale's rewritten client-IP forwarding header for authentication rate limits. Enable it only while the Web listener is exposed through the trusted Tailscale proxy. The helper verifies the selected backend and expected `WEB_ORIGIN` in the running Web/API containers, plus the matching `AUTH_APP_ORIGIN` when passwordless is selected; it also checks the Web proxy-trust setting. Both interactive setup paths generate unique database, proxy, session, magic-link, and scheduler secrets; provider values are not printed by the terminal wizard or displayed after saving in the browser form. Do not enter Vault or TOTP material.
 
-Continue through the established lifecycle; the setup form never runs a database migration itself:
+For either interactive configuration path, `pnpm selfhosted:install` runs configuration, setup, and startup in order; add `--interactive` to use the browser form. The configure step refuses an existing `.env`, so if you use the manual file path above, run setup and startup individually:
 
 ```bash
 pnpm selfhosted:setup
 pnpm selfhosted:up
+```
+
+After startup, choose or enable the optional Tailscale route:
+
+```bash
 pnpm selfhosted:tailscale --interactive
 ```
 
@@ -126,13 +131,14 @@ pnpm start
 
 Installing the workspace generates the API's Prisma Client with a synthetic, non-production URL. The API `dev`, `dev:node`, and build commands repeat generation before use; this keeps ignored generated output aligned with the installed Prisma packages without connecting to PostgreSQL. Runtime traffic still uses only `DATABASE_URL`; `DIRECT_URL` remains reserved for explicit Prisma migrations and administrative commands.
 
-Run both processes behind an HTTPS proxy that forwards the original host/protocol correctly. If the web proxy strips and replaces forwarded headers, set `AUTH_TRUST_PROXY_HEADERS=true`; otherwise leave it `false` so client-supplied forwarding metadata is ignored. For a local self-hosted Compose deployment, use the idempotent repository commands:
+Run both processes behind an HTTPS proxy that forwards the original host/protocol correctly. If the web proxy strips and replaces forwarded headers, set `AUTH_TRUST_PROXY_HEADERS=true`; otherwise leave it `false` so client-supplied forwarding metadata is ignored. For a local self-hosted Compose deployment, run the complete interactive install:
 
 ```bash
-pnpm selfhosted:setup
-pnpm selfhosted:up
+pnpm selfhosted:install
 curl --fail --silent --show-error http://127.0.0.1:${APP_PORT:-3000}/api/v1/health
 ```
+
+Use `pnpm selfhosted:install --interactive` to enter configuration in the local browser form. The command runs `selfhosted:configure`, `selfhosted:setup`, and `selfhosted:up` in order, passing `--interactive` only to the configure step. It stops immediately if a step fails. Setup still requires an interactive `yes` confirmation before applying migrations. To run the stages separately or use the setup defaults without the configuration wizard, run `pnpm selfhosted:setup` and then `pnpm selfhosted:up`.
 
 `selfhosted:setup` creates `.env` only when it is absent and repairs only
 non-database `replace-with-*` placeholders in an existing file. Set

@@ -29,12 +29,10 @@ cd rhasia-scret
 mise install
 mise run setup
 pnpm install --frozen-lockfile
-pnpm selfhosted:configure
-pnpm selfhosted:setup
-pnpm selfhosted:up
+pnpm selfhosted:install
 ```
 
-The terminal wizard creates `.env` with `AUTH_BACKEND=none` by default. Use `pnpm selfhosted:configure --interactive` for the browser form instead. Both wizards refuse to overwrite `.env`; `selfhosted:setup` then verifies it and requires confirmation before applying migrations to its Compose database. To use the manual/default route, skip `selfhosted:configure` and let `selfhosted:setup` create `.env` from the example template. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
+`selfhosted:install` runs configuration, Docker setup, and service startup in order. The terminal wizard creates `.env` with `AUTH_BACKEND=none` by default; use `pnpm selfhosted:install --interactive` to configure it in the browser instead. The wizard refuses to overwrite `.env`, and the setup step requires confirmation before applying migrations to its Compose database. To use the manual/default route, run `pnpm selfhosted:setup` followed by `pnpm selfhosted:up`; setup creates `.env` from the example template when it is absent. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
 
 To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) documents Tailscale Serve (tailnet access) or Funnel (public access) with either `none` or `passwordless`; Funnel is public, and passwordless continues to protect hosted features. Tailscale access does not create an application identity.
 

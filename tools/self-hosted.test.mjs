@@ -15,9 +15,85 @@ import {
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
+import { runSelfHostedInstall } from "./self-hosted-install.mjs";
 import { applyTerminalTailscaleChoice, startConfigurationWizard } from "./self-hosted-configure.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { createServer } from "node:http";
+
+test("self-hosted install runs configure, setup, and up in order with the interactive option", async () => {
+  const calls = [];
+  const exitCode = await runSelfHostedInstall({
+    args: ["--interactive"],
+    root: "/synthetic/repository",
+    runStep: async (step, root) => {
+      calls.push({ command: step.command, script: step.script, args: step.args, root });
+      return 0;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(calls, [
+    {
+      command: "pnpm selfhosted:configure",
+      script: "tools/self-hosted-configure.mjs",
+      args: ["--interactive"],
+      root: "/synthetic/repository",
+    },
+    {
+      command: "pnpm selfhosted:setup",
+      script: "tools/self-hosted.mjs",
+      args: ["setup"],
+      root: "/synthetic/repository",
+    },
+    {
+      command: "pnpm selfhosted:up",
+      script: "tools/self-hosted.mjs",
+      args: ["up"],
+      root: "/synthetic/repository",
+    },
+  ]);
+});
+
+test("self-hosted install uses the terminal configuration wizard by default", async () => {
+  let configureArguments;
+  const exitCode = await runSelfHostedInstall({
+    runStep: async (step) => {
+      if (step.command === "pnpm selfhosted:configure") configureArguments = step.args;
+      return 0;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(configureArguments, []);
+});
+
+test("self-hosted install stops at the first failed step and preserves its exit code", async () => {
+  const calls = [];
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    runStep: async (step) => {
+      calls.push(step.command);
+      return step.command === "pnpm selfhosted:setup" ? 19 : 0;
+    },
+  });
+
+  assert.equal(exitCode, 19);
+  assert.deepEqual(calls, ["pnpm selfhosted:configure", "pnpm selfhosted:setup"]);
+});
+
+test("self-hosted install rejects unsupported arguments before running a step", async () => {
+  let stepsStarted = 0;
+  const exitCode = await runSelfHostedInstall({
+    args: ["--unknown"],
+    runStep: async () => {
+      stepsStarted += 1;
+      return 0;
+    },
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stepsStarted, 0);
+});
 
 test("parses simple and quoted dotenv values without exposing values in validation", () => {
   assert.deepEqual(parseEnvFile('AUTH_BACKEND=none\nWEB_ORIGIN="http://localhost:3000"\n# ignored\n'), {
