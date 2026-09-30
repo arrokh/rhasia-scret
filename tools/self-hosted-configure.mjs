@@ -112,7 +112,7 @@ const copy = {
     noneDescription:
       "Login Rhasia dinonaktifkan. Brankas hosted, sinkronisasi, keanggotaan, audit, dan pemulihan tidak tersedia. Tailscale Serve mengikuti kebijakan akses tailnet. Funnel dapat diakses publik tanpa login aplikasi.",
     passwordlessDescription:
-      "Link login email membutuhkan akun SMTP dan pengaturan Turnstile produksi. Mode ini mengaktifkan fitur Brankas hosted setelah pengguna login. Helper Tailscale repo ini menggunakan mode tanpa login (none).",
+      "Link login email membutuhkan akun SMTP dan pengaturan Turnstile produksi. Mode ini mengaktifkan fitur Brankas hosted setelah pengguna login. Passwordless tetap berlaku bila aplikasi diekspos melalui Tailscale.",
     passwordlessOption: "Passwordless",
   },
   en: {
@@ -159,7 +159,7 @@ const copy = {
     noneDescription:
       "Rhasia sign-in is disabled. Hosted Vault, synchronization, membership, audit, and recovery features are unavailable. Tailscale Serve follows your tailnet access policy. Funnel is publicly reachable without application sign-in.",
     passwordlessDescription:
-      "Email sign-in links require a production SMTP account and Turnstile settings. This mode enables hosted Vault features after users sign in. The repository's Tailscale helper uses no-sign-in mode (none).",
+      "Email sign-in links require a production SMTP account and Turnstile settings. This mode enables hosted Vault features after users sign in. Passwordless remains available when the app is exposed through Tailscale.",
     passwordlessOption: "Passwordless",
   },
 };
@@ -171,12 +171,24 @@ const terminalCopy = {
     chooseLanguage: "Bahasa / Language [id/en] (id): ",
     chooseLanguageError: "Masukkan id atau en / Enter id or en.",
     chooseAuthBackend: "Pilih autentikasi aplikasi [1/2] (1): ",
+    authSection: "Opsi autentikasi",
+    originSection: "Alamat aplikasi",
+    networkingSection: "Pengaturan tambahan",
+    tailscaleSection: "Eksposur Tailscale",
     tailscaleDetected: "Tailscale aktif dengan origin MagicDNS {origin}.",
-    tailscaleOptions:
-      "1. Lewati Tailscale dan lanjutkan setup biasa.\n2. Serve, hanya dapat diakses melalui kebijakan tailnet.\n3. Funnel, dapat diakses publik tanpa login Rhasia.",
+    tailscaleOptions: [
+      { value: "1", label: "Lewati Tailscale dan lanjutkan setup biasa." },
+      { value: "2", label: "Serve", description: "Hanya dapat diakses melalui kebijakan tailnet." },
+      {
+        value: "3",
+        label: "Funnel",
+        description: "Dapat diakses publik dari internet; autentikasi aplikasi dipilih terpisah.",
+        tone: "warning",
+      },
+    ],
     chooseTailscaleExposure: "Pilih eksposur Tailscale untuk instalasi ini [1/2/3] (1): ",
     tailscaleAuthNotice:
-      "Jika memilih Serve/Funnel, wizard memakai origin MagicDNS dan mengatur AUTH_BACKEND=none. Brankas hosted, sinkronisasi, keanggotaan, audit, dan pemulihan tidak tersedia.",
+      "Serve/Funnel memakai origin MagicDNS dan bind loopback. Anda tetap dapat memilih none atau passwordless untuk autentikasi aplikasi.",
     tailscaleBindLocked:
       "Tailscale mengharuskan bind address 127.0.0.1; alamat ini tidak dapat diubah untuk mode tersebut.",
     tailscaleNotConnected:
@@ -190,6 +202,7 @@ const terminalCopy = {
     invalid: "Konfigurasi belum valid. Periksa kolom berikut lalu masukkan kembali nilainya:",
     cancelled: "Dibatalkan. Tidak ada konfigurasi yang disimpan.",
     saved: ".env berhasil dibuat dengan izin file 0600. Jalankan pnpm selfhosted:setup untuk melanjutkan.",
+    nextSteps: "Langkah berikutnya",
     terminalRequired:
       "Wizard terminal memerlukan terminal interaktif (TTY) / The terminal wizard requires an interactive terminal (TTY).",
   },
@@ -199,12 +212,24 @@ const terminalCopy = {
     chooseLanguage: "Language / Bahasa [id/en] (id): ",
     chooseLanguageError: "Enter id or en / Masukkan id atau en.",
     chooseAuthBackend: "Choose application authentication [1/2] (1): ",
+    authSection: "Authentication options",
+    originSection: "Application address",
+    networkingSection: "Additional settings",
+    tailscaleSection: "Tailscale exposure",
     tailscaleDetected: "Tailscale is connected with MagicDNS origin {origin}.",
-    tailscaleOptions:
-      "1. Skip Tailscale and continue with regular setup.\n2. Serve, reachable only under tailnet policy.\n3. Funnel, publicly reachable without Rhasia sign-in.",
+    tailscaleOptions: [
+      { value: "1", label: "Skip Tailscale and continue with regular setup." },
+      { value: "2", label: "Serve", description: "Reachable only under tailnet policy." },
+      {
+        value: "3",
+        label: "Funnel",
+        description: "Publicly reachable from the internet; application authentication is chosen separately.",
+        tone: "warning",
+      },
+    ],
     chooseTailscaleExposure: "Choose Tailscale exposure for this installation [1/2/3] (1): ",
     tailscaleAuthNotice:
-      "Choosing Serve/Funnel uses the MagicDNS origin and sets AUTH_BACKEND=none. Hosted Vault, synchronization, membership, audit, and recovery features will be unavailable.",
+      "Serve/Funnel uses the MagicDNS origin and loopback binding. You can still choose none or passwordless for application authentication.",
     tailscaleBindLocked:
       "Tailscale requires the host bind address 127.0.0.1; this address cannot be changed in this mode.",
     tailscaleNotConnected:
@@ -218,10 +243,82 @@ const terminalCopy = {
     invalid: "The configuration is invalid. Review these fields and enter their values again:",
     cancelled: "Cancelled. No configuration was saved.",
     saved: ".env was created with file mode 0600. Run pnpm selfhosted:setup to continue.",
+    nextSteps: "Next steps",
     terminalRequired:
       "The terminal wizard requires an interactive terminal (TTY) / Wizard terminal memerlukan terminal interaktif (TTY).",
   },
 };
+
+const terminalStyleCodes = {
+  // Approximate the web theme's amber, info, success, warning, and danger colors in ANSI 256-color terminals.
+  accent: "1;38;5;214",
+  muted: "38;5;244",
+  info: "38;5;67",
+  success: "1;38;5;71",
+  warning: "1;38;5;172",
+  error: "1;38;5;167",
+  prompt: "1;38;5;214",
+  bold: "1",
+};
+
+function styleTerminal(value, style) {
+  const text = String(value);
+  if (!process.stdout.isTTY || process.env.NO_COLOR !== undefined || process.env.TERM === "dumb") return text;
+  return `\u001b[${terminalStyleCodes[style]}m${text}\u001b[0m`;
+}
+
+function terminalTextWidth() {
+  const columns = Number.isInteger(process.stdout.columns) ? process.stdout.columns : 80;
+  return Math.max(32, Math.min(96, columns - 2));
+}
+
+function wrapTerminalText(value, width = terminalTextWidth()) {
+  const lines = [];
+  for (const paragraph of String(value).split("\n")) {
+    const words = paragraph.trim().split(/\s+/u).filter(Boolean);
+    if (words.length === 0) {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      if (line && line.length + word.length + 1 > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = line ? `${line} ${word}` : word;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function printParagraph(value, style = "muted", indent = "") {
+  const width = Math.max(24, terminalTextWidth() - indent.length);
+  for (const line of wrapTerminalText(value, width)) console.log(`${indent}${styleTerminal(line, style)}`);
+}
+
+function printNotice(value, tone = "info") {
+  const marker = tone === "warning" ? "!" : tone === "error" ? "x" : tone === "success" ? "✓" : "i";
+  const width = Math.max(24, terminalTextWidth() - 4);
+  const [firstLine = "", ...continuation] = wrapTerminalText(value, width);
+  const write = tone === "error" ? console.error : console.log;
+  write(`  ${styleTerminal(`[${marker}]`, tone)} ${styleTerminal(firstLine, tone)}`);
+  for (const line of continuation) write(`     ${styleTerminal(line, tone)}`);
+}
+
+function printSection(title, tone = "bold") {
+  console.log(`\n${styleTerminal("◆", "accent")} ${styleTerminal(title, tone)}`);
+}
+
+function printOptionList(options) {
+  for (const option of options) {
+    const tone = option.tone ?? "accent";
+    console.log(`  ${styleTerminal(`[${option.value}]`, tone)} ${styleTerminal(option.label, tone)}`);
+    if (option.description) printParagraph(option.description, "muted", "      ");
+  }
+}
 
 export async function startConfigurationWizard({
   root = repositoryRoot,
@@ -353,7 +450,16 @@ export async function startConfigurationWizard({
       return;
     }
 
-    const source = createEnvironmentSource({ root, commitSha, submission: validation.submission });
+    const useTailscaleProxy =
+      validation.submission.authBackend === "passwordless" &&
+      suggestedTailscaleOrigin !== null &&
+      validation.submission.webOrigin === suggestedTailscaleOrigin;
+    const source = createEnvironmentSource({
+      root,
+      commitSha,
+      submission: validation.submission,
+      trustTailscaleProxy: useTailscaleProxy,
+    });
     try {
       writeEnvironmentExclusive(envPath, source);
     } catch (error) {
@@ -502,7 +608,7 @@ function validateSubmission(value) {
   return { errors: [...new Set(errors)], submission: { ...submission, appBindAddress: bindAddress } };
 }
 
-function createEnvironmentSource({ root, commitSha, submission }) {
+function createEnvironmentSource({ root, commitSha, submission, trustTailscaleProxy = false }) {
   const examplePath = resolve(root, ".env.example");
   const exampleSource = readFileSync(examplePath, "utf8");
   const origin = submission.webOrigin;
@@ -518,7 +624,7 @@ function createEnvironmentSource({ root, commitSha, submission }) {
     PROXY_SECRET: proxySecret,
     API_PROXY_SECRET: proxySecret,
     AUTH_APP_ORIGIN: usePasswordless ? origin : "",
-    AUTH_TRUST_PROXY_HEADERS: "false",
+    AUTH_TRUST_PROXY_HEADERS: usePasswordless && trustTailscaleProxy ? "true" : "false",
     AUTH_MAGIC_LINK_SECRET: magicLinkSecret,
     AUTH_SESSION_SECRET: sessionSecret,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: usePasswordless ? submission.turnstileSiteKey : "",
@@ -640,7 +746,6 @@ export function applyTerminalTailscaleChoice(choice, detectedOrigin, submission)
   const mode = choice === "2" ? "serve" : choice === "3" ? "funnel" : null;
   const origin = normalizeTailscaleOrigin(detectedOrigin);
   if (!mode || !origin) throw new Error("A valid connected Tailscale MagicDNS origin is required for exposure.");
-  submission.authBackend = "none";
   submission.webOrigin = origin;
   submission.appBindAddress = "127.0.0.1";
   return mode;
@@ -674,9 +779,14 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   const messages = terminalCopy[locale];
   const envPath = resolve(root, ".env");
 
-  console.log(`\n${strings.title}\n${messages.intro}\n${strings.privacy}\n`);
+  console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
+  console.log(styleTerminal(strings.title, "bold"));
+  console.log(styleTerminal("─".repeat(Math.min(48, terminalTextWidth())), "muted"));
+  printParagraph(messages.intro);
+  console.log("");
+  printNotice(strings.privacy, "warning");
   if (existsSync(envPath)) {
-    console.error(strings.conflict);
+    printNotice(strings.conflict, "error");
     process.exitCode = 1;
     return;
   }
@@ -688,21 +798,23 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   let tailscaleMode = null;
 
   if (suggestedTailscaleOrigin) {
-    console.log(messages.tailscaleDetected.replace("{origin}", suggestedTailscaleOrigin));
-    console.log(messages.tailscaleAuthNotice);
-    console.log(messages.tailscaleOptions);
+    printSection(messages.tailscaleSection);
+    printNotice(messages.tailscaleDetected.replace("{origin}", suggestedTailscaleOrigin));
+    printNotice(messages.tailscaleAuthNotice, "warning");
+    printOptionList(messages.tailscaleOptions);
     const choice = await askChoice(messages.chooseTailscaleExposure, ["1", "2", "3"], "1", messages);
     tailscaleMode = applyTerminalTailscaleChoice(choice, suggestedTailscaleOrigin, submission);
   } else if (isTailscaleInstalled()) {
-    console.log(messages.tailscaleNotConnected);
+    printNotice(messages.tailscaleNotConnected, "warning");
   }
 
-  if (!tailscaleMode) {
-    console.log(`1. ${strings.noneOption}\n   ${strings.noneDescription}`);
-    console.log(`2. ${strings.passwordlessOption}\n   ${strings.passwordlessDescription}`);
-    const backendChoice = await askChoice(messages.chooseAuthBackend, ["1", "2"], "1", messages);
-    submission.authBackend = backendChoice === "1" ? "none" : "passwordless";
-  }
+  printSection(messages.authSection);
+  printOptionList([
+    { value: "1", label: strings.noneOption, description: strings.noneDescription },
+    { value: "2", label: strings.passwordlessOption, description: strings.passwordlessDescription },
+  ]);
+  const backendChoice = await askChoice(messages.chooseAuthBackend, ["1", "2"], "1", messages);
+  submission.authBackend = backendChoice === "1" ? "none" : "passwordless";
 
   let originDefault = submission.webOrigin;
   if (tailscaleMode) {
@@ -716,12 +828,13 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
     );
     if (useDetectedOrigin) originDefault = suggestedTailscaleOrigin;
   }
+  if (!tailscaleMode) printSection(messages.originSection);
   submission.webOrigin = tailscaleMode
     ? originDefault
     : await askText(strings.origin, originDefault, strings.originHelp);
 
   if (submission.authBackend === "passwordless") {
-    console.log(`\n${strings.providerTitle}`);
+    printSection(strings.providerTitle);
     submission.turnstileSiteKey = await askText(strings.turnstileSite, "");
     submission.turnstileSecretKey = await askSecret(strings.turnstileSecret);
     submission.smtpHost = await askText(strings.smtpHost, "");
@@ -738,9 +851,10 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
     }
   }
 
+  printSection(messages.networkingSection);
   const configureNetworking = await askYesNo(strings.advanced, false, locale, messages);
   if (configureNetworking) {
-    if (tailscaleMode) console.log(messages.tailscaleBindLocked);
+    if (tailscaleMode) printNotice(messages.tailscaleBindLocked, "info");
     else submission.appBindAddress = await askText(strings.bindAddress, submission.appBindAddress, strings.bindHelp);
     submission.appPort = await askText(strings.appPort, submission.appPort);
   }
@@ -769,7 +883,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
       break;
     }
 
-    console.error(`\n${messages.invalid}`);
+    printSection(messages.invalid, "error");
     const fields = [...new Set(validation.errors.map((error) => error.slice(0, error.indexOf(":"))))];
     for (const field of fields) {
       const label = fieldLabels[field];
@@ -777,26 +891,36 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
       const rule = validation.errors.find((error) => error.startsWith(`${field}:`))?.slice(field.length + 1);
       const hint =
         rule === "required" ? strings.required : rule === "unsupported" ? strings.unsupported : strings.invalidField;
-      console.error(`- ${label}: ${hint}`);
+      printNotice(`${label}: ${hint}`, "error");
       submission[field] = secretFields.has(field) ? await askSecret(label) : await askText(label, submission[field]);
     }
   }
 
   try {
-    const source = createEnvironmentSource({ root, commitSha, submission });
+    const source = createEnvironmentSource({
+      root,
+      commitSha,
+      submission,
+      trustTailscaleProxy: Boolean(
+        suggestedTailscaleOrigin &&
+        submission.webOrigin === suggestedTailscaleOrigin &&
+        submission.authBackend === "passwordless",
+      ),
+    });
     writeEnvironmentExclusive(envPath, source);
   } catch (error) {
     if (isFileExistsError(error)) {
-      console.error(strings.conflict);
+      printNotice(strings.conflict, "error");
       process.exitCode = 1;
       return;
     }
     throw new Error(strings.unavailable);
   }
 
-  console.log(`\n${messages.saved}`);
-  if (tailscaleMode === "serve") console.log(messages.tailscaleServeNextStep);
-  if (tailscaleMode === "funnel") console.log(messages.tailscaleFunnelNextStep);
+  printNotice(messages.saved, "success");
+  if (tailscaleMode) printSection(messages.nextSteps);
+  if (tailscaleMode === "serve") printNotice(messages.tailscaleServeNextStep);
+  if (tailscaleMode === "funnel") printNotice(messages.tailscaleFunnelNextStep, "warning");
 }
 
 function validateTerminalSubmission(value) {
@@ -812,11 +936,12 @@ function validateTerminalSubmission(value) {
 }
 
 async function askLanguage() {
+  console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
   while (true) {
     const answer = (await askQuestion(terminalCopy.id.chooseLanguage)).trim().toLowerCase();
     if (!answer || answer === "id") return "id";
     if (answer === "en") return "en";
-    console.error(terminalCopy.en.chooseLanguageError);
+    printNotice(terminalCopy.en.chooseLanguageError, "error");
   }
 }
 
@@ -824,12 +949,12 @@ async function askChoice(prompt, choices, defaultValue, messages) {
   while (true) {
     const answer = (await askQuestion(prompt)).trim().toLowerCase() || defaultValue;
     if (choices.includes(answer)) return answer;
-    console.error(messages.chooseValue);
+    printNotice(messages.chooseValue, "error");
   }
 }
 
 async function askText(label, defaultValue = "", help) {
-  if (help) console.log(help);
+  if (help) printNotice(help);
   const defaultHint = defaultValue ? ` [${defaultValue}]` : "";
   const answer = await askQuestion(`${label}${defaultHint}: `);
   return answer.length === 0 ? defaultValue : answer;
@@ -876,7 +1001,7 @@ async function askSecret(label) {
       input.on("keypress", onKeypress);
       input.once("end", onEnd);
       input.resume();
-      process.stdout.write(`${label}: `);
+      process.stdout.write(`${styleTerminal(label, "prompt")}: `);
     } catch (error) {
       finish(error);
     }
@@ -890,7 +1015,7 @@ async function askYesNo(label, defaultValue, locale, messages) {
     if (!answer) return defaultValue;
     if (["y", "yes", "ya"].includes(answer)) return true;
     if (["n", "no", "t", "tidak"].includes(answer)) return false;
-    console.error(messages.chooseYesNo);
+    printNotice(messages.chooseYesNo, "error");
   }
 }
 
@@ -900,7 +1025,7 @@ async function askQuestion(prompt) {
     return await new Promise((resolvePromise, rejectPromise) => {
       const onSigint = () => rejectPromise(new PromptCancelledError());
       readline.once("SIGINT", onSigint);
-      void readline.question(prompt).then(resolvePromise, rejectPromise);
+      void readline.question(styleTerminal(prompt, "prompt")).then(resolvePromise, rejectPromise);
     });
   } finally {
     readline.close();
@@ -916,28 +1041,33 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
       await configureFromTerminal();
     } catch (error) {
       if (error instanceof PromptCancelledError) {
-        console.log(`\n${terminalCopy[activeTerminalLocale].cancelled}`);
+        printNotice(terminalCopy[activeTerminalLocale].cancelled, "warning");
         process.exitCode = 130;
       } else {
-        console.error(error instanceof Error ? error.message : "Unable to configure the self-hosted environment.");
+        printNotice(
+          error instanceof Error ? error.message : "Unable to configure the self-hosted environment.",
+          "error",
+        );
         process.exitCode = 1;
       }
     }
   } else if (arguments_.length === 1 && arguments_[0] === "--interactive") {
     try {
       const wizard = await startConfigurationWizard();
-      console.log(
+      console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
+      printSection("Local browser setup");
+      printNotice(
         `Open ${wizard.url} in a browser on this host. The wizard is available once and only on this computer.`,
       );
       await wizard.closed;
       if (wizard.saved)
-        console.log("Created .env with restrictive permissions. Continue with `pnpm selfhosted:setup`.");
+        printNotice("Created .env with restrictive permissions. Continue with `pnpm selfhosted:setup`.", "success");
     } catch (error) {
-      console.error(error instanceof Error ? error.message : "Unable to start the local setup wizard.");
+      printNotice(error instanceof Error ? error.message : "Unable to start the local setup wizard.", "error");
       process.exitCode = 1;
     }
   } else {
-    console.error("Usage: pnpm selfhosted:configure [--interactive]");
+    printNotice("Usage: pnpm selfhosted:configure [--interactive]", "error");
     process.exitCode = 1;
   }
 }

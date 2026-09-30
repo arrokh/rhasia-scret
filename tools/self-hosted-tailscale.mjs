@@ -28,14 +28,17 @@ const supportedModes = new Set(Object.keys(exposureModes));
 export async function runTailscaleSetup(mode, { root = repositoryRoot, confirmPublic = false } = {}) {
   if (!supportedModes.has(mode)) throw new Error("Choose `serve` or `funnel`.");
   const modeDetails = exposureModes[mode];
-  if (modeDetails.public && !confirmPublic) {
-    throw new Error(
-      "Funnel is public and Rhasia sign-in is disabled. Re-run with `funnel --confirm-public` to confirm public access.",
-    );
-  }
 
   const context = loadSelfHostedEnvironment(root);
-  validateRemoteExposure(context.values);
+  const authBackend = validateRemoteExposure(context.values);
+  if (modeDetails.public && !confirmPublic) {
+    const confirmationMessage =
+      authBackend === "none"
+        ? "Funnel is public and Rhasia sign-in is disabled. Re-run with `funnel --confirm-public` to confirm public access."
+        : "Funnel is public. Rhasia passwordless sign-in protects hosted features, but anyone can reach the URL. Re-run with `funnel --confirm-public` to confirm public access.";
+    throw new Error(confirmationMessage);
+  }
+
   ensureTailscaleVersion();
   const node = readTailscaleNode();
   const expectedOrigin = `https://${node.hostname}`;
@@ -43,7 +46,7 @@ export async function runTailscaleSetup(mode, { root = repositoryRoot, confirmPu
     throw new Error(`Set WEB_ORIGIN to ${expectedOrigin} before enabling Tailscale exposure.`);
   }
   const appPort = String(Number(context.values.APP_PORT?.trim() || "3000"));
-  verifyDockerPublishedBinding(root, appPort);
+  verifyDockerPublishedBinding(root, appPort, authBackend, expectedOrigin);
   await verifyWebHealth(appPort);
 
   const ownershipPath = resolve(root, ownershipFile);
@@ -96,12 +99,24 @@ export async function runTailscaleSetup(mode, { root = repositoryRoot, confirmPu
   }
 
   console.log(`${modeDetails.label} enabled at https://${node.hostname}`);
-  console.log("Rhasia application sign-in is disabled; hosted Vault APIs remain unavailable.");
-  if (modeDetails.public) {
-    console.log("This URL is publicly reachable without Rhasia sign-in; only local browser features are available.");
+  if (authBackend === "none") {
+    console.log("Rhasia application sign-in is disabled; hosted Vault APIs remain unavailable.");
+    if (modeDetails.public) {
+      console.log("This URL is publicly reachable without Rhasia sign-in; only local browser features are available.");
+      return;
+    }
+    console.log("Tailscale Serve access follows your tailnet policy; only local browser features are available.");
     return;
   }
-  console.log("Tailscale Serve access follows your tailnet policy; only local browser features are available.");
+
+  console.log("Rhasia passwordless sign-in is enabled; hosted Vault APIs require an authenticated user.");
+  if (modeDetails.public) {
+    console.log("This URL is publicly reachable; hosted Vault features remain protected by passwordless sign-in.");
+    return;
+  }
+  console.log(
+    "Tailscale Serve access follows your tailnet policy; passwordless sign-in also protects hosted Vault features.",
+  );
 }
 
 export function showTailscaleStatus({ root = repositoryRoot } = {}) {
@@ -161,7 +176,7 @@ async function main(command, arguments_, root = process.cwd()) {
       const selected = (await interface_.question("Choose exposure mode: serve or funnel: ")).trim().toLowerCase();
       if (selected === "funnel") {
         const confirmation = await interface_.question(
-          "Funnel is public and Rhasia sign-in is disabled. Type PUBLIC to continue: ",
+          "Funnel is public to anyone on the internet, and the app keeps the authentication mode in your .env. Type PUBLIC to continue: ",
         );
         if (confirmation.trim() !== "PUBLIC")
           throw new Error("Funnel was not enabled because public access was not confirmed.");
@@ -197,13 +212,23 @@ function loadSelfHostedEnvironment(root) {
 
 function validateRemoteExposure(values) {
   const errors = [];
-  if (values.AUTH_BACKEND?.trim() !== "none") errors.push("AUTH_BACKEND must be none for Tailscale exposure.");
+  const authBackend = values.AUTH_BACKEND?.trim();
+  if (authBackend !== "none" && authBackend !== "passwordless") {
+    errors.push("AUTH_BACKEND must be none or passwordless for Tailscale exposure.");
+  }
   if (!isHttpsOrigin(values.WEB_ORIGIN)) errors.push("WEB_ORIGIN must be an HTTPS origin.");
+  if (authBackend === "passwordless" && values.AUTH_APP_ORIGIN?.trim() !== values.WEB_ORIGIN?.trim()) {
+    errors.push("AUTH_APP_ORIGIN must match WEB_ORIGIN for Tailscale passwordless sign-in.");
+  }
   if (values.APP_BIND_ADDRESS?.trim() !== "127.0.0.1" && values.APP_BIND_ADDRESS?.trim()) {
     errors.push("APP_BIND_ADDRESS must be 127.0.0.1 for Tailscale exposure.");
   }
-  if (values.AUTH_TRUST_PROXY_HEADERS?.trim() !== "false")
-    errors.push("AUTH_TRUST_PROXY_HEADERS must be explicitly set to false for this Tailscale setup.");
+  const expectedProxyTrust = authBackend === "passwordless" ? "true" : "false";
+  if (values.AUTH_TRUST_PROXY_HEADERS?.trim() !== expectedProxyTrust) {
+    errors.push(
+      `AUTH_TRUST_PROXY_HEADERS must be ${expectedProxyTrust} when AUTH_BACKEND=${authBackend} for Tailscale exposure.`,
+    );
+  }
 
   for (const name of ["PROXY_SECRET", "API_PROXY_SECRET", "CRON_SECRET"]) {
     if ((values[name]?.trim().length ?? 0) < 32) errors.push(`${name} must contain at least 32 characters.`);
@@ -215,6 +240,7 @@ function validateRemoteExposure(values) {
   }
   if (errors.length > 0)
     throw new Error(`Tailscale exposure checks failed:\n${errors.map((error) => `- ${error}`).join("\n")}`);
+  return authBackend;
 }
 
 function ensureTailscaleVersion() {
@@ -244,7 +270,7 @@ function readTailscaleNode() {
   return { hostname: dnsName };
 }
 
-function verifyDockerPublishedBinding(root, appPort) {
+function verifyDockerPublishedBinding(root, appPort, authBackend, expectedOrigin) {
   const environment = { ...process.env, COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME };
   const containers = spawnSync(
     "docker",
@@ -304,13 +330,16 @@ function verifyDockerPublishedBinding(root, appPort) {
     throw new Error("Docker returned an invalid self-hosted Web port mapping.");
   }
 
-  const webAuthentication = inspectDockerProjection(
-    root,
-    webContainerId,
-    '{{range .Config.Env}}{{if eq . "AUTH_BACKEND=none"}}auth{{end}}{{if eq . "AUTH_TRUST_PROXY_HEADERS=false"}}proxy{{end}}{{end}}',
-  );
-  if (webAuthentication !== "authproxy") {
-    throw new Error("The running Web container must use AUTH_BACKEND=none and disable proxy-header trust.");
+  const proxyTrust = authBackend === "passwordless" ? "true" : "false";
+  const webEnvironment = {
+    AUTH_BACKEND: authBackend,
+    AUTH_TRUST_PROXY_HEADERS: proxyTrust,
+    WEB_ORIGIN: expectedOrigin,
+  };
+  if (authBackend === "passwordless") webEnvironment.AUTH_APP_ORIGIN = expectedOrigin;
+  const missingWebEnvironment = inspectDockerEnvironment(root, webContainerId, webEnvironment);
+  if (missingWebEnvironment.length > 0) {
+    throw new Error(`The running Web container must use ${formatEnvironmentRequirements(missingWebEnvironment)}.`);
   }
 
   const apiContainers = spawnSync(
@@ -332,14 +361,25 @@ function verifyDockerPublishedBinding(root, appPort) {
   if (apiContainerIds.length !== 1) {
     throw new Error("Exactly one running self-hosted API container is required before enabling Tailscale exposure.");
   }
-  const apiAuthentication = inspectDockerProjection(
-    root,
-    apiContainerIds[0],
-    '{{range .Config.Env}}{{if eq . "AUTH_BACKEND=none"}}auth{{end}}{{end}}',
-  );
-  if (apiAuthentication !== "auth") {
-    throw new Error("The running API container must use AUTH_BACKEND=none before Tailscale exposure.");
+  const apiEnvironment = { AUTH_BACKEND: authBackend, WEB_ORIGIN: expectedOrigin };
+  if (authBackend === "passwordless") apiEnvironment.AUTH_APP_ORIGIN = expectedOrigin;
+  const missingApiEnvironment = inspectDockerEnvironment(root, apiContainerIds[0], apiEnvironment);
+  if (missingApiEnvironment.length > 0) {
+    throw new Error(`The running API container must use ${formatEnvironmentRequirements(missingApiEnvironment)}.`);
   }
+}
+
+function inspectDockerEnvironment(root, containerId, expectedEnvironment) {
+  const checks = Object.entries(expectedEnvironment).map(
+    ([name, value]) => `{{if eq . "${name}=${value}"}}${name};{{end}}`,
+  );
+  const projection = `{{range .Config.Env}}${checks.join("")}{{end}}`;
+  const present = new Set(inspectDockerProjection(root, containerId, projection).split(";").filter(Boolean));
+  return Object.entries(expectedEnvironment).filter(([name]) => !present.has(name));
+}
+
+function formatEnvironmentRequirements(entries) {
+  return entries.map(([name, value]) => `${name}=${value}`).join(" and ");
 }
 
 function inspectDockerProjection(root, containerId, format) {

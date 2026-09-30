@@ -517,23 +517,77 @@ test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused prov
   }
 });
 
-test("terminal Tailscale choices use the detected MagicDNS origin and loopback configuration", () => {
-  for (const [choice, expectedMode] of [
-    ["2", "serve"],
-    ["3", "funnel"],
-  ]) {
+test("wizard enables trusted proxy headers for passwordless on the detected Tailscale origin", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-tailscale-passwordless-"));
+  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  const wizard = await startConfigurationWizard({
+    root,
+    commitSha: "test-sha",
+    tailscaleOrigin: "https://node.example.test",
+  });
+  try {
+    const page = await requestWizard(wizard.url);
+    const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
     const submission = {
       authBackend: "passwordless",
-      webOrigin: "http://localhost:3000",
-      appBindAddress: "0.0.0.0",
-      appPort: "3400",
+      webOrigin: "https://node.example.test",
+      turnstileSiteKey: "synthetic-turnstile-site-key",
+      turnstileSecretKey: "synthetic-turnstile-secret-key",
+      smtpHost: "smtp.example.test",
+      smtpPort: "587",
+      smtpUser: "operator@example.test",
+      smtpPassword: "synthetic-smtp-password",
+      authEmailFrom: "no-reply@example.test",
+      authEmailFromName: "rhasia-scret",
+      passkeyEnabled: false,
+      passkeyRpId: "",
+      passkeyOrigin: "",
+      appBindAddress: "127.0.0.1",
+      appPort: "3000",
     };
+    const response = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(submission),
+    });
+    assert.equal(response.status, 201, response.body);
+    await wizard.closed;
 
-    assert.equal(applyTerminalTailscaleChoice(choice, "https://node.example.test", submission), expectedMode);
-    assert.equal(submission.authBackend, "none");
-    assert.equal(submission.webOrigin, "https://node.example.test");
-    assert.equal(submission.appBindAddress, "127.0.0.1");
-    assert.equal(submission.appPort, "3400");
+    const values = parseEnvFile(readFileSync(join(root, ".env"), "utf8"));
+    assert.equal(values.AUTH_BACKEND, "passwordless");
+    assert.equal(values.WEB_ORIGIN, "https://node.example.test");
+    assert.equal(values.AUTH_APP_ORIGIN, "https://node.example.test");
+    assert.equal(values.AUTH_TRUST_PROXY_HEADERS, "true");
+    assert.equal(values.SMTP_PASSWORD, submission.smtpPassword);
+  } finally {
+    await wizard.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("terminal Tailscale choices preserve authentication and use the detected MagicDNS origin and loopback configuration", () => {
+  for (const authBackend of ["none", "passwordless"]) {
+    for (const [choice, expectedMode] of [
+      ["2", "serve"],
+      ["3", "funnel"],
+    ]) {
+      const submission = {
+        authBackend,
+        webOrigin: "http://localhost:3000",
+        appBindAddress: "0.0.0.0",
+        appPort: "3400",
+      };
+
+      assert.equal(applyTerminalTailscaleChoice(choice, "https://node.example.test", submission), expectedMode);
+      assert.equal(submission.authBackend, authBackend);
+      assert.equal(submission.webOrigin, "https://node.example.test");
+      assert.equal(submission.appBindAddress, "127.0.0.1");
+      assert.equal(submission.appPort, "3400");
+    }
   }
 });
 
@@ -591,6 +645,13 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
                 FAKE_TAILSCALE_LOG: fakeLogPath,
                 FAKE_APP_PORT: String(healthPort),
                 FAKE_DOCKER_HOST_PORT: String(healthPort),
+                FAKE_DOCKER_WEB_BACKEND: "none",
+                FAKE_DOCKER_API_BACKEND: "none",
+                FAKE_DOCKER_PROXY_TRUST: "false",
+                FAKE_DOCKER_WEB_ORIGIN: "https://node.example.test",
+                FAKE_DOCKER_API_ORIGIN: "https://node.example.test",
+                FAKE_DOCKER_WEB_AUTH_ORIGIN: "https://node.example.test",
+                FAKE_DOCKER_API_AUTH_ORIGIN: "https://node.example.test",
                 ...extraEnvironment,
               },
             },
@@ -608,7 +669,7 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
         writeTailscaleEnvironment(root, healthPort, "passwordless");
         const wrongAuthBackend = await run(...exposureArguments);
         assert.notEqual(wrongAuthBackend.status, 0);
-        assert.match(wrongAuthBackend.stderr, /AUTH_BACKEND must be none for Tailscale exposure/u);
+        assert.match(wrongAuthBackend.stderr, /AUTH_TRUST_PROXY_HEADERS must be true when AUTH_BACKEND=passwordless/u);
         assert.equal(readFileIfExists(fakeLogPath), "");
         writeTailscaleEnvironment(root, healthPort);
 
@@ -623,6 +684,22 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
         );
         assert.notEqual(wrongPortBinding.status, 0);
         assert.match(wrongPortBinding.stderr, /APP_PORT configured in \.env/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const wrongWebOrigin = await runWithEnvironment(
+          { FAKE_DOCKER_WEB_ORIGIN: "https://stale.example.test" },
+          ...exposureArguments,
+        );
+        assert.notEqual(wrongWebOrigin.status, 0);
+        assert.match(wrongWebOrigin.stderr, /running Web container must use WEB_ORIGIN=https:\/\/node\.example\.test/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+
+        const wrongApiOrigin = await runWithEnvironment(
+          { FAKE_DOCKER_API_ORIGIN: "https://stale.example.test" },
+          ...exposureArguments,
+        );
+        assert.notEqual(wrongApiOrigin.status, 0);
+        assert.match(wrongApiOrigin.stderr, /running API container must use WEB_ORIGIN=https:\/\/node\.example\.test/u);
         assert.equal(readFileIfExists(fakeLogPath), "");
 
         const wrongWebAuth = await runWithEnvironment({ FAKE_DOCKER_WEB_AUTH: "proxy" }, ...exposureArguments);
@@ -681,6 +758,63 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
           commands.some((command) => command.includes("reset")),
           false,
         );
+
+        writeTailscaleEnvironment(root, healthPort, "passwordless", "true");
+        const passwordlessDockerEnvironment = {
+          FAKE_DOCKER_WEB_BACKEND: "passwordless",
+          FAKE_DOCKER_API_BACKEND: "passwordless",
+          FAKE_DOCKER_PROXY_TRUST: "true",
+        };
+        const commandsBeforePasswordlessChecks = readFileIfExists(fakeLogPath);
+        writeTailscaleEnvironment(root, healthPort, "passwordless", "true", "https://stale.example.test");
+        const mismatchedPasswordlessAuthOrigin = await runWithEnvironment(
+          passwordlessDockerEnvironment,
+          ...exposureArguments,
+        );
+        assert.notEqual(mismatchedPasswordlessAuthOrigin.status, 0);
+        assert.match(mismatchedPasswordlessAuthOrigin.stderr, /AUTH_APP_ORIGIN must match WEB_ORIGIN/u);
+        assert.equal(readFileIfExists(fakeLogPath), commandsBeforePasswordlessChecks);
+
+        writeTailscaleEnvironment(root, healthPort, "passwordless", "true");
+        const staleWebAuthOrigin = await runWithEnvironment(
+          { ...passwordlessDockerEnvironment, FAKE_DOCKER_WEB_AUTH_ORIGIN: "https://stale.example.test" },
+          ...exposureArguments,
+        );
+        assert.notEqual(staleWebAuthOrigin.status, 0);
+        assert.match(
+          staleWebAuthOrigin.stderr,
+          /running Web container must use AUTH_APP_ORIGIN=https:\/\/node\.example\.test/u,
+        );
+        assert.equal(readFileIfExists(fakeLogPath), commandsBeforePasswordlessChecks);
+
+        const staleApiAuthOrigin = await runWithEnvironment(
+          { ...passwordlessDockerEnvironment, FAKE_DOCKER_API_AUTH_ORIGIN: "https://stale.example.test" },
+          ...exposureArguments,
+        );
+        assert.notEqual(staleApiAuthOrigin.status, 0);
+        assert.match(
+          staleApiAuthOrigin.stderr,
+          /running API container must use AUTH_APP_ORIGIN=https:\/\/node\.example\.test/u,
+        );
+        assert.equal(readFileIfExists(fakeLogPath), commandsBeforePasswordlessChecks);
+
+        const unconfirmedPasswordlessFunnel = await runWithEnvironment(passwordlessDockerEnvironment, "funnel");
+        assert.notEqual(unconfirmedPasswordlessFunnel.status, 0);
+        assert.match(unconfirmedPasswordlessFunnel.stderr, /passwordless sign-in protects hosted features/u);
+
+        const enabledPasswordless = await runWithEnvironment(
+          passwordlessDockerEnvironment,
+          mode,
+          ...(mode === "funnel" ? ["--confirm-public"] : []),
+        );
+        assert.equal(enabledPasswordless.status, 0, enabledPasswordless.stderr);
+        assert.match(enabledPasswordless.stdout, /passwordless sign-in is enabled/u);
+        if (mode === "funnel") {
+          assert.match(enabledPasswordless.stdout, /hosted Vault features remain protected by passwordless sign-in/u);
+        }
+        const disabledPasswordless = await run("off");
+        assert.equal(disabledPasswordless.status, 0, disabledPasswordless.stderr);
+        assert.equal(readFileIfExists(join(root, ".tailscale-rhasia.json")), "");
       } finally {
         await new Promise((resolve) => healthServer.close(resolve));
         rmSync(root, { recursive: true, force: true });
@@ -714,7 +848,13 @@ function requestWizard(url, { method = "GET", headers = {}, body } = {}) {
   });
 }
 
-function writeTailscaleEnvironment(root, port, authBackend = "none") {
+function writeTailscaleEnvironment(
+  root,
+  port,
+  authBackend = "none",
+  proxyTrust = "false",
+  authAppOrigin = "https://node.example.test",
+) {
   const envSource = [
     "POSTGRES_PASSWORD=synthetic-database-password",
     `PROXY_SECRET=${"p".repeat(32)}`,
@@ -723,8 +863,8 @@ function writeTailscaleEnvironment(root, port, authBackend = "none") {
     `AUTH_BACKEND=${authBackend}`,
     "WEB_ORIGIN=https://node.example.test",
     "API_ORIGIN=http://localhost:8787",
-    "AUTH_APP_ORIGIN=https://node.example.test",
-    "AUTH_TRUST_PROXY_HEADERS=false",
+    `AUTH_APP_ORIGIN=${authAppOrigin}`,
+    `AUTH_TRUST_PROXY_HEADERS=${proxyTrust}`,
     "APP_BIND_ADDRESS=127.0.0.1",
     `APP_PORT=${port}`,
   ].join("\n");
@@ -793,10 +933,35 @@ if (args[0] === "ps") {
       "3000/tcp": [{ HostIp: process.env.FAKE_DOCKER_HOST_IP || "127.0.0.1", HostPort: process.env.FAKE_DOCKER_HOST_PORT }],
     };
     process.stdout.write(JSON.stringify(ports) + "\\n");
-  } else if (format.includes("AUTH_TRUST_PROXY_HEADERS=false")) {
-    process.stdout.write(process.env.FAKE_DOCKER_WEB_AUTH || "authproxy");
   } else {
-    process.stdout.write(process.env.FAKE_DOCKER_API_AUTH === "" ? "" : "auth");
+    const isWeb = args[3] === "synthetic-web-container";
+    if (isWeb && process.env.FAKE_DOCKER_WEB_AUTH !== undefined) {
+      process.stdout.write(process.env.FAKE_DOCKER_WEB_AUTH);
+    } else if (!isWeb && process.env.FAKE_DOCKER_API_AUTH === "") {
+      process.stdout.write("");
+    } else {
+      const actualEnvironment = isWeb
+        ? {
+            AUTH_BACKEND: process.env.FAKE_DOCKER_WEB_BACKEND,
+            AUTH_TRUST_PROXY_HEADERS: process.env.FAKE_DOCKER_PROXY_TRUST,
+            WEB_ORIGIN: process.env.FAKE_DOCKER_WEB_ORIGIN,
+            AUTH_APP_ORIGIN: process.env.FAKE_DOCKER_WEB_AUTH_ORIGIN,
+          }
+        : {
+            AUTH_BACKEND: process.env.FAKE_DOCKER_API_BACKEND,
+            WEB_ORIGIN: process.env.FAKE_DOCKER_API_ORIGIN,
+            AUTH_APP_ORIGIN: process.env.FAKE_DOCKER_API_AUTH_ORIGIN,
+          };
+      const expectedEnvironment = [...format.matchAll(/eq \. "([^"]+)"/gu)].map((match) => match[1]);
+      const matchingEnvironment = expectedEnvironment
+        .filter((entry) => {
+          const separator = entry.indexOf("=");
+          return actualEnvironment[entry.slice(0, separator)] === entry.slice(separator + 1);
+        })
+        .map((entry) => entry.slice(0, entry.indexOf("=")) + ";")
+        .join("");
+      process.stdout.write(matchingEnvironment);
+    }
   }
 } else {
   process.exitCode = 1;

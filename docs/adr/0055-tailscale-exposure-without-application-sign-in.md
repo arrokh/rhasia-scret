@@ -1,6 +1,6 @@
 # Tailscale exposure without application sign-in
 
-- Status: Accepted
+- Status: Superseded by ADR-0056
 - Date: 2026-10-01
 - Related: ADR-0053, ADR-0054
 

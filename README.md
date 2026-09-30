@@ -36,7 +36,7 @@ pnpm selfhosted:up
 
 The terminal wizard creates `.env` with `AUTH_BACKEND=none` by default. Use `pnpm selfhosted:configure --interactive` for the browser form instead. Both wizards refuse to overwrite `.env`; `selfhosted:setup` then verifies it and requires confirmation before applying migrations to its Compose database. To use the manual/default route, skip `selfhosted:configure` and let `selfhosted:setup` create `.env` from the example template. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
 
-To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) also documents Tailscale Serve (tailnet access) or Funnel (public access) with `AUTH_BACKEND=none`; this exposes only browser-local features, and Funnel is public without an application login. Tailscale access does not enable hosted Vault APIs.
+To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) documents Tailscale Serve (tailnet access) or Funnel (public access) with either `none` or `passwordless`; Funnel is public, and passwordless continues to protect hosted features. Tailscale access does not create an application identity.
 
 ## Architecture
 
