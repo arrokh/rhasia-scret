@@ -7,7 +7,7 @@ The dedicated Playwright suite in `apps/web/src/tests/browser/encrypted-vault-wo
 1. Install the repository toolchain and dependencies with `mise install && mise run setup`.
 2. Start Docker. For the default local acceptance gate, run `pnpm run test:full`; its root wrapper creates an isolated PostgreSQL 16 Testcontainer, overrides both database URLs, applies migrations only inside that container, and removes it afterward. It does not route migrations to the database configured in `.env`.
 3. Install the Playwright browsers when needed with `pnpm exec playwright install`.
-4. For focused `pnpm run test:browser` runs outside the root container gate, configure an explicitly authorized non-production test database. Apply migrations to a pre-provisioned database only with current, target-specific human authorization; never point tests or migrations at production.
+4. For focused `pnpm run test:browser` runs outside the root container gate, use a run-owned disposable PostgreSQL database with synthetic fixtures and verify its scope with `tools/confirm-database-operation.mjs` as described in `AGENTS.md`. A shared or pre-provisioned database still requires current, target-specific human authorization; never point tests or migrations at production.
 5. Run browser suites with `pnpm run test:browser`. To run only the encrypted Vault matrix, use `pnpm exec playwright test --config playwright.e2e.config.ts`.
 
 The default local `pnpm run test:full` is the preferred disposable-database path: it runs the complete repository gate, including browser suites, against its isolated PostgreSQL 16 container. Use `pnpm run test:full:container` when invoking the container-backed gate explicitly.
