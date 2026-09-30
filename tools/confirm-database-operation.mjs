@@ -319,7 +319,9 @@ async function main(arguments_) {
       return;
     }
 
-    console.log("Verified isolated, run-owned synthetic PostgreSQL test database.");
+    console.log(
+      "Database scope verified: run-owned local test database; synthetic-data marker set. No additional human approval is required for this test operation under repository policy. Use only synthetic fixtures.",
+    );
     return;
   }
 
