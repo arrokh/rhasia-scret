@@ -51,12 +51,13 @@ For the standalone API, provision API-only values in the Bun, Node, or Vercel pr
 
 ### Docker Compose with optional Tailscale Serve or Funnel
 
-The repository includes two `.env` setup paths. Both produce the root `.env` consumed by the existing Compose lifecycle:
+The repository includes three `.env` setup paths. Each produces the root `.env` consumed by the existing Compose lifecycle:
 
-- **Interactive form:** run `pnpm selfhosted:configure --interactive`. It starts a one-time setup form bound only to `127.0.0.1`, offers Indonesian and English, and writes `.env` with mode `0600`. If Tailscale is already connected, the form can use the detected MagicDNS HTTPS origin. It refuses to overwrite `.env`, does not start Docker, and closes after saving or cancellation.
+- **Interactive terminal:** run `pnpm selfhosted:configure`. It asks the same setup questions as the browser form, supports Indonesian and English, hides Turnstile and SMTP passwords while typing, and writes `.env` with mode `0600`. If Tailscale is connected and reports a MagicDNS HTTPS origin, it asks whether to skip Tailscale, prepare Serve, or prepare Funnel for this installation. Choosing a mode sets `AUTH_BACKEND=none` and the detected `WEB_ORIGIN`; after the application is healthy, the wizard prints the matching command to enable that route. It refuses to overwrite `.env` and does not start Docker, run migrations, or change Tailscale state.
+- **Interactive browser form:** run `pnpm selfhosted:configure --interactive`. It starts a one-time setup form bound only to `127.0.0.1`, offers Indonesian and English, and writes `.env` with mode `0600`. If Tailscale is already connected, the form can use the detected MagicDNS HTTPS origin. It refuses to overwrite `.env`, does not start Docker, and closes after saving or cancellation.
 - **Manual file:** copy `.env.example` to `.env`, edit the required values, and restrict access to the file (for example, `chmod 600 .env` on Unix-like systems). Keep the template as the single tracked environment example.
 
-For local browser use or a Tailscale exposure without Rhasia sign-in, select `AUTH_BACKEND=none`. Hosted Vault, sync, membership, audit, and recovery APIs remain unavailable in this mode. For Tailscale Serve or Funnel, use the exact HTTPS MagicDNS origin for `WEB_ORIGIN` and keep `AUTH_TRUST_PROXY_HEADERS=false`. SMTP and Turnstile settings are not used and are cleared by the wizard. To use hosted account features through another deployment path, configure `AUTH_BACKEND=passwordless` with production Turnstile and SMTP values; the Tailscale helper in this guide is configured for `none`. The wizard generates unique database, proxy, session, magic-link, and scheduler secrets; it never displays submitted provider values after saving. Do not enter Vault or TOTP material.
+For local browser use or a Tailscale exposure without Rhasia sign-in, select `AUTH_BACKEND=none`. Hosted Vault, sync, membership, audit, and recovery APIs remain unavailable in this mode. For Tailscale Serve or Funnel, use the exact HTTPS MagicDNS origin for `WEB_ORIGIN` and keep `AUTH_TRUST_PROXY_HEADERS=false`. SMTP and Turnstile settings are not used and are cleared by the wizard. To use hosted account features through another deployment path, configure `AUTH_BACKEND=passwordless` with production Turnstile and SMTP values; the Tailscale helper in this guide is configured for `none`. Both interactive setup paths generate unique database, proxy, session, magic-link, and scheduler secrets; provider values are not printed by the terminal wizard or displayed after saving in the browser form. Do not enter Vault or TOTP material.
 
 Continue through the established lifecycle; the setup form never runs a database migration itself:
 
@@ -67,6 +68,8 @@ pnpm selfhosted:tailscale --interactive
 ```
 
 `selfhosted:setup` verifies the deployment configuration, starts PostgreSQL, and applies the API-owned migration only after its existing interactive confirmation. `selfhosted:up` builds and starts the application, then waits for health checks. The Tailscale command runs only after the Web health endpoint is ready. Tailscale must already be installed and connected on the Docker host; the helper requires CLI 1.52 or later and does not install Tailscale, log in, create auth keys, or change tailnet policy.
+
+When the terminal wizard prepared a mode, run the Serve or Funnel command it printed after `pnpm selfhosted:up` reports healthy. Otherwise, use `pnpm selfhosted:tailscale --interactive` to choose a mode at that point. Funnel activation still requires `--confirm-public` and makes the app publicly reachable without Rhasia sign-in.
 
 The interactive Tailscale step lets the operator choose either mode:
 

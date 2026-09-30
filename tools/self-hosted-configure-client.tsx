@@ -277,17 +277,19 @@ function SetupWizard() {
   const showStatus = status === "saved" || status === "cancelled" ? copy[status] : status === null ? "" : copy[status];
 
   return (
-    <main>
-      <header>
-        <label htmlFor="language">
+    <main className="setup-shell">
+      <header className="setup-heading">
+        <div className="setup-heading-copy">
+          <h1>{copy.title}</h1>
+          <p>{copy.intro}</p>
+        </div>
+        <label className="language-control" htmlFor="language">
           <span>{copy.language}</span>
           <select id="language" value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
             <option value="id">Bahasa Indonesia</option>
             <option value="en">English</option>
           </select>
         </label>
-        <h1>{copy.title}</h1>
-        <p>{copy.intro}</p>
       </header>
       <form
         id="setup-form"
@@ -330,14 +332,19 @@ function SetupWizard() {
         </form.Field>
         <form.Subscribe selector={(state) => state.values.authBackend}>
           {(authBackend) => (
-            <p id="authBackend-description" className="hint">
+            <p id="authBackend-description" className="hint" data-auth-mode={authBackend}>
               {authBackend === "none" ? copy.noneDescription : copy.passwordlessDescription}
             </p>
           )}
         </form.Subscribe>
         {renderTextField({ name: "webOrigin", label: copy.origin, maxLength: 512, required: true })}
         {tailscaleOrigin ? (
-          <button type="button" id="useTailscaleOrigin" onClick={useDetectedOrigin}>
+          <button
+            type="button"
+            id="useTailscaleOrigin"
+            className="button-outline use-origin"
+            onClick={useDetectedOrigin}
+          >
             {copy.useTailscaleOrigin.replace("{origin}", tailscaleOrigin)}
           </button>
         ) : null}
@@ -346,7 +353,7 @@ function SetupWizard() {
           {(authBackend) => {
             const passwordless = authBackend === "passwordless";
             return (
-              <fieldset id="passwordlessFields" disabled={!passwordless}>
+              <fieldset id="passwordlessFields" disabled={!passwordless} hidden={!passwordless}>
                 <legend>{copy.providerTitle}</legend>
                 {renderTextField({
                   name: "turnstileSiteKey",
@@ -439,7 +446,12 @@ function SetupWizard() {
         </p>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <p id="form-status" role="alert" aria-live="assertive">
+            <p
+              id="form-status"
+              data-state={isSubmitting ? "saving" : (status ?? undefined)}
+              role="alert"
+              aria-live="assertive"
+            >
               {isSubmitting ? copy.saving : showStatus}
             </p>
           )}
@@ -448,10 +460,16 @@ function SetupWizard() {
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <>
-                <button type="submit" disabled={isSubmitting}>
+                <button type="submit" className="button-primary" disabled={isSubmitting}>
                   {copy.save}
                 </button>
-                <button type="button" id="cancel" disabled={isSubmitting} onClick={() => void cancel()}>
+                <button
+                  type="button"
+                  id="cancel"
+                  className="button-outline"
+                  disabled={isSubmitting}
+                  onClick={() => void cancel()}
+                >
                   {copy.cancel}
                 </button>
               </>
@@ -459,6 +477,14 @@ function SetupWizard() {
           </form.Subscribe>
         </div>
       </form>
+      <footer className="setup-footer">
+        <div className="setup-footer-content">
+          <div className="setup-brand" aria-label="rhasia-scret">
+            <span>rhasia-</span>
+            <span className="setup-brand-accent">scret</span>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

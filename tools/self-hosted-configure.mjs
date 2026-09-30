@@ -14,6 +14,8 @@ import {
 import { createServer } from "node:http";
 import { isIPv4 } from "node:net";
 import { spawnSync } from "node:child_process";
+import { emitKeypressEvents } from "node:readline";
+import { createInterface } from "node:readline/promises";
 import { build } from "esbuild";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +28,23 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SESSION_COOKIE = "rhasia_setup_session";
 const MAX_REQUEST_BYTES = 16 * 1024;
 const SESSION_LIFETIME_MS = 10 * 60 * 1000;
+const defaultSetupValues = {
+  authBackend: "none",
+  webOrigin: "http://localhost:3000",
+  turnstileSiteKey: "",
+  turnstileSecretKey: "",
+  smtpHost: "",
+  smtpPort: "587",
+  smtpUser: "",
+  smtpPassword: "",
+  authEmailFrom: "",
+  authEmailFromName: "rhasia-scret",
+  passkeyEnabled: false,
+  passkeyRpId: "",
+  passkeyOrigin: "",
+  appBindAddress: "127.0.0.1",
+  appPort: "3000",
+};
 const setupSubmissionSchema = z
   .object({
     authBackend: z.enum(["none", "passwordless"]),
@@ -142,6 +161,65 @@ const copy = {
     passwordlessDescription:
       "Email sign-in links require a production SMTP account and Turnstile settings. This mode enables hosted Vault features after users sign in. The repository's Tailscale helper uses no-sign-in mode (none).",
     passwordlessOption: "Passwordless",
+  },
+};
+
+const terminalCopy = {
+  id: {
+    intro:
+      "Jawab pertanyaan berikut untuk membuat .env. Input rahasia disembunyikan saat diketik. File yang sudah ada tidak akan ditimpa.",
+    chooseLanguage: "Bahasa / Language [id/en] (id): ",
+    chooseLanguageError: "Masukkan id atau en / Enter id or en.",
+    chooseAuthBackend: "Pilih autentikasi aplikasi [1/2] (1): ",
+    tailscaleDetected: "Tailscale aktif dengan origin MagicDNS {origin}.",
+    tailscaleOptions:
+      "1. Lewati Tailscale dan lanjutkan setup biasa.\n2. Serve, hanya dapat diakses melalui kebijakan tailnet.\n3. Funnel, dapat diakses publik tanpa login Rhasia.",
+    chooseTailscaleExposure: "Pilih eksposur Tailscale untuk instalasi ini [1/2/3] (1): ",
+    tailscaleAuthNotice:
+      "Jika memilih Serve/Funnel, wizard memakai origin MagicDNS dan mengatur AUTH_BACKEND=none. Brankas hosted, sinkronisasi, keanggotaan, audit, dan pemulihan tidak tersedia.",
+    tailscaleBindLocked:
+      "Tailscale mengharuskan bind address 127.0.0.1; alamat ini tidak dapat diubah untuk mode tersebut.",
+    tailscaleNotConnected:
+      "Tailscale CLI terpasang, tetapi host belum terhubung atau origin MagicDNS belum tersedia. Hubungkan Tailscale lalu jalankan wizard kembali untuk menyiapkan eksposur.",
+    tailscaleServeNextStep:
+      "Setelah pnpm selfhosted:setup dan pnpm selfhosted:up selesai, aktifkan Serve dengan: pnpm selfhosted:tailscale serve",
+    tailscaleFunnelNextStep:
+      "Setelah pnpm selfhosted:setup dan pnpm selfhosted:up selesai, aktifkan Funnel publik hanya setelah meninjau konsekuensinya: pnpm selfhosted:tailscale funnel --confirm-public",
+    chooseValue: "Pilih salah satu opsi yang ditampilkan.",
+    chooseYesNo: "Jawab ya atau tidak.",
+    invalid: "Konfigurasi belum valid. Periksa kolom berikut lalu masukkan kembali nilainya:",
+    cancelled: "Dibatalkan. Tidak ada konfigurasi yang disimpan.",
+    saved: ".env berhasil dibuat dengan izin file 0600. Jalankan pnpm selfhosted:setup untuk melanjutkan.",
+    terminalRequired:
+      "Wizard terminal memerlukan terminal interaktif (TTY) / The terminal wizard requires an interactive terminal (TTY).",
+  },
+  en: {
+    intro:
+      "Answer the following questions to create .env. Secret input is hidden as you type. An existing file will not be overwritten.",
+    chooseLanguage: "Language / Bahasa [id/en] (id): ",
+    chooseLanguageError: "Enter id or en / Masukkan id atau en.",
+    chooseAuthBackend: "Choose application authentication [1/2] (1): ",
+    tailscaleDetected: "Tailscale is connected with MagicDNS origin {origin}.",
+    tailscaleOptions:
+      "1. Skip Tailscale and continue with regular setup.\n2. Serve, reachable only under tailnet policy.\n3. Funnel, publicly reachable without Rhasia sign-in.",
+    chooseTailscaleExposure: "Choose Tailscale exposure for this installation [1/2/3] (1): ",
+    tailscaleAuthNotice:
+      "Choosing Serve/Funnel uses the MagicDNS origin and sets AUTH_BACKEND=none. Hosted Vault, synchronization, membership, audit, and recovery features will be unavailable.",
+    tailscaleBindLocked:
+      "Tailscale requires the host bind address 127.0.0.1; this address cannot be changed in this mode.",
+    tailscaleNotConnected:
+      "The Tailscale CLI is installed, but this host is not connected or no MagicDNS origin is available. Connect Tailscale and rerun the wizard to prepare exposure.",
+    tailscaleServeNextStep:
+      "After pnpm selfhosted:setup and pnpm selfhosted:up complete, enable Serve with: pnpm selfhosted:tailscale serve",
+    tailscaleFunnelNextStep:
+      "After pnpm selfhosted:setup and pnpm selfhosted:up complete, enable public Funnel only after reviewing its implications: pnpm selfhosted:tailscale funnel --confirm-public",
+    chooseValue: "Choose one of the listed options.",
+    chooseYesNo: "Answer yes or no.",
+    invalid: "The configuration is invalid. Review these fields and enter their values again:",
+    cancelled: "Cancelled. No configuration was saved.",
+    saved: ".env was created with file mode 0600. Run pnpm selfhosted:setup to continue.",
+    terminalRequired:
+      "The terminal wizard requires an interactive terminal (TTY) / Wizard terminal memerlukan terminal interaktif (TTY).",
   },
 };
 
@@ -548,6 +626,26 @@ function discoverTailscaleOrigin() {
   }
 }
 
+function isTailscaleInstalled() {
+  const result = spawnSync("tailscale", ["version"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 2_000,
+  });
+  return !result.error && result.status === 0;
+}
+
+export function applyTerminalTailscaleChoice(choice, detectedOrigin, submission) {
+  if (choice === "1") return null;
+  const mode = choice === "2" ? "serve" : choice === "3" ? "funnel" : null;
+  const origin = normalizeTailscaleOrigin(detectedOrigin);
+  if (!mode || !origin) throw new Error("A valid connected Tailscale MagicDNS origin is required for exposure.");
+  submission.authBackend = "none";
+  submission.webOrigin = origin;
+  submission.appBindAddress = "127.0.0.1";
+  return mode;
+}
+
 function normalizeTailscaleOrigin(value) {
   const origin = parseCanonicalOrigin(value);
   if (origin?.protocol !== "https:") return null;
@@ -558,12 +656,274 @@ function isFileExistsError(error) {
   return error instanceof Error && "code" in error && error.code === "EEXIST";
 }
 
+class PromptCancelledError extends Error {
+  constructor() {
+    super("The terminal setup was cancelled.");
+    this.name = "PromptCancelledError";
+  }
+}
+
+async function configureFromTerminal({ root = repositoryRoot, commitSha, tailscaleOrigin } = {}) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || typeof process.stdin.setRawMode !== "function") {
+    throw new Error(terminalCopy.en.terminalRequired);
+  }
+
+  const locale = await askLanguage();
+  activeTerminalLocale = locale;
+  const strings = copy[locale];
+  const messages = terminalCopy[locale];
+  const envPath = resolve(root, ".env");
+
+  console.log(`\n${strings.title}\n${messages.intro}\n${strings.privacy}\n`);
+  if (existsSync(envPath)) {
+    console.error(strings.conflict);
+    process.exitCode = 1;
+    return;
+  }
+
+  const suggestedTailscaleOrigin = normalizeTailscaleOrigin(
+    tailscaleOrigin === undefined ? discoverTailscaleOrigin() : tailscaleOrigin,
+  );
+  const submission = { ...defaultSetupValues };
+  let tailscaleMode = null;
+
+  if (suggestedTailscaleOrigin) {
+    console.log(messages.tailscaleDetected.replace("{origin}", suggestedTailscaleOrigin));
+    console.log(messages.tailscaleAuthNotice);
+    console.log(messages.tailscaleOptions);
+    const choice = await askChoice(messages.chooseTailscaleExposure, ["1", "2", "3"], "1", messages);
+    tailscaleMode = applyTerminalTailscaleChoice(choice, suggestedTailscaleOrigin, submission);
+  } else if (isTailscaleInstalled()) {
+    console.log(messages.tailscaleNotConnected);
+  }
+
+  if (!tailscaleMode) {
+    console.log(`1. ${strings.noneOption}\n   ${strings.noneDescription}`);
+    console.log(`2. ${strings.passwordlessOption}\n   ${strings.passwordlessDescription}`);
+    const backendChoice = await askChoice(messages.chooseAuthBackend, ["1", "2"], "1", messages);
+    submission.authBackend = backendChoice === "1" ? "none" : "passwordless";
+  }
+
+  let originDefault = submission.webOrigin;
+  if (tailscaleMode) {
+    originDefault = suggestedTailscaleOrigin;
+  } else if (suggestedTailscaleOrigin) {
+    const useDetectedOrigin = await askYesNo(
+      strings.useTailscaleOrigin.replace("{origin}", suggestedTailscaleOrigin),
+      false,
+      locale,
+      messages,
+    );
+    if (useDetectedOrigin) originDefault = suggestedTailscaleOrigin;
+  }
+  submission.webOrigin = tailscaleMode
+    ? originDefault
+    : await askText(strings.origin, originDefault, strings.originHelp);
+
+  if (submission.authBackend === "passwordless") {
+    console.log(`\n${strings.providerTitle}`);
+    submission.turnstileSiteKey = await askText(strings.turnstileSite, "");
+    submission.turnstileSecretKey = await askSecret(strings.turnstileSecret);
+    submission.smtpHost = await askText(strings.smtpHost, "");
+    submission.smtpPort = await askText(strings.smtpPort, submission.smtpPort);
+    submission.smtpUser = await askText(strings.smtpUser, "");
+    submission.smtpPassword = await askSecret(strings.smtpPassword);
+    submission.authEmailFrom = await askText(strings.fromAddress, "");
+    submission.authEmailFromName = await askText(strings.fromName, submission.authEmailFromName);
+    submission.passkeyEnabled = await askYesNo(strings.passkeyEnabled, false, locale, messages);
+    if (submission.passkeyEnabled) {
+      const origin = readCanonicalOrigin(submission.webOrigin);
+      submission.passkeyRpId = await askText(strings.passkeyRp, origin?.hostname ?? "");
+      submission.passkeyOrigin = await askText(strings.passkeyOrigin, origin?.origin ?? "");
+    }
+  }
+
+  const configureNetworking = await askYesNo(strings.advanced, false, locale, messages);
+  if (configureNetworking) {
+    if (tailscaleMode) console.log(messages.tailscaleBindLocked);
+    else submission.appBindAddress = await askText(strings.bindAddress, submission.appBindAddress, strings.bindHelp);
+    submission.appPort = await askText(strings.appPort, submission.appPort);
+  }
+
+  const fieldLabels = {
+    webOrigin: strings.origin,
+    turnstileSiteKey: strings.turnstileSite,
+    turnstileSecretKey: strings.turnstileSecret,
+    smtpHost: strings.smtpHost,
+    smtpPort: strings.smtpPort,
+    smtpUser: strings.smtpUser,
+    smtpPassword: strings.smtpPassword,
+    authEmailFrom: strings.fromAddress,
+    authEmailFromName: strings.fromName,
+    passkeyRpId: strings.passkeyRp,
+    passkeyOrigin: strings.passkeyOrigin,
+    appBindAddress: strings.bindAddress,
+    appPort: strings.appPort,
+  };
+  const secretFields = new Set(["turnstileSecretKey", "smtpPassword"]);
+
+  while (true) {
+    const validation = validateTerminalSubmission(submission);
+    if (validation.errors.length === 0) {
+      Object.assign(submission, validation.submission);
+      break;
+    }
+
+    console.error(`\n${messages.invalid}`);
+    const fields = [...new Set(validation.errors.map((error) => error.slice(0, error.indexOf(":"))))];
+    for (const field of fields) {
+      const label = fieldLabels[field];
+      if (!label) continue;
+      const rule = validation.errors.find((error) => error.startsWith(`${field}:`))?.slice(field.length + 1);
+      const hint =
+        rule === "required" ? strings.required : rule === "unsupported" ? strings.unsupported : strings.invalidField;
+      console.error(`- ${label}: ${hint}`);
+      submission[field] = secretFields.has(field) ? await askSecret(label) : await askText(label, submission[field]);
+    }
+  }
+
+  try {
+    const source = createEnvironmentSource({ root, commitSha, submission });
+    writeEnvironmentExclusive(envPath, source);
+  } catch (error) {
+    if (isFileExistsError(error)) {
+      console.error(strings.conflict);
+      process.exitCode = 1;
+      return;
+    }
+    throw new Error(strings.unavailable);
+  }
+
+  console.log(`\n${messages.saved}`);
+  if (tailscaleMode === "serve") console.log(messages.tailscaleServeNextStep);
+  if (tailscaleMode === "funnel") console.log(messages.tailscaleFunnelNextStep);
+}
+
+function validateTerminalSubmission(value) {
+  const parsed = setupSubmissionSchema.safeParse(value);
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((issue) => {
+      const field = typeof issue.path[0] === "string" ? issue.path[0] : "webOrigin";
+      return `${field}:invalid`;
+    });
+    return { errors, submission: value };
+  }
+  return validateSubmission(parsed.data);
+}
+
+async function askLanguage() {
+  while (true) {
+    const answer = (await askQuestion(terminalCopy.id.chooseLanguage)).trim().toLowerCase();
+    if (!answer || answer === "id") return "id";
+    if (answer === "en") return "en";
+    console.error(terminalCopy.en.chooseLanguageError);
+  }
+}
+
+async function askChoice(prompt, choices, defaultValue, messages) {
+  while (true) {
+    const answer = (await askQuestion(prompt)).trim().toLowerCase() || defaultValue;
+    if (choices.includes(answer)) return answer;
+    console.error(messages.chooseValue);
+  }
+}
+
+async function askText(label, defaultValue = "", help) {
+  if (help) console.log(help);
+  const defaultHint = defaultValue ? ` [${defaultValue}]` : "";
+  const answer = await askQuestion(`${label}${defaultHint}: `);
+  return answer.length === 0 ? defaultValue : answer;
+}
+
+async function askSecret(label) {
+  const input = process.stdin;
+  emitKeypressEvents(input);
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    const previousRawMode = input.isRaw;
+    let value = "";
+    let complete = false;
+
+    const finish = (error) => {
+      if (complete) return;
+      complete = true;
+      input.removeListener("keypress", onKeypress);
+      input.removeListener("end", onEnd);
+      input.setRawMode(previousRawMode);
+      process.stdout.write("\n");
+      if (error) rejectPromise(error);
+      else resolvePromise(value);
+    };
+    const onEnd = () => finish(new PromptCancelledError());
+    const onKeypress = (character, key = {}) => {
+      if (key.ctrl && (key.name === "c" || key.name === "d")) {
+        finish(new PromptCancelledError());
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        finish();
+        return;
+      }
+      if (key.name === "backspace") {
+        value = Array.from(value).slice(0, -1).join("");
+        return;
+      }
+      if (!key.ctrl && !key.meta && character && !/[\u0000-\u001f\u007f]/u.test(character)) value += character;
+    };
+
+    try {
+      input.setRawMode(true);
+      input.on("keypress", onKeypress);
+      input.once("end", onEnd);
+      input.resume();
+      process.stdout.write(`${label}: `);
+    } catch (error) {
+      finish(error);
+    }
+  });
+}
+
+async function askYesNo(label, defaultValue, locale, messages) {
+  const promptHint = locale === "id" ? (defaultValue ? "[Y/t]" : "[y/T]") : defaultValue ? "[Y/n]" : "[y/N]";
+  while (true) {
+    const answer = (await askQuestion(`${label} ${promptHint}: `)).trim().toLowerCase();
+    if (!answer) return defaultValue;
+    if (["y", "yes", "ya"].includes(answer)) return true;
+    if (["n", "no", "t", "tidak"].includes(answer)) return false;
+    console.error(messages.chooseYesNo);
+  }
+}
+
+async function askQuestion(prompt) {
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await new Promise((resolvePromise, rejectPromise) => {
+      const onSigint = () => rejectPromise(new PromptCancelledError());
+      readline.once("SIGINT", onSigint);
+      void readline.question(prompt).then(resolvePromise, rejectPromise);
+    });
+  } finally {
+    readline.close();
+  }
+}
+
+let activeTerminalLocale = "id";
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
 if (invokedPath === fileURLToPath(import.meta.url)) {
-  if (process.argv[2] !== "--interactive") {
-    console.error("Usage: pnpm selfhosted:configure --interactive");
-    process.exitCode = 1;
-  } else {
+  const arguments_ = process.argv.slice(2);
+  if (arguments_.length === 0) {
+    try {
+      await configureFromTerminal();
+    } catch (error) {
+      if (error instanceof PromptCancelledError) {
+        console.log(`\n${terminalCopy[activeTerminalLocale].cancelled}`);
+        process.exitCode = 130;
+      } else {
+        console.error(error instanceof Error ? error.message : "Unable to configure the self-hosted environment.");
+        process.exitCode = 1;
+      }
+    }
+  } else if (arguments_.length === 1 && arguments_[0] === "--interactive") {
     try {
       const wizard = await startConfigurationWizard();
       console.log(
@@ -576,5 +936,8 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
       console.error(error instanceof Error ? error.message : "Unable to start the local setup wizard.");
       process.exitCode = 1;
     }
+  } else {
+    console.error("Usage: pnpm selfhosted:configure [--interactive]");
+    process.exitCode = 1;
   }
 }

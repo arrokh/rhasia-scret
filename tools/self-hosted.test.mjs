@@ -15,7 +15,7 @@ import {
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
-import { startConfigurationWizard } from "./self-hosted-configure.mjs";
+import { applyTerminalTailscaleChoice, startConfigurationWizard } from "./self-hosted-configure.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { createServer } from "node:http";
 
@@ -515,6 +515,38 @@ test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused prov
     await wizard.close();
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("terminal Tailscale choices use the detected MagicDNS origin and loopback configuration", () => {
+  for (const [choice, expectedMode] of [
+    ["2", "serve"],
+    ["3", "funnel"],
+  ]) {
+    const submission = {
+      authBackend: "passwordless",
+      webOrigin: "http://localhost:3000",
+      appBindAddress: "0.0.0.0",
+      appPort: "3400",
+    };
+
+    assert.equal(applyTerminalTailscaleChoice(choice, "https://node.example.test", submission), expectedMode);
+    assert.equal(submission.authBackend, "none");
+    assert.equal(submission.webOrigin, "https://node.example.test");
+    assert.equal(submission.appBindAddress, "127.0.0.1");
+    assert.equal(submission.appPort, "3400");
+  }
+});
+
+test("terminal Tailscale skip leaves the selected setup unchanged", () => {
+  const submission = {
+    authBackend: "passwordless",
+    webOrigin: "http://localhost:3000",
+    appBindAddress: "0.0.0.0",
+  };
+  const original = { ...submission };
+
+  assert.equal(applyTerminalTailscaleChoice("1", "https://node.example.test", submission), null);
+  assert.deepEqual(submission, original);
 });
 
 test("Tailscale Serve and Funnel commands use loopback, require public confirmation, and remove only their recorded listener", async (context) => {

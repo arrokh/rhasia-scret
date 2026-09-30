@@ -13,18 +13,19 @@ The operator chooses the exposure mode:
 - **Serve** makes the service available within the tailnet, subject to the tailnet's ACL or grants policy.
 - **Funnel** makes the service reachable from the public internet. Tailnet ACLs do not restrict visitors to a Funnel URL. The selected self-hosted Tailscale setup uses `AUTH_BACKEND=none`, so the app has no sign-in and only browser-local features are available.
 
-The repository offers two first-run configuration paths: a temporary local web wizard that writes the root <code>.env</code>, or manual <code>.env</code> setup using the existing template and commands. Both paths produce configuration consumed by the existing self-hosted workflow.
+The repository offers three first-run configuration paths: a terminal wizard, a temporary local web wizard, or manual <code>.env</code> setup using the existing template and commands. All paths produce configuration consumed by the existing self-hosted workflow.
 
 This was implemented without changing Vault encryption, API contracts, or client/server crypto boundaries. `AUTH_BACKEND=none` does not create an application identity: hosted APIs remain fail-closed even when Tailscale grants network access. The code-level setup is available; tailnet access, public Funnel reachability, and host network protections remain operator-specific verification.
 
 ## Agreed setup experience
 
-| Path              | Behavior                                                                                                                                                                                                                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Interactive setup | A host-side, one-shot web form bound only to <code>127.0.0.1</code> gathers deployment settings and writes the root <code>.env</code> with restrictive permissions. It exits after a successful write and refuses to overwrite an existing file. It does not start containers or run migrations. |
-| Manual setup      | The operator edits the canonical root <code>.env.example</code> into <code>.env</code>, provides values required by the selected authentication mode, and runs the existing self-hosted commands. The template remains the only tracked environment template.                                    |
+| Path                     | Behavior                                                                                                                                                                                                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interactive terminal     | <code>pnpm selfhosted:configure</code> asks the setup questions in the terminal, hides secret input, and writes the root <code>.env</code> with restrictive permissions. It refuses to overwrite an existing file and does not start containers or run migrations.               |
+| Interactive browser form | <code>pnpm selfhosted:configure --interactive</code> starts a one-shot web form bound only to <code>127.0.0.1</code>, writes the root <code>.env</code> with restrictive permissions, and refuses to overwrite an existing file. It does not start containers or run migrations. |
+| Manual setup             | The operator edits the canonical root <code>.env.example</code> into <code>.env</code>, provides values required by the selected authentication mode, and runs the existing self-hosted commands. The template remains the only tracked environment template.                    |
 
-Both paths feed the same <code>pnpm selfhosted:setup</code>, <code>pnpm selfhosted:up</code>, and <code>pnpm selfhosted:down</code> lifecycle. <code>selfhosted:setup</code> continues to validate configuration and requires its existing explicit confirmation before applying the database migration. It is not called implicitly by the web form.
+All three paths feed the same <code>pnpm selfhosted:setup</code>, <code>pnpm selfhosted:up</code>, and <code>pnpm selfhosted:down</code> lifecycle. <code>selfhosted:setup</code> continues to validate configuration and requires its existing explicit confirmation before applying the database migration. It is not called implicitly by either wizard.
 
 Tailscale exposure is a separate post-start step because the Web service must be healthy before the proxy is configured. The one-shot CLI helper, launched after <code>selfhosted:up</code>, asks the operator to choose Serve or Funnel, checks the Web health endpoint, applies the selected host Tailscale configuration, and exits. It is a separate invocation from the environment form, so neither setup process needs to remain running. It also provides status and a safe way to disable only the Rhasia listener it created. The helper does not edit tailnet ACLs or select a mode on the operator's behalf.
 
@@ -32,11 +33,12 @@ The manual route has the same exposure choice: use the documented Tailscale comm
 
 ## Current repository state
 
-- <code>docs/self-hosting.md</code> documents Docker Compose with optional Tailscale Serve or Funnel, both environment setup paths, mode selection, route status, and teardown.
+- <code>docs/self-hosting.md</code> documents Docker Compose with optional Tailscale Serve or Funnel, all environment setup paths, mode selection, route status, and teardown.
 - <code>pnpm selfhosted:setup</code> creates <code>.env</code> only when absent, fills selected generated local values, validates Docker and deployment configuration, starts PostgreSQL, and applies the migration only after an interactive confirmation. A new file defaults to <code>AUTH_BACKEND=none</code>. The command does not silently rotate an existing database password.
 - <code>pnpm selfhosted:up</code> builds and starts the Compose services and waits for health checks. <code>pnpm selfhosted:down</code> stops services while preserving the PostgreSQL volume.
 - The Compose Web port binds to <code>127.0.0.1</code> by default, with an explicit IPv4 override for separately managed proxies. API and PostgreSQL do not publish host ports.
 - The repository has one canonical root <code>.env.example</code>. Generated <code>.env</code> files use mode <code>0600</code>.
+- <code>pnpm selfhosted:configure</code> collects the same configuration fields in the terminal; <code>pnpm selfhosted:configure --interactive</code> opens the browser form. Both paths share validation, refuse to overwrite <code>.env</code>, and use the same atomic mode-<code>0600</code> writer.
 - <code>AUTH_BACKEND=none</code> disables Rhasia sign-in and hosted APIs. The Tailscale helper can expose browser-local workflows through Serve or Funnel; Funnel is public and has no application login. Passwordless with production SMTP/Turnstile remains the separate hosted-account mode.
 
 ## Network and security model
@@ -67,7 +69,7 @@ All generated and supplied application credentials remain server-side in the ign
 
 ## Interactive wizard security contract
 
-The form writes a file that contains deployment credentials, so treat the wizard as a privileged local setup tool:
+The terminal and browser wizards write a file that contains deployment credentials, so treat them as privileged local setup tools:
 
 - Run on the host, outside Docker, before the app stack is exposed. Bind only to <code>127.0.0.1</code>; do not support LAN, tailnet, Funnel, or remote access to the setup form.
 - Start only for a setup operation, use a per-run unpredictable session token and strict Host/Origin checks, disable caching, and stop on success, cancellation, or error.
@@ -91,14 +93,14 @@ Disabling exposure must remove only the listener created for Rhasia. Avoid broad
 
 ### 2. Environment setup for external access
 
-- Keep the canonical root <code>.env.example</code> as the manual template; <code>pnpm selfhosted:configure --interactive</code> writes the same root <code>.env</code> contract.
-- The form generates internal secrets locally and uniquely, preserves provider values as secrets, does not print them, and refuses to overwrite an existing file. The Tailscale helper requires <code>AUTH_BACKEND=none</code> and does not require SMTP or Turnstile configuration.
+- Keep the canonical root <code>.env.example</code> as the manual template; the terminal and browser wizards write the same root <code>.env</code> contract.
+- Both wizards generate internal secrets locally and uniquely, preserve provider values as secrets, do not print them, and refuse to overwrite an existing file. The Tailscale helper requires <code>AUTH_BACKEND=none</code> and does not require SMTP or Turnstile configuration.
 - Tailscale identity credentials and listener state are not added to <code>.env</code> or Compose services. The ignored local ownership marker contains only the route needed for targeted status and teardown.
 
 ### 3. One-shot interactive environment form
 
-- The host-side command binds the temporary web form to loopback, supports Indonesian and English, validates fields, masks secret inputs, can prefill a detected MagicDNS origin, and writes <code>.env</code> atomically with mode <code>0600</code>.
-- The form only creates <code>.env</code>. It does not install/authenticate Tailscale, start Docker, run migrations, configure public access, or remain available as an admin panel.
+- The terminal command and host-side browser form both support Indonesian and English, validate the same fields, can use a detected MagicDNS origin, and write <code>.env</code> atomically with mode <code>0600</code>. Terminal secret input is hidden while typing; the browser form uses password controls for secret fields.
+- Both wizards only create <code>.env</code>. They do not install/authenticate Tailscale, start Docker, run migrations, configure public access, or remain available as an admin panel.
 - The operator continues with existing self-hosted commands, including the existing explicit database migration confirmation.
 
 ### 4. Post-start Tailscale exposure helper
