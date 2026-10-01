@@ -60,6 +60,35 @@ test("load-test targets are explicitly pinned to the requested localhost web por
     assert.throws(() => validateTarget(target));
 });
 
+test("SMTP TLS copies use an exclusive file in a private per-copy temp directory", () => {
+  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
+  const copyStart = source.indexOf("function copySmtpFileToContainer");
+  const copyEnd = source.indexOf("\nasync function createProject", copyStart);
+  assert.ok(copyStart >= 0 && copyEnd > copyStart);
+  const copy = source.slice(copyStart, copyEnd);
+  assert.ok(copy.includes('mkdtempSync(path.join(directory, "smtp-stage-"))'));
+  assert.ok(copy.includes('{ flag: "wx", mode: 0o444 }'));
+  assert.ok(copy.includes("chmodSync(stagedDirectory, 0o700)"));
+  assert.ok(copy.includes("rmSync(stagedDirectory, { recursive: true, force: true })"));
+
+  const tlsStart = source.indexOf("function createSmtpTlsMaterial");
+  const tlsEnd = source.indexOf("\nfunction ensurePrivateDirectory", tlsStart);
+  assert.ok(tlsStart >= 0 && tlsEnd > tlsStart);
+  const tls = source.slice(tlsStart, tlsEnd);
+  assert.ok(tls.includes("chmodSync(certificatePath, 0o600)"));
+  assert.ok(tls.includes("chmodSync(privateKeyPath, 0o600)"));
+});
+
+test("health checks use the fixed local origin, never persisted target data", () => {
+  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("async function waitForServices(");
+  const end = source.indexOf("\nasync function verifySmtpPreflight", start);
+  assert.ok(start >= 0 && end > start);
+  const waitForServices = source.slice(start, end);
+  assert.ok(waitForServices.includes("isHealthy(`${WEB_ORIGIN}/api/v1/health`, true)"));
+  assert.ok(!waitForServices.includes("state.target"));
+});
+
 test("load-test stack keeps the latest-main loopback binding and healthcheck", () => {
   const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
   const composeEnvironmentStart = source.indexOf("function safeComposeEnvironment");

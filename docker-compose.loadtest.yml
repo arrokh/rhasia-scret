@@ -34,7 +34,7 @@ services:
     ports:
       - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
     networks: [backend]
-    # Docker-copied TLS files are staged read-only for Mailpit's unprivileged user; teardown removes this disposable layer.
+    # A private temporary directory protects the transient read-only TLS copies; teardown removes this layer.
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]

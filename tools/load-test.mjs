@@ -2,7 +2,7 @@ import { createHash, randomBytes, X509Certificate } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
-import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -956,9 +956,13 @@ function startMailpitWithCertificate(project, state) {
 }
 
 function copySmtpFileToContainer(project, state, source, containerId, destination) {
-  const stagedSource = path.join(projectDirectory(project), `smtp-stage-${randomBytes(6).toString("hex")}.pem`);
+  const directory = projectDirectory(project);
+  ensurePrivateDirectory(directory);
+  const stagedDirectory = mkdtempSync(path.join(directory, "smtp-stage-"));
+  const stagedSource = path.join(stagedDirectory, "material.pem");
   try {
-    // Docker copies as root; Mailpit runs unprivileged, so make this transient copy readable but not writable.
+    chmodSync(stagedDirectory, 0o700);
+    ensurePrivateDirectory(stagedDirectory);
     writeFileSync(stagedSource, readFileSync(source), { flag: "wx", mode: 0o444 });
     chmodSync(stagedSource, 0o444);
     const result = spawnSync("docker", ["cp", stagedSource, `${containerId}:${destination}`], {
@@ -972,7 +976,7 @@ function copySmtpFileToContainer(project, state, source, containerId, destinatio
     if (error instanceof LoadTestError) throw error;
     throw new LoadTestError("Run-owned SMTP TLS material could not be staged securely for Mailpit.");
   } finally {
-    rmSync(stagedSource, { force: true });
+    rmSync(stagedDirectory, { recursive: true, force: true });
   }
 }
 
@@ -1154,7 +1158,7 @@ async function waitForServices(project, state, tunnel, signal) {
   while (Date.now() < deadline) {
     assertNotAborted(signal);
     assertRunnerTunnelAlive(tunnel);
-    const webReady = await isHealthy(state.target + "/api/v1/health", true);
+    const webReady = await isHealthy(`${WEB_ORIGIN}/api/v1/health`, true);
     const mailReady = await isHealthy(MAILPIT_ORIGIN + "/");
     const services = runCompose(project, state, ["ps", "--status", "running", "--services"], { capture: true })
       .split(/\r?\n/)
