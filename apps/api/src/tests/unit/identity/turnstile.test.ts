@@ -37,7 +37,7 @@ describe("CloudflareTurnstileValidator", () => {
       createTurnstileValidator({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "", TURNSTILE_SECRET_KEY: "" }).validate(),
     ).resolves.toBe("valid");
     expect(() => createTurnstileValidator({ TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret" })).toThrow(
-      "must be set together",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is configured",
     );
   });
 

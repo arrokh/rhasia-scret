@@ -103,12 +103,12 @@ export function readTurnstileConfiguration(env: TurnstileEnvironment): Turnstile
   if (!siteKey)
     throw configurationError(
       "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is configured; configure both Turnstile keys or leave both blank.",
     );
   if (!secretKey)
     throw configurationError(
       "TURNSTILE_SECRET_KEY",
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
+      "TURNSTILE_SECRET_KEY is required when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured; configure both Turnstile keys or leave both blank.",
     );
   if (
     env.NODE_ENV === "production" &&
