@@ -183,6 +183,21 @@ describe("web API proxy", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
   });
 
+  it("still rejects loopback access to the versioned API when its public origin is remote", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    const response = await GET(new NextRequest("http://127.0.0.1:3000/api/v1/health"), {
+      params: Promise.resolve({ path: ["v1", "health"] }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "same_origin_required" });
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
   it("logs proxy failures without logging request data or error details", async () => {
     process.env.API_ORIGIN = "https://api.example.test";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";

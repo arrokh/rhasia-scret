@@ -396,19 +396,35 @@ function inspectDockerProjection(root, containerId, format) {
 }
 
 async function verifyWebHealth(port) {
-  let response;
-  try {
-    response = await fetch(`http://127.0.0.1:${port}/api/v1/health`, {
-      signal: AbortSignal.timeout(3_000),
-      redirect: "error",
-    });
-  } catch {
-    throw new Error(
-      "The self-hosted Web health endpoint is not reachable at the configured loopback port. Run `pnpm selfhosted:up` first.",
-    );
+  const healthUrl = `http://127.0.0.1:${port}/healthz`;
+  const maxAttempts = 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(3_000),
+        redirect: "error",
+      });
+    } catch {
+      if (attempt === maxAttempts - 1) {
+        throw new Error(
+          `The self-hosted Web health endpoint did not respond at the configured loopback port after ${maxAttempts} attempts. Check Docker Compose Web health, then rerun pnpm selfhosted:up.`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      continue;
+    }
+
+    if (response.ok) return;
+    if (response.status < 500 || attempt === maxAttempts - 1) {
+      throw new Error(
+        `The self-hosted Web health endpoint returned HTTP ${response.status} at the configured loopback port. Run pnpm selfhosted:up and confirm Web is healthy.`,
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
-  if (!response.ok)
-    throw new Error("The self-hosted Web health endpoint is not healthy. Run `pnpm selfhosted:up` first.");
 }
 
 function readServiceStatus(mode) {

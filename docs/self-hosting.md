@@ -139,7 +139,7 @@ Run both processes behind an HTTPS proxy that forwards the original host/protoco
 
 ```bash
 pnpm selfhosted:install
-curl --fail --silent --show-error http://127.0.0.1:${APP_PORT:-3000}/api/v1/health
+curl --fail --silent --show-error http://127.0.0.1:${APP_PORT:-3000}/healthz
 ```
 
 Use `pnpm selfhosted:install --interactive` to enter configuration in the local browser form. The command runs `selfhosted:configure`, `selfhosted:setup`, and `selfhosted:up` in order, passing `--interactive` only to the configure step, then applies the selected Tailscale route after health checks. When `.env` exists, choose to reuse it or start over with a timestamped backup; database connection settings are retained when starting over. Funnel still requires typing `PUBLIC`. It stops immediately if a step fails. Setup still requires an interactive `yes` confirmation before applying migrations. To run the stages separately or use the setup defaults without the configuration wizard, run `pnpm selfhosted:setup` and then `pnpm selfhosted:up`.

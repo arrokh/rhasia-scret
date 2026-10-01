@@ -997,6 +997,7 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.ok(compose.status === 0, "Docker Compose should resolve the synthetic wizard configuration.");
     const composeConfig = JSON.parse(compose.stdout);
     assert.equal(composeConfig.services.web.ports[0].host_ip, "127.0.0.1");
+    assert.ok(composeConfig.services.web.healthcheck.test.some((command) => command.includes("/healthz")));
     assert.ok(
       composeConfig.services.api.environment.SMTP_PASSWORD === submission.smtpPassword.split("$").join("$$"),
       "Docker Compose should preserve the synthetic SMTP fixture value.",
@@ -1298,12 +1299,15 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
       const fakeLogPath = join(root, "tailscale-commands.jsonl");
       mkdirSync(bin);
 
+      let healthStatus = 200;
+      let transientHealthStatuses = [];
       const healthServer = createServer((request, response) => {
-        if (request.url !== "/api/v1/health") {
+        if (request.url !== "/healthz") {
           response.writeHead(404).end();
           return;
         }
-        response.writeHead(200, { "content-type": "application/json" }).end('{"status":"ok"}');
+        const responseStatus = transientHealthStatuses.shift() ?? healthStatus;
+        response.writeHead(responseStatus, { "content-type": "application/json" }).end('{"status":"ok"}');
       });
       await new Promise((resolve) => healthServer.listen(0, "127.0.0.1", resolve));
       const healthPort = healthServer.address().port;
@@ -1395,6 +1399,14 @@ test("Tailscale Serve and Funnel commands use loopback, require public confirmat
         assert.notEqual(wrongApiAuth.status, 0);
         assert.match(wrongApiAuth.stderr, /running API container must use AUTH_BACKEND=none/u);
         assert.equal(readFileIfExists(fakeLogPath), "");
+
+        healthStatus = 403;
+        const rejectedHealthCheck = await run(...exposureArguments);
+        assert.notEqual(rejectedHealthCheck.status, 0);
+        assert.match(rejectedHealthCheck.stderr, /health endpoint returned HTTP 403/u);
+        assert.equal(readFileIfExists(fakeLogPath), "");
+        healthStatus = 200;
+        transientHealthStatuses = [503, 200];
 
         const enabled = await run(mode, ...(mode === "funnel" ? ["--confirm-public"] : []));
         assert.equal(enabled.status, 0, enabled.stderr);
