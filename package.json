@@ -71,7 +71,7 @@
     "verify:passwordless-migration": "pnpm --filter @rhasia-scret/api verify:passwordless-migration",
     "verify:database": "pnpm --filter @rhasia-scret/api verify:database",
     "verify:prisma-connections": "pnpm --filter @rhasia-scret/api verify:prisma-connections",
-    "verify:deployment-config": "pnpm --filter @rhasia-scret/api verify:deployment-config && pnpm --filter @rhasia-scret/web verify:deployment-config",
+    "verify:deployment-config": "node tools/verify-deployment-config.mjs",
     "verify:build-output": "pnpm --filter @rhasia-scret/web verify:build-output",
     "verify:dependency-licenses": "pnpm --filter @rhasia-scret/web verify:dependency-licenses",
     "verify:ci-policy": "node tools/verify-ci-policy.mjs",

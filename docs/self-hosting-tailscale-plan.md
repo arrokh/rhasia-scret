@@ -36,6 +36,7 @@ The manual route has the same exposure choice: use the documented Tailscale comm
 - <code>docs/self-hosting.md</code> documents Docker Compose with optional Tailscale Serve or Funnel, all environment setup paths, mode selection, route status, and teardown.
 - <code>pnpm selfhosted:setup</code> creates <code>.env</code> only when absent, fills selected generated local values, validates Docker and deployment configuration, starts PostgreSQL, and applies the migration only after an interactive confirmation. A new file defaults to <code>AUTH_BACKEND=none</code>. The command does not silently rotate an existing database password.
 - <code>pnpm selfhosted:install [--interactive]</code> runs the terminal or browser configuration wizard, setup, and startup as sequential steps; a failure stops the remaining steps.
+- <code>pnpm run verify:deployment-config</code> runs API and Web checks with separate environment contracts, keeping API-only values out of the Web check.
 - <code>pnpm selfhosted:up</code> builds and starts the Compose services and waits for health checks. <code>pnpm selfhosted:down</code> stops services while preserving the PostgreSQL volume.
 - The Compose Web port binds to <code>127.0.0.1</code> by default, with an explicit IPv4 override for separately managed proxies. API and PostgreSQL do not publish host ports.
 - The repository has one canonical root <code>.env.example</code>. Generated <code>.env</code> files use mode <code>0600</code>.

@@ -16,7 +16,8 @@ import {
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
 import { runSelfHostedInstall } from "./self-hosted-install.mjs";
-import { applyTerminalTailscaleChoice, startConfigurationWizard } from "./self-hosted-configure.mjs";
+import { applyTerminalTailscaleChoice, askLanguage, startConfigurationWizard } from "./self-hosted-configure.mjs";
+import { WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS } from "./verify-deployment-config.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { createServer } from "node:http";
 
@@ -93,6 +94,87 @@ test("self-hosted install rejects unsupported arguments before running a step", 
 
   assert.equal(exitCode, 2);
   assert.equal(stepsStarted, 0);
+});
+
+test("root deployment configuration verification keeps API-only values out of the web check", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const env = {
+    ...process.env,
+    AUTH_BACKEND: "none",
+    WEB_ORIGIN: "http://localhost:3000",
+    API_ORIGIN: "http://localhost:8787",
+    API_PROXY_SECRET: "a".repeat(32),
+    DATABASE_URL: "postgresql://synthetic:synthetic@127.0.0.1:5432/synthetic",
+    DIRECT_URL: "postgresql://synthetic:synthetic@127.0.0.1:5433/synthetic",
+    POSTGRES_DB: "synthetic",
+    POSTGRES_USER: "synthetic",
+    POSTGRES_PASSWORD: "synthetic-password",
+    PROXY_SECRET: "p".repeat(32),
+    AUTH_MAGIC_LINK_SECRET: "m".repeat(32),
+    AUTH_MAGIC_LINK_TTL_SECONDS: "600",
+    AUTH_ACCESS_TOKEN_TTL_SECONDS: "600",
+    AUTH_REFRESH_TOKEN_TTL_SECONDS: "600",
+    TURNSTILE_SECRET_KEY: "t".repeat(32),
+    SMTP_HOST: "smtp.example.test",
+    SMTP_PORT: "587",
+    SMTP_SECURE: "false",
+    SMTP_REQUIRE_TLS: "true",
+    SMTP_USER: "synthetic-user",
+    SMTP_PASSWORD: "synthetic-password",
+    AUTH_EMAIL_FROM: "robot@example.test",
+    AUTH_EMAIL_FROM_NAME: "Rhasia Example",
+    CRON_SECRET: "c".repeat(32),
+    NODE_ENV: "development",
+    VERIFY_DEPLOYMENT_PRODUCTION: "",
+    DEPLOYMENT_TARGET: "bun",
+  };
+  const packageManager = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const result = spawnSync(packageManager, ["run", "verify:deployment-config"], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+
+  assert.equal(
+    result.status,
+    0,
+    `Deployment configuration checks should pass with their respective runtime environments.\n${output}`,
+  );
+  assert.equal(
+    (output.match(/\{"valid":true/gu) ?? []).length,
+    2,
+    "Both runtime checks should report valid configuration.",
+  );
+});
+
+test("root deployment verification excludes every API-only key rejected by Web", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const webVerifier = readFileSync(join(root, "apps/web/scripts/verify-deployment-config.ts"), "utf8");
+  const apiOnlyKeysMatch = webVerifier.match(/const API_ONLY_ENVIRONMENT_KEYS = \[([\s\S]*?)\] as const;/u);
+
+  assert.ok(apiOnlyKeysMatch, "The Web verifier should declare its API-only environment keys.");
+  const webVerifierKeys = [...apiOnlyKeysMatch[1].matchAll(/"([^"]+)"/gu)].map(([, key]) => key);
+
+  assert.deepEqual([...WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS].sort(), webVerifierKeys.sort());
+});
+
+test("terminal language selection does not print a duplicate wizard brand", async () => {
+  const output = [];
+  const originalLog = console.log;
+  console.log = (...values) => output.push(values.map(String).join(" "));
+
+  try {
+    assert.equal(await askLanguage({ ask: async () => "en" }), "en");
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(
+    output.some((line) => line.includes("rhasia-scret")),
+    false,
+  );
 });
 
 test("parses simple and quoted dotenv values without exposing values in validation", () => {

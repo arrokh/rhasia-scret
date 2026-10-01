@@ -935,13 +935,12 @@ function validateTerminalSubmission(value) {
   return validateSubmission(parsed.data);
 }
 
-async function askLanguage() {
-  console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
+export async function askLanguage({ ask = askQuestion, notify = printNotice } = {}) {
   while (true) {
-    const answer = (await askQuestion(terminalCopy.id.chooseLanguage)).trim().toLowerCase();
+    const answer = (await ask(terminalCopy.id.chooseLanguage)).trim().toLowerCase();
     if (!answer || answer === "id") return "id";
     if (answer === "en") return "en";
-    printNotice(terminalCopy.en.chooseLanguageError, "error");
+    notify(terminalCopy.en.chooseLanguageError, "error");
   }
 }
 
