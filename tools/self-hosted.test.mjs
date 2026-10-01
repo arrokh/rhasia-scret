@@ -102,6 +102,29 @@ test("self-hosted install rejects unsupported arguments before running a step", 
   assert.equal(stepsStarted, 0);
 });
 
+test("Web Docker build includes the self-hosted wizard modules needed to type-check its browser test", () => {
+  const dockerfile = readFileSync(fileURLToPath(new URL("../apps/web/Dockerfile", import.meta.url)), "utf8");
+  const buildStageStart = dockerfile.indexOf("FROM dependencies AS build");
+  const runtimeStageStart = dockerfile.indexOf("\nFROM alpine:", buildStageStart);
+  const buildStage = dockerfile.slice(buildStageStart, runtimeStageStart);
+  const runtimeStage = dockerfile.slice(runtimeStageStart);
+  const copyLine = buildStage.split(/\r?\n/u).find((line) => /^COPY tools\//u.test(line));
+  const modules = [
+    "self-hosted-configure.mjs",
+    "self-hosted-configure.d.mts",
+    "self-hosted.mjs",
+    "self-hosted-origin.mjs",
+    "self-hosted-configure-page.mjs",
+  ];
+
+  assert.ok(copyLine, "The Web image build stage should copy the wizard test's root module dependencies.");
+  for (const module of modules) {
+    assert.ok(existsSync(new URL(`./${module}`, import.meta.url)), `${module} should exist in the repository.`);
+    assert.ok(copyLine.includes(`tools/${module}`), `${module} should be present in the build-stage COPY.`);
+  }
+  assert.doesNotMatch(runtimeStage, /COPY --from=build[^\n]*\/workspace\/tools/u);
+});
+
 test("self-hosted install enables selected Serve after application startup", async () => {
   const calls = [];
   const exitCode = await runSelfHostedInstall({
