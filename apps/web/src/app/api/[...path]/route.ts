@@ -42,6 +42,7 @@ type ProxyConfig = Readonly<{
   apiOrigin: URL;
   webOrigin: string;
   proxySecret: string;
+  trustProxyHeaders: boolean;
 }>;
 
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -88,7 +89,7 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Nex
     return proxyErrorResponse(request, correlationId, "proxy_unavailable", 503, error);
   }
 
-  if (!isTrustedBrowserRequest(request, configuration.webOrigin))
+  if (!isTrustedBrowserRequest(request, configuration.webOrigin, configuration.trustProxyHeaders))
     return NextResponse.json(
       { error: "same_origin_required" },
       { status: 403, headers: { "cache-control": "no-store" } },
@@ -138,7 +139,12 @@ function readProxyConfig(): ProxyConfig {
   const webOrigin = parseOrigin(process.env.WEB_ORIGIN ?? process.env.AUTH_APP_ORIGIN, "WEB_ORIGIN").origin;
   const proxySecret = process.env.API_PROXY_SECRET;
   if (!proxySecret || proxySecret.length < 32) throw new Error("API_PROXY_SECRET is not configured.");
-  return { apiOrigin: apiOrigin.url, webOrigin, proxySecret };
+  return {
+    apiOrigin: apiOrigin.url,
+    webOrigin,
+    proxySecret,
+    trustProxyHeaders: process.env.AUTH_TRUST_PROXY_HEADERS === "true",
+  };
 }
 
 function parseOrigin(
@@ -163,14 +169,35 @@ function parseOrigin(
   return { origin: url.origin, url };
 }
 
-function isTrustedBrowserRequest(request: NextRequest, webOrigin: string): boolean {
+function isTrustedBrowserRequest(request: NextRequest, webOrigin: string, trustProxyHeaders: boolean): boolean {
   const requestOrigin = new URL(request.url).origin;
-  if (requestOrigin !== webOrigin && !areLocalDevelopmentOrigins(requestOrigin, webOrigin)) return false;
+  const requestMatchesConfiguredOrigin =
+    requestOrigin === webOrigin || areLocalDevelopmentOrigins(requestOrigin, webOrigin);
+  const forwardedOrigin = trustProxyHeaders ? trustedForwardedOrigin(request) : null;
+  if (!requestMatchesConfiguredOrigin && forwardedOrigin !== webOrigin) return false;
   const suppliedOrigin = request.headers.get("origin");
   if (suppliedOrigin && suppliedOrigin !== webOrigin && !areLocalDevelopmentOrigins(suppliedOrigin, webOrigin))
     return false;
   if (MUTATION_METHODS.has(request.method) && request.headers.has("cookie") && !suppliedOrigin) return false;
   return true;
+}
+
+function trustedForwardedOrigin(request: NextRequest): string | null {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim().toLowerCase();
+  if (!forwardedHost || forwardedHost.includes(",") || !forwardedProto || !["http", "https"].includes(forwardedProto))
+    return null;
+
+  const host = forwardedHost.trim();
+  if (!host || /[\s/?#@\\]/u.test(host)) return null;
+
+  try {
+    const origin = new URL(`${forwardedProto}://${host}`);
+    if (origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) return null;
+    return origin.origin;
+  } catch {
+    return null;
+  }
 }
 
 function areLocalDevelopmentOrigins(left: string, right: string): boolean {

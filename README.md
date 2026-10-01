@@ -29,13 +29,12 @@ cd rhasia-scret
 mise install
 mise run setup
 pnpm install --frozen-lockfile
-pnpm selfhosted:setup
-pnpm selfhosted:up
+pnpm selfhosted:install
 ```
 
-On a clean checkout, setup creates a local-only `.env` and requires confirmation before applying migrations to its Compose database. Open `http://localhost:3000` when the services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`.
+`selfhosted:install` runs configuration, Docker setup, service startup, and the selected Tailscale route in one command. The terminal wizard creates `.env` with `AUTH_BACKEND=none` by default; use `pnpm selfhosted:install --interactive` to configure it in the browser instead. When connected Tailscale is detected, choose no route, Serve, or Funnel during configuration. If `.env` already exists, install asks whether to reuse it or start over; start-over backs it up first and preserves database connection settings. Install activates Serve after health checks; Funnel additionally requires typing `PUBLIC`. Standalone configure refuses to overwrite `.env` by default. Setup checks for an existing PostgreSQL volume before creating fresh credentials and verifies database credentials before asking for migration confirmation. If `.env` is missing but the PostgreSQL volume remains, restore the original `.env` instead of generating a new database password. For manual stages, run `pnpm selfhosted:setup` and then `pnpm selfhosted:up`; start Tailscale separately with `pnpm selfhosted:tailscale --interactive`. Open `http://localhost:3000` when services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`. To permanently erase that database, use `pnpm selfhosted:clean`; it requires typing the exact PostgreSQL volume name before it stops the stack and deletes the volume.
 
-To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. Follow the [authentication configuration](docs/authentication-configuration.md) and [self-hosting guide](docs/self-hosting.md) for the complete environment contract, HTTPS, upgrades, backups, and recovery. Do not expose the local-only configuration as a hosted service.
+To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) documents Tailscale Serve (tailnet access) or Funnel (public access) with either `none` or `passwordless`; Funnel is public, and passwordless continues to protect hosted features. Tailscale access does not create an application identity.
 
 ## Architecture
 

@@ -16,8 +16,12 @@ vi.mock("@/shared/infrastructure/server-api-gateway", () => ({
     Boolean(error && typeof error === "object" && "name" in error && error.name === "ServerApiUnavailableError"),
 }));
 vi.mock("@/modules/identity/presentation/email-sign-in-form", () => ({
-  EmailSignInForm: ({ nextPath }: { nextPath: string }) =>
-    createElement("form", { "aria-label": "Formulir masuk", "data-next-path": nextPath }),
+  EmailSignInForm: ({ nextPath, turnstileSiteKey }: { nextPath: string; turnstileSiteKey?: string }) =>
+    createElement("form", {
+      "aria-label": "Formulir masuk",
+      "data-next-path": nextPath,
+      "data-turnstile-site-key": turnstileSiteKey,
+    }),
 }));
 
 import SignInPage from "@/app/sign-in/page";
@@ -56,6 +60,16 @@ describe("SignInPage", () => {
     mocks.loadServerVaultPageContext.mockResolvedValue(null);
     await SignInPage({ searchParams: Promise.resolve({}) });
     expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("passes the runtime Turnstile site key to the passwordless sign-in form", async () => {
+    mocks.loadServerVaultPageContext.mockResolvedValue(null);
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "synthetic-runtime-turnstile-site-key");
+
+    const page = await SignInPage({ searchParams: Promise.resolve({}) });
+    const markup = renderToStaticMarkup(createElement("div", null, page));
+
+    expect(markup).toContain('data-turnstile-site-key="synthetic-runtime-turnstile-site-key"');
   });
 
   it("does not query the hosted API in explicit local-only mode", async () => {

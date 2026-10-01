@@ -54,7 +54,7 @@ import {
   browserE2eRegistrationCredential,
   browserE2eTestsEnabled,
 } from "./infrastructure/e2e-passkey-verification";
-import { AuthenticationConfigurationError } from "./infrastructure/auth-backend";
+import { AuthenticationConfigurationError, readTurnstileConfiguration } from "./infrastructure/auth-backend";
 
 export {
   loadApplicationUser,
@@ -152,11 +152,13 @@ export function createAnonymousAuthRateLimiter(
 }
 
 export function createTurnstileValidator(
-  bindings: Pick<ApiBindings, "TURNSTILE_SECRET_KEY">,
+  bindings: Pick<
+    ApiBindings,
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY" | "TURNSTILE_SECRET_KEY" | "NODE_ENV" | "WEB_ORIGIN" | "AUTH_APP_ORIGIN"
+  >,
 ): CloudflareTurnstileValidator {
-  const secret = bindings.TURNSTILE_SECRET_KEY?.trim();
-  if (!secret) throw new Error("TURNSTILE_SECRET_KEY is required.");
-  return new CloudflareTurnstileValidator(secret);
+  const configuration = readTurnstileConfiguration(bindings);
+  return new CloudflareTurnstileValidator(configuration.secretKey || undefined);
 }
 
 export function createSessionVerifier(

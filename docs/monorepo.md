@@ -71,9 +71,11 @@ pnpm --filter @rhasia-scret/api dev:node  # generic Node.js local runtime
 pnpm dev:db                      # start local Compose PostgreSQL
 pnpm dev:db:migrate              # explicitly apply local development migrations
 pnpm dev:db:down                 # stop Compose DB, preserve its volume
+pnpm selfhosted:install          # configure, start services, and apply selected Tailscale route
 pnpm selfhosted:setup            # configure/build database and apply migrations
 pnpm selfhosted:up               # start self-hosted Compose services
 pnpm selfhosted:down             # stop services, preserve database volume
+pnpm selfhosted:clean            # confirm and delete self-hosted PostgreSQL data
 pnpm run lint
 pnpm run typecheck
 pnpm test

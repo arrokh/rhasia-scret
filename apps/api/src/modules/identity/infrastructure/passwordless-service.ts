@@ -34,13 +34,10 @@ export function readApiPasswordlessConfiguration(bindings: ApiConfigBindings): P
   const environment = Object.fromEntries(
     Object.entries(bindings).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   );
-  const configuration = readAuthConfiguration(
-    {
-      ...environment,
-      NODE_ENV: bindings.NODE_ENV ?? "development",
-    },
-    { requireTurnstileSiteKey: false },
-  );
+  const configuration = readAuthConfiguration({
+    ...environment,
+    NODE_ENV: bindings.NODE_ENV ?? "development",
+  });
   if (configuration.backend !== "passwordless") throw new Error("Passwordless authentication is not configured.");
   return configuration.passwordless;
 }

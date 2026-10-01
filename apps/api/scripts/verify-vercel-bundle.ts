@@ -80,6 +80,7 @@ async function verifyStandaloneRuntime(path: string): Promise<void> {
     AUTH_APP_ORIGIN: "https://synthetic.example.test",
     AUTH_MAGIC_LINK_SECRET: "synthetic-magic-link-secret-abcdefghijklmnopqrstuvwxyz",
     AUTH_SESSION_SECRET: "synthetic-session-secret-abcdefghijklmnopqrstuvwxyz",
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-turnstile-site-key",
     TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret",
     CRON_SECRET: "synthetic-cron-secret",
     SMTP_HOST: "smtp.synthetic.example.test",

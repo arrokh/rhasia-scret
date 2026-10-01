@@ -23,7 +23,10 @@ next-env.d.ts
 .env.local
 .env.test
 .env.prod
+.env.setup-*
+.env.backup-*
 !.env.example
+.tailscale-rhasia.json
 .vscode/settings.json
 .pi/
 .agents/

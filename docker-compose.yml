@@ -60,6 +60,7 @@ services:
       AUTH_APP_ORIGIN: ${AUTH_APP_ORIGIN:-}
       AUTH_MAGIC_LINK_SECRET: ${AUTH_MAGIC_LINK_SECRET:-}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       AUTH_MAGIC_LINK_TTL_SECONDS: ${AUTH_MAGIC_LINK_TTL_SECONDS:-900}
       AUTH_ACCESS_TOKEN_TTL_SECONDS: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:-900}
@@ -125,7 +126,7 @@ services:
         condition: service_healthy
     networks: [backend]
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
     read_only: true
     tmpfs:
       - /tmp
@@ -138,7 +139,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/api/v1/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

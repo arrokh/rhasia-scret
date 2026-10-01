@@ -46,7 +46,6 @@ if (backend === "passwordless") {
   requireValue("AUTH_SESSION_SECRET");
   if ((process.env.AUTH_SESSION_SECRET?.trim().length ?? 0) < 32)
     errors.push("AUTH_SESSION_SECRET must contain at least 32 characters.");
-  if (production) requireValue("NEXT_PUBLIC_TURNSTILE_SITE_KEY");
   try {
     const configuration = readAuthConfiguration({
       ...process.env,

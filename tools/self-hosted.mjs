@@ -1,16 +1,28 @@
 import { closeSync, constants, existsSync, fchmodSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { isIPv4 } from "node:net";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 export const SELF_HOSTED_PROJECT_NAME = "rhasia-scret-selfhosted";
 export const SELF_HOSTED_COMPOSE_FILES = ["docker-compose.yml"];
 
+export function isDnsName(value) {
+  return (
+    value.length <= 253 &&
+    value
+      .split(".")
+      .every((label) => label.length > 0 && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(label))
+  );
+}
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requiredComposeValues = ["POSTGRES_PASSWORD", "PROXY_SECRET", "API_PROXY_SECRET", "CRON_SECRET"];
 const requiredOrigins = ["WEB_ORIGIN", "API_ORIGIN"];
 const supportedAuthBackends = new Set(["none", "passwordless"]);
+const supportedTailscaleModes = new Set(["none", "serve", "funnel"]);
 const placeholderPattern = /^replace-with-/i;
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -62,8 +74,23 @@ export function validateSelfHostedEnvironment(values) {
     errors.push("AUTH_BACKEND must be none or passwordless.");
   }
 
+  const tailscaleMode = values.SELF_HOSTED_TAILSCALE_MODE?.trim();
+  if (tailscaleMode && !supportedTailscaleModes.has(tailscaleMode)) {
+    errors.push("SELF_HOSTED_TAILSCALE_MODE must be none, serve, or funnel.");
+  }
+
   for (const name of requiredOrigins) {
     requireHttpsOrigin(values[name], name, errors);
+  }
+
+  const bindAddress = values.APP_BIND_ADDRESS?.trim();
+  if (bindAddress && !isIPv4(bindAddress)) {
+    errors.push("APP_BIND_ADDRESS must be a valid IPv4 address.");
+  }
+
+  const appPort = values.APP_PORT?.trim();
+  if (appPort && (!/^\d+$/u.test(appPort) || Number(appPort) < 1 || Number(appPort) > 65535)) {
+    errors.push("APP_PORT must be an integer from 1 to 65535.");
   }
 
   if (backend === "passwordless" && !values.AUTH_APP_ORIGIN?.trim()) {
@@ -77,8 +104,63 @@ export function validateSelfHostedEnvironment(values) {
 export function setEnvValue(source, name, value) {
   const line = `${name}=${value}`;
   const pattern = new RegExp(`^${escapeRegExp(name)}=.*$`, "mu");
-  if (pattern.test(source)) return source.replace(pattern, line);
+  if (pattern.test(source)) return source.replace(pattern, () => line);
   return `${source.trimEnd()}\n${line}\n`;
+}
+
+export function findExistingSelfHostedDatabaseVolume({ root = repositoryRoot, run = spawnSync } = {}) {
+  const result = run(
+    "docker",
+    [
+      "volume",
+      "ls",
+      "--filter",
+      `label=com.docker.compose.project=${SELF_HOSTED_PROJECT_NAME}`,
+      "--format",
+      "{{.Name}}",
+    ],
+    { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  if (result.error || result.status !== 0) {
+    throw new Error("Unable to inspect Docker volumes. Start the Docker daemon and retry configuration.");
+  }
+
+  const expectedVolume = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  const volumes = (result.stdout ?? "").split(/\r?\n/u);
+  return volumes.includes(expectedVolume) ? expectedVolume : null;
+}
+
+export async function confirmSelfHostedDatabaseCleanup(
+  volumeName,
+  { input = process.stdin, output = process.stdout, ask } = {},
+) {
+  const prompt =
+    `This permanently deletes all PostgreSQL data in Docker volume "${volumeName}" and stops the self-hosted services.\n` +
+    `Type the exact volume name to continue: `;
+  let answer;
+
+  if (ask) {
+    answer = await ask(prompt);
+  } else {
+    if (!input.isTTY || !output.isTTY) {
+      throw new Error("Self-hosted database cleanup requires confirmation from an interactive terminal.");
+    }
+
+    const readline = createInterface({ input, output });
+    try {
+      answer = await readline.question(prompt);
+    } finally {
+      readline.close();
+    }
+  }
+
+  return typeof answer === "string" && answer.trim() === volumeName;
+}
+
+export function findExistingSelfHostedDatabaseVolumeWithoutEnvironment(options = {}) {
+  const root = options.root ?? repositoryRoot;
+  if (existsSync(resolve(root, ".env"))) return null;
+  return findExistingSelfHostedDatabaseVolume(options);
 }
 
 export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "local" } = {}) {
@@ -169,11 +251,31 @@ export function composeArguments(root = repositoryRoot, commandArguments = []) {
   return ["compose", ...relativeFiles, ...commandArguments];
 }
 
+export function createSelfHostedCommandEnvironment(context, overrides = {}) {
+  const environment = { ...process.env };
+  const composeSource = SELF_HOSTED_COMPOSE_FILES.map((file) => readFileSync(resolve(context.root, file), "utf8")).join(
+    "\n",
+  );
+  for (const [, name] of composeSource.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)/gu)) delete environment[name];
+  return { ...environment, ...context.values, ...overrides, COMPOSE_PROFILES: "" };
+}
+
 export function selfHostedUpComposeCommands() {
   return {
     build: ["build"],
     start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
   };
+}
+
+export function selfHostedDatabaseAuthenticationCheckCommand() {
+  return [
+    "exec",
+    "-T",
+    "db",
+    "sh",
+    "-c",
+    'PGPASSWORD="$POSTGRES_PASSWORD" psql --no-password --host=db --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-psqlrc --quiet --tuples-only --no-align --command="SELECT 1"',
+  ];
 }
 
 export function loadContext(root = repositoryRoot, { requireEnvironment = true } = {}) {
@@ -196,18 +298,27 @@ export function validateRepositoryContext(context) {
   return validateSelfHostedEnvironment(context.values);
 }
 
-function main(command, root = repositoryRoot) {
-  if (!command || !["setup", "up", "down"].includes(command)) {
-    throw new Error("Usage: pnpm selfhosted:setup | pnpm selfhosted:up | pnpm selfhosted:down");
+async function main(command, root = repositoryRoot) {
+  if (!command || !["setup", "up", "down", "clean"].includes(command)) {
+    throw new Error("Usage: pnpm selfhosted:setup | pnpm selfhosted:up | pnpm selfhosted:down | pnpm selfhosted:clean");
   }
 
   if (command === "setup") return setup(root);
   if (command === "up") return up(root);
+  if (command === "clean") return cleanSelfHosted({ root });
   return down(root);
 }
 
 function setup(root) {
   const commitSha = readCommitSha(root);
+  verifyDocker(root);
+  const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
+  if (existingVolume) {
+    throw new Error(
+      `Existing self-hosted PostgreSQL data volume "${existingVolume}" found, but .env is missing. Restore the original .env with the volume's database password before setup. No new credentials were written.`,
+    );
+  }
+
   const environment = ensureLocalEnvironment({ root, commitSha });
   if (environment.created) {
     console.log("Created .env with local-only authentication and generated local secrets.");
@@ -217,12 +328,19 @@ function setup(root) {
   }
 
   const context = loadContext(root);
-  verifyDocker(root);
   verifyEnvironment(context);
   runCommand(pnpmCommand, ["install", "--frozen-lockfile"], { cwd: root, label: "pnpm install" });
   verifyDeploymentConfiguration(root);
   runCompose(context, ["config", "--quiet"]);
   runCompose(context, ["up", "-d", "--wait", "--wait-timeout", "120", "db"]);
+  try {
+    runCompose(context, selfHostedDatabaseAuthenticationCheckCommand());
+  } catch {
+    throw new Error(
+      "The configured PostgreSQL credentials cannot authenticate to the existing database volume. Restore the original .env credentials before migration; no migration was run.",
+    );
+  }
+
   runCommand(process.execPath, ["tools/confirm-database-operation.mjs", "the self-hosted database migration"], {
     cwd: root,
     label: "database migration confirmation",
@@ -258,9 +376,49 @@ function down(root) {
   console.log("Self-hosted services stopped. The PostgreSQL volume was preserved.");
 }
 
-function verifyDocker(root) {
-  runCommand("docker", ["compose", "version"], { cwd: root, label: "Docker Compose verification" });
-  runCommand("docker", ["info", "--format", "{{.ServerVersion}}"], {
+export async function cleanSelfHosted({
+  root = repositoryRoot,
+  confirm = confirmSelfHostedDatabaseCleanup,
+  inspectVolume = findExistingSelfHostedDatabaseVolume,
+  run = runCommand,
+  commitSha,
+  log = console.log,
+} = {}) {
+  const context = loadContext(root, { requireEnvironment: false });
+  verifyDocker(root, run);
+
+  const volumeName = inspectVolume({ root });
+  if (!volumeName) {
+    log("No self-hosted PostgreSQL data volume was found; nothing was removed.");
+    return false;
+  }
+
+  const expectedVolumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  if (volumeName !== expectedVolumeName) {
+    throw new Error("Docker returned an unexpected PostgreSQL volume name; refusing cleanup.");
+  }
+
+  const confirmed = await confirm(volumeName);
+  if (!confirmed) {
+    throw new Error("Self-hosted cleanup was not confirmed; no changes were made.");
+  }
+
+  runCompose(context, ["down", "--remove-orphans"], {
+    allowMissingEnvironment: true,
+    run,
+    commitSha,
+  });
+  run("docker", ["volume", "rm", volumeName], {
+    cwd: root,
+    label: `remove PostgreSQL data volume ${volumeName}`,
+  });
+  log("Self-hosted services stopped and PostgreSQL data volume permanently removed.");
+  return true;
+}
+
+function verifyDocker(root, run = runCommand) {
+  run("docker", ["compose", "version"], { cwd: root, label: "Docker Compose verification" });
+  run("docker", ["info", "--format", "{{.ServerVersion}}"], {
     cwd: root,
     label: "Docker daemon verification",
   });
@@ -274,9 +432,10 @@ function verifyEnvironment(context) {
 }
 
 function verifyDeploymentConfiguration(root) {
+  const context = loadContext(root);
   runCommand(pnpmCommand, ["run", "verify:deployment-config"], {
     cwd: root,
-    env: { ...process.env, NODE_ENV: "development" },
+    env: createSelfHostedCommandEnvironment(context, { NODE_ENV: "development" }),
     label: "application configuration verification",
   });
 }
@@ -284,11 +443,10 @@ function verifyDeploymentConfiguration(root) {
 function printComposeStatus(context) {
   const result = spawnSync("docker", composeArguments(context.root, ["ps", "--all"]), {
     cwd: context.root,
-    env: {
-      ...process.env,
+    env: createSelfHostedCommandEnvironment(context, {
       COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME,
       COMMIT_SHA: readCommitSha(context.root),
-    },
+    }),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -296,12 +454,13 @@ function printComposeStatus(context) {
   if (status) console.error(`Self-hosted service status:\n${status}`);
 }
 
-function runCompose(context, commandArguments, { allowMissingEnvironment = false } = {}) {
-  const env = {
-    ...process.env,
+function runCompose(context, commandArguments, { allowMissingEnvironment = false, run = runCommand, commitSha } = {}) {
+  const env = createSelfHostedCommandEnvironment(context, {
     COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME,
-    COMMIT_SHA: readCommitSha(context.root),
-  };
+    COMMIT_SHA: commitSha ?? readCommitSha(context.root),
+    APP_BIND_ADDRESS: context.values.APP_BIND_ADDRESS?.trim() || "127.0.0.1",
+    APP_PORT: context.values.APP_PORT?.trim() || "3000",
+  });
 
   if (allowMissingEnvironment) {
     for (const name of requiredComposeValues) {
@@ -309,7 +468,7 @@ function runCompose(context, commandArguments, { allowMissingEnvironment = false
     }
   }
 
-  runCommand("docker", composeArguments(context.root, commandArguments), {
+  run("docker", composeArguments(context.root, commandArguments), {
     cwd: context.root,
     env,
     label: `docker compose ${commandArguments.join(" ")}`,
@@ -411,7 +570,7 @@ function escapeRegExp(value) {
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
 if (invokedPath === fileURLToPath(import.meta.url)) {
   try {
-    main(process.argv[2]);
+    await main(process.argv[2]);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

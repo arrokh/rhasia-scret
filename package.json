@@ -19,8 +19,12 @@
     "prod:db:migrate": "test -f .env.prod || { printf '%s\\n' 'Missing .env.prod; refusing to run the production migration.' >&2; exit 1; }; node tools/confirm-database-operation.mjs 'the production database migration' && docker compose --env-file .env.prod -f docker-compose.prod-migration.yml run --build --rm --no-deps migrate",
     "dev:db:down": "node tools/confirm-database-operation.mjs 'stop the development Compose stack' && COMPOSE_PROJECT_NAME=rhasia-scret-dev COMMIT_SHA=\"$(git rev-parse --short HEAD)\" docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "selfhosted:setup": "node tools/self-hosted.mjs setup",
+    "selfhosted:configure": "node tools/self-hosted-configure.mjs",
+    "selfhosted:install": "node tools/self-hosted-install.mjs",
     "selfhosted:up": "node tools/self-hosted.mjs up",
     "selfhosted:down": "node tools/self-hosted.mjs down",
+    "selfhosted:clean": "node tools/self-hosted.mjs clean",
+    "selfhosted:tailscale": "node tools/self-hosted-tailscale.mjs",
     "build": "pnpm --filter @rhasia-scret/api build && pnpm --filter @rhasia-scret/web build",
     "start": "pnpm --filter @rhasia-scret/web start",
     "format": "prettier --write --ignore-unknown . && pnpm run format:prisma",
@@ -30,7 +34,8 @@
     "lint": "pnpm --filter @rhasia-scret/api lint && pnpm --filter @rhasia-scret/api-contract lint && pnpm --filter @rhasia-scret/api-client lint && pnpm --filter @rhasia-scret/web lint",
     "typecheck:web": "pnpm --filter @rhasia-scret/web typecheck",
     "typecheck:core": "pnpm --filter @rhasia-scret/client-vault-core typecheck",
-    "typecheck": "pnpm run typecheck:core && pnpm --filter @rhasia-scret/api typecheck && pnpm --filter @rhasia-scret/api-contract typecheck && pnpm --filter @rhasia-scret/api-client typecheck && pnpm run typecheck:web",
+    "typecheck:selfhosted-wizard": "pnpm --dir apps/web exec tsc --noEmit --project ../../tools/tsconfig.selfhosted-wizard.json",
+    "typecheck": "pnpm run typecheck:core && pnpm --filter @rhasia-scret/api typecheck && pnpm --filter @rhasia-scret/api-contract typecheck && pnpm --filter @rhasia-scret/api-client typecheck && pnpm run typecheck:web && pnpm run typecheck:selfhosted-wizard",
     "test:web": "pnpm --filter @rhasia-scret/web test",
     "test:core": "pnpm --filter @rhasia-scret/client-vault-core test",
     "test:hosted": "pnpm run test:release-evidence && pnpm run test:core && pnpm --filter @rhasia-scret/api test && pnpm --filter @rhasia-scret/api-contract test && pnpm --filter @rhasia-scret/api-client test && pnpm run test:web",
@@ -67,7 +72,7 @@
     "verify:passwordless-migration": "pnpm --filter @rhasia-scret/api verify:passwordless-migration",
     "verify:database": "pnpm --filter @rhasia-scret/api verify:database",
     "verify:prisma-connections": "pnpm --filter @rhasia-scret/api verify:prisma-connections",
-    "verify:deployment-config": "pnpm --filter @rhasia-scret/api verify:deployment-config && pnpm --filter @rhasia-scret/web verify:deployment-config",
+    "verify:deployment-config": "node tools/verify-deployment-config.mjs",
     "verify:build-output": "pnpm --filter @rhasia-scret/web verify:build-output",
     "verify:dependency-licenses": "pnpm --filter @rhasia-scret/web verify:dependency-licenses",
     "verify:ci-policy": "node tools/verify-ci-policy.mjs",
@@ -79,8 +84,10 @@
   },
   "devDependencies": {
     "dependency-cruiser": "^18.4.0",
+    "esbuild": "0.28.2",
     "lint-staged": "17.5.1",
-    "prettier": "3.9.9"
+    "prettier": "3.9.9",
+    "zod": "^4.6.5"
   },
   "lint-staged": {
     "*.{cjs,css,js,json,md,mjs,ts,tsx,yaml,yml}": "prettier --write --ignore-unknown",

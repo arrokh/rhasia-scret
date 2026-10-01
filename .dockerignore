@@ -18,4 +18,5 @@ artifacts
 .env
 .env.*
 !**/.env.example
+.tailscale-rhasia.json
 docs

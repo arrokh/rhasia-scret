@@ -10,6 +10,7 @@ export type ApiBindings = Readonly<{
   AUTH_APP_ORIGIN?: string;
   AUTH_MAGIC_LINK_SECRET?: string;
   AUTH_SESSION_SECRET?: string;
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
   CRON_SECRET?: string;
   SMTP_HOST?: string;

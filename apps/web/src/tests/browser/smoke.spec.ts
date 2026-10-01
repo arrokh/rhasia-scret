@@ -405,7 +405,9 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
     Math.abs((widgetBox?.x ?? 0) + (widgetBox?.width ?? 0) / 2 - ((formBox?.x ?? 0) + (formBox?.width ?? 0) / 2)),
   ).toBeLessThan(2);
   await page.getByLabel("Alamat email").fill("person@example.test");
-  await page.getByRole("button", { name: "Lanjutkan dengan email" }).click();
+  const submitButton = page.getByRole("button", { name: "Lanjutkan dengan email" });
+  await expect(submitButton).toBeEnabled({ timeout: 15_000 });
+  await submitButton.click();
   await expect(
     page.getByText(
       "Periksa kotak masuk. Biarkan aplikasi terpasang ini tetap terbuka; sesi akan diteruskan otomatis setelah tautan dibuka.",

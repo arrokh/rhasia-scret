@@ -116,7 +116,7 @@ The limited server-visible information allowed by the zero-knowledge contract: o
 _Avoid_: Harmless metadata, plaintext metadata, server-readable Vault content
 
 **Authentication Provider**:
-The currently supported server-side method for hosted identity verification: self-managed passwordless email-link authentication, which exposes a provider-neutral Verified Principal. `AUTH_BACKEND=none` means hosted authentication is disabled, not that another provider is selected; any future authentication adapter requires a separate architecture and security decision.
+The currently supported server-side method for hosted identity verification: self-managed passwordless email-link authentication, which exposes a provider-neutral Verified Principal. `AUTH_BACKEND=none` means hosted authentication is disabled, not that another provider is selected; a self-hosted operator may expose either browser-local features with `none` or hosted features protected by `passwordless` through Tailscale Serve or Funnel. Tailscale network access does not create an application identity. Any future authentication adapter requires a separate architecture and security decision.
 _Avoid_: OIDC as a currently supported adapter, provider user in domain code, provider-owned Application User, email-based account merge
 
 **API Application Runtime**:
@@ -124,7 +124,7 @@ The request-scoped server composition module that exposes named bounded-context 
 _Avoid_: route-local repository factory, global repository singleton, Prisma in route handlers
 
 **Identity Runtime**:
-The request-scoped identity composition module that enables passwordless authentication when configured and shares its lifecycle adapters for magic-link redemption, session verification, refresh, PWA handoff, and termination. In local-only mode it fails hosted authentication closed; it exposes provider-neutral application interfaces and never exposes authentication credentials or client-only secrets.
+The request-scoped identity composition module that enables passwordless authentication when configured and shares its lifecycle adapters for magic-link redemption, session verification, refresh, PWA handoff, and termination. When `AUTH_BACKEND=none`, it fails hosted authentication closed even if the self-hosted web application is reachable through Tailscale; with `passwordless`, Tailscale exposure does not bypass the normal application identity requirements. It exposes provider-neutral application interfaces and never exposes authentication credentials or client-only secrets.
 _Avoid_: route-local backend selection, duplicate passwordless service, provider session in HTTP handlers
 
 **Application User Deletion Completion Workflow**:
@@ -167,8 +167,8 @@ _Avoid_: Authentication equals Shared Vault membership, unverified signup, separ
 A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or anonymous passwordless abuse controls.
 _Avoid_: Authentication rate limit, per-instance counter, request-body fingerprint
 
-**Passwordless Sign-In Abuse Controls**: The layered protection for anonymous magic-link requests: browser and installed-PWA requests must pass a server-validated Cloudflare Turnstile token, then all hosted requests use PostgreSQL-backed fifteen-minute limits of five per keyed normalized-email bucket and twenty per keyed trusted-proxy IP or shared unattributed bucket. Requests without a verified proxy-derived client IP use the shared unattributed bucket instead of bypassing the IP-side budget. It stores no raw email bucket, IP, Turnstile token, link token, or request body.
-_Avoid_: Client-only CAPTCHA, provider-owned login throttle, plaintext abuse bucket
+**Passwordless Sign-In Abuse Controls**: Optional server-validated Cloudflare Turnstile challenge for anonymous magic-link requests, enabled only when both public site and server secret keys are configured, plus PostgreSQL-backed fifteen-minute limits of five per keyed normalized-email bucket and twenty per keyed trusted-proxy IP or shared unattributed bucket on every request. A partial Turnstile pair is invalid. Requests without a verified proxy-derived client IP use the shared unattributed bucket instead of bypassing the IP-side budget. It stores no raw email bucket, IP, Turnstile token, link token, or request body.
+_Avoid_: Client-only CAPTCHA, provider-owned login throttle, plaintext abuse bucket, partially configured Turnstile
 
 **Key-Wrap Envelope**:
 A versioned encrypted package that allows one User Encryption Key Pair to recover a Vault Encryption Key.

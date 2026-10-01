@@ -27,6 +27,16 @@ Review the passwordless implementation, SMTP provider, and relevant dependency a
 - [ ] Logout clears unlocked server workspaces, Personal-only server-derived snapshots, and Remembered Browser material according to their ADRs while preserving independent encrypted Local Profile data.
 - [ ] Synthetic browser storage inspection proves hosted snapshots contain Personal Vault data only, legacy Shared-containing snapshots are cleaned up, and Shared Vault access remains online-only.
 
+## Optional Tailscale exposure
+
+- [ ] The Docker Web port is published on `127.0.0.1` only. Record the Docker Engine version; require Engine 28.0.0 or later or document and verify an effective host firewall mitigation for older versions.
+- [ ] The host's Tailscale daemon terminates HTTPS and forwards HTTP over loopback. Treat the host, daemon, container runtime, and local logs as trusted parts of the deployment boundary.
+- [ ] For Serve, verify the intended users/devices can reach the service through the tailnet's ACLs or grants and that access from outside the tailnet fails.
+- [ ] For Funnel with `AUTH_BACKEND=none`, verify that the URL is publicly reachable and displays no promise of application sign-in or hosted Vault access. Do not describe Funnel as private or rely on tailnet ACLs to restrict visitors.
+- [ ] For the documented Tailscale helper, verify that Web and API containers run with the selected `AUTH_BACKEND`, the canonical HTTPS origin matches the node's MagicDNS hostname, and Web proxy-header trust matches the backend (`false` for `none`, `true` for passwordless behind Tailscale). With `none`, hosted APIs fail closed; with passwordless, verify SMTP, Turnstile, cookies, and sign-in on the actual Tailscale origin.
+- [ ] Record the active Tailscale listener and verify teardown removes only the listener created for Rhasia. Do not use broad `serve reset` or `funnel reset` commands to remove it.
+- [ ] Confirm no Tailscale auth key, private key, or Tailscale state is stored in `.env`, the Compose services, container images, or repository artifacts.
+
 ## Supply chain and CI
 
 - [ ] `pnpm install --frozen-lockfile` succeeds and the lockfile is reviewed as the source of exact resolution.

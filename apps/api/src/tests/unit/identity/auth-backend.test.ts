@@ -14,6 +14,16 @@ const requiredPasswordless = {
 describe("authentication backend configuration", () => {
   it("defaults to self-managed passwordless authentication", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({ backend: "passwordless" });
+    expect(
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
+        TURNSTILE_SECRET_KEY: "",
+      }),
+    ).toMatchObject({
+      backend: "passwordless",
+      passwordless: { turnstile: { siteKey: "", secretKey: "" } },
+    });
   });
 
   it("allows localhost HTTP authentication in a production container", () => {

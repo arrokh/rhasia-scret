@@ -26,10 +26,14 @@ export function isAuthenticationConfigurationError(error: unknown): error is Aut
   return error instanceof AuthenticationConfigurationError;
 }
 
-export type TurnstileConfiguration = {
-  siteKey: string;
-  secretKey: string;
-};
+export type TurnstileConfiguration = Readonly<{ siteKey: string; secretKey: string }>;
+type TurnstileEnvironment = Readonly<{
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  NODE_ENV?: string;
+  WEB_ORIGIN?: string;
+  AUTH_APP_ORIGIN?: string;
+}>;
 
 export type PasswordlessConfiguration = {
   appOrigin: URL;
@@ -44,10 +48,7 @@ export type PasswordlessConfiguration = {
 export type AuthConfiguration =
   { backend: "none" } | { backend: "passwordless"; passwordless: PasswordlessConfiguration };
 
-export function readAuthConfiguration(
-  env: Readonly<Record<string, string | undefined>>,
-  options: Readonly<{ requireTurnstileSiteKey?: boolean }> = {},
-): AuthConfiguration {
+export function readAuthConfiguration(env: Readonly<Record<string, string | undefined>>): AuthConfiguration {
   const configuredBackend = env.AUTH_BACKEND?.trim();
   if (!configuredBackend && env.NODE_ENV === "production")
     throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be set explicitly in production.");
@@ -55,13 +56,10 @@ export function readAuthConfiguration(
   if (backend === "none") return { backend };
   if (backend !== "passwordless")
     throw configurationError("AUTH_BACKEND", "AUTH_BACKEND must be none or passwordless.");
-  return { backend, passwordless: readPasswordlessConfiguration(env, options) };
+  return { backend, passwordless: readPasswordlessConfiguration(env) };
 }
 
-function readPasswordlessConfiguration(
-  env: Readonly<Record<string, string | undefined>>,
-  options: Readonly<{ requireTurnstileSiteKey?: boolean }>,
-): PasswordlessConfiguration {
+function readPasswordlessConfiguration(env: Readonly<Record<string, string | undefined>>): PasswordlessConfiguration {
   const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
   const magicLinkSecretText = readRequired(env.AUTH_MAGIC_LINK_SECRET, "AUTH_MAGIC_LINK_SECRET");
   const sessionSecretText = readRequired(env.AUTH_SESSION_SECRET, "AUTH_SESSION_SECRET");
@@ -74,7 +72,7 @@ function readPasswordlessConfiguration(
       "AUTH_MAGIC_LINK_SECRET",
       "AUTH_MAGIC_LINK_SECRET and AUTH_SESSION_SECRET must be different values.",
     );
-  const turnstile = readTurnstileConfiguration(env, env.NODE_ENV, options.requireTurnstileSiteKey ?? true);
+  const turnstile = readTurnstileConfiguration(env);
   return {
     appOrigin,
     magicLinkSecret: new TextEncoder().encode(magicLinkSecretText),
@@ -98,17 +96,22 @@ function readPasswordlessConfiguration(
   };
 }
 
-function readTurnstileConfiguration(
-  env: Readonly<Record<string, string | undefined>>,
-  nodeEnv: string | undefined,
-  requireSiteKey: boolean,
-): TurnstileConfiguration {
-  const siteKey = requireSiteKey
-    ? readRequired(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY, "NEXT_PUBLIC_TURNSTILE_SITE_KEY")
-    : "";
-  const secretKey = readRequired(env.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
+export function readTurnstileConfiguration(env: TurnstileEnvironment): TurnstileConfiguration {
+  const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? "";
+  const secretKey = env.TURNSTILE_SECRET_KEY?.trim() ?? "";
+  if (!siteKey && !secretKey) return { siteKey: "", secretKey: "" };
+  if (!siteKey)
+    throw configurationError(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
+    );
+  if (!secretKey)
+    throw configurationError(
+      "TURNSTILE_SECRET_KEY",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
+    );
   if (
-    nodeEnv === "production" &&
+    env.NODE_ENV === "production" &&
     !isLocalHttpSelfHosted(env) &&
     (siteKey === "1x00000000000000000000AA" || secretKey === "1x0000000000000000000000000000000AA")
   )
@@ -119,7 +122,7 @@ function readTurnstileConfiguration(
   return { siteKey, secretKey };
 }
 
-function isLocalHttpSelfHosted(env: Readonly<Record<string, string | undefined>>): boolean {
+function isLocalHttpSelfHosted(env: Pick<TurnstileEnvironment, "WEB_ORIGIN" | "AUTH_APP_ORIGIN">): boolean {
   const origins = [env.WEB_ORIGIN, env.AUTH_APP_ORIGIN].filter((value): value is string => Boolean(value?.trim()));
   return origins.length > 0 && origins.every(isLocalHttpOrigin);
 }

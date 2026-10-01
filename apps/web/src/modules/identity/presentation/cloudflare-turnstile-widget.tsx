@@ -37,6 +37,7 @@ export function CloudflareTurnstileWidget({
   const onTokenChangeRef = useRef(onTokenChange);
   const onErrorRef = useRef(onError);
   const [scriptReady, setScriptReady] = useState(false);
+  const normalizedSiteKey = siteKey?.trim() || undefined;
 
   useEffect(() => {
     onTokenChangeRef.current = onTokenChange;
@@ -44,13 +45,13 @@ export function CloudflareTurnstileWidget({
   }, [onError, onTokenChange]);
 
   useEffect(() => {
-    if (!siteKey || !scriptReady || !containerRef.current || !window.turnstile) return;
+    if (!normalizedSiteKey || !scriptReady || !containerRef.current || !window.turnstile) return;
     let widgetId: string | undefined;
     let responseTimer: number | undefined;
     let responseTimeout: number | undefined;
     try {
       widgetId = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
+        sitekey: normalizedSiteKey,
         callback: (token) => onTokenChangeRef.current(token),
         "expired-callback": () => onTokenChangeRef.current(null),
         "error-callback": () => {
@@ -79,9 +80,9 @@ export function CloudflareTurnstileWidget({
       if (responseTimeout !== undefined) window.clearTimeout(responseTimeout);
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
-  }, [scriptReady, siteKey]);
+  }, [normalizedSiteKey, scriptReady]);
 
-  if (!siteKey) return null;
+  if (!normalizedSiteKey) return null;
 
   return (
     <div className="grid gap-2">

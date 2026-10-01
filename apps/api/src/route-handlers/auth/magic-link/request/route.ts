@@ -17,7 +17,7 @@ const magicLinkRequestSchema = z.discriminatedUnion("client", [
       client: z.literal("web"),
       email: z.string().trim().min(1).max(254).email(),
       returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
-      turnstileToken: z.string().refine(isSafeTurnstileToken),
+      turnstileToken: z.string().refine(isSafeTurnstileToken).optional(),
     })
     .strict(),
   z
@@ -25,7 +25,7 @@ const magicLinkRequestSchema = z.discriminatedUnion("client", [
       client: z.literal("pwa"),
       email: z.string().trim().min(1).max(254).email(),
       returnPath: z.enum(["/vaults", "/vaults/invitations/redeem"]),
-      turnstileToken: z.string().refine(isSafeTurnstileToken),
+      turnstileToken: z.string().refine(isSafeTurnstileToken).optional(),
       handoffId: z.string().refine(isSafePwaHandoffId),
       handoffVerifier: z.string().refine(isSafePwaHandoffVerifier),
     })
@@ -106,7 +106,7 @@ export async function POST(request: ApiRequest): Promise<ApiResponse> {
 
 async function validateTurnstile(
   request: ApiRequest,
-  token: string,
+  token: string | undefined,
   client: "web" | "pwa",
 ): Promise<"valid" | "invalid" | "unavailable"> {
   const startedAt = Date.now();
