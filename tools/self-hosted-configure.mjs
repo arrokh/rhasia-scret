@@ -6,7 +6,9 @@ import {
   fchmodSync,
   fsyncSync,
   linkSync,
+  lstatSync,
   openSync,
+  renameSync,
   readFileSync,
   unlinkSync,
   writeFileSync,
@@ -17,12 +19,13 @@ import { spawnSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import { build } from "esbuild";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
   isDnsName,
+  parseEnvFile,
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
@@ -107,18 +110,19 @@ const copy = {
     bindHelp:
       "Default 127.0.0.1 membatasi akses ke host; ubah hanya bila reverse proxy lain memerlukan interface berbeda.",
     appPort: "Port aplikasi di host",
-    save: "Buat .env",
+    save: "Simpan .env",
     cancel: "Batal dan tutup",
     privacy: "Jangan masukkan TOTP, OTP, QR, Vault key, atau konten Vault di sini.",
     saving: "Memvalidasi dan menyimpan konfigurasi…",
-    saved: ".env dibuat dengan izin file 0600. Tutup tab ini, lalu jalankan pnpm selfhosted:setup.",
+    saved: ".env tersimpan dengan izin file 0600. Tutup tab ini, lalu jalankan pnpm selfhosted:setup.",
+    savedWithBackup: ".env baru disimpan dengan izin file 0600. Cadangan sebelumnya: {backup}.",
     existingDatabaseVolume:
       "Volume data PostgreSQL self-hosted {volume} sudah ada, tetapi .env tidak ditemukan. Pulihkan .env asli yang berisi password database volume tersebut sebelum konfigurasi.",
     cancelled: "Wizard ditutup. Tidak ada konfigurasi yang disimpan.",
     invalid: "Konfigurasi belum valid. Periksa kolom yang ditandai dan coba lagi.",
     invalidField: "Periksa nilai pada kolom ini.",
     conflict:
-      "File .env sudah ada. Wizard tidak mengubahnya; gunakan langkah manual atau pindahkan file tersebut terlebih dahulu.",
+      "File .env sudah ada. Gunakan kembali file tersebut, atau pilih mulai ulang dari pnpm selfhosted:install agar file lama dicadangkan terlebih dahulu.",
     unavailable:
       "Wizard tidak dapat menyimpan konfigurasi. Tidak ada nilai yang ditampilkan; periksa izin folder lalu jalankan kembali.",
     required: "Kolom ini wajib diisi untuk passwordless.",
@@ -164,17 +168,19 @@ const copy = {
     bindHelp:
       "The default 127.0.0.1 limits access to this host; change it only when another reverse proxy needs a different interface.",
     appPort: "Application port on host",
-    save: "Create .env",
+    save: "Save .env",
     cancel: "Cancel and close",
     privacy: "Do not enter TOTP, OTP, QR, Vault keys, or Vault content here.",
     saving: "Validating and saving configuration…",
-    saved: ".env was created with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+    saved: ".env was saved with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+    savedWithBackup: ".env was saved with file mode 0600. Previous configuration backup: {backup}.",
     existingDatabaseVolume:
       "Existing self-hosted PostgreSQL data volume {volume} was found, but .env is missing. Restore the original .env containing that volume's database password before configuring.",
     cancelled: "The wizard is closed. No configuration was saved.",
     invalid: "The configuration is invalid. Check the highlighted fields and try again.",
     invalidField: "Check this field value.",
-    conflict: ".env already exists. The wizard did not change it; use manual setup or move that file first.",
+    conflict:
+      ".env already exists. Reuse it, or choose start over from pnpm selfhosted:install to back it up before replacement.",
     unavailable:
       "The wizard could not save the configuration. Values were not displayed; check folder permissions and run it again.",
     required: "This field is required for passwordless authentication.",
@@ -192,7 +198,8 @@ const copy = {
 const terminalCopy = {
   id: {
     intro:
-      "Jawab pertanyaan berikut untuk membuat .env. Input rahasia disembunyikan saat diketik. File yang sudah ada tidak akan ditimpa.",
+      "Jawab pertanyaan berikut untuk menyiapkan .env. Input rahasia disembunyikan saat diketik. Penggantian file harus diminta secara eksplisit dan akan membuat cadangan.",
+    replaceNotice: "File .env yang ada akan dicadangkan sebelum diganti. Pengaturan koneksi database dipertahankan.",
     chooseLanguage: "Bahasa / Language [id/en] (id): ",
     chooseLanguageError: "Masukkan id atau en / Enter id or en.",
     chooseAuthBackend: "Pilih autentikasi aplikasi [1/2] (1): ",
@@ -226,7 +233,8 @@ const terminalCopy = {
     chooseYesNo: "Jawab ya atau tidak.",
     invalid: "Konfigurasi belum valid. Periksa kolom berikut lalu masukkan kembali nilainya:",
     cancelled: "Dibatalkan. Tidak ada konfigurasi yang disimpan.",
-    saved: ".env berhasil dibuat dengan izin file 0600. Jalankan pnpm selfhosted:setup untuk melanjutkan.",
+    saved: ".env berhasil disimpan dengan izin file 0600. Jalankan pnpm selfhosted:setup untuk melanjutkan.",
+    replacedSaved: ".env diperbarui; file lama dicadangkan ke {backup}. Koneksi database tetap dipertahankan.",
     existingDatabaseVolume:
       "Volume data PostgreSQL self-hosted {volume} sudah ada, tetapi .env tidak ditemukan. Pulihkan .env asli yang berisi password database volume tersebut sebelum konfigurasi.",
     nextSteps: "Langkah berikutnya",
@@ -235,7 +243,9 @@ const terminalCopy = {
   },
   en: {
     intro:
-      "Answer the following questions to create .env. Secret input is hidden as you type. An existing file will not be overwritten.",
+      "Answer the following questions to configure .env. Secret input is hidden as you type. Replacing an existing file must be explicitly requested and creates a backup.",
+    replaceNotice:
+      "The existing .env will be backed up before replacement. Database connection settings will be preserved.",
     chooseLanguage: "Language / Bahasa [id/en] (id): ",
     chooseLanguageError: "Enter id or en / Masukkan id atau en.",
     chooseAuthBackend: "Choose application authentication [1/2] (1): ",
@@ -269,7 +279,8 @@ const terminalCopy = {
     chooseYesNo: "Answer yes or no.",
     invalid: "The configuration is invalid. Review these fields and enter their values again:",
     cancelled: "Cancelled. No configuration was saved.",
-    saved: ".env was created with file mode 0600. Run pnpm selfhosted:setup to continue.",
+    saved: ".env was saved with file mode 0600. Run pnpm selfhosted:setup to continue.",
+    replacedSaved: ".env was updated; the previous file was backed up to {backup}. Database settings were preserved.",
     existingDatabaseVolume:
       "Existing self-hosted PostgreSQL data volume {volume} was found, but .env is missing. Restore the original .env containing that volume's database password before configuring.",
     nextSteps: "Next steps",
@@ -355,11 +366,17 @@ export async function startConfigurationWizard({
   port = 0,
   commitSha,
   tailscaleOrigin,
+  replaceExisting = false,
 } = {}) {
   if (host !== "127.0.0.1") throw new Error("The setup wizard can only bind to 127.0.0.1.");
   const envPath = resolve(root, ".env");
-  if (existsSync(envPath)) throw new Error(".env already exists; the setup wizard will not overwrite it.");
-  if (root === repositoryRoot) {
+  const environmentExists = existsSync(envPath);
+  if (environmentExists && !replaceExisting)
+    throw new Error(".env already exists; reuse it or rerun setup with --replace-existing to back it up first.");
+  if (replaceExisting && !environmentExists)
+    throw new Error(".env disappeared before replacement; no configuration was changed.");
+  if (replaceExisting) readExistingDatabaseSettings(envPath);
+  if (!environmentExists && root === repositoryRoot) {
     const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
     if (existingVolume) {
       throw new Error(copy.en.existingDatabaseVolume.replace("{volume}", existingVolume));
@@ -373,6 +390,7 @@ export async function startConfigurationWizard({
   const sessionToken = randomBytes(32).toString("base64url");
   const expiresAt = Date.now() + SESSION_LIFETIME_MS;
   let saved = false;
+  let backupPath;
   let server;
   let expiryTimer;
   let resolveClosed;
@@ -495,9 +513,11 @@ export async function startConfigurationWizard({
       commitSha,
       submission: validation.submission,
       trustTailscaleProxy: useTailscaleProxy,
+      databaseSettings: replaceExisting ? readExistingDatabaseSettings(envPath) : undefined,
     });
     try {
-      writeEnvironmentExclusive(envPath, source);
+      if (replaceExisting) backupPath = writeEnvironmentWithBackup(envPath, source);
+      else writeEnvironmentExclusive(envPath, source);
     } catch (error) {
       if (isFileExistsError(error)) {
         sendJson(response, 409, { error: "env_exists" });
@@ -508,7 +528,7 @@ export async function startConfigurationWizard({
     }
 
     saved = true;
-    sendJson(response, 201, { saved: true });
+    sendJson(response, 201, { saved: true, backupFile: backupPath ? basename(backupPath) : undefined });
     response.once("finish", () => void close());
   }
 
@@ -518,6 +538,9 @@ export async function startConfigurationWizard({
     close,
     get saved() {
       return saved;
+    },
+    get backupPath() {
+      return backupPath;
     },
   };
 }
@@ -652,11 +675,14 @@ function validateSubmission(value, tailscaleOrigin) {
   return { errors: [...new Set(errors)], submission: { ...submission, appBindAddress: bindAddress } };
 }
 
-function createEnvironmentSource({ root, commitSha, submission, trustTailscaleProxy = false }) {
+function createEnvironmentSource({ root, commitSha, submission, trustTailscaleProxy = false, databaseSettings }) {
   const examplePath = resolve(root, ".env.example");
   const exampleSource = readFileSync(examplePath, "utf8");
   const origin = submission.webOrigin;
-  const databasePassword = randomSecret();
+  const databasePassword = databaseSettings?.POSTGRES_PASSWORD ?? randomSecret();
+  const databaseName = databaseSettings?.POSTGRES_DB ?? "shared_totp_vault";
+  const databaseUser = databaseSettings?.POSTGRES_USER ?? "rhasia";
+  const databasePort = databaseSettings?.POSTGRES_HOST_PORT ?? "55432";
   const proxySecret = randomSecret();
   const magicLinkSecret = randomSecret();
   const sessionSecret = randomSecret();
@@ -684,9 +710,14 @@ function createEnvironmentSource({ root, commitSha, submission, trustTailscalePr
     PASSKEY_RP_ID: usePasswordless && submission.passkeyEnabled ? submission.passkeyRpId : "",
     PASSKEY_ORIGIN: usePasswordless && submission.passkeyEnabled ? submission.passkeyOrigin : "",
     CRON_SECRET: randomSecret(),
-    DATABASE_URL: localDatabaseUrl(databasePassword),
-    DIRECT_URL: localDatabaseUrl(databasePassword),
+    DATABASE_URL:
+      databaseSettings?.DATABASE_URL ?? localDatabaseUrl(databasePassword, databaseUser, databaseName, databasePort),
+    DIRECT_URL:
+      databaseSettings?.DIRECT_URL ?? localDatabaseUrl(databasePassword, databaseUser, databaseName, databasePort),
+    POSTGRES_DB: databaseName,
+    POSTGRES_USER: databaseUser,
     POSTGRES_PASSWORD: databasePassword,
+    POSTGRES_HOST_PORT: databaseSettings?.POSTGRES_HOST_PORT ?? "55432",
     APP_BIND_ADDRESS: submission.appBindAddress,
     APP_PORT: submission.appPort,
     SELF_HOSTED_TAILSCALE_MODE: submission.tailscaleMode ?? "none",
@@ -716,6 +747,75 @@ function writeEnvironmentExclusive(path, source) {
   }
 }
 
+function readExistingDatabaseSettings(path) {
+  const values = parseEnvFile(readFileSync(path, "utf8"));
+  if (!Object.hasOwn(values, "POSTGRES_PASSWORD")) {
+    throw new Error(
+      "The existing .env has no POSTGRES_PASSWORD to preserve. Restore the database credentials or reuse the existing configuration before starting over.",
+    );
+  }
+
+  return Object.fromEntries(
+    ["DATABASE_URL", "DIRECT_URL", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST_PORT"]
+      .filter((name) => Object.hasOwn(values, name))
+      .map((name) => [name, values[name]]),
+  );
+}
+
+function writeEnvironmentWithBackup(path, source) {
+  const currentStat = lstatSync(path);
+  if (!currentStat.isFile()) throw new Error("The existing .env must be a regular file before it can be replaced.");
+
+  const existingSource = readFileSync(path);
+  const temporaryPath = `${path}.setup-${randomBytes(12).toString("hex")}`;
+  let backupPath;
+  try {
+    writeExclusiveFile(temporaryPath, source);
+    backupPath = writeTimestampedBackup(path, existingSource);
+    if (!readFileSync(path).equals(existingSource)) {
+      throw new Error(
+        "The existing .env changed during setup. No replacement was made; review the backup before retrying.",
+      );
+    }
+    renameSync(temporaryPath, path);
+    return backupPath;
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
+}
+
+function writeTimestampedBackup(path, source) {
+  const timestamp = new Date().toISOString().replace(/[-:.]/gu, "");
+  for (let suffix = 0; suffix < 100; suffix += 1) {
+    const backupPath = `${path}.backup-${timestamp}${suffix === 0 ? "" : `-${suffix + 1}`}`;
+    try {
+      writeExclusiveFile(backupPath, source);
+      return backupPath;
+    } catch (error) {
+      if (!isFileExistsError(error)) throw error;
+    }
+  }
+  throw new Error("Unable to create a unique backup for the existing .env.");
+}
+
+function writeExclusiveFile(path, source) {
+  let descriptor;
+  let created = false;
+  try {
+    descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+    created = true;
+    fchmodSync(descriptor, 0o600);
+    writeFileSync(descriptor, source, typeof source === "string" ? { encoding: "utf8" } : undefined);
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+  } catch (error) {
+    if (descriptor !== undefined) closeSync(descriptor);
+    if (created && existsSync(path)) unlinkSync(path);
+    throw error;
+  }
+}
+
 function renderWizardPage(nonce, tailscaleOrigin) {
   return renderConfigurationPage(nonce, tailscaleOrigin, copy);
 }
@@ -741,8 +841,8 @@ function dotenvValue(value) {
   return `'${value}'`;
 }
 
-function localDatabaseUrl(password) {
-  return `postgresql://rhasia:${password}@127.0.0.1:55432/shared_totp_vault?schema=public`;
+function localDatabaseUrl(password, user = "rhasia", database = "shared_totp_vault", port = "55432") {
+  return `postgresql://${user}:${password}@127.0.0.1:${port}/${database}?schema=public`;
 }
 
 function randomSecret() {
@@ -813,7 +913,12 @@ class PromptCancelledError extends Error {
   }
 }
 
-async function configureFromTerminal({ root = repositoryRoot, commitSha, tailscaleOrigin } = {}) {
+async function configureFromTerminal({
+  root = repositoryRoot,
+  commitSha,
+  tailscaleOrigin,
+  replaceExisting = false,
+} = {}) {
   if (!process.stdin.isTTY || !process.stdout.isTTY || typeof process.stdin.setRawMode !== "function") {
     throw new Error(terminalCopy.en.terminalRequired);
   }
@@ -831,15 +936,31 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   console.log("");
   printNotice(strings.privacy, "warning");
   if (existsSync(envPath)) {
-    printNotice(strings.conflict, "error");
+    if (!replaceExisting) {
+      printNotice(strings.conflict, "error");
+      process.exitCode = 1;
+      return;
+    }
+    printNotice(messages.replaceNotice, "warning");
+    try {
+      readExistingDatabaseSettings(envPath);
+    } catch (error) {
+      printNotice(error instanceof Error ? error.message : strings.unavailable, "error");
+      process.exitCode = 1;
+      return;
+    }
+  } else if (replaceExisting) {
+    printNotice(".env disappeared before replacement; no configuration was changed.", "error");
     process.exitCode = 1;
     return;
   }
-  const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
-  if (existingVolume) {
-    printNotice(messages.existingDatabaseVolume.replace("{volume}", existingVolume), "error");
-    process.exitCode = 1;
-    return;
+  if (!existsSync(envPath)) {
+    const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
+    if (existingVolume) {
+      printNotice(messages.existingDatabaseVolume.replace("{volume}", existingVolume), "error");
+      process.exitCode = 1;
+      return;
+    }
   }
 
   const suggestedTailscaleOrigin = normalizeTailscaleOrigin(
@@ -948,14 +1069,17 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
     }
   }
 
+  let backupPath;
   try {
     const source = createEnvironmentSource({
       root,
       commitSha,
       submission,
       trustTailscaleProxy: Boolean(tailscaleMode && submission.authBackend === "passwordless"),
+      databaseSettings: replaceExisting ? readExistingDatabaseSettings(envPath) : undefined,
     });
-    writeEnvironmentExclusive(envPath, source);
+    if (replaceExisting) backupPath = writeEnvironmentWithBackup(envPath, source);
+    else writeEnvironmentExclusive(envPath, source);
   } catch (error) {
     if (isFileExistsError(error)) {
       printNotice(strings.conflict, "error");
@@ -965,7 +1089,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
     throw new Error(strings.unavailable);
   }
 
-  printNotice(messages.saved, "success");
+  printNotice(replaceExisting ? messages.replacedSaved.replace("{backup}", backupPath) : messages.saved, "success");
   if (tailscaleMode) printSection(messages.nextSteps);
   if (tailscaleMode === "serve") printNotice(messages.tailscaleServeNextStep);
   if (tailscaleMode === "funnel") printNotice(messages.tailscaleFunnelNextStep, "warning");
@@ -1083,38 +1207,50 @@ let activeTerminalLocale = "id";
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
 if (invokedPath === fileURLToPath(import.meta.url)) {
   const arguments_ = process.argv.slice(2);
-  if (arguments_.length === 0) {
-    try {
-      await configureFromTerminal();
-    } catch (error) {
-      if (error instanceof PromptCancelledError) {
-        printNotice(terminalCopy[activeTerminalLocale].cancelled, "warning");
-        process.exitCode = 130;
-      } else {
+  const allowedArguments = new Set(["--interactive", "--replace-existing"]);
+  if (
+    arguments_.length <= 2 &&
+    arguments_.every((argument) => allowedArguments.has(argument)) &&
+    new Set(arguments_).size === arguments_.length
+  ) {
+    const replaceExisting = arguments_.includes("--replace-existing");
+    if (!arguments_.includes("--interactive")) {
+      try {
+        await configureFromTerminal({ replaceExisting });
+      } catch (error) {
+        if (error instanceof PromptCancelledError) {
+          printNotice(terminalCopy[activeTerminalLocale].cancelled, "warning");
+          process.exitCode = 130;
+        } else {
+          printNotice(
+            error instanceof Error ? error.message : "Unable to configure the self-hosted environment.",
+            "error",
+          );
+          process.exitCode = 1;
+        }
+      }
+    } else {
+      try {
+        const wizard = await startConfigurationWizard({ replaceExisting });
+        console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
+        printSection("Local browser setup");
         printNotice(
-          error instanceof Error ? error.message : "Unable to configure the self-hosted environment.",
-          "error",
+          `Open ${wizard.url} in a browser on this host. The wizard is available once and only on this computer.`,
         );
+        await wizard.closed;
+        if (wizard.saved) {
+          const message = wizard.backupPath
+            ? `Updated .env with restrictive permissions. Previous file backed up to ${wizard.backupPath}. Database settings were preserved.`
+            : "Saved .env with restrictive permissions. Continue with `pnpm selfhosted:setup`.";
+          printNotice(message, "success");
+        }
+      } catch (error) {
+        printNotice(error instanceof Error ? error.message : "Unable to start the local setup wizard.", "error");
         process.exitCode = 1;
       }
     }
-  } else if (arguments_.length === 1 && arguments_[0] === "--interactive") {
-    try {
-      const wizard = await startConfigurationWizard();
-      console.log(`\n${styleTerminal("rhasia-scret", "accent")}`);
-      printSection("Local browser setup");
-      printNotice(
-        `Open ${wizard.url} in a browser on this host. The wizard is available once and only on this computer.`,
-      );
-      await wizard.closed;
-      if (wizard.saved)
-        printNotice("Created .env with restrictive permissions. Continue with `pnpm selfhosted:setup`.", "success");
-    } catch (error) {
-      printNotice(error instanceof Error ? error.message : "Unable to start the local setup wizard.", "error");
-      process.exitCode = 1;
-    }
   } else {
-    printNotice("Usage: pnpm selfhosted:configure [--interactive]", "error");
+    printNotice("Usage: pnpm selfhosted:configure [--interactive] [--replace-existing]", "error");
     process.exitCode = 1;
   }
 }

@@ -59,6 +59,7 @@ type SetupCopy = {
   privacy: string;
   saving: string;
   saved: string;
+  savedWithBackup: string;
   cancelled: string;
   invalid: string;
   invalidField: string;
@@ -114,6 +115,7 @@ const passkeyFields = ["passkeyRpId", "passkeyOrigin"] as const;
 
 function SetupWizard() {
   const [locale, setLocale] = useState<Locale>("id");
+  const [savedBackup, setSavedBackup] = useState<string | null>(null);
   const [status, setStatus] = useState<
     keyof Pick<SetupCopy, "saved" | "cancelled" | "invalid" | "conflict" | "unavailable" | "unsupported"> | null
   >(null);
@@ -127,9 +129,11 @@ function SetupWizard() {
     defaultValues,
     onSubmit: async ({ value }) => {
       setStatus(null);
+      setSavedBackup(null);
       const response = await submitConfiguration(value);
       if (response.kind === "saved") {
         form.reset();
+        setSavedBackup(response.backupFile ?? null);
         setStatus("saved");
         return;
       }
@@ -226,21 +230,24 @@ function SetupWizard() {
         body: JSON.stringify(value),
       });
     } catch {
-      return { kind: "unavailable" as const, fields: [] as string[] };
+      return { kind: "unavailable" as const, fields: [] as string[], backupFile: undefined };
     }
 
-    let result: { error?: string; fields?: string[] };
+    let result: { error?: string; fields?: string[]; backupFile?: string };
     try {
-      result = (await response.json()) as { error?: string; fields?: string[] };
+      result = (await response.json()) as { error?: string; fields?: string[]; backupFile?: string };
     } catch {
-      return { kind: "unavailable" as const, fields: [] as string[] };
+      return { kind: "unavailable" as const, fields: [] as string[], backupFile: undefined };
     }
-    if (response.status === 201) return { kind: "saved" as const, fields: [] as string[] };
-    if (result.error === "env_exists") return { kind: "conflict" as const, fields: [] as string[] };
+    if (response.status === 201) {
+      return { kind: "saved" as const, fields: [] as string[], backupFile: result.backupFile };
+    }
+    if (result.error === "env_exists")
+      return { kind: "conflict" as const, fields: [] as string[], backupFile: undefined };
     if (result.fields?.some((field) => field.endsWith(":unsupported"))) {
-      return { kind: "unsupported" as const, fields: result.fields };
+      return { kind: "unsupported" as const, fields: result.fields, backupFile: undefined };
     }
-    return { kind: "invalid" as const, fields: result.fields ?? [] };
+    return { kind: "invalid" as const, fields: result.fields ?? [], backupFile: undefined };
   }
 
   async function cancel() {
@@ -296,7 +303,14 @@ function SetupWizard() {
     }
   }
 
-  const showStatus = status === "saved" || status === "cancelled" ? copy[status] : status === null ? "" : copy[status];
+  const showStatus =
+    status === "saved" && savedBackup
+      ? copy.savedWithBackup.replace("{backup}", savedBackup)
+      : status === "saved" || status === "cancelled"
+        ? copy[status]
+        : status === null
+          ? ""
+          : copy[status];
 
   return (
     <main className="setup-shell">

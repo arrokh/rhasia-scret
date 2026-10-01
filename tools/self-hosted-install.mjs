@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { spawn } from "node:child_process";
 import process from "node:process";
@@ -9,6 +9,40 @@ import { parseEnvFile } from "./self-hosted.mjs";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const usage = "Usage: pnpm selfhosted:install [--interactive]";
 const supportedTailscaleModes = new Set(["none", "serve", "funnel"]);
+
+export async function chooseExistingEnvironment({ input = process.stdin, output = process.stdout, ask } = {}) {
+  output.write("\nAn existing .env was found / File .env sudah ada.\n");
+  output.write("  [1] Reuse the existing configuration and continue setup / Gunakan konfigurasi yang ada.\n");
+  output.write(
+    "  [2] Start over / Mulai dari awal (the existing file will be backed up first / file lama akan dicadangkan).\n",
+  );
+
+  const prompt = "Choose [1/2] (1): ";
+  if (!input.isTTY || !output.isTTY) {
+    if (!ask) {
+      throw new Error("An existing .env requires an interactive choice: reuse it or start over with a backup.");
+    }
+  }
+
+  const readline = ask ? undefined : createInterface({ input, output });
+  try {
+    while (true) {
+      const answer = await (ask ? ask(prompt) : readline.question(prompt));
+      const choice = parseExistingEnvironmentChoice(answer);
+      if (choice) return choice;
+      output.write("Enter 1 to reuse the existing .env or 2 to start over.\n");
+    }
+  } finally {
+    readline?.close();
+  }
+}
+
+function parseExistingEnvironmentChoice(answer) {
+  const normalized = typeof answer === "string" ? answer.trim() : "";
+  if (normalized === "" || normalized === "1") return "reuse";
+  if (normalized === "2") return "start-over";
+  return undefined;
+}
 
 export function createSelfHostedInstallSteps(args = []) {
   if (args.length > 1 || (args.length === 1 && args[0] !== "--interactive")) {
@@ -81,6 +115,8 @@ export async function runSelfHostedInstall({
   args = [],
   root = repositoryRoot,
   runStep = runNodeScript,
+  environmentExists = (repositoryRootPath) => existsSync(resolve(repositoryRootPath, ".env")),
+  chooseEnvironment = chooseExistingEnvironment,
   readTailscaleMode = readConfiguredTailscaleMode,
   confirmFunnel = confirmPublicFunnel,
 } = {}) {
@@ -91,6 +127,23 @@ export async function runSelfHostedInstall({
     console.error(error instanceof Error ? error.message : String(error));
     return 2;
   }
+
+  let useExistingEnvironment = false;
+  let startOver = false;
+  try {
+    if (environmentExists(root)) {
+      const choice = await chooseEnvironment();
+      if (choice === "reuse") useExistingEnvironment = true;
+      else if (choice === "start-over") startOver = true;
+      else throw new Error("Choose 1 to reuse the existing .env or 2 to start over with a backup.");
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+
+  if (startOver) steps[0].args = [...steps[0].args, "--replace-existing"];
+  if (useExistingEnvironment) steps = steps.slice(1);
 
   for (const [index, step] of steps.entries()) {
     console.log(`\n[${index + 1}/${steps.length}] ${step.label}`);

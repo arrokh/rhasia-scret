@@ -20,7 +20,12 @@ import {
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
-import { confirmPublicFunnel, readConfiguredTailscaleMode, runSelfHostedInstall } from "./self-hosted-install.mjs";
+import {
+  chooseExistingEnvironment,
+  confirmPublicFunnel,
+  readConfiguredTailscaleMode,
+  runSelfHostedInstall,
+} from "./self-hosted-install.mjs";
 import { applyTerminalTailscaleChoice, askLanguage, startConfigurationWizard } from "./self-hosted-configure.mjs";
 import { WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS } from "./verify-deployment-config.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
@@ -63,6 +68,7 @@ test("self-hosted install runs configure, setup, and up in order with the intera
 test("self-hosted install uses the terminal configuration wizard by default", async () => {
   let configureArguments;
   const exitCode = await runSelfHostedInstall({
+    environmentExists: () => false,
     runStep: async (step) => {
       if (step.command === "pnpm selfhosted:configure") configureArguments = step.args;
       return 0;
@@ -72,6 +78,54 @@ test("self-hosted install uses the terminal configuration wizard by default", as
 
   assert.equal(exitCode, 0);
   assert.deepEqual(configureArguments, []);
+});
+
+test("self-hosted install asks before reusing an existing environment and skips configure when reused", async () => {
+  const calls = [];
+  let promptCount = 0;
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    environmentExists: () => true,
+    chooseEnvironment: async () => {
+      promptCount += 1;
+      return "reuse";
+    },
+    runStep: async (step) => {
+      calls.push(step.command);
+      return 0;
+    },
+    readTailscaleMode: () => "none",
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(promptCount, 1);
+  assert.deepEqual(calls, ["pnpm selfhosted:setup", "pnpm selfhosted:up"]);
+});
+
+test("self-hosted install routes start-over through the backup-enabled configure mode", async () => {
+  let configureArguments;
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    environmentExists: () => true,
+    chooseEnvironment: async () => "start-over",
+    runStep: async (step) => {
+      if (step.command === "pnpm selfhosted:configure") configureArguments = step.args;
+      return 0;
+    },
+    readTailscaleMode: () => "none",
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(configureArguments, ["--replace-existing"]);
+});
+
+test("existing-environment prompt defaults to reuse and rejects non-interactive use", async () => {
+  assert.equal(await chooseExistingEnvironment({ ask: async () => "" }), "reuse");
+  assert.equal(await chooseExistingEnvironment({ ask: async () => "2" }), "start-over");
+  await assert.rejects(
+    chooseExistingEnvironment({ input: { isTTY: false }, output: { isTTY: false, write() {} } }),
+    /interactive choice/u,
+  );
 });
 
 test("self-hosted install stops at the first failed step and preserves its exit code", async () => {
@@ -947,11 +1001,113 @@ test("configuration wizard refuses to overwrite an existing .env", async () => {
   try {
     const existing = "KEEP_EXISTING_CONFIGURATION=true\n";
     writeFileSync(join(root, ".env"), existing, { mode: 0o600 });
-    await assert.rejects(startConfigurationWizard({ root }), /will not overwrite/u);
+    await assert.rejects(startConfigurationWizard({ root }), /reuse it or rerun setup/u);
     assert.equal(readFileSync(join(root, ".env"), "utf8"), existing);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("start-over backs up .env with restrictive permissions and preserves database settings", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-replace-"));
+  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  const existing = [
+    "DATABASE_URL=postgresql://legacy_user:synthetic-database-password@127.0.0.1:55432/legacy_database?schema=public",
+    "DIRECT_URL=postgresql://legacy_user:synthetic-database-password@127.0.0.1:55432/legacy_database?schema=public",
+    "POSTGRES_DB=legacy_database",
+    "POSTGRES_USER=legacy_user",
+    "POSTGRES_PASSWORD=synthetic-database-password",
+    "POSTGRES_HOST_PORT=55433",
+    "KEEP_ME_ONLY_IN_BACKUP=synthetic-old-value",
+    "",
+  ].join("\n");
+  writeFileSync(join(root, ".env"), existing, { mode: 0o600 });
+  const wizard = await startConfigurationWizard({
+    root,
+    commitSha: "test-sha",
+    tailscaleOrigin: null,
+    replaceExisting: true,
+  });
+
+  try {
+    const page = await requestWizard(wizard.url);
+    const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
+    const submission = {
+      authBackend: "none",
+      tailscaleMode: "none",
+      webOrigin: "http://localhost:3000",
+      turnstileSiteKey: "",
+      turnstileSecretKey: "",
+      smtpHost: "",
+      smtpPort: "587",
+      smtpUser: "",
+      smtpPassword: "",
+      authEmailFrom: "",
+      authEmailFromName: "rhasia-scret",
+      passkeyEnabled: false,
+      passkeyRpId: "",
+      passkeyOrigin: "",
+      appBindAddress: "127.0.0.1",
+      appPort: "3000",
+    };
+    const response = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(submission),
+    });
+
+    assert.equal(response.status, 201, response.body);
+    await wizard.closed;
+
+    assert.match(wizard.backupPath, /\.env\.backup-\d{8}T\d{9}Z(?:-\d+)?$/u);
+    assert.equal(readFileSync(wizard.backupPath, "utf8"), existing);
+    assert.equal(statSync(wizard.backupPath).mode & 0o777, 0o600);
+    assert.equal(statSync(join(root, ".env")).mode & 0o777, 0o600);
+
+    const values = parseEnvFile(readFileSync(join(root, ".env"), "utf8"));
+    assert.equal(
+      values.DATABASE_URL,
+      "postgresql://legacy_user:synthetic-database-password@127.0.0.1:55432/legacy_database?schema=public",
+    );
+    assert.equal(values.DIRECT_URL, values.DATABASE_URL);
+    assert.equal(values.POSTGRES_DB, "legacy_database");
+    assert.equal(values.POSTGRES_USER, "legacy_user");
+    assert.equal(values.POSTGRES_PASSWORD, "synthetic-database-password");
+    assert.equal(values.POSTGRES_HOST_PORT, "55433");
+    assert.equal(values.KEEP_ME_ONLY_IN_BACKUP, undefined);
+    assert.equal(values.AUTH_BACKEND, "none");
+    assert.notEqual(values.PROXY_SECRET, "replace-with-a-random-proxy-secret-at-least-32-characters");
+  } finally {
+    await wizard.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("start-over refuses to replace an environment without a database password to preserve", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-no-db-password-"));
+  try {
+    writeFileSync(join(root, ".env"), "AUTH_BACKEND=none\n", { mode: 0o600 });
+    await assert.rejects(
+      startConfigurationWizard({ root, replaceExisting: true }),
+      /no POSTGRES_PASSWORD to preserve/u,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("timestamped .env backups are ignored by Git", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const result = spawnSync("git", ["check-ignore", "--no-index", ".env.backup-20261001T000000000Z"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0, "Credential-bearing .env backups must never be staged accidentally.");
 });
 
 test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused provider fields", async () => {

@@ -42,7 +42,7 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await page.locator("#language").selectOption("en");
 
     await page.getByLabel("Application authentication").selectOption("passwordless");
-    await page.getByRole("button", { name: "Create .env" }).click();
+    await page.getByRole("button", { name: "Save .env" }).click();
     const turnstileSiteKey = page.getByLabel("Turnstile site key (public)");
     await expect(turnstileSiteKey).toHaveAttribute("aria-invalid", "true");
     await expect(turnstileSiteKey).toHaveAttribute("aria-describedby", "turnstileSiteKey-error");
@@ -105,10 +105,10 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await smtpPassword.fill("synthetic-smtp-password");
     await page.getByLabel("Sender email address").fill("no-reply@example.test");
     await page.getByLabel("Sender name").fill("Example Test");
-    await page.getByRole("button", { name: "Create .env" }).click();
+    await page.getByRole("button", { name: "Save .env" }).click();
 
     await expect(page.getByRole("alert")).toHaveText(
-      ".env was created with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+      ".env was saved with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
     );
     expect(wizard.saved).toBe(true);
     expect(statSync(join(temporaryRoot, ".env")).mode & 0o777).toBe(0o600);
