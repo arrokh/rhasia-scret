@@ -1,5 +1,6 @@
 [tools]
 java = "21.0.2"
+k6 = "0.57.0"
 node = "24.19.0"
 
 [tasks.setup]

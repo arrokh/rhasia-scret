@@ -92,6 +92,32 @@ describe("PersonalVaultAccounts", () => {
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
   });
 
+  it("keeps the toolbar Add Account target unique when an empty vault also shows its inline CTA", async () => {
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            { initialWorkspace: { ...workspace(), accounts: [] } },
+            createElement(PersonalVaultAccounts, { vaultId: "personal-1" }),
+          ),
+        ),
+      ),
+    );
+
+    expect(container.querySelectorAll('a[href="/vaults/accounts/new"]')).toHaveLength(2);
+    expect(
+      container
+        .querySelector('[data-slot="vault-account-actions"]')
+        ?.querySelectorAll('a[href="/vaults/accounts/new"]'),
+    ).toHaveLength(1);
+  });
+
   it("revalidates Shared authorization when the Vault route changes", async () => {
     mocks.refreshUnlockedVaultWorkspace.mockResolvedValue(workspace());
     const container = document.createElement("div");

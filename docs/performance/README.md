@@ -20,6 +20,10 @@ pnpm run test:performance
 
 A staging/preview production run can set `PERFORMANCE_EXTERNAL_SERVER=1`, `PERFORMANCE_BASE_URL`, and an appropriately provisioned test identity rather than enabling any production auth bypass.
 
+## Planned API load testing
+
+- [`api-load-testing-plan.md`](./api-load-testing-plan.md): proposed self-hosted k6 coverage for core API flows, rate-limit boundaries, and bounded capacity characterization.
+
 ## Bundle measurements
 
 The versioned baseline is kept beside this README. The current route-bundle report is generated under ignored `test-results/performance/`.

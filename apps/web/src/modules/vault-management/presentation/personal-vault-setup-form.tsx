@@ -22,10 +22,20 @@ import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-conf
 import { StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
+import {
+  PersonalVaultInitializationError,
+  type PersonalVaultInitializationFailureCategory,
+} from "../infrastructure/browser-vault-management-client";
 import { useInitializePersonalVaultMutation } from "./hooks/use-personal-vault-mutations";
 
 type SecretMode = "generated" | "custom";
 type SetupStatus = "idle" | "setup_error";
+type SetupFailureCategory =
+  | PersonalVaultInitializationFailureCategory
+  | "client_crypto_failure"
+  | "request_failure"
+  | "post_initialization_failure";
+type SetupFailureStage = "client_crypto" | "request" | "post_initialization";
 export type PersonalVaultSetupFormProps = Readonly<{
   afterInitializationPath?: "/vaults/invitations/redeem";
 }>;
@@ -38,6 +48,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
   const [secretVisible, setSecretVisible] = useState(false);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [status, setStatus] = useState<SetupStatus>("idle");
+  const [initializationFailureCategory, setInitializationFailureCategory] = useState<SetupFailureCategory | null>(null);
   const initializeMutation = useInitializePersonalVaultMutation();
   const form = useForm({
     defaultValues: {
@@ -49,9 +60,12 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
     },
     onSubmit: async ({ value }) => {
       setStatus("idle");
+      setInitializationFailureCategory(null);
       let material: Awaited<ReturnType<typeof initializePersonalVaultInBrowser>> | undefined;
+      let failureStage: SetupFailureStage = "client_crypto";
       try {
         material = await initializePersonalVaultInBrowser(value.secret, value.vaultName);
+        failureStage = "request";
         await initializeMutation.mutateAsync({
           vaultUnlockSalt: bytesToBase64(material.vaultUnlockSalt),
           wrappedUserRootKey: bytesToBase64(material.wrappedUserRootKey),
@@ -62,6 +76,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
           userEncryptionKeyVersion: material.userEncryptionKeyVersion,
           encryptionVersion: material.encryptionVersion,
         });
+        failureStage = "post_initialization";
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitialized);
         if (afterInitializationPath) {
           const fragment = window.location.hash;
@@ -74,8 +89,9 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
         } else {
           router.refresh();
         }
-      } catch {
+      } catch (error) {
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitializationFailed);
+        setInitializationFailureCategory(getSetupFailureCategory(failureStage, error));
         setStatus("setup_error");
       } finally {
         if (material) clearPersonalVaultInitializationMaterial(material);
@@ -95,6 +111,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
     setSecretVisible(false);
     setConfirmationVisible(false);
     setStatus("idle");
+    setInitializationFailureCategory(null);
   }
 
   function regenerateSecret() {
@@ -103,6 +120,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
     form.setFieldValue("secret", nextSecret);
     form.setFieldValue("confirmation", "");
     setStatus("idle");
+    setInitializationFailureCategory(null);
   }
 
   return (
@@ -126,7 +144,11 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
               id="vault-name"
               name={field.name}
               value={field.state.value}
-              onChange={(event) => field.handleChange(event.target.value)}
+              onChange={(event) => {
+                field.handleChange(event.target.value);
+                setStatus("idle");
+                setInitializationFailureCategory(null);
+              }}
               aria-invalid={field.state.meta.errors.length > 0}
               aria-describedby={field.state.meta.errors.length ? "vault-name-error" : undefined}
               required
@@ -185,11 +207,15 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
                       id="custom-unlock-secret"
                       label={t("yourPassphrase")}
                       value={secretField.state.value}
+                      data-personal-vault-passphrase-valid={
+                        isVaultUnlockSecretValid(secretField.state.value) ? "true" : "false"
+                      }
                       visible={secretVisible}
                       onChange={(event) => {
                         secretField.handleChange(event.target.value);
                         if (form.state.values.confirmation) form.setFieldValue("confirmation", "");
                         setStatus("idle");
+                        setInitializationFailureCategory(null);
                       }}
                       onToggleVisibility={() => setSecretVisible((visible) => !visible)}
                       aria-invalid={secretField.state.meta.errors.length > 0}
@@ -230,6 +256,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
               onChange={(event) => {
                 field.handleChange(event.target.value);
                 setStatus("idle");
+                setInitializationFailureCategory(null);
               }}
               onToggleVisibility={() => setConfirmationVisible((visible) => !visible)}
               aria-invalid={field.state.meta.errors.length > 0}
@@ -252,7 +279,11 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
               <Checkbox
                 id="setup-acknowledgement"
                 checked={field.state.value}
-                onCheckedChange={(checked) => field.handleChange(checked === true)}
+                onCheckedChange={(checked) => {
+                  field.handleChange(checked === true);
+                  setStatus("idle");
+                  setInitializationFailureCategory(null);
+                }}
                 aria-invalid={field.state.meta.errors.length > 0}
                 aria-describedby={field.state.meta.errors.length ? "setup-acknowledgement-error" : undefined}
               />
@@ -288,9 +319,14 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
         {(isSubmitting) => (isSubmitting ? <StatusBanner tone="info">{t("creatingKeys")}</StatusBanner> : null)}
       </form.Subscribe>
       {status === "setup_error" && (
-        <StatusBanner tone="danger" role="alert">
-          {t("error")}
-        </StatusBanner>
+        <div
+          data-personal-vault-initialization-error="true"
+          data-initialization-failure-category={initializationFailureCategory ?? "request_failure"}
+        >
+          <StatusBanner tone="danger" role="alert">
+            {t("error")}
+          </StatusBanner>
+        </div>
       )}
     </form>
   );
@@ -325,11 +361,22 @@ function Choice({
   );
 }
 
-function validateSecret(secret: string, invalidMessage: string): string | undefined {
+function getSetupFailureCategory(stage: SetupFailureStage, error: unknown): SetupFailureCategory {
+  if (stage === "client_crypto") return "client_crypto_failure";
+  if (stage === "request")
+    return error instanceof PersonalVaultInitializationError ? error.category : "request_failure";
+  return "post_initialization_failure";
+}
+
+function isVaultUnlockSecretValid(secret: string): boolean {
   try {
     validateVaultUnlockSecret(secret);
-    return undefined;
+    return true;
   } catch {
-    return invalidMessage;
+    return false;
   }
+}
+
+function validateSecret(secret: string, invalidMessage: string): string | undefined {
+  return isVaultUnlockSecretValid(secret) ? undefined : invalidMessage;
 }

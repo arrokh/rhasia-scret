@@ -71,6 +71,7 @@ services:
       SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS_CA: ${SMTP_TLS_CA:-}
       AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-}
       AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-}
       PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
@@ -106,7 +107,7 @@ services:
     init: true
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: ${WEB_CONTAINER_PORT:-3000}
       HOSTNAME: 0.0.0.0
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       API_ORIGIN: http://api:8787

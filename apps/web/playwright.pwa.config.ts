@@ -6,6 +6,7 @@ import { loadWorkspaceEnvironment } from "./scripts/load-workspace-environment";
 loadWorkspaceEnvironment();
 import { supportedBrowserProjects } from "./playwright.config";
 import { configuredPlaywrightWorkers } from "./src/tests/browser/support/playwright-concurrency";
+import { createPwaServerEnvironment } from "./scripts/pwa-server-environment";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
 const browserTestBaseUrl = `http://127.0.0.1:${browserTestPort}`;
@@ -14,6 +15,7 @@ if (reuseProductionBuild && !existsSync(resolve(".next/BUILD_ID"))) {
   throw new Error("BROWSER_TEST_REUSE_BUILD=1 requires a completed production build in apps/web/.next.");
 }
 const productionServerCommand = reuseProductionBuild ? "" : "pnpm run build && ";
+const pwaServerEnvironment = createPwaServerEnvironment(process.env, browserTestBaseUrl);
 
 export default defineConfig({
   testDir: "src/tests/browser",
@@ -28,5 +30,6 @@ export default defineConfig({
     url: browserTestBaseUrl,
     reuseExistingServer: false,
     timeout: 180_000,
+    env: pwaServerEnvironment,
   },
 });

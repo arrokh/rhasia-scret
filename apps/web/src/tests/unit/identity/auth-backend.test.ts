@@ -4,7 +4,7 @@ import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-ba
 const requiredPasswordless = {
   AUTH_BACKEND: "passwordless",
   NODE_ENV: "test",
-  AUTH_APP_ORIGIN: "http://localhost:3000",
+  AUTH_APP_ORIGIN: "http://localhost:4000",
 };
 
 describe("web authentication configuration", () => {
@@ -25,7 +25,7 @@ describe("web authentication configuration", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toEqual({
       backend: "passwordless",
       passwordless: {
-        appOrigin: new URL("http://localhost:3000/"),
+        appOrigin: new URL("http://localhost:4000/"),
       },
     });
     expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_APP_ORIGIN: "https://host.test/path" })).toThrow(

@@ -98,14 +98,17 @@ describe("PersonalVaultSetupForm", () => {
     });
 
     const customMode = container.querySelector<HTMLButtonElement>("#custom-secret");
+    const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]');
     await act(async () => customMode?.click());
 
+    expect(submit?.disabled).toBe(false);
     expect(container.querySelector("output")).toBeNull();
     expect(container.textContent).toContain("minimal 3 karakter");
 
     const form = container.querySelector<HTMLFormElement>("form");
     const customSecret = container.querySelector<HTMLInputElement>("#custom-unlock-secret");
     const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
+    expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("false");
     const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
     const showCustomSecret = container.querySelector<HTMLButtonElement>(
       '[aria-label="Tampilkan Passphrase Brankas Anda"]',
@@ -128,6 +131,7 @@ describe("PersonalVaultSetupForm", () => {
       setInputValue(customSecret, "abc");
       setInputValue(confirmation, "abd");
     });
+    expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("true");
     expect(confirmation?.getAttribute("aria-invalid")).toBe("true");
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
       "tidak cocok dengan Passphrase Brankas Anda",
@@ -138,6 +142,7 @@ describe("PersonalVaultSetupForm", () => {
       setInputValue(confirmation, "ab");
       acknowledgement?.click();
     });
+    expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("false");
     await act(async () => form?.requestSubmit());
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("minimal 3 karakter");
@@ -148,6 +153,8 @@ describe("PersonalVaultSetupForm", () => {
       setInputValue(customSecret, "abc");
       setInputValue(confirmation, "abc");
     });
+    expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("true");
+    expect(submit?.disabled).toBe(false);
     await act(async () => form?.requestSubmit());
 
     expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abc", "Brankas Pribadi");
@@ -156,6 +163,68 @@ describe("PersonalVaultSetupForm", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    await act(async () => root?.unmount());
+  });
+
+  it("exposes only a fixed authentication category when server initialization is rejected", async () => {
+    cryptoMocks.generateVaultUnlockSecret.mockReset();
+    cryptoMocks.generateVaultUnlockSecret.mockReturnValue("synthetic setup passphrase");
+    cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue(initializationMaterial());
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = createRoot(container);
+      root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
+    });
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
+    const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
+    await act(async () => {
+      setInputValue(confirmation, "synthetic setup passphrase");
+      acknowledgement?.click();
+    });
+    await act(async () => form?.requestSubmit());
+
+    const initializationError = container.querySelector<HTMLElement>("[data-personal-vault-initialization-error]");
+    expect(initializationError?.getAttribute("data-initialization-failure-category")).toBe("unauthenticated");
+    expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("unauthenticated");
+    expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("synthetic");
+
+    await act(async () => root?.unmount());
+  });
+
+  it("distinguishes client cryptography failure without retaining the thrown message", async () => {
+    cryptoMocks.generateVaultUnlockSecret.mockReset();
+    cryptoMocks.generateVaultUnlockSecret.mockReturnValue("synthetic setup passphrase");
+    cryptoMocks.initializePersonalVaultInBrowser.mockRejectedValue(new Error("synthetic client diagnostic"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = createRoot(container);
+      root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
+    });
+
+    const form = container.querySelector<HTMLFormElement>("form");
+    const confirmation = container.querySelector<HTMLInputElement>("#unlock-secret-confirmation");
+    const acknowledgement = container.querySelector<HTMLButtonElement>('[role="checkbox"]');
+    await act(async () => {
+      setInputValue(confirmation, "synthetic setup passphrase");
+      acknowledgement?.click();
+    });
+    await act(async () => form?.requestSubmit());
+
+    const initializationError = container.querySelector<HTMLElement>("[data-personal-vault-initialization-error]");
+    expect(initializationError?.getAttribute("data-initialization-failure-category")).toBe("client_crypto_failure");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("synthetic client diagnostic");
 
     await act(async () => root?.unmount());
   });
@@ -220,6 +289,9 @@ describe("PersonalVaultSetupForm", () => {
 
     expect(submit?.disabled).toBe(false);
     expect(form?.checkValidity()).toBe(false);
+    await act(async () => form?.requestSubmit());
+    expect(container.querySelector("[data-personal-vault-initialization-error]")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
 
     await act(async () => {
       setInputValue(confirmation, "picnic trophy sheriff coin wire ocean");
@@ -227,6 +299,7 @@ describe("PersonalVaultSetupForm", () => {
     });
     await act(async () => form?.requestSubmit());
 
+    expect(container.querySelector("[data-personal-vault-initialization-error]")).toBeNull();
     expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith(
       "picnic trophy sheriff coin wire ocean",
       "Brankas Pribadi",

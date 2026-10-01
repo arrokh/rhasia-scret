@@ -9,7 +9,7 @@ const magicLinkDigests: Uint8Array<ArrayBuffer>[] = [];
 const sessionSecret = new TextEncoder().encode("integration-passwordless-session-secret-1234567890");
 const magicLinkSecret = new TextEncoder().encode("integration-passwordless-magic-link-secret-1234567890");
 const configuration = {
-  appOrigin: new URL("http://localhost:3000"),
+  appOrigin: new URL("http://localhost:4000"),
   magicLinkSecret,
   sessionSecret,
   turnstile: {

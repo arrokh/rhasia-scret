@@ -410,7 +410,7 @@ describe("dedicated Vault management", () => {
 
     await vi.waitFor(() =>
       expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe(
-        "http://localhost:3000/vaults/invitations/redeem#client-only-secret",
+        "http://localhost:4000/vaults/invitations/redeem#client-only-secret",
       ),
     );
     expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(
@@ -430,7 +430,7 @@ describe("dedicated Vault management", () => {
     expect(container.textContent).toContain("Draf email dibuka");
     const copyPending = await vi.waitFor(() => findButton(container, "Salin undangan untuk viewer@example.test"));
     await act(async () => copyPending.click());
-    expect(writeText).toHaveBeenCalledWith("http://localhost:3000/vaults/invitations/redeem#client-only-secret");
+    expect(writeText).toHaveBeenCalledWith("http://localhost:4000/vaults/invitations/redeem#client-only-secret");
     expect(copyPending.title).toBe("Undangan disalin");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
   });
@@ -484,7 +484,7 @@ describe("dedicated Vault management", () => {
 
     await vi.waitFor(() =>
       expect(container.querySelector<HTMLOutputElement>('output[aria-label="Tautan undangan aman"]')?.textContent).toBe(
-        "http://localhost:3000/vaults/invitations/redeem#replacement-client-secret",
+        "http://localhost:4000/vaults/invitations/redeem#replacement-client-secret",
       ),
     );
     expect(mocks.createSharedVaultInvitation).toHaveBeenCalledWith(

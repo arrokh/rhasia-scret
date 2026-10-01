@@ -1,6 +1,10 @@
 "use client";
 
-import { browserAuthenticatedTransport, browserApiClient } from "@/shared/infrastructure/browser-api-client";
+import {
+  BrowserApiError,
+  browserAuthenticatedTransport,
+  browserApiClient,
+} from "@/shared/infrastructure/browser-api-client";
 import type {
   CancellationPort,
   EncryptedPayloadMigrationCommit,
@@ -34,8 +38,41 @@ export type DestructiveResetResult =
   | { status: "owned_shared_vaults_exist"; count: number }
   | { status: "passkey_recovery_available" };
 
-export function initializePersonalVault(request: PersonalVaultInitializationRequest): Promise<void> {
-  return browserApiClient.postEmpty("/api/v1/personal-vault/initialize", request);
+export type PersonalVaultInitializationFailureCategory =
+  | "invalid_request"
+  | "unauthenticated"
+  | "forbidden"
+  | "conflict"
+  | "rate_limited"
+  | "server_error"
+  | "unexpected_response"
+  | "transport_error";
+
+export class PersonalVaultInitializationError extends Error {
+  public constructor(public readonly category: PersonalVaultInitializationFailureCategory) {
+    super("Personal Vault initialization failed.");
+    this.name = "PersonalVaultInitializationError";
+  }
+}
+
+export async function initializePersonalVault(request: PersonalVaultInitializationRequest): Promise<void> {
+  try {
+    await browserApiClient.postEmpty("/api/v1/personal-vault/initialize", request);
+  } catch (error) {
+    throw new PersonalVaultInitializationError(
+      error instanceof BrowserApiError ? initializationFailureCategoryForStatus(error.status) : "transport_error",
+    );
+  }
+}
+
+function initializationFailureCategoryForStatus(status: number): PersonalVaultInitializationFailureCategory {
+  if (status === 400 || status === 422) return "invalid_request";
+  if (status === 401) return "unauthenticated";
+  if (status === 403) return "forbidden";
+  if (status === 409) return "conflict";
+  if (status === 429) return "rate_limited";
+  if (status >= 500) return "server_error";
+  return "unexpected_response";
 }
 
 export function createSharedVault(request: SharedVaultCreationRequest): Promise<{ id: string }> {

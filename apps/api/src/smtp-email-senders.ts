@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import nodemailer, { type SendMailOptions } from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import type { ApiEmailSenders } from "@api/types";
@@ -23,6 +24,7 @@ export type SmtpEnvironment = Readonly<{
   SMTP_REQUIRE_TLS?: string;
   SMTP_USER?: string;
   SMTP_PASSWORD?: string;
+  SMTP_TLS_CA?: string;
   AUTH_EMAIL_FROM?: string;
   AUTH_EMAIL_FROM_NAME?: string;
 }>;
@@ -35,6 +37,7 @@ export type SmtpEmailConfiguration = Readonly<{
     requireTls: boolean;
     user: string;
     password: string;
+    tlsCa?: string;
   }>;
   from: Readonly<{
     address: string;
@@ -76,6 +79,7 @@ export function readSmtpEmailConfiguration(env: SmtpEnvironment): SmtpEmailConfi
   const requireTls = readBoolean(env.SMTP_REQUIRE_TLS ?? "true", "SMTP_REQUIRE_TLS");
   const user = readRequired(env.SMTP_USER, "SMTP_USER");
   const password = readRequired(env.SMTP_PASSWORD, "SMTP_PASSWORD", false);
+  const tlsCa = readTlsCa(env.SMTP_TLS_CA);
   const address = readEmail(env.AUTH_EMAIL_FROM, "AUTH_EMAIL_FROM");
   const name = readHeaderValue(env.AUTH_EMAIL_FROM_NAME ?? "rhasia-scret", "AUTH_EMAIL_FROM_NAME");
 
@@ -85,7 +89,7 @@ export function readSmtpEmailConfiguration(env: SmtpEnvironment): SmtpEmailConfi
   if (production && smtpPort === 25) throw new Error("SMTP_PORT 25 is not allowed in production.");
 
   return {
-    smtp: { host: smtpHost, port: smtpPort, secure, requireTls, user, password },
+    smtp: { host: smtpHost, port: smtpPort, secure, requireTls, user, password, ...(tlsCa ? { tlsCa } : {}) },
     from: { address, name },
   };
 }
@@ -150,7 +154,7 @@ function createNodemailerTransport(
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
-    tls: { minVersion: "TLSv1.2" },
+    tls: { minVersion: "TLSv1.2", ...(configuration.tlsCa ? { ca: configuration.tlsCa } : {}) },
   });
 }
 
@@ -158,6 +162,17 @@ function readRequired(value: string | undefined, name: string, trim = true): str
   const normalized = trim ? value?.trim() : value;
   if (!normalized) throw new Error(`${name} is required.`);
   return normalized;
+}
+
+function readTlsCa(value: string | undefined): string | undefined {
+  const encoded = value?.trim();
+  if (!encoded) return undefined;
+  if (encoded.length > 16_384 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))
+    throw new Error("SMTP_TLS_CA must be a bounded base64-encoded certificate.");
+  const certificate = Buffer.from(encoded, "base64").toString("utf8");
+  if (!certificate.startsWith("-----BEGIN CERTIFICATE-----") || !certificate.includes("-----END CERTIFICATE-----"))
+    throw new Error("SMTP_TLS_CA must contain a PEM certificate.");
+  return certificate;
 }
 
 function readPort(value: string | undefined): number {

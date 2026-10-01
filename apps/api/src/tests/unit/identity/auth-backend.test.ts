@@ -4,7 +4,7 @@ import { readAuthConfiguration } from "@api/modules/identity/infrastructure/auth
 const requiredPasswordless = {
   AUTH_BACKEND: "passwordless",
   NODE_ENV: "test",
-  AUTH_APP_ORIGIN: "http://localhost:3000",
+  AUTH_APP_ORIGIN: "http://localhost:4000",
   AUTH_MAGIC_LINK_SECRET: "12345678901234567890123456789012",
   AUTH_SESSION_SECRET: "abcdefghijklmnopqrstuvwxyz123456",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
@@ -51,7 +51,7 @@ describe("authentication backend configuration", () => {
       readAuthConfiguration({
         ...requiredPasswordless,
         NODE_ENV: "production",
-        WEB_ORIGIN: "http://localhost:3000",
+        WEB_ORIGIN: "http://localhost:4000",
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       }),
@@ -60,7 +60,7 @@ describe("authentication backend configuration", () => {
       readAuthConfiguration({
         ...requiredPasswordless,
         NODE_ENV: "production",
-        WEB_ORIGIN: "http://localhost:3000",
+        WEB_ORIGIN: "http://localhost:4000",
         AUTH_APP_ORIGIN: "https://host.example.test",
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
@@ -72,7 +72,7 @@ describe("authentication backend configuration", () => {
     expect(readAuthConfiguration(requiredPasswordless)).toMatchObject({
       backend: "passwordless",
       passwordless: {
-        appOrigin: new URL("http://localhost:3000/"),
+        appOrigin: new URL("http://localhost:4000/"),
         magicLinkTtlSeconds: 900,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlSeconds: 2_592_000,

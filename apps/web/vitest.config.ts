@@ -22,6 +22,7 @@ export default defineConfig({
           name: "unit",
           include: ["src/tests/unit/**/*.test.ts"],
           environment: "node",
+          environmentOptions: { jsdom: { url: "http://localhost:4000" } },
           testTimeout: 15_000,
           setupFiles: ["src/tests/setup.ts"],
         },
