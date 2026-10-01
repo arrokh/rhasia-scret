@@ -7,7 +7,6 @@ const requiredPasswordless = {
   AUTH_APP_ORIGIN: "http://localhost:3000",
   AUTH_MAGIC_LINK_SECRET: "12345678901234567890123456789012",
   AUTH_SESSION_SECRET: "abcdefghijklmnopqrstuvwxyz123456",
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
   TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
 };
 
@@ -17,12 +16,11 @@ describe("authentication backend configuration", () => {
     expect(
       readAuthConfiguration({
         ...requiredPasswordless,
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
         TURNSTILE_SECRET_KEY: "",
       }),
     ).toMatchObject({
       backend: "passwordless",
-      passwordless: { turnstile: { siteKey: "", secretKey: "" } },
+      passwordless: { turnstile: { secretKey: "" } },
     });
   });
 
@@ -31,7 +29,6 @@ describe("authentication backend configuration", () => {
       readAuthConfiguration({
         ...requiredPasswordless,
         NODE_ENV: "production",
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "production-site-key",
         TURNSTILE_SECRET_KEY: "production-secret-key",
       }),
     ).toMatchObject({ backend: "passwordless" });
@@ -40,7 +37,6 @@ describe("authentication backend configuration", () => {
         ...requiredPasswordless,
         NODE_ENV: "production",
         AUTH_APP_ORIGIN: "http://vault.example.test",
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "production-site-key",
         TURNSTILE_SECRET_KEY: "production-secret-key",
       }),
     ).toThrow("HTTPS");
@@ -52,7 +48,6 @@ describe("authentication backend configuration", () => {
         ...requiredPasswordless,
         NODE_ENV: "production",
         WEB_ORIGIN: "http://localhost:3000",
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       }),
     ).toMatchObject({ backend: "passwordless" });
@@ -62,7 +57,6 @@ describe("authentication backend configuration", () => {
         NODE_ENV: "production",
         WEB_ORIGIN: "http://localhost:3000",
         AUTH_APP_ORIGIN: "https://host.example.test",
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       }),
     ).toThrow("testing keys are not allowed");
@@ -76,21 +70,19 @@ describe("authentication backend configuration", () => {
         magicLinkTtlSeconds: 900,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlSeconds: 2_592_000,
-        turnstile: {
-          siteKey: "1x00000000000000000000AA",
-          secretKey: "1x0000000000000000000000000000000AA",
-        },
+        turnstile: { secretKey: "1x0000000000000000000000000000000AA" },
       },
     });
     expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_MAGIC_LINK_SECRET: "short" })).toThrow(
       "AUTH_MAGIC_LINK_SECRET",
     );
-    expect(() => readAuthConfiguration({ ...requiredPasswordless, NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined })).toThrow(
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is configured",
-    );
-    expect(() => readAuthConfiguration({ ...requiredPasswordless, TURNSTILE_SECRET_KEY: undefined })).toThrow(
-      "TURNSTILE_SECRET_KEY is required when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured",
-    );
+    expect(
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        TURNSTILE_SECRET_KEY: "",
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-web-site-key",
+      }),
+    ).toMatchObject({ passwordless: { turnstile: { secretKey: "" } } });
     expect(() =>
       readAuthConfiguration({
         ...requiredPasswordless,

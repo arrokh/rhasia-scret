@@ -59,6 +59,7 @@ describe("API extraction ownership boundaries", () => {
     };
     const localDev = read("tools/run-local-dev.mjs");
     const compose = read("docker-compose.yml");
+    const apiComposeService = compose.match(/^  api:\n([\s\S]*?)^  web:/m)?.[1] ?? "";
     const productionMigrationCompose = read("docker-compose.prod-migration.yml");
     const rootPackage = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
     const migrationManifest = JSON.parse(read("tools/api-migration-runtime/package.json")) as {
@@ -146,6 +147,7 @@ describe("API extraction ownership boundaries", () => {
     expect(existsSync(resolve(repositoryRoot, "apps/api/wrangler.jsonc"))).toBe(false);
     expect(compose).not.toContain("OIDC_");
     expect(compose).not.toContain("AUTH_ADMITTED_EMAILS");
+    expect(apiComposeService).not.toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY");
     expect(productionMigrationCompose).toContain(
       "DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env.prod}",
     );

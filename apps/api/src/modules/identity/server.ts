@@ -152,10 +152,7 @@ export function createAnonymousAuthRateLimiter(
 }
 
 export function createTurnstileValidator(
-  bindings: Pick<
-    ApiBindings,
-    "NEXT_PUBLIC_TURNSTILE_SITE_KEY" | "TURNSTILE_SECRET_KEY" | "NODE_ENV" | "WEB_ORIGIN" | "AUTH_APP_ORIGIN"
-  >,
+  bindings: Pick<ApiBindings, "TURNSTILE_SECRET_KEY" | "NODE_ENV" | "WEB_ORIGIN" | "AUTH_APP_ORIGIN">,
 ): CloudflareTurnstileValidator {
   const configuration = readTurnstileConfiguration(bindings);
   return new CloudflareTurnstileValidator(configuration.secretKey || undefined);

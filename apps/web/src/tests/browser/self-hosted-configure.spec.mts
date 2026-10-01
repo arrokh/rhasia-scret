@@ -54,8 +54,18 @@ test("local setup wizard validates accessibly in both languages and saves withou
 
     const smtpPassword = page.getByLabel("SMTP password");
     await turnstileSecretKey.fill("synthetic-turnstile-secret");
+    await page.getByRole("button", { name: "Save .env" }).click();
+    await expect(turnstileSecretKey).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#turnstileSecretKey-error")).toHaveText(
+      "Enter both Turnstile keys or leave both blank.",
+    );
+    await turnstileSiteKey.fill("synthetic-turnstile-site-key");
+    await page.getByRole("button", { name: "Save .env" }).click();
+    await expect(turnstileSiteKey).toHaveAttribute("aria-invalid", "false");
+    await expect(turnstileSecretKey).toHaveAttribute("aria-invalid", "false");
     await smtpPassword.fill("synthetic-smtp-password");
     await page.getByLabel("Application authentication").selectOption("none");
+    await expect(turnstileSiteKey).toHaveValue("");
     await expect(turnstileSecretKey).toHaveValue("");
     await expect(smtpPassword).toHaveValue("");
     await page.getByLabel("Application authentication").selectOption("passwordless");
