@@ -101,6 +101,34 @@ export function setEnvValue(source, name, value) {
   return `${source.trimEnd()}\n${line}\n`;
 }
 
+export function findExistingSelfHostedDatabaseVolume({ root = repositoryRoot, run = spawnSync } = {}) {
+  const result = run(
+    "docker",
+    [
+      "volume",
+      "ls",
+      "--filter",
+      `label=com.docker.compose.project=${SELF_HOSTED_PROJECT_NAME}`,
+      "--format",
+      "{{.Name}}",
+    ],
+    { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  if (result.error || result.status !== 0) {
+    throw new Error("Unable to inspect Docker volumes. Start the Docker daemon and retry configuration.");
+  }
+
+  const expectedVolume = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  const volumes = (result.stdout ?? "").split(/\r?\n/u);
+  return volumes.includes(expectedVolume) ? expectedVolume : null;
+}
+
+export function findExistingSelfHostedDatabaseVolumeWithoutEnvironment(options = {}) {
+  const root = options.root ?? repositoryRoot;
+  if (existsSync(resolve(root, ".env"))) return null;
+  return findExistingSelfHostedDatabaseVolume(options);
+}
+
 export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "local" } = {}) {
   const envPath = resolve(root, ".env");
   const examplePath = resolve(root, ".env.example");
@@ -205,6 +233,17 @@ export function selfHostedUpComposeCommands() {
   };
 }
 
+export function selfHostedDatabaseAuthenticationCheckCommand() {
+  return [
+    "exec",
+    "-T",
+    "db",
+    "sh",
+    "-c",
+    'PGPASSWORD="$POSTGRES_PASSWORD" psql --no-password --host=db --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-psqlrc --quiet --tuples-only --no-align --command="SELECT 1"',
+  ];
+}
+
 export function loadContext(root = repositoryRoot, { requireEnvironment = true } = {}) {
   const envPath = resolve(root, ".env");
   const hasEnvironment = existsSync(envPath);
@@ -237,6 +276,14 @@ function main(command, root = repositoryRoot) {
 
 function setup(root) {
   const commitSha = readCommitSha(root);
+  verifyDocker(root);
+  const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
+  if (existingVolume) {
+    throw new Error(
+      `Existing self-hosted PostgreSQL data volume "${existingVolume}" found, but .env is missing. Restore the original .env with the volume's database password before setup. No new credentials were written.`,
+    );
+  }
+
   const environment = ensureLocalEnvironment({ root, commitSha });
   if (environment.created) {
     console.log("Created .env with local-only authentication and generated local secrets.");
@@ -246,12 +293,19 @@ function setup(root) {
   }
 
   const context = loadContext(root);
-  verifyDocker(root);
   verifyEnvironment(context);
   runCommand(pnpmCommand, ["install", "--frozen-lockfile"], { cwd: root, label: "pnpm install" });
   verifyDeploymentConfiguration(root);
   runCompose(context, ["config", "--quiet"]);
   runCompose(context, ["up", "-d", "--wait", "--wait-timeout", "120", "db"]);
+  try {
+    runCompose(context, selfHostedDatabaseAuthenticationCheckCommand());
+  } catch {
+    throw new Error(
+      "The configured PostgreSQL credentials cannot authenticate to the existing database volume. Restore the original .env credentials before migration; no migration was run.",
+    );
+  }
+
   runCommand(process.execPath, ["tools/confirm-database-operation.mjs", "the self-hosted database migration"], {
     cwd: root,
     label: "database migration confirmation",

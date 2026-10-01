@@ -20,7 +20,12 @@ import { build } from "esbuild";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { isDnsName, setEnvValue, validateSelfHostedEnvironment } from "./self-hosted.mjs";
+import {
+  findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
+  isDnsName,
+  setEnvValue,
+  validateSelfHostedEnvironment,
+} from "./self-hosted.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { renderConfigurationPage } from "./self-hosted-configure-page.mjs";
 
@@ -98,6 +103,8 @@ const copy = {
     privacy: "Jangan masukkan TOTP, OTP, QR, Vault key, atau konten Vault di sini.",
     saving: "Memvalidasi dan menyimpan konfigurasi…",
     saved: ".env dibuat dengan izin file 0600. Tutup tab ini, lalu jalankan pnpm selfhosted:setup.",
+    existingDatabaseVolume:
+      "Volume data PostgreSQL self-hosted {volume} sudah ada, tetapi .env tidak ditemukan. Pulihkan .env asli yang berisi password database volume tersebut sebelum konfigurasi.",
     cancelled: "Wizard ditutup. Tidak ada konfigurasi yang disimpan.",
     invalid: "Konfigurasi belum valid. Periksa kolom yang ditandai dan coba lagi.",
     invalidField: "Periksa nilai pada kolom ini.",
@@ -146,6 +153,8 @@ const copy = {
     privacy: "Do not enter TOTP, OTP, QR, Vault keys, or Vault content here.",
     saving: "Validating and saving configuration…",
     saved: ".env was created with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+    existingDatabaseVolume:
+      "Existing self-hosted PostgreSQL data volume {volume} was found, but .env is missing. Restore the original .env containing that volume's database password before configuring.",
     cancelled: "The wizard is closed. No configuration was saved.",
     invalid: "The configuration is invalid. Check the highlighted fields and try again.",
     invalidField: "Check this field value.",
@@ -202,6 +211,8 @@ const terminalCopy = {
     invalid: "Konfigurasi belum valid. Periksa kolom berikut lalu masukkan kembali nilainya:",
     cancelled: "Dibatalkan. Tidak ada konfigurasi yang disimpan.",
     saved: ".env berhasil dibuat dengan izin file 0600. Jalankan pnpm selfhosted:setup untuk melanjutkan.",
+    existingDatabaseVolume:
+      "Volume data PostgreSQL self-hosted {volume} sudah ada, tetapi .env tidak ditemukan. Pulihkan .env asli yang berisi password database volume tersebut sebelum konfigurasi.",
     nextSteps: "Langkah berikutnya",
     terminalRequired:
       "Wizard terminal memerlukan terminal interaktif (TTY) / The terminal wizard requires an interactive terminal (TTY).",
@@ -243,6 +254,8 @@ const terminalCopy = {
     invalid: "The configuration is invalid. Review these fields and enter their values again:",
     cancelled: "Cancelled. No configuration was saved.",
     saved: ".env was created with file mode 0600. Run pnpm selfhosted:setup to continue.",
+    existingDatabaseVolume:
+      "Existing self-hosted PostgreSQL data volume {volume} was found, but .env is missing. Restore the original .env containing that volume's database password before configuring.",
     nextSteps: "Next steps",
     terminalRequired:
       "The terminal wizard requires an interactive terminal (TTY) / Wizard terminal memerlukan terminal interaktif (TTY).",
@@ -330,6 +343,12 @@ export async function startConfigurationWizard({
   if (host !== "127.0.0.1") throw new Error("The setup wizard can only bind to 127.0.0.1.");
   const envPath = resolve(root, ".env");
   if (existsSync(envPath)) throw new Error(".env already exists; the setup wizard will not overwrite it.");
+  if (root === repositoryRoot) {
+    const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
+    if (existingVolume) {
+      throw new Error(copy.en.existingDatabaseVolume.replace("{volume}", existingVolume));
+    }
+  }
   const suggestedTailscaleOrigin = normalizeTailscaleOrigin(
     tailscaleOrigin === undefined ? discoverTailscaleOrigin() : tailscaleOrigin,
   );
@@ -787,6 +806,12 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   printNotice(strings.privacy, "warning");
   if (existsSync(envPath)) {
     printNotice(strings.conflict, "error");
+    process.exitCode = 1;
+    return;
+  }
+  const existingVolume = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({ root });
+  if (existingVolume) {
+    printNotice(messages.existingDatabaseVolume.replace("{volume}", existingVolume), "error");
     process.exitCode = 1;
     return;
   }

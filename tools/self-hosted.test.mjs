@@ -10,7 +10,10 @@ import {
   composeArguments,
   createSelfHostedCommandEnvironment,
   ensureLocalEnvironment,
+  findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
   parseEnvFile,
+  SELF_HOSTED_PROJECT_NAME,
+  selfHostedDatabaseAuthenticationCheckCommand,
   selfHostedUpComposeCommands,
   setEnvValue,
   validateSelfHostedEnvironment,
@@ -272,6 +275,46 @@ test("rejects unsafe database passwords and malformed origins", () => {
   assert.ok(nonLocalHttpErrors.some((error) => error.includes("API_ORIGIN") && error.includes("HTTPS")));
 });
 
+test("detects an existing self-hosted database volume before creating a missing .env", () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-existing-volume-"));
+  const volumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  let inspected = false;
+  try {
+    const result = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({
+      root,
+      run: (command, arguments_, options) => {
+        inspected = true;
+        assert.equal(command, "docker");
+        assert.deepEqual(arguments_.slice(0, 2), ["volume", "ls"]);
+        assert.equal(options.encoding, "utf8");
+        return { status: 0, stdout: `${volumeName}\n` };
+      },
+    });
+
+    assert.equal(result, volumeName);
+    assert.equal(inspected, true);
+    assert.equal(existsSync(join(root, ".env")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("skips the fresh-environment volume check when .env already exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-configured-volume-"));
+  try {
+    writeFileSync(join(root, ".env"), "POSTGRES_PASSWORD=synthetic-database-password\n", { mode: 0o600 });
+    const result = findExistingSelfHostedDatabaseVolumeWithoutEnvironment({
+      root,
+      run: () => {
+        throw new Error("The volume command must not run for an existing .env.");
+      },
+    });
+    assert.equal(result, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("validates explicit Docker bind addresses and published ports", () => {
   const valid = {
     POSTGRES_PASSWORD: "local-database-password",
@@ -436,6 +479,19 @@ test("builds images before starting without a second image pull", () => {
     build: ["build"],
     start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
   });
+});
+
+test("database credential preflight uses the running container environment for a read-only query", () => {
+  const command = selfHostedDatabaseAuthenticationCheckCommand();
+
+  assert.deepEqual(command.slice(0, 5), ["exec", "-T", "db", "sh", "-c"]);
+  assert.match(command[5], /PGPASSWORD="\$POSTGRES_PASSWORD"/u);
+  assert.match(command[5], /--host=db/u);
+  assert.doesNotMatch(command[5], /--host=127\.0\.0\.1/u);
+  assert.match(command[5], /--username="\$POSTGRES_USER"/u);
+  assert.match(command[5], /--dbname="\$POSTGRES_DB"/u);
+  assert.match(command[5], /--command="SELECT 1"/u);
+  assert.doesNotMatch(command.join(" "), /synthetic-database-password/iu);
 });
 
 test("publishes the self-hosted web port on loopback by default and honors a bind address override", () => {
