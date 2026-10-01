@@ -20,7 +20,7 @@ import {
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
-import { runSelfHostedInstall } from "./self-hosted-install.mjs";
+import { confirmPublicFunnel, readConfiguredTailscaleMode, runSelfHostedInstall } from "./self-hosted-install.mjs";
 import { applyTerminalTailscaleChoice, askLanguage, startConfigurationWizard } from "./self-hosted-configure.mjs";
 import { WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS } from "./verify-deployment-config.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
@@ -67,6 +67,7 @@ test("self-hosted install uses the terminal configuration wizard by default", as
       if (step.command === "pnpm selfhosted:configure") configureArguments = step.args;
       return 0;
     },
+    readTailscaleMode: () => "none",
   });
 
   assert.equal(exitCode, 0);
@@ -99,6 +100,88 @@ test("self-hosted install rejects unsupported arguments before running a step", 
 
   assert.equal(exitCode, 2);
   assert.equal(stepsStarted, 0);
+});
+
+test("self-hosted install enables selected Serve after application startup", async () => {
+  const calls = [];
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    runStep: async (step) => {
+      calls.push(step);
+      return 0;
+    },
+    readTailscaleMode: () => "serve",
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(
+    calls.map(({ command }) => command),
+    ["pnpm selfhosted:configure", "pnpm selfhosted:setup", "pnpm selfhosted:up", "pnpm selfhosted:tailscale serve"],
+  );
+  assert.deepEqual(calls[3].args, ["serve"]);
+});
+
+test("self-hosted install requires PUBLIC confirmation before enabling Funnel", async () => {
+  const events = [];
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    runStep: async (step) => {
+      events.push(step.command);
+      return 0;
+    },
+    readTailscaleMode: () => "funnel",
+    confirmFunnel: async () => {
+      events.push("confirm-public");
+      return true;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(events, [
+    "pnpm selfhosted:configure",
+    "pnpm selfhosted:setup",
+    "pnpm selfhosted:up",
+    "confirm-public",
+    "pnpm selfhosted:tailscale funnel --confirm-public",
+  ]);
+});
+
+test("declining Funnel confirmation leaves completed self-hosted services running", async () => {
+  const commands = [];
+  const exitCode = await runSelfHostedInstall({
+    root: "/synthetic/repository",
+    runStep: async (step) => {
+      commands.push(step.command);
+      return 0;
+    },
+    readTailscaleMode: () => "funnel",
+    confirmFunnel: async () => false,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(commands, ["pnpm selfhosted:configure", "pnpm selfhosted:setup", "pnpm selfhosted:up"]);
+});
+
+test("Funnel confirmation requires the exact PUBLIC token and an interactive terminal", async () => {
+  assert.equal(await confirmPublicFunnel({ ask: async () => "PUBLIC" }), true);
+  assert.equal(await confirmPublicFunnel({ ask: async () => "public" }), false);
+  await assert.rejects(
+    confirmPublicFunnel({ input: { isTTY: false }, output: { isTTY: false } }),
+    /interactive terminal/u,
+  );
+});
+
+test("self-hosted install reads the route choice from .env and defaults older configurations to none", () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-install-mode-"));
+  try {
+    assert.equal(readConfiguredTailscaleMode(root), "none");
+    writeFileSync(join(root, ".env"), "SELF_HOSTED_TAILSCALE_MODE=funnel\n");
+    assert.equal(readConfiguredTailscaleMode(root), "funnel");
+    writeFileSync(join(root, ".env"), "SELF_HOSTED_TAILSCALE_MODE=unexpected\n");
+    assert.throws(() => readConfiguredTailscaleMode(root), /must be none, serve, or funnel/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("root deployment configuration verification keeps API-only values out of the web check", () => {
@@ -221,6 +304,11 @@ test("validates the minimum local Compose contract", () => {
 
   const mismatchErrors = validateSelfHostedEnvironment({ ...valid, API_PROXY_SECRET: "a".repeat(32) });
   assert.ok(mismatchErrors.some((error) => error.includes("must match")));
+  assert.ok(
+    validateSelfHostedEnvironment({ ...valid, SELF_HOSTED_TAILSCALE_MODE: "public" }).some((error) =>
+      error.includes("SELF_HOSTED_TAILSCALE_MODE must be none, serve, or funnel"),
+    ),
+  );
 });
 
 test("allows localhost HTTP while requiring HTTPS for non-local authentication", () => {
@@ -725,8 +813,10 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.equal(wizardClient.status, 200);
     assert.match(wizardClient.headers.get("content-type"), /javascript/u);
     assert.ok(wizardClient.body.length > 1_000, "The authenticated wizard should receive its form client.");
+    assert.match(wizardClient.body, /tailscaleMode/u);
     const submission = {
       authBackend: "passwordless",
+      tailscaleMode: "none",
       webOrigin: "https://vault.example.test",
       turnstileSiteKey: "synthetic-turnstile-site-key",
       turnstileSecretKey: "synthetic-turnstile-secret-key",
@@ -850,6 +940,7 @@ test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused prov
     const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
     const submission = {
       authBackend: "none",
+      tailscaleMode: "none",
       webOrigin: "https://node.example.test",
       turnstileSiteKey: "synthetic-turnstile-site-key",
       turnstileSecretKey: "synthetic-turnstile-secret-key",
@@ -901,6 +992,7 @@ test("wizard enables trusted proxy headers for passwordless on the detected Tail
     const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
     const submission = {
       authBackend: "passwordless",
+      tailscaleMode: "serve",
       webOrigin: "https://node.example.test",
       turnstileSiteKey: "synthetic-turnstile-site-key",
       turnstileSecretKey: "synthetic-turnstile-secret-key",
@@ -916,6 +1008,19 @@ test("wizard enables trusted proxy headers for passwordless on the detected Tail
       appBindAddress: "127.0.0.1",
       appPort: "3000",
     };
+    const mismatchedTailscaleOrigin = await requestWizard(`${wizard.url}configure`, {
+      method: "POST",
+      headers: {
+        cookie: setupCookie,
+        origin: new URL(wizard.url).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ ...submission, webOrigin: "https://vault.example.test" }),
+    });
+    assert.equal(mismatchedTailscaleOrigin.status, 400);
+    assert.match(mismatchedTailscaleOrigin.body, /webOrigin:tailscale_origin/u);
+    assert.equal(existsSync(join(root, ".env")), false);
+
     const response = await requestWizard(`${wizard.url}configure`, {
       method: "POST",
       headers: {
@@ -930,6 +1035,8 @@ test("wizard enables trusted proxy headers for passwordless on the detected Tail
 
     const values = parseEnvFile(readFileSync(join(root, ".env"), "utf8"));
     assert.equal(values.AUTH_BACKEND, "passwordless");
+    assert.equal(values.SELF_HOSTED_TAILSCALE_MODE, "serve");
+    assert.equal(values.AUTH_TRUST_PROXY_HEADERS, "true");
     assert.equal(values.WEB_ORIGIN, "https://node.example.test");
     assert.equal(values.AUTH_APP_ORIGIN, "https://node.example.test");
     assert.equal(values.AUTH_TRUST_PROXY_HEADERS, "true");

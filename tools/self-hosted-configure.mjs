@@ -35,6 +35,7 @@ const MAX_REQUEST_BYTES = 16 * 1024;
 const SESSION_LIFETIME_MS = 10 * 60 * 1000;
 const defaultSetupValues = {
   authBackend: "none",
+  tailscaleMode: "none",
   webOrigin: "http://localhost:3000",
   turnstileSiteKey: "",
   turnstileSecretKey: "",
@@ -53,6 +54,7 @@ const defaultSetupValues = {
 const setupSubmissionSchema = z
   .object({
     authBackend: z.enum(["none", "passwordless"]),
+    tailscaleMode: z.enum(["none", "serve", "funnel"]),
     webOrigin: z.string().max(512),
     turnstileSiteKey: z.string().max(1024),
     turnstileSecretKey: z.string().max(1024),
@@ -90,6 +92,13 @@ const copy = {
     fromAddress: "Alamat email pengirim",
     fromName: "Nama pengirim",
     useTailscaleOrigin: "Gunakan origin Tailscale yang terdeteksi: {origin}",
+    tailscaleMode: "Ekspos aplikasi melalui Tailscale setelah instalasi",
+    tailscaleModeNone: "Jangan aktifkan Tailscale",
+    tailscaleModeServe: "Serve — hanya untuk tailnet",
+    tailscaleModeFunnel: "Funnel — publik di internet",
+    tailscaleModeHelp: "Install akan mengaktifkan pilihan Tailscale ini setelah aplikasi sehat.",
+    tailscaleFunnelHelp:
+      "Funnel dapat diakses publik. Setelah aplikasi sehat, install akan meminta Anda mengetik PUBLIC sebelum dibuka ke internet.",
     passkeyEnabled: "Konfigurasikan origin passkey",
     passkeyRp: "Passkey RP ID (hostname)",
     passkeyOrigin: "Passkey origin",
@@ -140,6 +149,13 @@ const copy = {
     fromAddress: "Sender email address",
     fromName: "Sender name",
     useTailscaleOrigin: "Use detected Tailscale origin: {origin}",
+    tailscaleMode: "Expose the app through Tailscale after installation",
+    tailscaleModeNone: "Do not enable Tailscale",
+    tailscaleModeServe: "Serve — tailnet only",
+    tailscaleModeFunnel: "Funnel — public internet",
+    tailscaleModeHelp: "Install enables this Tailscale selection after the app is healthy.",
+    tailscaleFunnelHelp:
+      "Funnel is publicly reachable. After the app is healthy, install asks you to type PUBLIC before opening it to the internet.",
     passkeyEnabled: "Configure passkey origin",
     passkeyRp: "Passkey RP ID (hostname)",
     passkeyOrigin: "Passkey origin",
@@ -203,9 +219,9 @@ const terminalCopy = {
     tailscaleNotConnected:
       "Tailscale CLI terpasang, tetapi host belum terhubung atau origin MagicDNS belum tersedia. Hubungkan Tailscale lalu jalankan wizard kembali untuk menyiapkan eksposur.",
     tailscaleServeNextStep:
-      "Setelah pnpm selfhosted:setup dan pnpm selfhosted:up selesai, aktifkan Serve dengan: pnpm selfhosted:tailscale serve",
+      "pnpm selfhosted:install akan mengaktifkan Serve setelah health check. Jika setup dijalankan per tahap, jalankan pnpm selfhosted:tailscale serve setelah pnpm selfhosted:up.",
     tailscaleFunnelNextStep:
-      "Setelah pnpm selfhosted:setup dan pnpm selfhosted:up selesai, aktifkan Funnel publik hanya setelah meninjau konsekuensinya: pnpm selfhosted:tailscale funnel --confirm-public",
+      "pnpm selfhosted:install akan meminta konfirmasi PUBLIC setelah health check sebelum mengaktifkan Funnel. Jika setup dijalankan per tahap, jalankan pnpm selfhosted:tailscale funnel --confirm-public setelah pnpm selfhosted:up.",
     chooseValue: "Pilih salah satu opsi yang ditampilkan.",
     chooseYesNo: "Jawab ya atau tidak.",
     invalid: "Konfigurasi belum valid. Periksa kolom berikut lalu masukkan kembali nilainya:",
@@ -246,9 +262,9 @@ const terminalCopy = {
     tailscaleNotConnected:
       "The Tailscale CLI is installed, but this host is not connected or no MagicDNS origin is available. Connect Tailscale and rerun the wizard to prepare exposure.",
     tailscaleServeNextStep:
-      "After pnpm selfhosted:setup and pnpm selfhosted:up complete, enable Serve with: pnpm selfhosted:tailscale serve",
+      "pnpm selfhosted:install enables Serve after the health check. When setting up each stage separately, run pnpm selfhosted:tailscale serve after pnpm selfhosted:up.",
     tailscaleFunnelNextStep:
-      "After pnpm selfhosted:setup and pnpm selfhosted:up complete, enable public Funnel only after reviewing its implications: pnpm selfhosted:tailscale funnel --confirm-public",
+      "pnpm selfhosted:install asks you to type PUBLIC after the health check before enabling Funnel. When setting up each stage separately, run pnpm selfhosted:tailscale funnel --confirm-public after pnpm selfhosted:up.",
     chooseValue: "Choose one of the listed options.",
     chooseYesNo: "Answer yes or no.",
     invalid: "The configuration is invalid. Review these fields and enter their values again:",
@@ -463,7 +479,7 @@ export async function startConfigurationWizard({
       sendJson(response, 400, { error: "invalid_request" });
       return;
     }
-    const validation = validateSubmission(parsed.data);
+    const validation = validateSubmission(parsed.data, suggestedTailscaleOrigin);
     if (validation.errors.length > 0) {
       sendJson(response, 400, { error: "invalid_configuration", fields: validation.errors });
       return;
@@ -471,6 +487,7 @@ export async function startConfigurationWizard({
 
     const useTailscaleProxy =
       validation.submission.authBackend === "passwordless" &&
+      validation.submission.tailscaleMode !== "none" &&
       suggestedTailscaleOrigin !== null &&
       validation.submission.webOrigin === suggestedTailscaleOrigin;
     const source = createEnvironmentSource({
@@ -549,7 +566,7 @@ async function readJsonBody(request) {
   return value;
 }
 
-function validateSubmission(value) {
+function validateSubmission(value, tailscaleOrigin) {
   const errors = [];
   const submission = Object.fromEntries(
     Object.entries(value).map(([field, candidate]) => [
@@ -571,6 +588,13 @@ function validateSubmission(value) {
   if (!isIPv4(bindAddress)) errors.push("appBindAddress:invalid");
   if (!/^\d+$/u.test(submission.appPort) || Number(submission.appPort) < 1 || Number(submission.appPort) > 65535) {
     errors.push("appPort:invalid");
+  }
+
+  if (submission.tailscaleMode !== "none") {
+    const expectedOrigin = normalizeTailscaleOrigin(tailscaleOrigin);
+    if (!expectedOrigin) errors.push("tailscaleMode:unavailable");
+    else if (submission.webOrigin !== expectedOrigin) errors.push("webOrigin:tailscale_origin");
+    if (bindAddress !== "127.0.0.1") errors.push("appBindAddress:tailscale_bind");
   }
 
   if (submission.authBackend === "passwordless") {
@@ -622,6 +646,7 @@ function validateSubmission(value) {
     AUTH_APP_ORIGIN: submission.webOrigin,
     APP_BIND_ADDRESS: bindAddress,
     APP_PORT: submission.appPort,
+    SELF_HOSTED_TAILSCALE_MODE: submission.tailscaleMode,
   });
   if (environmentErrors.length > 0) errors.push("webOrigin:invalid");
   return { errors: [...new Set(errors)], submission: { ...submission, appBindAddress: bindAddress } };
@@ -664,6 +689,7 @@ function createEnvironmentSource({ root, commitSha, submission, trustTailscalePr
     POSTGRES_PASSWORD: databasePassword,
     APP_BIND_ADDRESS: submission.appBindAddress,
     APP_PORT: submission.appPort,
+    SELF_HOSTED_TAILSCALE_MODE: submission.tailscaleMode ?? "none",
     COMMIT_SHA: commitSha ?? readCommitSha(root),
   };
   return Object.entries(values).reduce(
@@ -832,6 +858,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   } else if (isTailscaleInstalled()) {
     printNotice(messages.tailscaleNotConnected, "warning");
   }
+  submission.tailscaleMode = tailscaleMode ?? "none";
 
   printSection(messages.authSection);
   printOptionList([
@@ -902,7 +929,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   const secretFields = new Set(["turnstileSecretKey", "smtpPassword"]);
 
   while (true) {
-    const validation = validateTerminalSubmission(submission);
+    const validation = validateTerminalSubmission(submission, suggestedTailscaleOrigin);
     if (validation.errors.length === 0) {
       Object.assign(submission, validation.submission);
       break;
@@ -926,11 +953,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
       root,
       commitSha,
       submission,
-      trustTailscaleProxy: Boolean(
-        suggestedTailscaleOrigin &&
-        submission.webOrigin === suggestedTailscaleOrigin &&
-        submission.authBackend === "passwordless",
-      ),
+      trustTailscaleProxy: Boolean(tailscaleMode && submission.authBackend === "passwordless"),
     });
     writeEnvironmentExclusive(envPath, source);
   } catch (error) {
@@ -948,7 +971,7 @@ async function configureFromTerminal({ root = repositoryRoot, commitSha, tailsca
   if (tailscaleMode === "funnel") printNotice(messages.tailscaleFunnelNextStep, "warning");
 }
 
-function validateTerminalSubmission(value) {
+function validateTerminalSubmission(value, tailscaleOrigin) {
   const parsed = setupSubmissionSchema.safeParse(value);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
@@ -957,7 +980,7 @@ function validateTerminalSubmission(value) {
     });
     return { errors, submission: value };
   }
-  return validateSubmission(parsed.data);
+  return validateSubmission(parsed.data, tailscaleOrigin);
 }
 
 export async function askLanguage({ ask = askQuestion, notify = printNotice } = {}) {

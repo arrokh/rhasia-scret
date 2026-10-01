@@ -7,6 +7,7 @@ import { useForm } from "@tanstack/react-form";
 type Locale = "id" | "en";
 type SetupValues = {
   authBackend: "none" | "passwordless";
+  tailscaleMode: "none" | "serve" | "funnel";
   webOrigin: string;
   turnstileSiteKey: string;
   turnstileSecretKey: string;
@@ -22,7 +23,7 @@ type SetupValues = {
   appBindAddress: string;
   appPort: string;
 };
-type SetupStringField = Exclude<keyof SetupValues, "authBackend" | "passkeyEnabled">;
+type SetupStringField = Exclude<keyof SetupValues, "authBackend" | "passkeyEnabled" | "tailscaleMode">;
 type SetupCopy = {
   title: string;
   intro: string;
@@ -40,6 +41,12 @@ type SetupCopy = {
   fromAddress: string;
   fromName: string;
   useTailscaleOrigin: string;
+  tailscaleMode: string;
+  tailscaleModeNone: string;
+  tailscaleModeServe: string;
+  tailscaleModeFunnel: string;
+  tailscaleModeHelp: string;
+  tailscaleFunnelHelp: string;
   passkeyEnabled: string;
   passkeyRp: string;
   passkeyOrigin: string;
@@ -76,6 +83,7 @@ declare global {
 
 const defaultValues: SetupValues = {
   authBackend: "none",
+  tailscaleMode: "none",
   webOrigin: "http://localhost:3000",
   turnstileSiteKey: "",
   turnstileSecretKey: "",
@@ -160,6 +168,7 @@ function SetupWizard() {
     autoComplete = "off",
     inputMode,
     required = false,
+    disabled = false,
   }: {
     name: SetupStringField;
     label: string;
@@ -168,6 +177,7 @@ function SetupWizard() {
     autoComplete?: string;
     inputMode?: "numeric";
     required?: boolean;
+    disabled?: boolean;
   }) {
     return (
       <form.Field key={name} name={name} validators={validators(name)}>
@@ -189,6 +199,7 @@ function SetupWizard() {
                 maxLength={maxLength}
                 inputMode={inputMode}
                 spellCheck={false}
+                disabled={disabled}
                 aria-required={required}
                 aria-invalid={invalid}
                 aria-describedby={invalid ? `${name}-error` : undefined}
@@ -250,6 +261,17 @@ function SetupWizard() {
   function useDetectedOrigin() {
     if (!tailscaleOrigin) return;
     form.setFieldValue("webOrigin", tailscaleOrigin);
+    setStatus(null);
+  }
+
+  function selectTailscaleMode(tailscaleMode: SetupValues["tailscaleMode"]) {
+    form.setFieldValue("tailscaleMode", tailscaleMode);
+    if (tailscaleMode !== "none" && tailscaleOrigin) {
+      form.setFieldValue("webOrigin", tailscaleOrigin);
+      form.setFieldMeta("webOrigin", (previous) => ({ ...previous, errors: [] }));
+      form.setFieldValue("appBindAddress", "127.0.0.1");
+      form.setFieldMeta("appBindAddress", (previous) => ({ ...previous, errors: [] }));
+    }
     setStatus(null);
   }
 
@@ -337,7 +359,41 @@ function SetupWizard() {
             </p>
           )}
         </form.Subscribe>
-        {renderTextField({ name: "webOrigin", label: copy.origin, maxLength: 512, required: true })}
+        {tailscaleOrigin ? (
+          <form.Field name="tailscaleMode">
+            {(field) => (
+              <div>
+                <label htmlFor="tailscaleMode">
+                  <span>{copy.tailscaleMode}</span>
+                  <select
+                    id="tailscaleMode"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => selectTailscaleMode(event.target.value as SetupValues["tailscaleMode"])}
+                  >
+                    <option value="none">{copy.tailscaleModeNone}</option>
+                    <option value="serve">{copy.tailscaleModeServe}</option>
+                    <option value="funnel">{copy.tailscaleModeFunnel}</option>
+                  </select>
+                </label>
+                <p className="hint">
+                  {field.state.value === "funnel" ? copy.tailscaleFunnelHelp : copy.tailscaleModeHelp}
+                </p>
+              </div>
+            )}
+          </form.Field>
+        ) : null}
+        <form.Subscribe selector={(state) => state.values.tailscaleMode}>
+          {(tailscaleMode) =>
+            renderTextField({
+              name: "webOrigin",
+              label: copy.origin,
+              maxLength: 512,
+              required: true,
+              disabled: tailscaleMode !== "none",
+            })
+          }
+        </form.Subscribe>
         {tailscaleOrigin ? (
           <button
             type="button"
@@ -437,7 +493,16 @@ function SetupWizard() {
         </form.Subscribe>
         <details>
           <summary>{copy.advanced}</summary>
-          {renderTextField({ name: "appBindAddress", label: copy.bindAddress, maxLength: 15 })}
+          <form.Subscribe selector={(state) => state.values.tailscaleMode}>
+            {(tailscaleMode) =>
+              renderTextField({
+                name: "appBindAddress",
+                label: copy.bindAddress,
+                maxLength: 15,
+                disabled: tailscaleMode !== "none",
+              })
+            }
+          </form.Subscribe>
           <p className="hint">{copy.bindHelp}</p>
           {renderTextField({ name: "appPort", label: copy.appPort, maxLength: 5, inputMode: "numeric" })}
         </details>

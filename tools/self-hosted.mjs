@@ -22,6 +22,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requiredComposeValues = ["POSTGRES_PASSWORD", "PROXY_SECRET", "API_PROXY_SECRET", "CRON_SECRET"];
 const requiredOrigins = ["WEB_ORIGIN", "API_ORIGIN"];
 const supportedAuthBackends = new Set(["none", "passwordless"]);
+const supportedTailscaleModes = new Set(["none", "serve", "funnel"]);
 const placeholderPattern = /^replace-with-/i;
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -71,6 +72,11 @@ export function validateSelfHostedEnvironment(values) {
     errors.push("AUTH_BACKEND must be set explicitly to none or passwordless.");
   } else if (!supportedAuthBackends.has(backend)) {
     errors.push("AUTH_BACKEND must be none or passwordless.");
+  }
+
+  const tailscaleMode = values.SELF_HOSTED_TAILSCALE_MODE?.trim();
+  if (tailscaleMode && !supportedTailscaleModes.has(tailscaleMode)) {
+    errors.push("SELF_HOSTED_TAILSCALE_MODE must be none, serve, or funnel.");
   }
 
   for (const name of requiredOrigins) {
