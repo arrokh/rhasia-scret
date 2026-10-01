@@ -18,6 +18,7 @@ import {
 import { EmailSignInForm } from "@/modules/identity/presentation/email-sign-in-form";
 import { InvitationAuthContinuation } from "@/modules/identity/presentation/invitation-auth-continuation";
 import { readAuthConfiguration, type AuthBackend } from "@/modules/identity/infrastructure/auth-backend";
+import { readRuntimeTurnstileSiteKey } from "@/modules/identity/infrastructure/turnstile-configuration";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     }
   }
   const user = context?.user;
-  const turnstileSiteKey = backend === "passwordless" ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY : undefined;
+  // The self-hosted image receives this public key at runtime, after `next build`.
+  const turnstileSiteKey = backend === "passwordless" ? readRuntimeTurnstileSiteKey() : undefined;
   if (user) redirect(nextPath);
 
   const notice = authNotice(
