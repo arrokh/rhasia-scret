@@ -132,6 +132,59 @@ describe("web API proxy", () => {
     expect(new Headers(options.headers).get("origin")).toBe("http://localhost:3000");
   });
 
+  it("accepts the canonical browser origin forwarded by a trusted HTTPS proxy", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    process.env.AUTH_TRUST_PROXY_HEADERS = "true";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    const response = await POST(
+      new NextRequest("http://127.0.0.1:3000/api/v1/auth/magic-link/request", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://web.example.test",
+          "x-forwarded-host": "web.example.test",
+          "x-forwarded-proto": "https",
+        },
+        body: JSON.stringify({ email: "user@example.test", client: "web" }),
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "magic-link", "request"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
+    expect(new Headers(options.headers).get("origin")).toBe("https://web.example.test");
+  });
+
+  it("rejects a mismatched browser origin even behind a trusted HTTPS proxy", async () => {
+    process.env.API_ORIGIN = "https://api.example.test";
+    process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
+    process.env.WEB_ORIGIN = "https://web.example.test";
+    process.env.AUTH_TRUST_PROXY_HEADERS = "true";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
+
+    const response = await POST(
+      new NextRequest("http://127.0.0.1:3000/api/v1/auth/magic-link/request", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://attacker.example.test",
+          "x-forwarded-host": "web.example.test",
+          "x-forwarded-proto": "https",
+        },
+        body: JSON.stringify({ email: "user@example.test", client: "web" }),
+      }),
+      { params: Promise.resolve({ path: ["v1", "auth", "magic-link", "request"] }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "same_origin_required" });
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
   it("forwards only a trusted proxy-derived client IP", async () => {
     process.env.API_ORIGIN = "https://api.example.test";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
@@ -187,11 +240,19 @@ describe("web API proxy", () => {
     process.env.API_ORIGIN = "https://api.example.test";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
     process.env.WEB_ORIGIN = "https://web.example.test";
+    process.env.AUTH_TRUST_PROXY_HEADERS = "false";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
 
-    const response = await GET(new NextRequest("http://127.0.0.1:3000/api/v1/health"), {
-      params: Promise.resolve({ path: ["v1", "health"] }),
-    });
+    const response = await GET(
+      new NextRequest("http://127.0.0.1:3000/api/v1/health", {
+        headers: {
+          origin: "https://web.example.test",
+          "x-forwarded-host": "web.example.test",
+          "x-forwarded-proto": "https",
+        },
+      }),
+      { params: Promise.resolve({ path: ["v1", "health"] }) },
+    );
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "same_origin_required" });

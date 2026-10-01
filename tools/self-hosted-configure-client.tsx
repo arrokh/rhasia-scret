@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { useForm } from "@tanstack/react-form";
 
@@ -62,6 +62,10 @@ type SetupCopy = {
   saving: string;
   saved: string;
   savedWithBackup: string;
+  savedDialogTitle: string;
+  savedDialogNextStep: string;
+  savedDialogCloseTab: string;
+  savedDialogAction: string;
   cancelled: string;
   invalid: string;
   invalidField: string;
@@ -117,6 +121,7 @@ const passkeyFields = ["passkeyRpId", "passkeyOrigin"] as const;
 function SetupWizard() {
   const [locale, setLocale] = useState<Locale>("id");
   const [savedBackup, setSavedBackup] = useState<string | null>(null);
+  const savedDialogRef = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState<
     keyof Pick<SetupCopy, "saved" | "cancelled" | "invalid" | "conflict" | "unavailable" | "unsupported"> | null
   >(null);
@@ -126,6 +131,11 @@ function SetupWizard() {
     document.documentElement.lang = locale;
     document.title = copy.title;
   }, [copy.title, locale]);
+  useEffect(() => {
+    const dialog = savedDialogRef.current;
+    if (status === "saved" && dialog && !dialog.open) dialog.showModal();
+    if (status !== "saved" && dialog?.open) dialog.close();
+  }, [status]);
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value }) => {
@@ -571,6 +581,29 @@ function SetupWizard() {
           </div>
         </div>
       </footer>
+      <dialog
+        ref={savedDialogRef}
+        className="setup-success-dialog"
+        aria-labelledby="save-success-title"
+        aria-describedby="save-success-next-step save-success-close-tab"
+      >
+        <div className="setup-success-heading">
+          <span className="setup-success-mark" aria-hidden="true">
+            ✓
+          </span>
+          <h2 id="save-success-title">{copy.savedDialogTitle}</h2>
+        </div>
+        <p id="save-success-next-step">{copy.savedDialogNextStep}</p>
+        <p id="save-success-close-tab" className="setup-success-close-note">
+          {copy.savedDialogCloseTab}
+        </p>
+        {savedBackup ? (
+          <p className="setup-success-backup">{copy.savedWithBackup.replace("{backup}", savedBackup)}</p>
+        ) : null}
+        <button type="button" className="button-primary" onClick={() => savedDialogRef.current?.close()}>
+          {copy.savedDialogAction}
+        </button>
+      </dialog>
     </main>
   );
 }

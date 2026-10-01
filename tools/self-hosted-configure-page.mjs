@@ -230,6 +230,62 @@ export function renderConfigurationPage(nonce, tailscaleOrigin, copies) {
       background: #f9e9e6;
       color: var(--destructive);
     }
+    .setup-success-dialog {
+      width: min(calc(100% - 2rem), 34rem);
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      background: var(--card);
+      color: var(--foreground);
+      box-shadow: var(--shadow-card);
+    }
+    .setup-success-dialog::backdrop {
+      background: rgb(23 29 34 / 48%);
+      backdrop-filter: blur(2px);
+    }
+    .setup-success-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .setup-success-heading h2 {
+      margin: 0;
+      color: var(--ink-strong);
+      font-size: 1.125rem;
+      line-height: 1.5;
+    }
+    .setup-success-mark {
+      display: grid;
+      width: 2.5rem;
+      height: 2.5rem;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--success-surface);
+      color: var(--success);
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .setup-success-dialog p {
+      margin: 0 0 0.875rem;
+      font-size: 0.9375rem;
+    }
+    .setup-success-dialog .setup-success-close-note,
+    .setup-success-dialog .setup-success-backup {
+      padding: 0.75rem 0.875rem;
+      border-radius: var(--radius-control);
+      background: var(--muted);
+      color: var(--muted-foreground);
+      font-size: 0.8125rem;
+    }
+    .setup-success-dialog .setup-success-backup {
+      overflow-wrap: anywhere;
+    }
+    .setup-success-dialog button {
+      width: 100%;
+      margin-top: 0.25rem;
+    }
     .actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
     .actions button { min-width: 10rem; }
     .setup-footer {

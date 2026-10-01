@@ -892,6 +892,8 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.match(page.headers.get("content-security-policy"), /frame-ancestors 'none'/u);
     assert.match(page.headers.get("set-cookie"), /HttpOnly; SameSite=Strict/u);
     assert.equal(page.body.includes("rhasia_setup_session"), false);
+    assert.match(page.body, /Kembali ke terminal untuk melihat langkah berikutnya/u);
+    assert.match(page.body, /Return to the terminal for the next step/u);
     assert.match(page.body, /https:\/\/node\.example\.test/u);
     assert.match(page.body, /src="\/wizard\.js"/u);
     const setupCookie = page.headers.get("set-cookie").split(";", 1)[0];
@@ -901,6 +903,8 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.equal(wizardClient.status, 200);
     assert.match(wizardClient.headers.get("content-type"), /javascript/u);
     assert.ok(wizardClient.body.length > 1_000, "The authenticated wizard should receive its form client.");
+    assert.match(wizardClient.body, /setup-success-dialog/u);
+    assert.match(wizardClient.body, /showModal\(\)/u);
     assert.match(wizardClient.body, /tailscaleMode/u);
     const submission = {
       authBackend: "passwordless",

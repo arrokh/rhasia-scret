@@ -44,13 +44,14 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await page.getByLabel("Application authentication").selectOption("passwordless");
     await page.getByRole("button", { name: "Save .env" }).click();
     const turnstileSiteKey = page.getByLabel("Turnstile site key (public)");
-    await expect(turnstileSiteKey).toHaveAttribute("aria-invalid", "true");
-    await expect(turnstileSiteKey).toHaveAttribute("aria-describedby", "turnstileSiteKey-error");
-    await expect(page.locator("#turnstileSiteKey-error")).toHaveText(
-      "This field is required for passwordless authentication.",
-    );
-
     const turnstileSecretKey = page.getByLabel("Turnstile secret key");
+    await expect(turnstileSiteKey).toHaveAttribute("aria-invalid", "false");
+    await expect(turnstileSecretKey).toHaveAttribute("aria-invalid", "false");
+    const smtpHost = page.getByLabel("SMTP host");
+    await expect(smtpHost).toHaveAttribute("aria-invalid", "true");
+    await expect(smtpHost).toHaveAttribute("aria-describedby", "smtpHost-error");
+    await expect(page.locator("#smtpHost-error")).toHaveText("This field is required for passwordless authentication.");
+
     const smtpPassword = page.getByLabel("SMTP password");
     await turnstileSecretKey.fill("synthetic-turnstile-secret");
     await smtpPassword.fill("synthetic-smtp-password");
@@ -58,10 +59,12 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await expect(turnstileSecretKey).toHaveValue("");
     await expect(smtpPassword).toHaveValue("");
     await page.getByLabel("Application authentication").selectOption("passwordless");
+    await page.getByRole("button", { name: "Save .env" }).click();
+    await expect(smtpHost).toHaveAttribute("aria-invalid", "true");
 
     const darkTextContrast = await page.evaluate(() => {
       const hint = getComputedStyle(document.querySelector("#privacy")!).color;
-      const error = getComputedStyle(document.querySelector("#turnstileSiteKey-error")!).color;
+      const error = getComputedStyle(document.querySelector("#smtpHost-error")!).color;
       const background = getComputedStyle(document.body).backgroundColor;
       const channels = (color: string) =>
         color
@@ -97,8 +100,6 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await passkeyToggle.uncheck();
     await expect(page.locator("#passkeyFields")).toHaveCount(0);
 
-    await turnstileSiteKey.fill("synthetic-site-key");
-    await turnstileSecretKey.fill("synthetic-turnstile-secret");
     await page.getByLabel("SMTP host").fill("smtp.example.test");
     await page.getByLabel("SMTP port (465 or 587)").fill("587");
     await page.getByLabel("SMTP username").fill("setup@example.test");
@@ -107,9 +108,16 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await page.getByLabel("Sender name").fill("Example Test");
     await page.getByRole("button", { name: "Save .env" }).click();
 
-    await expect(page.getByRole("alert")).toHaveText(
-      ".env was saved with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+    const savedDialog = page.getByRole("dialog");
+    await expect(savedDialog).toBeVisible();
+    await expect(savedDialog.getByRole("heading", { name: "Configuration saved" })).toBeVisible();
+    await expect(savedDialog).toContainText(
+      "Return to the terminal for the next step. If you started pnpm selfhosted:install, installation will continue there automatically.",
     );
+    await expect(savedDialog).toContainText("You can close this browser tab.");
+    await savedDialog.getByRole("button", { name: "Return to terminal" }).click();
+    await expect(savedDialog).not.toBeVisible();
+    await expect(page.getByRole("alert")).toHaveText(".env was saved with file mode 0600.");
     expect(wizard.saved).toBe(true);
     expect(statSync(join(temporaryRoot, ".env")).mode & 0o777).toBe(0o600);
   } finally {

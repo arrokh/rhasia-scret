@@ -116,8 +116,13 @@ const copy = {
     cancel: "Batal dan tutup",
     privacy: "Jangan masukkan TOTP, OTP, QR, Vault key, atau konten Vault di sini.",
     saving: "Memvalidasi dan menyimpan konfigurasi…",
-    saved: ".env tersimpan dengan izin file 0600. Tutup tab ini, lalu jalankan pnpm selfhosted:setup.",
+    saved: ".env tersimpan dengan izin file 0600.",
     savedWithBackup: ".env baru disimpan dengan izin file 0600. Cadangan sebelumnya: {backup}.",
+    savedDialogTitle: "Konfigurasi berhasil disimpan",
+    savedDialogNextStep:
+      "Kembali ke terminal untuk melihat langkah berikutnya. Jika Anda menjalankan pnpm selfhosted:install, proses instalasi akan lanjut otomatis di sana.",
+    savedDialogCloseTab: "Anda dapat menutup tab browser ini.",
+    savedDialogAction: "Kembali ke terminal",
     existingDatabaseVolume:
       "Volume data PostgreSQL self-hosted {volume} sudah ada, tetapi .env tidak ditemukan. Pulihkan .env asli yang berisi password database volume tersebut sebelum konfigurasi.",
     cancelled: "Wizard ditutup. Tidak ada konfigurasi yang disimpan.",
@@ -176,8 +181,13 @@ const copy = {
     cancel: "Cancel and close",
     privacy: "Do not enter TOTP, OTP, QR, Vault keys, or Vault content here.",
     saving: "Validating and saving configuration…",
-    saved: ".env was saved with file mode 0600. Close this tab, then run pnpm selfhosted:setup.",
+    saved: ".env was saved with file mode 0600.",
     savedWithBackup: ".env was saved with file mode 0600. Previous configuration backup: {backup}.",
+    savedDialogTitle: "Configuration saved",
+    savedDialogNextStep:
+      "Return to the terminal for the next step. If you started pnpm selfhosted:install, installation will continue there automatically.",
+    savedDialogCloseTab: "You can close this browser tab.",
+    savedDialogAction: "Return to terminal",
     existingDatabaseVolume:
       "Existing self-hosted PostgreSQL data volume {volume} was found, but .env is missing. Restore the original .env containing that volume's database password before configuring.",
     cancelled: "The wizard is closed. No configuration was saved.",
