@@ -2,6 +2,7 @@ import { closeSync, constants, existsSync, fchmodSync, openSync, readFileSync, w
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { isIPv4 } from "node:net";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -121,6 +122,33 @@ export function findExistingSelfHostedDatabaseVolume({ root = repositoryRoot, ru
   const expectedVolume = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
   const volumes = (result.stdout ?? "").split(/\r?\n/u);
   return volumes.includes(expectedVolume) ? expectedVolume : null;
+}
+
+export async function confirmSelfHostedDatabaseCleanup(
+  volumeName,
+  { input = process.stdin, output = process.stdout, ask } = {},
+) {
+  const prompt =
+    `This permanently deletes all PostgreSQL data in Docker volume "${volumeName}" and stops the self-hosted services.\n` +
+    `Type the exact volume name to continue: `;
+  let answer;
+
+  if (ask) {
+    answer = await ask(prompt);
+  } else {
+    if (!input.isTTY || !output.isTTY) {
+      throw new Error("Self-hosted database cleanup requires confirmation from an interactive terminal.");
+    }
+
+    const readline = createInterface({ input, output });
+    try {
+      answer = await readline.question(prompt);
+    } finally {
+      readline.close();
+    }
+  }
+
+  return typeof answer === "string" && answer.trim() === volumeName;
 }
 
 export function findExistingSelfHostedDatabaseVolumeWithoutEnvironment(options = {}) {
@@ -264,13 +292,14 @@ export function validateRepositoryContext(context) {
   return validateSelfHostedEnvironment(context.values);
 }
 
-function main(command, root = repositoryRoot) {
-  if (!command || !["setup", "up", "down"].includes(command)) {
-    throw new Error("Usage: pnpm selfhosted:setup | pnpm selfhosted:up | pnpm selfhosted:down");
+async function main(command, root = repositoryRoot) {
+  if (!command || !["setup", "up", "down", "clean"].includes(command)) {
+    throw new Error("Usage: pnpm selfhosted:setup | pnpm selfhosted:up | pnpm selfhosted:down | pnpm selfhosted:clean");
   }
 
   if (command === "setup") return setup(root);
   if (command === "up") return up(root);
+  if (command === "clean") return cleanSelfHosted({ root });
   return down(root);
 }
 
@@ -341,9 +370,49 @@ function down(root) {
   console.log("Self-hosted services stopped. The PostgreSQL volume was preserved.");
 }
 
-function verifyDocker(root) {
-  runCommand("docker", ["compose", "version"], { cwd: root, label: "Docker Compose verification" });
-  runCommand("docker", ["info", "--format", "{{.ServerVersion}}"], {
+export async function cleanSelfHosted({
+  root = repositoryRoot,
+  confirm = confirmSelfHostedDatabaseCleanup,
+  inspectVolume = findExistingSelfHostedDatabaseVolume,
+  run = runCommand,
+  commitSha,
+  log = console.log,
+} = {}) {
+  const context = loadContext(root, { requireEnvironment: false });
+  verifyDocker(root, run);
+
+  const volumeName = inspectVolume({ root });
+  if (!volumeName) {
+    log("No self-hosted PostgreSQL data volume was found; nothing was removed.");
+    return false;
+  }
+
+  const expectedVolumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  if (volumeName !== expectedVolumeName) {
+    throw new Error("Docker returned an unexpected PostgreSQL volume name; refusing cleanup.");
+  }
+
+  const confirmed = await confirm(volumeName);
+  if (!confirmed) {
+    throw new Error("Self-hosted cleanup was not confirmed; no changes were made.");
+  }
+
+  runCompose(context, ["down", "--remove-orphans"], {
+    allowMissingEnvironment: true,
+    run,
+    commitSha,
+  });
+  run("docker", ["volume", "rm", volumeName], {
+    cwd: root,
+    label: `remove PostgreSQL data volume ${volumeName}`,
+  });
+  log("Self-hosted services stopped and PostgreSQL data volume permanently removed.");
+  return true;
+}
+
+function verifyDocker(root, run = runCommand) {
+  run("docker", ["compose", "version"], { cwd: root, label: "Docker Compose verification" });
+  run("docker", ["info", "--format", "{{.ServerVersion}}"], {
     cwd: root,
     label: "Docker daemon verification",
   });
@@ -379,10 +448,10 @@ function printComposeStatus(context) {
   if (status) console.error(`Self-hosted service status:\n${status}`);
 }
 
-function runCompose(context, commandArguments, { allowMissingEnvironment = false } = {}) {
+function runCompose(context, commandArguments, { allowMissingEnvironment = false, run = runCommand, commitSha } = {}) {
   const env = createSelfHostedCommandEnvironment(context, {
     COMPOSE_PROJECT_NAME: SELF_HOSTED_PROJECT_NAME,
-    COMMIT_SHA: readCommitSha(context.root),
+    COMMIT_SHA: commitSha ?? readCommitSha(context.root),
     APP_BIND_ADDRESS: context.values.APP_BIND_ADDRESS?.trim() || "127.0.0.1",
     APP_PORT: context.values.APP_PORT?.trim() || "3000",
   });
@@ -393,7 +462,7 @@ function runCompose(context, commandArguments, { allowMissingEnvironment = false
     }
   }
 
-  runCommand("docker", composeArguments(context.root, commandArguments), {
+  run("docker", composeArguments(context.root, commandArguments), {
     cwd: context.root,
     env,
     label: `docker compose ${commandArguments.join(" ")}`,
@@ -495,7 +564,7 @@ function escapeRegExp(value) {
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
 if (invokedPath === fileURLToPath(import.meta.url)) {
   try {
-    main(process.argv[2]);
+    await main(process.argv[2]);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

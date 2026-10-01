@@ -75,6 +75,7 @@ pnpm selfhosted:install          # configure, set up, and start self-hosted serv
 pnpm selfhosted:setup            # configure/build database and apply migrations
 pnpm selfhosted:up               # start self-hosted Compose services
 pnpm selfhosted:down             # stop services, preserve database volume
+pnpm selfhosted:clean            # confirm and delete self-hosted PostgreSQL data
 pnpm run lint
 pnpm run typecheck
 pnpm test

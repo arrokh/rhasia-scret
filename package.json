@@ -23,6 +23,7 @@
     "selfhosted:install": "node tools/self-hosted-install.mjs",
     "selfhosted:up": "node tools/self-hosted.mjs up",
     "selfhosted:down": "node tools/self-hosted.mjs down",
+    "selfhosted:clean": "node tools/self-hosted.mjs clean",
     "selfhosted:tailscale": "node tools/self-hosted-tailscale.mjs",
     "build": "pnpm --filter @rhasia-scret/api build && pnpm --filter @rhasia-scret/web build",
     "start": "pnpm --filter @rhasia-scret/web start",

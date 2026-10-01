@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   composeArguments,
+  cleanSelfHosted,
+  confirmSelfHostedDatabaseCleanup,
   createSelfHostedCommandEnvironment,
   ensureLocalEnvironment,
   findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
@@ -433,6 +435,161 @@ test("replaces an existing dotenv key without touching comments", () => {
 
 test("builds a stable Compose project command", () => {
   assert.deepEqual(composeArguments("/repo", ["up", "-d"]), ["compose", "-f", "docker-compose.yml", "up", "-d"]);
+});
+
+test("self-hosted cleanup requires typing the exact PostgreSQL volume name", async () => {
+  const volumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  let prompt;
+
+  assert.equal(
+    await confirmSelfHostedDatabaseCleanup(volumeName, {
+      ask: async (value) => {
+        prompt = value;
+        return ` ${volumeName} `;
+      },
+    }),
+    true,
+  );
+  assert.match(prompt, /permanently deletes all PostgreSQL data/u);
+  assert.match(prompt, new RegExp(volumeName, "u"));
+
+  assert.equal(
+    await confirmSelfHostedDatabaseCleanup(volumeName, {
+      ask: async () => "yes",
+    }),
+    false,
+  );
+});
+
+test("self-hosted cleanup fails closed without an interactive terminal", async () => {
+  await assert.rejects(
+    confirmSelfHostedDatabaseCleanup(`${SELF_HOSTED_PROJECT_NAME}_postgres-data`, {
+      input: { isTTY: false },
+      output: { isTTY: false },
+    }),
+    /interactive terminal/u,
+  );
+});
+
+test("self-hosted cleanup stops only its Compose project before removing its exact database volume", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-"));
+  const volumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
+  const events = [];
+  const commands = [];
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+
+  try {
+    const cleaned = await cleanSelfHosted({
+      root,
+      confirm: async (name) => {
+        events.push(["confirm", name]);
+        return true;
+      },
+      inspectVolume: () => volumeName,
+      run: (command, arguments_) => {
+        commands.push([command, arguments_]);
+        events.push(["command", command, arguments_]);
+      },
+      commitSha: "synthetic-test-sha",
+      log: () => {},
+    });
+
+    assert.equal(cleaned, true);
+    assert.deepEqual(events[2], ["confirm", volumeName]);
+    assert.deepEqual(commands.slice(-2), [
+      ["docker", ["compose", "-f", "docker-compose.yml", "down", "--remove-orphans"]],
+      ["docker", ["volume", "rm", volumeName]],
+    ]);
+    assert.equal(commands.at(-2)[1].includes("-v"), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("self-hosted cleanup performs no changes when no database volume exists", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-empty-"));
+  const commands = [];
+  let confirmations = 0;
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+
+  try {
+    const cleaned = await cleanSelfHosted({
+      root,
+      confirm: async () => {
+        confirmations += 1;
+        return true;
+      },
+      inspectVolume: () => null,
+      run: (command, arguments_) => commands.push([command, arguments_]),
+      log: () => {},
+    });
+
+    assert.equal(cleaned, false);
+    assert.equal(confirmations, 0);
+    assert.deepEqual(commands, [
+      ["docker", ["compose", "version"]],
+      ["docker", ["info", "--format", "{{.ServerVersion}}"]],
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("self-hosted cleanup performs no changes when the exact volume confirmation is declined", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-declined-"));
+  const commands = [];
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+
+  try {
+    await assert.rejects(
+      cleanSelfHosted({
+        root,
+        confirm: async () => false,
+        inspectVolume: () => `${SELF_HOSTED_PROJECT_NAME}_postgres-data`,
+        run: (command, arguments_) => commands.push([command, arguments_]),
+        commitSha: "synthetic-test-sha",
+        log: () => {},
+      }),
+      /was not confirmed/u,
+    );
+
+    assert.deepEqual(commands, [
+      ["docker", ["compose", "version"]],
+      ["docker", ["info", "--format", "{{.ServerVersion}}"]],
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("self-hosted cleanup rejects any Docker volume other than the fixed Compose database volume", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-unexpected-"));
+  const commands = [];
+  let confirmations = 0;
+  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+
+  try {
+    await assert.rejects(
+      cleanSelfHosted({
+        root,
+        confirm: async () => {
+          confirmations += 1;
+          return true;
+        },
+        inspectVolume: () => "other-project_postgres-data",
+        run: (command, arguments_) => commands.push([command, arguments_]),
+        log: () => {},
+      }),
+      /unexpected PostgreSQL volume name/u,
+    );
+    assert.equal(confirmations, 0);
+    assert.deepEqual(commands, [
+      ["docker", ["compose", "version"]],
+      ["docker", ["info", "--format", "{{.ServerVersion}}"]],
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("self-hosted commands use .env values instead of shell overrides for Compose settings", () => {

@@ -167,6 +167,17 @@ stops the project without deleting the PostgreSQL volume:
 pnpm selfhosted:down
 ```
 
+To intentionally discard all data in the self-hosted PostgreSQL volume, run
+`pnpm selfhosted:clean`. It requires a TTY and asks you to type the exact
+Compose volume name (`rhasia-scret-selfhosted_postgres-data`) before making
+changes. After confirmation, it stops and removes only the self-hosted Compose
+project, then deletes only that PostgreSQL volume. It does not use broad Docker
+volume-prune commands, and it does not change Tailscale Serve or Funnel
+configuration. Back up the database first if you may need its contents. A
+declined or unavailable terminal confirmation leaves the stack and volume
+untouched. Use `selfhosted:down` when you want to stop services while keeping
+the data.
+
 The self-hosted commands intentionally keep PostgreSQL private on the
 Compose network; the development-only override remains available for
 `pnpm dev:db` when host-side database access is needed. The API runtime uses a
@@ -181,7 +192,8 @@ compiles the migration scripts during image preparation. It retains the Prisma
 CLI, PostgreSQL adapter/client, and `dotenv`, and removes Prisma query-compiler
 assets for non-PostgreSQL providers because the API schema uses PostgreSQL.
 The web runtime uses an Alpine Node image and Next standalone output. The named volume survives
-`selfhosted:down`; back it up before retiring it.
+`selfhosted:down`; use `selfhosted:clean` with its exact-name confirmation to
+permanently delete it after backing up or retiring the data.
 
 ### 2. Apply PostgreSQL schema and identity migration
 
