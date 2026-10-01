@@ -4,9 +4,9 @@ import {
   constants,
   existsSync,
   fchmodSync,
+  fstatSync,
   fsyncSync,
   linkSync,
-  lstatSync,
   openSync,
   renameSync,
   readFileSync,
@@ -508,15 +508,16 @@ export async function startConfigurationWizard({
       validation.submission.tailscaleMode !== "none" &&
       suggestedTailscaleOrigin !== null &&
       validation.submission.webOrigin === suggestedTailscaleOrigin;
+    const existingEnvironment = replaceExisting ? readExistingEnvironment(envPath) : undefined;
     const source = createEnvironmentSource({
       root,
       commitSha,
       submission: validation.submission,
       trustTailscaleProxy: useTailscaleProxy,
-      databaseSettings: replaceExisting ? readExistingDatabaseSettings(envPath) : undefined,
+      databaseSettings: existingEnvironment?.databaseSettings,
     });
     try {
-      if (replaceExisting) backupPath = writeEnvironmentWithBackup(envPath, source);
+      if (existingEnvironment) backupPath = writeEnvironmentWithBackup(envPath, source, existingEnvironment.contents);
       else writeEnvironmentExclusive(envPath, source);
     } catch (error) {
       if (isFileExistsError(error)) {
@@ -748,35 +749,48 @@ function writeEnvironmentExclusive(path, source) {
 }
 
 function readExistingDatabaseSettings(path) {
-  const values = parseEnvFile(readFileSync(path, "utf8"));
-  if (!Object.hasOwn(values, "POSTGRES_PASSWORD")) {
-    throw new Error(
-      "The existing .env has no POSTGRES_PASSWORD to preserve. Restore the database credentials or reuse the existing configuration before starting over.",
-    );
-  }
-
-  return Object.fromEntries(
-    ["DATABASE_URL", "DIRECT_URL", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST_PORT"]
-      .filter((name) => Object.hasOwn(values, name))
-      .map((name) => [name, values[name]]),
-  );
+  return readExistingEnvironment(path).databaseSettings;
 }
 
-function writeEnvironmentWithBackup(path, source) {
-  const currentStat = lstatSync(path);
-  if (!currentStat.isFile()) throw new Error("The existing .env must be a regular file before it can be replaced.");
+function readExistingEnvironment(path) {
+  if (typeof constants.O_NOFOLLOW !== "number") {
+    throw new Error("This platform cannot safely inspect an existing .env for replacement.");
+  }
 
-  const existingSource = readFileSync(path);
+  let descriptor;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    if (!fstatSync(descriptor).isFile()) {
+      throw new Error("The existing .env must be a regular file before it can be replaced.");
+    }
+
+    const contents = readFileSync(descriptor);
+    const values = parseEnvFile(contents.toString("utf8"));
+    if (!Object.hasOwn(values, "POSTGRES_PASSWORD")) {
+      throw new Error(
+        "The existing .env has no POSTGRES_PASSWORD to preserve. Restore the database credentials or reuse the existing configuration before starting over.",
+      );
+    }
+
+    return {
+      contents,
+      databaseSettings: Object.fromEntries(
+        ["DATABASE_URL", "DIRECT_URL", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST_PORT"]
+          .filter((name) => Object.hasOwn(values, name))
+          .map((name) => [name, values[name]]),
+      ),
+    };
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+function writeEnvironmentWithBackup(path, source, existingContents) {
   const temporaryPath = `${path}.setup-${randomBytes(12).toString("hex")}`;
   let backupPath;
   try {
     writeExclusiveFile(temporaryPath, source);
-    backupPath = writeTimestampedBackup(path, existingSource);
-    if (!readFileSync(path).equals(existingSource)) {
-      throw new Error(
-        "The existing .env changed during setup. No replacement was made; review the backup before retrying.",
-      );
-    }
+    backupPath = writeTimestampedBackup(path, existingContents);
     renameSync(temporaryPath, path);
     return backupPath;
   } finally {
@@ -1071,14 +1085,15 @@ async function configureFromTerminal({
 
   let backupPath;
   try {
+    const existingEnvironment = replaceExisting ? readExistingEnvironment(envPath) : undefined;
     const source = createEnvironmentSource({
       root,
       commitSha,
       submission,
       trustTailscaleProxy: Boolean(tailscaleMode && submission.authBackend === "passwordless"),
-      databaseSettings: replaceExisting ? readExistingDatabaseSettings(envPath) : undefined,
+      databaseSettings: existingEnvironment?.databaseSettings,
     });
-    if (replaceExisting) backupPath = writeEnvironmentWithBackup(envPath, source);
+    if (existingEnvironment) backupPath = writeEnvironmentWithBackup(envPath, source, existingEnvironment.contents);
     else writeEnvironmentExclusive(envPath, source);
   } catch (error) {
     if (isFileExistsError(error)) {

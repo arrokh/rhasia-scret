@@ -1,5 +1,16 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -1095,6 +1106,22 @@ test("start-over refuses to replace an environment without a database password t
       startConfigurationWizard({ root, replaceExisting: true }),
       /no POSTGRES_PASSWORD to preserve/u,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("start-over refuses a symlinked .env without changing its target", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-symlink-"));
+  const target = join(root, "external-env");
+  const envPath = join(root, ".env");
+  writeFileSync(target, "POSTGRES_PASSWORD=synthetic-database-password\n", { mode: 0o600 });
+  symlinkSync(target, envPath);
+
+  try {
+    await assert.rejects(startConfigurationWizard({ root, replaceExisting: true }), { code: "ELOOP" });
+    assert.equal(readFileSync(target, "utf8"), "POSTGRES_PASSWORD=synthetic-database-password\n");
+    assert.equal(readlinkSync(envPath), target);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
