@@ -4,7 +4,7 @@
 
 Authenticated application mutations under the API's `/v1/**` route tree use the budgets in `apps/api/src/modules/rate-limiting/domain/application-rate-limit-policy.ts`. The web `/api/v1/**` proxy is transport-only; its route inventory at `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts` records browser mutation coverage. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
-Anonymous passwordless link requests use two layers: browser and installed-PWA requests first pass Cloudflare Turnstile validation, then all clients use separate PostgreSQL-backed 15-minute windows:
+Anonymous passwordless link requests use two layers: when the API's `TURNSTILE_SECRET_KEY` is configured, browser and installed-PWA requests first pass Cloudflare Turnstile validation; then all clients use separate PostgreSQL-backed 15-minute windows. Without the API secret, Turnstile validation is skipped and the database-backed limits still apply. The Web site key is configured separately; the self-hosted installer validates that it and the API secret are either both set or both absent.
 
 | Bucket                                       | Limit |
 | -------------------------------------------- | ----: |

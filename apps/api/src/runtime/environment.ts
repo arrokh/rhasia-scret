@@ -12,7 +12,6 @@ const API_BINDING_NAMES = [
   "AUTH_APP_ORIGIN",
   "AUTH_MAGIC_LINK_SECRET",
   "AUTH_SESSION_SECRET",
-  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "CRON_SECRET",
   "SMTP_HOST",
@@ -45,7 +44,9 @@ export function loadLocalApiEnvironment(source: NodeJS.ProcessEnv = process.env)
 
 export function sanitizeApiRuntimeEnvironment(source: ApiEnvironmentSource): Record<string, string | undefined> {
   const environment = { ...source };
+  // Web owns the public challenge key; the API binds only its server verification secret.
   for (const key of [
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
     "DIRECT_URL",
     "API_PROXY_SECRET",
     "POSTGRES_DB",

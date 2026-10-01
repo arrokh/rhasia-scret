@@ -9,10 +9,7 @@ describe("CloudflareTurnstileValidator", () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false }), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
     try {
-      const validator = createTurnstileValidator({
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-turnstile-site-key",
-        TURNSTILE_SECRET_KEY: "  server-secret  ",
-      });
+      const validator = createTurnstileValidator({ TURNSTILE_SECRET_KEY: "  server-secret  " });
 
       await expect(validator.validate("token")).resolves.toBe("invalid");
       expect(fetcher).toHaveBeenCalledWith(
@@ -33,12 +30,10 @@ describe("CloudflareTurnstileValidator", () => {
     await expect(disabled.validateWithDiagnostics()).resolves.toEqual({ result: "valid" });
     await expect(enabled.validate()).resolves.toBe("invalid");
     expect(fetcher).not.toHaveBeenCalled();
+    await expect(createTurnstileValidator({ TURNSTILE_SECRET_KEY: "" }).validate()).resolves.toBe("valid");
     await expect(
-      createTurnstileValidator({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "", TURNSTILE_SECRET_KEY: "" }).validate(),
-    ).resolves.toBe("valid");
-    expect(() => createTurnstileValidator({ TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret" })).toThrow(
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is configured",
-    );
+      createTurnstileValidator({ TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret" }).validate(),
+    ).resolves.toBe("invalid");
   });
 
   it("accepts a successful Cloudflare validation without exposing the secret in the request URL", async () => {

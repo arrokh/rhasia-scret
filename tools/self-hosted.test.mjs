@@ -399,6 +399,36 @@ test("validates the minimum local Compose contract", () => {
   );
 });
 
+test("validates Turnstile key pairing in self-hosted passwordless configuration", () => {
+  const base = {
+    POSTGRES_PASSWORD: "local-database-password",
+    PROXY_SECRET: "p".repeat(32),
+    API_PROXY_SECRET: "p".repeat(32),
+    CRON_SECRET: "c".repeat(32),
+    AUTH_BACKEND: "passwordless",
+    WEB_ORIGIN: "https://vault.example.test",
+    API_ORIGIN: "https://api.example.test",
+    AUTH_APP_ORIGIN: "https://vault.example.test",
+  };
+
+  assert.deepEqual(validateSelfHostedEnvironment(base), []);
+  assert.deepEqual(
+    validateSelfHostedEnvironment({
+      ...base,
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-site-key",
+      TURNSTILE_SECRET_KEY: "synthetic-secret-key",
+    }),
+    [],
+  );
+  for (const partial of [
+    { NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-site-key" },
+    { TURNSTILE_SECRET_KEY: "synthetic-secret-key" },
+  ]) {
+    const errors = validateSelfHostedEnvironment({ ...base, ...partial });
+    assert.ok(errors.some((error) => error.includes("must be configured together")));
+  }
+});
+
 test("allows localhost HTTP while requiring HTTPS for non-local authentication", () => {
   const localErrors = validateSelfHostedEnvironment({
     POSTGRES_PASSWORD: "local-database-password",
