@@ -14,16 +14,23 @@ const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/sit
 const MAX_TOKEN_LENGTH = 2_048;
 
 export class CloudflareTurnstileValidator {
-  public constructor(
-    private readonly secretKey: string,
-    private readonly fetcher: TurnstileFetch = (input, init) => globalThis["fetch"](input, init),
-  ) {}
+  private readonly secretKey: string | undefined;
 
-  public async validate(token: string): Promise<TurnstileValidationResult> {
+  public constructor(
+    secretKey: string | undefined,
+    private readonly fetcher: TurnstileFetch = (input, init) => globalThis["fetch"](input, init),
+  ) {
+    this.secretKey = secretKey?.trim() || undefined;
+  }
+
+  public async validate(token?: string): Promise<TurnstileValidationResult> {
     return (await this.validateWithDiagnostics(token)).result;
   }
 
-  public async validateWithDiagnostics(token: string): Promise<TurnstileValidationDiagnostics> {
+  public async validateWithDiagnostics(token?: string): Promise<TurnstileValidationDiagnostics> {
+    if (!this.secretKey) return { result: "valid" };
+    if (!token || !isSafeTurnstileToken(token)) return { result: "invalid" };
+
     let response: Response;
     try {
       response = await this.fetcher(TURNSTILE_VERIFY_URL, {

@@ -34,6 +34,8 @@ type SetupCopy = {
   providerTitle: string;
   turnstileSite: string;
   turnstileSecret: string;
+  turnstileHelp: string;
+  turnstilePair: string;
   smtpHost: string;
   smtpPort: string;
   smtpUser: string;
@@ -102,8 +104,6 @@ const defaultValues: SetupValues = {
 };
 
 const passwordlessFields = new Set<SetupStringField>([
-  "turnstileSiteKey",
-  "turnstileSecretKey",
   "smtpHost",
   "smtpPort",
   "smtpUser",
@@ -111,6 +111,7 @@ const passwordlessFields = new Set<SetupStringField>([
   "authEmailFrom",
   "authEmailFromName",
 ]);
+const turnstileFields = ["turnstileSiteKey", "turnstileSecretKey"] as const;
 const passkeyFields = ["passkeyRpId", "passkeyOrigin"] as const;
 
 function SetupWizard() {
@@ -142,7 +143,8 @@ function SetupWizard() {
         if (separator < 1) continue;
         const fieldName = issue.slice(0, separator);
         if (!isSetupField(fieldName)) continue;
-        const error = issue.slice(separator + 1) === "required" ? "required" : "invalid";
+        const rule = issue.slice(separator + 1);
+        const error = rule === "required" ? "required" : rule === "pair" ? "pair" : "invalid";
         form.setFieldMeta(fieldName, (previous) => ({ ...previous, errors: [error] }));
       }
       setStatus(response.kind);
@@ -153,6 +155,11 @@ function SetupWizard() {
     if (name === "webOrigin" && !value.trim()) return "required";
     if (form.getFieldValue("authBackend") !== "passwordless") return undefined;
     if (passwordlessFields.has(name) && !value.trim()) return "required";
+    if (name === "turnstileSiteKey" || name === "turnstileSecretKey") {
+      const siteKey = (name === "turnstileSiteKey" ? value : form.getFieldValue("turnstileSiteKey")).trim();
+      const secretKey = (name === "turnstileSecretKey" ? value : form.getFieldValue("turnstileSecretKey")).trim();
+      if (Boolean(siteKey) !== Boolean(secretKey)) return "pair";
+    }
     if (form.getFieldValue("passkeyEnabled") && (name === "passkeyRpId" || name === "passkeyOrigin") && !value.trim()) {
       return "required";
     }
@@ -188,7 +195,8 @@ function SetupWizard() {
         {(field) => {
           const errors = field.state.meta.errors.filter(isFormError);
           const invalid = errors.length > 0;
-          const errorMessage = errors[0] === "required" ? copy.required : copy.invalidField;
+          const errorMessage =
+            errors[0] === "required" ? copy.required : errors[0] === "pair" ? copy.turnstilePair : copy.invalidField;
           return (
             <label htmlFor={name}>
               <span>{label}</span>
@@ -352,7 +360,7 @@ function SetupWizard() {
                   field.handleChange(authBackend);
                   if (authBackend === "none") {
                     form.setFieldValue("passkeyEnabled", false);
-                    for (const name of [...passwordlessFields, ...passkeyFields]) {
+                    for (const name of [...turnstileFields, ...passwordlessFields, ...passkeyFields]) {
                       form.setFieldValue(name, "");
                       form.setFieldMeta(name, (previous) => ({ ...previous, errors: [] }));
                     }
@@ -429,15 +437,14 @@ function SetupWizard() {
                   name: "turnstileSiteKey",
                   label: copy.turnstileSite,
                   maxLength: 1024,
-                  required: passwordless,
                 })}
                 {renderTextField({
                   name: "turnstileSecretKey",
                   label: copy.turnstileSecret,
                   type: "password",
                   maxLength: 1024,
-                  required: passwordless,
                 })}
+                <p className="hint">{copy.turnstileHelp}</p>
                 {renderTextField({ name: "smtpHost", label: copy.smtpHost, maxLength: 255, required: passwordless })}
                 {renderTextField({
                   name: "smtpPort",
@@ -573,7 +580,7 @@ function isSetupField(value: string): value is keyof SetupValues {
 }
 
 function isFormError(value: unknown): value is string {
-  return value === "required" || value === "invalid";
+  return value === "required" || value === "invalid" || value === "pair";
 }
 
 const target = document.querySelector("#root");

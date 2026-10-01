@@ -88,6 +88,8 @@ const copy = {
     providerTitle: "Email dan Turnstile untuk passwordless",
     turnstileSite: "Turnstile site key (publik)",
     turnstileSecret: "Turnstile secret key",
+    turnstileHelp: "Opsional. Kosongkan keduanya untuk menonaktifkan Turnstile; jika diaktifkan, isi kedua key.",
+    turnstilePair: "Isi kedua Turnstile key atau kosongkan keduanya.",
     smtpHost: "SMTP host",
     smtpPort: "SMTP port (465 atau 587)",
     smtpUser: "SMTP username",
@@ -132,7 +134,7 @@ const copy = {
     noneDescription:
       "Login Rhasia dinonaktifkan. Brankas hosted, sinkronisasi, keanggotaan, audit, dan pemulihan tidak tersedia. Tailscale Serve mengikuti kebijakan akses tailnet. Funnel dapat diakses publik tanpa login aplikasi.",
     passwordlessDescription:
-      "Link login email membutuhkan akun SMTP dan pengaturan Turnstile produksi. Mode ini mengaktifkan fitur Brankas hosted setelah pengguna login. Passwordless tetap berlaku bila aplikasi diekspos melalui Tailscale.",
+      "Link login email membutuhkan akun SMTP. Turnstile opsional, tetapi site key dan secret key harus diisi bersama. Mode ini mengaktifkan fitur Brankas hosted setelah pengguna login.",
     passwordlessOption: "Passwordless",
   },
   en: {
@@ -146,6 +148,8 @@ const copy = {
     providerTitle: "Email and Turnstile for passwordless",
     turnstileSite: "Turnstile site key (public)",
     turnstileSecret: "Turnstile secret key",
+    turnstileHelp: "Optional. Leave both blank to disable Turnstile; if enabled, enter both keys.",
+    turnstilePair: "Enter both Turnstile keys or leave both blank.",
     smtpHost: "SMTP host",
     smtpPort: "SMTP port (465 or 587)",
     smtpUser: "SMTP username",
@@ -190,7 +194,7 @@ const copy = {
     noneDescription:
       "Rhasia sign-in is disabled. Hosted Vault, synchronization, membership, audit, and recovery features are unavailable. Tailscale Serve follows your tailnet access policy. Funnel is publicly reachable without application sign-in.",
     passwordlessDescription:
-      "Email sign-in links require a production SMTP account and Turnstile settings. This mode enables hosted Vault features after users sign in. Passwordless remains available when the app is exposed through Tailscale.",
+      "Email sign-in links require an SMTP account. Turnstile is optional, but its site and secret keys must be set together. This mode enables hosted Vault features after users sign in.",
     passwordlessOption: "Passwordless",
   },
 };
@@ -622,16 +626,13 @@ function validateSubmission(value, tailscaleOrigin) {
   }
 
   if (submission.authBackend === "passwordless") {
-    for (const field of [
-      "turnstileSiteKey",
-      "turnstileSecretKey",
-      "smtpHost",
-      "smtpPort",
-      "smtpUser",
-      "smtpPassword",
-      "authEmailFrom",
-      "authEmailFromName",
-    ]) {
+    const hasTurnstileSiteKey = Boolean(submission.turnstileSiteKey);
+    const hasTurnstileSecretKey = Boolean(submission.turnstileSecretKey);
+    if (hasTurnstileSiteKey !== hasTurnstileSecretKey) {
+      errors.push("turnstileSiteKey:pair");
+      errors.push("turnstileSecretKey:pair");
+    }
+    for (const field of ["smtpHost", "smtpPort", "smtpUser", "smtpPassword", "authEmailFrom", "authEmailFromName"]) {
       if (!submission[field].trim()) errors.push(`${field}:required`);
     }
     if (submission.smtpHost && /\s|[/\\]/u.test(submission.smtpHost)) errors.push("smtpHost:invalid");
@@ -1022,6 +1023,7 @@ async function configureFromTerminal({
 
   if (submission.authBackend === "passwordless") {
     printSection(strings.providerTitle);
+    printNotice(strings.turnstileHelp);
     submission.turnstileSiteKey = await askText(strings.turnstileSite, "");
     submission.turnstileSecretKey = await askSecret(strings.turnstileSecret);
     submission.smtpHost = await askText(strings.smtpHost, "");
@@ -1077,7 +1079,13 @@ async function configureFromTerminal({
       if (!label) continue;
       const rule = validation.errors.find((error) => error.startsWith(`${field}:`))?.slice(field.length + 1);
       const hint =
-        rule === "required" ? strings.required : rule === "unsupported" ? strings.unsupported : strings.invalidField;
+        rule === "required"
+          ? strings.required
+          : rule === "pair"
+            ? strings.turnstilePair
+            : rule === "unsupported"
+              ? strings.unsupported
+              : strings.invalidField;
       printNotice(`${label}: ${hint}`, "error");
       submission[field] = secretFields.has(field) ? await askSecret(label) : await askText(label, submission[field]);
     }

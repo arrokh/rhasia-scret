@@ -15,7 +15,7 @@ The self-hosted Tailscale helper supports `AUTH_BACKEND=none` and `AUTH_BACKEND=
 
 With `AUTH_BACKEND=none`, `AUTH_TRUST_PROXY_HEADERS` must be `false`. Hosted Personal/Shared Vault, synchronization, membership, audit, and recovery APIs remain fail-closed; users can use browser-local and offline local workflows.
 
-With `AUTH_BACKEND=passwordless`, the normal SMTP and Turnstile production requirements apply. The setup wizard sets `AUTH_TRUST_PROXY_HEADERS=true` for Tailscale exposure. The host's Tailscale reverse proxy rewrites forwarded headers, allowing passwordless authentication rate limits to use the forwarded client IP. `AUTH_APP_ORIGIN` remains explicitly set to the configured canonical MagicDNS origin, which takes precedence over forwarded host/protocol values for origin checks. Direct access and `none` mode keep proxy-header trust disabled.
+With `AUTH_BACKEND=passwordless`, normal SMTP requirements apply. Turnstile is optional; when enabled, its public site key and server secret must both be configured. The setup wizard sets `AUTH_TRUST_PROXY_HEADERS=true` for Tailscale exposure. The host's Tailscale reverse proxy rewrites forwarded headers, allowing passwordless authentication rate limits to use the forwarded client IP. `AUTH_APP_ORIGIN` remains explicitly set to the configured canonical MagicDNS origin, which takes precedence over forwarded host/protocol values for origin checks. Direct access and `none` mode keep proxy-header trust disabled.
 
 Funnel requires explicit public confirmation regardless of backend. With `none`, the public app has no application sign-in and only browser-local features are available. With `passwordless`, the login page is public but hosted features still require an authenticated application user. A Funnel URL is never described as private.
 
@@ -23,6 +23,6 @@ Funnel requires explicit public confirmation regardless of backend. With `none`,
 
 - Tailscale Serve/Funnel can be selected independently from `none` or `passwordless` application authentication.
 - Tailscale authorization remains a network boundary; it is not converted into a Verified Principal, Application User, or hosted Vault authorization.
-- `none` does not require SMTP or Turnstile; passwordless Tailscale exposure uses the existing provider requirements.
+- `none` does not require SMTP or Turnstile. Passwordless Tailscale exposure requires SMTP; operators may opt in to Turnstile with both keys. PostgreSQL-backed email and IP rate limits apply whether Turnstile is enabled or not.
 - Anyone who opens a Funnel URL can load the public application. Hosted data remains behind passwordless sign-in when that backend is enabled.
 - The host and its Tailscale daemon remain inside the operator's trust boundary. The helper manages only its recorded listener and does not change tailnet ACLs, Funnel policy, or unrelated Tailscale services.

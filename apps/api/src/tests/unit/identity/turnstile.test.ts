@@ -9,7 +9,10 @@ describe("CloudflareTurnstileValidator", () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false }), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
     try {
-      const validator = createTurnstileValidator({ TURNSTILE_SECRET_KEY: "  server-secret  " });
+      const validator = createTurnstileValidator({
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-turnstile-site-key",
+        TURNSTILE_SECRET_KEY: "  server-secret  ",
+      });
 
       await expect(validator.validate("token")).resolves.toBe("invalid");
       expect(fetcher).toHaveBeenCalledWith(
@@ -19,6 +22,23 @@ describe("CloudflareTurnstileValidator", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("skips verification when disabled and rejects a missing token when enabled", async () => {
+    const fetcher = vi.fn();
+    const disabled = new CloudflareTurnstileValidator(undefined, fetcher);
+    const enabled = new CloudflareTurnstileValidator("server-secret", fetcher);
+
+    await expect(disabled.validate()).resolves.toBe("valid");
+    await expect(disabled.validateWithDiagnostics()).resolves.toEqual({ result: "valid" });
+    await expect(enabled.validate()).resolves.toBe("invalid");
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(
+      createTurnstileValidator({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "", TURNSTILE_SECRET_KEY: "" }).validate(),
+    ).resolves.toBe("valid");
+    expect(() => createTurnstileValidator({ TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret" })).toThrow(
+      "must be set together",
+    );
   });
 
   it("accepts a successful Cloudflare validation without exposing the secret in the request URL", async () => {

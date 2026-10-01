@@ -1,6 +1,6 @@
 # Tailscale Serve and Funnel for Docker self-hosting
 
-**Status:** The repository setup flow supports both `none` and `passwordless` application authentication. Operators still need to verify their tailnet policy, Docker host reachability, and the selected authentication flow before treating a deployment as production-verified. SMTP and Turnstile are required only for passwordless.
+**Status:** The repository setup flow supports both `none` and `passwordless` application authentication. Operators still need to verify their tailnet policy, Docker host reachability, and the selected authentication flow before treating a deployment as production-verified. SMTP is required only for passwordless; Turnstile is optional and must be configured as a complete site-key/secret-key pair.
 
 **Research date:** 2026-09-30.
 
@@ -62,7 +62,7 @@ If another proxy needs a non-loopback listener, require an explicit override and
 
 ### Application origin and secrets
 
-For this Tailscale helper, accept <code>AUTH_BACKEND=none</code> or <code>passwordless</code> and require a valid HTTPS MagicDNS origin. Require proxy-header trust to be disabled for <code>none</code>; passwordless requires it enabled because the helper serves through Tailscale's header-rewriting reverse proxy. Passwordless also requires the normal SMTP and Turnstile settings.
+For this Tailscale helper, accept <code>AUTH_BACKEND=none</code> or <code>passwordless</code> and require a valid HTTPS MagicDNS origin. Require proxy-header trust to be disabled for <code>none</code>; passwordless requires it enabled because the helper serves through Tailscale's header-rewriting reverse proxy. Passwordless also requires normal SMTP settings. Turnstile is optional; if enabled, both keys must be supplied.
 
 The interactive setup form has basic and advanced sections. It generates internally managed random values locally and uniquely per deployment. SMTP, Turnstile, and passkey fields are used only for the passwordless setup option; selecting <code>none</code> clears those values. Do not treat example or testing credentials as production values.
 
@@ -97,7 +97,7 @@ Disabling exposure must remove only the listener created for Rhasia. Avoid broad
 ### 2. Environment setup for external access
 
 - Keep the canonical root <code>.env.example</code> as the manual template; the terminal and browser wizards write the same root <code>.env</code> contract.
-- Both wizards generate new application secrets locally, preserve existing database connection settings only during explicit replacement, keep provider values secret, and do not print credentials. They refuse to overwrite an existing file by default; replacement creates a timestamped backup first. The Tailscale helper accepts <code>none</code> or <code>passwordless</code>; only the latter requires SMTP and Turnstile configuration.
+- Both wizards generate new application secrets locally, preserve existing database connection settings only during explicit replacement, keep provider values secret, and do not print credentials. They refuse to overwrite an existing file by default; replacement creates a timestamped backup first. The Tailscale helper accepts <code>none</code> or <code>passwordless</code>; only the latter requires SMTP. Turnstile is optional and must be configured as a complete key pair.
 - Tailscale identity credentials and listener state are not added to <code>.env</code> or Compose services. The ignored local ownership marker contains only the route needed for targeted status and teardown.
 
 ### 3. One-shot interactive environment form

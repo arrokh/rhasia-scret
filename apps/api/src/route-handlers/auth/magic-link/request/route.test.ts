@@ -76,6 +76,18 @@ describe("POST /v1/auth/magic-link/request contract", () => {
     });
   });
 
+  it("allows a missing Turnstile token when the configured validator is disabled", async () => {
+    const service = { requestLink: vi.fn().mockResolvedValue(undefined) };
+    const validator = mocks.createTurnstileValidator();
+    const response = await POST(
+      makeRequest({ email: "person@example.test", client: "web", returnPath: "/vaults" }, service),
+    );
+
+    expect(response.status).toBe(200);
+    expect(validator.validateWithDiagnostics).toHaveBeenCalledWith(undefined);
+    expect(service.requestLink).toHaveBeenCalledOnce();
+  });
+
   it("rejects malformed PWA requests before Turnstile, rate limiting, or delivery", async () => {
     const service = { requestLink: vi.fn() };
     const response = await POST(

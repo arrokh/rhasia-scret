@@ -167,8 +167,8 @@ _Avoid_: Authentication equals Shared Vault membership, unverified signup, separ
 A PostgreSQL-backed operation-class budget applied after authentication to state-changing application routes. It is keyed only by opaque Application User and operation identifiers, is shared across alternate routes for the same use case, and never replaces authorization, revision checks, one-time-link semantics, or anonymous passwordless abuse controls.
 _Avoid_: Authentication rate limit, per-instance counter, request-body fingerprint
 
-**Passwordless Sign-In Abuse Controls**: The layered protection for anonymous magic-link requests: browser and installed-PWA requests must pass a server-validated Cloudflare Turnstile token, then all hosted requests use PostgreSQL-backed fifteen-minute limits of five per keyed normalized-email bucket and twenty per keyed trusted-proxy IP or shared unattributed bucket. Requests without a verified proxy-derived client IP use the shared unattributed bucket instead of bypassing the IP-side budget. It stores no raw email bucket, IP, Turnstile token, link token, or request body.
-_Avoid_: Client-only CAPTCHA, provider-owned login throttle, plaintext abuse bucket
+**Passwordless Sign-In Abuse Controls**: Optional server-validated Cloudflare Turnstile challenge for anonymous magic-link requests, enabled only when both public site and server secret keys are configured, plus PostgreSQL-backed fifteen-minute limits of five per keyed normalized-email bucket and twenty per keyed trusted-proxy IP or shared unattributed bucket on every request. A partial Turnstile pair is invalid. Requests without a verified proxy-derived client IP use the shared unattributed bucket instead of bypassing the IP-side budget. It stores no raw email bucket, IP, Turnstile token, link token, or request body.
+_Avoid_: Client-only CAPTCHA, provider-owned login throttle, plaintext abuse bucket, partially configured Turnstile
 
 **Key-Wrap Envelope**:
 A versioned encrypted package that allows one User Encryption Key Pair to recover a Vault Encryption Key.

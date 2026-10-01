@@ -37,6 +37,7 @@ export function EmailSignInForm({
   turnstileSiteKey,
 }: Readonly<{ nextPath?: string; turnstileSiteKey?: string }>) {
   const t = useTranslations("Identity.signIn");
+  const activeTurnstileSiteKey = turnstileSiteKey?.trim() || undefined;
   const returnPath = resolveAuthReturnPath(nextPath);
   const passwordlessReturnPath =
     returnPath === INVITATION_AUTH_RETURN_PATH ? INVITATION_AUTH_RETURN_PATH : DEFAULT_AUTH_RETURN_PATH;
@@ -129,7 +130,7 @@ export function EmailSignInForm({
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => {
       if (retrySeconds > 0) return;
-      if (turnstileSiteKey && !turnstileToken) {
+      if (activeTurnstileSiteKey && !turnstileToken) {
         setStatus("turnstile_required");
         return;
       }
@@ -232,10 +233,10 @@ export function EmailSignInForm({
           </div>
         )}
       </form.Field>
-      {turnstileSiteKey && (
+      {activeTurnstileSiteKey && (
         <CloudflareTurnstileWidget
           key={turnstileResetKey}
-          siteKey={turnstileSiteKey}
+          siteKey={activeTurnstileSiteKey}
           label={t("securityCheck")}
           onTokenChange={(token) => {
             setTurnstileToken(token);
@@ -257,7 +258,7 @@ export function EmailSignInForm({
               isSubmitting ||
               retrySeconds > 0 ||
               status === "authenticating" ||
-              Boolean(turnstileSiteKey && !turnstileToken)
+              Boolean(activeTurnstileSiteKey && !turnstileToken)
             }
             aria-busy={isSubmitting}
             onClick={status === "sent" ? () => window.location.reload() : undefined}

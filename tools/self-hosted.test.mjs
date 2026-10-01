@@ -906,8 +906,8 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
       authBackend: "passwordless",
       tailscaleMode: "none",
       webOrigin: "https://vault.example.test",
-      turnstileSiteKey: "synthetic-turnstile-site-key",
-      turnstileSecretKey: "synthetic-turnstile-secret-key",
+      turnstileSiteKey: "",
+      turnstileSecretKey: "",
       smtpHost: "smtp.example.test",
       smtpPort: "587",
       smtpUser: "operator@example.test",
@@ -980,6 +980,8 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.equal(values.AUTH_BACKEND, "passwordless");
     assert.equal(values.WEB_ORIGIN, "https://vault.example.test");
     assert.equal(values.AUTH_APP_ORIGIN, values.WEB_ORIGIN);
+    assert.equal(values.NEXT_PUBLIC_TURNSTILE_SITE_KEY, "");
+    assert.equal(values.TURNSTILE_SECRET_KEY, "");
     assert.ok(values.SMTP_PASSWORD === submission.smtpPassword, "The wizard should preserve the submitted SMTP value.");
     assert.equal(values.AUTH_TRUST_PROXY_HEADERS, "false");
     assert.equal(values.PROXY_SECRET, values.API_PROXY_SECRET);

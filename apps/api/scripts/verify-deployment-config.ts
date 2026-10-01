@@ -32,17 +32,13 @@ if (!(["none", "passwordless"] as const).includes(backend as "none" | "passwordl
   errors.push("AUTH_BACKEND must be none or passwordless.");
 } else if (backend === "passwordless") {
   try {
-    const configuration = readAuthConfiguration(
-      { ...environment, AUTH_BACKEND: backend },
-      { requireTurnstileSiteKey: false },
-    );
+    const configuration = readAuthConfiguration({ ...environment, AUTH_BACKEND: backend });
     if (configuration.backend !== "passwordless") throw new Error("Passwordless configuration is invalid.");
     checked.push("passwordless authentication configuration");
   } catch (error: unknown) {
     errors.push(error instanceof Error ? error.message : "Passwordless authentication configuration is invalid.");
   }
   requireValue("AUTH_EMAIL_FROM");
-  requireValue("TURNSTILE_SECRET_KEY");
   try {
     readSmtpEmailConfiguration(environment);
     checked.push("standalone SMTP email delivery configuration");
