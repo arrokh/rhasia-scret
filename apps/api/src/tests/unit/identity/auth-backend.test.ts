@@ -86,10 +86,10 @@ describe("authentication backend configuration", () => {
       "AUTH_MAGIC_LINK_SECRET",
     );
     expect(() => readAuthConfiguration({ ...requiredPasswordless, NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined })).toThrow(
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is configured",
     );
     expect(() => readAuthConfiguration({ ...requiredPasswordless, TURNSTILE_SECRET_KEY: undefined })).toThrow(
-      "TURNSTILE_SECRET_KEY",
+      "TURNSTILE_SECRET_KEY is required when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured",
     );
     expect(() =>
       readAuthConfiguration({
