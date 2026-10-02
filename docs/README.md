@@ -95,7 +95,7 @@ docs/
 - [`mvp-plan.md`](mvp-plan.md) — implemented product scope and the original MVP vertical-slice sequence.
 - [`i18n-implementation-plan.md`](i18n-implementation-plan.md) — localization implementation and maintenance requirements.
 - [`navigation-interaction-performance-plan.md`](navigation-interaction-performance-plan.md) — navigation and interaction performance work.
-- [`performance/api-load-testing-plan.md`](performance/api-load-testing-plan.md) — proposed k6 plan for self-hosted API load and rate-limit characterization.
+- [`performance/api-load-testing-plan.md`](performance/api-load-testing-plan.md) — safe self-hosted k6 load-test runbook and local capacity characterization.
 - [`shared-vault-member-account-permissions-plan.md`](shared-vault-member-account-permissions-plan.md) — implemented Shared Vault account-permission model and its original implementation plan.
 - [`passwordless-only-authentication-plan.md`](passwordless-only-authentication-plan.md) — completed passwordless-only authentication implementation record; native-client verification references are historical.
 - [`encrypted-vault-backup.md`](encrypted-vault-backup.md) — archive workflow implementation contract.

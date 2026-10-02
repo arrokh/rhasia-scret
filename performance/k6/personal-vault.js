@@ -12,6 +12,7 @@ import {
 
 const configuredVus = Number(__ENV.LOADTEST_MAX_VUS || "10");
 const capacityMode = __ENV.LOADTEST_SCENARIO === "capacity";
+const maximumPreparedSessions = 20;
 
 const scenarios = {
   returningPersonalVault: capacityMode
@@ -57,8 +58,9 @@ export const options = {
 
 export function setup() {
   const pool = readSessionPool();
-  if (pool.sessions.length < configuredVus)
-    throw new Error("The returning-user session pool is smaller than the VU ceiling.");
+  const requiredSessions = Math.min(configuredVus, maximumPreparedSessions);
+  if (pool.sessions.length < requiredSessions)
+    throw new Error("The returning-user session pool is smaller than the bounded session requirement.");
   return pool;
 }
 

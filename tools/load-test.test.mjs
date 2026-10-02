@@ -25,6 +25,8 @@ import {
   rateLimitAssertionFailureDetail,
   LOADTEST_RESOURCE_PROFILE,
   LOADTEST_SERVICE_RESOURCE_LIMITS,
+  MAX_CAPACITY_SESSION_POOL_SIZE,
+  MAX_CAPACITY_VUS,
   mailpitMessageListIsEmpty,
   mailpitPreflightMessageCaptured,
   parseBrowserHelperFailurePhase,
@@ -97,14 +99,14 @@ test("load-test stack keeps the latest-main loopback binding and healthcheck", (
   const composeEnvironment = source.slice(composeEnvironmentStart, composeEnvironmentEnd);
   assert.ok(composeEnvironment.includes('environment.APP_BIND_ADDRESS = "127.0.0.1"'));
   assert.ok(composeEnvironment.includes('environment.APP_PORT = "4000"'));
-  assert.ok(composeEnvironment.includes('environment.WEB_CONTAINER_PORT = "3000"'));
+  assert.ok(composeEnvironment.includes('environment.WEB_CONTAINER_PORT = "4000"'));
   assert.ok(source.includes('"APP_BIND_ADDRESS=127.0.0.1"'));
   assert.ok(source.includes('"APP_PORT=4000"'));
-  assert.ok(source.includes('"WEB_CONTAINER_PORT=3000"'));
+  assert.ok(source.includes('"WEB_CONTAINER_PORT=4000"'));
 
   const compose = readFileSync(new URL("../docker-compose.yml", import.meta.url), "utf8");
-  assert.ok(compose.includes('"${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"'));
-  assert.ok(compose.includes("fetch('http://127.0.0.1:3000/healthz')"));
+  assert.ok(compose.includes('"${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:${WEB_CONTAINER_PORT:-3000}"'));
+  assert.ok(compose.includes("fetch('http://127.0.0.1:${WEB_CONTAINER_PORT:-3000}/healthz')"));
 });
 
 test("Compose resource limits override modified private env-file values", () => {
@@ -1468,12 +1470,28 @@ test("runner process snapshots accept only bounded CPU and resident-memory readi
     assert.equal(parseProcessUsage(output), null);
 });
 
-test("capacity profile records the explicit VU ceiling and duration without browser users", () => {
+test("capacity profile records VU ceiling, duration, and bounded session sharing", () => {
   assert.deepEqual(scenarioProfile({ scenario: "capacity", maxVus: 18, duration: "7m" }), {
     maxVus: 18,
     duration: "7m",
     browserVus: 0,
+    sessionPoolSize: 18,
+    sessionsSharedAcrossVus: false,
   });
+  assert.deepEqual(scenarioProfile({ scenario: "capacity", maxVus: 50, duration: "2m" }), {
+    maxVus: 50,
+    duration: "2m",
+    browserVus: 0,
+    sessionPoolSize: 20,
+    sessionsSharedAcrossVus: true,
+  });
+  assert.equal(MAX_CAPACITY_SESSION_POOL_SIZE, 20);
+  assert.equal(MAX_CAPACITY_VUS, 100);
+
+  const personalVaultK6 = readFileSync(new URL("../performance/k6/personal-vault.js", import.meta.url), "utf8");
+  assert.ok(personalVaultK6.includes("const maximumPreparedSessions = 20;"));
+  assert.ok(personalVaultK6.includes("Math.min(configuredVus, maximumPreparedSessions)"));
+  assert.ok(personalVaultK6.includes("data.sessions[(__VU - 1) % data.sessions.length]"));
 });
 
 test("capacity report preserves generator, stack, tool, and saturation evidence fields", () => {
@@ -1509,9 +1527,23 @@ test("capacity mode requires capped resources for same-machine runs and bounds c
       separateRunner,
     ),
   );
+  assert.equal(
+    validateScenario(
+      { scenario: "capacity", "max-vus": "21", duration: "2m", "confirm-high-vus": "21" },
+      separateRunner,
+    ).maxVus,
+    21,
+  );
+  assert.equal(
+    validateScenario(
+      { scenario: "capacity", "max-vus": "100", duration: "2m", "confirm-high-vus": "100" },
+      separateRunner,
+    ).maxVus,
+    100,
+  );
   assert.throws(() =>
     validateScenario(
-      { scenario: "capacity", "max-vus": "21", duration: "5m", "confirm-high-vus": "21" },
+      { scenario: "capacity", "max-vus": "101", duration: "2m", "confirm-high-vus": "101" },
       separateRunner,
     ),
   );
@@ -1540,13 +1572,14 @@ test("capacity mode requires capped resources for same-machine runs and bounds c
     ).maxVus,
     11,
   );
+  assert.equal(LOADTEST_RESOURCE_PROFILE, "capped-local-v3");
   assert.deepEqual(LOADTEST_SERVICE_RESOURCE_LIMITS, {
-    db: { cpus: "2.0", memory: "3g" },
-    migrate: { cpus: "2.0", memory: "2g" },
-    api: { cpus: "1.5", memory: "2g" },
-    web: { cpus: "2.0", memory: "2g" },
-    "retention-purge": { cpus: "0.25", memory: "256m" },
-    mailpit: { cpus: "0.5", memory: "512m" },
+    db: { cpus: "1.0", memory: "512m" },
+    migrate: { cpus: "1.0", memory: "1g" },
+    api: { cpus: "1.0", memory: "512m" },
+    web: { cpus: "1.0", memory: "512m" },
+    "retention-purge": { cpus: "0.125", memory: "128m" },
+    mailpit: { cpus: "0.25", memory: "256m" },
   });
 });
 
@@ -1554,6 +1587,9 @@ test("higher VU ceilings require exact opt-in and the default profile stays boun
   assert.equal(validateHighCeiling("10"), 10);
   assert.throws(() => validateHighCeiling("11"));
   assert.equal(validateHighCeiling("11", "11"), 11);
+  assert.equal(validateHighCeiling("25", "25"), 25);
+  assert.equal(validateHighCeiling("100", "100"), 100);
+  assert.throws(() => validateHighCeiling("101", "101"));
   assert.throws(() => validateHighCeiling("1001", "1001"));
   assert.throws(() => validateHighCeiling("+11", "11"));
   assert.throws(() => validateHighCeiling("20"));

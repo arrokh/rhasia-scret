@@ -23,15 +23,17 @@ const DISPOSABLE_DATABASE_OPERATIONS = new Set([
   "test:loadtest-shared-mutation-fixtures",
   "test:loadtest-teardown",
 ]);
-export const LOADTEST_RESOURCE_PROFILE = "capped-local-v1";
+export const LOADTEST_RESOURCE_PROFILE = "capped-local-v3";
 export const LOADTEST_SERVICE_RESOURCE_LIMITS = Object.freeze({
-  db: Object.freeze({ cpus: "2.0", memory: "3g" }),
-  migrate: Object.freeze({ cpus: "2.0", memory: "2g" }),
-  api: Object.freeze({ cpus: "1.5", memory: "2g" }),
-  web: Object.freeze({ cpus: "2.0", memory: "2g" }),
-  "retention-purge": Object.freeze({ cpus: "0.25", memory: "256m" }),
-  mailpit: Object.freeze({ cpus: "0.5", memory: "512m" }),
+  db: Object.freeze({ cpus: "1.0", memory: "512m" }),
+  migrate: Object.freeze({ cpus: "1.0", memory: "1g" }),
+  api: Object.freeze({ cpus: "1.0", memory: "512m" }),
+  web: Object.freeze({ cpus: "1.0", memory: "512m" }),
+  "retention-purge": Object.freeze({ cpus: "0.125", memory: "128m" }),
+  mailpit: Object.freeze({ cpus: "0.25", memory: "256m" }),
 });
+export const MAX_CAPACITY_VUS = 100;
+export const MAX_CAPACITY_SESSION_POOL_SIZE = 20;
 const BROWSER_HELPER_FAILURE_PHASES = new Set([
   "input_validation",
   "web_health_check",
@@ -383,9 +385,9 @@ export function validateMigrationConfirmation(project, databaseName, confirmatio
 }
 
 export function validateHighCeiling(maxVus, confirmation) {
-  if (typeof maxVus !== "string" || !/^(?:[1-9]|1[0-9]|20)$/.test(maxVus))
+  if (typeof maxVus !== "string" || !/^(?:[1-9]|[1-9][0-9]|100)$/.test(maxVus))
     throw new LoadTestError(
-      "The VU ceiling must be an integer from 1 to 20 for the isolated 20-request network budget.",
+      `The VU ceiling must be an integer from 1 to ${MAX_CAPACITY_VUS}; capacity uses at most ${MAX_CAPACITY_SESSION_POOL_SIZE} distinct sessions.`,
     );
   const value = Number(maxVus);
   if (value > 10 && confirmation !== String(value))
@@ -468,7 +470,7 @@ function safeComposeEnvironment(project, state) {
   environment.COMMIT_SHA = state.commit;
   environment.APP_BIND_ADDRESS = "127.0.0.1";
   environment.APP_PORT = "4000";
-  environment.WEB_CONTAINER_PORT = "3000";
+  environment.WEB_CONTAINER_PORT = "4000";
   environment.MAILPIT_PORT = "8025";
   environment.DOCKER_CONTEXT = state.dockerContext;
   for (const name of ["DOCKER_CONFIG", "SSH_AUTH_SOCK"]) {
@@ -808,7 +810,7 @@ function generateEnvironment(project, commit, smtpCaBase64) {
     `DIRECT_URL=postgresql://loadtest:${databasePassword}@db:5432/${DATABASE_NAME}?schema=public`,
     "APP_BIND_ADDRESS=127.0.0.1",
     "APP_PORT=4000",
-    "WEB_CONTAINER_PORT=3000",
+    "WEB_CONTAINER_PORT=4000",
     "MAILPIT_PORT=8025",
     ...Object.entries(LOADTEST_SERVICE_RESOURCE_LIMITS).flatMap(([service, limits]) => {
       const key = service.toUpperCase().replaceAll("-", "_");
@@ -1593,7 +1595,8 @@ async function runScenario(options) {
       throw new LoadTestError("The run-owned PostgreSQL service is not accepting connections.");
     if (["returning-personal", "account-mutations", "browser-smoke", "capacity"].includes(configured.scenario)) {
       failurePhase = "passwordless_session_pool_preparation";
-      const poolSize = configured.scenario === "browser-smoke" ? 1 : configured.maxVus;
+      const poolSize =
+        configured.scenario === "browser-smoke" ? 1 : Math.min(configured.maxVus, MAX_CAPACITY_SESSION_POOL_SIZE);
       verifyDisposableDatabaseOperation(project, state, "test:loadtest-session-pool");
       const sessionPool = await prepareBrowserSessionPool(project, target, poolSize, cancellation.signal);
       sessionPoolJson = JSON.stringify(sessionPool);
@@ -2277,8 +2280,16 @@ function captureResourceSnapshots(record, project, state) {
 }
 
 export function scenarioProfile(configured, options = {}) {
-  if (configured.scenario === "capacity")
-    return { maxVus: configured.maxVus, duration: configured.duration, browserVus: 0 };
+  if (configured.scenario === "capacity") {
+    const sessionPoolSize = Math.min(configured.maxVus, MAX_CAPACITY_SESSION_POOL_SIZE);
+    return {
+      maxVus: configured.maxVus,
+      duration: configured.duration,
+      browserVus: 0,
+      sessionPoolSize,
+      sessionsSharedAcrossVus: configured.maxVus > sessionPoolSize,
+    };
+  }
   if (configured.scenario === "returning-personal") return { ...defaultProfile(), browserVus: 1 };
   if (configured.scenario === "shared-vault") return { ...defaultProfile(), browserPreparationMembers: 10 };
   if (configured.scenario === "account-mutations")
@@ -2446,7 +2457,7 @@ Commands:
 
 Scenarios: returning-personal, account-mutations, browser-smoke, first-time, shared-vault, shared-account-mutations, rate-limits, capacity.
 Rate-limit boundaries: add --boundary email|network|authenticated; every scenario requires a fresh disposable project and database.
-Capacity: requires --max-vus <11-20>, --confirm-high-vus <exact-ceiling>, and --duration <integer>s|<integer>m (1s-10m). Run-owned disposable database operations require a local Docker context and use the recorded capped-local-v1 Compose resource profile. Same-machine capacity is a capped local characterization, not a separate-host or general capacity claim.
+Capacity: requires --max-vus <11-100>, --confirm-high-vus <exact-ceiling>, and --duration <integer>s|<integer>m (1s-10m). Above 20 VUs, capacity reads reuse at most 20 distinct synthetic sessions; no auth or rate-limit bypass is used. Run-owned disposable database operations require a local Docker context and use the recorded capped-local-v3 Compose resource profile. Same-machine capacity is a capped local characterization, not a separate-host or general capacity claim.
 Remote SSH Docker contexts are not accepted for disposable database operations under the current repository scope policy.
 Migration and scenario failures tear down only the exact run project by default. Use --preserve-on-failure to retain a failed migration/stack/scenario explicitly; use --keep-stack to retain a completed run.
 `);
