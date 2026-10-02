@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   classifyMagicLinkRequestFailure,
   classifySharedVaultCreationStatus,
@@ -18,25 +20,34 @@ import {
   isSharedVaultInvitationCreationRequestTarget,
   isSharedVaultManagementDetailsPath,
 } from "../apps/web/scripts/load-test-browser-support.mjs";
+import { applyLoadTestResourceProfile } from "./load-test/environment.mjs";
+import { hasExactRunDatabaseUrls } from "./load-test/docker.mjs";
 import {
-  applyLoadTestResourceProfile,
-  defaultProfile,
-  firstTimeAssertionFailureDetail,
-  rateLimitAssertionFailureDetail,
+  ALL_NON_CAPACITY_SCENARIO_CASES,
   LOADTEST_RESOURCE_PROFILE,
   LOADTEST_SERVICE_RESOURCE_LIMITS,
   MAX_CAPACITY_SESSION_POOL_SIZE,
   MAX_CAPACITY_VUS,
-  mailpitMessageListIsEmpty,
-  mailpitPreflightMessageCaptured,
+  ROOT,
+} from "./load-test/settings.mjs";
+import {
+  firstTimeAssertionFailureDetail,
   parseBrowserHelperFailurePhase,
-  parseMigrationDockerStats,
   parseProcessUsage,
-  scenarioProfile,
-  shouldPreserveFailedRun,
+  rateLimitAssertionFailureDetail,
+} from "./load-test/diagnostics.mjs";
+import {
   validateBrowserSessionPool,
   validateBrowserSharedFixtures,
   validateBrowserSharedMutationFixtures,
+} from "./load-test/validation.mjs";
+import { defaultProfile, renderMarkdownSummary, scenarioProfile } from "./load-test/reporting.mjs";
+import {
+  mailpitMessageListIsEmpty,
+  mailpitPreflightMessageCaptured,
+  parseArguments,
+  parseMigrationDockerStats,
+  shouldPreserveFailedRun,
   validateFreshScenarioState,
   validateHighCeiling,
   validateMigrationConfirmation,
@@ -44,7 +55,40 @@ import {
   validateRunnerPlacement,
   validateScenario,
   validateTarget,
-} from "./load-test.mjs";
+} from "./load-test/validation.mjs";
+
+test("load-test module paths resolve from the repository root", () => {
+  assert.equal(ROOT, resolve(fileURLToPath(new URL("../", import.meta.url))));
+});
+
+test("no-argument defaults run every non-capacity scenario and each rate-limit boundary", () => {
+  assert.deepEqual(parseArguments([]), { command: "all", options: {} });
+  assert.deepEqual(parseArguments(["help"]), { command: "help", options: {} });
+  assert.equal(ALL_NON_CAPACITY_SCENARIO_CASES.length, 9);
+  assert.equal(
+    ALL_NON_CAPACITY_SCENARIO_CASES.some(({ scenario }) => scenario === "capacity"),
+    false,
+  );
+  assert.deepEqual(
+    ALL_NON_CAPACITY_SCENARIO_CASES.filter(({ scenario }) => scenario === "rate-limits").map(
+      ({ boundary }) => boundary,
+    ),
+    ["email", "network", "authenticated"],
+  );
+  assert.equal(
+    new Set(ALL_NON_CAPACITY_SCENARIO_CASES.map(({ scenario, boundary }) => `${scenario}:${boundary ?? "none"}`)).size,
+    9,
+  );
+
+  const cli = readFileSync(new URL("./load-test/cli.mjs", import.meta.url), "utf8");
+  const projectCreation = cli.indexOf("const project = await createProject({ target: WEB_ORIGIN })");
+  const stackStartup = cli.indexOf("await bringUp({ project, target: WEB_ORIGIN })", projectCreation);
+  const migration = cli.indexOf('"confirm-migration": `${project}/${DATABASE_NAME}`', stackStartup);
+  const scenarioRun = cli.indexOf("await runScenario({ project, target: WEB_ORIGIN, ...scenarioCase })", migration);
+  assert.ok(
+    projectCreation >= 0 && stackStartup > projectCreation && migration > stackStartup && scenarioRun > migration,
+  );
+});
 
 test("load-test targets are explicitly pinned to the requested localhost web port", () => {
   assert.equal(validateTarget("http://localhost:4000"), "http://localhost:4000");
@@ -63,9 +107,9 @@ test("load-test targets are explicitly pinned to the requested localhost web por
 });
 
 test("SMTP TLS copies use an exclusive file in a private per-copy temp directory", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
+  const source = readFileSync(new URL("./load-test/mailpit.mjs", import.meta.url), "utf8");
   const copyStart = source.indexOf("function copySmtpFileToContainer");
-  const copyEnd = source.indexOf("\nasync function createProject", copyStart);
+  const copyEnd = source.indexOf("export async function verifySmtpPreflight", copyStart);
   assert.ok(copyStart >= 0 && copyEnd > copyStart);
   const copy = source.slice(copyStart, copyEnd);
   assert.ok(copy.includes('mkdtempSync(path.join(directory, "smtp-stage-"))'));
@@ -73,18 +117,19 @@ test("SMTP TLS copies use an exclusive file in a private per-copy temp directory
   assert.ok(copy.includes("chmodSync(stagedDirectory, 0o700)"));
   assert.ok(copy.includes("rmSync(stagedDirectory, { recursive: true, force: true })"));
 
-  const tlsStart = source.indexOf("function createSmtpTlsMaterial");
-  const tlsEnd = source.indexOf("\nfunction ensurePrivateDirectory", tlsStart);
+  const state = readFileSync(new URL("./load-test/state.mjs", import.meta.url), "utf8");
+  const tlsStart = state.indexOf("export function createSmtpTlsMaterial");
+  const tlsEnd = state.indexOf("\nexport function ensurePrivateDirectory", tlsStart);
   assert.ok(tlsStart >= 0 && tlsEnd > tlsStart);
-  const tls = source.slice(tlsStart, tlsEnd);
+  const tls = state.slice(tlsStart, tlsEnd);
   assert.ok(tls.includes("chmodSync(certificatePath, 0o600)"));
   assert.ok(tls.includes("chmodSync(privateKeyPath, 0o600)"));
 });
 
 test("health checks use the fixed local origin, never persisted target data", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const start = source.indexOf("async function waitForServices(");
-  const end = source.indexOf("\nasync function verifySmtpPreflight", start);
+  const source = readFileSync(new URL("./load-test/network.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("export async function waitForServices(");
+  const end = source.indexOf("\nexport async function startRunnerTunnel", start);
   assert.ok(start >= 0 && end > start);
   const waitForServices = source.slice(start, end);
   assert.ok(waitForServices.includes("isHealthy(`${WEB_ORIGIN}/api/v1/health`, true)"));
@@ -92,17 +137,18 @@ test("health checks use the fixed local origin, never persisted target data", ()
 });
 
 test("load-test stack keeps the latest-main loopback binding and healthcheck", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const composeEnvironmentStart = source.indexOf("function safeComposeEnvironment");
-  const composeEnvironmentEnd = source.indexOf("function safeK6Environment", composeEnvironmentStart);
+  const source = readFileSync(new URL("./load-test/environment.mjs", import.meta.url), "utf8");
+  const state = readFileSync(new URL("./load-test/state.mjs", import.meta.url), "utf8");
+  const composeEnvironmentStart = source.indexOf("export function safeComposeEnvironment");
+  const composeEnvironmentEnd = source.indexOf("export function safeK6Environment", composeEnvironmentStart);
   assert.ok(composeEnvironmentStart >= 0 && composeEnvironmentEnd > composeEnvironmentStart);
   const composeEnvironment = source.slice(composeEnvironmentStart, composeEnvironmentEnd);
   assert.ok(composeEnvironment.includes('environment.APP_BIND_ADDRESS = "127.0.0.1"'));
   assert.ok(composeEnvironment.includes('environment.APP_PORT = "4000"'));
   assert.ok(composeEnvironment.includes('environment.WEB_CONTAINER_PORT = "4000"'));
-  assert.ok(source.includes('"APP_BIND_ADDRESS=127.0.0.1"'));
-  assert.ok(source.includes('"APP_PORT=4000"'));
-  assert.ok(source.includes('"WEB_CONTAINER_PORT=4000"'));
+  assert.ok(state.includes('"APP_BIND_ADDRESS=127.0.0.1"'));
+  assert.ok(state.includes('"APP_PORT=4000"'));
+  assert.ok(state.includes('"WEB_CONTAINER_PORT=4000"'));
 
   const compose = readFileSync(new URL("../docker-compose.yml", import.meta.url), "utf8");
   assert.ok(compose.includes('"${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:${WEB_CONTAINER_PORT:-3000}"'));
@@ -110,9 +156,9 @@ test("load-test stack keeps the latest-main loopback binding and healthcheck", (
 });
 
 test("Compose resource limits override modified private env-file values", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const composeStart = source.indexOf("function safeComposeEnvironment");
-  const composeEnd = source.indexOf("function safeK6Environment", composeStart);
+  const source = readFileSync(new URL("./load-test/environment.mjs", import.meta.url), "utf8");
+  const composeStart = source.indexOf("export function safeComposeEnvironment");
+  const composeEnd = source.indexOf("export function safeK6Environment", composeStart);
   assert.ok(composeStart >= 0 && composeEnd > composeStart);
   assert.ok(source.slice(composeStart, composeEnd).includes("applyLoadTestResourceProfile(environment)"));
 
@@ -143,6 +189,31 @@ test("load-test project IDs must be generated run-owned Compose projects", () =>
     assert.throws(() => validateProject(project));
 });
 
+test("disposable database URL values must match the run-owned Compose database exactly", () => {
+  const database = "loadtest_vault";
+  const username = "loadtest";
+  const password = "a".repeat(64);
+  const expected = `postgresql://${username}:${password}@db:5432/${database}?schema=public`;
+  assert.equal(hasExactRunDatabaseUrls(database, username, password, expected, expected), true);
+  assert.equal(hasExactRunDatabaseUrls(database, username, password, expected, "postgresql://hosted/db"), false);
+  assert.equal(
+    hasExactRunDatabaseUrls(
+      database,
+      username,
+      password,
+      "postgresql://loadtest@db:5432/other",
+      "postgresql://loadtest@db:5432/other",
+    ),
+    false,
+  );
+
+  const docker = readFileSync(new URL("./load-test/docker.mjs", import.meta.url), "utf8");
+  assert.ok(docker.includes('"DATABASE_URL"'));
+  assert.ok(docker.includes('"DIRECT_URL"'));
+  assert.ok(docker.includes('values.get("DATABASE_URL")'));
+  assert.ok(docker.includes('values.get("DIRECT_URL")'));
+});
+
 test("migration confirmation binds the action to one exact project and database", () => {
   const project = "rhasia-load-012345abcdef";
   assert.equal(
@@ -156,9 +227,9 @@ test("migration confirmation binds the action to one exact project and database"
 });
 
 test("load-test verifies the empty exact project before starting its PostgreSQL service", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const bringUpStart = source.indexOf("async function bringUp(options)");
-  const bringUpEnd = source.indexOf("async function waitForBootstrapServices", bringUpStart);
+  const source = readFileSync(new URL("./load-test/projects.mjs", import.meta.url), "utf8");
+  const bringUpStart = source.indexOf("export async function bringUp(options)");
+  const bringUpEnd = source.length;
   assert.ok(bringUpStart >= 0 && bringUpEnd > bringUpStart);
   const bringUpSource = source.slice(bringUpStart, bringUpEnd);
   const preflight = bringUpSource.indexOf(
@@ -172,10 +243,10 @@ test("load-test verifies the empty exact project before starting its PostgreSQL 
 });
 
 test("teardown only removes retained private state after the empty-project scope check", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const discardStart = source.indexOf("function discardUnstartedProject");
-  const teardownStart = source.indexOf("async function teardown", discardStart);
-  const teardownEnd = source.indexOf("async function stopProject", teardownStart);
+  const source = readFileSync(new URL("./load-test/teardown.mjs", import.meta.url), "utf8");
+  const discardStart = source.indexOf("export function discardUnstartedProject");
+  const teardownStart = source.indexOf("export async function teardown", discardStart);
+  const teardownEnd = source.indexOf("export async function stopProject", teardownStart);
   assert.ok(discardStart >= 0 && teardownStart > discardStart && teardownEnd > teardownStart);
   const discard = source.slice(discardStart, teardownStart);
   const teardown = source.slice(teardownStart, teardownEnd);
@@ -191,9 +262,9 @@ test("teardown only removes retained private state after the empty-project scope
 });
 
 test("load-test builds app images before starting containers without an implicit pull", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
-  const bringUpStart = source.indexOf("async function bringUp(options)");
-  const bringUpEnd = source.indexOf("async function waitForBootstrapServices", bringUpStart);
+  const source = readFileSync(new URL("./load-test/projects.mjs", import.meta.url), "utf8");
+  const bringUpStart = source.indexOf("export async function bringUp(options)");
+  const bringUpEnd = source.length;
   const bringUpSource = source.slice(bringUpStart, bringUpEnd);
   const build = bringUpSource.indexOf('runCompose(project, state, ["build", "api", "web", "retention-purge"])');
   const start = bringUpSource.indexOf(
@@ -310,7 +381,7 @@ test("Shared invitation fragments stay in helper memory and out of fixtures and 
     new URL("../apps/web/scripts/load-test-browser-support.mjs", import.meta.url),
     "utf8",
   );
-  const runner = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
+  const runner = readFileSync(new URL("./load-test/scenario.mjs", import.meta.url), "utf8");
   const invitationFlow = browserSupport.slice(
     browserSupport.indexOf("export async function createSecureInvitation"),
     browserSupport.indexOf("export async function redeemSharedVaultInvitation"),
@@ -1487,6 +1558,12 @@ test("capacity profile records VU ceiling, duration, and bounded session sharing
   });
   assert.equal(MAX_CAPACITY_SESSION_POOL_SIZE, 20);
   assert.equal(MAX_CAPACITY_VUS, 100);
+  assert.deepEqual(scenarioProfile({ scenario: "rate-limits" }, { boundary: "email" }), {
+    boundary: "email",
+    expectedLimit: 5,
+    vus: 1,
+    authenticatedPolicies: [],
+  });
 
   const personalVaultK6 = readFileSync(new URL("../performance/k6/personal-vault.js", import.meta.url), "utf8");
   assert.ok(personalVaultK6.includes("const maximumPreparedSessions = 20;"));
@@ -1494,9 +1571,123 @@ test("capacity profile records VU ceiling, duration, and bounded session sharing
   assert.ok(personalVaultK6.includes("data.sessions[(__VU - 1) % data.sessions.length]"));
 });
 
-test("capacity report preserves generator, stack, tool, and saturation evidence fields", () => {
-  const source = readFileSync(new URL("./load-test.mjs", import.meta.url), "utf8");
+test("Markdown summary reports bounded k6 results and resource peaks", () => {
+  const markdown = renderMarkdownSummary(
+    {
+      scenario: "capacity",
+      project: "rhasia-load-012345abcdef",
+      resourceProfile: "capped-local-v4",
+      target: "http://localhost:4000",
+      runnerPlacement: "same-machine",
+      dockerContext: "orbstack",
+      scenarioStartedAt: "2026-10-02T08:40:00.000Z",
+      endedAt: "2026-10-02T08:42:00.000Z",
+      stopReason: "completed",
+      k6ExitCode: 0,
+      versions: { k6: "k6 v0.56.0" },
+      profile: {
+        maxVus: 100,
+        duration: "2m",
+        sessionPoolSize: 20,
+        sessionsSharedAcrossVus: true,
+        rampBetweenStages: "10s",
+        stages: [
+          { targetVus: 1, hold: "2m" },
+          { targetVus: 5, hold: "2m" },
+          { targetVus: 10, hold: "2m" },
+        ],
+      },
+      serviceResourceLimits: { api: { cpus: "1.0", memory: "256m" } },
+      dockerSnapshots: [
+        {
+          containers: [
+            { service: "api", cpuPercent: "99.35%", memoryUsage: "249.5MiB / 256MiB", memoryPercent: "97.47%" },
+          ],
+        },
+      ],
+      migrationDockerPeak: { cpuPercent: "100.38%", memoryUsage: "117.7MiB / 256MiB", sampleCount: 2 },
+      k6ProcessSnapshots: [{ cpuPercent: 16.4, residentMemoryBytes: 102_760_448 }],
+      sshTunnelProcessSnapshots: [],
+      applicationRateLimits: { "email:allowed": 2 },
+    },
+    {
+      metrics: {
+        http_req_failed: { rate: 0, passes: 0, fails: 60 },
+        http_reqs: { count: 60, rate: 30 },
+        http_req_duration: { "p(95)": 12.345, "p(99)": 22.5 },
+        checks: { passes: 120, fails: 0 },
+        unlisted_metric: { value: "must not be rendered" },
+      },
+    },
+  );
+  assert.match(markdown, /# Load-test summary: capacity/);
+  assert.match(markdown, /\| Requests \| 60 \|/);
+  assert.match(markdown, /\| HTTP requests\/s \(RPS\) \| 30 \|/);
+  assert.match(markdown, /\| HTTP failure rate \| 0% \|/);
+  assert.match(markdown, /\| HTTP failures \| 0 \|/);
+  assert.match(markdown, /\| Checks passed \| 120 \|/);
+  assert.match(markdown, /\| p95 latency \(ms\) \| 12\.35 \|/);
+  assert.match(markdown, /\| api \| 99\.35% \| 249\.5MiB \/ 256MiB \(97\.47%\) \| 1\.0 CPU \/ 256m \| 1 \|/);
+  assert.match(markdown, /one-shot migration/);
+  assert.match(markdown, /\| k6 \| 16\.4% \| 98 MiB \|/);
+  assert.match(markdown, /\| email:allowed \| 2 \|/);
+  assert.match(markdown, /\| Maximum VUs \| 100 \|/);
+  assert.match(markdown, /\| VU stages \| 1 VU for 2m → 5 VUs for 2m → 10 VUs for 2m \|/);
+  assert.match(markdown, /Started \(local\):/);
+  assert.doesNotMatch(markdown, /2026-10-02T08:40:00\.000Z/);
+  assert.doesNotMatch(markdown, /must not be rendered/);
+});
+
+test("browser-only summaries omit unavailable HTTP metrics and show browser checks", () => {
+  const markdown = renderMarkdownSummary(
+    {
+      scenario: "browser-smoke",
+      project: "rhasia-load-012345abcdef",
+      resourceProfile: "capped-local-v4",
+      target: "http://localhost:4000",
+      runnerPlacement: "same-machine",
+      dockerContext: "orbstack",
+      scenarioStartedAt: "2026-10-02T08:40:00.000Z",
+      endedAt: "2026-10-02T08:41:00.000Z",
+      stopReason: "completed",
+      k6ExitCode: 0,
+      versions: { k6: "k6 v0.57.0" },
+      profile: { vus: 1 },
+      dockerSnapshots: [],
+      k6ProcessSnapshots: [],
+      sshTunnelProcessSnapshots: [],
+    },
+    { metrics: { checks: { passes: 2, fails: 0 } } },
+  );
+  assert.match(markdown, /\*\*Result:\*\* passed/);
+  assert.match(markdown, /\| VUs \| 1 \|/);
+  assert.match(markdown, /\| Checks passed \| 2 \|/);
+  assert.match(markdown, /browser-only smoke test/);
+  assert.doesNotMatch(markdown, /\| (?:Requests|HTTP requests\/s \(RPS\)|HTTP failure rate|p9[59] latency \(ms\)) \|/);
+
+  const legacyMarkdown = renderMarkdownSummary(
+    {
+      scenario: "browser-smoke",
+      project: "rhasia-load-012345abcdef",
+      profile: { vus: 1 },
+      stopReason: "completed",
+      k6ExitCode: 0,
+      dockerSnapshots: [],
+      k6ProcessSnapshots: [],
+      sshTunnelProcessSnapshots: [],
+    },
+    null,
+  );
+  assert.match(legacyMarkdown, /\*\*Result:\*\* incomplete/);
+  assert.match(legacyMarkdown, /Browser check metrics \| not retained in this run/);
+  assert.match(legacyMarkdown, /HTTP RPS and latency metrics are not produced/);
+  assert.match(legacyMarkdown, /browser check results were not retained by this run/);
+});
+
+test("capacity report preserves telemetry and writes a separate Markdown summary", () => {
+  const source = readFileSync(new URL("./load-test/scenario.mjs", import.meta.url), "utf8");
   for (const field of [
+    "schemaVersion: 2",
     "runnerPlacement: state.runnerPlacement",
     "networkPath:",
     "loadGenerator: machineSummary()",
@@ -1508,8 +1699,12 @@ test("capacity report preserves generator, stack, tool, and saturation evidence 
     "sshTunnelProcessSnapshots: []",
     "captureResourceSnapshots(runRecord, project, state)",
     "aggregateRateLimitMetrics(project, state)",
+    "`${configured.scenario}-${stamp}.summary.md`",
+    "renderMarkdownSummary(runRecord, k6Summary)",
+    "rmSync(summaryPath, { force: true })",
   ])
     assert(source.includes(field), `capacity report is missing ${field}`);
+  assert.doesNotMatch(source, /summary: null/);
 });
 
 test("capacity mode requires capped resources for same-machine runs and bounds ceiling and duration", () => {
@@ -1572,13 +1767,13 @@ test("capacity mode requires capped resources for same-machine runs and bounds c
     ).maxVus,
     11,
   );
-  assert.equal(LOADTEST_RESOURCE_PROFILE, "capped-local-v3");
+  assert.equal(LOADTEST_RESOURCE_PROFILE, "capped-local-v4");
   assert.deepEqual(LOADTEST_SERVICE_RESOURCE_LIMITS, {
-    db: { cpus: "1.0", memory: "512m" },
-    migrate: { cpus: "1.0", memory: "1g" },
-    api: { cpus: "1.0", memory: "512m" },
-    web: { cpus: "1.0", memory: "512m" },
-    "retention-purge": { cpus: "0.125", memory: "128m" },
+    db: { cpus: "1.0", memory: "256m" },
+    migrate: { cpus: "1.0", memory: "256m" },
+    api: { cpus: "1.0", memory: "256m" },
+    web: { cpus: "1.0", memory: "256m" },
+    "retention-purge": { cpus: "0.125", memory: "256m" },
     mailpit: { cpus: "0.25", memory: "256m" },
   });
 });
