@@ -18,6 +18,7 @@ export type ApiBindings = Readonly<{
   SMTP_REQUIRE_TLS?: string;
   SMTP_USER?: string;
   SMTP_PASSWORD?: string;
+  SMTP_TLS_CA?: string;
   AUTH_EMAIL_FROM?: string;
   AUTH_EMAIL_FROM_NAME?: string;
   AUTH_MAGIC_LINK_TTL_SECONDS?: string;

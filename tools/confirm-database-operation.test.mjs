@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isLocalDockerContext, validateDisposableDatabaseScope } from "./confirm-database-operation.mjs";
+import {
+  isLocalDockerContext,
+  validateDisposableDatabaseScope,
+  validateFreshDisposableProjectScope,
+} from "./confirm-database-operation.mjs";
 
 const runId = "651c40756797";
 const projectName = `rhasia-load-${runId}`;
@@ -54,6 +58,30 @@ function validate(overrides = {}) {
   });
 }
 
+const freshRunId = "0123456789abcdef";
+const freshProjectName = `rhasia-load-${freshRunId}`;
+const freshPassword = "a".repeat(64);
+const freshEnvironment = {
+  COMPOSE_PROJECT_NAME: freshProjectName,
+  RHSIA_DISPOSABLE_RUN_ID: freshRunId,
+  RHSIA_DISPOSABLE_DATA_CLASSIFICATION: "synthetic",
+  POSTGRES_DB: "loadtest_vault",
+  POSTGRES_USER: "loadtest",
+  POSTGRES_PASSWORD: freshPassword,
+  DATABASE_URL: `postgresql://loadtest:${freshPassword}@db:5432/loadtest_vault?schema=public`,
+  DIRECT_URL: `postgresql://loadtest:${freshPassword}@db:5432/loadtest_vault?schema=public`,
+};
+
+function validateFreshProject(overrides = {}) {
+  return validateFreshDisposableProjectScope({
+    runId: freshRunId,
+    operation: "test:loadtest-stack-create",
+    environment: freshEnvironment,
+    projectHasResources: false,
+    ...overrides,
+  });
+}
+
 test("accepts local Unix-socket and Windows named-pipe Docker contexts but rejects remote endpoints", () => {
   assert.equal(isLocalDockerContext([{ Endpoints: { docker: { Host: "unix:///var/run/docker.sock" } } }]), true);
   assert.equal(
@@ -69,8 +97,96 @@ test("accepts local Unix-socket and Windows named-pipe Docker contexts but rejec
   assert.equal(isLocalDockerContext([]), false);
 });
 
+test("verifies the exact empty synthetic project before starting PostgreSQL", () => {
+  assert.deepEqual(validateFreshProject(), []);
+  assert.ok(
+    validateFreshProject({ projectHasResources: true }).some((error) => error.includes("already has resources")),
+  );
+  assert.ok(validateFreshProject({ runId: "ffffffffffffffff" }).some((error) => error.includes("project name")));
+  assert.ok(
+    validateFreshProject({
+      environment: { ...freshEnvironment, RHSIA_DISPOSABLE_DATA_CLASSIFICATION: "production" },
+    }).some((error) => error.includes("classified as synthetic")),
+  );
+  assert.ok(
+    validateFreshProject({
+      environment: {
+        ...freshEnvironment,
+        DATABASE_URL: `postgresql://loadtest:${freshPassword}@127.0.0.1:55432/loadtest_vault`,
+      },
+    }).some((error) => error.includes("run-owned Compose database")),
+  );
+  assert.ok(
+    validateFreshProject({ operation: "test:loadtest-migration" }).some((error) =>
+      error.includes("stack-create operation"),
+    ),
+  );
+});
+
 test("accepts a run-owned PostgreSQL database with synthetic fixtures and loopback-only access", () => {
   assert.deepEqual(validate(), []);
+});
+
+test("accepts Compose-internal database URLs only on the inspected run-owned network", () => {
+  const networkName = `${projectName}_default`;
+  const composeEnvironment = {
+    ...environment,
+    DATABASE_URL: "postgresql://rhasia:test@db:5432/synthetic_test?schema=public",
+    DIRECT_URL: "postgresql://rhasia:test@db:5432/synthetic_test?schema=public",
+  };
+  const composeContainer = {
+    ...container,
+    NetworkSettings: {
+      Ports: { "5432/tcp": null },
+      Networks: { [networkName]: { IPAddress: "172.20.0.2" } },
+    },
+  };
+  const composeNetworks = [
+    { Name: networkName, Scope: "local", Driver: "bridge", Labels: { "com.docker.compose.project": projectName } },
+  ];
+  assert.deepEqual(
+    validate({ environment: composeEnvironment, container: composeContainer, networks: composeNetworks }),
+    [],
+  );
+  assert.ok(
+    validate({ environment: composeEnvironment, container: composeContainer }).some((error) =>
+      error.includes("inspected network owned by this run"),
+    ),
+  );
+  const externallyPublishedContainer = {
+    ...composeContainer,
+    NetworkSettings: {
+      ...composeContainer.NetworkSettings,
+      Ports: { "5432/tcp": [{ HostIp: "0.0.0.0", HostPort: "55432" }] },
+    },
+  };
+  assert.ok(
+    validate({
+      environment: composeEnvironment,
+      container: externallyPublishedContainer,
+      networks: composeNetworks,
+    }).some((error) => error.includes("loopback interface")),
+  );
+});
+
+test("allows only exact-scope teardown when the run-owned database is stopped", () => {
+  const composeEnvironment = {
+    ...environment,
+    DATABASE_URL: "postgresql://rhasia:test@db:5432/synthetic_test?schema=public",
+    DIRECT_URL: "postgresql://rhasia:test@db:5432/synthetic_test?schema=public",
+  };
+  const stoppedContainer = {
+    ...container,
+    State: { Status: "exited" },
+    NetworkSettings: { Ports: { "5432/tcp": null }, Networks: {} },
+  };
+  const scope = {
+    environment: composeEnvironment,
+    container: stoppedContainer,
+    networks: [],
+  };
+  assert.ok(validate(scope).some((error) => error.includes("container is not running")));
+  assert.deepEqual(validate({ ...scope, operation: "test:loadtest-teardown" }), []);
 });
 
 test("rejects malformed or mismatched run IDs and project names", () => {

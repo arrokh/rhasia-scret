@@ -64,7 +64,7 @@ docs/
 - [`release-readiness/2026-09-08.md`](release-readiness/2026-09-08.md) — historical launch-candidate evidence ledger; it does not establish readiness for later commits.
 - [`browser-test-runtime.md`](browser-test-runtime.md) — browser-gate topology, worker controls, and reproducible test commands.
 - [`monorepo.md`](monorepo.md) — workspace ownership, package commands, deployment assumptions, and local verification.
-- [`performance/README.md`](performance/README.md) — bundle and navigation performance evidence.
+- [`performance/README.md`](performance/README.md) — bundle/navigation performance evidence and the API load-testing plan.
 
 ## Architecture and domain decisions
 
@@ -95,6 +95,7 @@ docs/
 - [`mvp-plan.md`](mvp-plan.md) — implemented product scope and the original MVP vertical-slice sequence.
 - [`i18n-implementation-plan.md`](i18n-implementation-plan.md) — localization implementation and maintenance requirements.
 - [`navigation-interaction-performance-plan.md`](navigation-interaction-performance-plan.md) — navigation and interaction performance work.
+- [`performance/api-load-testing-plan.md`](performance/api-load-testing-plan.md) — safe self-hosted k6 load-test runbook and local capacity characterization.
 - [`shared-vault-member-account-permissions-plan.md`](shared-vault-member-account-permissions-plan.md) — implemented Shared Vault account-permission model and its original implementation plan.
 - [`passwordless-only-authentication-plan.md`](passwordless-only-authentication-plan.md) — completed passwordless-only authentication implementation record; native-client verification references are historical.
 - [`encrypted-vault-backup.md`](encrypted-vault-backup.md) — archive workflow implementation contract.

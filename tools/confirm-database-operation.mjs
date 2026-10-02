@@ -33,7 +33,7 @@ export function isLocalDockerContext(contexts) {
   return endpoint.startsWith(namedPipePrefix) && /^[a-z0-9_.-]+$/iu.test(endpoint.slice(namedPipePrefix.length));
 }
 
-export function validateDisposableDatabaseScope({ runId, operation, environment, container, volume }) {
+export function validateDisposableDatabaseScope({ runId, operation, environment, container, volume, networks = [] }) {
   const errors = [];
   if (!disposableRunIdPattern.test(runId ?? "")) {
     errors.push("Run ID must be 12–32 lowercase hexadecimal characters.");
@@ -55,7 +55,9 @@ export function validateDisposableDatabaseScope({ runId, operation, environment,
   if (!container) return [...errors, "A matching run-owned PostgreSQL container is required."];
 
   const labels = container.Config?.Labels ?? {};
-  if (container.State?.Status !== "running") errors.push("The run-owned PostgreSQL container is not running.");
+  const teardownOnly = operation === "test:loadtest-teardown";
+  if (container.State?.Status !== "running" && !teardownOnly)
+    errors.push("The run-owned PostgreSQL container is not running.");
   if (labels["com.docker.compose.project"] !== projectName) {
     errors.push("PostgreSQL container does not belong to the requested Compose project.");
   }
@@ -86,10 +88,12 @@ export function validateDisposableDatabaseScope({ runId, operation, environment,
     errors.push("Database storage must be a single local volume owned by this Compose project.");
   }
 
-  const bindings = container.NetworkSettings?.Ports?.["5432/tcp"];
-  if (!Array.isArray(bindings) || bindings.length === 0) {
-    errors.push("PostgreSQL must publish a local host port for test connections.");
-  } else if (bindings.some((binding) => !isLoopback(binding.HostIp))) {
+  const configuredBindings = container.NetworkSettings?.Ports?.["5432/tcp"];
+  const bindings = Array.isArray(configuredBindings) ? configuredBindings : [];
+  if (configuredBindings !== undefined && configuredBindings !== null && !Array.isArray(configuredBindings)) {
+    errors.push("PostgreSQL port bindings could not be verified safely.");
+  }
+  if (bindings.some((binding) => !isLoopback(binding.HostIp))) {
     errors.push("PostgreSQL must bind only to the local loopback interface.");
   }
 
@@ -98,11 +102,29 @@ export function validateDisposableDatabaseScope({ runId, operation, environment,
   if (parsedUrls.some((url) => url === undefined)) {
     errors.push("Both database URLs must target a local PostgreSQL test database.");
   } else {
+    const attachedNetworkNames = Object.keys(container.NetworkSettings?.Networks ?? {});
+    const runOwnedNetworkNames = (networks ?? [])
+      .filter(
+        (network) =>
+          network?.Labels?.["com.docker.compose.project"] === projectName &&
+          network.Scope === "local" &&
+          typeof network.Name === "string",
+      )
+      .map((network) => network.Name);
     for (const url of parsedUrls) {
-      const mapsToContainer = bindings?.some(
-        (binding) => isLoopback(binding.HostIp) && Number(binding.HostPort) === url.port,
-      );
-      if (!mapsToContainer) errors.push("Database URL port does not map to this run-owned container.");
+      if (url.access === "loopback") {
+        const mapsToContainer = bindings.some(
+          (binding) => isLoopback(binding.HostIp) && Number(binding.HostPort) === url.port,
+        );
+        if (!mapsToContainer) errors.push("Database URL port does not map to this run-owned container.");
+      }
+      if (
+        url.access === "compose" &&
+        !teardownOnly &&
+        !runOwnedNetworkNames.some((name) => attachedNetworkNames.includes(name))
+      ) {
+        errors.push("Compose database URLs require an inspected network owned by this run.");
+      }
       if (
         url.username !== containerEnvironment.POSTGRES_USER ||
         url.password !== containerEnvironment.POSTGRES_PASSWORD ||
@@ -116,12 +138,71 @@ export function validateDisposableDatabaseScope({ runId, operation, environment,
   return [...new Set(errors)];
 }
 
+export function validateFreshDisposableProjectScope({ runId, operation, environment, projectHasResources }) {
+  const errors = [];
+  if (!disposableRunIdPattern.test(runId ?? "")) errors.push("Run ID must be 12–32 lowercase hexadecimal characters.");
+  const projectName = `rhasia-load-${runId}`;
+  if (environment.COMPOSE_PROJECT_NAME !== projectName)
+    errors.push("Compose project name must match the fresh load-test run ID.");
+  if (environment.RHSIA_DISPOSABLE_RUN_ID !== runId)
+    errors.push("Disposable run ID environment marker does not match.");
+  if (environment.RHSIA_DISPOSABLE_DATA_CLASSIFICATION !== "synthetic")
+    errors.push("Disposable test data must be explicitly classified as synthetic.");
+  if (operation !== "test:loadtest-stack-create")
+    errors.push("Fresh project verification requires the exact stack-create operation.");
+  if (projectHasResources !== false)
+    errors.push("The fresh Compose project already has resources or could not be inspected.");
+
+  const database = environment.POSTGRES_DB;
+  const username = environment.POSTGRES_USER;
+  const password = environment.POSTGRES_PASSWORD;
+  if (
+    database !== "loadtest_vault" ||
+    typeof username !== "string" ||
+    !/^[A-Za-z0-9_.-]{1,64}$/u.test(username) ||
+    typeof password !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(password)
+  ) {
+    errors.push("Private database configuration is invalid.");
+  }
+  const databaseUrls = [environment.DATABASE_URL, environment.DIRECT_URL];
+  const parsedUrls = databaseUrls.map(parseDatabaseUrl);
+  if (
+    parsedUrls.some(
+      (url) =>
+        !url ||
+        url.access !== "compose" ||
+        url.port !== 5432 ||
+        url.database !== database ||
+        url.username !== username ||
+        url.password !== password,
+    ) ||
+    databaseUrls.some((value) => {
+      try {
+        return new URL(value).searchParams.get("schema") !== "public";
+      } catch {
+        return true;
+      }
+    })
+  ) {
+    errors.push("Both database URLs must match the new run-owned Compose database.");
+  }
+  return [...new Set(errors)];
+}
+
 function parseDatabaseUrl(value) {
   if (typeof value !== "string") return undefined;
   try {
     const url = new URL(value);
     if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") return undefined;
-    if (!isLoopback(url.hostname) || url.hash) return undefined;
+    if (url.hash) return undefined;
+    const port = Number(url.port || "5432");
+    const access = isLoopback(url.hostname)
+      ? "loopback"
+      : url.hostname === "db" && port === 5432
+        ? "compose"
+        : undefined;
+    if (!access) return undefined;
     const queryKeys = [...url.searchParams.keys()];
     if (queryKeys.some((key) => key.toLowerCase() !== "schema") || url.searchParams.getAll("schema").length > 1) {
       return undefined;
@@ -131,7 +212,8 @@ function parseDatabaseUrl(value) {
       username: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
       database,
-      port: Number(url.port || "5432"),
+      port,
+      access,
     };
   } catch {
     return undefined;
@@ -171,6 +253,7 @@ function inspectRunOwnedDatabase(projectName) {
   verifyLocalDockerContext();
   const listing = runDocker([
     "ps",
+    "--all",
     "--filter",
     `label=com.docker.compose.project=${projectName}`,
     "--filter",
@@ -195,12 +278,25 @@ function inspectRunOwnedDatabase(projectName) {
   if (mount?.Type !== "volume" || !mount.Name) return { container };
 
   const inspectedVolume = runDocker(["volume", "inspect", mount.Name]);
+  let volume;
   try {
     const volumes = JSON.parse(inspectedVolume);
-    return { container, volume: Array.isArray(volumes) && volumes.length === 1 ? volumes[0] : undefined };
+    volume = Array.isArray(volumes) && volumes.length === 1 ? volumes[0] : undefined;
   } catch {
     return { container };
   }
+
+  const networks = [];
+  for (const networkName of Object.keys(container.NetworkSettings?.Networks ?? {})) {
+    try {
+      const inspectedNetwork = runDocker(["network", "inspect", networkName]);
+      const inspected = JSON.parse(inspectedNetwork);
+      if (Array.isArray(inspected) && inspected.length === 1) networks.push(inspected[0]);
+    } catch {
+      continue;
+    }
+  }
+  return { container, volume, networks };
 }
 
 function runDocker(arguments_) {
@@ -291,6 +387,34 @@ async function main(arguments_) {
     return;
   }
 
+  if (mode === "--verify-new-disposable-run-id") {
+    const [runId, operation, ...extra] = remaining;
+    if (!runId || !operation || extra.length > 0) {
+      console.error(
+        'Usage: confirm-database-operation.mjs --verify-new-disposable-run-id <hex-id> "test:loadtest-stack-create"',
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const environment = process.env;
+    const projectName = `rhasia-load-${runId}`;
+    let projectHasResources = true;
+    try {
+      if (environment.COMPOSE_PROJECT_NAME === projectName)
+        projectHasResources = hasComposeProjectResources(projectName);
+    } catch {
+      projectHasResources = true;
+    }
+    const errors = validateFreshDisposableProjectScope({ runId, operation, environment, projectHasResources });
+    if (errors.length > 0) {
+      console.error(`Fresh disposable project rejected: ${errors.join(" ")}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log("Fresh run-owned local Compose project verified; no existing resources. Synthetic data marker set.");
+    return;
+  }
+
   if (mode === "--disposable-run-id") {
     const [runId, operation, ...extra] = remaining;
     if (!runId || !operation || extra.length > 0) {
@@ -312,6 +436,7 @@ async function main(arguments_) {
       environment: process.env,
       container: inspectedDatabase?.container,
       volume: inspectedDatabase?.volume,
+      networks: inspectedDatabase?.networks,
     });
     if (errors.length > 0) {
       console.error(`Disposable test database scope rejected: ${errors.join(" ")}`);

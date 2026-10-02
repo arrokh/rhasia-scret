@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readSmtpEmailConfiguration } from "@api/smtp-email-senders";
 import { readApiConfigBindings, readRuntimeDatabaseUrl, sanitizeApiRuntimeEnvironment } from "@api/runtime/environment";
 
 describe("standalone API environment boundaries", () => {
@@ -46,6 +47,22 @@ describe("standalone API environment boundaries", () => {
     expect(bindings).not.toHaveProperty("OIDC_ISSUER");
     expect(bindings).not.toHaveProperty("OIDC_CLIENT_ID");
     expect(bindings).not.toHaveProperty("AUTH_ADMITTED_EMAILS");
+  });
+
+  it("forwards the SMTP TLS trust anchor through runtime bindings into sender configuration", () => {
+    const certificate = "-----BEGIN CERTIFICATE-----\nsynthetic-certificate\n-----END CERTIFICATE-----\n";
+    const bindings = readApiConfigBindings({
+      SMTP_HOST: "mailpit",
+      SMTP_PORT: "465",
+      SMTP_SECURE: "true",
+      SMTP_REQUIRE_TLS: "true",
+      SMTP_USER: "synthetic-user",
+      SMTP_PASSWORD: "synthetic-password",
+      SMTP_TLS_CA: Buffer.from(certificate).toString("base64"),
+      AUTH_EMAIL_FROM: "no-reply@example.test",
+    });
+
+    expect(readSmtpEmailConfiguration(bindings).smtp.tlsCa).toBe(certificate);
   });
 
   it("requires a runtime pooled database URL", () => {

@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { describe, expect, it, vi } from "vitest";
 import {
   createSmtpEmailSenders,
@@ -40,6 +41,23 @@ describe("SMTP email delivery", () => {
     expect(() => readSmtpEmailConfiguration({ ...valid, SMTP_PORT: "587", SMTP_REQUIRE_TLS: "false" })).toThrow(
       "SMTP_REQUIRE_TLS",
     );
+  });
+
+  it("accepts only bounded base64 PEM certificates for SMTP trust", () => {
+    const certificate = "-----BEGIN CERTIFICATE-----\nsynthetic-certificate\n-----END CERTIFICATE-----\n";
+    const configured = readSmtpEmailConfiguration({
+      ...valid,
+      SMTP_TLS_CA: Buffer.from(certificate).toString("base64"),
+    });
+    expect(configured.smtp.tlsCa).toBe(certificate);
+    const createTransport: NodemailerTransportFactory = vi
+      .fn()
+      .mockReturnValue({ sendMail: vi.fn() } satisfies MailTransport);
+    createSmtpEmailSenders({ ...valid, SMTP_TLS_CA: Buffer.from(certificate).toString("base64") }, createTransport);
+    expect(createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ tls: { minVersion: "TLSv1.2", ca: certificate } }),
+    );
+    expect(() => readSmtpEmailConfiguration({ ...valid, SMTP_TLS_CA: "not-base64" })).toThrow("SMTP_TLS_CA");
   });
 
   it("rejects malformed sender values", () => {

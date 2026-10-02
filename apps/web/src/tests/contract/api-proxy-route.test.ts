@@ -115,13 +115,13 @@ describe("web API proxy", () => {
   it("allows the 0.0.0.0 local development alias for a localhost web origin", async () => {
     process.env.API_ORIGIN = "http://127.0.0.1:8787";
     process.env.API_PROXY_SECRET = "proxy-secret-that-is-long-enough-for-tests-123456";
-    process.env.WEB_ORIGIN = "http://localhost:3000";
+    process.env.WEB_ORIGIN = "http://localhost:4000";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok")));
 
     const response = await POST(
-      new NextRequest("http://0.0.0.0:3000/api/v1/auth/magic-link/redeem", {
+      new NextRequest("http://0.0.0.0:4000/api/v1/auth/magic-link/redeem", {
         method: "POST",
-        headers: { origin: "http://0.0.0.0:3000", "content-type": "application/json" },
+        headers: { origin: "http://0.0.0.0:4000", "content-type": "application/json" },
         body: "{}",
       }),
       { params: Promise.resolve({ path: ["v1", "auth", "magic-link", "redeem"] }) },
@@ -129,7 +129,7 @@ describe("web API proxy", () => {
 
     expect(response.status).toBe(200);
     const [, options] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit];
-    expect(new Headers(options.headers).get("origin")).toBe("http://localhost:3000");
+    expect(new Headers(options.headers).get("origin")).toBe("http://localhost:4000");
   });
 
   it("accepts the canonical browser origin forwarded by a trusted HTTPS proxy", async () => {

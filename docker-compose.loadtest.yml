@@ -1,0 +1,40 @@
+services:
+  db:
+    cpus: "${LOADTEST_DB_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_DB_MEMORY:?Run-owned memory cap is required}"
+
+  migrate:
+    cpus: "${LOADTEST_MIGRATE_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_MIGRATE_MEMORY:?Run-owned memory cap is required}"
+
+  api:
+    cpus: "${LOADTEST_API_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_API_MEMORY:?Run-owned memory cap is required}"
+
+  web:
+    cpus: "${LOADTEST_WEB_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_WEB_MEMORY:?Run-owned memory cap is required}"
+
+  retention-purge:
+    cpus: "${LOADTEST_RETENTION_PURGE_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_RETENTION_PURGE_MEMORY:?Run-owned memory cap is required}"
+
+  mailpit:
+    cpus: "${LOADTEST_MAILPIT_CPUS:?Run-owned CPU cap is required}"
+    mem_limit: "${LOADTEST_MAILPIT_MEMORY:?Run-owned memory cap is required}"
+    image: ghcr.io/axllent/mailpit:v1.31.3
+    restart: "no"
+    environment:
+      MP_SMTP_AUTH: "${SMTP_USER}:${SMTP_PASSWORD}"
+      MP_SMTP_BIND_ADDR: 0.0.0.0:465
+      MP_SMTP_TLS_CERT: /smtp-cert.pem
+      MP_SMTP_TLS_KEY: /smtp-key.pem
+      MP_SMTP_REQUIRE_TLS: "true"
+      MP_MAX_MESSAGES: "1000"
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    networks: [backend]
+    # A private temporary directory protects the transient read-only TLS copies; teardown removes this layer.
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
