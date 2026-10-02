@@ -14,7 +14,7 @@ const configuration = {
   appOrigin: new URL("https://vault.example.test"),
   magicLinkSecret: new Uint8Array(32),
   sessionSecret: new Uint8Array(32),
-  turnstile: { siteKey: "site-key", secretKey: "secret-key" },
+  turnstile: { secretKey: "secret-key" },
   magicLinkTtlSeconds: 900,
   accessTokenTtlSeconds: 900,
   refreshTokenTtlSeconds: 86_400,

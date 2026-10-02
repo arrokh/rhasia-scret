@@ -96,6 +96,15 @@ export function validateSelfHostedEnvironment(values) {
   if (backend === "passwordless" && !values.AUTH_APP_ORIGIN?.trim()) {
     errors.push("AUTH_APP_ORIGIN is required when AUTH_BACKEND=passwordless.");
   }
+  if (backend === "passwordless") {
+    const hasSiteKey = Boolean(values.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+    const hasSecretKey = Boolean(values.TURNSTILE_SECRET_KEY?.trim());
+    if (hasSiteKey !== hasSecretKey) {
+      errors.push(
+        "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be configured together for self-hosted passwordless authentication.",
+      );
+    }
+  }
 
   if (values.AUTH_APP_ORIGIN?.trim()) requireHttpsOrigin(values.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN", errors);
   return errors;

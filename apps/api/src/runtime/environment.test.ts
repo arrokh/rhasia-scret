@@ -3,11 +3,12 @@ import { readSmtpEmailConfiguration } from "@api/smtp-email-senders";
 import { readApiConfigBindings, readRuntimeDatabaseUrl, sanitizeApiRuntimeEnvironment } from "@api/runtime/environment";
 
 describe("standalone API environment boundaries", () => {
-  it("removes migration/admin and unsupported provider configuration from local runtime scope", () => {
+  it("removes migration/admin, Web-only, and unsupported provider configuration from local runtime scope", () => {
     const environment = sanitizeApiRuntimeEnvironment({
       DATABASE_URL: "postgresql://runtime.invalid/database",
       DIRECT_URL: "postgresql://direct.invalid/database",
       API_PROXY_SECRET: "web-only-secret",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-web-site-key",
       AUTH_BACKEND: "oidc",
       OIDC_ISSUER: "https://issuer.example.test",
       OIDC_CLIENT_ID: "unsupported-client",
@@ -30,6 +31,7 @@ describe("standalone API environment boundaries", () => {
       DATABASE_URL: "postgresql://runtime.invalid/database",
       DIRECT_URL: "postgresql://direct.invalid/database",
       API_PROXY_SECRET: "web-only-secret",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "synthetic-web-site-key",
       PROXY_SECRET: "api-only-secret",
       WEB_ORIGIN: "https://web.example.test",
       OIDC_ISSUER: "https://issuer.example.test",
@@ -41,6 +43,7 @@ describe("standalone API environment boundaries", () => {
     expect(bindings).not.toHaveProperty("DATABASE_URL");
     expect(bindings).not.toHaveProperty("DIRECT_URL");
     expect(bindings).not.toHaveProperty("API_PROXY_SECRET");
+    expect(bindings).not.toHaveProperty("NEXT_PUBLIC_TURNSTILE_SITE_KEY");
     expect(bindings).not.toHaveProperty("OIDC_ISSUER");
     expect(bindings).not.toHaveProperty("OIDC_CLIENT_ID");
     expect(bindings).not.toHaveProperty("AUTH_ADMITTED_EMAILS");

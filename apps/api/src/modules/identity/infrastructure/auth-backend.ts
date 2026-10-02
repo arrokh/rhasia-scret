@@ -7,7 +7,6 @@ export type AuthConfigurationField =
   | "AUTH_MAGIC_LINK_TTL_SECONDS"
   | "AUTH_ACCESS_TOKEN_TTL_SECONDS"
   | "AUTH_REFRESH_TOKEN_TTL_SECONDS"
-  | "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
   | "TURNSTILE_SECRET_KEY";
 
 export class AuthenticationConfigurationError extends Error {
@@ -26,9 +25,8 @@ export function isAuthenticationConfigurationError(error: unknown): error is Aut
   return error instanceof AuthenticationConfigurationError;
 }
 
-export type TurnstileConfiguration = Readonly<{ siteKey: string; secretKey: string }>;
+export type TurnstileConfiguration = Readonly<{ secretKey: string }>;
 type TurnstileEnvironment = Readonly<{
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
   NODE_ENV?: string;
   WEB_ORIGIN?: string;
@@ -97,29 +95,18 @@ function readPasswordlessConfiguration(env: Readonly<Record<string, string | und
 }
 
 export function readTurnstileConfiguration(env: TurnstileEnvironment): TurnstileConfiguration {
-  const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? "";
   const secretKey = env.TURNSTILE_SECRET_KEY?.trim() ?? "";
-  if (!siteKey && !secretKey) return { siteKey: "", secretKey: "" };
-  if (!siteKey)
-    throw configurationError(
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
-    );
-  if (!secretKey)
-    throw configurationError(
-      "TURNSTILE_SECRET_KEY",
-      "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or left blank.",
-    );
+  if (!secretKey) return { secretKey: "" };
   if (
     env.NODE_ENV === "production" &&
     !isLocalHttpSelfHosted(env) &&
-    (siteKey === "1x00000000000000000000AA" || secretKey === "1x0000000000000000000000000000000AA")
+    secretKey === "1x0000000000000000000000000000000AA"
   )
     throw configurationError(
       "TURNSTILE_SECRET_KEY",
       "Cloudflare Turnstile testing keys are not allowed in production.",
     );
-  return { siteKey, secretKey };
+  return { secretKey };
 }
 
 function isLocalHttpSelfHosted(env: Pick<TurnstileEnvironment, "WEB_ORIGIN" | "AUTH_APP_ORIGIN">): boolean {

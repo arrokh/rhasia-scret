@@ -20,7 +20,7 @@ Protect passwordless sign-in link delivery from both high-volume requests and au
    - Return bounded `Retry-After` values for retryable infrastructure and rate-limit responses.
 4. **Update development and deployment configuration**
    - Add the public site key and server secret key to `.env.example` using Cloudflare's always-pass testing pair.
-   - Require both keys when `AUTH_BACKEND=passwordless`; production deployments must replace the testing pair with real keys.
+   - Keep Web's public site key and API's server secret in their respective runtimes. The self-hosted installer requires both keys or neither; separately deployed projects validate only their own key. Production API deployments reject the testing secret.
    - Extend CSP for the Turnstile script, frame, and network endpoints.
 5. **Verify the vertical slice**
    - Cover configuration, Turnstile response classification, request-route ordering and response contracts, browser request payloads, widget/form behavior, localization parity, and existing anonymous limiter behavior.

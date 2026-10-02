@@ -1,6 +1,6 @@
 # Optional Turnstile challenge for passwordless sign-in
 
-- Status: Accepted
+- Status: Superseded by ADR-0058
 - Date: 2026-10-01
 - Related: ADR-0049, ADR-0053, ADR-0056
 
