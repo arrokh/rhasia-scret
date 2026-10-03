@@ -18,8 +18,10 @@ overrides:
   # Keep Vitest's transitive obug dependency on a release older than the
   # minimum-release-age window while retaining the compatible ^2.1.1 range.
   obug: 2.1.4
-  # Fix GHSA-qw65-cvwx-89v3 and GHSA-58mr-gqgx-xq4g in transitive production dependencies.
-  fast-uri: 3.1.7
+  # Fix GHSA-qw65-cvwx-89v3, GHSA-58mr-gqgx-xq4g, and GHSA-hrr3-gc8f-f4qj in transitive dependencies.
+  fast-uri: 3.1.8
+  # Fix GHSA-h3mg-xc3c-68pw and GHSA-j6r3-76f7-8jcv in transitive address-validation dependencies.
+  ip-address: 10.7.1
   # Keep every transitive esbuild consumer on the release that fixes the
   # Windows development-server path traversal advisory (GHSA-g7r4-m6w7-qqqr).
   esbuild: 0.28.2
@@ -52,3 +54,5 @@ minimumReleaseAgeExclude:
   - js-yaml@4.3.2
   - nanoid@3.3.17
   - obug@2.2.1
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch

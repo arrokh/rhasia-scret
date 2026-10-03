@@ -163,10 +163,11 @@ describe("API extraction ownership boundaries", () => {
     expect(Object.keys(rootPackage.scripts ?? {}).filter((script) => /mobile|expo/i.test(script))).toEqual([]);
     expect(existsSync(resolve(repositoryRoot, "apps/mobile/package.json"))).toBe(false);
     expect(dockerfile).toContain("pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts");
-    expect(dockerfile).not.toContain("COPY patches patches");
-    expect(dockerfile).not.toContain("patchedDependencies");
-    expect(webDockerfile).not.toContain("COPY patches patches");
-    expect(webDockerfile).not.toContain("patchedDependencies");
+    expect(dockerfile).toContain("COPY patches patches");
+    expect(migrationDockerfile).toContain("COPY patches patches");
+    expect(webDockerfile).toContain("COPY patches patches");
+    expect(read("pnpm-workspace.yaml")).toContain("patchedDependencies:");
+    expect(existsSync(resolve(repositoryRoot, "patches/braces@3.0.3.patch"))).toBe(true);
     expect(dockerfile).toContain("cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts");
     expect(dockerfile).not.toContain("pnpm --filter @rhasia-scret/api prisma:generate");
     expect(dockerfile).toContain(
