@@ -32,9 +32,19 @@ pnpm install --frozen-lockfile
 pnpm selfhosted:install
 ```
 
-`selfhosted:install` runs configuration, Docker setup, service startup, and the selected Tailscale route in one command. The terminal wizard creates `.env` with `AUTH_BACKEND=none` by default; use `pnpm selfhosted:install --interactive` to configure it in the browser instead. When connected Tailscale is detected, choose no route, Serve, or Funnel during configuration. If `.env` already exists, install asks whether to reuse it or start over; start-over backs it up first and preserves database connection settings. Install activates Serve after health checks; Funnel additionally requires typing `PUBLIC`. Standalone configure refuses to overwrite `.env` by default. Setup checks for an existing PostgreSQL volume before creating fresh credentials and verifies database credentials before asking for migration confirmation. If `.env` is missing but the PostgreSQL volume remains, restore the original `.env` instead of generating a new database password. For manual stages, run `pnpm selfhosted:setup` and then `pnpm selfhosted:up`; start Tailscale separately with `pnpm selfhosted:tailscale --interactive`. Open `http://localhost:3000` when services are healthy. Stop the services without deleting the database volume with `pnpm selfhosted:down`. To permanently erase that database, use `pnpm selfhosted:clean`; it requires typing the exact PostgreSQL volume name before it stops the stack and deletes the volume.
+`pnpm selfhosted:install` configures and starts the app. It defaults to `AUTH_BACKEND=none` for browser-local use; add `--interactive` for browser-based setup.
 
-To enable hosted sign-in and hosted Vaults, configure `AUTH_BACKEND=passwordless` and the server-side email settings in `.env` before starting the application. The [self-hosting guide](docs/self-hosting.md) documents Tailscale Serve (tailnet access) or Funnel (public access) with either `none` or `passwordless`; Funnel is public, and passwordless continues to protect hosted features. Tailscale access does not create an application identity.
+With an existing `.env`, choose reuse or replacement; replacement backs up the file. Setup verifies database access and asks before applying migrations.
+
+If PostgreSQL data exists but `.env` is missing, restore the matching file—don't generate a new database password.
+
+When Tailscale is connected, choose no route, Serve, or Funnel. Serve is tailnet-only; Funnel is public and requires typing `PUBLIC`. Hosted features still require passwordless sign-in.
+
+Open `http://localhost:3000` when services are healthy. `pnpm selfhosted:down` stops services but keeps data. `pnpm selfhosted:clean` permanently deletes the PostgreSQL volume after exact-name confirmation.
+
+For manual setup, run `pnpm selfhosted:setup` then `pnpm selfhosted:up`. See the [self-hosting guide](docs/self-hosting.md) for Tailscale steps and full configuration details.
+
+Hosted sign-in and Vaults require `AUTH_BACKEND=passwordless` and server-side email settings in `.env`.
 
 ## Architecture
 
