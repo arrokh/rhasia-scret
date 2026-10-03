@@ -10,6 +10,7 @@ RUN apk add --no-cache ca-certificates libc6-compat openssl \
   && pnpm config set store-dir /pnpm/store
 WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches patches
 COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json
 RUN --mount=type=cache,id=rhasia-scret-pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @rhasia-scret/api-migration-runtime --ignore-scripts
 
