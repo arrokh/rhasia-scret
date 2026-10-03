@@ -75,7 +75,7 @@ function parseArguments(args) {
     }
     if (argument === "--help") {
       console.log(
-        "Usage: node tools/verify-release-pr-changes.mjs --version X.Y.Z --sha <full-commit-sha> [--base <first-pr-commit-parent>]",
+        "Usage: node tools/verify-release-pr-changes.mjs --version X.Y.Z --sha <full-commit-sha> [--base <pre-merge-main-sha>]",
       );
       process.exit(0);
     }

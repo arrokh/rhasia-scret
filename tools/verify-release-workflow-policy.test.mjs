@@ -11,6 +11,24 @@ test("release workflow gates an immutable GitHub publication on exact-source ful
   assert.deepEqual(verifyReleaseWorkflowPolicy(workflow), { valid: true, failures: [] });
 });
 
+test("rejects a stale release diff base derived from the original PR commit parent", () => {
+  const stalePushBase = workflow.replace(
+    "PUSH_BASE_SHA: ${{ github.event.before }}",
+    "PUSH_BASE_SHA: ${{ github.sha }}",
+  );
+  const originalPrParent = workflow.replace(
+    'PR_BASE_SHA="$PUSH_BASE_SHA"',
+    'PR_BASE_SHA="$(gh api "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}/commits" --jq \'.[0].parents[0].sha\')"',
+  );
+
+  assert.ok(verifyReleaseWorkflowPolicy(stalePushBase).failures.some((failure) => failure.includes("pre-merge SHA")));
+  assert.ok(
+    verifyReleaseWorkflowPolicy(originalPrParent).failures.some((failure) =>
+      failure.includes("first PR commit parent"),
+    ),
+  );
+});
+
 test("rejects a mutable/lightweight tag and broadened permissions", () => {
   const mutableTagWorkflow = workflow.replace('git tag -a "$TAG"', 'git tag -f "$TAG"');
   const permissionEscalation = workflow.replace(
