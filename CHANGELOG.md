@@ -24,3 +24,18 @@ notes follow the [repository release process](docs/release-process.md).
 
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
+
+## [0.1.0]
+
+### Highlights
+
+- Introduces encrypted Local, Personal, and Shared Vault workflows for managing TOTP accounts, including QR import, invitations, membership controls, recovery, and secure sharing.
+- Adds client-side TOTP generation, encrypted backup and restore, key-rotation workflows, and passkey-assisted recovery and remembered-browser unlock.
+- Provides an installable web/PWA experience with encrypted Personal Vault offline snapshots and read-only offline access.
+- Localizes the product in Indonesian and English, with passwordless sign-in and a versioned API service.
+
+### Security and operations
+
+- Strengthens encrypted-data context binding, access controls, audit redaction, rate limits, and browser delivery protections.
+- Documents self-hosting with Docker Compose and optional Tailscale access, and adds release automation and an isolated local load-test suite.
+- The responsive web application/PWA is the sole supported client; native iOS and Android distribution is not included.
