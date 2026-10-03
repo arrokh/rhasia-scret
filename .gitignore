@@ -28,7 +28,12 @@ next-env.d.ts
 !.env.example
 .tailscale-rhasia.json
 .vscode/settings.json
-.pi/
+# Keep Pi runtime state private while tracking the repository-owned release skill.
+.pi/*
+!.pi/skills/
+.pi/skills/*
+!.pi/skills/release-pr/
+!.pi/skills/release-pr/**
 .agents/
 .claude/
 .piwt/

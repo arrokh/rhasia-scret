@@ -35,9 +35,15 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/pulls\/\$\{PR_NUMBER\}\/files/.test(
     job(source, "candidate"),
   ), "Candidate discovery must inspect the merged release PR file list.");
-  require(/pulls\/\$\{PR_NUMBER\}\/commits/.test(
+  require(/PUSH_BASE_SHA:\s*\$\{\{\s*github\.event\.before\s*\}\}/.test(
     job(source, "candidate"),
-  ), "Candidate discovery must identify the release PR base commit.");
+  ), "Candidate diff base must be the main push's pre-merge SHA.");
+  require(/PR_BASE_SHA="\$PUSH_BASE_SHA"/.test(
+    job(source, "candidate"),
+  ), "Candidate diff must use the main push's pre-merge SHA.");
+  require(!/pulls\/\$\{PR_NUMBER\}\/commits/.test(
+    job(source, "candidate"),
+  ), "Candidate discovery must not derive its diff base from the first PR commit parent.");
   require(/\[infra\]\[chore\] Prepare release/.test(
     job(source, "candidate"),
   ), "Only the dedicated release PR title may trigger publication.");

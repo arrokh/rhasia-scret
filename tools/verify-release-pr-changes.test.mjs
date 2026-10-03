@@ -38,6 +38,31 @@ test("checks the complete multi-commit release PR instead of only the final comm
   );
 });
 
+test("uses the pre-merge main SHA when main advances while a release PR is open", (t) => {
+  const fixture = createFixture(t);
+  git(fixture.root, ["switch", "--quiet", "-c", "release"]);
+  prepareCandidate(fixture.root);
+  commit(fixture.root, "prepare release candidate");
+
+  git(fixture.root, ["switch", "--quiet", "main"]);
+  writeText(fixture.root, "apps/web/src/main-only-change.ts", "export const mainOnlyChange = true;\n");
+  const preMergeMainSha = commit(fixture.root, "land unrelated main change while release PR is open");
+
+  git(fixture.root, ["switch", "--quiet", "release"]);
+  git(fixture.root, ["merge", "--quiet", "--no-ff", "-m", "update release branch from main", "main"]);
+  git(fixture.root, ["switch", "--quiet", "main"]);
+  git(fixture.root, ["merge", "--quiet", "--no-ff", "-m", "merge dedicated release PR", "release"]);
+  const sourceSha = git(fixture.root, ["rev-parse", "HEAD"]);
+
+  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: preMergeMainSha });
+  assert.equal(result.baseSha, preMergeMainSha);
+  assert.ok(!result.changedPaths.includes("apps/web/src/main-only-change.ts"));
+  assert.throws(
+    () => verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: fixture.baseSha }),
+    /non-release changes/,
+  );
+});
+
 test("accepts an existing matching candidate record that the release PR leaves unchanged", (t) => {
   const fixture = createFixture(t);
   prepareCandidate(fixture.root, { preserveReadiness: true });
