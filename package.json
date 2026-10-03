@@ -59,7 +59,7 @@
     "test:container": "pnpm --filter @rhasia-scret/api test:container",
     "test:full:container": "pnpm --filter @rhasia-scret/api test:full:container",
     "test:full:direct": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/api --filter @rhasia-scret/api-contract --filter @rhasia-scret/api-client --filter @rhasia-scret/web run test:full",
-    "test:ci-changes": "node --test tools/detect-ci-changes.test.mjs tools/vercel-ignore.test.mjs tools/self-hosted.test.mjs tools/confirm-database-operation.test.mjs tools/load-test.test.mjs",
+    "test:ci-changes": "node --test tools/dependency-security.test.mjs tools/detect-ci-changes.test.mjs tools/vercel-ignore.test.mjs tools/self-hosted.test.mjs tools/confirm-database-operation.test.mjs tools/load-test.test.mjs",
     "test:release-process": "node --test tools/release-version.test.mjs tools/verify-version-alignment.test.mjs tools/vercel-ignore.test.mjs tools/verify-release-evidence.test.mjs tools/prepare-release.test.mjs tools/release-publication.test.mjs tools/verify-release-pr-changes.test.mjs tools/verify-release-workflow-policy.test.mjs",
     "release:prepare": "node tools/prepare-release.mjs",
     "test:full:hosted": "pnpm run test:ci-changes && pnpm run test:release-process && pnpm run format:check && pnpm run verify:version-alignment && pnpm run verify:ci-policy && pnpm run verify:release-evidence:current && pnpm run test:full:direct",
@@ -85,8 +85,11 @@
     "test:release-evidence": "node --test tools/verify-release-evidence.test.mjs"
   },
   "devDependencies": {
+    "braces": "3.0.3",
     "dependency-cruiser": "^18.4.0",
     "esbuild": "0.28.2",
+    "fast-uri": "3.1.8",
+    "ip-address": "10.7.1",
     "lint-staged": "17.5.1",
     "prettier": "3.9.9",
     "zod": "^4.6.5"
