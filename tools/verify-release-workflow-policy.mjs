@@ -5,7 +5,10 @@ export function verifyReleaseWorkflowPolicy(source) {
   };
   require(/on:\s*\n\s+push:\s*\n\s+branches:\s*\[main\]/.test(
     source,
-  ), "Release publication must run only after a push to main.");
+  ), "Automatic release publication must run only after a push to main.");
+  require(/workflow_dispatch:\s*\n\s+inputs:\s*\n\s+recovery_pr:\s*\n\s+description:[^\n]*\n\s+required:\s*true\n\s+type:\s*number/.test(
+    source,
+  ), "Manual recovery must require one release PR number.");
   require(/permissions:\s*\n\s+contents:\s*read/.test(
     source,
   ), "Workflow-wide token permission must default to contents: read.");
@@ -35,12 +38,32 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/pulls\/\$\{PR_NUMBER\}\/files/.test(
     job(source, "candidate"),
   ), "Candidate discovery must inspect the merged release PR file list.");
+  const candidateJob = job(source, "candidate");
   require(/PUSH_BASE_SHA:\s*\$\{\{\s*github\.event\.before\s*\}\}/.test(
-    job(source, "candidate"),
+    candidateJob,
   ), "Candidate diff base must be the main push's pre-merge SHA.");
   require(/PR_BASE_SHA="\$PUSH_BASE_SHA"/.test(
-    job(source, "candidate"),
-  ), "Candidate diff must use the main push's pre-merge SHA.");
+    candidateJob,
+  ), "Push candidate diff must use the main push's pre-merge SHA.");
+  require(candidateJob.includes('[[ "$WORKFLOW_REF" == "refs/heads/main" ]]'), "Recovery dispatch must run from main.");
+  require(candidateJob.includes(
+    '[[ "$RECOVERY_PR" =~ ^[1-9][0-9]*$ ]]',
+  ), "Recovery dispatch must require a valid PR number.");
+  require(candidateJob.includes(".base.ref") &&
+    candidateJob.includes(".merged_at"), "Recovery must require a merged PR targeting main.");
+  require(candidateJob.includes(".merge_commit_sha"), "Recovery must use the selected merged PR's exact merge commit.");
+  require(candidateJob.includes(
+    '[[ "$PR_TITLE" == "$EXPECTED_TITLE" ]]',
+  ), "Recovery PR must have the exact dedicated release title.");
+  require(candidateJob.includes(
+    'git merge-base --is-ancestor "$SOURCE_SHA" "$WORKFLOW_SHA"',
+  ), "Recovery source must be on current main history.");
+  require(candidateJob.includes(
+    'PR_BASE_SHA="$(git rev-parse "${SOURCE_SHA}^1")"',
+  ), "Recovery diff base must be the candidate merge commit's first parent.");
+  require(/source_sha:\s*\$\{\{\s*steps\.candidate\.outputs\.source_sha\s*\}\}/.test(
+    candidateJob,
+  ), "Candidate discovery must pass its exact source SHA downstream.");
   require(!/pulls\/\$\{PR_NUMBER\}\/commits/.test(
     job(source, "candidate"),
   ), "Candidate discovery must not derive its diff base from the first PR commit parent.");
@@ -50,9 +73,12 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/verify-release-pr-changes\.mjs --version[\s\S]*--base/.test(
     job(source, "candidate"),
   ), "Candidate discovery must reject non-release changes across the full release PR diff.");
-  require(/ref:\s*\$\{\{ github\.sha \}\}/.test(
+  require(/ref:\s*\$\{\{ needs\.candidate\.outputs\.source_sha \}\}/.test(
     job(source, "verify"),
-  ), "Release verification must check out the exact triggering source SHA.");
+  ), "Release verification must check out the exact candidate source SHA.");
+  require(/ref:\s*\$\{\{ needs\.verify\.outputs\.source_sha \}\}/.test(
+    job(source, "publish"),
+  ), "Publication must check out the exact verified candidate source SHA.");
   require(/fetch-depth:\s*0/.test(job(source, "verify")), "Release verification must fetch full history and tags.");
   require(/pnpm run test:full:container/.test(
     job(source, "verify"),

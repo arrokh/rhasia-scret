@@ -54,7 +54,7 @@ test("uses the pre-merge main SHA when main advances while a release PR is open"
   git(fixture.root, ["merge", "--quiet", "--no-ff", "-m", "merge dedicated release PR", "release"]);
   const sourceSha = git(fixture.root, ["rev-parse", "HEAD"]);
 
-  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: preMergeMainSha });
+  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha });
   assert.equal(result.baseSha, preMergeMainSha);
   assert.ok(!result.changedPaths.includes("apps/web/src/main-only-change.ts"));
   assert.throws(
