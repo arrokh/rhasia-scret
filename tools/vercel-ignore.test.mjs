@@ -4,7 +4,13 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { filterVersionOnlyManifestChanges, isServiceAffected, serviceScopePaths } from "./vercel-ignore.mjs";
+import {
+  filterVersionOnlyManifestChanges,
+  isServiceAffected,
+  serviceScopePaths,
+  shouldBuildForProductVersionChange,
+  shouldIgnoreDeployment,
+} from "./vercel-ignore.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 
@@ -53,7 +59,7 @@ test("includes install and service configuration changes in the affected service
   assert.equal(isServiceAffected("web", ["tools/vercel-ignore.mjs"]), true);
 });
 
-test("ignores version-only changes to root, app, and shared workspace manifests", () => {
+test("filters version-only changes to root, app, and shared workspace manifests", () => {
   const root = createGitFixture();
   try {
     const baseSha = commitAll(root, "baseline");
@@ -74,6 +80,43 @@ test("ignores version-only changes to root, app, and shared workspace manifests"
     assert.deepEqual(effectivePaths, []);
     assert.equal(isServiceAffected("api", effectivePaths, root), false);
     assert.equal(isServiceAffected("web", effectivePaths, root), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rebuilds Web but skips API for a root product-version-only release change", () => {
+  const root = createGitFixture();
+  try {
+    const baseSha = commitAll(root, "baseline");
+    for (const manifestPath of [
+      "package.json",
+      "apps/api/package.json",
+      "apps/web/package.json",
+      "packages/shared/package.json",
+    ]) {
+      const manifest = JSON.parse(readFileSync(join(root, manifestPath), "utf8"));
+      manifest.version = "0.1.1";
+      writeFileSync(join(root, manifestPath), JSON.stringify(manifest, null, 2));
+    }
+    const currentSha = commitAll(root, "product version release");
+    const changedPaths = changedPathsIn(root, baseSha, currentSha);
+    const effectivePaths = filterVersionOnlyManifestChanges(baseSha, currentSha, changedPaths, root);
+
+    assert.deepEqual(effectivePaths, []);
+    assert.equal(shouldBuildForProductVersionChange("web", baseSha, currentSha, changedPaths, root), true);
+    assert.equal(shouldBuildForProductVersionChange("api", baseSha, currentSha, changedPaths, root), false);
+    assert.equal(shouldIgnoreDeployment("api", effectivePaths, root), true);
+    assert.equal(
+      shouldBuildForProductVersionChange(
+        "web",
+        baseSha,
+        currentSha,
+        changedPaths.filter((changedPath) => changedPath !== "package.json"),
+        root,
+      ),
+      false,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

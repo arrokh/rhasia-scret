@@ -111,6 +111,21 @@ export function shouldIgnoreDeployment(service, changedPaths, root = repositoryR
   return !isServiceAffected(service, changedPaths, root);
 }
 
+export function shouldBuildForProductVersionChange(
+  service,
+  previousSha,
+  currentSha,
+  changedPaths,
+  cwd = repositoryRoot,
+) {
+  assertService(service);
+  return (
+    service === "web" &&
+    changedPaths.includes("package.json") &&
+    isVersionOnlyManifestChange(previousSha, currentSha, "package.json", cwd)
+  );
+}
+
 function readManifestAtRevision(revision, manifestPath, cwd) {
   const source = execFileSync("git", ["show", `${revision}:${manifestPath}`], {
     cwd,
@@ -170,6 +185,12 @@ function run() {
 
   try {
     const effectivePaths = filterVersionOnlyManifestChanges(previousSha, targetSha, changedPaths);
+    if (shouldBuildForProductVersionChange(service, previousSha, targetSha, changedPaths)) {
+      console.info(
+        `[vercel-ignore] ${service}: product version changed; building to update the compiled footer version.`,
+      );
+      return 1;
+    }
     if (shouldIgnoreDeployment(service, effectivePaths)) {
       console.info(`[vercel-ignore] ${service}: no affected files; skipping deployment.`);
       return 0;
