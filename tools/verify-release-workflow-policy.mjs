@@ -24,6 +24,15 @@ export function verifyReleaseWorkflowPolicy(source) {
     /bun-version:\s*1\.3\.9/.test(
       verifyJob,
     ), "Exact-source full verification must install the pinned Bun runtime required by browser tests.");
+  const chromiumSystemDependencies = verifyJob.indexOf(
+    "pnpm --filter @rhasia-scret/web exec playwright install-deps chromium",
+  );
+  const chromiumBrowser = verifyJob.indexOf("pnpm --filter @rhasia-scret/web exec playwright install chromium");
+  const fullRepositoryGate = verifyJob.indexOf("pnpm run test:full:container");
+  require(chromiumSystemDependencies >= 0 &&
+    chromiumBrowser > chromiumSystemDependencies &&
+    fullRepositoryGate >
+      chromiumBrowser, "Exact-source full verification must install Chromium and system dependencies before the browser gate.");
   require(!/contents:\s*write/.test(
     `${job(source, "candidate")}\n${job(source, "verify")}`,
   ), "Only publication may write repository contents.");

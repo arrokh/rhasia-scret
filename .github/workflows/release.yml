@@ -152,6 +152,10 @@ jobs:
         run: |
           pnpm run verify:version-alignment
           node tools/release-publication.mjs --sha "$SOURCE_SHA" --notes-file "$RUNNER_TEMP/release-notes.md"
+      - name: Install Chromium system dependencies
+        run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium
+      - name: Install Playwright Chromium browser
+        run: pnpm --filter @rhasia-scret/web exec playwright install chromium
       - name: Run the complete isolated repository gate
         run: pnpm run test:full:container
       - name: Record exact-source verification evidence
