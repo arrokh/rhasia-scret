@@ -126,6 +126,9 @@ export function verifyReleaseWorkflowPolicy(source) {
     job(source, "publish"),
   ), "Existing tags must be verified against the exact tested commit.");
   require(/gh release create/.test(job(source, "publish")), "Successful publication must create a GitHub Release.");
+  require(/gh release create "\$TAG" \\\n\s+--title "v\$\{VERSION\} Latest"/.test(
+    publishJob,
+  ), "New GitHub Releases must use the exact version-based Latest display title.");
   require(/Source commit: \$\{SOURCE_SHA\}/.test(
     job(source, "publish"),
   ), "Existing GitHub Releases must be verified against the source SHA.");
