@@ -1,10 +1,10 @@
 # Repository product release process
 
-This process governs the SemVer version and source release for the repository. A repository release publishes an immutable `main` commit as an annotated `vX.Y.Z` tag and GitHub Release. It does **not** deploy the API or web/PWA application.
+This process governs the SemVer version and source release for the repository. A repository release publishes an immutable `main` commit as an annotated `vX.Y.Z` tag and GitHub Release. The release workflow itself does **not** deploy the API or web/PWA application.
 
-Service deployments are independent. Vercel deploys the affected API or Web service from eligible `main` changes according to each service's changed-file scope. API code changes deploy the API; Web code changes deploy Web; shared build dependencies may affect either or both. A product-version-only synchronization skips both Vercel builds, while other source, dependency, installation, and deployment-configuration changes retain normal service-specific behavior.
+Service deployments are independent. Vercel deploys the affected API or Web service from eligible `main` changes according to each service's changed-file scope. API code changes deploy the API; Web code changes deploy Web; shared build dependencies may affect either or both. A product-version-only synchronization triggers a Web build so its compiled footer version can update, while the unnecessary API build remains skipped. Other source, dependency, installation, and deployment-configuration changes retain normal service-specific behavior.
 
-The root product version is also displayed in the shared web footer before the conditional language switcher, Privacy, and Support links. It is compiled into the Web build and identifies that deployed build, not necessarily the newest GitHub source tag. A repository-only version bump intentionally does not trigger Vercel or update an already-running Web build; the footer changes with the next independently triggered Web deployment. The manual `Repository release evidence` workflow remains evidence-only. The local preparation and automatic publication workflow are implemented; see the [release-version automation plan](release-version-automation-plan.md) for implementation details and tests.
+The root product version is also displayed in the shared web footer before the conditional language switcher, Privacy, and Support links. It is compiled into the Web build and identifies that deployed build, not necessarily the newest GitHub source tag. A root product-version-only change on eligible `main` triggers the Web deployment that updates the footer; the API remains skipped when only synchronized version fields changed. The manual `Repository release evidence` workflow remains evidence-only. The local preparation and automatic publication workflow are implemented; see the [release-version automation plan](release-version-automation-plan.md) for implementation details and tests.
 
 ## Release scope and version source
 
@@ -61,7 +61,7 @@ The required review and merge of the dedicated release PR is the publication app
 
 ## Service deployment boundary
 
-Vercel's existing `main`-only, service-aware Git deployments remain independent from repository release publication. A source or build-input change deploys the affected service(s), regardless of whether a GitHub Release is created. The version-only exception ignores only the product `version` field; changes to service source, dependencies, installation metadata, deployment configuration, and the ignore contract continue to rebuild the affected service.
+Vercel's existing `main`-only, service-aware Git deployments remain independent from repository release publication. A source or build-input change deploys the affected service(s), regardless of whether a GitHub Release is created. The version-only exception ignores only the product `version` field: a root product-version-only change rebuilds Web because its footer compiles that value, while API skips the version-only synchronization. Changes to service source, dependencies, installation metadata, deployment configuration, and the ignore contract continue to rebuild the affected service.
 
 No Vercel project may be created or relinked for this process. Use only the repository's existing projects and their configured associations. Production deployment still requires the applicable human authority and is not performed by the repository release workflow.
 

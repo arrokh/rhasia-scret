@@ -11,18 +11,18 @@ Automate a repeatable, reviewable SemVer source release for the whole repository
 - The inaugural source release is `v0.1.0`, using the version already aligned in the repository; it does not bump package versions.
 - Later releases use an explicit maintainer-selected `patch`, `minor`, or `major` bump. Version selection is not inferred from commit types.
 - The root version is reflected in every workspace package manifest. The responsive web application/PWA is the sole product client.
-- `pnpm run release:prepare` changes the working tree and checks only. It does not create branches, commits, push refs, or open PRs. The shared web footer displays the root product version embedded in the deployed Web build before its conditional language switcher, Privacy, and Support links; repository-only version bumps do not refresh the live site.
+- `pnpm run release:prepare` changes the working tree and checks only. It does not create branches, commits, push refs, or open PRs. The shared web footer displays the root product version embedded in the deployed Web build before its conditional language switcher, Privacy, and Support links; a root product-version-only change triggers a Web build on eligible `main` changes, while the API skips the version-only synchronization.
 - Changelog drafts come from first-parent commit subjects on `main`: include history from initial commit `d067b7e` for `v0.1.0`; for future releases use commits after the previous `vX.Y.Z` tag. Maintainers review and edit the draft in the dedicated release PR.
 - The dedicated release PR is the human approval. Once merged, Actions runs the exact-commit release checks and automatically creates the annotated tag and GitHub Release if they pass. There is no second approval click.
 - GitHub Release notes include the reviewed changelog and full source commit SHA. Do not attach service build artifacts; retain non-sensitive verification provenance as workflow evidence.
-- Vercel deployments remain path-driven and independent. API/Web source or build-input changes deploy the affected service. A version-only synchronization skips both services.
+- Vercel deployments remain path-driven and independent. API/Web source or build-input changes deploy the affected service. A root product-version-only synchronization rebuilds Web to update the compiled footer version and skips the API.
 - The release workflow never deploys to Vercel or applies migrations to persistent/operational databases. Its complete repository test gate may apply checked-in migrations only inside the disposable Testcontainers database owned by that test run; operational migration work keeps its separate, target-specific approval.
 - API/web readiness is required. No native-client distribution or release process is maintained.
 
 ## Implementation state
 
 - The root, API, web, and every direct `packages/*` workspace manifest are checked by `tools/verify-version-alignment.mjs`; SemVer failures and mismatches fail closed.
-- `tools/vercel-ignore.mjs` ignores a product-version-only change while rebuilding for dependency, source, configuration, or other manifest changes.
+- `tools/vercel-ignore.mjs` rebuilds Web for a root product-version-only change so the compiled footer version can update, while the API skips a version-only synchronization. Dependency, source, configuration, and other manifest changes retain their service-specific rebuild behavior.
 - `pnpm run release:prepare` requires a clean `main` checkout equal to the locally fetched `origin/main`, selects the inaugural `0.1.0` or an explicit later bump, creates a first-parent changelog draft, preserves `[Unreleased]`, and creates a HOLD candidate record without copying readiness evidence.
 - The evidence verifier selects `docs/release-readiness/vX.Y.Z.md`, checks the candidate against the root version, and supports an explicit ready-only publication gate. The manual evidence workflow remains evidence-only.
 - `.github/workflows/release.yml` selects only a merged `[infra][chore] Prepare release vX.Y.Z` PR with a release-only diff; it uses the push event's pre-merge main SHA so unrelated commits that landed while the PR was open are excluded. An already-existing matching candidate record may remain unchanged. It tests the exact push SHA, then grants write access only to the tag/release publication job. Retries reuse only an annotated tag already at that exact SHA.
@@ -37,9 +37,9 @@ The verifier inspects the root manifest, `apps/api`, `apps/web`, and every `pack
 
 **Evidence:** `pnpm run verify:version-alignment` and `tools/verify-version-alignment.test.mjs`.
 
-### 2. Exclude version-only changes from Vercel deployment — implemented
+### 2. Apply version-only deployment handling per service — implemented
 
-`tools/vercel-ignore.mjs` ignores only a top-level version-field change. Dependency, scripts, engines, other build inputs, source changes, shared dependency changes, and uncertain Git/JSON analysis retain the existing rebuild or fail-open behavior.
+`tools/vercel-ignore.mjs` ignores only a top-level version-field change. A root `package.json` product-version-only change triggers Web because the footer compiles the root version, but does not trigger an unnecessary API build. Dependency, scripts, engines, other build inputs, source changes, shared dependency changes, and uncertain Git/JSON analysis retain the existing rebuild or fail-open behavior.
 
 **Evidence:** `tools/vercel-ignore.test.mjs` covers version-only, source, shared dependency, and non-version manifest changes.
 
@@ -76,6 +76,6 @@ Release-helper and workflow-policy tests, formatting, and the fresh full reposit
 - The local script changes files only; maintainers create and review the release PR through normal GitHub controls.
 - Merge of a dedicated `[infra][chore] Prepare release vX.Y.Z` PR with only version metadata/changelog changes (and a candidate readiness update when needed), plus successful exact-SHA checks against a matching READY record, is sufficient to publish the tag and GitHub Release automatically.
 - Release notes and provenance identify the exact main SHA; no service build artifact is attached.
-- API/Web deployments remain independent; service code/build changes deploy affected services, while version-only synchronization does not. The web footer displays the root product version embedded in the deployed Web build before conditional language, Privacy, and Support controls; it is not a live pointer to the newest repository tag.
+- API/Web deployments remain independent; service code/build changes deploy affected services, while a root product-version-only synchronization rebuilds Web to update the compiled footer version and skips the API. The footer displays the root product version embedded in the deployed Web build before conditional language, Privacy, and Support controls; it is not a live pointer to the newest repository tag.
 - No release workflow deploys to Vercel or migrates a persistent/operational database; the full test gate is restricted to its disposable Testcontainers database.
 - Readiness must be explicitly current and `READY FOR HUMAN RELEASE REVIEW`; credential rotation remains a separately tracked non-blocking item only under the maintainer's stated scope.
