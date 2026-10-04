@@ -29,6 +29,27 @@ test("rejects a stale release diff base derived from the original PR commit pare
   );
 });
 
+test("restricts publication recovery to a merged dedicated release PR on main", () => {
+  const untrustedRef = workflow.replace(
+    '[[ "$WORKFLOW_REF" == "refs/heads/main" ]]',
+    '[[ "$WORKFLOW_REF" == "refs/heads/release" ]]',
+  );
+  const wrongSource = workflow.replace(".merge_commit_sha", ".head.sha");
+  const missingMergeBase = workflow.replace(
+    'PR_BASE_SHA="$(git rev-parse "${SOURCE_SHA}^1")"',
+    'PR_BASE_SHA="$PUSH_BASE_SHA"',
+  );
+  const optionalRecoveryPr = workflow.replace(
+    "        required: true\n        type: number",
+    "        required: false\n        type: number",
+  );
+
+  assert.ok(verifyReleaseWorkflowPolicy(untrustedRef).failures.some((failure) => failure.includes("from main")));
+  assert.ok(verifyReleaseWorkflowPolicy(wrongSource).failures.some((failure) => failure.includes("merge commit")));
+  assert.ok(verifyReleaseWorkflowPolicy(missingMergeBase).failures.some((failure) => failure.includes("first parent")));
+  assert.ok(verifyReleaseWorkflowPolicy(optionalRecoveryPr).failures.some((failure) => failure.includes("PR number")));
+});
+
 test("rejects a mutable/lightweight tag and broadened permissions", () => {
   const mutableTagWorkflow = workflow.replace('git tag -a "$TAG"', 'git tag -f "$TAG"');
   const permissionEscalation = workflow.replace(

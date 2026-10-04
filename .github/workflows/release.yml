@@ -3,6 +3,12 @@ name: Repository release publication
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      recovery_pr:
+        description: Merged dedicated release PR number to re-verify and publish
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -21,6 +27,7 @@ jobs:
       tag: ${{ steps.candidate.outputs.tag }}
       readiness_record: ${{ steps.candidate.outputs.readiness_record }}
       pull_request: ${{ steps.candidate.outputs.pull_request }}
+      source_sha: ${{ steps.candidate.outputs.source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,28 +41,55 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPOSITORY: ${{ github.repository }}
-          SOURCE_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
           PUSH_BASE_SHA: ${{ github.event.before }}
+          RECOVERY_PR: ${{ inputs.recovery_pr }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')"
+          SOURCE_SHA="$WORKFLOW_SHA"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$WORKFLOW_REF" == "refs/heads/main" ]] || { echo "::error::Publication recovery must run from main."; exit 1; }
+            [[ "$RECOVERY_PR" =~ ^[1-9][0-9]*$ ]] || { echo "::error::A valid merged release PR number is required."; exit 1; }
+            PR_NUMBER="$RECOVERY_PR"
+            PR_JSON="$(gh api "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}")"
+            [[ "$(jq -r '.base.ref' <<< "$PR_JSON")" == "main" ]] || { echo "::error::Recovery PR must target main."; exit 1; }
+            [[ "$(jq -r '.merged_at' <<< "$PR_JSON")" != "null" ]] || { echo "::error::Recovery PR must already be merged."; exit 1; }
+            SOURCE_SHA="$(jq -r '.merge_commit_sha' <<< "$PR_JSON")"
+            [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Recovery PR has no valid merge commit SHA."; exit 1; }
+            git merge-base --is-ancestor "$SOURCE_SHA" "$WORKFLOW_SHA" || { echo "::error::Recovery source is not on the selected main history."; exit 1; }
+            PR_BASE_SHA="$(git rev-parse "${SOURCE_SHA}^1")"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            PR_BASE_SHA="$PUSH_BASE_SHA"
+            [[ "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Push event has no valid pre-merge main SHA."; exit 1; }
+          else
+            echo "::error::Unsupported release workflow event."; exit 1
+          fi
+          git cat-file -e "${SOURCE_SHA}^{commit}"
+          VERSION="$(git show "${SOURCE_SHA}:package.json" | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).version')"
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "::error::Root product version is not stable SemVer."; exit 1; }
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Release source must be a full commit SHA."; exit 1; }
+          [[ "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Release base must be a full commit SHA."; exit 1; }
           TAG="v${VERSION}"
           EXPECTED_TITLE="[infra][chore] Prepare release ${TAG}"
-          JQ_FILTER=".[] | select(.base.ref == \"main\" and .merged_at != null and .title == \"${EXPECTED_TITLE}\") | .number"
-          PR_NUMBERS="$(gh api "repos/${GH_REPOSITORY}/commits/${SOURCE_SHA}/pulls" --jq "$JQ_FILTER")"
-          if [[ -z "$PR_NUMBERS" ]]; then
-            printf '%s\n' 'publish=false' >> "$GITHUB_OUTPUT"
-            echo "No merged dedicated release PR for ${TAG}; publication is skipped."
-            exit 0
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            JQ_FILTER=".[] | select(.base.ref == \"main\" and .merged_at != null and .title == \"${EXPECTED_TITLE}\") | .number"
+            PR_NUMBERS="$(gh api "repos/${GH_REPOSITORY}/commits/${SOURCE_SHA}/pulls" --jq "$JQ_FILTER")"
+            if [[ -z "$PR_NUMBERS" ]]; then
+              printf '%s\n' 'publish=false' >> "$GITHUB_OUTPUT"
+              echo "No merged dedicated release PR for ${TAG}; publication is skipped."
+              exit 0
+            fi
+            if [[ "$(printf '%s\n' "$PR_NUMBERS" | wc -l | tr -d ' ')" != "1" ]]; then
+              echo "::error::More than one merged release PR claims ${TAG}."
+              exit 1
+            fi
+            PR_NUMBER="$PR_NUMBERS"
           fi
-          if [[ "$(printf '%s\n' "$PR_NUMBERS" | wc -l | tr -d ' ')" != "1" ]]; then
-            echo "::error::More than one merged release PR claims ${TAG}."
-            exit 1
-          fi
-          PR_NUMBER="$PR_NUMBERS"
-          PR_BASE_SHA="$PUSH_BASE_SHA"
+          PR_TITLE="$(gh api "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.title')"
+          [[ "$PR_TITLE" == "$EXPECTED_TITLE" ]] || { echo "::error::Recovery PR title must be exactly ${EXPECTED_TITLE}."; exit 1; }
           FILES="$(gh api --paginate "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
           RECORD="docs/release-readiness/${TAG}.md"
           grep -Fxq "CHANGELOG.md" <<< "$FILES" || { echo "::error::Release PR must update CHANGELOG.md."; exit 1; }
@@ -73,11 +107,13 @@ jobs:
             printf 'tag=%s\n' "$TAG"
             printf 'readiness_record=%s\n' "$RECORD"
             printf 'pull_request=%s\n' "$PR_NUMBER"
+            printf 'source_sha=%s\n' "$SOURCE_SHA"
           } >> "$GITHUB_OUTPUT"
           {
             printf '### Release candidate %s\n' "$TAG"
             printf '%s\n' "- Merged release PR: #${PR_NUMBER}"
             printf -- '- Source commit: `%s`\n' "$SOURCE_SHA"
+            printf -- '- Validation base: `%s`\n' "$PR_BASE_SHA"
           } >> "$GITHUB_STEP_SUMMARY"
 
   verify:
@@ -93,7 +129,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.candidate.outputs.source_sha }}
           fetch-depth: 0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
@@ -109,7 +145,7 @@ jobs:
         run: pnpm run verify:release-evidence:ready
       - name: Verify version alignment and publication notes
         env:
-          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_SHA: ${{ needs.candidate.outputs.source_sha }}
         run: |
           pnpm run verify:version-alignment
           node tools/release-publication.mjs --sha "$SOURCE_SHA" --notes-file "$RUNNER_TEMP/release-notes.md"
@@ -118,7 +154,7 @@ jobs:
       - name: Record exact-source verification evidence
         id: source
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ needs.candidate.outputs.source_sha }}
           VERSION: ${{ needs.candidate.outputs.version }}
         run: |
           set -euo pipefail
@@ -142,7 +178,7 @@ jobs:
       - name: Upload exact-source verification evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: repository-release-${{ needs.candidate.outputs.version }}-${{ github.sha }}
+          name: repository-release-${{ needs.candidate.outputs.version }}-${{ needs.candidate.outputs.source_sha }}
           path: ${{ runner.temp }}/repository-release-evidence/
           if-no-files-found: error
           retention-days: 90
@@ -161,7 +197,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
           fetch-depth: 0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
