@@ -112,7 +112,13 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/repository-release-publish-\$\{\{ needs\.candidate\.outputs\.tag \}\}/.test(
     job(source, "publish"),
   ), "Publication retries must be serialized by release tag.");
-  require(/git tag -a/.test(job(source, "publish")), "Publication must create an annotated tag.");
+  const tagIdentity = publishJob.indexOf('git config user.name "github-actions[bot]"');
+  const tagEmail = publishJob.indexOf('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"');
+  const annotatedTag = publishJob.indexOf('git tag -a "$TAG"');
+  require(tagIdentity >= 0 &&
+    tagEmail > tagIdentity &&
+    annotatedTag > tagEmail, "Publication must configure a tagger identity before creating the annotated tag.");
+  require(/git tag -a/.test(publishJob), "Publication must create an annotated tag.");
   require(/git push origin "refs\/tags\/\$\{TAG\}"/.test(
     job(source, "publish"),
   ), "Publication must push only the candidate release tag.");
