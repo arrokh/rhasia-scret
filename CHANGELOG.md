@@ -25,6 +25,12 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.1.1]
+
+### Changes
+
+- Fixed release verification and publication by making PR validation safe when `main` advances, enabling recovery after failed publication, provisioning pinned Bun and Chromium prerequisites, and assigning the GitHub Actions identity to annotated tags.
+
 ## [0.1.0]
 
 ### Highlights
