@@ -87,6 +87,19 @@ test("restricts publication recovery to a merged dedicated release PR on main", 
   assert.ok(verifyReleaseWorkflowPolicy(optionalRecoveryPr).failures.some((failure) => failure.includes("PR number")));
 });
 
+test("requires a GitHub Actions tagger identity before tag creation", () => {
+  const missingTagIdentity = workflow.replace(
+    '          git config user.name "github-actions[bot]"\n          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"\n',
+    "",
+  );
+
+  assert.ok(
+    verifyReleaseWorkflowPolicy(missingTagIdentity).failures.some((failure) =>
+      failure.includes("tagger identity before creating the annotated tag"),
+    ),
+  );
+});
+
 test("rejects a mutable/lightweight tag and broadened permissions", () => {
   const mutableTagWorkflow = workflow.replace('git tag -a "$TAG"', 'git tag -f "$TAG"');
   const permissionEscalation = workflow.replace(
