@@ -29,6 +29,25 @@ test("requires the pinned Bun runtime for the exact-source browser gate", () => 
   }
 });
 
+test("installs Chromium and its system dependencies before the exact-source browser gate", () => {
+  const missingBrowser = workflow.replace(
+    "run: pnpm --filter @rhasia-scret/web exec playwright install chromium",
+    "run: pnpm --filter @rhasia-scret/web exec playwright install firefox",
+  );
+  const missingSystemDependencies = workflow.replace(
+    "run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium",
+    "run: pnpm --filter @rhasia-scret/web exec playwright install-deps firefox",
+  );
+
+  for (const modifiedWorkflow of [missingBrowser, missingSystemDependencies]) {
+    assert.ok(
+      verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) =>
+        failure.includes("install Chromium and system dependencies"),
+      ),
+    );
+  }
+});
+
 test("rejects a stale release diff base derived from the original PR commit parent", () => {
   const stalePushBase = workflow.replace(
     "PUSH_BASE_SHA: ${{ github.event.before }}",
