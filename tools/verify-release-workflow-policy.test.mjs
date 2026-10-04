@@ -11,6 +11,24 @@ test("release workflow gates an immutable GitHub publication on exact-source ful
   assert.deepEqual(verifyReleaseWorkflowPolicy(workflow), { valid: true, failures: [] });
 });
 
+test("requires the pinned Bun runtime for the exact-source browser gate", () => {
+  const missingBunSetup = workflow.replace(
+    /      - uses: oven-sh\/setup-bun@[0-9a-f]{40}[^\n]*\n        with:\n          bun-version: 1\.3\.9\n/,
+    "",
+  );
+  const unpinnedBunSetup = workflow.replace(
+    "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6",
+    "oven-sh/setup-bun@main",
+  );
+  const wrongBunVersion = workflow.replace("bun-version: 1.3.9", "bun-version: 1.3.8");
+
+  for (const modifiedWorkflow of [missingBunSetup, unpinnedBunSetup, wrongBunVersion]) {
+    assert.ok(
+      verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) => failure.includes("pinned Bun runtime")),
+    );
+  }
+});
+
 test("rejects a stale release diff base derived from the original PR commit parent", () => {
   const stalePushBase = workflow.replace(
     "PUSH_BASE_SHA: ${{ github.event.before }}",

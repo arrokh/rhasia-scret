@@ -18,7 +18,12 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/pull-requests:\s*read/.test(
     job(source, "candidate"),
   ), "Candidate discovery must use read-only pull-request permission.");
-  require(/contents:\s*read/.test(job(source, "verify")), "Verification must use read-only repository permission.");
+  const verifyJob = job(source, "verify");
+  require(/contents:\s*read/.test(verifyJob), "Verification must use read-only repository permission.");
+  require(/oven-sh\/setup-bun@[0-9a-f]{40}/.test(verifyJob) &&
+    /bun-version:\s*1\.3\.9/.test(
+      verifyJob,
+    ), "Exact-source full verification must install the pinned Bun runtime required by browser tests.");
   require(!/contents:\s*write/.test(
     `${job(source, "candidate")}\n${job(source, "verify")}`,
   ), "Only publication may write repository contents.");
