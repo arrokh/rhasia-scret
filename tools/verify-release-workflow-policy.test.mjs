@@ -11,6 +11,19 @@ test("release workflow gates an immutable GitHub publication on exact-source ful
   assert.deepEqual(verifyReleaseWorkflowPolicy(workflow), { valid: true, failures: [] });
 });
 
+test("requires newly created GitHub Releases to use the exact version-based Latest title", () => {
+  const oldTitle = workflow.replace('--title "v${VERSION} Latest"', '--title "rhasia-scret v${VERSION}"');
+  const incorrectVersion = workflow.replace('--title "v${VERSION} Latest"', '--title "v${VERSION} Latest Release"');
+
+  for (const modifiedWorkflow of [oldTitle, incorrectVersion]) {
+    assert.ok(
+      verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) =>
+        failure.includes("exact version-based Latest display title"),
+      ),
+    );
+  }
+});
+
 test("requires the pinned Bun runtime for the exact-source browser gate", () => {
   const missingBunSetup = workflow.replace(
     /      - uses: oven-sh\/setup-bun@[0-9a-f]{40}[^\n]*\n        with:\n          bun-version: 1\.3\.9\n/,

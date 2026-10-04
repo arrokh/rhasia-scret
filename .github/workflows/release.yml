@@ -257,7 +257,7 @@ jobs:
             echo "Verified existing GitHub Release ${TAG} for ${SOURCE_SHA}."
           else
             gh release create "$TAG" \
-              --title "rhasia-scret v${VERSION}" \
+              --title "v${VERSION} Latest" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
       - name: Record and upload publication provenance
