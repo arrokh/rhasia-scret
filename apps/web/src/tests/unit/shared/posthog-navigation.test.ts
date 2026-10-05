@@ -31,6 +31,7 @@ describe("PostHog navigation path redaction", () => {
     await vi.waitFor(() => expect(pageviews).toHaveLength(1));
     window.history.pushState({}, "", "/vaults/manage/cms1btg0p00wt9spon6tz59d4?secret=hidden#key");
     window.history.replaceState({}, "", "/vaults/manage/personal");
+    await vi.waitFor(() => expect(pageviews).toHaveLength(3));
 
     expect(pageviews.map((properties) => properties.$pathname)).toEqual([
       "/vaults",
