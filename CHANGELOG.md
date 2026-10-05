@@ -25,6 +25,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.1.2]
+
+<!-- Draft generated from first-parent history v0.1.1..0cbdff4543ce3cc2829d1d4dee9f3d4a11157df5 (first-parent, exclusive of tag). Review and curate before publication. -->
+
+### Changes
+
+- Rebuild the Web app when the product version changes so its footer stays current.
+- Use version-based `vX.Y.Z Latest` titles for new GitHub Releases.
+- Update workspace dependencies, including Hono request-path security fixes.
+
 ## [0.1.1]
 
 ### Changes
