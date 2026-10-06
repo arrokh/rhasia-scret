@@ -25,6 +25,15 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.1.3]
+
+### Changes
+
+- Link the Web footer version to its matching GitHub Release.
+- Publish version- and source-SHA-tagged Web, API, and migration images to Docker Hub; use the selected published images for self-hosting.
+- Update `source-map-js` to patched version 1.2.2 and remove a duplicate pnpm override.
+- Improve candidate-scoped release evidence and recovery guidance, and accept pnpm's separator in the documented release-preparation command.
+
 ## [0.1.2]
 
 ### Changes
