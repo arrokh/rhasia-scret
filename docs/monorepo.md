@@ -71,9 +71,9 @@ pnpm --filter @rhasia-scret/api dev:node  # generic Node.js local runtime
 pnpm dev:db                      # start local Compose PostgreSQL
 pnpm dev:db:migrate              # explicitly apply local development migrations
 pnpm dev:db:down                 # stop Compose DB, preserve its volume
-pnpm selfhosted:install          # configure, start services, and apply selected Tailscale route
-pnpm selfhosted:setup            # configure/build database and apply migrations
-pnpm selfhosted:up               # start self-hosted Compose services
+pnpm selfhosted:install          # configure, pull/start services, and apply selected Tailscale route
+pnpm selfhosted:setup            # configure database and apply migrations from the published image
+pnpm selfhosted:up               # pull versioned images and start self-hosted Compose services
 pnpm selfhosted:down             # stop services, preserve database volume
 pnpm selfhosted:clean            # confirm and delete self-hosted PostgreSQL data
 pnpm run lint
@@ -109,7 +109,7 @@ pnpm dev:db:migrate
 pnpm dev
 ```
 
-The migration command requires typing `yes`. `pnpm dev:db:down` stops the development database without deleting its named volume. `pnpm dev:db:reset` is destructive: it deletes that volume, creates a fresh PostgreSQL container, and reapplies development migrations after confirmation. The `selfhosted:*` commands use a separate production-build Compose flow; see the [self-hosting guide](self-hosting.md) for its configuration and migration behavior.
+The migration command requires typing `yes`. `pnpm dev:db:down` stops the development database without deleting its named volume. `pnpm dev:db:reset` is destructive: it deletes that volume, creates a fresh PostgreSQL container, and reapplies development migrations after confirmation. The `selfhosted:*` commands use a separate Compose override that pulls versioned Docker Hub images instead of building Web/API images locally; see the [self-hosting guide](self-hosting.md) for image selection, configuration, and migration behavior. Local-development Compose retains its source builds.
 
 The API workspace `postinstall` hook generates Prisma Client with a synthetic, non-production URL. Its `dev`, `dev:node`, and API build scripts regenerate before use as well, so ignored generated output stays aligned with the installed Prisma packages after dependency changes. Generation does not connect to PostgreSQL; runtime traffic uses `DATABASE_URL`, while migrations and administrative commands continue to require the explicitly configured `DIRECT_URL`.
 

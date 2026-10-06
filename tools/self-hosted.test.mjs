@@ -25,8 +25,11 @@ import {
   ensureLocalEnvironment,
   findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
   parseEnvFile,
+  readDefaultImageTag,
+  SELF_HOSTED_COMPOSE_FILES,
   SELF_HOSTED_PROJECT_NAME,
   selfHostedDatabaseAuthenticationCheckCommand,
+  selfHostedMigrationComposeCommand,
   selfHostedUpComposeCommands,
   setEnvValue,
   validateSelfHostedEnvironment,
@@ -41,6 +44,14 @@ import { applyTerminalTailscaleChoice, askLanguage, startConfigurationWizard } f
 import { WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS } from "./verify-deployment-config.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { createServer } from "node:http";
+
+function writeSelfHostedFixtureFiles(root) {
+  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "synthetic-selfhosted-test", version: "0.1.0" }));
+  for (const file of SELF_HOSTED_COMPOSE_FILES) {
+    writeFileSync(join(root, file), readFileSync(new URL(`../${file}`, import.meta.url)));
+  }
+}
 
 test("self-hosted install runs configure, setup, and up in order with the interactive option", async () => {
   const calls = [];
@@ -382,6 +393,7 @@ test("validates the minimum local Compose contract", () => {
     AUTH_BACKEND: "none",
     WEB_ORIGIN: "http://localhost:3000",
     API_ORIGIN: "http://localhost:8787",
+    IMAGE_TAG: "v0.1.0",
   };
   assert.deepEqual(validateSelfHostedEnvironment(valid), []);
   const unsupportedBackendErrors = validateSelfHostedEnvironment({ ...valid, AUTH_BACKEND: "oidc" });
@@ -397,6 +409,20 @@ test("validates the minimum local Compose contract", () => {
       error.includes("SELF_HOSTED_TAILSCALE_MODE must be none, serve, or funnel"),
     ),
   );
+  assert.ok(
+    validateSelfHostedEnvironment({ ...valid, IMAGE_TAG: "latest" }).some((error) => error.includes("IMAGE_TAG")),
+  );
+  assert.equal(validateSelfHostedEnvironment({ ...valid, IMAGE_TAG: `sha-${"a".repeat(40)}` }).length, 0);
+  assert.ok(
+    validateSelfHostedEnvironment({ ...valid, IMAGE_TAG: `sha-${"A".repeat(40)}` }).some((error) =>
+      error.includes("IMAGE_TAG"),
+    ),
+  );
+  assert.ok(
+    validateSelfHostedEnvironment({ ...valid, IMAGE_TAG: `v${"1".repeat(128)}.0.0` }).some((error) =>
+      error.includes("IMAGE_TAG"),
+    ),
+  );
 });
 
 test("validates Turnstile key pairing in self-hosted passwordless configuration", () => {
@@ -409,6 +435,7 @@ test("validates Turnstile key pairing in self-hosted passwordless configuration"
     WEB_ORIGIN: "https://vault.example.test",
     API_ORIGIN: "https://api.example.test",
     AUTH_APP_ORIGIN: "https://vault.example.test",
+    IMAGE_TAG: "v0.1.0",
   };
 
   assert.deepEqual(validateSelfHostedEnvironment(base), []);
@@ -439,6 +466,7 @@ test("allows localhost HTTP while requiring HTTPS for non-local authentication",
     WEB_ORIGIN: "http://localhost:3000",
     API_ORIGIN: "http://localhost:8787",
     AUTH_APP_ORIGIN: "http://localhost:3000",
+    IMAGE_TAG: "v0.1.0",
   });
   assert.equal(localErrors.filter((error) => error.includes("HTTPS")).length, 0);
 
@@ -451,6 +479,7 @@ test("allows localhost HTTP while requiring HTTPS for non-local authentication",
     WEB_ORIGIN: "http://vault.example.test",
     API_ORIGIN: "https://api.example.test",
     AUTH_APP_ORIGIN: "http://vault.example.test",
+    IMAGE_TAG: "v0.1.0",
   });
   assert.ok(hostedErrors.some((error) => error.includes("WEB_ORIGIN") && error.includes("HTTPS")));
   assert.ok(hostedErrors.some((error) => error.includes("AUTH_APP_ORIGIN") && error.includes("HTTPS")));
@@ -465,6 +494,7 @@ test("rejects unsafe database passwords and malformed origins", () => {
     AUTH_BACKEND: "none",
     WEB_ORIGIN: "not-a-url",
     API_ORIGIN: "http://localhost:8787/path",
+    IMAGE_TAG: "v0.1.0",
   });
   assert.ok(errors.some((error) => error.includes("URL-safe")));
   assert.ok(errors.some((error) => error.includes("WEB_ORIGIN")));
@@ -478,6 +508,7 @@ test("rejects unsafe database passwords and malformed origins", () => {
     AUTH_BACKEND: "none",
     WEB_ORIGIN: "http://vault.example.test",
     API_ORIGIN: "http://api.example.test",
+    IMAGE_TAG: "v0.1.0",
   });
   assert.ok(nonLocalHttpErrors.some((error) => error.includes("WEB_ORIGIN") && error.includes("HTTPS")));
   assert.ok(nonLocalHttpErrors.some((error) => error.includes("API_ORIGIN") && error.includes("HTTPS")));
@@ -532,6 +563,7 @@ test("validates explicit Docker bind addresses and published ports", () => {
     AUTH_BACKEND: "none",
     WEB_ORIGIN: "http://localhost:3000",
     API_ORIGIN: "http://localhost:8787",
+    IMAGE_TAG: "v0.1.0",
   };
 
   assert.deepEqual(validateSelfHostedEnvironment(valid), []);
@@ -549,7 +581,7 @@ test("repairs only example placeholders in an existing environment", () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-repair-"));
   try {
     const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-    writeFileSync(join(root, ".env.example"), example);
+    writeSelfHostedFixtureFiles(root);
     const source = example
       .replace("AUTH_BACKEND=passwordless", "AUTH_BACKEND=none")
       .replace(
@@ -572,11 +604,35 @@ test("repairs only example placeholders in an existing environment", () => {
   }
 });
 
+test("preserves a deliberately selected release tag while repairing local environment values", () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-selected-image-tag-"));
+  const imageTag = `sha-${"a".repeat(40)}`;
+  try {
+    const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+    writeSelfHostedFixtureFiles(root);
+    const source = example
+      .replace("AUTH_BACKEND=passwordless", "AUTH_BACKEND=none")
+      .replace("IMAGE_TAG=replace-with-release-tag", `IMAGE_TAG=${imageTag}`)
+      .replace(
+        "POSTGRES_PASSWORD=replace-with-a-url-safe-database-password",
+        "POSTGRES_PASSWORD=local-database-password",
+      );
+    writeFileSync(join(root, ".env"), source);
+
+    const result = ensureLocalEnvironment({ root });
+    const values = parseEnvFile(readFileSync(result.envPath, "utf8"));
+    assert.equal(values.IMAGE_TAG, imageTag);
+    assert.deepEqual(validateSelfHostedEnvironment(values), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("preserves an example database password in an existing environment", () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-db-password-"));
   try {
     const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-    writeFileSync(join(root, ".env.example"), example);
+    writeSelfHostedFixtureFiles(root);
     writeFileSync(join(root, ".env"), example.replace("AUTH_BACKEND=passwordless", "AUTH_BACKEND=none"));
 
     const result = ensureLocalEnvironment({ root });
@@ -592,7 +648,7 @@ test("reuses a configured proxy secret when repairing its counterpart", () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-proxy-"));
   try {
     const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-    writeFileSync(join(root, ".env.example"), example);
+    writeSelfHostedFixtureFiles(root);
     const configured = example
       .replace("AUTH_BACKEND=passwordless", "AUTH_BACKEND=none")
       .replace(
@@ -613,18 +669,33 @@ test("reuses a configured proxy secret when repairing its counterpart", () => {
 test("creates a local environment once and leaves it unchanged on rerun", () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-"));
   try {
-    writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+    writeSelfHostedFixtureFiles(root);
     const first = ensureLocalEnvironment({ root, commitSha: "test-sha" });
     assert.equal(first.created, true);
     const firstSource = readFileSync(first.envPath, "utf8");
     const values = parseEnvFile(firstSource);
     assert.equal(values.AUTH_BACKEND, "none");
     assert.equal(values.COMMIT_SHA, "test-sha");
+    assert.equal(values.IMAGE_TAG, "v0.1.0");
     assert.equal(validateSelfHostedEnvironment(values).length, 0);
 
     const second = ensureLocalEnvironment({ root, commitSha: "different-sha" });
     assert.equal(second.created, false);
     assert.equal(readFileSync(first.envPath, "utf8"), firstSource);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("derives the default self-hosted image tag from the checked-out root package version", () => {
+  const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-image-tag-"));
+  try {
+    writeFileSync(join(root, "package.json"), JSON.stringify({ version: "2.4.6" }));
+    assert.equal(readDefaultImageTag(root), "v2.4.6");
+    writeFileSync(join(root, "package.json"), JSON.stringify({ version: "2.4.6-rc.1" }));
+    assert.throws(() => readDefaultImageTag(root), /stable SemVer/u);
+    writeFileSync(join(root, "package.json"), JSON.stringify({ version: `${"1".repeat(128)}.0.0` }));
+    assert.throws(() => readDefaultImageTag(root), /128-character/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -639,8 +710,25 @@ test("replaces an existing dotenv key without touching comments", () => {
   );
 });
 
-test("builds a stable Compose project command", () => {
-  assert.deepEqual(composeArguments("/repo", ["up", "-d"]), ["compose", "-f", "docker-compose.yml", "up", "-d"]);
+test("uses the base and self-hosted Compose files for every operation", () => {
+  assert.deepEqual(composeArguments("/repo", ["up", "-d"]), [
+    "compose",
+    "-f",
+    "docker-compose.yml",
+    "-f",
+    "docker-compose.selfhosted.yml",
+    "up",
+    "-d",
+  ]);
+  assert.deepEqual(SELF_HOSTED_COMPOSE_FILES, ["docker-compose.yml", "docker-compose.selfhosted.yml"]);
+});
+
+test("pulls published application and migration images instead of building them", () => {
+  assert.deepEqual(selfHostedMigrationComposeCommand(), ["run", "--pull", "always", "--rm", "--no-deps", "migrate"]);
+  assert.deepEqual(selfHostedUpComposeCommands(), {
+    pull: ["pull", "api", "web", "retention-purge"],
+    start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
+  });
 });
 
 test("self-hosted cleanup requires typing the exact PostgreSQL volume name", async () => {
@@ -682,7 +770,7 @@ test("self-hosted cleanup stops only its Compose project before removing its exa
   const volumeName = `${SELF_HOSTED_PROJECT_NAME}_postgres-data`;
   const events = [];
   const commands = [];
-  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
 
   try {
     const cleaned = await cleanSelfHosted({
@@ -703,7 +791,10 @@ test("self-hosted cleanup stops only its Compose project before removing its exa
     assert.equal(cleaned, true);
     assert.deepEqual(events[2], ["confirm", volumeName]);
     assert.deepEqual(commands.slice(-2), [
-      ["docker", ["compose", "-f", "docker-compose.yml", "down", "--remove-orphans"]],
+      [
+        "docker",
+        ["compose", "-f", "docker-compose.yml", "-f", "docker-compose.selfhosted.yml", "down", "--remove-orphans"],
+      ],
       ["docker", ["volume", "rm", volumeName]],
     ]);
     assert.equal(commands.at(-2)[1].includes("-v"), false);
@@ -716,7 +807,7 @@ test("self-hosted cleanup performs no changes when no database volume exists", a
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-empty-"));
   const commands = [];
   let confirmations = 0;
-  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
 
   try {
     const cleaned = await cleanSelfHosted({
@@ -744,7 +835,7 @@ test("self-hosted cleanup performs no changes when no database volume exists", a
 test("self-hosted cleanup performs no changes when the exact volume confirmation is declined", async () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-declined-"));
   const commands = [];
-  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
 
   try {
     await assert.rejects(
@@ -772,7 +863,7 @@ test("self-hosted cleanup rejects any Docker volume other than the fixed Compose
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-clean-unexpected-"));
   const commands = [];
   let confirmations = 0;
-  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
 
   try {
     await assert.rejects(
@@ -800,7 +891,14 @@ test("self-hosted cleanup rejects any Docker volume other than the fixed Compose
 
 test("self-hosted commands use .env values instead of shell overrides for Compose settings", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const variableNames = ["AUTH_BACKEND", "AUTH_TRUST_PROXY_HEADERS", "APP_PORT", "SMTP_PASSWORD", "COMPOSE_PROFILES"];
+  const variableNames = [
+    "AUTH_BACKEND",
+    "AUTH_TRUST_PROXY_HEADERS",
+    "APP_PORT",
+    "SMTP_PASSWORD",
+    "COMPOSE_PROFILES",
+    "IMAGE_TAG",
+  ];
   const previousValues = new Map(variableNames.map((name) => [name, process.env[name]]));
   Object.assign(process.env, {
     AUTH_BACKEND: "none",
@@ -808,6 +906,7 @@ test("self-hosted commands use .env values instead of shell overrides for Compos
     APP_PORT: "9999",
     SMTP_PASSWORD: "unexpected-shell-value",
     COMPOSE_PROFILES: "migration",
+    IMAGE_TAG: "v9.9.9",
   });
 
   try {
@@ -820,6 +919,7 @@ test("self-hosted commands use .env values instead of shell overrides for Compos
           APP_PORT: "3400",
           SMTP_PASSWORD: "synthetic-provider-password",
           COMPOSE_PROFILES: "migration",
+          IMAGE_TAG: "v0.1.0",
         },
       },
       { COMPOSE_PROJECT_NAME: "rhasia-scret-selfhosted" },
@@ -829,19 +929,13 @@ test("self-hosted commands use .env values instead of shell overrides for Compos
     assert.equal(environment.APP_PORT, "3400");
     assert.ok(environment.SMTP_PASSWORD === "synthetic-provider-password", "The fixture secret should be preserved.");
     assert.equal(environment.COMPOSE_PROFILES, "");
+    assert.equal(environment.IMAGE_TAG, "v0.1.0");
   } finally {
     for (const [name, value] of previousValues) {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }
   }
-});
-
-test("builds images before starting without a second image pull", () => {
-  assert.deepEqual(selfHostedUpComposeCommands(), {
-    build: ["build"],
-    start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
-  });
 });
 
 test("database credential preflight uses the running container environment for a read-only query", () => {
@@ -863,6 +957,7 @@ test("publishes the self-hosted web port on loopback by default and honors a bin
   const envPath = join(tempRoot, ".env");
   const baseValues = [
     "COMMIT_SHA=test-sha",
+    "IMAGE_TAG=v0.1.0",
     "POSTGRES_PASSWORD=synthetic-db-password",
     `PROXY_SECRET=${"p".repeat(32)}`,
     `API_PROXY_SECRET=${"p".repeat(32)}`,
@@ -874,7 +969,20 @@ test("publishes the self-hosted web port on loopback by default and honors a bin
       writeFileSync(envPath, `${baseValues}\n${extraValues}\n`);
       const result = spawnSync(
         "docker",
-        ["compose", "--env-file", envPath, "-f", "docker-compose.yml", "config", "--format", "json"],
+        [
+          "compose",
+          "--env-file",
+          envPath,
+          "-f",
+          "docker-compose.yml",
+          "-f",
+          "docker-compose.selfhosted.yml",
+          "--profile",
+          "migration",
+          "config",
+          "--format",
+          "json",
+        ],
         {
           cwd: root,
           env: createSelfHostedCommandEnvironment({ root, values: parseEnvFile(readFileSync(envPath, "utf8")) }),
@@ -883,6 +991,13 @@ test("publishes the self-hosted web port on loopback by default and honors a bin
       );
       assert.ok(result.status === 0, "Docker Compose should resolve the synthetic fixture configuration.");
       const config = JSON.parse(result.stdout);
+      assert.equal(config.services.web.image, "docker.io/arrokh/rhasia-scret:v0.1.0");
+      assert.equal(config.services.api.image, "docker.io/arrokh/rhasia-scret-api:v0.1.0");
+      assert.equal(config.services.migrate.image, "docker.io/arrokh/rhasia-scret-api-migrate:v0.1.0");
+      assert.equal(config.services["retention-purge"].image, "docker.io/arrokh/rhasia-scret-api:v0.1.0");
+      for (const service of ["web", "api", "migrate", "retention-purge"]) {
+        assert.equal("build" in config.services[service], false, `${service} must not retain a local build definition`);
+      }
       return config.services.web.ports[0];
     };
 
@@ -907,8 +1022,7 @@ test("publishes the self-hosted web port on loopback by default and honors a bin
 
 test("configuration wizard writes a protected .env through its loopback HTTP form without echoing values", async () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-"));
-  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
-  writeFileSync(join(root, "docker-compose.yml"), readFileSync(new URL("../docker-compose.yml", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
   const wizard = await startConfigurationWizard({
     root,
     commitSha: "test-sha",
@@ -1021,15 +1135,20 @@ test("configuration wizard writes a protected .env through its loopback HTTP for
     assert.equal(values.PROXY_SECRET, values.API_PROXY_SECRET);
     assert.notEqual(values.AUTH_MAGIC_LINK_SECRET, values.AUTH_SESSION_SECRET);
     assert.equal(values.PASSKEY_RP_ID, "");
+    assert.equal(values.IMAGE_TAG, "v0.1.0");
     assert.deepEqual(validateSelfHostedEnvironment(values), []);
     assert.equal(readFileSync(join(root, ".env"), "utf8").includes("replace-with-"), false);
     assert.equal((await import("node:fs")).statSync(join(root, ".env")).mode & 0o777, 0o600);
 
-    const compose = spawnSync("docker", ["compose", "-f", "docker-compose.yml", "config", "--format", "json"], {
-      cwd: root,
-      env: { ...createSelfHostedCommandEnvironment({ root, values: {} }), COMPOSE_PROFILES: "" },
-      encoding: "utf8",
-    });
+    const compose = spawnSync(
+      "docker",
+      ["compose", "-f", "docker-compose.yml", "-f", "docker-compose.selfhosted.yml", "config", "--format", "json"],
+      {
+        cwd: root,
+        env: { ...createSelfHostedCommandEnvironment({ root, values: {} }), COMPOSE_PROFILES: "" },
+        encoding: "utf8",
+      },
+    );
     assert.ok(compose.status === 0, "Docker Compose should resolve the synthetic wizard configuration.");
     const composeConfig = JSON.parse(compose.stdout);
     assert.equal(composeConfig.services.web.ports[0].host_ip, "127.0.0.1");
@@ -1058,7 +1177,7 @@ test("configuration wizard refuses to overwrite an existing .env", async () => {
 
 test("start-over backs up .env with restrictive permissions and preserves database settings", async () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-replace-"));
-  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
   const existing = [
     "DATABASE_URL=postgresql://legacy_user:synthetic-database-password@127.0.0.1:55432/legacy_database?schema=public",
     "DIRECT_URL=postgresql://legacy_user:synthetic-database-password@127.0.0.1:55432/legacy_database?schema=public",
@@ -1176,7 +1295,7 @@ test("timestamped .env backups are ignored by Git", () => {
 
 test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused provider fields", async () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-local-"));
-  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
   const wizard = await startConfigurationWizard({ root, commitSha: "test-sha", tailscaleOrigin: null });
   try {
     const page = await requestWizard(wizard.url);
@@ -1224,7 +1343,7 @@ test("wizard accepts a Tailscale HTTPS origin with no auth and omits unused prov
 
 test("wizard enables trusted proxy headers for passwordless on the detected Tailscale origin", async () => {
   const root = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-tailscale-passwordless-"));
-  writeFileSync(join(root, ".env.example"), readFileSync(new URL("../.env.example", import.meta.url)));
+  writeSelfHostedFixtureFiles(root);
   const wizard = await startConfigurationWizard({
     root,
     commitSha: "test-sha",
@@ -1599,6 +1718,7 @@ function writeTailscaleEnvironment(
     `AUTH_TRUST_PROXY_HEADERS=${proxyTrust}`,
     "APP_BIND_ADDRESS=127.0.0.1",
     `APP_PORT=${port}`,
+    "IMAGE_TAG=v0.1.0",
   ].join("\n");
   writeFileSync(join(root, ".env"), `${envSource}\n`, { mode: 0o600 });
 }
