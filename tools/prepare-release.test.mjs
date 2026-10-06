@@ -4,9 +4,14 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import { prepareRelease, selectTargetVersion } from "./prepare-release.mjs";
+import { parseArguments, prepareRelease, selectTargetVersion } from "./prepare-release.mjs";
 
 const initialVersion = "0.1.0";
+
+test("the CLI accepts pnpm's argument separator before a release bump", () => {
+  assert.deepEqual(parseArguments(["--", "patch"]), { bump: "patch" });
+  assert.deepEqual(parseArguments(["patch"]), { bump: "patch" });
+});
 
 test("prepares the inaugural v0.1.0 draft without bumping versions or replacing Unreleased", () => {
   const fixture = createReleaseFixture();

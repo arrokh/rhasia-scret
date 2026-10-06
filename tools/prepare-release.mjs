@@ -218,9 +218,10 @@ function git(args, root, { allowFailure = false } = {}) {
   }
 }
 
-function parseArguments(args) {
-  if (args.length > 1) throw new Error("Usage: pnpm run release:prepare [patch|minor|major]");
-  const [bump] = args;
+export function parseArguments(args) {
+  const scriptArguments = args[0] === "--" ? args.slice(1) : args;
+  if (scriptArguments.length > 1) throw new Error("Usage: pnpm run release:prepare [patch|minor|major]");
+  const [bump] = scriptArguments;
   return { bump };
 }
 
