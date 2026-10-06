@@ -39,6 +39,9 @@ test("release process scopes readiness evidence to a candidate and immutable bas
 test("documents one version tag per new Docker image and a consolidated Actions overview", () => {
   assert.ok(releaseProcess.includes("Each image receives only the matching `vX.Y.Z` release tag."));
   assert.ok(releaseProcess.includes("New releases do not publish a source-SHA image tag or a floating `latest` tag"));
+  assert.ok(
+    releaseProcess.includes("The GitHub Release body lists each image link and release-specific pull command."),
+  );
   assert.ok(releaseProcess.includes("one consolidated overview to the GitHub Actions run summary"));
   assert.ok(releaseProcess.includes("OCI revision label and publication artifact"));
   assert.ok(selfHosting.includes("Use the published `vX.Y.Z` release tag for current releases"));

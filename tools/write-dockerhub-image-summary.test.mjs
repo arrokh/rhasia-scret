@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createDockerHubImageSummary } from "./write-dockerhub-image-summary.mjs";
 
-const version = "0.3.0";
+const version = "0.2.0";
 const releaseTag = `v${version}`;
 const sourceSha = "a".repeat(40);
 const imageRecords = [
@@ -77,13 +77,13 @@ test("writes one consolidated Actions overview from all verified image provenanc
     assert.equal(result.status, 0, result.stderr);
 
     const summary = readFileSync(fixture.summaryPath, "utf8");
-    assert.match(summary, /# Docker Hub images for v0\.3\.0/);
+    assert.match(summary, /# Docker Hub images for v0\.2\.0/);
     assert.ok(summary.includes(`Source commit: \`${sourceSha}\``));
     for (const { image, purpose, digest } of imageRecords) {
       const repository = image.slice("docker.io/".length);
       assert.ok(summary.includes(`[${repository}](https://hub.docker.com/r/${repository})`));
-      assert.ok(summary.includes(`| ${purpose} | \`v0.3.0\` | \`${digest}\``));
-      assert.ok(summary.includes(`docker pull ${repository}:v0.3.0`));
+      assert.ok(summary.includes(`| ${purpose} | \`v0.2.0\` | \`${digest}\``));
+      assert.ok(summary.includes(`docker pull ${repository}:v0.2.0`));
     }
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });

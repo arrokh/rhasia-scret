@@ -52,7 +52,14 @@ export function extractReleaseNotes(changelog, version, sourceSha) {
     .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
     .trim();
   if (!body || !/^###\s+\S/m.test(body)) throw new Error(`${heading} must contain reviewed release notes.`);
-  return `${body}\n\n---\nSource commit: ${sourceSha}\n`;
+  const dockerImageNotes = [
+    "### Docker Hub images",
+    "",
+    `- Web/PWA: [arrokh/rhasia-scret](https://hub.docker.com/r/arrokh/rhasia-scret) — \`docker pull arrokh/rhasia-scret:v${version}\``,
+    `- API: [arrokh/rhasia-scret-api](https://hub.docker.com/r/arrokh/rhasia-scret-api) — \`docker pull arrokh/rhasia-scret-api:v${version}\``,
+    `- One-off API migration: [arrokh/rhasia-scret-api-migrate](https://hub.docker.com/r/arrokh/rhasia-scret-api-migrate) — \`docker pull arrokh/rhasia-scret-api-migrate:v${version}\``,
+  ].join("\n");
+  return `${body}\n\n---\nSource commit: ${sourceSha}\n\n${dockerImageNotes}\n`;
 }
 
 export function existingTagAction({ tag, sourceSha, existingTargetSha, annotated }) {
