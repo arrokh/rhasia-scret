@@ -2,9 +2,9 @@
 
 This page describes the product capabilities implemented in this repository. It is not a guarantee that a particular hosted or self-hosted deployment is configured, available, or production-ready.
 
-## Project status
+## Release status
 
-The maintainer confirmed in this conversation that the public `v0.1.2` release is complete. This checkout contains an annotated `v0.1.2` tag at `HEAD`; the GitHub Release and publication artifact were not independently inspected in this review, so their status is maintainer-confirmed rather than independently verified. The [v0.1.2 candidate record](release-readiness/v0.1.2.md) preserves its pre-publication evidence. Its timestamps remain inconsistent with the review date; no dates have been inferred or changed.
+Published repository releases are represented by annotated version tags and [GitHub Releases](https://github.com/arrokh/rhasia-scret/releases). The `main` branch can advance beyond any published release. Candidate readiness records contain evidence for one version at its recorded timestamp; they do not establish current deployment readiness or publication.
 
 There has been no formal independent security audit or certification. The dated repository audit is scoped to its audited commit and is not a current security sign-off; later candidate readiness records do not substitute for an independent audit or operator evidence review. See the [release process](release-process.md), [security documentation](README.md#security), and [deployment hardening checklist](security/deployment-hardening-checklist.md).
 
