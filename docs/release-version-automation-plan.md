@@ -27,7 +27,7 @@ Automate a repeatable, reviewable SemVer source release for the whole repository
 - The evidence verifier selects `docs/release-readiness/vX.Y.Z.md`, checks the candidate against the root version, and supports an explicit ready-only publication gate. The manual evidence workflow remains evidence-only.
 - `.github/workflows/release.yml` selects only a merged `[infra][chore] Prepare release vX.Y.Z` PR with a release-only diff; it uses the push event's pre-merge main SHA so unrelated commits that landed while the PR was open are excluded. An already-existing matching candidate record may remain unchanged. It tests the exact push SHA, then grants write access only to the tag/release publication job. Retries reuse only an annotated tag already at that exact SHA.
 - The shared app footer displays the root product version embedded in the current Web build in the requested order with locale-aware accessible naming and conditional language control; it updates on the next Web deployment, not on an independent source-tag publication.
-- The current `v0.1.0` readiness record retains its maintainer-reported external evidence and human-review decision; automation or repository tests do not independently verify provider readiness.
+- The historical `v0.1.0` readiness record retains its candidate-specific maintainer-reported external evidence and human-review decision; automation or repository tests do not independently verify provider readiness.
 
 ## Implementation sequence
 
@@ -65,7 +65,7 @@ The candidate gate checks out the exact triggering `github.sha` with full histor
 
 ### 6. Update documentation and verification policy — implemented
 
-The current README, product-status page, release process, candidate readiness record, changelog, CI guide, monorepo guide, and documentation index describe the implemented commands and current web/PWA support boundary. Historical release/readiness evidence and the operational migration approval policy are preserved. The shared footer surfaces the root version without changing deployment scope.
+The README, product-status page, release process, changelog, CI guide, monorepo guide, and documentation index describe the implemented commands and web/PWA support boundary. Readiness remains candidate-specific; historical records preserve their own evidence and do not imply current provider readiness. The shared footer surfaces the root version without changing deployment scope.
 
 Release-helper and workflow-policy tests, formatting, and the fresh full repository gate are per-candidate requirements; see the [release process](release-process.md). This implementation plan does not claim a fresh gate for a future candidate or that a source release has been published.
 

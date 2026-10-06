@@ -13,7 +13,7 @@ when implementation code is complete.
 - [x] Privacy and hosted-service disclosures — [#147](https://github.com/arrokh/rhasia-scret/issues/147)
 - [x] Contributor workflow and governance — [#148](https://github.com/arrokh/rhasia-scret/issues/148)
 - [x] Versioning and repository source release process — [#149](https://github.com/arrokh/rhasia-scret/issues/149)
-- [x] Public-launch audit and first release — [#150](https://github.com/arrokh/rhasia-scret/issues/150) (repository audit recorded; maintainer confirmed public release completion. The candidate record's timestamp discrepancy remains unresolved, and remote publication evidence was not independently inspected in this review.)
+- [x] Public-launch audit and first release — [#150](https://github.com/arrokh/rhasia-scret/issues/150) (the launch audit and inaugural source-release milestone are recorded as complete. Readiness snapshots are candidate-specific; verify any release through its tagged GitHub Release and exact-SHA workflow evidence.)
 
 ## Priorities
 

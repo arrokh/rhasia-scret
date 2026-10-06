@@ -68,4 +68,4 @@ pnpm --filter @rhasia-scret/api typecheck
 pnpm --filter @rhasia-scret/api test:unit
 ```
 
-The repository completion gate remains `mise exec -- pnpm run test:full`. This architecture document does not itself establish production operations evidence; current API/Web readiness is recorded in [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md), based on maintainer-reported Vercel and self-hosted checks.
+The repository completion gate remains `mise exec -- pnpm run test:full`. This architecture document does not establish production operations evidence. The [`v0.1.0` candidate readiness record](release-readiness/v0.1.0.md) preserves maintainer-reported Vercel and self-hosted evidence for that candidate only; it does not establish readiness for later releases.
