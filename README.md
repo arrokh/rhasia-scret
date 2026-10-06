@@ -14,6 +14,7 @@ Use a browser-only Local Vault, or self-host the application for encrypted Perso
 - **Hosted Vaults:** synchronize encrypted Personal Vaults and collaborate in Shared Vaults with owner-managed membership and account permissions.
 - **Offline access:** use a read-only encrypted snapshot of a hosted Personal Vault. Shared Vaults are online-only; offline writes are not queued.
 - **Encrypted Vault Archives:** export or import a portable client-encrypted archive using a separate archive key.
+- **Key rotation:** manually rotate a Shared Vault Encryption Key or a user's Encryption Key Pair across active Shared Vault memberships. Rotation cannot revoke keys or TOTP secrets already copied by a member or device.
 - **TOTP:** generate codes locally for supported SHA-1, SHA-256, or SHA-512 configurations with 6 or 8 digits. HOTP is not supported.
 - **Recovery and localization:** optional browser passkey-assisted workflows and Indonesian/English interface.
 
