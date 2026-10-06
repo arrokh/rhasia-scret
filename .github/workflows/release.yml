@@ -295,3 +295,100 @@ jobs:
           path: ${{ runner.temp }}/repository-release-publication/
           if-no-files-found: error
           retention-days: 90
+
+  images:
+    name: Publish Docker Hub image (${{ matrix.image }})
+    needs: [candidate, verify, publish]
+    if: needs.candidate.outputs.publish == 'true' && needs.verify.result == 'success' && needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: repository-release-image-${{ needs.candidate.outputs.tag }}-${{ matrix.image }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: rhasia-scret
+            dockerfile: apps/web/Dockerfile
+            target: runtime
+          - image: rhasia-scret-api
+            dockerfile: apps/api/Dockerfile
+            target: runtime
+          - image: rhasia-scret-api-migrate
+            dockerfile: apps/api/Dockerfile.migration
+            target: migration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.source_sha }}
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DOCKERHUB_USERNAME" || -z "$DOCKERHUB_TOKEN" ]]; then
+            echo "::error::Configure the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets before publishing release images."
+            exit 1
+          fi
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - name: Build and push versioned image
+        env:
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+          RELEASE_TAG: ${{ needs.candidate.outputs.tag }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TARGET: ${{ matrix.target }}
+          IMAGE_NAME: ${{ matrix.image }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          IMAGE="docker.io/arrokh/${IMAGE_NAME}"
+          docker build \
+            --platform linux/amd64 \
+            --file "$DOCKERFILE" \
+            --target "$TARGET" \
+            --build-arg "COMMIT_SHA=${SOURCE_SHA}" \
+            --label "org.opencontainers.image.source=https://github.com/${SOURCE_REPOSITORY}" \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
+            --tag "${IMAGE}:${RELEASE_TAG}" \
+            --tag "${IMAGE}:sha-${SOURCE_SHA}" \
+            .
+          docker push "${IMAGE}:${RELEASE_TAG}" | tee "$RUNNER_TEMP/docker-push-release.log"
+          RELEASE_DIGEST="$(awk '{ for (i = 1; i <= NF; i++) if ($i == "digest:" && $(i + 1) ~ /^sha256:/) { print $(i + 1); exit } }' "$RUNNER_TEMP/docker-push-release.log")"
+          [[ "$RELEASE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Docker Hub did not report a valid release image digest."; exit 1; }
+          docker push "${IMAGE}:sha-${SOURCE_SHA}" | tee "$RUNNER_TEMP/docker-push-source.log"
+          SOURCE_DIGEST="$(awk '{ for (i = 1; i <= NF; i++) if ($i == "digest:" && $(i + 1) ~ /^sha256:/) { print $(i + 1); exit } }' "$RUNNER_TEMP/docker-push-source.log")"
+          [[ "$SOURCE_DIGEST" == "$RELEASE_DIGEST" ]] || { echo "::error::Docker Hub release and source tags resolved to different image digests."; exit 1; }
+          PROVENANCE_DIR="$RUNNER_TEMP/dockerhub-publication"
+          mkdir -p "$PROVENANCE_DIR"
+          {
+            printf 'image=%s\n' "$IMAGE"
+            printf 'release-tag=%s\n' "$RELEASE_TAG"
+            printf 'source-tag=sha-%s\n' "$SOURCE_SHA"
+            printf 'source-commit=%s\n' "$SOURCE_SHA"
+            printf 'version=%s\n' "$VERSION"
+            printf 'dockerfile=%s\n' "$DOCKERFILE"
+            printf 'target=%s\n' "$TARGET"
+            printf 'platform=linux/amd64\n'
+            printf 'digest=%s\n' "$RELEASE_DIGEST"
+          } > "$PROVENANCE_DIR/image.txt"
+          {
+            printf '### Published Docker Hub image: `%s`\n' "$IMAGE"
+            printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+            printf -- '- Source tag: `sha-%s`\n' "$SOURCE_SHA"
+            printf -- '- Source commit: `%s`\n' "$SOURCE_SHA"
+            printf -- '- Platform: `linux/amd64`\n'
+            printf -- '- Digest: `%s`\n' "$RELEASE_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload image provenance
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dockerhub-image-${{ matrix.image }}-${{ needs.candidate.outputs.version }}-${{ needs.verify.outputs.source_sha }}
+          path: ${{ runner.temp }}/dockerhub-publication/
+          if-no-files-found: error
+          retention-days: 90

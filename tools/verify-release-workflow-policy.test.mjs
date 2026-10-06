@@ -175,3 +175,34 @@ test("rejects publishing without full isolated tests or when deployment/migratio
     ),
   );
 });
+
+test("gates Docker Hub publishing on a verified repository release and preserves release/SHA tags", () => {
+  const missingReleaseDependency = workflow.replace(
+    "needs: [candidate, verify, publish]",
+    "needs: [candidate, verify]",
+  );
+  const missingDockerHubToken = workflow.replace(
+    "          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}\n",
+    "          DOCKERHUB_TOKEN: ''\n",
+  );
+  const missingSourceTag = workflow.replace(
+    '            --tag "${IMAGE}:sha-${SOURCE_SHA}" \\\n',
+    '            --tag "${IMAGE}:latest" \\\n',
+  );
+
+  assert.ok(
+    verifyReleaseWorkflowPolicy(missingReleaseDependency).failures.some((failure) =>
+      failure.includes("only after exact-source verification"),
+    ),
+  );
+  assert.ok(
+    verifyReleaseWorkflowPolicy(missingDockerHubToken).failures.some((failure) =>
+      failure.includes("repository secrets and password-stdin"),
+    ),
+  );
+  assert.ok(
+    verifyReleaseWorkflowPolicy(missingSourceTag).failures.some((failure) =>
+      failure.includes("release version and exact source SHA tags"),
+    ),
+  );
+});

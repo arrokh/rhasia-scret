@@ -139,6 +139,49 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/actions\/upload-artifact@[0-9a-f]{40}/.test(
     job(source, "publish"),
   ), "Publication provenance must be retained as a workflow artifact.");
+  const imageJob = job(source, "images");
+  require(/needs:\s*\[candidate, verify, publish\]/.test(imageJob) &&
+    /needs\.verify\.result == 'success' && needs\.publish\.result == 'success'/.test(
+      imageJob,
+    ), "Docker Hub images must publish only after exact-source verification and repository release publication.");
+  require(/contents:\s*read/.test(imageJob) &&
+    !/^[ \t]+[a-z-]+:\s*write\s*$/m.test(
+      imageJob,
+    ), "Docker Hub image publication must use read-only GitHub token permissions.");
+  require(/ref:\s*\$\{\{ needs\.verify\.outputs\.source_sha \}\}/.test(
+    imageJob,
+  ), "Docker Hub images must be built from the exact verified source SHA.");
+  require(/secrets\.DOCKERHUB_USERNAME/.test(imageJob) &&
+    /secrets\.DOCKERHUB_TOKEN/.test(imageJob) &&
+    /password-stdin/.test(imageJob), "Docker Hub login must use repository secrets and password-stdin.");
+  for (const image of ["rhasia-scret", "rhasia-scret-api", "rhasia-scret-api-migrate"]) {
+    require(imageJob.includes(`image: ${image}`) &&
+      imageJob.includes("IMAGE_NAME: ${{ matrix.image }}") &&
+      imageJob.includes(
+        'IMAGE="docker.io/arrokh/${IMAGE_NAME}"',
+      ), `Docker Hub publication must include ${image} under the arrokh namespace.`);
+  }
+  require(imageJob.includes("dockerfile: apps/web/Dockerfile") &&
+    imageJob.includes("dockerfile: apps/api/Dockerfile") &&
+    imageJob.includes(
+      "dockerfile: apps/api/Dockerfile.migration",
+    ), "Docker Hub publication must build Web, API, and migration images.");
+  require(/--tag "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(imageJob) &&
+    /--tag "\$\{IMAGE\}:sha-\$\{SOURCE_SHA\}"/.test(imageJob) &&
+    /docker push "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(imageJob) &&
+    /docker push "\$\{IMAGE\}:sha-\$\{SOURCE_SHA\}"/.test(
+      imageJob,
+    ), "Docker Hub images must be pushed with the release version and exact source SHA tags.");
+  require(/--platform linux\/amd64/.test(imageJob) &&
+    /--build-arg "COMMIT_SHA=\$\{SOURCE_SHA\}"/.test(
+      imageJob,
+    ), "Docker Hub images must record the verified source and explicit supported platform.");
+  require(/SOURCE_DIGEST.*RELEASE_DIGEST/.test(imageJob) &&
+    /digest=%s/.test(imageJob) &&
+    /dockerhub-publication/.test(imageJob) &&
+    /actions\/upload-artifact@[0-9a-f]{40}/.test(
+      imageJob,
+    ), "Docker Hub publication must verify matching pushed tags and retain image digest provenance.");
   require(!/\b(?:vercel\s+deploy|prisma\s+migrate|pnpm\s+run\s+prisma:migrate)\b/i.test(
     source,
   ), "Repository publication must not deploy services or run migrations.");
