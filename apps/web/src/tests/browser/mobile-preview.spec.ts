@@ -166,9 +166,14 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator("footer")).toHaveText(/rhasia-scretolehnooroctavian\.id/);
-  await expect(page.locator("footer [data-slot='app-footer-release-version']")).toHaveText(
-    `v${productMetadata.version}Versi rilis ${productMetadata.version}`,
+  const releaseLink = page.locator("footer [data-slot='app-footer-release-version']");
+  await expect(releaseLink).toHaveText(`v${productMetadata.version}Versi rilis ${productMetadata.version}`);
+  await expect(releaseLink).toHaveAttribute(
+    "href",
+    `https://github.com/arrokh/rhasia-scret/releases/tag/v${productMetadata.version}`,
   );
+  await expect(releaseLink).toHaveAttribute("target", "_blank");
+  await expect(releaseLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer").getByRole("link", { name: "rhasia-scret" })).toHaveAttribute("href", "/");
   const developerLink = page.locator("footer").getByRole("link", { name: "nooroctavian.id" });
   await expect(developerLink).toHaveAttribute("href", "https://nooroctavian.id/");
@@ -970,6 +975,9 @@ test("orders the release version and footer links around the conditional languag
     await expect(navigation.locator("[data-slot='app-footer-release-version'] .sr-only")).toHaveText(
       `${expectedVersionLabel} ${productMetadata.version}`,
     );
+    await expect(
+      navigation.getByRole("link", { name: `${expectedVersionLabel} ${productMetadata.version}` }),
+    ).toHaveAttribute("href", `https://github.com/arrokh/rhasia-scret/releases/tag/v${productMetadata.version}`);
     await expect(navigation.getByRole("button", { name: expectedLocaleLabel })).toBeVisible();
     await expect(navigation.getByRole("link", { name: expectedPrivacyLabel })).toBeVisible();
     await expect(navigation.getByRole("link", { name: expectedSupportLabel })).toBeVisible();

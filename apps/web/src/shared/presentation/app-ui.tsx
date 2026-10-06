@@ -134,10 +134,16 @@ export function AppFooterContent({
         aria-label={t("footerNavigation")}
         className="flex items-center justify-self-center gap-2 text-xs font-bold text-muted-foreground sm:col-start-3 sm:row-start-1 sm:justify-self-end"
       >
-        <span data-slot="app-footer-release-version" className="whitespace-nowrap">
+        <a
+          data-slot="app-footer-release-version"
+          href={`https://github.com/arrokh/rhasia-scret/releases/tag/v${productMetadata.version}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <span aria-hidden="true">{`v${productMetadata.version}`}</span>
           <span className="sr-only">{t("releaseVersion", { version: productMetadata.version })}</span>
-        </span>
+        </a>
         <AppFooterLocaleSwitcher />
         <FooterSeparator />
         <Link href="/privacy" className="whitespace-nowrap underline-offset-4 hover:text-primary hover:underline">
