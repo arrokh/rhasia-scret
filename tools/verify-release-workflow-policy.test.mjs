@@ -176,7 +176,7 @@ test("rejects publishing without full isolated tests or when deployment/migratio
   );
 });
 
-test("gates Docker Hub publishing on a verified repository release and preserves release/SHA tags", () => {
+test("publishes one version tag per Docker Hub image and summarizes all three images", () => {
   const missingReleaseDependency = workflow.replace(
     "needs: [candidate, verify, publish]",
     "needs: [candidate, verify]",
@@ -185,10 +185,15 @@ test("gates Docker Hub publishing on a verified repository release and preserves
     "          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}\n",
     "          DOCKERHUB_TOKEN: ''\n",
   );
-  const missingSourceTag = workflow.replace(
-    '            --tag "${IMAGE}:sha-${SOURCE_SHA}" \\\n',
+  const missingReleaseTag = workflow.replace(
+    '            --tag "${IMAGE}:${RELEASE_TAG}" \\\n',
     '            --tag "${IMAGE}:latest" \\\n',
   );
+  const duplicateSourceTag = workflow.replace(
+    '            --tag "${IMAGE}:${RELEASE_TAG}" \\\n',
+    '            --tag "${IMAGE}:${RELEASE_TAG}" \\\n            --tag "${IMAGE}:sha-${SOURCE_SHA}" \\\n',
+  );
+  const missingOverview = workflow.replace(/  image-overview:\n[\s\S]*$/, "");
 
   assert.ok(
     verifyReleaseWorkflowPolicy(missingReleaseDependency).failures.some((failure) =>
@@ -200,9 +205,16 @@ test("gates Docker Hub publishing on a verified repository release and preserves
       failure.includes("repository secrets and password-stdin"),
     ),
   );
+  for (const modifiedWorkflow of [missingReleaseTag, duplicateSourceTag]) {
+    assert.ok(
+      verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) =>
+        failure.includes("exactly one version tag"),
+      ),
+    );
+  }
   assert.ok(
-    verifyReleaseWorkflowPolicy(missingSourceTag).failures.some((failure) =>
-      failure.includes("release version and exact source SHA tags"),
+    verifyReleaseWorkflowPolicy(missingOverview).failures.some((failure) =>
+      failure.includes("consolidated image overview"),
     ),
   );
 });

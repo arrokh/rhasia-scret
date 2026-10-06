@@ -166,22 +166,38 @@ export function verifyReleaseWorkflowPolicy(source) {
     imageJob.includes(
       "dockerfile: apps/api/Dockerfile.migration",
     ), "Docker Hub publication must build Web, API, and migration images.");
-  require(/--tag "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(imageJob) &&
-    /--tag "\$\{IMAGE\}:sha-\$\{SOURCE_SHA\}"/.test(imageJob) &&
-    /docker push "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(imageJob) &&
-    /docker push "\$\{IMAGE\}:sha-\$\{SOURCE_SHA\}"/.test(
+  const buildTagCount = [...imageJob.matchAll(/--tag "\$\{IMAGE\}:[^"]+"/g)].length;
+  const pushTagCount = [...imageJob.matchAll(/docker push "\$\{IMAGE\}:[^"]+"/g)].length;
+  require(buildTagCount === 1 &&
+    /--tag "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(imageJob) &&
+    pushTagCount === 1 &&
+    /docker push "\$\{IMAGE\}:\$\{RELEASE_TAG\}"/.test(
       imageJob,
-    ), "Docker Hub images must be pushed with the release version and exact source SHA tags.");
+    ), "Each Docker Hub image must be built and pushed with exactly one version tag.");
   require(/--platform linux\/amd64/.test(imageJob) &&
     /--build-arg "COMMIT_SHA=\$\{SOURCE_SHA\}"/.test(
       imageJob,
     ), "Docker Hub images must record the verified source and explicit supported platform.");
-  require(/SOURCE_DIGEST.*RELEASE_DIGEST/.test(imageJob) &&
+  require(imageJob.includes('[[ "$RELEASE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]') &&
+    /release-tag=%s/.test(imageJob) &&
+    /source-commit=%s/.test(imageJob) &&
     /digest=%s/.test(imageJob) &&
     /dockerhub-publication/.test(imageJob) &&
     /actions\/upload-artifact@[0-9a-f]{40}/.test(
       imageJob,
-    ), "Docker Hub publication must verify matching pushed tags and retain image digest provenance.");
+    ), "Docker Hub publication must retain the verified source commit and pushed image digest provenance.");
+  const imageOverviewJob = job(source, "image-overview");
+  require(/needs:\s*\[candidate, verify, publish, images\]/.test(imageOverviewJob) &&
+    /needs\.images\.result == 'success'/.test(imageOverviewJob) &&
+    /actions\/checkout@[0-9a-f]{40}/.test(imageOverviewJob) &&
+    /ref:\s*\$\{\{ needs\.verify\.outputs\.source_sha \}\}/.test(imageOverviewJob) &&
+    /actions\/setup-node@[0-9a-f]{40}/.test(imageOverviewJob) &&
+    /node-version:\s*24\.19\.0/.test(imageOverviewJob) &&
+    /actions\/download-artifact@[0-9a-f]{40}/.test(imageOverviewJob) &&
+    /dockerhub-image-\*/.test(imageOverviewJob) &&
+    /node tools\/write-dockerhub-image-summary\.mjs/.test(
+      imageOverviewJob,
+    ), "Successful Docker Hub publication must produce a consolidated image overview from all three image provenance records.");
   require(!/\b(?:vercel\s+deploy|prisma\s+migrate|pnpm\s+run\s+prisma:migrate)\b/i.test(
     source,
   ), "Repository publication must not deploy services or run migrations.");

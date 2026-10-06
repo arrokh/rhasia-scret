@@ -3,6 +3,21 @@ import test from "node:test";
 import { existingTagAction, extractReleaseNotes, validateReleaseVersion } from "./release-publication.mjs";
 
 const sourceSha = "a".repeat(40);
+const expectedReleaseNotes = [
+  "### Changes",
+  "",
+  "- Reviewed release item.",
+  "",
+  "---",
+  `Source commit: ${sourceSha}`,
+  "",
+  "### Docker Hub images",
+  "",
+  "- Web/PWA: [arrokh/rhasia-scret](https://hub.docker.com/r/arrokh/rhasia-scret) — `docker pull arrokh/rhasia-scret:v0.2.0`",
+  "- API: [arrokh/rhasia-scret-api](https://hub.docker.com/r/arrokh/rhasia-scret-api) — `docker pull arrokh/rhasia-scret-api:v0.2.0`",
+  "- One-off API migration: [arrokh/rhasia-scret-api-migrate](https://hub.docker.com/r/arrokh/rhasia-scret-api-migrate) — `docker pull arrokh/rhasia-scret-api-migrate:v0.2.0`",
+  "",
+].join("\n");
 
 test("requires v0.1.0 as the first stable repository release", () => {
   assert.deepEqual(validateReleaseVersion("0.1.0", []), { tag: "v0.1.0", latestTag: null });
@@ -51,7 +66,7 @@ test("allows publication retries only for the latest annotated tag at the exact 
   );
 });
 
-test("extracts only the reviewed changelog section and records the exact full source SHA", () => {
+test("extracts the reviewed changelog section, commit, and v0.2.0 Docker Hub tags", () => {
   const changelog = `# Changelog
 
 ## [Unreleased]
@@ -74,18 +89,12 @@ test("extracts only the reviewed changelog section and records the exact full so
 
 - Earlier release item.
 `;
-  assert.equal(
-    extractReleaseNotes(changelog, "0.2.0", sourceSha),
-    `### Changes\n\n- Reviewed release item.\n\n---\nSource commit: ${sourceSha}\n`,
-  );
+  assert.equal(extractReleaseNotes(changelog, "0.2.0", sourceSha), expectedReleaseNotes);
 });
 
-test("removes an unterminated HTML comment from release notes", () => {
+test("removes an unterminated HTML comment before adding release metadata", () => {
   const changelog = `## [0.2.0]\n\n### Changes\n\n- Reviewed release item.\n\n<!-- Draft text must not be published.`;
-  assert.equal(
-    extractReleaseNotes(changelog, "0.2.0", sourceSha),
-    `### Changes\n\n- Reviewed release item.\n\n---\nSource commit: ${sourceSha}\n`,
-  );
+  assert.equal(extractReleaseNotes(changelog, "0.2.0", sourceSha), expectedReleaseNotes);
 });
 
 test("fails closed for missing or empty changelog sections and abbreviated source SHAs", () => {

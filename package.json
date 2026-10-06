@@ -60,7 +60,7 @@
     "test:full:container": "pnpm --filter @rhasia-scret/api test:full:container",
     "test:full:direct": "pnpm --parallel --stream --filter @rhasia-scret/client-vault-core --filter @rhasia-scret/api --filter @rhasia-scret/api-contract --filter @rhasia-scret/api-client --filter @rhasia-scret/web run test:full",
     "test:ci-changes": "node --test tools/dependency-security.test.mjs tools/detect-ci-changes.test.mjs tools/vercel-ignore.test.mjs tools/self-hosted.test.mjs tools/confirm-database-operation.test.mjs tools/load-test.test.mjs",
-    "test:release-process": "node --test tools/release-version.test.mjs tools/verify-version-alignment.test.mjs tools/vercel-ignore.test.mjs tools/verify-release-evidence.test.mjs tools/prepare-release.test.mjs tools/release-publication.test.mjs tools/verify-release-pr-changes.test.mjs tools/verify-release-workflow-policy.test.mjs tools/release-documentation.test.mjs",
+    "test:release-process": "node --test tools/release-version.test.mjs tools/verify-version-alignment.test.mjs tools/vercel-ignore.test.mjs tools/verify-release-evidence.test.mjs tools/prepare-release.test.mjs tools/release-publication.test.mjs tools/verify-release-pr-changes.test.mjs tools/verify-release-workflow-policy.test.mjs tools/release-documentation.test.mjs tools/write-dockerhub-image-summary.test.mjs",
     "release:prepare": "node tools/prepare-release.mjs",
     "test:full:hosted": "pnpm run test:ci-changes && pnpm run test:release-process && pnpm run format:check && pnpm run verify:version-alignment && pnpm run verify:ci-policy && pnpm run verify:release-evidence:current && pnpm run test:full:direct",
     "test:full": "node tools/run-test-full.mjs",
