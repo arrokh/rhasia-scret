@@ -56,8 +56,10 @@ docs/
 - [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and historical rollout guidance.
 - [`api-architecture-deepening.md`](api-architecture-deepening.md) — implemented API composition, identity lifecycle, authenticated-access, and account-deletion seams.
 - [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
-- [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md) — preserved historical API/Web `0.1.0` candidate readiness and maintainer-reported operational evidence.
-- [`release-readiness/2026-09-21.md`](release-readiness/2026-09-21.md) — historical API architecture-hardening readiness snapshot superseded by the 2026-09-26 record.
+- [`release-readiness/v0.1.2.md`](release-readiness/v0.1.2.md) — pre-publication API/Web readiness snapshot retained for history; the maintainer has since confirmed public release completion. Its timestamp chronology remains unresolved, and remote publication evidence was not independently inspected in this review.
+- [`release-readiness/v0.1.1.md`](release-readiness/v0.1.1.md) — historical API/Web candidate readiness snapshot.
+- [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md) — historical API/Web candidate readiness snapshot and maintainer-reported operational evidence.
+- [`release-readiness/2026-09-21.md`](release-readiness/2026-09-21.md) — historical API architecture-hardening readiness snapshot superseded by the API/Web candidate records.
 - [`release-readiness/2026-09-20.md`](release-readiness/2026-09-20.md) — historical standalone API readiness snapshot superseded by the 2026-09-21 record.
 - [`release-readiness/2026-09-18.md`](release-readiness/2026-09-18.md) — historical standalone API readiness snapshot superseded by the 2026-09-20 record.
 - [`release-readiness/2026-09-16.md`](release-readiness/2026-09-16.md) — historical API extraction snapshot superseded by the standalone API records.
@@ -82,7 +84,7 @@ docs/
 - [`advanced-recovery-security.md`](advanced-recovery-security.md) — recovery limitations and client-only key handling.
 - [`../SECURITY.md`](../SECURITY.md) — private vulnerability reporting and embargo policy.
 - [`adr/0004-honest-but-curious-server-threat-model.md`](adr/0004-honest-but-curious-server-threat-model.md) — authoritative server trust boundary.
-- [`audits/2026-07-29-security-privacy-quality-operational-readiness.md`](audits/2026-07-29-security-privacy-quality-operational-readiness.md) — historical repository audit; production controls marked Not Verifiable remain unresolved until operator evidence exists.
+- [`audits/2026-07-29-security-privacy-quality-operational-readiness.md`](audits/2026-07-29-security-privacy-quality-operational-readiness.md) — commit-scoped repository audit with later verification addenda; its original blocked decision is not a current release decision or independent security sign-off. Candidate readiness records contain separate, maintainer-reported operational evidence.
 
 ## Historical audits and validation evidence
 

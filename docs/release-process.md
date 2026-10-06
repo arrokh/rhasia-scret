@@ -73,9 +73,9 @@ Record the deployed commit SHA, lockfile digest, Web build/static-output digest,
 
 ## Readiness and evidence
 
-The current API/Web repository readiness record is [`release-readiness/v0.1.0.md`](release-readiness/v0.1.0.md). Its decision is `READY FOR HUMAN RELEASE REVIEW`, based on maintainer-reported API/Web Vercel and self-hosted verification. The agent did not independently access those provider environments. The record is not a deployment action or a claim that the release has already been published. It remains a historical readiness snapshot; its scope statements describe the candidate at the time.
+The latest candidate-specific API/Web readiness record in this checkout is [`release-readiness/v0.1.2.md`](release-readiness/v0.1.2.md). Its `READY FOR HUMAN RELEASE REVIEW` decision and maintainer-reported provider evidence are preserved as a pre-publication snapshot. The maintainer has since confirmed that the public `v0.1.2` release is complete, and this checkout contains the annotated tag at `HEAD`. The GitHub Release and workflow artifact were not independently inspected in this review, so publication status is maintainer-confirmed. The candidate record and tag timestamps remain inconsistent with the review date; retain the original evidence and resolve chronology without guessing or changing dates. Use exact-SHA workflow provenance for future release evidence.
 
-Credential-rotation work that the maintainer has identified as a non-blocking follow-up may remain in progress; it must not be represented as completed. If a rotation concerns an active or potentially exposed credential, the security incident and containment rules take precedence over this release exception.
+The historical `v0.1.0` record listed credential rotation as a non-blocking follow-up; the `v0.1.2` record says no current follow-ups were reported. These are candidate-specific statements, not proof that any particular credential rotation is complete. Check whether the historical follow-up remains relevant before the next release. If a rotation concerns an active or potentially exposed credential, security containment and incident-response requirements take precedence.
 
 Each pre-release readiness record must include:
 
