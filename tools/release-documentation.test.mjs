@@ -7,6 +7,7 @@ const docsRoot = resolve(import.meta.dirname, "../docs");
 const readDoc = (path) => readFileSync(resolve(docsRoot, path), "utf8");
 const productStatus = readDoc("product-status.md");
 const releaseProcess = readDoc("release-process.md");
+const selfHosting = readDoc("self-hosting.md");
 const documentationIndex = readDoc("README.md");
 const roadmap = readFileSync(resolve(docsRoot, "../ROADMAP.md"), "utf8");
 const readinessIndex = readDoc("release-readiness/README.md");
@@ -33,6 +34,15 @@ test("release process scopes readiness evidence to a candidate and immutable bas
   assert.match(releaseProcess, /Confirm publication through the exact-source GitHub Release and workflow provenance/);
   assert.doesNotMatch(releaseProcess, /latest candidate-specific[^\n]*release-readiness\/v\d/i);
   assert.doesNotMatch(releaseProcess, /tag at `?HEAD/i);
+});
+
+test("documents one version tag per new Docker image and a consolidated Actions overview", () => {
+  assert.ok(releaseProcess.includes("Each image receives only the matching `vX.Y.Z` release tag."));
+  assert.ok(releaseProcess.includes("New releases do not publish a source-SHA image tag or a floating `latest` tag"));
+  assert.ok(releaseProcess.includes("one consolidated overview to the GitHub Actions run summary"));
+  assert.ok(releaseProcess.includes("OCI revision label and publication artifact"));
+  assert.ok(selfHosting.includes("Use the published `vX.Y.Z` release tag for current releases"));
+  assert.ok(selfHosting.includes("existing historical full commit-SHA tag"));
 });
 
 test("documentation index links to a stable readiness-record index, not a specific candidate", () => {
