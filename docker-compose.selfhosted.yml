@@ -1,0 +1,17 @@
+# Published-image override used only by the self-hosted installer.
+# Local development and load-test Compose commands keep their source builds.
+services:
+  migrate:
+    build: !reset null
+    image: docker.io/arrokh/rhasia-scret-api-migrate:${IMAGE_TAG:?IMAGE_TAG must be set in .env}
+
+  api:
+    build: !reset null
+    image: docker.io/arrokh/rhasia-scret-api:${IMAGE_TAG:?IMAGE_TAG must be set in .env}
+
+  web:
+    build: !reset null
+    image: docker.io/arrokh/rhasia-scret:${IMAGE_TAG:?IMAGE_TAG must be set in .env}
+
+  retention-purge:
+    image: docker.io/arrokh/rhasia-scret-api:${IMAGE_TAG:?IMAGE_TAG must be set in .env}

@@ -26,6 +26,7 @@ import {
   findExistingSelfHostedDatabaseVolumeWithoutEnvironment,
   isDnsName,
   parseEnvFile,
+  readDefaultImageTag,
   setEnvValue,
   validateSelfHostedEnvironment,
 } from "./self-hosted.mjs";
@@ -399,6 +400,7 @@ export async function startConfigurationWizard({
   const suggestedTailscaleOrigin = normalizeTailscaleOrigin(
     tailscaleOrigin === undefined ? discoverTailscaleOrigin() : tailscaleOrigin,
   );
+  const imageTag = readDefaultImageTag(root);
   const wizardClientScript = await buildWizardClientScript(repositoryRoot);
 
   const sessionToken = randomBytes(32).toString("base64url");
@@ -511,7 +513,7 @@ export async function startConfigurationWizard({
       sendJson(response, 400, { error: "invalid_request" });
       return;
     }
-    const validation = validateSubmission(parsed.data, suggestedTailscaleOrigin);
+    const validation = validateSubmission(parsed.data, suggestedTailscaleOrigin, imageTag);
     if (validation.errors.length > 0) {
       sendJson(response, 400, { error: "invalid_configuration", fields: validation.errors });
       return;
@@ -527,6 +529,7 @@ export async function startConfigurationWizard({
       root,
       commitSha,
       submission: validation.submission,
+      imageTag,
       trustTailscaleProxy: useTailscaleProxy,
       databaseSettings: existingEnvironment?.databaseSettings,
     });
@@ -604,7 +607,7 @@ async function readJsonBody(request) {
   return value;
 }
 
-function validateSubmission(value, tailscaleOrigin) {
+function validateSubmission(value, tailscaleOrigin, imageTag) {
   const errors = [];
   const submission = Object.fromEntries(
     Object.entries(value).map(([field, candidate]) => [
@@ -682,12 +685,20 @@ function validateSubmission(value, tailscaleOrigin) {
     APP_BIND_ADDRESS: bindAddress,
     APP_PORT: submission.appPort,
     SELF_HOSTED_TAILSCALE_MODE: submission.tailscaleMode,
+    IMAGE_TAG: imageTag,
   });
   if (environmentErrors.length > 0) errors.push("webOrigin:invalid");
   return { errors: [...new Set(errors)], submission: { ...submission, appBindAddress: bindAddress } };
 }
 
-function createEnvironmentSource({ root, commitSha, submission, trustTailscaleProxy = false, databaseSettings }) {
+function createEnvironmentSource({
+  root,
+  commitSha,
+  submission,
+  imageTag,
+  trustTailscaleProxy = false,
+  databaseSettings,
+}) {
   const examplePath = resolve(root, ".env.example");
   const exampleSource = readFileSync(examplePath, "utf8");
   const origin = submission.webOrigin;
@@ -734,6 +745,7 @@ function createEnvironmentSource({ root, commitSha, submission, trustTailscalePr
     APP_PORT: submission.appPort,
     SELF_HOSTED_TAILSCALE_MODE: submission.tailscaleMode ?? "none",
     COMMIT_SHA: commitSha ?? readCommitSha(root),
+    IMAGE_TAG: imageTag,
   };
   return Object.entries(values).reduce(
     (source, [name, value]) => setEnvValue(source, name, dotenvValue(value)),
@@ -991,6 +1003,7 @@ async function configureFromTerminal({
   const suggestedTailscaleOrigin = normalizeTailscaleOrigin(
     tailscaleOrigin === undefined ? discoverTailscaleOrigin() : tailscaleOrigin,
   );
+  const imageTag = readDefaultImageTag(root);
   const submission = { ...defaultSetupValues };
   let tailscaleMode = null;
 
@@ -1076,7 +1089,7 @@ async function configureFromTerminal({
   const secretFields = new Set(["turnstileSecretKey", "smtpPassword"]);
 
   while (true) {
-    const validation = validateTerminalSubmission(submission, suggestedTailscaleOrigin);
+    const validation = validateTerminalSubmission(submission, suggestedTailscaleOrigin, imageTag);
     if (validation.errors.length === 0) {
       Object.assign(submission, validation.submission);
       break;
@@ -1108,6 +1121,7 @@ async function configureFromTerminal({
       root,
       commitSha,
       submission,
+      imageTag,
       trustTailscaleProxy: Boolean(tailscaleMode && submission.authBackend === "passwordless"),
       databaseSettings: existingEnvironment?.databaseSettings,
     });
@@ -1128,7 +1142,7 @@ async function configureFromTerminal({
   if (tailscaleMode === "funnel") printNotice(messages.tailscaleFunnelNextStep, "warning");
 }
 
-function validateTerminalSubmission(value, tailscaleOrigin) {
+function validateTerminalSubmission(value, tailscaleOrigin, imageTag) {
   const parsed = setupSubmissionSchema.safeParse(value);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
@@ -1137,7 +1151,7 @@ function validateTerminalSubmission(value, tailscaleOrigin) {
     });
     return { errors, submission: value };
   }
-  return validateSubmission(parsed.data, tailscaleOrigin);
+  return validateSubmission(parsed.data, tailscaleOrigin, imageTag);
 }
 
 export async function askLanguage({ ask = askQuestion, notify = printNotice } = {}) {

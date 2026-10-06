@@ -1,4 +1,4 @@
-import { copyFileSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -11,6 +11,10 @@ test("local setup wizard validates accessibly in both languages and saves withou
 }) => {
   const temporaryRoot = mkdtempSync(join(tmpdir(), "rhasia-selfhosted-wizard-"));
   copyFileSync(join(repositoryRoot, ".env.example"), join(temporaryRoot, ".env.example"));
+  writeFileSync(
+    join(temporaryRoot, "package.json"),
+    JSON.stringify({ name: "synthetic-selfhosted-wizard-test", version: "0.0.0" }),
+  );
   const wizard = await startConfigurationWizard({
     root: temporaryRoot,
     port: 0,
@@ -129,6 +133,7 @@ test("local setup wizard validates accessibly in both languages and saves withou
     await expect(savedDialog).not.toBeVisible();
     await expect(page.getByRole("alert")).toHaveText(".env was saved with file mode 0600.");
     expect(wizard.saved).toBe(true);
+    expect(readFileSync(join(temporaryRoot, ".env"), "utf8")).toContain("IMAGE_TAG=v0.0.0");
     expect(statSync(join(temporaryRoot, ".env")).mode & 0o777).toBe(0o600);
   } finally {
     await wizard.close();

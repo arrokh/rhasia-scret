@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 export const SELF_HOSTED_PROJECT_NAME = "rhasia-scret-selfhosted";
-export const SELF_HOSTED_COMPOSE_FILES = ["docker-compose.yml"];
+export const SELF_HOSTED_COMPOSE_FILES = ["docker-compose.yml", "docker-compose.selfhosted.yml"];
 
 export function isDnsName(value) {
   return (
@@ -24,6 +24,8 @@ const requiredOrigins = ["WEB_ORIGIN", "API_ORIGIN"];
 const supportedAuthBackends = new Set(["none", "passwordless"]);
 const supportedTailscaleModes = new Set(["none", "serve", "funnel"]);
 const placeholderPattern = /^replace-with-/i;
+const productVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+const imageTagPattern = /^(?:v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)|sha-[0-9a-f]{40})$/u;
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 export function parseEnvFile(source) {
@@ -91,6 +93,11 @@ export function validateSelfHostedEnvironment(values) {
   const appPort = values.APP_PORT?.trim();
   if (appPort && (!/^\d+$/u.test(appPort) || Number(appPort) < 1 || Number(appPort) > 65535)) {
     errors.push("APP_PORT must be an integer from 1 to 65535.");
+  }
+
+  const imageTag = values.IMAGE_TAG?.trim();
+  if (!imageTag || imageTag.length > 128 || !imageTagPattern.test(imageTag)) {
+    errors.push("IMAGE_TAG must be a published vX.Y.Z release tag or sha-<full lowercase commit SHA> tag.");
   }
 
   if (backend === "passwordless" && !values.AUTH_APP_ORIGIN?.trim()) {
@@ -199,6 +206,7 @@ export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "loc
     source = setEnvValue(source, "DATABASE_URL", localDatabaseUrl(databasePassword));
     source = setEnvValue(source, "DIRECT_URL", localDatabaseUrl(databasePassword));
     source = setEnvValue(source, "COMMIT_SHA", commitSha);
+    source = setEnvValue(source, "IMAGE_TAG", readDefaultImageTag(root));
 
     try {
       writeEnvironmentFile(envPath, source, true);
@@ -215,11 +223,13 @@ export function ensureLocalEnvironment({ root = repositoryRoot, commitSha = "loc
   const proxySecret = sharedProxySecret(values.PROXY_SECRET, values.API_PROXY_SECRET);
   const apiProxySecret = isExampleValue(values.API_PROXY_SECRET) ? proxySecret : values.API_PROXY_SECRET;
   const cronSecret = isExampleValue(values.CRON_SECRET) ? randomSecret() : values.CRON_SECRET;
+  const imageTag = isExampleValue(values.IMAGE_TAG) ? readDefaultImageTag(root) : values.IMAGE_TAG;
 
   for (const [name, value] of [
     ["PROXY_SECRET", proxySecret],
     ["API_PROXY_SECRET", apiProxySecret],
     ["CRON_SECRET", cronSecret],
+    ["IMAGE_TAG", imageTag],
   ]) {
     if (isExampleValue(values[name])) {
       source = setEnvValue(source, name, value);
@@ -269,9 +279,13 @@ export function createSelfHostedCommandEnvironment(context, overrides = {}) {
   return { ...environment, ...context.values, ...overrides, COMPOSE_PROFILES: "" };
 }
 
+export function selfHostedMigrationComposeCommand() {
+  return ["run", "--pull", "always", "--rm", "--no-deps", "migrate"];
+}
+
 export function selfHostedUpComposeCommands() {
   return {
-    build: ["build"],
+    pull: ["pull", "api", "web", "retention-purge"],
     start: ["up", "-d", "--wait", "--wait-timeout", "120", "--remove-orphans", "--no-build"],
   };
 }
@@ -354,8 +368,8 @@ function setup(root) {
     cwd: root,
     label: "database migration confirmation",
   });
-  runCompose(context, ["run", "--build", "--rm", "migrate"]);
-  console.log("Self-hosted setup complete. Run `pnpm selfhosted:up` to build and start all services.");
+  runCompose(context, selfHostedMigrationComposeCommand());
+  console.log("Self-hosted setup complete. Run `pnpm selfhosted:up` to pull and start all services.");
 }
 
 function up(root) {
@@ -365,8 +379,8 @@ function up(root) {
   verifyDeploymentConfiguration(root);
   runCompose(context, ["config", "--quiet"]);
   const commands = selfHostedUpComposeCommands();
-  console.log("Building self-hosted application images...");
-  runCompose(context, commands.build);
+  console.log(`Pulling published self-hosted images for ${context.values.IMAGE_TAG}...`);
+  runCompose(context, commands.pull);
   console.log("Starting self-hosted services and waiting for health checks...");
   try {
     runCompose(context, commands.start);
@@ -475,6 +489,7 @@ function runCompose(context, commandArguments, { allowMissingEnvironment = false
     for (const name of requiredComposeValues) {
       if (!context.values[name]?.trim()) env[name] = "selfhosted-down-placeholder";
     }
+    if (!context.values.IMAGE_TAG?.trim()) env.IMAGE_TAG = "selfhosted-down-placeholder";
   }
 
   run("docker", composeArguments(context.root, commandArguments), {
@@ -500,6 +515,19 @@ function readCommitSha(root) {
   const commitSha = result.stdout.trim();
   if (!commitSha) throw new Error("The current Git commit SHA is empty.");
   return commitSha;
+}
+
+export function readDefaultImageTag(root = repositoryRoot) {
+  let version;
+  try {
+    version = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version;
+  } catch {
+    throw new Error("Unable to read the root product version for the self-hosted Docker image tag.");
+  }
+  if (typeof version !== "string" || !productVersionPattern.test(version) || version.length + 1 > 128) {
+    throw new Error("The root product version must be stable SemVer that fits Docker's 128-character image-tag limit.");
+  }
+  return `v${version}`;
 }
 
 function requireHttpsOrigin(value, name, errors) {

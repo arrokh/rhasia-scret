@@ -1,6 +1,6 @@
 # Repository product release process
 
-This process governs the SemVer version and source release for the repository. A repository release publishes an immutable `main` commit as an annotated `vX.Y.Z` tag and GitHub Release. The release workflow itself does **not** deploy the API or web/PWA application.
+This process governs the SemVer version and source release for the repository. A repository release publishes an immutable `main` commit as an annotated `vX.Y.Z` tag and GitHub Release. The workflow also builds and publishes Docker Hub images from that exact commit; it does **not** deploy the API or web/PWA application.
 
 Service deployments are independent. Vercel deploys the affected API or Web service from eligible `main` changes according to each service's changed-file scope. API code changes deploy the API; Web code changes deploy Web; shared build dependencies may affect either or both. A product-version-only synchronization triggers a Web build so its compiled footer version can update, while the unnecessary API build remains skipped. Other source, dependency, installation, and deployment-configuration changes retain normal service-specific behavior.
 
@@ -55,7 +55,19 @@ After that PR is reviewed and merged to `main`, `.github/workflows/release.yml` 
 
 If the candidate-identification job fails before exact-source verification, a maintainer may manually dispatch the same workflow from `main` with the merged release PR number as `recovery_pr`. Recovery accepts only an already-merged PR targeting `main` with the exact dedicated release title, confirms its merge commit is on current `main`, and validates the candidate diff from that merge commit's first parent. Verification and publication still run against that immutable candidate merge SHA and require the same readiness, version, changelog, and full test gates; the recovery dispatch does not bypass or replace them. Do not use this path to retry a candidate that failed readiness or source verification.
 
-The first publication must be `v0.1.0`; each later version must advance beyond the latest valid `vX.Y.Z` tag. Only the final publish job receives `contents: write`. It creates an annotated tag at the exact tested SHA. Newly created GitHub Releases use the display title `vX.Y.Z Latest`; the tag name remains `vX.Y.Z`, and the release body continues to use the reviewed changelog section with `Source commit: <full SHA>`. Retries may reuse an existing annotated tag only when it points to that same SHA; mismatched or lightweight tags fail closed. Existing GitHub Releases continue to be verified against the source SHA without rewriting the release or its title. Publication evidence records the source SHA, version, Node/pnpm versions, lockfile digest, release-notes digest, and successful gate names. No application build bundles are uploaded or attached.
+The first publication must be `v0.1.0`; each later version must advance beyond the latest valid `vX.Y.Z` tag. Only the final repository-release job receives `contents: write`. It creates an annotated tag at the exact tested SHA. Newly created GitHub Releases use the display title `vX.Y.Z Latest`; the tag name remains `vX.Y.Z`, and the release body continues to use the reviewed changelog section with `Source commit: <full SHA>`. Retries may reuse an existing annotated tag only when it points to that same SHA; mismatched or lightweight tags fail closed. Existing GitHub Releases continue to be verified against the source SHA without rewriting the release or its title. Repository-release evidence records the source SHA, version, Node/pnpm versions, lockfile digest, release-notes digest, and successful gate names. Docker Hub image evidence is retained separately, and Web build bundles are not attached to GitHub Release assets.
+
+### Docker Hub images
+
+After the tested GitHub Release is published, the `images` job builds all three images from the exact verified source SHA and pushes them to the `arrokh` Docker Hub namespace:
+
+- `arrokh/rhasia-scret` — Web/PWA;
+- `arrokh/rhasia-scret-api` — API; and
+- `arrokh/rhasia-scret-api-migrate` — one-off API migration image.
+
+Each image receives the matching `vX.Y.Z` release tag and a `sha-<full source SHA>` tag. The workflow does not publish a floating `latest` tag. Images are built for `linux/amd64`; their OCI labels identify the source repository, release version, and verified commit. A separate workflow artifact for each image records its tags, source, Dockerfile/target, platform, and pushed registry digest. Docker Hub tags can be overwritten unless tag immutability is enabled; use the recorded `@sha256` digest when a deployment must pin the exact image.
+
+Before merging a release PR, configure the GitHub Actions repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. Use a Docker Hub access token with the `repo:write` scope and permission to push to the `arrokh` namespace. Docker Hub creates personal-namespace repositories on first push; review their visibility afterward and set them to public if they should be visible and pullable by everyone at `https://hub.docker.com/u/arrokh` ([Docker Hub quickstart](https://docs.docker.com/docker-hub/quickstart/)). Never put the token in source control or chat. If image publishing fails after the GitHub Release was created, fix the Docker Hub secret or repository permissions, then use the existing `workflow_dispatch` recovery path with that merged release PR number. It re-verifies the same source before retrying publication.
 
 The required review and merge of the dedicated release PR is the publication approval. The workflow does not require another environment approval. It has no Vercel deployment credentials and does not invoke Vercel.
 
@@ -84,7 +96,7 @@ Each pre-release readiness record must include:
 - API/Web deployment and self-hosted readiness evidence, with no secrets or user data; and
 - non-blocking follow-ups or exceptions with owner and expiry where applicable.
 
-The post-merge release provenance must record the exact triggering `main` SHA, tag status, GitHub Release reference, lockfile digest, toolchain versions, and check results. The annotated tag and release notes must identify that same SHA. The release workflow artifact stores non-sensitive source/version/toolchain/check metadata and lockfile/notes digests; it does not attach service build output.
+The post-merge release provenance must record the exact triggering `main` SHA, tag status, GitHub Release reference, lockfile digest, toolchain versions, and check results. The annotated tag, release notes, and Docker Hub image tags must identify that same SHA. The repository-release workflow artifact stores non-sensitive source/version/toolchain/check metadata and lockfile/notes digests. Separate Docker Hub artifacts record each published image digest; no Web build bundle is attached to the GitHub Release.
 
 `pnpm run test:full` covers the web/PWA client, shared client package, API, repository policy, browser, build, and performance checks. Its disposable test database does not count as an operational database migration or authorization to migrate another environment.
 

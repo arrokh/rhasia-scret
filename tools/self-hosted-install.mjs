@@ -65,7 +65,7 @@ export function createSelfHostedInstallSteps(args = []) {
     },
     {
       command: "pnpm selfhosted:up",
-      label: "Build and start the self-hosted services",
+      label: "Pull and start the self-hosted services",
       script: "tools/self-hosted.mjs",
       args: ["up"],
     },
