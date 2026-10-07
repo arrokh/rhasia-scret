@@ -257,7 +257,7 @@ jobs:
             echo "Verified existing GitHub Release ${TAG} for ${SOURCE_SHA}."
           else
             gh release create "$TAG" \
-              --title "v${VERSION} Latest" \
+              --title "v${VERSION}" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
       - name: Record and upload publication provenance

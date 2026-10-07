@@ -6,6 +6,14 @@ notes follow the [repository release process](docs/release-process.md).
 
 ## [Unreleased]
 
+### Changed
+
+- Use the version alone (`vX.Y.Z`) as the generated GitHub Release title.
+
+### Security
+
+- Update transitive `sharp` to patched version `0.35.5` for CVE-2026-96889.
+
 ### Added
 
 - Public MIT license, third-party provenance inventory, and DCO contribution
