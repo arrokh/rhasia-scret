@@ -11,14 +11,15 @@ test("release workflow gates an immutable GitHub publication on exact-source ful
   assert.deepEqual(verifyReleaseWorkflowPolicy(workflow), { valid: true, failures: [] });
 });
 
-test("requires newly created GitHub Releases to use the exact version-based Latest title", () => {
-  const oldTitle = workflow.replace('--title "v${VERSION} Latest"', '--title "rhasia-scret v${VERSION}"');
-  const incorrectVersion = workflow.replace('--title "v${VERSION} Latest"', '--title "v${VERSION} Latest Release"');
+test("requires newly created GitHub Releases to use the exact version-only title", () => {
+  const expectedTitle = '--title "v${VERSION}"';
+  const incorrectTitles = ['--title "rhasia-scret v${VERSION}"', '--title "v${VERSION} Latest"'];
 
-  for (const modifiedWorkflow of [oldTitle, incorrectVersion]) {
+  for (const incorrectTitle of incorrectTitles) {
+    const modifiedWorkflow = workflow.replace(expectedTitle, incorrectTitle);
     assert.ok(
       verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) =>
-        failure.includes("exact version-based Latest display title"),
+        failure.includes("exact version-only display title"),
       ),
     );
   }

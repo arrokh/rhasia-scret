@@ -6,6 +6,10 @@ notes follow the [repository release process](docs/release-process.md).
 
 ## [Unreleased]
 
+### Changed
+
+- Use the version alone (`vX.Y.Z`) as the generated GitHub Release title.
+
 ### Added
 
 - Public MIT license, third-party provenance inventory, and DCO contribution
