@@ -346,6 +346,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       contentType: "application/javascript",
       body: `window.turnstile = {
         render(container, options) {
+          container.dataset.turnstileAction = options.action;
           container.style.width = "300px";
           container.style.height = "65px";
           const token = "synthetic-browser-smoke-turnstile-token";
@@ -397,6 +398,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
   await page.goto("/sign-in?next=%2Fvaults%2Finvitations%2Fredeem");
   const turnstileWidget = page.getByLabel("Verifikasi keamanan");
   await expect(turnstileWidget).toBeVisible();
+  await expect(turnstileWidget).toHaveAttribute("data-turnstile-action", "magic_link_request");
   const widgetBox = await turnstileWidget.boundingBox();
   const formBox = await page.locator("form").boundingBox();
   expect(widgetBox).not.toBeNull();

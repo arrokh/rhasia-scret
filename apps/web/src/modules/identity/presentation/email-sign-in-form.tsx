@@ -237,6 +237,7 @@ export function EmailSignInForm({
         <CloudflareTurnstileWidget
           key={turnstileResetKey}
           siteKey={activeTurnstileSiteKey}
+          action="magic_link_request"
           label={t("securityCheck")}
           onTokenChange={(token) => {
             setTurnstileToken(token);

@@ -6,7 +6,11 @@ export type TurnstileValidationDiagnostics = Readonly<{
   responseStatus?: number;
 }>;
 
-type TurnstileResponse = Readonly<{ success: boolean }>;
+type TurnstileResponse = Readonly<{
+  success: boolean;
+  action?: string;
+  hostname?: string;
+}>;
 
 type TurnstileFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
@@ -18,6 +22,8 @@ export class CloudflareTurnstileValidator {
 
   public constructor(
     secretKey: string | undefined,
+    private readonly expectedAction: string,
+    private readonly expectedHostname: string | undefined,
     private readonly fetcher: TurnstileFetch = (input, init) => globalThis["fetch"](input, init),
   ) {
     this.secretKey = secretKey?.trim() || undefined;
@@ -29,7 +35,7 @@ export class CloudflareTurnstileValidator {
 
   public async validateWithDiagnostics(token?: string): Promise<TurnstileValidationDiagnostics> {
     if (!this.secretKey) return { result: "valid" };
-    if (!token || !isSafeTurnstileToken(token)) return { result: "invalid" };
+    if (!this.expectedHostname || !token || !isSafeTurnstileToken(token)) return { result: "invalid" };
 
     let response: Response;
     try {
@@ -53,7 +59,9 @@ export class CloudflareTurnstileValidator {
     }
     if (!isTurnstileResponse(payload))
       return { result: "unavailable", unavailableReason: "malformed_response", responseStatus: response.status };
-    return { result: payload.success ? "valid" : "invalid", responseStatus: response.status };
+    const valid =
+      payload.success && payload.action === this.expectedAction && payload.hostname === this.expectedHostname;
+    return { result: valid ? "valid" : "invalid", responseStatus: response.status };
   }
 }
 

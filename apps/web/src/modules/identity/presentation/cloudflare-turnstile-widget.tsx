@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 type TurnstileWidgetOptions = Readonly<{
   sitekey: string;
+  action: string;
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
@@ -24,11 +25,13 @@ declare global {
 
 export function CloudflareTurnstileWidget({
   siteKey,
+  action,
   label,
   onTokenChange,
   onError,
 }: Readonly<{
   siteKey?: string;
+  action: string;
   label: string;
   onTokenChange: (token: string | null) => void;
   onError: () => void;
@@ -52,6 +55,7 @@ export function CloudflareTurnstileWidget({
     try {
       widgetId = window.turnstile.render(containerRef.current, {
         sitekey: normalizedSiteKey,
+        action,
         callback: (token) => onTokenChangeRef.current(token),
         "expired-callback": () => onTokenChangeRef.current(null),
         "error-callback": () => {
@@ -80,7 +84,7 @@ export function CloudflareTurnstileWidget({
       if (responseTimeout !== undefined) window.clearTimeout(responseTimeout);
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
-  }, [normalizedSiteKey, scriptReady]);
+  }, [action, normalizedSiteKey, scriptReady]);
 
   if (!normalizedSiteKey) return null;
 
