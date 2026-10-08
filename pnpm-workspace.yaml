@@ -4,7 +4,7 @@ packages:
   - "tools/api-migration-runtime"
 
 overrides:
-  hono: 4.13.7
+  hono: 4.13.13
   find-my-way: 9.7.0
   postcss: 8.5.23
   # Fix GHSA-68fv-2mgg-jv7q in transitive CSS and Prisma config dependencies.

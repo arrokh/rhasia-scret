@@ -56,6 +56,9 @@ const allowedDevOrigins = ["0.0.0.0", "127.0.0.1", configuredPasskeyHost, ...con
 
 const nextConfig: NextConfig = {
   distDir: nextDistDir,
+  experimental: {
+    agentUpgrade: "latest",
+  },
   // Repository-level agent instructions are authoritative; keep dev startup side-effect free.
   agentRules: false,
   output: isSelfHostedDockerBuild ? "standalone" : undefined,
