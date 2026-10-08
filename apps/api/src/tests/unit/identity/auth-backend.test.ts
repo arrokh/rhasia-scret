@@ -31,7 +31,18 @@ describe("authentication backend configuration", () => {
         NODE_ENV: "production",
         TURNSTILE_SECRET_KEY: "production-secret-key",
       }),
-    ).toMatchObject({ backend: "passwordless" });
+    ).toMatchObject({
+      backend: "passwordless",
+      passwordless: {
+        turnstile: {
+          validationPolicy: {
+            kind: "strict",
+            expectedAction: "magic_link_request",
+            expectedHostname: "localhost",
+          },
+        },
+      },
+    });
     expect(() =>
       readAuthConfiguration({
         ...requiredPasswordless,
@@ -50,7 +61,10 @@ describe("authentication backend configuration", () => {
         WEB_ORIGIN: "http://localhost:4000",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       }),
-    ).toMatchObject({ backend: "passwordless" });
+    ).toMatchObject({
+      backend: "passwordless",
+      passwordless: { turnstile: { validationPolicy: { kind: "sandbox" } } },
+    });
     expect(() =>
       readAuthConfiguration({
         ...requiredPasswordless,
@@ -58,6 +72,14 @@ describe("authentication backend configuration", () => {
         WEB_ORIGIN: "http://localhost:4000",
         AUTH_APP_ORIGIN: "https://host.example.test",
         TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+      }),
+    ).toThrow("testing keys are not allowed");
+    expect(() =>
+      readAuthConfiguration({
+        ...requiredPasswordless,
+        NODE_ENV: "production",
+        AUTH_APP_ORIGIN: "https://host.example.test",
+        TURNSTILE_SECRET_KEY: "2x0000000000000000000000000000000AA",
       }),
     ).toThrow("testing keys are not allowed");
   });
@@ -70,7 +92,10 @@ describe("authentication backend configuration", () => {
         magicLinkTtlSeconds: 900,
         accessTokenTtlSeconds: 900,
         refreshTokenTtlSeconds: 2_592_000,
-        turnstile: { secretKey: "1x0000000000000000000000000000000AA" },
+        turnstile: {
+          secretKey: "1x0000000000000000000000000000000AA",
+          validationPolicy: { kind: "sandbox" },
+        },
       },
     });
     expect(() => readAuthConfiguration({ ...requiredPasswordless, AUTH_MAGIC_LINK_SECRET: "short" })).toThrow(

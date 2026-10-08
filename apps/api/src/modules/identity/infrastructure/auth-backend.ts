@@ -1,3 +1,5 @@
+import type { TurnstileValidationPolicy } from "./turnstile";
+
 export type AuthBackend = "none" | "passwordless";
 export type AuthConfigurationField =
   | "AUTH_BACKEND"
@@ -25,7 +27,10 @@ export function isAuthenticationConfigurationError(error: unknown): error is Aut
   return error instanceof AuthenticationConfigurationError;
 }
 
-export type TurnstileConfiguration = Readonly<{ secretKey: string }>;
+export type TurnstileConfiguration = Readonly<{
+  secretKey: string;
+  validationPolicy?: TurnstileValidationPolicy;
+}>;
 type TurnstileEnvironment = Readonly<{
   TURNSTILE_SECRET_KEY?: string;
   NODE_ENV?: string;
@@ -97,16 +102,30 @@ function readPasswordlessConfiguration(env: Readonly<Record<string, string | und
 export function readTurnstileConfiguration(env: TurnstileEnvironment): TurnstileConfiguration {
   const secretKey = env.TURNSTILE_SECRET_KEY?.trim() ?? "";
   if (!secretKey) return { secretKey: "" };
-  if (
-    env.NODE_ENV === "production" &&
-    !isLocalHttpSelfHosted(env) &&
-    secretKey === "1x0000000000000000000000000000000AA"
-  )
+  const isTestingSecret = isCloudflareTestingSecret(secretKey);
+  if (env.NODE_ENV === "production" && !isLocalHttpSelfHosted(env) && isTestingSecret)
     throw configurationError(
       "TURNSTILE_SECRET_KEY",
       "Cloudflare Turnstile testing keys are not allowed in production.",
     );
-  return { secretKey };
+  if (isTestingSecret) return { secretKey, validationPolicy: { kind: "sandbox" } };
+  const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
+  return {
+    secretKey,
+    validationPolicy: {
+      kind: "strict",
+      expectedAction: "magic_link_request",
+      expectedHostname: appOrigin.hostname,
+    },
+  };
+}
+
+function isCloudflareTestingSecret(secretKey: string): boolean {
+  return [
+    "1x0000000000000000000000000000000AA",
+    "2x0000000000000000000000000000000AA",
+    "3x0000000000000000000000000000000AA",
+  ].includes(secretKey);
 }
 
 function isLocalHttpSelfHosted(env: Pick<TurnstileEnvironment, "WEB_ORIGIN" | "AUTH_APP_ORIGIN">): boolean {
