@@ -1,9 +1,14 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { createConfiguredSmtpEnvironment, resolveLocalEmailProvider, startLocalMailpit } from "./local-mailpit.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const environmentFile = resolve(repositoryRoot, ".env");
+const apiOnly = process.argv.slice(2).includes("--api-only");
+if (process.argv.slice(2).some((argument) => argument !== "--api-only")) {
+  throw new Error("Unsupported local development argument.");
+}
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const children = new Set();
 // Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
@@ -22,6 +27,8 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
   "OIDC_REDIRECT_URI",
   "OIDC_SESSION_SECRET",
   "AUTH_ADMITTED_EMAILS",
+  "LOCAL_EMAIL_PROVIDER",
+  "LOCAL_MAILPIT_UI_PORT",
 ];
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "DATABASE_URL",
@@ -47,12 +54,15 @@ const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "SMTP_REQUIRE_TLS",
   "SMTP_USER",
   "SMTP_PASSWORD",
+  "SMTP_TLS_CA",
   "AUTH_EMAIL_FROM",
   "AUTH_EMAIL_FROM_NAME",
   "CRON_SECRET",
   "PROXY_SECRET",
   "APP_PORT",
   "COMMIT_SHA",
+  "LOCAL_EMAIL_PROVIDER",
+  "LOCAL_MAILPIT_UI_PORT",
 ];
 let stopping = false;
 let complete;
@@ -65,48 +75,63 @@ if (!proxySecret || proxySecret.length < 32) {
   throw new Error("API_PROXY_SECRET must contain at least 32 characters in .env.");
 }
 
-const apiEnvironment = createScopedEnvironment(
-  {
-    NODE_ENV: "development",
-    PORT: portFor(apiOrigin, 8787),
-    WEB_ORIGIN: webOrigin,
-    PROXY_SECRET: proxySecret,
-    AUTH_APP_ORIGIN: process.env.AUTH_APP_ORIGIN?.trim() || webOrigin,
-    PASSKEY_ORIGIN: process.env.PASSKEY_ORIGIN?.trim() || webOrigin,
-    PASSKEY_RP_ID: process.env.PASSKEY_RP_ID?.trim() || new URL(webOrigin).hostname,
-  },
-  API_BLOCKED_ENVIRONMENT_KEYS,
-);
-
-const webEnvironment = createScopedEnvironment(
-  {
-    NODE_ENV: "development",
-    WEB_ORIGIN: webOrigin,
-    API_ORIGIN: apiOrigin,
-    API_PROXY_SECRET: proxySecret,
-    AUTH_APP_ORIGIN: process.env.AUTH_APP_ORIGIN?.trim() || webOrigin,
-    PASSKEY_ORIGIN: process.env.PASSKEY_ORIGIN?.trim() || webOrigin,
-    PASSKEY_RP_ID: process.env.PASSKEY_RP_ID?.trim() || new URL(webOrigin).hostname,
-  },
-  WEB_BLOCKED_ENVIRONMENT_KEYS,
-);
-
 process.once("SIGINT", () => finish(130));
 process.once("SIGTERM", () => finish(143));
 
 try {
-  await run();
+  const provider = resolveLocalEmailProvider(process.env);
+  let emailEnvironment;
+  if (provider === "mailpit") {
+    emailEnvironment = (await startLocalMailpit()).smtpEnvironment;
+  } else {
+    emailEnvironment = createConfiguredSmtpEnvironment(process.env);
+  }
+  const apiEnvironment = createScopedEnvironment(
+    {
+      NODE_ENV: "development",
+      PORT: portFor(apiOrigin, 8787),
+      WEB_ORIGIN: webOrigin,
+      PROXY_SECRET: proxySecret,
+      AUTH_APP_ORIGIN: process.env.AUTH_APP_ORIGIN?.trim() || webOrigin,
+      PASSKEY_ORIGIN: process.env.PASSKEY_ORIGIN?.trim() || webOrigin,
+      PASSKEY_RP_ID: process.env.PASSKEY_RP_ID?.trim() || new URL(webOrigin).hostname,
+      ...emailEnvironment,
+    },
+    API_BLOCKED_ENVIRONMENT_KEYS,
+  );
+  const webEnvironment = createScopedEnvironment(
+    {
+      NODE_ENV: "development",
+      WEB_ORIGIN: webOrigin,
+      API_ORIGIN: apiOrigin,
+      API_PROXY_SECRET: proxySecret,
+      AUTH_APP_ORIGIN: process.env.AUTH_APP_ORIGIN?.trim() || webOrigin,
+      PASSKEY_ORIGIN: process.env.PASSKEY_ORIGIN?.trim() || webOrigin,
+      PASSKEY_RP_ID: process.env.PASSKEY_RP_ID?.trim() || new URL(webOrigin).hostname,
+    },
+    WEB_BLOCKED_ENVIRONMENT_KEYS,
+  );
+  await run(apiEnvironment, webEnvironment, apiOnly);
 } catch (error) {
   console.error(`[dev:local] ${error instanceof Error ? error.message : String(error)}`);
   finish(1);
 }
 await waitForChildrenToExit();
 
-async function run() {
+async function run(apiEnvironment, webEnvironment, apiOnly) {
+  if (stopping) return;
   const api = startChild("api", ["--dir", "apps/api", "run", "dev"], apiEnvironment);
   await waitForApi(api, apiOrigin);
 
   if (stopping) return;
+  if (apiOnly) {
+    console.log(`[dev:local] API ready at ${apiOrigin}; web startup was not requested.`);
+    await new Promise((resolveCompletion) => {
+      complete = resolveCompletion;
+      api.once("exit", resolveCompletion);
+    });
+    return;
+  }
   console.log(`[dev:local] API ready at ${apiOrigin}; starting web at ${webOrigin}.`);
   const web = startChild(
     "web",
