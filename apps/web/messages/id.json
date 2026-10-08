@@ -364,7 +364,8 @@
       "backToHome": "Kembali ke beranda",
       "doNotClose": "Halaman ini akan melanjutkan secara otomatis setelah verifikasi.",
       "pwaCompleted": "Tautan terverifikasi. rhasia-scret sedang membuka sesi di aplikasi terpasang Anda.",
-      "pwaDoNotClose": "Biarkan aplikasi terpasang tetap terbuka sampai brankas tampil."
+      "pwaDoNotClose": "Kembali ke aplikasi terpasang untuk menyelesaikan proses masuk. Jika aplikasi sudah ditutup, minta tautan baru dari aplikasi.",
+      "pwaFailed": "Sesi masuk tidak dapat diteruskan ke aplikasi terpasang. Kembali ke aplikasi dan minta tautan baru."
     },
     "signIn": {
       "title": "Masuk atau buat akun",

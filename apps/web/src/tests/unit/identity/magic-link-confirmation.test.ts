@@ -231,6 +231,44 @@ describe("MagicLinkConfirmation", () => {
     expect(navigate).toHaveBeenCalledWith("/vaults/invitations/redeem");
   });
 
+  it("distinguishes publishing failure from an invalid magic link", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&handoff=pwa-handoff-123456",
+    );
+    mocks.redeemPwaMagicLink.mockResolvedValueOnce({
+      refreshToken: "0123456789abcdef.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK",
+      returnPath: "/vaults",
+    });
+    mocks.publishPwaAuthenticationHandoff.mockRejectedValueOnce(new Error("unavailable"));
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(createElement(MagicLinkConfirmation, { client: "pwa" }));
+    });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Sesi masuk tidak dapat diteruskan");
+    expect(container.textContent).not.toContain("tidak valid atau sudah kedaluwarsa");
+    expect(window.location.hash).toBe("");
+  });
+
+  it("fails closed before redemption when a standalone verifier is lost", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&handoff=pwa-handoff-123456",
+    );
+    mocks.isPwaDisplayMode.mockReturnValue(true);
+    mocks.requestPwaAuthenticationVerifier.mockResolvedValueOnce(null);
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(createElement(MagicLinkConfirmation, { client: "pwa" }));
+    });
+    expect(mocks.redeemPwaMagicLink).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Sesi masuk tidak dapat diteruskan");
+  });
+
   it("offers navigation back to sign in or home when redemption fails", async () => {
     window.history.replaceState(null, "", "/auth/confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK");
     mocks.redeemBrowserMagicLink.mockRejectedValueOnce(new Error("expired"));
