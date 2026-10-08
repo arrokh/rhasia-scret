@@ -4,3 +4,33 @@ services:
   db:
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
+
+  api:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "465"
+      SMTP_SECURE: "true"
+      SMTP_REQUIRE_TLS: "true"
+      SMTP_USER: local-dev
+      SMTP_PASSWORD: local-dev
+      SMTP_TLS_CA: ${SMTP_TLS_CA:-}
+      AUTH_EMAIL_FROM: no-reply@example.test
+      AUTH_EMAIL_FROM_NAME: rhasia-scret-local
+
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.31.3
+    restart: "no"
+    environment:
+      MP_SMTP_AUTH: local-dev:local-dev
+      MP_SMTP_BIND_ADDR: 0.0.0.0:465
+      MP_SMTP_TLS_CERT: /smtp-cert.pem
+      MP_SMTP_TLS_KEY: /smtp-key.pem
+      MP_SMTP_REQUIRE_TLS: "true"
+      MP_MAX_MESSAGES: "1000"
+    ports:
+      - "127.0.0.1:${LOCAL_MAILPIT_UI_PORT:-8026}:8025"
+      - "127.0.0.1:465:465"
+    networks: [backend]
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]

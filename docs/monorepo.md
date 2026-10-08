@@ -69,8 +69,10 @@ pnpm run dev:api                 # local Bun API only
 pnpm run dev:web                 # web only
 pnpm --filter @rhasia-scret/api dev:node  # generic Node.js local runtime
 pnpm dev:db                      # start local Compose PostgreSQL
+pnpm dev:mailpit                 # start local TLS-enabled Mailpit
 pnpm dev:db:migrate              # explicitly apply local development migrations
-pnpm dev:db:down                 # stop Compose DB, preserve its volume
+pnpm dev:down                    # confirm, then stop PostgreSQL and Mailpit
+pnpm dev:db:down                 # stop the full dev Compose project, preserve its volume
 pnpm selfhosted:install          # configure, pull/start services, and apply selected Tailscale route
 pnpm selfhosted:setup            # configure database and apply migrations from the published image
 pnpm selfhosted:up               # pull versioned images and start self-hosted Compose services
@@ -106,10 +108,11 @@ Start the local database and, when its schema needs updating, apply migrations e
 ```bash
 pnpm dev:db
 pnpm dev:db:migrate
+pnpm dev:mailpit
 pnpm dev
 ```
 
-The migration command requires typing `yes`. `pnpm dev:db:down` stops the development database without deleting its named volume. `pnpm dev:db:reset` is destructive: it deletes that volume, creates a fresh PostgreSQL container, and reapplies development migrations after confirmation. The `selfhosted:*` commands use a separate Compose override that pulls versioned Docker Hub images instead of building Web/API images locally; see the [self-hosting guide](self-hosting.md) for image selection, configuration, and migration behavior. Local-development Compose retains its source builds.
+`pnpm dev:mailpit` starts the shared development Mailpit service; `pnpm dev` and `pnpm run dev:api` also ensure it is running when `LOCAL_EMAIL_PROVIDER` is `mailpit` (the default). The service requires local Docker and OpenSSL. Open `http://localhost:8026` by default to inspect captured messages; `pnpm dev:mailpit` prints the active address if the UI port is customized. Its TLS certificate and key stay in the private, ignored `.local-mailpit/` directory; the local API trusts that certificate. Set `LOCAL_EMAIL_PROVIDER=smtp` to explicitly use the SMTP settings in `.env` instead. `pnpm dev:down` requires typing `yes`, then stops only the development PostgreSQL and Mailpit services; it preserves the PostgreSQL volume and local Mailpit TLS files. The migration command requires typing `yes`. `pnpm dev:db:down` stops the full development Compose project without deleting its named volume. `pnpm dev:db:reset` is destructive: it deletes that volume, creates a fresh PostgreSQL container, and reapplies development migrations after confirmation. The `selfhosted:*` commands use a separate Compose override that pulls versioned Docker Hub images instead of building Web/API images locally; see the [self-hosting guide](self-hosting.md) for image selection, configuration, and migration behavior. Local-development Compose retains its source builds.
 
 The API workspace `postinstall` hook generates Prisma Client with a synthetic, non-production URL. Its `dev`, `dev:node`, and API build scripts regenerate before use as well, so ignored generated output stays aligned with the installed Prisma packages after dependency changes. Generation does not connect to PostgreSQL; runtime traffic uses `DATABASE_URL`, while migrations and administrative commands continue to require the explicitly configured `DIRECT_URL`.
 

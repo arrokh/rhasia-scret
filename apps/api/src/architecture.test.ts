@@ -157,7 +157,7 @@ describe("API extraction ownership boundaries", () => {
     expect(rootPackage.scripts?.["prod:db:migrate"]).not.toContain(
       "-f docker-compose.yml -f docker-compose.prod-migration.yml",
     );
-    expect(rootPackage.scripts?.["dev:api"]).toBe("pnpm --dir apps/api run dev");
+    expect(rootPackage.scripts?.["dev:api"]).toBe("node tools/run-local-dev.mjs --api-only");
     expect(rootPackage.scripts?.["ci:local"]).toBeUndefined();
     expect(rootPackage.scripts?.["test:vercel-deployment"]).toBeUndefined();
     expect(Object.keys(rootPackage.scripts ?? {}).filter((script) => /mobile|expo/i.test(script))).toEqual([]);

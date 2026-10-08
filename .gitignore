@@ -10,6 +10,7 @@ apps/web/playwright-report/
 apps/web/.prisma-staged-migrations-*/
 
 artifacts/
+/.local-mailpit/
 
 /design-qa.md
 /hero-responsive-comparison.png
