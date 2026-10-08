@@ -83,12 +83,16 @@ export function EmailSignInForm({
     if (!pwaMode || !pendingPwaHandoff) return;
     let active = true;
     let timer: number | undefined;
+    let polling = false;
     const startedAt = Date.now();
 
     const schedulePoll = () => {
       timer = window.setTimeout(() => void poll(), 1_000);
     };
     const poll = async () => {
+      if (!active || polling) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      polling = true;
       try {
         const result = await pollPwaAuthenticationHandoff(pendingPwaHandoff);
         if (!active) return;
@@ -116,13 +120,25 @@ export function EmailSignInForm({
           return;
         }
         schedulePoll();
+      } finally {
+        polling = false;
       }
     };
+    const resume = () => {
+      if (document.visibilityState === "hidden") return;
+      void poll();
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pageshow", resume);
+    window.addEventListener("online", resume);
 
     void poll();
     return () => {
       active = false;
       if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pageshow", resume);
+      window.removeEventListener("online", resume);
     };
   }, [pendingPwaHandoff, pwaMode]);
 

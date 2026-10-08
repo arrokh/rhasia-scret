@@ -134,6 +134,32 @@ describe("EmailSignInForm", () => {
     expect(mocks.announceAuthenticationCompletion).toHaveBeenCalledOnce();
   });
 
+  it.each(["pageshow", "online", "visibilitychange"])(
+    "polls immediately on %s without overlapping requests and removes listeners on unmount",
+    async (eventName) => {
+      mocks.isPwaDisplayMode.mockReturnValue(true);
+      mocks.requestEmailSignInLink.mockResolvedValueOnce("sent");
+      mocks.pollPwaAuthenticationHandoff.mockResolvedValue({ pending: true });
+      const container = document.createElement("div");
+      root = createRoot(container);
+      await act(async () => root?.render(createElement(EmailSignInForm)));
+      await act(async () => setInputValue(container.querySelector("#email"), "person@example.test"));
+      await act(async () => container.querySelector<HTMLFormElement>("form")?.requestSubmit());
+      const initialCalls = mocks.pollPwaAuthenticationHandoff.mock.calls.length;
+      mocks.pollPwaAuthenticationHandoff.mockReturnValueOnce(new Promise(() => undefined));
+      const eventTarget = eventName === "visibilitychange" ? document : window;
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      await act(async () => eventTarget.dispatchEvent(new Event(eventName)));
+      expect(mocks.pollPwaAuthenticationHandoff).toHaveBeenCalledTimes(initialCalls + 1);
+      await act(async () => window.dispatchEvent(new Event("online")));
+      expect(mocks.pollPwaAuthenticationHandoff).toHaveBeenCalledTimes(initialCalls + 1);
+      await act(async () => root?.unmount());
+      root = undefined;
+      eventTarget.dispatchEvent(new Event(eventName));
+      expect(mocks.pollPwaAuthenticationHandoff).toHaveBeenCalledTimes(initialCalls + 1);
+    },
+  );
+
   it("passes the invitation return path without carrying the fragment into authentication", async () => {
     mocks.requestEmailSignInLink.mockResolvedValueOnce("sent");
     window.history.replaceState(null, "", "/sign-in?auth=required&next=%2Fvaults%2Finvitations%2Fredeem#secret");

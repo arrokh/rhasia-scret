@@ -364,7 +364,8 @@
       "backToHome": "Back to home",
       "doNotClose": "This page will continue automatically after verification.",
       "pwaCompleted": "The link is verified. rhasia-scret is opening the session in your installed app.",
-      "pwaDoNotClose": "Keep the installed app open until your vault appears."
+      "pwaDoNotClose": "Return to the installed app to finish signing in. If it was closed, request a new link from the app.",
+      "pwaFailed": "The sign-in session could not be handed back to the installed app. Return to the app and request a new link."
     },
     "signIn": {
       "title": "Sign in or create an account",

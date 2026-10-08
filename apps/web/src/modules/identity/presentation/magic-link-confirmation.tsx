@@ -42,6 +42,7 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
     [navigate],
   );
   const [failed, setFailed] = useState(false);
+  const [handoffFailed, setHandoffFailed] = useState(false);
   const [pwaHandoffSent, setPwaHandoffSent] = useState(false);
   const redemptionAttempted = useRef(false);
   const mounted = useRef(false);
@@ -59,13 +60,17 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
         if (mounted.current) setFailed(true);
         return;
       }
+      let completingHandoff = false;
       try {
         if (client === "pwa") {
           if (!fragment.handoffId || !isSafePwaHandoffId(fragment.handoffId)) throw new Error("Invalid PWA handoff.");
           const pwaDisplayMode = isPwaDisplayMode();
+          completingHandoff = pwaDisplayMode;
           const pending = pwaDisplayMode ? await resolvePwaAuthenticationHandoff(fragment.handoffId) : null;
           if (pwaDisplayMode && !pending) throw new Error("PWA handoff is unavailable.");
+          completingHandoff = false;
           const result = await redeemPwaMagicLink(fragment.token);
+          completingHandoff = true;
           if (!isSessionToken(result.refreshToken)) throw new Error("Invalid PWA session handoff.");
           await publishPwaAuthenticationHandoff(fragment.handoffId, result.refreshToken);
           if (pwaDisplayMode) {
@@ -96,7 +101,10 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
           );
         }
       } catch {
-        if (mounted.current) setFailed(true);
+        if (mounted.current) {
+          setHandoffFailed(completingHandoff);
+          setFailed(true);
+        }
       }
     })();
     return () => {
@@ -108,7 +116,7 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
     return (
       <>
         <StatusBanner tone="danger" role="alert">
-          {t("failed")}
+          {t(handoffFailed ? "pwaFailed" : "failed")}
         </StatusBanner>
         <div className="grid gap-2 sm:grid-cols-2">
           <Button asChild>
