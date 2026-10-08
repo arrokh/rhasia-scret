@@ -33,7 +33,15 @@ describe("authentication backend configuration", () => {
       }),
     ).toMatchObject({
       backend: "passwordless",
-      passwordless: { turnstile: { expectedAction: "magic_link_request", expectedHostname: "localhost" } },
+      passwordless: {
+        turnstile: {
+          validationPolicy: {
+            kind: "strict",
+            expectedAction: "magic_link_request",
+            expectedHostname: "localhost",
+          },
+        },
+      },
     });
     expect(() =>
       readAuthConfiguration({
@@ -55,7 +63,7 @@ describe("authentication backend configuration", () => {
       }),
     ).toMatchObject({
       backend: "passwordless",
-      passwordless: { turnstile: { expectedAction: "test", expectedHostname: "localhost" } },
+      passwordless: { turnstile: { validationPolicy: { kind: "sandbox" } } },
     });
     expect(() =>
       readAuthConfiguration({
@@ -86,8 +94,7 @@ describe("authentication backend configuration", () => {
         refreshTokenTtlSeconds: 2_592_000,
         turnstile: {
           secretKey: "1x0000000000000000000000000000000AA",
-          expectedAction: "test",
-          expectedHostname: "localhost",
+          validationPolicy: { kind: "sandbox" },
         },
       },
     });

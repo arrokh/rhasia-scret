@@ -155,11 +155,7 @@ export function createTurnstileValidator(
   bindings: Pick<ApiBindings, "TURNSTILE_SECRET_KEY" | "NODE_ENV" | "WEB_ORIGIN" | "AUTH_APP_ORIGIN">,
 ): CloudflareTurnstileValidator {
   const configuration = readTurnstileConfiguration(bindings);
-  return new CloudflareTurnstileValidator(
-    configuration.secretKey || undefined,
-    configuration.expectedAction ?? "magic_link_request",
-    configuration.expectedHostname,
-  );
+  return new CloudflareTurnstileValidator(configuration.secretKey || undefined, configuration.validationPolicy);
 }
 
 export function createSessionVerifier(

@@ -1,3 +1,5 @@
+import type { TurnstileValidationPolicy } from "./turnstile";
+
 export type AuthBackend = "none" | "passwordless";
 export type AuthConfigurationField =
   | "AUTH_BACKEND"
@@ -27,8 +29,7 @@ export function isAuthenticationConfigurationError(error: unknown): error is Aut
 
 export type TurnstileConfiguration = Readonly<{
   secretKey: string;
-  expectedAction?: "magic_link_request" | "test";
-  expectedHostname?: string;
+  validationPolicy?: TurnstileValidationPolicy;
 }>;
 type TurnstileEnvironment = Readonly<{
   TURNSTILE_SECRET_KEY?: string;
@@ -107,11 +108,15 @@ export function readTurnstileConfiguration(env: TurnstileEnvironment): Turnstile
       "TURNSTILE_SECRET_KEY",
       "Cloudflare Turnstile testing keys are not allowed in production.",
     );
+  if (isTestingSecret) return { secretKey, validationPolicy: { kind: "sandbox" } };
   const appOrigin = readOrigin(env.AUTH_APP_ORIGIN, "AUTH_APP_ORIGIN");
   return {
     secretKey,
-    expectedAction: isTestingSecret ? "test" : "magic_link_request",
-    expectedHostname: appOrigin.hostname,
+    validationPolicy: {
+      kind: "strict",
+      expectedAction: "magic_link_request",
+      expectedHostname: appOrigin.hostname,
+    },
   };
 }
 

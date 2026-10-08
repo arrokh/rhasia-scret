@@ -2,7 +2,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { createTurnstileValidator } from "@api/modules/identity/server";
-import { CloudflareTurnstileValidator, isSafeTurnstileToken } from "@api/modules/identity/infrastructure/turnstile";
+import {
+  CloudflareTurnstileValidator,
+  isSafeTurnstileToken,
+  type TurnstileValidationPolicy,
+} from "@api/modules/identity/infrastructure/turnstile";
 
 describe("CloudflareTurnstileValidator", () => {
   it("trims the production secret before sending it to Cloudflare", async () => {
@@ -26,11 +30,10 @@ describe("CloudflareTurnstileValidator", () => {
 
   it("skips verification when disabled and rejects a missing token when enabled", async () => {
     const fetcher = vi.fn();
-    const disabled = new CloudflareTurnstileValidator(undefined, "magic_link_request", undefined, fetcher);
+    const disabled = new CloudflareTurnstileValidator(undefined, undefined, fetcher);
     const enabled = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      { kind: "strict", expectedAction: "magic_link_request", expectedHostname: "auth.example.test" },
       fetcher,
     );
 
@@ -56,8 +59,7 @@ describe("CloudflareTurnstileValidator", () => {
     );
     const validator = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      { kind: "strict", expectedAction: "magic_link_request", expectedHostname: "auth.example.test" },
       fetcher,
     );
 
@@ -71,11 +73,22 @@ describe("CloudflareTurnstileValidator", () => {
     );
   });
 
-  it("accepts Cloudflare test-key responses only with the test action and configured app hostname", async () => {
+  it("accepts the observed Cloudflare sandbox response without production action/hostname metadata", async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ success: true, action: "test", hostname: "localhost" }), { status: 200 }),
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            hostname: "example.com",
+            "error-codes": [],
+            metadata: { result_with_testing_key: true },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: false, "error-codes": ["invalid-input-response"] }), { status: 200 }),
       );
     vi.stubGlobal("fetch", fetcher);
     try {
@@ -86,6 +99,7 @@ describe("CloudflareTurnstileValidator", () => {
       });
 
       await expect(validator.validate("XXXX.DUMMY.TOKEN.XXXX")).resolves.toBe("valid");
+      await expect(validator.validate("XXXX.DUMMY.TOKEN.XXXX")).resolves.toBe("invalid");
     } finally {
       vi.unstubAllGlobals();
     }
@@ -100,8 +114,7 @@ describe("CloudflareTurnstileValidator", () => {
     ];
     const validator = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      { kind: "strict", expectedAction: "magic_link_request", expectedHostname: "auth.example.test" },
       vi.fn().mockImplementation(async () => new Response(JSON.stringify(responses.shift()), { status: 200 })),
     );
 
@@ -114,8 +127,7 @@ describe("CloudflareTurnstileValidator", () => {
   it("classifies transport failures as unavailable", async () => {
     const unavailable = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      { kind: "strict", expectedAction: "magic_link_request", expectedHostname: "auth.example.test" },
       vi.fn().mockRejectedValue(new Error("offline")),
     );
 
@@ -123,22 +135,24 @@ describe("CloudflareTurnstileValidator", () => {
   });
 
   it("reports bounded diagnostics for provider failures without exposing response content", async () => {
+    const strictPolicy: TurnstileValidationPolicy = {
+      kind: "strict",
+      expectedAction: "magic_link_request",
+      expectedHostname: "auth.example.test",
+    };
     const httpFailure = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      strictPolicy,
       vi.fn().mockResolvedValue(new Response(null, { status: 502 })),
     );
     const malformedFailure = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      strictPolicy,
       vi.fn().mockResolvedValue(new Response("not-json", { status: 200 })),
     );
     const transportFailure = new CloudflareTurnstileValidator(
       "server-secret",
-      "magic_link_request",
-      "auth.example.test",
+      strictPolicy,
       vi.fn().mockRejectedValue(new Error("secret provider detail")),
     );
 
