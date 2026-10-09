@@ -16,10 +16,7 @@ export function verifyReleaseCommit({ root = repositoryRoot, version, sourceSha,
   git(["merge-base", "--is-ancestor", diffBase, sourceSha], root);
   const changedPaths = git(["diff", "--name-only", "-z", diffBase, sourceSha], root).split("\0").filter(Boolean);
   if (!changedPaths.includes("CHANGELOG.md")) throw new Error("Dedicated release commit must update CHANGELOG.md.");
-  const readinessPath = `docs/release-readiness/v${version}.md`;
-  git(["cat-file", "-e", `${sourceSha}:${readinessPath}`], root);
-
-  const invalidPaths = changedPaths.filter((path) => !isAllowedReleasePath(path, readinessPath));
+  const invalidPaths = changedPaths.filter((path) => !isAllowedReleasePath(path));
   if (invalidPaths.length > 0)
     throw new Error(`Release commit contains non-release changes: ${invalidPaths.join(", ")}.`);
   for (const path of changedPaths.filter(isWorkspaceManifest))
@@ -27,8 +24,8 @@ export function verifyReleaseCommit({ root = repositoryRoot, version, sourceSha,
   return { baseSha: diffBase, changedPaths };
 }
 
-function isAllowedReleasePath(path, readinessPath) {
-  return path === "CHANGELOG.md" || path === readinessPath || isWorkspaceManifest(path);
+function isAllowedReleasePath(path) {
+  return path === "CHANGELOG.md" || isWorkspaceManifest(path);
 }
 
 function isWorkspaceManifest(path) {

@@ -20,6 +20,9 @@ export function verifyReleaseWorkflowPolicy(source) {
   ), "Candidate discovery must use read-only pull-request permission.");
   const verifyJob = job(source, "verify");
   require(/contents:\s*read/.test(verifyJob), "Verification must use read-only repository permission.");
+  require(["pnpm run test:release-process", "pnpm run verify:ci-policy", "pnpm run format:check"].every((command) =>
+    verifyJob.includes(command),
+  ), "Exact-source verification must run release process tests, CI policy, and formatting checks without readiness records.");
   require(/oven-sh\/setup-bun@[0-9a-f]{40}/.test(verifyJob) &&
     /bun-version:\s*1\.3\.9/.test(
       verifyJob,
@@ -97,9 +100,9 @@ export function verifyReleaseWorkflowPolicy(source) {
   require(/pnpm run test:full:container/.test(
     job(source, "verify"),
   ), "Publication must wait for the complete isolated repository gate.");
-  require(/verify:release-evidence:ready/.test(
-    job(source, "verify"),
-  ), "Publication must require the version-specific ready evidence record.");
+  require(!/verify:release-evidence:ready|readiness_record|candidate-readiness/.test(
+    source,
+  ), "Automatic release publication must not depend on candidate readiness records.");
   require(/release-publication\.mjs --sha/.test(
     job(source, "verify"),
   ), "The exact source and changelog must be validated before testing.");

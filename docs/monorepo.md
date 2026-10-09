@@ -96,7 +96,10 @@ pnpm run test:integration:container
 pnpm run test:full:container
 pnpm run verify:version-alignment
 pnpm run test:release-process
-pnpm run release:prepare
+pnpm release:patch
+pnpm release:minor
+pnpm release:major
+pnpm release:update
 ```
 
 ## Local development setup

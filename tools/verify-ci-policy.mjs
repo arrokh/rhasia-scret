@@ -27,6 +27,7 @@ const releaseWorkflow = read(".github/workflows/release.yml");
 const secretScan = read(".github/workflows/secret-scan.yml");
 const dependabot = read(".github/dependabot.yml");
 const monorepo = read("docs/monorepo.md");
+const rootPackage = JSON.parse(read("package.json"));
 
 requireText(".github/workflows/ci.yml", ci, /\n\s+push:\s*\n\s+branches:\s+\[main\]/, "run for pushes to main");
 requireText(
@@ -43,6 +44,14 @@ requireText(
   /permissions:\s*\n\s+contents:\s*read/,
   "default to read-only contents permissions",
 );
+if (/verify:release-evidence:(?:current|ready)/.test(ci)) {
+  failures.push(".github/workflows/ci.yml must not gate general CI on a candidate readiness record");
+}
+const hostedFullGate = rootPackage.scripts?.["test:full:hosted"];
+if (typeof hostedFullGate !== "string" || /verify:release-evidence:(?:current|ready)/.test(hostedFullGate)) {
+  failures.push("test:full:hosted must not gate repository tests on a candidate readiness record");
+}
+
 for (const command of [
   "pnpm run test:full:core",
   "pnpm audit --prod --audit-level=high",

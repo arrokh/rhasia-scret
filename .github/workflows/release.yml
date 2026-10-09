@@ -25,7 +25,6 @@ jobs:
       publish: ${{ steps.candidate.outputs.publish }}
       version: ${{ steps.candidate.outputs.version }}
       tag: ${{ steps.candidate.outputs.tag }}
-      readiness_record: ${{ steps.candidate.outputs.readiness_record }}
       pull_request: ${{ steps.candidate.outputs.pull_request }}
       source_sha: ${{ steps.candidate.outputs.source_sha }}
     steps:
@@ -91,12 +90,11 @@ jobs:
           PR_TITLE="$(gh api "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.title')"
           [[ "$PR_TITLE" == "$EXPECTED_TITLE" ]] || { echo "::error::Recovery PR title must be exactly ${EXPECTED_TITLE}."; exit 1; }
           FILES="$(gh api --paginate "repos/${GH_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
-          RECORD="docs/release-readiness/${TAG}.md"
           grep -Fxq "CHANGELOG.md" <<< "$FILES" || { echo "::error::Release PR must update CHANGELOG.md."; exit 1; }
           while IFS= read -r path; do
             [[ -z "$path" ]] && continue
             case "$path" in
-              CHANGELOG.md|"$RECORD"|package.json|apps/*/package.json|packages/*/package.json) ;;
+              CHANGELOG.md|package.json|apps/*/package.json|packages/*/package.json) ;;
               *) echo "::error::Release PR contains out-of-scope file ${path}."; exit 1 ;;
             esac
           done <<< "$FILES"
@@ -105,7 +103,6 @@ jobs:
             printf 'publish=true\n'
             printf 'version=%s\n' "$VERSION"
             printf 'tag=%s\n' "$TAG"
-            printf 'readiness_record=%s\n' "$RECORD"
             printf 'pull_request=%s\n' "$PR_NUMBER"
             printf 'source_sha=%s\n' "$SOURCE_SHA"
           } >> "$GITHUB_OUTPUT"
@@ -142,10 +139,11 @@ jobs:
           bun-version: 1.3.9
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify candidate readiness
-        env:
-          RELEASE_READINESS_RECORD: ${{ needs.candidate.outputs.readiness_record }}
-        run: pnpm run verify:release-evidence:ready
+      - name: Verify release process, policy, and formatting
+        run: |
+          pnpm run test:release-process
+          pnpm run verify:ci-policy
+          pnpm run format:check
       - name: Verify version alignment and publication notes
         env:
           SOURCE_SHA: ${{ needs.candidate.outputs.source_sha }}
@@ -175,7 +173,6 @@ jobs:
           sha256sum pnpm-lock.yaml > "$RUNNER_TEMP/repository-release-evidence/lockfile.sha256"
           sha256sum "$RUNNER_TEMP/release-notes.md" > "$RUNNER_TEMP/repository-release-evidence/release-notes.sha256"
           printf '%s\n' \
-            'candidate-readiness=passed' \
             'version-alignment=passed' \
             'workflow-policy=passed' \
             'format=passed' \
@@ -280,7 +277,6 @@ jobs:
           sha256sum pnpm-lock.yaml > "$RUNNER_TEMP/repository-release-publication/lockfile.sha256"
           sha256sum "$RUNNER_TEMP/release-notes.md" > "$RUNNER_TEMP/repository-release-publication/release-notes.sha256"
           printf '%s\n' \
-            'candidate-readiness=passed' \
             'version-alignment=passed' \
             'workflow-policy=passed' \
             'format=passed' \

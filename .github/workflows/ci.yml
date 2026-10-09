@@ -69,8 +69,8 @@ jobs:
         run: pnpm run verify:ci-policy
       - name: Test CI change detection
         run: pnpm run test:ci-changes
-      - name: Verify release evidence
-        run: pnpm run verify:release-evidence:current && pnpm run test:release-evidence
+      - name: Test release evidence tooling
+        run: pnpm run test:release-evidence
       - name: Test release automation
         run: pnpm run test:release-process
       - name: Verify release version alignment
