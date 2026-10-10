@@ -1,17 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import { parseArguments, prepareRelease, selectTargetVersion } from "./prepare-release.mjs";
+import { prepareRelease, selectTargetVersion } from "./prepare-release.mjs";
 
 const initialVersion = "0.1.0";
-
-test("the CLI accepts pnpm's argument separator before a release bump", () => {
-  assert.deepEqual(parseArguments(["--", "patch"]), { bump: "patch" });
-  assert.deepEqual(parseArguments(["patch"]), { bump: "patch" });
-});
 
 test("prepares the inaugural v0.1.0 draft without bumping versions or replacing Unreleased", () => {
   const fixture = createReleaseFixture();
@@ -27,10 +22,8 @@ test("prepares the inaugural v0.1.0 draft without bumping versions or replacing 
     assert.equal(result.targetVersion, "0.1.0");
     assert.equal(result.currentVersion, "0.1.0");
     assert.equal(result.baseSha, git(fixture.root, ["rev-parse", "HEAD"]));
-    assert.equal(result.readinessRecord, "docs/release-readiness/v0.1.0.md");
-    assert.equal(result.createdReadinessRecord, true);
     assert.ok(result.changedPaths.includes("CHANGELOG.md"));
-    assert.ok(result.changedPaths.includes("docs/release-readiness/v0.1.0.md"));
+    assert.ok(!result.changedPaths.some((path) => path.startsWith("docs/release-readiness/")));
     assert.match(result.range, /first-parent history beginning at .*inclusive/);
 
     const changelog = readFileSync(join(fixture.root, "CHANGELOG.md"), "utf8");
@@ -45,10 +38,7 @@ test("prepares the inaugural v0.1.0 draft without bumping versions or replacing 
     assert.equal(readJson(fixture.root, "apps/api/package.json").version, "0.1.0");
     assert.equal(readJson(fixture.root, "packages/shared/package.json").version, "0.1.0");
 
-    const record = readText(fixture.root, result.readinessRecord);
-    assert.match(record, /\*\*HOLD\*\*/);
-    assert.match(record, /Not Verifiable/);
-    assert.doesNotMatch(record, /\bPass\b|READY FOR HUMAN RELEASE REVIEW/);
+    assert.equal(existsSync(join(fixture.root, "docs/release-readiness/v0.1.0.md")), false);
     assert.equal(git(fixture.root, ["branch", "--show-current"]), "main");
     assert.equal(git(fixture.root, ["tag", "--list", "v*"]), "");
   } finally {
@@ -75,7 +65,6 @@ test("prepares explicit semver bumps from the latest release and only first-pare
     const result = prepareRelease({ root: fixture.root, bump: "patch", initialCommitSha: releaseSha });
     assert.equal(result.currentVersion, "0.1.0");
     assert.equal(result.targetVersion, "0.1.1");
-    assert.equal(result.readinessRecord, "docs/release-readiness/v0.1.1.md");
     assert.match(result.range, /v0\.1\.0\.\.[0-9a-f]{40} \(first-parent, exclusive of tag\)/);
 
     const changelog = readText(fixture.root, "CHANGELOG.md");
@@ -171,7 +160,7 @@ test("refuses a non-main checkout, a missing bump, and an incorrect bootstrap ve
   }
 });
 
-test("does not overwrite an existing candidate record or its readiness decision", () => {
+test("does not create or modify candidate readiness records", () => {
   const fixture = createReleaseFixture();
   try {
     const recordPath = join(fixture.root, "docs/release-readiness/v0.1.0.md");
@@ -182,9 +171,8 @@ test("does not overwrite an existing candidate record or its readiness decision"
     updateOriginMain(fixture.root);
 
     const result = prepareRelease({ root: fixture.root, initialCommitSha: fixture.initialSha });
-    assert.equal(result.createdReadinessRecord, false);
-    assert.equal(readText(fixture.root, result.readinessRecord), record);
-    assert.ok(!result.changedPaths.includes(result.readinessRecord));
+    assert.equal(readText(fixture.root, "docs/release-readiness/v0.1.0.md"), record);
+    assert.ok(!result.changedPaths.some((path) => path.startsWith("docs/release-readiness/")));
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }

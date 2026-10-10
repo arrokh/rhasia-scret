@@ -11,6 +11,8 @@ const selfHosting = readDoc("self-hosting.md");
 const documentationIndex = readDoc("README.md");
 const roadmap = readFileSync(resolve(docsRoot, "../ROADMAP.md"), "utf8");
 const readinessIndex = readDoc("release-readiness/README.md");
+const ciWorkflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
+const rootPackage = JSON.parse(readFileSync(resolve(import.meta.dirname, "../package.json"), "utf8"));
 const releaseSkill = readFileSync(resolve(import.meta.dirname, "../.pi/skills/release-pr/SKILL.md"), "utf8");
 
 const historicalDocuments = [
@@ -26,13 +28,14 @@ test("product status distinguishes the moving main branch from published release
   assert.doesNotMatch(productStatus, /(?:release\s+)?tag at `?HEAD/i);
 });
 
-test("release process scopes readiness evidence to a candidate and immutable baseline", () => {
-  assert.match(
-    releaseProcess,
-    /Each `docs\/release-readiness\/vX\.Y\.Z\.md` record applies only to that version, source SHA, and recorded evidence timestamp\./,
-  );
-  assert.match(releaseProcess, /Confirm publication through the exact-source GitHub Release and workflow provenance/);
-  assert.doesNotMatch(releaseProcess, /latest candidate-specific[^\n]*release-readiness\/v\d/i);
+test("automated CI and release publication do not depend on candidate readiness records", () => {
+  assert.match(releaseProcess, /The automated release publisher does not use candidate readiness records\./);
+  assert.match(releaseProcess, /they do not gate CI, the release PR, or publication\./);
+  assert.match(releaseProcess, /The post-merge release provenance records the exact triggering `main` SHA/);
+  assert.match(releaseProcess, /The changelog's `release-base` marker must match the pre-merge main SHA/);
+  assert.doesNotMatch(ciWorkflow, /verify:release-evidence:(?:current|ready)/);
+  assert.doesNotMatch(rootPackage.scripts["test:full:hosted"], /verify:release-evidence:(?:current|ready)/);
+  assert.doesNotMatch(releaseProcess, /exact-source readiness gate/);
   assert.doesNotMatch(releaseProcess, /tag at `?HEAD/i);
 });
 
@@ -64,14 +67,15 @@ test("roadmap records release completion as a milestone and points to exact evid
 test("readiness index explains candidate scope and publication evidence", () => {
   assert.match(
     readinessIndex,
-    /Each record applies only to its stated version, reviewed baseline SHA, and evidence timestamp\./,
+    /Existing records remain scoped to their stated version, reviewed baseline SHA, and evidence timestamp\./,
   );
   assert.match(readinessIndex, /Confirm publication through the exact-source GitHub Release and workflow provenance/);
 });
 
-test("release skill treats a missing candidate as the normal preparation path", () => {
-  assert.match(releaseSkill, /Their absence is the normal path to prepare a candidate, not a stop condition\./);
-  assert.match(releaseSkill, /the documentation index should point to readiness records generically/);
+test("release skill directs candidate creation and refresh through the pnpm commands", () => {
+  assert.match(releaseSkill, /pnpm release:patch/);
+  assert.match(releaseSkill, /pnpm release:update/);
+  assert.match(releaseSkill, /The skill does not merge or publish\./);
 });
 
 test("historical implementation records do not present a fixed candidate as current readiness", () => {

@@ -1,13 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { isValidSemVer, bumpSemVer, compareSemVer } from "./release-version.mjs";
 import { versionedPackageFiles, verifyVersionAlignment } from "./verify-version-alignment.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const initialCommit = "d067b7efafa4bcddb2955f682e14b83bef9ed01d";
-const readinessRoot = "docs/release-readiness";
 
 export function prepareRelease({ root = repositoryRoot, bump, initialCommitSha = initialCommit } = {}) {
   const baseSha = requireCurrentMain(root);
@@ -28,13 +26,11 @@ export function prepareRelease({ root = repositoryRoot, bump, initialCommitSha =
   const changelogPath = "CHANGELOG.md";
   const changelog = readText(root, changelogPath);
   const draft = createChangelogDraft({ root, baseSha, targetVersion, tags, bootstrap, initialCommitSha, changelog });
-  const candidateRecordPath = `${readinessRoot}/v${targetVersion}.md`;
-  const readinessRecord = prepareCandidateRecord(root, candidateRecordPath, targetVersion, baseSha);
   const packageUpdates = versionedPackageFiles(root).map((path) => [
     path,
     updateJsonVersion(readText(root, path), path, targetVersion),
   ]);
-  const changes = new Map([...packageUpdates, [changelogPath, draft], ...readinessRecord.changes]);
+  const changes = new Map([...packageUpdates, [changelogPath, draft]]);
   const originalContents = new Map(
     [...changes.keys()].map((path) => [path, existsSync(resolve(root, path)) ? readText(root, path) : undefined]),
   );
@@ -58,8 +54,6 @@ export function prepareRelease({ root = repositoryRoot, bump, initialCommitSha =
     targetVersion,
     range: start,
     changedPaths,
-    readinessRecord: candidateRecordPath,
-    createdReadinessRecord: readinessRecord.created,
   };
 }
 
@@ -101,7 +95,7 @@ function requireCurrentMain(root) {
   return head;
 }
 
-function releaseTags(root) {
+export function releaseTags(root = repositoryRoot) {
   const tags = git(["tag", "--list", "v*"], root)
     .split("\n")
     .filter(Boolean)
@@ -141,7 +135,7 @@ function createChangelogDraft({ root, baseSha, targetVersion, tags, bootstrap, i
   const section = [
     heading,
     "",
-    `<!-- Draft generated from first-parent history ${range}. Review and curate before publication. -->`,
+    `<!-- Draft generated from first-parent history ${range}; release-base ${baseSha}. Review and curate before publication. -->`,
     "",
     "### Changes",
     ...history.subjects.map((subject) => `- ${subject}`),
@@ -172,21 +166,6 @@ function commitSubjects(root, baseSha, latestTag, bootstrap, initialCommitSha) {
   return { subjects: entries.slice(initialIndex).map(({ subject }) => subject) };
 }
 
-function prepareCandidateRecord(root, relativePath, version, baseSha) {
-  const absolutePath = resolve(root, relativePath);
-  if (existsSync(absolutePath)) {
-    const source = readFileSync(absolutePath, "utf8");
-    const existingVersion = source.match(/^Candidate version:\s*`([^`]+)`\s*$/m)?.[1];
-    if (existingVersion !== version) {
-      throw new Error(`${relativePath} already exists but its Candidate version does not match ${version}.`);
-    }
-    return { created: false, changes: [] };
-  }
-
-  const contents = `# API/Web repository release readiness — ${version}\n\n## Decision\n\n**HOLD**\n\nCandidate version: \`${version}\`\nRepository baseline reviewed: Not Verifiable\nEvidence captured: Not Verifiable\nEvidence owner: Maintainer review required\n\n## Issue and PR ledger\n\n| Scope | Status |\n| --- | --- |\n| API/Web repository release | Review required |\n\n## Repository evidence captured\n\nThe exact release-candidate repository checks have not been recorded.\n\n## External evidence\n\n| Readiness area | Result and provenance |\n| --- | --- |\n| API/Web operations | Not Verifiable |\n\n## Required exit conditions\n\n1. Review and record the readiness evidence for this candidate version.\n2. Run the exact-commit repository release checks.\n3. Keep deployment and database migration approval separate from source-release publication.\n`;
-  return { created: true, changes: [[relativePath, contents]] };
-}
-
 function updateJsonVersion(source, path, version) {
   const parsed = JSON.parse(source);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || typeof parsed.version !== "string") {
@@ -215,27 +194,5 @@ function git(args, root, { allowFailure = false } = {}) {
   } catch (error) {
     if (allowFailure) return "";
     throw new Error(`git ${args.join(" ")} failed while preparing release.`, { cause: error });
-  }
-}
-
-export function parseArguments(args) {
-  const scriptArguments = args[0] === "--" ? args.slice(1) : args;
-  if (scriptArguments.length > 1) throw new Error("Usage: pnpm run release:prepare [patch|minor|major]");
-  const [bump] = scriptArguments;
-  return { bump };
-}
-
-function main() {
-  const { bump } = parseArguments(process.argv.slice(2));
-  const result = prepareRelease({ bump });
-  console.log(JSON.stringify(result, null, 2));
-}
-
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    main();
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
   }
 }

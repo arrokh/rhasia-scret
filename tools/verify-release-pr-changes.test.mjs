@@ -8,7 +8,7 @@ import { verifyReleaseCommit } from "./verify-release-pr-changes.mjs";
 
 const version = "0.1.1";
 
-test("accepts a dedicated release diff that changes only aligned version metadata, changelog, and readiness", (t) => {
+test("accepts a dedicated release diff with aligned version metadata and changelog only", (t) => {
   const fixture = createFixture(t);
   prepareCandidate(fixture.root);
   const sourceSha = commit(fixture.root, "prepare release candidate");
@@ -16,7 +16,6 @@ test("accepts a dedicated release diff that changes only aligned version metadat
   const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha });
   assert.equal(result.baseSha, fixture.baseSha);
   assert.ok(result.changedPaths.includes("CHANGELOG.md"));
-  assert.ok(result.changedPaths.includes("docs/release-readiness/v0.1.1.md"));
   assert.ok(result.changedPaths.includes("apps/api/package.json"));
 });
 
@@ -28,17 +27,16 @@ test("checks the complete multi-commit release PR instead of only the final comm
   writeJson(fixture.root, "package.json", rootManifest);
   git(fixture.root, ["add", "-A"]);
   git(fixture.root, ["commit", "--quiet", "-m", "add unrelated earlier manifest change"]);
-  prepareCandidate(fixture.root);
+  prepareCandidate(fixture.root, fixture.baseSha);
   const sourceSha = commit(fixture.root, "finish candidate release metadata");
 
-  assert.doesNotThrow(() => verifyReleaseCommit({ root: fixture.root, version, sourceSha }));
   assert.throws(
     () => verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: fixture.baseSha }),
     /changes beyond its top-level version field/,
   );
 });
 
-test("uses the pre-merge main SHA when main advances while a release PR is open", (t) => {
+test("rejects a stale changelog baseline until the release branch is refreshed", (t) => {
   const fixture = createFixture(t);
   git(fixture.root, ["switch", "--quiet", "-c", "release"]);
   prepareCandidate(fixture.root);
@@ -50,26 +48,36 @@ test("uses the pre-merge main SHA when main advances while a release PR is open"
 
   git(fixture.root, ["switch", "--quiet", "release"]);
   git(fixture.root, ["merge", "--quiet", "--no-ff", "-m", "update release branch from main", "main"]);
+  const staleSourceSha = git(fixture.root, ["rev-parse", "HEAD"]);
+  assert.throws(
+    () => verifyReleaseCommit({ root: fixture.root, version, sourceSha: staleSourceSha, baseSha: preMergeMainSha }),
+    /does not match release PR base/,
+  );
+
+  const refreshedChangelog = readFile(fixture.root, "CHANGELOG.md")
+    .replaceAll(fixture.baseSha, preMergeMainSha)
+    .replace("- Reviewed change.", "- Reviewed change.\n- land unrelated main change while release PR is open");
+  writeText(fixture.root, "CHANGELOG.md", refreshedChangelog);
+  commit(fixture.root, "refresh release changelog baseline");
   git(fixture.root, ["switch", "--quiet", "main"]);
   git(fixture.root, ["merge", "--quiet", "--no-ff", "-m", "merge dedicated release PR", "release"]);
   const sourceSha = git(fixture.root, ["rev-parse", "HEAD"]);
 
-  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha });
+  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: preMergeMainSha });
   assert.equal(result.baseSha, preMergeMainSha);
   assert.ok(!result.changedPaths.includes("apps/web/src/main-only-change.ts"));
-  assert.throws(
-    () => verifyReleaseCommit({ root: fixture.root, version, sourceSha, baseSha: fixture.baseSha }),
-    /non-release changes/,
-  );
 });
 
-test("accepts an existing matching candidate record that the release PR leaves unchanged", (t) => {
+test("rejects candidate readiness files from the automated release PR scope", (t) => {
   const fixture = createFixture(t);
-  prepareCandidate(fixture.root, { preserveReadiness: true });
-  const sourceSha = commit(fixture.root, "prepare release without rewriting existing readiness evidence");
+  prepareCandidate(fixture.root);
+  writeText(fixture.root, "docs/release-readiness/v0.1.1.md", "Candidate record is outside release scope.\n");
+  const sourceSha = commit(fixture.root, "add candidate readiness record to release PR");
 
-  const result = verifyReleaseCommit({ root: fixture.root, version, sourceSha });
-  assert.ok(!result.changedPaths.includes("docs/release-readiness/v0.1.1.md"));
+  assert.throws(
+    () => verifyReleaseCommit({ root: fixture.root, version, sourceSha }),
+    /non-release changes: docs\/release-readiness\/v0\.1\.1\.md/,
+  );
 });
 
 test("rejects dependency or script changes hidden in workspace manifests", (t) => {
@@ -113,18 +121,12 @@ function createFixture(t) {
     writeJson(root, path, { name, version: "0.1.0", scripts: { test: "node test.js" } });
   }
   writeText(root, "CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Keep future notes.\n");
-  writeText(root, "docs/release-readiness/v0.1.0.md", "baseline readiness\n");
-  writeText(
-    root,
-    "docs/release-readiness/v0.1.1.md",
-    "Candidate version: `0.1.1`\nExisting reviewed evidence remains untouched.\n",
-  );
   git(root, ["add", "-A"]);
   git(root, ["commit", "--quiet", "-m", "baseline"]);
   return { root, baseSha: git(root, ["rev-parse", "HEAD"]) };
 }
 
-function prepareCandidate(root, { preserveReadiness = false } = {}) {
+function prepareCandidate(root, baseSha = git(root, ["rev-parse", "HEAD"])) {
   for (const path of [
     "package.json",
     "apps/api/package.json",
@@ -138,9 +140,8 @@ function prepareCandidate(root, { preserveReadiness = false } = {}) {
   writeText(
     root,
     "CHANGELOG.md",
-    "# Changelog\n\n## [0.1.1]\n\n### Changes\n\n- Reviewed change.\n\n## [Unreleased]\n\n### Added\n\n- Keep future notes.\n",
+    `# Changelog\n\n## [0.1.1]\n\n<!-- Draft generated from first-parent history v0.1.0..${baseSha} (first-parent, exclusive of tag); release-base ${baseSha}. Review and curate before publication. -->\n\n### Changes\n\n- Reviewed change.\n\n## [Unreleased]\n\n### Added\n\n- Keep future notes.\n`,
   );
-  if (!preserveReadiness) writeText(root, "docs/release-readiness/v0.1.1.md", "Candidate version: `0.1.1`\n");
 }
 
 function commit(root, message) {
