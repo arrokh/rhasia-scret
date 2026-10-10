@@ -33,6 +33,20 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.2.1]
+
+<!-- Draft generated from first-parent history v0.2.0..481e98a0dd5b3942128e4fc209760e8937cc8a2c (first-parent, exclusive of tag); release-base 481e98a0dd5b3942128e4fc209760e8937cc8a2c. Review and curate before publication. -->
+
+### Changes
+
+- [infra][chore] Publish one version tag per Docker image (#283)
+- [infra][chore] Use version-only GitHub Release titles (#284)
+- [web][fix] Harden PWA magic-link handoff recovery (#286)
+- [api-web][fix] Require Turnstile action and hostname (#285)
+- [api-web][chore] Update app dependencies and agent upgrade policy (#287)
+- [infra][chore] Add Mailpit to local development (#288)
+- [infra][feat] Add release PR commands (#289)
+
 ## [0.2.0]
 
 ### Changes
