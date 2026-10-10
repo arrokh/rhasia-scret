@@ -16,12 +16,32 @@ export function verifyReleaseCommit({ root = repositoryRoot, version, sourceSha,
   git(["merge-base", "--is-ancestor", diffBase, sourceSha], root);
   const changedPaths = git(["diff", "--name-only", "-z", diffBase, sourceSha], root).split("\0").filter(Boolean);
   if (!changedPaths.includes("CHANGELOG.md")) throw new Error("Dedicated release commit must update CHANGELOG.md.");
+  verifyChangelogBaseline({ root, sourceSha, version, baseSha: diffBase });
   const invalidPaths = changedPaths.filter((path) => !isAllowedReleasePath(path));
   if (invalidPaths.length > 0)
     throw new Error(`Release commit contains non-release changes: ${invalidPaths.join(", ")}.`);
   for (const path of changedPaths.filter(isWorkspaceManifest))
     verifyManifestVersionOnly({ root, baseSha: diffBase, sourceSha, path, version });
   return { baseSha: diffBase, changedPaths };
+}
+
+function verifyChangelogBaseline({ root, sourceSha, version, baseSha }) {
+  const changelog = git(["show", `${sourceSha}:CHANGELOG.md`], root);
+  const lines = changelog.split(/\r?\n/);
+  const heading = `## [${version}]`;
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start < 0) throw new Error(`CHANGELOG.md is missing ${heading}.`);
+  const nextRelease = lines.findIndex((line, index) => index > start && /^##\s/.test(line));
+  const section = lines.slice(start + 1, nextRelease < 0 ? lines.length : nextRelease);
+  const markerPattern =
+    /^<!-- Draft generated from first-parent history .*; release-base ([0-9a-f]{40})\. Review and curate before publication\. -->$/;
+  const markers = section.map((line) => line.match(markerPattern)).filter(Boolean);
+  if (markers.length !== 1) throw new Error(`${heading} must contain exactly one valid release-base marker.`);
+  if (markers[0][1] !== baseSha) {
+    throw new Error(
+      `${heading} release-base ${markers[0][1]} does not match release PR base ${baseSha}; update the candidate before merging.`,
+    );
+  }
 }
 
 function isAllowedReleasePath(path) {

@@ -32,6 +32,7 @@ test("automated CI and release publication do not depend on candidate readiness 
   assert.match(releaseProcess, /The automated release publisher does not use candidate readiness records\./);
   assert.match(releaseProcess, /they do not gate CI, the release PR, or publication\./);
   assert.match(releaseProcess, /The post-merge release provenance records the exact triggering `main` SHA/);
+  assert.match(releaseProcess, /The changelog's `release-base` marker must match the pre-merge main SHA/);
   assert.doesNotMatch(ciWorkflow, /verify:release-evidence:(?:current|ready)/);
   assert.doesNotMatch(rootPackage.scripts["test:full:hosted"], /verify:release-evidence:(?:current|ready)/);
   assert.doesNotMatch(releaseProcess, /exact-source readiness gate/);
