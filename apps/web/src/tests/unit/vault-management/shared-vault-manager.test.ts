@@ -49,16 +49,17 @@ describe("dedicated Vault management", () => {
     const backup = container.querySelector<HTMLAnchorElement>('a[href="/vaults/backup"]');
     const archiveImport = container.querySelector<HTMLAnchorElement>('a[href="/vaults/import"]');
     const createShared = container.querySelector<HTMLAnchorElement>('a[href="/vaults/manage/new"]');
-    expect(backup?.textContent).toBe("");
+    expect(backup?.textContent).toBe("Buat cadangan");
     expect(backup?.getAttribute("aria-label")).toBe("Buat cadangan");
     expect(backup?.querySelector(".lucide-database-backup")).not.toBeNull();
-    expect(archiveImport?.textContent).toBe("");
+    expect(archiveImport?.textContent).toBe("Import arsip");
     expect(archiveImport?.getAttribute("aria-label")).toBe("Import arsip");
     expect(archiveImport?.querySelector(".lucide-import")).not.toBeNull();
     expect(backup?.parentElement).toBe(createShared?.parentElement);
     expect(archiveImport?.parentElement).toBe(createShared?.parentElement);
-    expect(backup?.parentElement?.className).toContain("grid-cols-[auto_auto_minmax(0,1fr)]");
-    expect(backup?.parentElement?.parentElement?.className).toContain("flex-col");
+    expect(backup?.parentElement?.className).toContain("grid w-full gap-2");
+    expect(backup?.parentElement?.className).toContain("sm:flex");
+    expect(backup?.className).toContain("w-full sm:w-auto");
   });
 
   it("loads owner permission defaults needed on Detail while managing accounts", async () => {

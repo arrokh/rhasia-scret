@@ -104,34 +104,41 @@ export function AuthenticatorAccountDirectoryPreview() {
   return (
     <SurfaceCard className={cn("grid min-w-0 gap-5", SURFACE_CARD_CONTENT_PADDING_CLASS)} aria-label={t("listLabel")}>
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-slot="vault-account-actions">
-        <Button variant="outline" asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
+        <Button
+          variant="outline"
+          asChild
+          className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
+        >
           <Link href="/vaults/manage" aria-label={t("vaults")} title={t("vaults")}>
-            <Vault aria-hidden="true" />
-            <span className="hidden min-w-0 whitespace-normal md:inline">{t("vaults")}</span>
+            <Vault className="size-4 md:size-5" aria-hidden="true" />
+            <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("vaults")}</span>
           </Link>
         </Button>
         <Button
           variant="outline"
-          className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
+          className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
           aria-label={t("localAction")}
           title={t("localAction")}
         >
-          <ArrowLeftRight aria-hidden="true" />
-          <span className="hidden min-w-0 whitespace-normal md:inline">{t("localAction")}</span>
+          <ArrowLeftRight className="size-4 md:size-5" aria-hidden="true" />
+          <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("localAction")}</span>
         </Button>
         <Button
           variant="outline"
-          className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
+          className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
           aria-label={t("securityAction")}
           title={t("securityAction")}
         >
-          <ShieldKeyhole aria-hidden="true" />
-          <span className="hidden min-w-0 whitespace-normal md:inline">{t("securityAction")}</span>
+          <ShieldKeyhole className="size-4 md:size-5" aria-hidden="true" />
+          <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("securityAction")}</span>
         </Button>
-        <Button asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
+        <Button
+          asChild
+          className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
+        >
           <Link href="/vaults/accounts/new" aria-label={t("addLabel")} title={t("add")}>
-            <Plus />
-            <span className="hidden min-w-0 whitespace-normal md:inline">{t("add")}</span>
+            <Plus className="size-4 md:size-5" aria-hidden="true" />
+            <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("add")}</span>
           </Link>
         </Button>
       </div>
@@ -203,7 +210,10 @@ export function AuthenticatorAccountDirectoryPreview() {
                   <span className="grid min-w-0">
                     <strong className="truncate text-sm text-ink-strong">{account.issuer}</strong>
                     <span className="truncate text-sm text-muted-foreground">{account.accountName}</span>
-                    <Badge variant="secondary" className="mt-2 w-fit max-w-full truncate bg-muted text-taupe">
+                    <Badge
+                      variant="secondary"
+                      className="mt-2 w-fit max-w-full truncate bg-muted text-muted-foreground"
+                    >
                       {account.vaultName}
                     </Badge>
                   </span>

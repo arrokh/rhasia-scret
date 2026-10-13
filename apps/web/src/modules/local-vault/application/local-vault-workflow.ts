@@ -27,6 +27,13 @@ export type UnlockedLocalVault = {
   accounts: UnlockedLocalVaultAccount[];
 };
 
+export type LocalVaultArchiveImportReview = {
+  sourceVaultName: string;
+  destinationVaultName: string;
+  accounts: Array<{ issuer: string; accountName: string; duplicate: boolean }>;
+  duplicateCount: number;
+};
+
 export async function createLocalVault(
   passphrase: string,
   name: string,
@@ -495,6 +502,31 @@ export async function previewLocalVaultArchive(
   }
 }
 
+export async function previewLocalVaultArchiveImport(
+  vault: UnlockedLocalVault,
+  key: Uint8Array,
+  archive: Uint8Array,
+  dependencies: LocalVaultWorkflowDependencies,
+): Promise<LocalVaultArchiveImportReview> {
+  const preview = await previewLocalVaultArchive(key, archive, dependencies);
+  const existing: Array<DecryptedAuthenticatorAccount & { id?: string }> = [...vault.accounts];
+  try {
+    const accounts = preview.accounts.map((account) => {
+      const duplicate = dependencies.accountPayload.isDuplicateAccount(account, existing);
+      if (!duplicate) existing.push(account);
+      return { issuer: account.issuer, accountName: account.accountName, duplicate };
+    });
+    return {
+      sourceVaultName: preview.vaultName,
+      destinationVaultName: vault.name,
+      accounts,
+      duplicateCount: accounts.filter(({ duplicate }) => duplicate).length,
+    };
+  } finally {
+    for (const account of preview.accounts) account.secret.fill(0);
+  }
+}
+
 export async function refreshUnlockedLocalVault(
   vault: UnlockedLocalVault,
   dependencies: LocalVaultWorkflowDependencies,
@@ -546,6 +578,7 @@ export async function importLocalVaultArchive(
   key: Uint8Array,
   archive: Uint8Array,
   dependencies: LocalVaultWorkflowDependencies,
+  allowDuplicates = false,
 ): Promise<number> {
   const opened = await dependencies.crypto.openEncryptedVaultExport(key, archive);
   const additions: Array<{ id: string; configuration: DecryptedAuthenticatorAccount; encryptedPayload: string }> = [];
@@ -554,7 +587,7 @@ export async function importLocalVaultArchive(
     for (const plaintext of opened.accounts) {
       const configuration = dependencies.accountPayload.parseDecryptedAccountPayload(plaintext);
       plaintext.fill(0);
-      if (dependencies.accountPayload.isDuplicateAccount(configuration, existing)) {
+      if (dependencies.accountPayload.isDuplicateAccount(configuration, existing) && !allowDuplicates) {
         configuration.secret.fill(0);
         continue;
       }

@@ -36,14 +36,14 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   );
 }
 
-function DialogContent({
-  className,
-  children,
-  showCloseButton = true,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean;
-}) {
+type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> &
+  (
+    | { showCloseButton: false; closeLabel?: never }
+    | { showCloseButton?: true; closeLabel: string }
+    | { showCloseButton: boolean; closeLabel: string }
+  );
+
+function DialogContent({ className, children, showCloseButton = true, closeLabel, ...props }: DialogContentProps) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -56,11 +56,11 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton && (
+        {showCloseButton && closeLabel && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
               <XIcon />
-              <span className="sr-only">Tutup</span>
+              <span className="sr-only">{closeLabel}</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -73,14 +73,14 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div data-slot="dialog-header" className={cn("flex flex-col gap-2", className)} {...props} />;
 }
 
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean;
-}) {
+type DialogFooterProps = React.ComponentProps<"div"> &
+  (
+    | { showCloseButton?: false; closeLabel?: never }
+    | { showCloseButton?: true; closeLabel: string }
+    | { showCloseButton: boolean; closeLabel: string }
+  );
+
+function DialogFooter({ className, showCloseButton = false, closeLabel, children, ...props }: DialogFooterProps) {
   return (
     <div
       data-slot="dialog-footer"
@@ -91,9 +91,9 @@ function DialogFooter({
       {...props}
     >
       {children}
-      {showCloseButton && (
+      {showCloseButton && closeLabel && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Tutup</Button>
+          <Button variant="outline">{closeLabel}</Button>
         </DialogPrimitive.Close>
       )}
     </div>

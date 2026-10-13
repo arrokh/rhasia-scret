@@ -43,6 +43,7 @@ describe("public information pages", () => {
       expect(markup).toContain("Tailscale Serve");
       expect(markup).toContain("Funnel");
       expect(markup).toContain("docs/privacy.md");
+      expect(markup).toMatch(/class="[^"]*font-bold text-foreground underline underline-offset-4[^"]*"/);
     });
   }
 

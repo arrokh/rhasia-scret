@@ -83,6 +83,7 @@ describe("TotpAccountButton", () => {
     expect(container.textContent).toContain("OTPAuth");
     expect(container.textContent).toContain("Alice");
     expect(container.textContent).toContain("Brankas Pribadi");
+    expect(container.querySelector('[data-slot="badge"]')?.classList.contains("text-muted-foreground")).toBe(true);
     expect(container.querySelector('article svg circle[stroke-dasharray="100"]')).not.toBeNull();
     const copy = container.querySelector<HTMLButtonElement>('[aria-label^="Salin OTP"]');
     await act(async () => copy?.click());

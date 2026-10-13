@@ -56,21 +56,20 @@ export function SharedVaultDirectory({ vaults }: { vaults: SharedVaultSummary[] 
           <h2 className="text-lg font-bold text-ink-strong">{t("title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
         </div>
-        <nav
-          aria-label={t("archiveActions")}
-          className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0"
-        >
-          <Button variant="outline" size="icon" asChild>
+        <nav aria-label={t("archiveActions")} className="grid w-full gap-2 sm:w-auto sm:flex sm:shrink-0">
+          <Button variant="outline" className="w-full sm:w-auto" asChild>
             <Link href="/vaults/backup" aria-label={t("backup")} title={t("backup")}>
               <DatabaseBackup aria-hidden="true" />
+              {t("backup")}
             </Link>
           </Button>
-          <Button variant="outline" size="icon" asChild>
+          <Button variant="outline" className="w-full sm:w-auto" asChild>
             <Link href="/vaults/import" aria-label={t("importArchive")} title={t("importArchive")}>
               <Import aria-hidden="true" />
+              {t("importArchive")}
             </Link>
           </Button>
-          <Button className="min-w-0" asChild>
+          <Button className="min-w-0 w-full sm:w-auto" asChild>
             <Link href="/vaults/manage/new">
               <Plus />
               {t("shared")}

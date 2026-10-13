@@ -19,6 +19,7 @@ export {
   importLocalVaultArchive as importLocalVaultArchiveWithPorts,
   migrateLegacyLocalVault as migrateLegacyLocalVaultWithPorts,
   previewLocalVaultArchive as previewLocalVaultArchiveWithPorts,
+  previewLocalVaultArchiveImport as previewLocalVaultArchiveImportWithPorts,
   refreshUnlockedLocalVault as refreshUnlockedLocalVaultWithPorts,
   renameLocalVault as renameLocalVaultWithPorts,
   unlockLocalVault as unlockLocalVaultWithPorts,
@@ -47,11 +48,16 @@ export {
   importLocalVaultArchive,
   migrateLegacyLocalVault,
   previewLocalVaultArchive,
+  previewLocalVaultArchiveImport,
   refreshUnlockedLocalVault,
   renameLocalVault,
   unlockLocalVault,
   updateLocalAccount,
 } from "./infrastructure/browser-local-vault-workflow";
 export { LocalVaultMigrationRequiredError } from "./infrastructure/browser-local-vault-workflow";
-export type { UnlockedLocalVault, UnlockedLocalVaultAccount } from "./infrastructure/browser-local-vault-workflow";
+export type {
+  LocalVaultArchiveImportReview,
+  UnlockedLocalVault,
+  UnlockedLocalVaultAccount,
+} from "./infrastructure/browser-local-vault-workflow";
 export { LocalVaultCopyPanel } from "./presentation/local-vault-copy-panel";

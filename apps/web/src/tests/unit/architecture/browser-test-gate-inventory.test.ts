@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const smokeSpecs = [
   "granular-loading.spec.ts",
+  "local-vault-archive-import.spec.ts",
   "mobile-preview.spec.ts",
   "pwa-auth-handoff.spec.ts",
   "remembered-browser.spec.ts",

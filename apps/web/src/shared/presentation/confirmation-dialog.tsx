@@ -37,7 +37,11 @@ export function ConfirmationDialog({
         if (!open && !pending) onCancel();
       }}
     >
-      <DialogContent className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet" showCloseButton={!pending}>
+      <DialogContent
+        className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet"
+        showCloseButton={!pending}
+        closeLabel={t("close")}
+      >
         <DialogHeader className="items-center text-center sm:items-center sm:text-center">
           <span
             className={`grid size-12 place-items-center rounded-full ${danger ? "bg-danger-surface text-destructive" : "bg-warning-surface text-warning"}`}

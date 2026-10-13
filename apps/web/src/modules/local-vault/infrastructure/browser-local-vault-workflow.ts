@@ -28,11 +28,13 @@ import {
   importLocalVaultArchive as importLocalVaultArchiveWorkflow,
   migrateLegacyLocalVault as migrateLegacyLocalVaultWorkflow,
   previewLocalVaultArchive as previewLocalVaultArchiveWorkflow,
+  previewLocalVaultArchiveImport as previewLocalVaultArchiveImportWorkflow,
   refreshUnlockedLocalVault as refreshUnlockedLocalVaultWorkflow,
   renameLocalVault as renameLocalVaultWorkflow,
   unlockLocalVault as unlockLocalVaultWorkflow,
   updateLocalAccount as updateLocalAccountWorkflow,
   LocalVaultMigrationRequiredError,
+  type LocalVaultArchiveImportReview,
   type UnlockedLocalVault,
   type UnlockedLocalVaultAccount,
 } from "../application/local-vault-workflow";
@@ -40,7 +42,7 @@ import type { LocalVaultWorkflowDependencies } from "../application/local-vault-
 import type { LocalVaultRecord } from "../domain/local-vault-record";
 
 export { clearUnlockedLocalVault, LocalVaultMigrationRequiredError };
-export type { UnlockedLocalVault, UnlockedLocalVaultAccount };
+export type { LocalVaultArchiveImportReview, UnlockedLocalVault, UnlockedLocalVaultAccount };
 
 function browserDependencies(): LocalVaultWorkflowDependencies {
   return {
@@ -115,6 +117,14 @@ export async function previewLocalVaultArchive(
   return previewLocalVaultArchiveWorkflow(key, archive, browserDependencies());
 }
 
+export async function previewLocalVaultArchiveImport(
+  vault: UnlockedLocalVault,
+  key: Uint8Array,
+  archive: Uint8Array,
+): Promise<LocalVaultArchiveImportReview> {
+  return previewLocalVaultArchiveImportWorkflow(vault, key, archive, browserDependencies());
+}
+
 export async function refreshUnlockedLocalVault(vault: UnlockedLocalVault): Promise<UnlockedLocalVault> {
   return refreshUnlockedLocalVaultWorkflow(vault, browserDependencies());
 }
@@ -123,8 +133,9 @@ export async function importLocalVaultArchive(
   vault: UnlockedLocalVault,
   key: Uint8Array,
   archive: Uint8Array,
+  allowDuplicates = false,
 ): Promise<number> {
-  return importLocalVaultArchiveWorkflow(vault, key, archive, browserDependencies());
+  return importLocalVaultArchiveWorkflow(vault, key, archive, browserDependencies(), allowDuplicates);
 }
 
 export type { EncryptedEnvelope };

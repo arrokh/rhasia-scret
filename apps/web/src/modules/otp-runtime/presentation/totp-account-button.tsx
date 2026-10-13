@@ -171,7 +171,7 @@ export function TotpAccountButton({
         </span>
         <span className="col-span-2 h-px bg-border/70" aria-hidden="true" />
         <div className="pointer-events-auto col-span-2 flex min-w-0 items-center gap-1">
-          <Badge variant="secondary" className="mr-auto max-w-full truncate bg-muted text-taupe">
+          <Badge variant="secondary" className="mr-auto max-w-full truncate bg-muted text-muted-foreground">
             {vaultName}
           </Badge>
           {(onManage || (vaultDetailHref && vaultDetailLabel)) && (

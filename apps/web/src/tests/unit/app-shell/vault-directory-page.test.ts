@@ -63,7 +63,7 @@ describe("VaultDirectoryPage archive navigation", () => {
     expect(markup).not.toContain('href="/vaults/import"');
   });
 
-  it("shows icon-only archive actions beside Shared Vault in a current Unlocked Vault Session", async () => {
+  it("shows labeled archive actions beside Shared Vault in a current Unlocked Vault Session", async () => {
     const markup = await renderFully(
       createElement(
         TestQueryProvider,
@@ -73,18 +73,20 @@ describe("VaultDirectoryPage archive navigation", () => {
     );
 
     expect(markup).toContain('aria-label="Aksi arsip Brankas"');
-    expect(markup).toContain("grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:shrink-0");
+    expect(markup).toContain("grid w-full gap-2 sm:w-auto sm:flex sm:shrink-0");
     expect(markup).toContain(
-      'aria-label="Buat cadangan" title="Buat cadangan" data-slot="button" data-variant="outline" data-size="icon"',
+      'aria-label="Buat cadangan" title="Buat cadangan" data-slot="button" data-variant="outline" data-size="default"',
     );
     expect(markup).toContain(
-      'aria-label="Import arsip" title="Import arsip" data-slot="button" data-variant="outline" data-size="icon"',
+      'aria-label="Import arsip" title="Import arsip" data-slot="button" data-variant="outline" data-size="default"',
     );
     expect(markup).toContain('href="/vaults/manage/new"');
     const archiveActions = markup.match(/<nav aria-label="Aksi arsip Brankas"[\s\S]*?<\/nav>/)?.[0];
     expect(archiveActions).toBeDefined();
-    expect(archiveActions?.match(/size-12/g)).toHaveLength(2);
-    expect(archiveActions?.match(/h-12/g)).toHaveLength(1);
+    expect(archiveActions?.match(/data-size="default"/g)).toHaveLength(3);
+    expect(archiveActions?.match(/h-12/g)).toHaveLength(3);
+    expect(archiveActions).toContain("Buat cadangan");
+    expect(archiveActions).toContain("Import arsip");
     expect(markup).toContain("lucide-database-backup");
     expect(markup).toContain("lucide-import");
     expect(markup).not.toContain("lucide-download");

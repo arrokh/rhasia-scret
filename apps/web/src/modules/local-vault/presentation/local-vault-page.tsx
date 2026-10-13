@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, Plus, Settings, ShieldCheck, Trash2 } from "lucide-react";
@@ -31,14 +31,16 @@ import {
   exportLocalVault,
   importLocalVaultArchive,
   LocalVaultMigrationRequiredError,
-  previewLocalVaultArchive,
+  previewLocalVaultArchiveImport,
   renameLocalVault,
   updateLocalAccount,
+  type LocalVaultArchiveImportReview,
   type UnlockedLocalVault,
   type UnlockedLocalVaultAccount,
 } from "@/modules/local-vault";
 import { browserDownload } from "@/shared/infrastructure/browser-platform-ports";
 import { useLocalVaultSession } from "./use-local-vault-session";
+import { localVaultArchiveImportFeedback } from "./local-vault-archive-import-feedback";
 
 export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } = {}) {
   const t = useTranslations("LocalVault");
@@ -165,6 +167,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
           }}
           onEdit={setEditing}
           onError={(text) => setMessage({ tone: "danger", text })}
+          onStatus={(tone, text) => setMessage({ tone, text })}
         />
       )}
       {clearOpen && (
@@ -372,6 +375,7 @@ function UnlockedLocalVaultView({
   refresh,
   onEdit,
   onError,
+  onStatus,
 }: {
   vault: UnlockedLocalVault;
   onLock: () => void;
@@ -381,6 +385,7 @@ function UnlockedLocalVaultView({
   refresh: () => Promise<void>;
   onEdit: (account: UnlockedLocalVaultAccount) => void;
   onError: (message: string) => void;
+  onStatus: (tone: "success" | "warning", message: string) => void;
 }) {
   const t = useTranslations("LocalVault");
   const [exporting, setExporting] = useState(false);
@@ -485,9 +490,11 @@ function UnlockedLocalVaultView({
               </div>
             </section>
             <LocalArchiveImporter
+              vault={vault}
               runMutation={runMutation}
               refresh={refresh}
               onError={onError}
+              onStatus={onStatus}
               importing={importing}
               setImporting={setImporting}
             />
@@ -619,6 +626,7 @@ function LocalAccountEditor({
   onError: (message: string) => void;
 }) {
   const t = useTranslations("LocalVault");
+  const tCommon = useTranslations("Common");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const form = useForm({
@@ -644,7 +652,10 @@ function LocalAccountEditor({
           if (!open) onCancel();
         }}
       >
-        <DialogContent className="max-w-md rounded-lg border-border bg-card p-5 shadow-sheet">
+        <DialogContent
+          className="max-w-md rounded-lg border-border bg-card p-5 shadow-sheet"
+          closeLabel={tCommon("close")}
+        >
           <DialogTitle className="sr-only">{t("edit")}</DialogTitle>
           <form
             noValidate
@@ -812,45 +823,92 @@ function LocalVaultSettings({
   );
 }
 
-function LocalArchiveImporter({
+export function LocalArchiveImporter({
+  vault,
   runMutation,
   refresh,
   onError,
+  onStatus,
   importing,
   setImporting,
 }: {
+  vault: UnlockedLocalVault;
   runMutation: <Result>(operation: (vault: UnlockedLocalVault) => Promise<Result>) => Promise<Result>;
   refresh: () => Promise<void>;
   onError: (message: string) => void;
+  onStatus: (tone: "success" | "warning", message: string) => void;
   importing: boolean;
   setImporting: (value: boolean) => void;
 }) {
   const t = useTranslations("LocalVault");
   const [archive, setArchive] = useState<File | null>(null);
   const [key, setKey] = useState<File | null>(null);
-  async function restore() {
-    if (!archive || !key) return;
-    setImporting(true);
+  const [reviewing, setReviewing] = useState(false);
+  const [review, setReview] = useState<LocalVaultArchiveImportReview | null>(null);
+  const archiveInput = useRef<HTMLInputElement>(null);
+  const keyInput = useRef<HTMLInputElement>(null);
+
+  async function withArchiveBytes<Result>(
+    operation: (keyBytes: Uint8Array, archiveBytes: Uint8Array) => Promise<Result>,
+  ): Promise<Result | undefined> {
+    if (!archive || !key) return undefined;
     let keyBytes: Uint8Array | undefined;
     let archiveBytes: Uint8Array | undefined;
     try {
       keyBytes = base64ToBytes((await key.text()).trim());
       archiveBytes = new Uint8Array(await archive.arrayBuffer());
-      const preview = await previewLocalVaultArchive(keyBytes, archiveBytes);
-      for (const account of preview.accounts) account.secret.fill(0);
-      const count = await runMutation((vault) => importLocalVaultArchive(vault, keyBytes!, archiveBytes!));
-      await refresh();
-      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveImportCompleted, { account_count: count });
-      if (count === 0) onError(t("noNewAccounts"));
-      else onError(t("imported", { count }));
-    } catch {
-      onError(t("importError"));
+      return await operation(keyBytes, archiveBytes);
     } finally {
       keyBytes?.fill(0);
       archiveBytes?.fill(0);
+    }
+  }
+
+  async function reviewImport() {
+    if (!archive || !key) return;
+    setReviewing(true);
+    setReview(null);
+    try {
+      const summary = await withArchiveBytes((keyBytes, archiveBytes) =>
+        previewLocalVaultArchiveImport(vault, keyBytes, archiveBytes),
+      );
+      if (summary) setReview(summary);
+    } catch {
+      onError(t("importError"));
+    } finally {
+      setReviewing(false);
+    }
+  }
+
+  async function restore(allowDuplicates: boolean) {
+    if (!archive || !key || !review) return;
+    setImporting(true);
+    try {
+      const count = await withArchiveBytes((keyBytes, archiveBytes) =>
+        runMutation((current) => importLocalVaultArchive(current, keyBytes, archiveBytes, allowDuplicates)),
+      );
+      if (count === undefined) return;
+      await refresh();
+      captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveImportCompleted, { account_count: count });
+      const feedback = localVaultArchiveImportFeedback(count);
+      if (feedback.message === "noNewAccounts") onStatus(feedback.tone, t("noNewAccounts"));
+      else onStatus(feedback.tone, t("imported", { count: feedback.count }));
+      setReview(null);
+      setArchive(null);
+      setKey(null);
+      if (archiveInput.current) archiveInput.current.value = "";
+      if (keyInput.current) keyInput.current.value = "";
+    } catch {
+      onError(t("importError"));
+    } finally {
       setImporting(false);
     }
   }
+
+  function cancelReview() {
+    setReview(null);
+  }
+
   return (
     <div className="grid gap-3 rounded-md border border-border p-3">
       <p className="text-sm font-bold">{t("import")}</p>
@@ -858,25 +916,128 @@ function LocalArchiveImporter({
       <Label className="grid gap-2 text-xs leading-5">
         {t("archiveFile")}
         <Input
+          ref={archiveInput}
           type="file"
           accept=".rhasia-vault,.rhasia,application/octet-stream"
-          onChange={(event) => setArchive(event.target.files?.[0] ?? null)}
+          disabled={reviewing || importing}
+          onChange={(event) => {
+            setArchive(event.target.files?.[0] ?? null);
+            setReview(null);
+          }}
         />
       </Label>
       <Label className="grid gap-2 text-xs leading-5">
         {t("keyFile")}
-        <Input type="file" accept=".txt,text/plain" onChange={(event) => setKey(event.target.files?.[0] ?? null)} />
+        <Input
+          ref={keyInput}
+          type="file"
+          accept=".txt,text/plain"
+          disabled={reviewing || importing}
+          onChange={(event) => {
+            setKey(event.target.files?.[0] ?? null);
+            setReview(null);
+          }}
+        />
       </Label>
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          className="w-full sm:w-fit"
-          onClick={() => void restore()}
-          disabled={!archive || !key || importing}
+      {!review && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            className="w-full sm:w-fit"
+            onClick={() => void reviewImport()}
+            disabled={!archive || !key || reviewing || importing}
+          >
+            {reviewing ? t("reviewingImport") : t("reviewImport")}
+          </Button>
+        </div>
+      )}
+      {review && (
+        <section
+          className="grid gap-3 rounded-md border border-border p-3"
+          aria-labelledby="local-archive-review-title"
         >
-          {importing ? t("importing") : t("import")}
-        </Button>
-      </div>
+          <div className="grid gap-1">
+            <h3 id="local-archive-review-title" className="font-bold text-ink-strong">
+              {t("importReviewTitle")}
+            </h3>
+            <p className="text-xs leading-5 text-muted-foreground">{t("importReviewDescription")}</p>
+          </div>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">{t("importSourceVault")}</dt>
+              <dd className="break-words font-medium">{review.sourceVaultName}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t("importDestinationVault")}</dt>
+              <dd className="break-words font-medium">{review.destinationVaultName}</dd>
+            </div>
+          </dl>
+          <p className="text-sm font-medium">{t("importReviewAccountCount", { count: review.accounts.length })}</p>
+          <ul className="grid max-h-56 gap-2 overflow-y-auto rounded-md border border-border p-3 text-sm">
+            {review.accounts.map((account, index) => (
+              <li key={`${account.issuer}:${account.accountName}:${index}`} className="flex flex-wrap gap-x-2">
+                <span className="break-words">
+                  {account.issuer} · {account.accountName}
+                </span>
+                {account.duplicate && <span className="font-semibold text-warning">{t("importDuplicateLabel")}</span>}
+              </li>
+            ))}
+          </ul>
+          {review.duplicateCount > 0 ? (
+            <StatusBanner tone="warning" role="status">
+              <span className="grid gap-1">
+                <span>{t("importDuplicateCount", { count: review.duplicateCount })}</span>
+                <span>{t("importDuplicateDescription")}</span>
+              </span>
+            </StatusBanner>
+          ) : (
+            <StatusBanner tone="info" role="status">
+              {t("importNoDuplicates")}
+            </StatusBanner>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-fit"
+              onClick={cancelReview}
+              disabled={importing}
+            >
+              {t("cancelReview")}
+            </Button>
+            {review.duplicateCount > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-fit"
+                  onClick={() => void restore(false)}
+                  disabled={importing}
+                >
+                  {importing ? t("importing") : t("restoreNewAccounts")}
+                </Button>
+                <Button
+                  type="button"
+                  className="w-full sm:w-fit"
+                  onClick={() => void restore(true)}
+                  disabled={importing}
+                >
+                  {importing ? t("importing") : t("addDuplicatesAnyway")}
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                className="w-full sm:w-fit"
+                onClick={() => void restore(false)}
+                disabled={importing}
+              >
+                {importing ? t("importing") : t("confirmImport")}
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

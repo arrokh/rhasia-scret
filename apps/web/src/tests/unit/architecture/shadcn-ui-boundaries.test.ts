@@ -99,7 +99,7 @@ describe("shadcn/ui design-system boundaries", () => {
       "#fffdf9",
       "#ded8d0",
       "#3d7452",
-      "#a5661b",
+      "#80500f",
       "#a4433d",
       "#526d82",
     ])
