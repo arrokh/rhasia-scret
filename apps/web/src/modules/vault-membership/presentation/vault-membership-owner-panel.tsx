@@ -255,6 +255,7 @@ function MemberPermissionsDialog({
   onClose: () => void;
 }) {
   const t = useTranslations("VaultManagement.permissions");
+  const tCommon = useTranslations("Common");
   const mutation = useUpdateVaultMemberAccountPermissionOverridesMutation(vaultId);
   const [status, setStatus] = useState<"error" | null>(null);
   const overrides = participant.permissionOverrides;
@@ -298,7 +299,7 @@ function MemberPermissionsDialog({
         if (!open && !mutation.isPending) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" closeLabel={tCommon("close")}>
         <DialogHeader>
           <DialogTitle>{t("memberTitle")}</DialogTitle>
           <DialogDescription>{t("memberDescription", { email: participant.email })}</DialogDescription>

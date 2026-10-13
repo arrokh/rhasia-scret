@@ -19,6 +19,7 @@ import {
   parseLocalVaultRecord,
   type LocalVaultRecord,
   previewLocalVaultArchive,
+  previewLocalVaultArchiveImport,
   renameLocalVault,
   unlockLocalVault,
   updateLocalAccount,
@@ -171,8 +172,22 @@ describe("device-local Local Vault", () => {
     expect(preview.vaultName).toBe("Device vault");
     expect(preview.accounts).toHaveLength(1);
     for (const value of preview.accounts) value.secret.fill(0);
+
+    const review = await previewLocalVaultArchiveImport(unlocked, exported.key, exported.archive);
+    expect(review).toEqual({
+      sourceVaultName: "Device vault",
+      destinationVaultName: "Device vault",
+      accounts: [{ issuer: "Example Issuer", accountName: "alice@example.invalid", duplicate: true }],
+      duplicateCount: 1,
+    });
+    expect(review.accounts[0]).not.toHaveProperty("secret");
     expect(await importLocalVaultArchive(unlocked, exported.key, exported.archive)).toBe(0);
+    expect(await importLocalVaultArchive(unlocked, exported.key, exported.archive, true)).toBe(1);
+
+    const reopened = await unlockLocalVault((await new BrowserLocalVaultRepository().read())!, "local-passphrase");
+    expect(reopened.accounts).toHaveLength(2);
     exported.key.fill(0);
+    clearUnlockedLocalVault(reopened);
     clearUnlockedLocalVault(unlocked);
   });
 

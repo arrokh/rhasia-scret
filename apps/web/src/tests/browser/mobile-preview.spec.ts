@@ -77,10 +77,12 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-vault")).toBeVisible();
   await expect(page.getByRole("link", { name: "Brankas" }).locator(".lucide-lock-keyhole")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Brankas Perangkat" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Keamanan" })).toContainText("Keamanan");
-  await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   const vaultAccountActions = page.locator('[data-slot="vault-account-actions"]');
+  await expect(vaultAccountActions.getByText("Brankas", { exact: true })).toBeVisible();
+  await expect(vaultAccountActions.getByText("Brankas Perangkat", { exact: true })).toBeVisible();
+  await expect(vaultAccountActions.getByText("Keamanan", { exact: true })).toBeVisible();
+  await expect(vaultAccountActions.getByText("Tambah akun", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tambahkan akun autentikator" })).toBeVisible();
   await expect(vaultAccountActions.locator('[data-slot="account-directory-menu"]')).toHaveCount(0);
   await expect(vaultAccountActions.locator('[data-slot="account-directory-filter-menu"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Opsi tampilan" })).toHaveAttribute("data-size", "icon");
@@ -278,14 +280,18 @@ test("keeps section action controls the same standard size on mobile and desktop
             const childBounds = child.getBoundingClientRect();
             return childBounds.top >= bounds.top && childBounds.bottom <= bounds.bottom;
           });
-        return { height: Math.round(bounds.height), contentFits };
+        const label = [...action.children].find((child) => child.tagName === "SPAN" && child.textContent?.trim());
+        const labelVisible = Boolean(
+          label && getComputedStyle(label).display !== "none" && label.getBoundingClientRect().height > 0,
+        );
+        return { height: Math.round(bounds.height), contentFits, labelVisible };
       }),
     );
     expect(accountActionGeometry).toEqual([
-      { height: 48, contentFits: true },
-      { height: 48, contentFits: true },
-      { height: 48, contentFits: true },
-      { height: 48, contentFits: true },
+      { height: 48, contentFits: true, labelVisible: true },
+      { height: 48, contentFits: true, labelVisible: true },
+      { height: 48, contentFits: true, labelVisible: true },
+      { height: 48, contentFits: true, labelVisible: true },
     ]);
     const accountCardLayout = await page.locator('[data-slot="vault-account-actions"]').evaluate((actions) => {
       const card = actions.closest('[data-slot="card"]');
@@ -323,7 +329,9 @@ test("keeps section action controls the same standard size on mobile and desktop
       }),
     );
     expect(geometry.map(({ height }) => height)).toEqual([48, 48, 48]);
-    expect(geometry.slice(0, 2).map(({ width: actionWidth }) => actionWidth)).toEqual([48, 48]);
+    expect(geometry.slice(0, 2).every(({ width: actionWidth }) => actionWidth > 48)).toBe(true);
+    await expect(vaultActions.nth(0)).toContainText("Buat cadangan");
+    await expect(vaultActions.nth(1)).toContainText("Import arsip");
     const directoryCardLayout = await page.locator('[aria-label="Aksi arsip Brankas"]').evaluate((nav) => {
       const content = nav.parentElement?.parentElement;
       const card = nav.closest('[data-slot="card"]');
@@ -484,6 +492,18 @@ test("keeps preview controls within the viewport in both locales", async ({ page
       for (const route of routes) {
         await page.goto(route);
         await page.waitForLoadState("networkidle");
+        if (route === "/ui-preview/vaults") {
+          const labels =
+            locale === "id"
+              ? { nav: "Aksi arsip Brankas", backup: "Buat cadangan", importArchive: "Import arsip" }
+              : { nav: "Vault archive actions", backup: "Create backup", importArchive: "Import archive" };
+          const archiveActions = page.getByRole("navigation", { name: labels.nav });
+          for (const label of [labels.backup, labels.importArchive]) {
+            const action = archiveActions.getByRole("link", { name: label });
+            await expect(action).toContainText(label);
+            expect((await action.boundingBox())?.height).toBe(48);
+          }
+        }
         const layout = await page.evaluate(() => {
           const isVisible = (element: HTMLElement) => {
             const style = getComputedStyle(element);
@@ -705,10 +725,15 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   const backupAction = page.getByRole("link", { name: "Buat cadangan" });
   const importAction = page.getByRole("link", { name: "Import arsip" });
   const createSharedAction = page.getByRole("link", { name: /Brankas Bersama/ });
-  await expect(backupAction).toHaveText("");
+  await expect(backupAction).toHaveText("Buat cadangan");
   await expect(backupAction.locator(".lucide-database-backup")).toBeVisible();
-  await expect(importAction).toHaveText("");
+  await expect(importAction).toHaveText("Import arsip");
   await expect(importAction.locator(".lucide-import")).toBeVisible();
+  for (const action of [backupAction, importAction]) {
+    const bounds = await action.boundingBox();
+    expect(bounds?.height).toBe(48);
+    expect(bounds?.width).toBeGreaterThan(48);
+  }
   expect(
     await backupAction.evaluate(
       (action, shared) => action.parentElement === (shared as Node).parentElement,

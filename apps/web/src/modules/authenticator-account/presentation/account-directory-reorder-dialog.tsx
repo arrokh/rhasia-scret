@@ -174,7 +174,7 @@ export function AccountDirectoryReorderDialog({
                 <span className="grid min-w-0 gap-0.5">
                   <strong className="truncate text-sm font-bold text-ink-strong">{account.issuer}</strong>
                   <span className="truncate text-sm text-muted-foreground">{account.accountName}</span>
-                  <span className="truncate text-xs text-taupe">{account.vaultName}</span>
+                  <span className="truncate text-xs text-muted-foreground">{account.vaultName}</span>
                 </span>
                 <span className="flex items-center gap-0.5">
                   {index > 0 && (

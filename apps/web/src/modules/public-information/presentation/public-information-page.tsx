@@ -55,7 +55,7 @@ export async function PublicInformationPage({ kind }: { kind: PublicInformationK
             href={documentLinks[kind]}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-bold text-primary underline-offset-4 hover:underline"
+            className="font-bold text-foreground underline underline-offset-4"
           >
             {t("fullDocument")}
           </Link>

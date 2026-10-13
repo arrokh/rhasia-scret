@@ -37,6 +37,7 @@ function requiresWorkspaceRevalidation(error: unknown): boolean {
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
+  const tCommon = useTranslations("Common");
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
   const [auditError, setAuditError] = useState(false);
@@ -161,10 +162,14 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
     >
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-slot="vault-account-actions">
         {current && (
-          <Button variant="outline" asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
+          <Button
+            variant="outline"
+            asChild
+            className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
+          >
             <Link href="/vaults/manage" prefetch={true} aria-label={t("vaults")} title={t("vaults")}>
-              <Vault aria-hidden="true" />
-              <span className="hidden min-w-0 whitespace-normal md:inline">{t("vaults")}</span>
+              <Vault className="size-4 md:size-5" aria-hidden="true" />
+              <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("vaults")}</span>
             </Link>
           </Button>
         )}
@@ -173,16 +178,17 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             <SheetTrigger asChild>
               <Button
                 variant="outline"
-                className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
+                className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
                 aria-label={t("localAction")}
                 title={t("localAction")}
               >
-                <ArrowLeftRight aria-hidden="true" />
-                <span className="hidden min-w-0 whitespace-normal md:inline">{t("localAction")}</span>
+                <ArrowLeftRight className="size-4 md:size-5" aria-hidden="true" />
+                <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("localAction")}</span>
               </Button>
             </SheetTrigger>
             <SheetContent
               side="bottom"
+              closeLabel={tCommon("close")}
               className="max-h-[85dvh] gap-5 overflow-y-auto rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg"
             >
               <SheetHeader className="p-0 pt-5">
@@ -206,16 +212,17 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             <SheetTrigger asChild>
               <Button
                 variant="outline"
-                className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal"
+                className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
                 aria-label={t("securityAction")}
                 title={t("securityAction")}
               >
-                <ShieldKeyhole aria-hidden="true" />
-                <span className="hidden min-w-0 whitespace-normal md:inline">{t("securityAction")}</span>
+                <ShieldKeyhole className="size-4 md:size-5" aria-hidden="true" />
+                <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("securityAction")}</span>
               </Button>
             </SheetTrigger>
             <SheetContent
               side="bottom"
+              closeLabel={tCommon("close")}
               className="gap-5 rounded-t-xl border-border bg-card px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-sheet sm:mx-auto sm:max-w-lg"
             >
               <SheetHeader className="p-0 pt-5">
@@ -236,10 +243,13 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
           </Sheet>
         )}
         {current && (
-          <Button asChild className="h-12 min-h-12 w-full min-w-0 text-center whitespace-normal">
+          <Button
+            asChild
+            className="h-12 min-h-12 w-full min-w-0 flex-col gap-0.5 px-1 text-center text-xs leading-3 whitespace-normal lg:flex-row lg:gap-1 lg:leading-normal"
+          >
             <Link href="/vaults/accounts/new" aria-label={t("addAccountLabel")} title={t("addAccount")}>
-              <Plus />
-              <span className="hidden min-w-0 whitespace-normal md:inline">{t("addAccount")}</span>
+              <Plus className="size-4 md:size-5" aria-hidden="true" />
+              <span className="min-w-0 whitespace-normal leading-3 md:leading-normal">{t("addAccount")}</span>
             </Link>
           </Button>
         )}

@@ -561,6 +561,7 @@ function ImportSuccessDialog({
   onImportAnother: () => void;
 }) {
   const t = useTranslations("VaultArchive.importer");
+  const tCommon = useTranslations("Common");
   const destinationHref =
     success.vaultType === "PERSONAL"
       ? "/vaults/manage/personal"
@@ -572,7 +573,10 @@ function ImportSuccessDialog({
         if (!open) onImportAnother();
       }}
     >
-      <DialogContent className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet">
+      <DialogContent
+        className="max-w-sm rounded-lg border-border bg-card p-5 shadow-sheet"
+        closeLabel={tCommon("close")}
+      >
         <DialogHeader className="items-center text-center sm:items-center sm:text-center">
           <span
             className="grid size-12 place-items-center rounded-full bg-success-surface text-success"

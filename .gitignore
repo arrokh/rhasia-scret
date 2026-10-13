@@ -11,6 +11,7 @@ apps/web/.prisma-staged-migrations-*/
 
 artifacts/
 /.local-mailpit/
+/.impeccable/critique/
 
 /design-qa.md
 /hero-responsive-comparison.png

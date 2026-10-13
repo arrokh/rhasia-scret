@@ -52,6 +52,7 @@ export function AuthenticatorAccountManagerDialog({
   onClose: () => void;
 }) {
   const t = useTranslations("AuthenticatorAccount.manager");
+  const tCommon = useTranslations("Common");
   const online = useOnlineStatus();
   const [status, setStatus] = useState<"updated" | "updateError" | "deleteError" | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -129,6 +130,7 @@ export function AuthenticatorAccountManagerDialog({
         <DialogContent
           className="max-w-md rounded-lg bg-card p-5"
           showCloseButton={!updateMutation.isPending && !deleteMutation.isPending}
+          closeLabel={tCommon("close")}
         >
           <DialogHeader>
             <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{t("manage")}</p>

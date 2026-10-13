@@ -91,7 +91,7 @@ export function LandingVaultPreviews({ entries }: { entries: VaultPreview[] }) {
               </div>
               <span className="h-px bg-border/70" aria-hidden="true" />
               <span className="flex min-w-0 items-center gap-1">
-                <span className="truncate rounded-full bg-muted px-1.5 py-0.5 text-[0.55rem] font-bold text-taupe sm:text-[0.65rem]">
+                <span className="truncate rounded-full bg-muted px-1.5 py-0.5 text-[0.55rem] font-bold text-muted-foreground sm:text-[0.65rem]">
                   {entry.vault}
                 </span>
                 <span className="flex min-w-0 items-center gap-1 truncate text-[0.55rem] text-muted-foreground sm:text-[0.65rem]">
