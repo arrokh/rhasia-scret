@@ -296,7 +296,7 @@ const SAFE_PERFORMANCE_PROPERTY_PATTERN = /^\$performance_[a-z0-9_]+_(?:duration
 const SAFE_ANALYTICS_NUMBER = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 900_000;
 
-export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): Parameters<BeforeSendFn>[0] {
+export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): ReturnType<BeforeSendFn> {
   if (!capture) return null;
   const automaticCapture = capture.event.startsWith("$") && capture.event !== "$identify";
   const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
