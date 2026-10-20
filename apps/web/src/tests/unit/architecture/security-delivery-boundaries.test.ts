@@ -61,7 +61,8 @@ describe("browser-delivery security boundaries", () => {
     expect(workflow).toContain("pull_request:\n    branches: [main]");
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("name: Quality and database test suite");
-    expect(workflow).toContain("name: Browser ${{ matrix.suite }} (${{ matrix.browser }})");
+    expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }})");
+    expect(workflow).toContain("name: Browser e2e (${{ matrix.browser }})");
     expect(workflow).toContain("name: Production PWA and navigation performance");
 
     const codeql = read("../../.github/workflows/codeql.yml");

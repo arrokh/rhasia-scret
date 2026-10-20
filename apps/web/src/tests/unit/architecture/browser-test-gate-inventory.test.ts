@@ -52,11 +52,21 @@ describe("browser test gate inventory", () => {
     const gate = readFileSync(resolve(process.cwd(), "scripts/run-browser-gate.ts"), "utf8");
     const playwrightConfig = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
 
-    expect(workflow).toContain("suite: [smoke, e2e]");
+    expect(workflow).not.toContain("suite: [smoke, e2e]");
+    expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }})");
+    expect(workflow).toContain("name: Browser e2e (${{ matrix.browser }})");
     expect(workflow).toContain(
       "browser:\n          - chromium\n          # - firefox: intentionally deferred from hosted CI coverage\n          # - webkit: intentionally deferred from hosted CI coverage",
     );
-    expect(workflow).toContain('pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"');
+    expect(workflow).toContain('pnpm run test:browser:smoke --project="${{ matrix.browser }}"');
+    expect(workflow).toContain('pnpm run test:browser:e2e --project="${{ matrix.browser }}"');
+    const smokeJob = workflow.split("  browser-smoke:\n")[1]?.split("\n  browser-e2e:\n")[0] ?? "";
+    const e2eJob = workflow.split("  browser-e2e:\n")[1]?.split("\n  browser-production:\n")[0] ?? "";
+    expect(smokeJob).not.toContain("services:");
+    expect(smokeJob).toContain("127.0.0.1:1/browser_smoke");
+    expect(smokeJob).not.toContain("prisma:migrate:deploy");
+    expect(e2eJob).toContain("services:\n      postgres:");
+    expect(e2eJob).toContain("prisma:migrate:deploy");
     expect(workflow).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(workflow).toContain("PLAYWRIGHT_E2E_WORKERS: 2");
     expect(workflow).toContain("restore-keys:");

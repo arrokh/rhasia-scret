@@ -52,7 +52,7 @@ test("missing or invalid comparison commits conservatively select every check", 
 test("wires package selection to every consuming job without cancelling a different commit", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
   const job = (name) => {
-    const body = workflow.match(new RegExp(`^  ${name}:\\n([\\s\\S]*?)(?=^  [a-z-]+:|$(?![\\s\\S]))`, "m"))?.[1];
+    const body = workflow.match(new RegExp(`^  ${name}:\\n([\\s\\S]*?)(?=^  [a-z0-9-]+:|$(?![\\s\\S]))`, "m"))?.[1];
     assert.ok(body, `missing job: ${name}`);
     return body;
   };
@@ -66,11 +66,12 @@ test("wires package selection to every consuming job without cancelling a differ
     ["core", "core", 8, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
     ["quality", "web", 8, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],
     [
-      "browser",
+      "browser-smoke",
       "web",
       8,
-      "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
+      "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
     ],
+    ["browser-e2e", "web", 8, "ci-web-browser-e2e-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}"],
     ["browser-production", "web", 12, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
   ]) {
     const body = job(name);
@@ -80,7 +81,20 @@ test("wires package selection to every consuming job without cancelling a differ
     assert.ok(body.includes(`      group: ${concurrencyGroup}`));
     assert.match(body, /cancel-in-progress: true/);
   }
+  const browserSmoke = job("browser-smoke");
+  assert.match(browserSmoke, /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}\)$/m);
+  assert.doesNotMatch(browserSmoke, /^    services:/m);
+  assert.match(
+    browserSmoke,
+    /^      DATABASE_URL: postgresql:\/\/browser-smoke:unused@127\.0\.0\.1:1\/browser_smoke\?schema=public$/m,
+  );
+  assert.doesNotMatch(browserSmoke, /prisma:migrate:deploy/);
+  const browserE2e = job("browser-e2e");
+  assert.match(browserE2e, /^    name: Browser e2e \(\$\{\{ matrix\.browser \}\}\)$/m);
+  assert.match(browserE2e, /^    services:\n      postgres:/m);
+  assert.match(browserE2e, /prisma:migrate:deploy/);
   const repository = job("repository");
+  assert.doesNotMatch(repository, /format:check/);
   assert.doesNotMatch(repository, /^    (?:if|needs):/m);
   assert.ok(repository.includes("timeout-minutes: 8"));
   assert.ok(repository.includes("group: ci-repository-${{ github.workflow }}-${{ github.ref_name }}"));
