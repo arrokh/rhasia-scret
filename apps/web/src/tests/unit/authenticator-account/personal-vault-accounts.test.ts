@@ -373,6 +373,9 @@ describe("PersonalVaultAccounts", () => {
     );
     await act(async () => issuerFilter?.click());
     expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(1);
+    expect(filterMenu?.getAttribute("data-active")).toBe("true");
+    expect(filterMenu?.getAttribute("aria-description")).toBe("Filter diterapkan");
+    expect(filterMenu?.querySelector('[data-slot="account-directory-filter-indicator"]')).not.toBeNull();
     expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).not.toContain("Example");
     const allIssuers = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
       (item) => item.textContent?.trim() === "Semua penerbit",
@@ -395,6 +398,9 @@ describe("PersonalVaultAccounts", () => {
     expect(clearFilters).toBeDefined();
     await act(async () => clearFilters?.click());
     expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(2);
+    expect(filterMenu?.getAttribute("data-active")).toBe("false");
+    expect(filterMenu?.getAttribute("aria-description")).toBeNull();
+    expect(filterMenu?.querySelector('[data-slot="account-directory-filter-indicator"]')).toBeNull();
     expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).toContain('"vaultFilters":[]');
     expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).not.toContain("personal-1");
     await act(async () => filterMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
