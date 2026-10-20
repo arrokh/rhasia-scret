@@ -45,6 +45,7 @@ export function AccountDirectoryControls({
     filterLabel: string;
     filterByVault: string;
     filterByIssuer: string;
+    filtersApplied: string;
     allVaults: string;
     allIssuers: string;
     viewLabel: string;
@@ -73,6 +74,7 @@ export function AccountDirectoryControls({
   );
   const allVaultsSelected = vaultFilters.length === 0;
   const allIssuersSelected = issuerFilters.length === 0;
+  const hasActiveFilters = !allVaultsSelected || !allIssuersSelected;
 
   function toggleVault(vaultId: string, checked: boolean) {
     if (checked) {
@@ -143,11 +145,22 @@ export function AccountDirectoryControls({
               size="icon"
               type="button"
               data-slot="account-directory-filter-menu"
-              className="shrink-0"
+              className={
+                hasActiveFilters ? "relative shrink-0 border-primary bg-primary/10 text-foreground" : "shrink-0"
+              }
               aria-label={labels.filterLabel}
+              aria-description={hasActiveFilters ? labels.filtersApplied : undefined}
+              data-active={hasActiveFilters}
               title={labels.filterLabel}
             >
               <ListFilter aria-hidden="true" />
+              {hasActiveFilters && (
+                <span
+                  data-slot="account-directory-filter-indicator"
+                  aria-hidden="true"
+                  className="absolute top-2 right-2 size-2.5 rounded-full bg-primary ring-2 ring-background"
+                />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72 rounded-md border-border bg-popover p-2 shadow-card">

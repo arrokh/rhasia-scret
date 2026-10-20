@@ -171,6 +171,7 @@ export function AuthenticatorAccountDirectoryPreview() {
               filterLabel: t("filterLabel"),
               filterByVault: t("filterByVault"),
               filterByIssuer: t("filterByIssuer"),
+              filtersApplied: t("filtersApplied"),
               allVaults: t("allVaults"),
               allIssuers: t("allIssuers"),
               viewLabel: t("viewLabel"),

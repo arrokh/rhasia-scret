@@ -239,6 +239,13 @@ test("clears empty account filters by touch in the installed mobile PWA layout",
       const filterOptions = page.locator('[data-slot="dropdown-menu-content"]');
       await filterOptions.getByRole("menuitemcheckbox", { name: personalVault }).tap();
       await filterOptions.getByRole("menuitemcheckbox", { name: workIssuer }).tap();
+      const filterButton = page.locator('[data-slot="account-directory-filter-menu"]');
+      await expect(filterButton).toHaveAttribute("data-active", "true");
+      await expect(filterButton).toHaveAttribute(
+        "aria-description",
+        locale === "id" ? "Filter diterapkan" : "Filters applied",
+      );
+      await expect(filterButton.locator('[data-slot="account-directory-filter-indicator"]')).toBeVisible();
       await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(0);
       await expect(page.getByText(emptyLabel, { exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
@@ -255,6 +262,9 @@ test("clears empty account filters by touch in the installed mobile PWA layout",
         await clearFilters.press("Enter");
       }
       await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(2);
+      await expect(filterButton).toHaveAttribute("data-active", "false");
+      await expect(filterButton).not.toHaveAttribute("aria-description");
+      await expect(filterButton.locator('[data-slot="account-directory-filter-indicator"]')).toHaveCount(0);
       await expect(page.getByText(emptyLabel, { exact: true })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
