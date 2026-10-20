@@ -33,6 +33,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.2.3]
+
+<!-- Draft generated from first-parent history v0.2.2..3e39a972e55b359225d388b404e69dc23834213e (first-parent, exclusive of tag); release-base 3e39a972e55b359225d388b404e69dc23834213e. Review and curate before publication. -->
+
+### Changes
+
+- build(deps): bump the workspace-dependencies group with 30 updates (#295)
+- build(deps): bump the github-actions group with 2 updates (#296)
+- [web][feat] Show active account filters (#297)
+
 ## [0.2.2]
 
 <!-- Draft generated from first-parent history v0.2.1..5720e8c923d4403ef6b24724341c0f33267689b2 (first-parent, exclusive of tag); release-base 5720e8c923d4403ef6b24724341c0f33267689b2. Review and curate before publication. -->
