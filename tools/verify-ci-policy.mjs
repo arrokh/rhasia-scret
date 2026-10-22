@@ -56,7 +56,6 @@ for (const command of [
   "pnpm run test:full:core",
   "pnpm audit --prod --audit-level=high",
   "pnpm run verify:dependency-licenses",
-  "pnpm run format:check",
   "pnpm --filter @rhasia-scret/web run lint",
   "pnpm run typecheck:web",
   "pnpm run test:release-evidence",
@@ -64,7 +63,8 @@ for (const command of [
   "pnpm run test:web",
   "pnpm run test:architecture",
   "pnpm run build",
-  'pnpm run test:browser:${{ matrix.suite }} --project="${{ matrix.browser }}"',
+  'pnpm run test:browser:smoke --project="${{ matrix.browser }}"',
+  'pnpm run test:browser:e2e --project="${{ matrix.browser }}"',
   "pnpm run test:browser:pwa",
   "pnpm run test:performance",
 ])
@@ -75,18 +75,41 @@ for (const command of [
     `run ${command}`,
   );
 
-requireText(".github/workflows/ci.yml", ci, /suite: \[smoke, e2e\]/, "cover both development browser suites");
+requireText(
+  ".github/workflows/ci.yml",
+  ci,
+  /^  browser-smoke:[\s\S]*?^  browser-e2e:/m,
+  "run browser smoke in a separate job",
+);
+requireText(
+  ".github/workflows/ci.yml",
+  ci,
+  /^  browser-e2e:[\s\S]*?^  browser-production:/m,
+  "run browser E2E separately from smoke",
+);
 requireText(
   ".github/workflows/ci.yml",
   ci,
   /browser:\s*\n\s+- chromium\s*\n\s+# - firefox:\s+intentionally deferred from hosted CI coverage\s*\n\s+# - webkit:\s+intentionally deferred from hosted CI coverage/,
   "focus hosted browser coverage on Chromium with Firefox and WebKit deferred",
 );
+const browserSmoke = ci.match(/^  browser-smoke:\n([\s\S]*?)(?=^  browser-e2e:)/m)?.[1] ?? "";
+const browserE2e = ci.match(/^  browser-e2e:\n([\s\S]*?)(?=^  browser-production:)/m)?.[1] ?? "";
+if (/^    services:/m.test(browserSmoke)) failures.push("browser smoke must not start PostgreSQL");
+if (
+  !/DATABASE_URL: postgresql:\/\/browser-smoke:unused@127\.0\.0\.1:1\/browser_smoke\?schema=public/.test(browserSmoke)
+)
+  failures.push("browser smoke must use an unreachable database URL to fail closed");
+if (/pnpm run prisma:migrate:deploy/.test(browserSmoke))
+  failures.push("browser smoke must not apply database migrations");
+if (!/^    services:\n      postgres:/m.test(browserE2e))
+  failures.push("browser E2E must retain its PostgreSQL service");
+if (/pnpm run format:check/.test(ci)) failures.push("CI must not duplicate the dedicated Format workflow");
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
-if (ciTimeoutCount !== 5)
+if (ciTimeoutCount !== 6)
   failures.push(
-    `.github/workflows/ci.yml must enforce eight-minute timeouts for 5 standard jobs (found ${ciTimeoutCount})`,
+    `.github/workflows/ci.yml must enforce eight-minute timeouts for 6 standard jobs (found ${ciTimeoutCount})`,
   );
 if (!/^  browser-production:[\s\S]*?^    timeout-minutes: 12$/m.test(ci))
   failures.push(".github/workflows/ci.yml must give the production PWA/performance job a twelve-minute ceiling");
@@ -96,7 +119,8 @@ for (const group of [
   "ci-repository-${{ github.workflow }}-${{ github.ref_name }}",
   "ci-core-${{ github.workflow }}-${{ github.ref_name }}",
   "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}",
-  "ci-web-browser-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.suite }}-${{ matrix.browser }}",
+  "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
+  "ci-web-browser-e2e-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
   "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}",
 ]) {
   if (!ci.includes(`group: ${group}`)) failures.push(`.github/workflows/ci.yml must scope concurrency to ${group}`);
