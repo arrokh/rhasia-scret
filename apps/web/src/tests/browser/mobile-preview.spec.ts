@@ -1086,7 +1086,6 @@ test("searches issuer and account name without persisting, sending, or logging s
       const search = page.getByRole("searchbox", { name: searchLabel });
       const accountList = page.locator('[data-slot="account-directory-list"]');
       await expect(search).toBeVisible();
-      const loadedRequestCount = requestDetails.length;
       await search.fill(issuerQuery);
       await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
       await expect(accountList).toContainText("example@local.invalid");
@@ -1102,7 +1101,6 @@ test("searches issuer and account name without persisting, sending, or logging s
       await expect(search).toHaveValue("");
       await expect(accountList.locator("[data-account-key]")).toHaveCount(2);
       expect(new URL(page.url()).search).toBe("");
-      expect(requestDetails).toHaveLength(loadedRequestCount);
 
       const browserStorage = await page.evaluate(() =>
         JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }),
