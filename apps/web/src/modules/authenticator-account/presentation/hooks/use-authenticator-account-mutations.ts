@@ -6,6 +6,7 @@ import {
   deleteEncryptedAuthenticatorAccount,
   updateEncryptedAuthenticatorAccount,
 } from "../../infrastructure/browser-authenticator-account-client";
+import { trackVaultSensitiveOperation } from "@/modules/sync";
 
 export function useDeleteEncryptedAuthenticatorAccountMutation() {
   return useMutation({
@@ -20,7 +21,10 @@ export function useDeleteEncryptedAuthenticatorAccountMutation() {
       vaultType: "PERSONAL" | "SHARED";
       accountId: string;
       expectedRevision: number;
-    }) => deleteEncryptedAuthenticatorAccount({ vaultId, vaultType }, accountId, expectedRevision),
+    }) =>
+      trackVaultSensitiveOperation(() =>
+        deleteEncryptedAuthenticatorAccount({ vaultId, vaultType }, accountId, expectedRevision),
+      ),
   });
 }
 
@@ -44,9 +48,11 @@ export function useUpdateEncryptedAuthenticatorAccountMutation() {
       encryptionVersion: 1;
       keyVersion?: number;
     }) =>
-      updateEncryptedAuthenticatorAccount(
-        { vaultId, vaultType, keyVersion },
-        { accountId, expectedRevision, encryptedPayload, encryptionVersion },
+      trackVaultSensitiveOperation(() =>
+        updateEncryptedAuthenticatorAccount(
+          { vaultId, vaultType, keyVersion },
+          { accountId, expectedRevision, encryptedPayload, encryptionVersion },
+        ),
       ),
   });
 }
@@ -69,9 +75,11 @@ export function useCreateEncryptedAuthenticatorAccountMutation() {
       source?: "LOCAL_VAULT_COPY";
       keyVersion?: number;
     }) =>
-      createEncryptedAuthenticatorAccount(
-        { vaultId, vaultType, keyVersion },
-        { encryptedPayload, encryptionVersion, source },
+      trackVaultSensitiveOperation(() =>
+        createEncryptedAuthenticatorAccount(
+          { vaultId, vaultType, keyVersion },
+          { encryptedPayload, encryptionVersion, source },
+        ),
       ),
   });
 }

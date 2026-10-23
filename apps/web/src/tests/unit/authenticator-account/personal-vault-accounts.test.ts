@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { act, createElement, StrictMode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   clearUnlockedVaultWorkspace: vi.fn(),
   refreshUnlockedVaultWorkspace: vi.fn(),
   recordSharedVaultAccountAccess: vi.fn(),
+  captureAnalyticsEvent: vi.fn(),
   pathname: "/vaults",
   passkeyEnrolled: true,
 }));
@@ -25,6 +27,7 @@ vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
   refreshUnlockedVaultWorkspace: mocks.refreshUnlockedVaultWorkspace,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }));
+vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 vi.mock("@/shared/presentation/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
 vi.mock("@/modules/crypto", () => ({
@@ -41,7 +44,10 @@ vi.mock("@/modules/vault-management", () => ({ recordSharedVaultAccountAccess: m
 import type { UnlockedVaultWorkspace } from "@/modules/sync/infrastructure/browser-vault-workspace";
 import { VaultPageAccountMenu } from "@/modules/vault-management/presentation/vault-page-account-menu";
 import { PersonalVaultAccounts } from "@/modules/authenticator-account/presentation/personal-vault-accounts";
-import { UnlockedVaultWorkspaceProvider } from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
+import {
+  UnlockedVaultWorkspaceProvider,
+  useUnlockedVaultWorkspace,
+} from "@/modules/authenticator-account/presentation/unlocked-vault-workspace-provider";
 import { requestLocalVaultLock } from "@/modules/sync";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
@@ -54,6 +60,8 @@ describe("PersonalVaultAccounts", () => {
     mocks.loadUnlockedVaultWorkspaceWithRememberedBrowser.mockReset();
     mocks.refreshUnlockedVaultWorkspace.mockReset();
     mocks.recordSharedVaultAccountAccess.mockReset();
+    mocks.captureAnalyticsEvent.mockReset();
+    sessionStorage.clear();
     mocks.pathname = "/vaults";
     mocks.passkeyEnrolled = true;
   });
@@ -62,6 +70,98 @@ describe("PersonalVaultAccounts", () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     document.body.innerHTML = "";
     localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it("searches account names and issuers only in memory and clears on lock and profile switch", async () => {
+    function WorkspaceControls() {
+      const { setWorkspace } = useUnlockedVaultWorkspace();
+      return createElement(
+        "div",
+        null,
+        createElement("button", { onClick: () => setWorkspace(workspaceWithTags()) }, "Restore workspace"),
+        createElement("button", { onClick: () => setWorkspace(workspaceWithTags("profile-2")) }, "Switch profile"),
+      );
+    }
+    function QueryCacheSnapshot() {
+      const queryClient = useQueryClient();
+      const snapshot = queryClient
+        .getQueryCache()
+        .getAll()
+        .map((query) => ({ key: query.queryKey, data: query.state.data }));
+      return createElement("output", { "data-slot": "query-cache-snapshot" }, JSON.stringify(snapshot));
+    }
+
+    const container = document.createElement("div");
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            { initialWorkspace: workspaceWithTags() },
+            createElement(WorkspaceControls),
+            createElement(QueryCacheSnapshot),
+            createElement(PersonalVaultAccounts, { vaultId: "personal-1" }),
+          ),
+        ),
+      ),
+    );
+
+    const search = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
+    expect(search).not.toBeNull();
+    mocks.captureAnalyticsEvent.mockClear();
+    mocks.refreshUnlockedVaultWorkspace.mockClear();
+    await act(async () => setInputValue(search, "work@example.test"));
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(1);
+    expect(container.querySelector('[data-slot="account-directory-list"]')?.textContent).toContain("work@example.test");
+    expect(container.textContent).not.toContain("personal@example.test");
+    expect(localStorage.getItem("rhasia-scret:account-directory:v1:profile-1")).not.toContain("work@example.test");
+    expect(sessionStorage.length).toBe(0);
+    const queryState = container.querySelector('[data-slot="query-cache-snapshot"]')?.textContent ?? "";
+    expect(queryState).not.toContain("work@example.test");
+    expect(queryState).not.toContain("personal@example.test");
+    expect(queryState).not.toContain('"Work"');
+    expect(mocks.captureAnalyticsEvent).not.toHaveBeenCalled();
+    expect(mocks.refreshUnlockedVaultWorkspace).not.toHaveBeenCalled();
+
+    await act(async () => setInputValue(search, "Work"));
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(1);
+    expect(container.querySelector('[data-slot="account-directory-list"]')?.textContent).toContain("work@example.test");
+    const filterMenu = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-filter-menu"]');
+    await act(async () => filterMenu?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const selectedTag = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
+      (item) => item.textContent?.trim() === "Synthetic E2E Work",
+    );
+    await act(async () => selectedTag?.click());
+    expect(container.querySelectorAll('[data-slot="account-directory-list"] > li')).toHaveLength(1);
+    expect(filterMenu?.getAttribute("data-active")).toBe("true");
+    const queryStateWithFilter = container.querySelector('[data-slot="query-cache-snapshot"]')?.textContent ?? "";
+    expect(queryStateWithFilter).not.toContain("Synthetic E2E Work");
+    await act(async () => setInputValue(search, "personal@example.test"));
+    expect(container.querySelector('[data-slot="account-search-empty-state"]')?.textContent).toContain(
+      "Akun tidak ditemukan",
+    );
+    await act(async () => setInputValue(search, "no-account-matches-this"));
+    expect(container.querySelector('[role="status"][data-slot="account-search-empty-state"]')).not.toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Hapus pencarian"]')?.click());
+    expect(search?.value).toBe("");
+    await act(async () => setInputValue(search, "no-account-matches-this"));
+    await act(async () => requestLocalVaultLock());
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>("button")?.click());
+    const restoredSearch = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
+    expect(restoredSearch?.value).toBe("");
+
+    await act(async () => setInputValue(restoredSearch ?? null, "work"));
+    await act(async () =>
+      [...container.querySelectorAll<HTMLButtonElement>("button")]
+        .find((button) => button.textContent === "Switch profile")
+        ?.click(),
+    );
+    expect(container.querySelector<HTMLInputElement>("#hosted-account-directory-search")?.value).toBe("");
   });
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
@@ -92,7 +192,7 @@ describe("PersonalVaultAccounts", () => {
     expect(mocks.loadUnlockedVaultWorkspace).not.toHaveBeenCalled();
   });
 
-  it("keeps the toolbar Add Account target unique when an empty vault also shows its inline CTA", async () => {
+  it("shows search no-results in an empty hosted directory while keeping the add CTA", async () => {
     const container = document.createElement("div");
     root = createRoot(container);
 
@@ -109,6 +209,17 @@ describe("PersonalVaultAccounts", () => {
         ),
       ),
     );
+
+    const search = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
+    expect(search).not.toBeNull();
+    await act(async () => setInputValue(search, "missing-synthetic-account"));
+    const emptyState = container.querySelector('[role="status"][data-slot="account-search-empty-state"]');
+    expect(emptyState?.textContent).toContain("Akun tidak ditemukan");
+    const clearSearch = [...(emptyState?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+      (button) => button.textContent?.trim() === "Hapus pencarian",
+    );
+    await act(async () => clearSearch?.click());
+    expect(search?.value).toBe("");
 
     expect(container.querySelectorAll('a[href="/vaults/accounts/new"]')).toHaveLength(2);
     expect(
@@ -223,8 +334,12 @@ describe("PersonalVaultAccounts", () => {
       ),
     );
 
+    await act(async () =>
+      setInputValue(container.querySelector("#hosted-account-directory-search"), "work@example.test"),
+    );
     await act(async () => requestLocalVaultLock());
 
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
     expect(mocks.clearUnlockedVaultWorkspace).toHaveBeenCalledOnce();
     expect(container.querySelector("#vault-unlock-secret")).not.toBeNull();
   });
@@ -437,6 +552,18 @@ describe("PersonalVaultAccounts", () => {
     expect(container.querySelector("#account-uri")).toBeNull();
   });
 });
+
+function workspaceWithTags(profileId = "profile-1"): UnlockedVaultWorkspace {
+  const current = workspace();
+  return {
+    ...current,
+    profileId,
+    accounts: current.accounts.map((account, index) => ({
+      ...account,
+      tags: [index === 0 ? "Synthetic Personal" : "Synthetic E2E Work"],
+    })),
+  };
+}
 
 function workspace(): UnlockedVaultWorkspace {
   return {

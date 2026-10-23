@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PasskeyRecoveryEnrollment, RememberedBrowserEnrollment } from "@/modules/crypto";
 import { TotpAccountButton } from "@/modules/otp-runtime";
+import {
+  matchesAuthenticatorAccountSearch,
+  matchesAuthenticatorAccountTagFilter,
+} from "@rhasia-scret/client-vault-core";
 import { VaultStatusIndicator, type WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { recordSharedVaultAccountAccess } from "@/modules/audit";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
@@ -16,6 +20,7 @@ import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/prese
 import { cn } from "@/lib/utils";
 import { LocalVaultCopyPanel } from "@/modules/local-vault";
 import { AccountDirectoryControls } from "./account-directory-controls";
+import { AccountDirectorySearch, AccountSearchEmptyState } from "./account-directory-search";
 import {
   accountDirectoryAccountKey,
   moveDirectoryAccount,
@@ -36,6 +41,11 @@ function requiresWorkspaceRevalidation(error: unknown): boolean {
 }
 
 export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
+  const { workspace } = useUnlockedVaultWorkspace();
+  return <PersonalVaultAccountsWorkspace key={`${workspace?.profileId ?? "locked"}:${vaultId}`} vaultId={vaultId} />;
+}
+
+function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
   const tCommon = useTranslations("Common");
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
@@ -43,6 +53,8 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
   const [auditError, setAuditError] = useState(false);
   const [lastMovedKey, setLastMovedKey] = useState<string | null>(null);
   const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [reorderVersion, setReorderVersion] = useState(0);
   const accountListRef = useRef<HTMLUListElement>(null);
   const previousAccountRectsRef = useRef(new Map<string, DOMRect>());
@@ -68,14 +80,25 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
       (issuer, index, filters) => availableIssuers.has(issuer) && filters.indexOf(issuer) === index,
     );
   }, [issuerFilters, orderedAccounts]);
+  const tagOptions = useMemo(
+    () => [...new Set(orderedAccounts.flatMap((account) => account.tags ?? []))],
+    [orderedAccounts],
+  );
+  const activeTagFilters = useMemo(
+    () =>
+      selectedTagFilters.filter((tag, index, filters) => tagOptions.includes(tag) && filters.indexOf(tag) === index),
+    [selectedTagFilters, tagOptions],
+  );
   const visibleAccounts = useMemo(
     () =>
       orderedAccounts.filter(
         (account) =>
           (activeVaultFilters.length === 0 || activeVaultFilters.includes(account.vaultId)) &&
-          (activeIssuerFilters.length === 0 || activeIssuerFilters.includes(account.issuer)),
+          (activeIssuerFilters.length === 0 || activeIssuerFilters.includes(account.issuer)) &&
+          matchesAuthenticatorAccountTagFilter(account.tags, activeTagFilters) &&
+          matchesAuthenticatorAccountSearch(account, searchQuery),
       ),
-    [activeIssuerFilters, activeVaultFilters, orderedAccounts],
+    [activeIssuerFilters, activeTagFilters, activeVaultFilters, orderedAccounts, searchQuery],
   );
   const activeFilterLabel = useMemo(() => {
     const vaultLabel =
@@ -84,14 +107,20 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
         : activeVaultFilters.length === 1
           ? (vaultOptions.find((vault) => vault.id === activeVaultFilters[0])?.name ?? t("allVaults"))
           : t("selectedVaults", { count: activeVaultFilters.length });
-    if (activeIssuerFilters.length === 0) return vaultLabel;
-    const issuerLabel =
-      activeIssuerFilters.length === 1
-        ? activeIssuerFilters[0]
-        : t("selectedIssuers", { count: activeIssuerFilters.length });
-    return `${vaultLabel} · ${issuerLabel}`;
-  }, [activeIssuerFilters, activeVaultFilters, t, vaultOptions]);
-  const hasActiveFilters = activeVaultFilters.length > 0 || activeIssuerFilters.length > 0;
+    const labels = [vaultLabel];
+    if (activeIssuerFilters.length > 0) {
+      labels.push(
+        activeIssuerFilters.length === 1
+          ? (activeIssuerFilters[0] ?? "")
+          : t("selectedIssuers", { count: activeIssuerFilters.length }),
+      );
+    }
+    if (activeTagFilters.length > 0) labels.push(t("selectedTags", { count: activeTagFilters.length }));
+    return labels.join(" · ");
+  }, [activeIssuerFilters, activeTagFilters, activeVaultFilters, t, vaultOptions]);
+  const hasActiveFilters =
+    activeVaultFilters.length > 0 || activeIssuerFilters.length > 0 || activeTagFilters.length > 0;
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   useLayoutEffect(() => {
     const list = accountListRef.current;
@@ -295,6 +324,9 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
               }}
               issuerFilters={activeIssuerFilters}
               onIssuerFiltersChange={setIssuerFilters}
+              tagOptions={tagOptions}
+              tagFilters={activeTagFilters}
+              onTagFiltersChange={setSelectedTagFilters}
               view={preferences.view}
               onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
               reorderAccounts={orderedAccounts.map((account) => ({
@@ -309,9 +341,11 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
                 filterLabel: t("filterLabel"),
                 filterByVault: t("filterByVault"),
                 filterByIssuer: t("filterByIssuer"),
+                filterByTag: t("filterByTag"),
                 filtersApplied: t("filtersApplied"),
                 allVaults: t("allVaults"),
                 allIssuers: t("allIssuers"),
+                allTags: t("allTags"),
                 viewLabel: t("viewLabel"),
                 compact: t("compact"),
                 normal: t("normal"),
@@ -328,6 +362,11 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
           )}
         </div>
       </div>
+      <AccountDirectorySearch
+        query={searchQuery}
+        inputId="hosted-account-directory-search"
+        onQueryChange={setSearchQuery}
+      />
       <span className="sr-only" aria-live="polite">
         {lastMovedAccount && lastMovedPosition > 0
           ? t("reordered", { account: lastMovedAccount.accountName, position: lastMovedPosition })
@@ -394,6 +433,20 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
             );
           })}
         </ul>
+      ) : hasSearchQuery ? (
+        <AccountSearchEmptyState
+          onClearSearch={() => setSearchQuery("")}
+          onClearFilters={
+            hasActiveFilters
+              ? () => {
+                  setSearchQuery("");
+                  setIssuerFilters([]);
+                  setSelectedTagFilters([]);
+                  setPreferences((current) => ({ ...current, vaultFilters: [] }));
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
           <KeyRound className="size-7 text-taupe" aria-hidden="true" />
@@ -413,7 +466,9 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
               variant="outline"
               className="mt-2"
               onClick={() => {
+                setSearchQuery("");
                 setIssuerFilters([]);
+                setSelectedTagFilters([]);
                 setPreferences((current) => ({ ...current, vaultFilters: [] }));
               }}
             >

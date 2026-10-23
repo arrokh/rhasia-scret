@@ -20,6 +20,7 @@ import { useOnlineStatus } from "@/shared/presentation/use-online-status";
 import { localeCookieMaxAge, localeCookieName, locales, type AppLocale } from "./config";
 
 export const refreshOfflineShellMessage = "RHSIA_REFRESH_OFFLINE_SHELL";
+const offlineShellRefreshedMessage = "RHSIA_OFFLINE_SHELL_REFRESHED";
 
 function persistLocale(nextLocale: AppLocale) {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
@@ -48,7 +49,7 @@ export function LocaleSwitcher({
 
   useLayoutEffect(() => {
     // Radix submenus open sideways; shift the embedded language menu when the settings menu leaves no horizontal room.
-    if (!embedded || !document.body) return;
+    if (!embedded) return;
     let positionedWrapper: HTMLElement | null = null;
     let positionObserver: MutationObserver | null = null;
     let settleFrame: number | null = null;
@@ -218,25 +219,70 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
   const router = useRouter();
   const online = useOnlineStatus();
   const [pending, startTransition] = useTransition();
+  const [refreshingOfflineShell, setRefreshingOfflineShell] = useState(false);
+  const [offlineShellRefreshFailed, setOfflineShellRefreshFailed] = useState(false);
 
   function confirmLocaleChange() {
-    if (!nextLocale || nextLocale === locale || pending || !online) return;
+    if (nextLocale === locale || pending || refreshingOfflineShell || !online) return;
+    setOfflineShellRefreshFailed(false);
     persistLocale(nextLocale);
+    setRefreshingOfflineShell(true);
+    void refreshOfflineShell()
+      .then(() => {
+        setRefreshingOfflineShell(false);
+        onCancel();
+        startTransition(() => router.refresh());
+      })
+      .catch(async () => {
+        persistLocale(locale);
+        await refreshOfflineShell().catch(() => {});
+        setRefreshingOfflineShell(false);
+        setOfflineShellRefreshFailed(true);
+      });
+  }
+
+  function cancelLocaleChange() {
+    setOfflineShellRefreshFailed(false);
     onCancel();
-    navigator.serviceWorker?.controller?.postMessage({ type: refreshOfflineShellMessage });
-    startTransition(() => router.refresh());
   }
 
   return (
     <ConfirmationDialog
       title={t("confirmTitle")}
-      description={t("confirmDescription", { language: languageName(nextLocale, t) })}
+      description={
+        offlineShellRefreshFailed
+          ? t("offlineShellRefreshFailed")
+          : t("confirmDescription", { language: languageName(nextLocale, t) })
+      }
       confirmLabel={t("confirm")}
-      pending={pending}
-      onCancel={onCancel}
+      pending={pending || refreshingOfflineShell}
+      onCancel={cancelLocaleChange}
       onConfirm={confirmLocaleChange}
     />
   );
+}
+
+async function refreshOfflineShell(): Promise<void> {
+  if (!navigator.serviceWorker) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  for (const worker of [registration?.waiting, navigator.serviceWorker.controller]) {
+    if (!worker) continue;
+    const channel = new MessageChannel();
+    let timeout = 0;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        timeout = window.setTimeout(reject, 30_000);
+        channel.port1.onmessage = (event: MessageEvent<{ type?: unknown }>) => {
+          if (event.data?.type === offlineShellRefreshedMessage) resolve();
+          else reject();
+        };
+        worker.postMessage({ type: refreshOfflineShellMessage }, [channel.port2]);
+      });
+    } finally {
+      clearTimeout(timeout);
+      channel.port1.close();
+    }
+  }
 }
 
 function languageName(locale: AppLocale, t: ReturnType<typeof useTranslations<"Locale">>): string {

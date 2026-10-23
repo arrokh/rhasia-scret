@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useUnlockedVaultWorkspace, VaultWorkspaceUnlock } from "@/modules/authenticator-account";
-import type { UnlockedVaultWorkspace } from "@/modules/sync";
+import { subscribeToLocalVaultLock, trackVaultSensitiveOperation, type UnlockedVaultWorkspace } from "@/modules/sync";
 import { MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES } from "@/modules/crypto";
 import { createSharedVaultMaterial } from "@/modules/vault-management";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
@@ -154,20 +154,30 @@ export function VaultArchiveImporter({
         setErrorCode("chooseArchive");
         return;
       }
-      let archiveBytes: Uint8Array | undefined;
-      let archiveKey: Uint8Array | undefined;
+      const archiveFile = value.archive;
+      let archiveBytesToClear: Uint8Array | undefined;
+      let archiveKeyToClear: Uint8Array | undefined;
       try {
-        if (value.archive.size === 0 || value.archive.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES)
+        if (archiveFile.size === 0 || archiveFile.size > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES)
           throw new VaultArchivePresentationError("archiveTooLarge");
-        archiveBytes = new Uint8Array(await value.archive.arrayBuffer());
-        archiveKey = parseArchiveKey(value.keyMaterial);
-        replaceOpened(await openAndValidateEncryptedVaultArchive(archiveKey, archiveBytes));
+        const openedArchive = await trackVaultSensitiveOperation(async () => {
+          const archiveBytes = new Uint8Array(await archiveFile.arrayBuffer());
+          const archiveKey = parseArchiveKey(value.keyMaterial);
+          archiveBytesToClear = archiveBytes;
+          archiveKeyToClear = archiveKey;
+          return openAndValidateEncryptedVaultArchive(archiveKey, archiveBytes);
+        }, clearOpenedVaultArchive);
+        if (!activeRef.current) {
+          clearOpenedVaultArchive(openedArchive);
+          return;
+        }
+        replaceOpened(openedArchive);
         importForm.setFieldValue("destinationId", initialDestination);
       } catch (error) {
-        setErrorCode(classifyArchiveError(error, "openError"));
+        if (activeRef.current) setErrorCode(classifyArchiveError(error, "openError"));
       } finally {
-        archiveBytes?.fill(0);
-        archiveKey?.fill(0);
+        archiveBytesToClear?.fill(0);
+        archiveKeyToClear?.fill(0);
         previewForm.setFieldValue("keyMaterial", "");
         previewForm.setFieldValue("archive", null);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -190,9 +200,6 @@ export function VaultArchiveImporter({
   }, [existingDestination, opened, workspace.accounts]);
 
   useEffect(() => {
-    openedRef.current = opened;
-  }, [opened]);
-  useEffect(() => {
     activeRef.current = true;
     return () => {
       activeRef.current = false;
@@ -200,13 +207,32 @@ export function VaultArchiveImporter({
       openedRef.current = null;
     };
   }, []);
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        activeRef.current = false;
+        clearOpenedVaultArchive(openedRef.current);
+        openedRef.current = null;
+        setOpenedState(null);
+        setErrorCode(null);
+        setSuccess(null);
+        setDuplicateConfirmation(false);
+        setKeyVisible(false);
+        setImportPhase(null);
+        planRef.current = null;
+        previewForm.setFieldValue("archive", null);
+        previewForm.setFieldValue("keyMaterial", "");
+        importForm.reset();
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }),
+    [importForm, previewForm],
+  );
 
   function replaceOpened(next: OpenedVaultArchive | null) {
-    setOpenedState((current) => {
-      if (current && current !== next) clearOpenedVaultArchive(current);
-      return next;
-    });
+    const current = openedRef.current;
+    if (current && current !== next) clearOpenedVaultArchive(current);
     openedRef.current = next;
+    setOpenedState(next);
     planRef.current = null;
     setDuplicateConfirmation(false);
   }
@@ -227,7 +253,16 @@ export function VaultArchiveImporter({
   }
 
   async function submitImport(destinationId: string, allowDuplicates: boolean) {
-    if (!opened || !online || uploading) return;
+    if (!openedRef.current || !online || uploading || !activeRef.current) return;
+    try {
+      await trackVaultSensitiveOperation(() => performImport(destinationId, allowDuplicates));
+    } catch {
+      if (activeRef.current && openedRef.current) setErrorCode("locked");
+    }
+  }
+
+  async function performImport(destinationId: string, allowDuplicates: boolean) {
+    if (!opened || !online || uploading || !activeRef.current) return;
     setErrorCode(null);
     setSuccess(null);
     const destination = writableVaults.find(({ id }) => id === destinationId);

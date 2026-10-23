@@ -16,6 +16,7 @@ const baseUrl = `http://127.0.0.1:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
 const personalSecret = "e2e personal vault passphrase";
 const personalName = "E2E Personal Vault";
 const imageTotpSecret = ["JBSW", "Y3DP", "EHPK", "3PXP"].join("");
+const accountTag = "Synthetic E2E Work";
 const manualTotpSecret = ["KRSX", "G5DS", "NFXG", "OIDB"].join("");
 const imageTotpUri = `otpauth://totp/E2E%20Image:image-user?secret=${imageTotpSecret}&issuer=E2E%20Image&algorithm=SHA1&digits=6&period=30`;
 const manualTotpUri = `otpauth://totp/E2E%20Manual:manual-user?secret=${manualTotpSecret}&issuer=E2E%20Manual&algorithm=SHA256&digits=8&period=45`;
@@ -183,13 +184,17 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   await test.step("edit increments revision and a stale overwrite remains a distinct conflict", async () => {
     await page.getByRole("button", { name: "Kelola image-user" }).first().click();
     await page.getByRole("menuitem", { name: "Kelola akun" }).click();
-    const label = page.getByRole("dialog").getByLabel("Label akun");
+    const dialog = page.getByRole("dialog");
+    const label = dialog.getByLabel("Label akun");
     await label.fill("image-user-edited");
+    await page.locator(`#managed-account-tag-${accountId}`).fill(accountTag);
+    await dialog.getByRole("button", { name: "Tambahkan tag", exact: true }).click();
+    await expect(dialog.getByText(accountTag, { exact: true })).toBeVisible();
     const responsePromise = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" && response.url().includes(`/api/v1/vaults/${vaultId}/accounts`),
     );
-    await page.getByRole("dialog").getByRole("button", { name: "Simpan label" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Simpan akun" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ id: accountId, revision: 2 });
@@ -197,7 +202,9 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
       encryptedPayload: string;
     };
     latestEncryptedPayload = requestBody.encryptedPayload;
-    await expect(page.getByText("Label akun diperbarui.")).toBeVisible();
+    expect(requestBody.encryptedPayload).not.toContain(accountTag);
+    await expect(page.getByText("Akun diperbarui.")).toBeVisible();
+    await expect(page.getByRole("article").getByText(accountTag, { exact: true })).toBeVisible();
 
     const stale = await page.evaluate(
       async ({ id, targetVaultId, encryptedPayload }) => {
@@ -271,6 +278,18 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     await unlockVault(page, personalSecret);
     await expect(page.getByRole("button", { name: "Kelola image-user-edited" })).toBeVisible();
     await expect(page.getByLabel("2 akun")).toBeVisible();
+    const search = page.getByRole("searchbox", { name: "Cari penerbit atau nama akun" });
+    const accountList = page.locator('[data-slot="account-directory-list"]');
+    const requestCountBeforeSearch = observed.requests.length;
+    await search.fill("image-user");
+    await expect(accountList.locator("[data-account-key]")).toHaveCount(2);
+    expect(observed.requests).toHaveLength(requestCountBeforeSearch);
+    await page.getByRole("button", { name: "Filter akun" }).click();
+    const filterOptions = page.locator('[data-slot="dropdown-menu-content"]');
+    await filterOptions.getByRole("menuitemcheckbox", { name: accountTag, exact: true }).click();
+    await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
+    await expect(accountList).toContainText("image-user-edited");
+    await expect(accountList.getByRole("button", { name: /Salin OTP untuk image-user, E2E Image/ })).toHaveCount(0);
   });
 
   await assertNoSensitiveLeak(page, observed, [
@@ -280,6 +299,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     imageTotpSecret,
     "image-user",
     "image-user-edited",
+    accountTag,
     generatedOtp,
   ]);
 });
@@ -592,9 +612,9 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
           response.request().method() === "PATCH" &&
           response.url().endsWith(`/api/v1/shared-vaults/${sharedVaultId}/accounts`),
       );
-      await leavePage.getByRole("dialog").getByRole("button", { name: "Simpan label" }).click();
+      await leavePage.getByRole("dialog").getByRole("button", { name: "Simpan akun" }).click();
       expect((await editResponse).status()).toBe(200);
-      await expect(leavePage.getByText("Label akun diperbarui.")).toBeVisible();
+      await expect(leavePage.getByText("Akun diperbarui.")).toBeVisible();
 
       const deleteStatus = await leavePage.evaluate(
         async ({ vaultId }) => {

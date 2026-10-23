@@ -72,8 +72,8 @@ describe("Local Vault archive import review", () => {
     async ({ locale, messages, reviewButton, confirmButton }) => {
       archiveMocks.previewImport.mockResolvedValue(noDuplicateReview);
       archiveMocks.importArchive.mockResolvedValue(1);
-      const { container, mutationCalls } = await mountImporter(locale, messages);
-      chooseFiles(container);
+      const { container, mutationCalls, sensitiveOperationActive } = await mountImporter(locale, messages);
+      chooseFiles(container, () => expect(sensitiveOperationActive()).toBe(true));
 
       await act(async () => findButton(container, reviewButton).click());
 
@@ -143,16 +143,34 @@ async function mountImporter(
 ): Promise<{
   container: HTMLDivElement;
   mutationCalls: () => number;
+  sensitiveOperationActive: () => boolean;
 }> {
   const container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   let mutationCount = 0;
+  let sensitiveOperation = false;
   const runMutation: <Result>(operation: (current: UnlockedLocalVault) => Promise<Result>) => Promise<Result> = async (
     operation,
   ) => {
     mutationCount += 1;
-    return operation(vault);
+    sensitiveOperation = true;
+    try {
+      return await operation(vault);
+    } finally {
+      sensitiveOperation = false;
+    }
+  };
+  const performSensitiveWorkflow: <Result>(
+    operation: (current: UnlockedLocalVault) => Promise<Result>,
+    clearStaleResult?: (result: Result) => void,
+  ) => Promise<Result> = async (operation) => {
+    sensitiveOperation = true;
+    try {
+      return await operation(vault);
+    } finally {
+      sensitiveOperation = false;
+    }
   };
   await act(async () => {
     root?.render(
@@ -160,8 +178,8 @@ async function mountImporter(
         TestIntlProvider,
         { locale, messages },
         createElement(LocalArchiveImporter, {
-          vault,
           runMutation,
+          performSensitiveWorkflow,
           refresh: vi.fn().mockResolvedValue(undefined),
           onError: vi.fn(),
           onStatus: vi.fn(),
@@ -171,17 +189,31 @@ async function mountImporter(
       ),
     );
   });
-  return { container, mutationCalls: () => mutationCount };
+  return {
+    container,
+    mutationCalls: () => mutationCount,
+    sensitiveOperationActive: () => sensitiveOperation,
+  };
 }
 
-function chooseFiles(container: ParentNode): void {
+function chooseFiles(container: ParentNode, onRead?: () => void): void {
   const [archiveInput, keyInput] = [...container.querySelectorAll<HTMLInputElement>('input[type="file"]')];
   if (!archiveInput || !keyInput) throw new Error("Expected archive and key file inputs.");
 
   const archive = new File(["synthetic encrypted archive"], "sample.rhasia");
-  Object.defineProperty(archive, "arrayBuffer", { value: async () => new Uint8Array([1, 2, 3]).buffer });
+  Object.defineProperty(archive, "arrayBuffer", {
+    value: async () => {
+      onRead?.();
+      return new Uint8Array([1, 2, 3]).buffer;
+    },
+  });
   const key = new File(["synthetic archive key"], "sample-key.txt");
-  Object.defineProperty(key, "text", { value: async () => "AQID" });
+  Object.defineProperty(key, "text", {
+    value: async () => {
+      onRead?.();
+      return "AQID";
+    },
+  });
   Object.defineProperty(archiveInput, "files", { configurable: true, value: [archive] });
   Object.defineProperty(keyInput, "files", { configurable: true, value: [key] });
   archiveInput.dispatchEvent(new Event("change", { bubbles: true }));

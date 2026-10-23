@@ -1,7 +1,14 @@
 export { AccountRevision } from "./domain/account-revision";
 export { ACCOUNT_RECOVERY_DAYS, accountPurgeAfter } from "./domain/account-retention-policy";
 export { purgeExpiredAuthenticatorAccounts } from "./application/purge-expired-accounts";
-export type { AuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+export type { AccountPayloadConfiguration, AuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
+export {
+  AccountTagValidationError,
+  MAX_AUTHENTICATOR_ACCOUNT_TAGS,
+  MAX_AUTHENTICATOR_ACCOUNT_TAG_CODE_POINTS,
+  normalizeAuthenticatorAccountTags,
+} from "@rhasia-scret/client-vault-core";
+export type { AccountTagValidationErrorCode } from "@rhasia-scret/client-vault-core";
 export { createAuthenticatorAccountPayloadPort } from "@rhasia-scret/client-vault-core";
 export type {
   VaultWorkspaceCryptoPort,
@@ -26,6 +33,9 @@ export { PersonalVaultAccounts } from "./presentation/personal-vault-accounts";
 export { clearAccountDirectoryPreferences } from "./presentation/account-directory-preferences";
 export { AuthenticatorAccountDirectoryPreview } from "./presentation/authenticator-account-directory-preview";
 export { AuthenticatorAccountCreator } from "./presentation/authenticator-account-creator";
+export { AccountTagsEditor } from "./presentation/account-tags-editor";
+export { AccountTagsFilter } from "./presentation/account-tags-filter";
+export { AccountDirectorySearch, AccountSearchEmptyState } from "./presentation/account-directory-search";
 export {
   UnlockedVaultWorkspaceProvider,
   useUnlockedVaultWorkspace,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LocalVaultSession,
   LocalVaultSessionDisposedError,
+  LocalVaultSessionLockedError,
   type LocalVaultRecord,
   type LocalVaultSessionPorts,
   type UnlockedLocalVault,
@@ -33,19 +34,29 @@ function vault(value = 1): UnlockedLocalVault {
 
 function harness() {
   let stored: LocalVaultRecord | null = record();
+  let archiveExportAt: string | null = null;
+  let updateLockActive = false;
   const cleared: UnlockedLocalVault[] = [];
   const ports: LocalVaultSessionPorts = {
     isAvailable: () => true,
     readRecord: vi.fn(async () => stored),
+    readArchiveExportAt: vi.fn(async (profileId: string) => (stored?.profileId === profileId ? archiveExportAt : null)),
+    clearOrphanedArchiveExportMarker: vi.fn(async () => {
+      if (!stored) archiveExportAt = null;
+    }),
+    trackSensitiveOperation: <Result>(operation: () => Promise<Result>) =>
+      updateLockActive ? Promise.reject(new Error("PWA update is preparing.")) : operation(),
     createRecord: vi.fn(async () => record()),
     persistCreatedRecord: vi.fn(async (next) => {
       stored = next;
+      archiveExportAt = null;
     }),
     unlockRecord: vi.fn(async () => vault()),
     migrateRecord: vi.fn(async () => record()),
     refreshVault: vi.fn(async () => vault(3)),
     clearRecord: vi.fn(async () => {
       stored = null;
+      archiveExportAt = null;
     }),
     clearVault: vi.fn((current) => {
       if (!current) return;
@@ -63,6 +74,12 @@ function harness() {
     setStored: (next: LocalVaultRecord | null) => {
       stored = next;
     },
+    setArchiveExportAt: (next: string | null) => {
+      archiveExportAt = next;
+    },
+    setUpdateLockActive: (next: boolean) => {
+      updateLockActive = next;
+    },
   };
 }
 
@@ -76,6 +93,137 @@ describe("LocalVaultSession", () => {
     await test.session.clear();
     expect(test.session.state).toMatchObject({ record: null, vault: null });
     expect(test.cleared).toHaveLength(1);
+  });
+
+  it("cleans an orphaned archive marker when no Local Profile remains", async () => {
+    const test = harness();
+    test.setStored(null);
+    test.setArchiveExportAt("2026-10-22T12:00:00.000Z");
+
+    await test.session.discover();
+
+    expect(test.ports.clearOrphanedArchiveExportMarker).toHaveBeenCalledOnce();
+    expect(test.session.state.lastArchiveExportAt).toBeNull();
+  });
+
+  it("refreshes the local export timestamp after a session mutation", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+
+    await test.session.mutate(async () => test.setArchiveExportAt("2026-10-22T12:00:00.000Z"));
+
+    expect(test.session.state.lastArchiveExportAt).toBe("2026-10-22T12:00:00.000Z");
+  });
+
+  it("clears a Local Vault unlock that finishes after the session is locked", async () => {
+    const test = harness();
+    await test.session.discover();
+    let finishUnlock: ((value: UnlockedLocalVault) => void) | undefined;
+    const pendingVault = vault(9);
+    vi.mocked(test.ports.unlockRecord).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishUnlock = resolve;
+        }),
+    );
+
+    const unlocking = test.session.unlock("passphrase");
+    await vi.waitFor(() => expect(finishUnlock).toBeDefined());
+    test.session.lock();
+    finishUnlock?.(pendingVault);
+
+    await expect(unlocking).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    expect(test.session.state.vault).toBeNull();
+    expect(pendingVault.rootKey).toEqual(new Uint8Array(32));
+    expect(pendingVault.vaultKey).toEqual(new Uint8Array(32));
+  });
+
+  it("does not start an unlock queued before a lock", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+    const unlockedVault = test.session.state.vault;
+    let startMutation: (() => void) | undefined;
+    let finishMutation: (() => void) | undefined;
+    const mutationStarted = new Promise<void>((resolve) => {
+      startMutation = resolve;
+    });
+    const pendingMutation = new Promise<void>((resolve) => {
+      finishMutation = resolve;
+    });
+    const mutation = test.session.mutate(async () => {
+      startMutation?.();
+      await pendingMutation;
+    });
+    await mutationStarted;
+    const queuedUnlock = test.session.unlock("passphrase");
+
+    test.session.lock();
+    finishMutation?.();
+
+    await expect(mutation).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    await expect(queuedUnlock).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    expect(test.ports.unlockRecord).toHaveBeenCalledOnce();
+    expect(test.session.state.vault).toBeNull();
+    expect(unlockedVault?.rootKey).toEqual(new Uint8Array(32));
+    expect(unlockedVault?.vaultKey).toEqual(new Uint8Array(32));
+  });
+
+  it("runs a sensitive workflow after a queued Local Vault mutation", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+    await test.session.mutate(async (current) => {
+      current.name = "Updated local vault";
+    });
+
+    await expect(test.session.performSensitiveWorkflow(async (current) => current.name)).resolves.toBe(
+      "Updated local vault",
+    );
+  });
+
+  it("clears archive results when a sensitive workflow finishes after lock", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+    const archive = Uint8Array.of(7, 8, 9);
+    const key = Uint8Array.of(4, 5, 6);
+    let startWorkflow: (() => void) | undefined;
+    let finishWorkflow: ((result: { archive: Uint8Array; key: Uint8Array }) => void) | undefined;
+    const workflowStarted = new Promise<void>((resolve) => {
+      startWorkflow = resolve;
+    });
+    const workflowResult = new Promise<{ archive: Uint8Array; key: Uint8Array }>((resolve) => {
+      finishWorkflow = resolve;
+    });
+    const workflow = test.session.performSensitiveWorkflow(
+      async () => {
+        startWorkflow?.();
+        return workflowResult;
+      },
+      (result) => {
+        result.archive.fill(0);
+        result.key.fill(0);
+      },
+    );
+    await workflowStarted;
+
+    test.session.lock();
+    finishWorkflow?.({ archive, key });
+
+    await expect(workflow).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    expect(archive).toEqual(new Uint8Array(3));
+    expect(key).toEqual(new Uint8Array(3));
+  });
+
+  it("does not start an unlock while a PWA update is preparing", async () => {
+    const test = harness();
+    await test.session.discover();
+    test.setUpdateLockActive(true);
+
+    await expect(test.session.unlock("passphrase")).rejects.toThrow("PWA update is preparing.");
+    expect(test.ports.unlockRecord).not.toHaveBeenCalled();
   });
 
   it("creates, persists, and unlocks through one session transition", async () => {

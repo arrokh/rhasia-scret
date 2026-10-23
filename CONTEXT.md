@@ -230,6 +230,14 @@ _Avoid_: Active vault, permanent archive
 A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A Shared Vault member may create, replace, or soft-delete it only through the corresponding Effective Shared Vault Account Permission. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable only by its owner before that deadline, and is then permanently purged by bounded server cleanup.
 _Avoid_: Token, credential
 
+**Account Tag**:
+A user-defined label attached to an Authenticator Account for client-side organization. Tag names are part of encrypted account content and are available only in an unlocked client workspace; they are never server metadata or browser-persisted preferences. An account may have zero to twenty tags, each non-empty and at most 32 Unicode code points, with duplicates rejected case-insensitively.
+_Avoid_: Collection, server-side tag index, plaintext account metadata
+
+**Local Vault Record Version**:
+The strict outer format of a browser-held Local Vault record. Current clients read legacy version 1 records and write version 2 records; older strict clients reject version 2 before they can replace encrypted content containing newer account payloads.
+_Avoid_: Client content version, encryption key version
+
 **Account Revision**:
 The version of an Authenticator Account used to reject a stale change rather than silently overwrite newer encrypted content.
 _Avoid_: Last-write-wins, auto-merge

@@ -7,6 +7,8 @@ import { browserClientCryptoPort } from "@/modules/crypto/infrastructure/browser
 import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive/infrastructure/browser-vault-archive-workflow";
 import {
   BrowserLocalVaultRepository,
+  LEGACY_LOCAL_VAULT_RECORD_VERSION,
+  LOCAL_VAULT_RECORD_VERSION,
   addLocalAccount,
   clearLocalVault,
   clearUnlockedLocalVault,
@@ -20,12 +22,13 @@ import {
   type LocalVaultRecord,
   previewLocalVaultArchive,
   previewLocalVaultArchiveImport,
+  recordLocalArchiveExport,
   renameLocalVault,
   unlockLocalVault,
   updateLocalAccount,
 } from "@/modules/local-vault";
 
-function account() {
+function account(tags?: string[]) {
   return {
     issuer: "Example Issuer",
     accountName: "alice@example.invalid",
@@ -33,6 +36,7 @@ function account() {
     algorithm: "SHA-1" as const,
     digits: 6 as const,
     period: 30,
+    ...(tags ? { tags } : {}),
   };
 }
 
@@ -43,6 +47,7 @@ describe("device-local Local Vault", () => {
 
   it("creates one encrypted profile, unlocks offline, and rejects a second profile", async () => {
     const record = await createLocalVault("local-passphrase", "Device vault");
+    expect(record.version).toBe(LOCAL_VAULT_RECORD_VERSION);
     expect(record).not.toHaveProperty("name");
     expect(record).not.toHaveProperty("passphrase");
     await new BrowserLocalVaultRepository().create(record);
@@ -53,6 +58,104 @@ describe("device-local Local Vault", () => {
     expect(unlocked.name).toBe("Device vault");
     expect(unlocked.accounts).toEqual([]);
     clearUnlockedLocalVault(unlocked);
+  });
+
+  it("rejects a stale Local Vault record-version downgrade", async () => {
+    const created = await createLocalVault("synthetic-local-passphrase", "Synthetic device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    const stale = { ...created, version: LEGACY_LOCAL_VAULT_RECORD_VERSION };
+
+    await expect(repository.replace(stale)).rejects.toThrow(/version cannot be downgraded/);
+    expect(await repository.read()).toEqual(created);
+  });
+
+  it("upgrades legacy Local Vault records to v2 before writing new account payloads", async () => {
+    const passphrase = "synthetic-local-passphrase";
+    const created = await createLocalVault(passphrase, "Synthetic device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    const legacy = { ...created, version: LEGACY_LOCAL_VAULT_RECORD_VERSION };
+    expect(legacy.version).toBe(LEGACY_LOCAL_VAULT_RECORD_VERSION);
+    await seedLocalVaultRecord(legacy);
+
+    const unlocked = await unlockLocalVault(legacy, passphrase);
+    try {
+      await addLocalAccount(unlocked, account(["Synthetic tag"]));
+      expect((await repository.read())?.version).toBe(LOCAL_VAULT_RECORD_VERSION);
+    } finally {
+      clearUnlockedLocalVault(unlocked);
+    }
+  });
+
+  it("records only a local export timestamp and clears it with its Local Profile", async () => {
+    const passphrase = "synthetic-local-passphrase";
+    const created = await createLocalVault(passphrase, "Synthetic device vault");
+    const exportedAt = "2026-10-22T12:00:00.000Z";
+    expect(parseLocalVaultRecord(created)).not.toHaveProperty("lastArchiveExportAt");
+    expect(() => parseLocalVaultRecord({ ...created, lastArchiveExportAt: exportedAt })).toThrow();
+    expect(() => parseLocalVaultRecord({ ...created, name: "Synthetic name" })).toThrow();
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    const unlocked = await unlockLocalVault(created, passphrase);
+    let archive: Uint8Array | undefined;
+    let key: Uint8Array | undefined;
+
+    try {
+      await recordLocalArchiveExport(unlocked, exportedAt);
+      const stored = await repository.read();
+      expect(stored).toEqual(created);
+      expect(await repository.readArchiveExportAt(created.profileId)).toBe(exportedAt);
+      expect(await repository.readArchiveExportAt("another-profile-id-123")).toBeNull();
+      await repository.replace(stored!);
+      expect(await repository.readArchiveExportAt(created.profileId)).toBe(exportedAt);
+      expect(stored).not.toHaveProperty("archive");
+      expect(stored).not.toHaveProperty("archiveKey");
+      expect(stored).not.toHaveProperty("key");
+      expect(stored).not.toHaveProperty("name");
+
+      const exported = await exportLocalVault(unlocked);
+      archive = exported.archive;
+      key = exported.key;
+      const preview = await previewLocalVaultArchive(key, archive);
+      expect(preview).not.toHaveProperty("lastArchiveExportAt");
+      expect(preview.accounts).toEqual([]);
+
+      await clearLocalVault();
+      expect(await repository.read()).toBeNull();
+      expect(await repository.readArchiveExportAt(created.profileId)).toBeNull();
+    } finally {
+      archive?.fill(0);
+      key?.fill(0);
+      clearUnlockedLocalVault(unlocked);
+    }
+  });
+
+  it("clears an export marker orphaned when an older tab clears only the Local Profile", async () => {
+    const created = await createLocalVault("synthetic-passphrase", "Synthetic device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    await repository.recordArchiveExportAt(created.profileId, "2026-10-22T12:00:00.000Z");
+
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("rhasia-scret-local-vault", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const transaction = database.transaction("local-vault", "readwrite");
+      transaction.objectStore("local-vault").delete("singleton");
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      database.close();
+    }
+
+    await repository.clearOrphanedArchiveExportMarker();
+    expect(await repository.readArchiveExportAt(created.profileId)).toBeNull();
   });
 
   it("atomically migrates every validated Local Vault payload and preserves data on failed unlock", async () => {
@@ -66,7 +169,7 @@ describe("device-local Local Vault", () => {
     const v2Record = await repository.read();
     expect(v2Record).not.toBeNull();
     const legacyRecord = await legacyLocalVaultRecord(v2Record!, passphrase);
-    await repository.replace(legacyRecord);
+    await seedLocalVaultRecord(legacyRecord);
 
     await expect(unlockLocalVault(legacyRecord, passphrase)).rejects.toBeInstanceOf(LocalVaultMigrationRequiredError);
     await expect(migrateLegacyLocalVault("incorrect synthetic passphrase")).rejects.toThrow();
@@ -109,7 +212,7 @@ describe("device-local Local Vault", () => {
     const malformedPlaintext = new TextEncoder().encode("not-json");
     try {
       const malformedRecord = await legacyLocalVaultRecord(v2Record!, passphrase, malformedPlaintext);
-      await repository.replace(malformedRecord);
+      await seedLocalVaultRecord(malformedRecord);
       await expect(migrateLegacyLocalVault(passphrase)).rejects.toThrow();
       expect(await repository.read()).toEqual(malformedRecord);
     } finally {
@@ -165,12 +268,13 @@ describe("device-local Local Vault", () => {
     const repository = new BrowserLocalVaultRepository();
     await repository.create(record);
     const unlocked = await unlockLocalVault(record, "local-passphrase");
-    await addLocalAccount(unlocked, account());
+    await addLocalAccount(unlocked, account(["Work", "Recovery"]));
 
     const exported = await exportLocalVault(unlocked);
     const preview = await previewLocalVaultArchive(exported.key, exported.archive);
     expect(preview.vaultName).toBe("Device vault");
     expect(preview.accounts).toHaveLength(1);
+    expect(preview.accounts[0]?.tags).toEqual(["Work", "Recovery"]);
     for (const value of preview.accounts) value.secret.fill(0);
 
     const review = await previewLocalVaultArchiveImport(unlocked, exported.key, exported.archive);
@@ -186,6 +290,11 @@ describe("device-local Local Vault", () => {
 
     const reopened = await unlockLocalVault((await new BrowserLocalVaultRepository().read())!, "local-passphrase");
     expect(reopened.accounts).toHaveLength(2);
+    expect(reopened.accounts.map(({ tags }) => tags)).toEqual([
+      ["Work", "Recovery"],
+      ["Work", "Recovery"],
+    ]);
+    exported.archive.fill(0);
     exported.key.fill(0);
     clearUnlockedLocalVault(reopened);
     clearUnlockedLocalVault(unlocked);
@@ -256,6 +365,7 @@ async function legacyLocalVaultRecord(
     const localVaultKey = vaultKey;
     return {
       ...record,
+      version: LEGACY_LOCAL_VAULT_RECORD_VERSION,
       wrappedLocalRootKey: await encryptLegacyPayload(unlockKey, rootKey),
       encryptedLocalVaultKey: await encryptLegacyPayload(rootKey, vaultKey),
       encryptedVaultName: await encryptLegacyPayload(vaultKey, nameBytes),
@@ -274,6 +384,25 @@ async function legacyLocalVaultRecord(
     nameBytes.fill(0);
     configuration.secret.fill(0);
     accountPlaintext.fill(0);
+  }
+}
+
+async function seedLocalVaultRecord(record: LocalVaultRecord): Promise<void> {
+  const database = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open("rhasia-scret-local-vault", 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    const transaction = database.transaction("local-vault", "readwrite");
+    transaction.objectStore("local-vault").put(record, "singleton");
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
   }
 }
 

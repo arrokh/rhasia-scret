@@ -60,9 +60,12 @@ export {
   createBrowserWorkspaceLifecyclePorts,
 } from "./infrastructure/browser-workspace-lifecycle";
 export {
+  beginPwaUpdateLock,
   browserVaultLockPort,
+  cancelPwaUpdateLock,
   requestLocalVaultLock,
   subscribeToLocalVaultLock,
+  trackVaultSensitiveOperation,
 } from "./infrastructure/browser-vault-lock";
 export { VaultStatusIndicator } from "./presentation/vault-status-indicator";
 export { useWorkspaceLifecycle } from "./presentation/use-workspace-lifecycle";

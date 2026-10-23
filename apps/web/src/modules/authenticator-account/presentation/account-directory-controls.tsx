@@ -19,12 +19,24 @@ import type { AccountDirectoryView } from "./account-directory-preferences";
 
 export type AccountDirectoryVaultOption = { id: string; name: string };
 
+function updateSelectedValues(current: string[], value: string, checked: boolean, update: (values: string[]) => void) {
+  if (checked) {
+    if (current.includes(value)) return;
+    update([...current, value]);
+    return;
+  }
+  update(current.filter((selected) => selected !== value));
+}
+
 export function AccountDirectoryControls({
   vaults,
   vaultFilters,
   onVaultFiltersChange,
   issuerFilters,
   onIssuerFiltersChange,
+  tagOptions,
+  tagFilters,
+  onTagFiltersChange,
   view,
   onViewChange,
   reorderAccounts,
@@ -36,6 +48,9 @@ export function AccountDirectoryControls({
   onVaultFiltersChange: (value: string[]) => void;
   issuerFilters: string[];
   onIssuerFiltersChange: (value: string[]) => void;
+  tagOptions: string[];
+  tagFilters: string[];
+  onTagFiltersChange: (value: string[]) => void;
   view: AccountDirectoryView;
   onViewChange: (value: AccountDirectoryView) => void;
   reorderAccounts: AccountDirectoryReorderItem[];
@@ -45,9 +60,11 @@ export function AccountDirectoryControls({
     filterLabel: string;
     filterByVault: string;
     filterByIssuer: string;
+    filterByTag: string;
     filtersApplied: string;
     allVaults: string;
     allIssuers: string;
+    allTags: string;
     viewLabel: string;
     compact: string;
     normal: string;
@@ -74,25 +91,8 @@ export function AccountDirectoryControls({
   );
   const allVaultsSelected = vaultFilters.length === 0;
   const allIssuersSelected = issuerFilters.length === 0;
-  const hasActiveFilters = !allVaultsSelected || !allIssuersSelected;
-
-  function toggleVault(vaultId: string, checked: boolean) {
-    if (checked) {
-      if (vaultFilters.includes(vaultId)) return;
-      onVaultFiltersChange([...vaultFilters, vaultId]);
-      return;
-    }
-    onVaultFiltersChange(vaultFilters.filter((selectedVaultId) => selectedVaultId !== vaultId));
-  }
-
-  function toggleIssuer(issuer: string, checked: boolean) {
-    if (checked) {
-      if (issuerFilters.includes(issuer)) return;
-      onIssuerFiltersChange([...issuerFilters, issuer]);
-      return;
-    }
-    onIssuerFiltersChange(issuerFilters.filter((selectedIssuer) => selectedIssuer !== issuer));
-  }
+  const allTagsSelected = tagFilters.length === 0;
+  const hasActiveFilters = !allVaultsSelected || !allIssuersSelected || !allTagsSelected;
 
   return (
     <>
@@ -179,7 +179,9 @@ export function AccountDirectoryControls({
                 key={vault.id}
                 checked={vaultFilters.includes(vault.id)}
                 onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) => toggleVault(vault.id, checked === true)}
+                onCheckedChange={(checked) =>
+                  updateSelectedValues(vaultFilters, vault.id, checked === true, onVaultFiltersChange)
+                }
               >
                 {vault.name}
               </DropdownMenuCheckboxItem>
@@ -200,11 +202,40 @@ export function AccountDirectoryControls({
                 key={issuer}
                 checked={issuerFilters.includes(issuer)}
                 onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) => toggleIssuer(issuer, checked === true)}
+                onCheckedChange={(checked) =>
+                  updateSelectedValues(issuerFilters, issuer, checked === true, onIssuerFiltersChange)
+                }
               >
                 {issuer}
               </DropdownMenuCheckboxItem>
             ))}
+            {tagOptions.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{labels.filterByTag}</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={allTagsSelected}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    if (checked) onTagFiltersChange([]);
+                  }}
+                >
+                  {labels.allTags}
+                </DropdownMenuCheckboxItem>
+                {tagOptions.map((tag) => (
+                  <DropdownMenuCheckboxItem
+                    key={tag}
+                    checked={tagFilters.includes(tag)}
+                    onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={(checked) =>
+                      updateSelectedValues(tagFilters, tag, checked === true, onTagFiltersChange)
+                    }
+                  >
+                    {tag}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

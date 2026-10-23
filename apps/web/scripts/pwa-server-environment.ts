@@ -27,6 +27,7 @@ const ISOLATED_SERVER_ENVIRONMENT_KEYS = [
   "E2E_BROWSER_TESTS",
   "E2E_BROWSER_TEST_USERS",
   "NEXT_PUBLIC_E2E_BROWSER_TESTS",
+  "PWA_UPDATE_TESTS",
 ] as const;
 
 export function createPwaServerEnvironment(
@@ -45,6 +46,7 @@ export function createPwaServerEnvironment(
     AUTH_APP_ORIGIN: browserTestOrigin,
     AUTH_SESSION_SECRET: "browser-pwa-session-secret-12345678901234567890",
     WEB_ORIGIN: browserTestOrigin,
+    PWA_UPDATE_TESTS: "1",
     AUTH_TRUST_PROXY_HEADERS: "false",
     NEXT_TELEMETRY_DISABLED: "1",
   });

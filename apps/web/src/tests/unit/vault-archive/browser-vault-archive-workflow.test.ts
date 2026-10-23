@@ -21,6 +21,7 @@ const configuration = {
   algorithm: "SHA-1" as const,
   digits: 6 as const,
   period: 30,
+  tags: ["Work", "Recovery"],
 };
 
 describe("encrypted Vault archive browser workflow", () => {
@@ -57,6 +58,28 @@ describe("encrypted Vault archive browser workflow", () => {
     await expect(openAndValidateEncryptedVaultArchive(malformed.archiveKey, malformed.archive)).rejects.toThrow(
       "payload is invalid",
     );
+  });
+
+  it("opens legacy version-one archives and treats unversioned account payloads as tagless", async () => {
+    const archiveKey = generateSymmetricKey();
+    const legacyPayload = legacyAccountPayload(configuration);
+    const archive = await encryptedRawArchive(archiveKey, {
+      version: 1,
+      vaultName: "Legacy Imported Vault",
+      accounts: [Buffer.from(legacyPayload).toString("base64")],
+    });
+
+    try {
+      const opened = await openAndValidateEncryptedVaultArchive(archiveKey, archive);
+      expect(opened.vaultName).toBe("Legacy Imported Vault");
+      expect(opened.accounts[0]?.issuer).toBe("Example");
+      expect(opened.accounts[0]).not.toHaveProperty("tags");
+      clearOpenedVaultArchive(opened);
+    } finally {
+      archiveKey.fill(0);
+      legacyPayload.fill(0);
+      archive.fill(0);
+    }
   });
 
   it("rejects unsupported TOTP configurations and oversized archives", async () => {
@@ -122,6 +145,21 @@ async function encryptedRawArchive(key: Uint8Array, payload: unknown): Promise<U
 }
 
 function accountPayload(value: Record<string, unknown>): Uint8Array {
+  return new TextEncoder().encode(
+    JSON.stringify({
+      version: 2,
+      issuer: value.issuer,
+      accountName: value.accountName,
+      secret: btoa(String.fromCharCode(...(value.secret as Uint8Array))),
+      algorithm: value.algorithm,
+      digits: value.digits,
+      period: value.period,
+      tags: value.tags ?? [],
+    }),
+  );
+}
+
+function legacyAccountPayload(value: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(
     JSON.stringify({
       issuer: value.issuer,

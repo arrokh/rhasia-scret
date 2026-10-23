@@ -1,4 +1,5 @@
-export const LOCAL_VAULT_RECORD_VERSION = 1 as const;
+export const LEGACY_LOCAL_VAULT_RECORD_VERSION = 1 as const;
+export const LOCAL_VAULT_RECORD_VERSION = 2 as const;
 export const LOCAL_VAULT_ENCRYPTION_VERSION = 1 as const;
 
 export type LocalVaultKdfParameters = {
@@ -17,7 +18,7 @@ export type EncryptedLocalVaultAccount = {
 };
 
 export type LocalVaultRecord = {
-  version: typeof LOCAL_VAULT_RECORD_VERSION;
+  version: typeof LEGACY_LOCAL_VAULT_RECORD_VERSION | typeof LOCAL_VAULT_RECORD_VERSION;
   profileId: string;
   createdAt: string;
   kdf: LocalVaultKdfParameters;
@@ -30,10 +31,11 @@ export type LocalVaultRecord = {
 export function parseLocalVaultRecord(value: unknown): LocalVaultRecord {
   if (!isRecord(value)) invalid();
   const keys = Object.keys(value).sort().join(",");
-  if (keys !== "accounts,createdAt,encryptedLocalVaultKey,encryptedVaultName,kdf,profileId,version,wrappedLocalRootKey")
-    invalid();
+  const requiredKeys =
+    "accounts,createdAt,encryptedLocalVaultKey,encryptedVaultName,kdf,profileId,version,wrappedLocalRootKey";
+  if (keys !== requiredKeys) invalid();
   if (
-    value.version !== LOCAL_VAULT_RECORD_VERSION ||
+    (value.version !== LEGACY_LOCAL_VAULT_RECORD_VERSION && value.version !== LOCAL_VAULT_RECORD_VERSION) ||
     !opaque(value.profileId) ||
     !isoTimestamp(value.createdAt) ||
     !base64(value.wrappedLocalRootKey) ||

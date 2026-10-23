@@ -1,5 +1,5 @@
 import type { DecryptedAuthenticatorAccount } from "@/modules/authenticator-account";
-import type { TotpConfiguration } from "@/modules/otp-runtime";
+import type { AccountPayloadConfiguration } from "@/modules/authenticator-account";
 import { base64ToBytes, bytesToBase64 } from "@rhasia-scret/client-vault-core";
 import { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "@rhasia-scret/client-vault-core";
 import {
@@ -269,6 +269,7 @@ export async function migrateLegacyLocalVault(
     }
     const migrated = parseLocalVaultRecord({
       ...record,
+      version: LOCAL_VAULT_RECORD_VERSION,
       wrappedLocalRootKey:
         root.version === 1
           ? await encryptLocalPayload(
@@ -328,7 +329,7 @@ export function clearUnlockedLocalVault(vault: UnlockedLocalVault | null): void 
 
 export async function addLocalAccount(
   vault: UnlockedLocalVault,
-  configuration: TotpConfiguration,
+  configuration: AccountPayloadConfiguration,
   dependencies: LocalVaultWorkflowDependencies,
 ): Promise<void> {
   try {
@@ -373,7 +374,7 @@ export async function addLocalAccount(
 export async function updateLocalAccount(
   vault: UnlockedLocalVault,
   accountId: string,
-  configuration: TotpConfiguration,
+  configuration: AccountPayloadConfiguration,
   dependencies: LocalVaultWorkflowDependencies,
 ): Promise<void> {
   try {
@@ -457,6 +458,14 @@ export async function deleteLocalAccount(
   vault.accounts.splice(vault.accounts.indexOf(account), 1);
 }
 
+export async function recordLocalArchiveExport(
+  vault: UnlockedLocalVault,
+  exportedAt: string,
+  dependencies: LocalVaultWorkflowDependencies,
+): Promise<void> {
+  await dependencies.repository.recordArchiveExportAt(vault.profileId, exportedAt);
+}
+
 export async function exportLocalVault(
   vault: UnlockedLocalVault,
   dependencies: LocalVaultWorkflowDependencies,
@@ -483,22 +492,23 @@ export async function exportLocalVault(
 export async function previewLocalVaultArchive(
   key: Uint8Array,
   archive: Uint8Array,
-  dependencies: LocalVaultWorkflowDependencies,
+  dependencies: {
+    crypto: Pick<LocalVaultWorkflowDependencies["crypto"], "openEncryptedVaultExport">;
+    accountPayload: Pick<LocalVaultWorkflowDependencies["accountPayload"], "parseDecryptedAccountPayload">;
+  },
 ): Promise<{ vaultName: string; accounts: DecryptedAuthenticatorAccount[] }> {
   const opened = await dependencies.crypto.openEncryptedVaultExport(key, archive);
   const accounts: DecryptedAuthenticatorAccount[] = [];
   try {
     for (const plaintext of opened.accounts) {
-      try {
-        accounts.push(dependencies.accountPayload.parseDecryptedAccountPayload(plaintext));
-      } finally {
-        plaintext.fill(0);
-      }
+      accounts.push(dependencies.accountPayload.parseDecryptedAccountPayload(plaintext));
     }
     return { vaultName: opened.vaultName, accounts };
   } catch (error) {
     for (const account of accounts) account.secret.fill(0);
     throw error;
+  } finally {
+    for (const plaintext of opened.accounts) plaintext.fill(0);
   }
 }
 
@@ -644,7 +654,7 @@ async function updateRecord(
   const repository = dependencies.repository;
   const current = await repository.read();
   if (!current || current.profileId !== vault.profileId) throw new Error("The Local Profile is unavailable.");
-  await repository.replace(parseLocalVaultRecord(update(current)));
+  await repository.replace(parseLocalVaultRecord({ ...update(current), version: LOCAL_VAULT_RECORD_VERSION }));
 }
 
 function hasLegacyEnvelope(record: LocalVaultRecord, dependencies: LocalVaultWorkflowDependencies): boolean {

@@ -1,5 +1,6 @@
 "use client";
 
+import { trackVaultSensitiveOperation } from "@/modules/sync";
 import { LocalVaultSession } from "../application/local-vault-session";
 import { BrowserLocalVaultRepository, browserLocalVaultCapabilities } from "./browser-local-vault-repository";
 import {
@@ -16,6 +17,9 @@ export function createBrowserLocalVaultSession(): LocalVaultSession {
   return new LocalVaultSession({
     isAvailable: () => browserLocalVaultCapabilities.isAvailable(),
     readRecord: () => repository.read(),
+    readArchiveExportAt: (profileId) => repository.readArchiveExportAt(profileId),
+    clearOrphanedArchiveExportMarker: () => repository.clearOrphanedArchiveExportMarker(),
+    trackSensitiveOperation: trackVaultSensitiveOperation,
     createRecord: createLocalVault,
     persistCreatedRecord: (record) => repository.create(record),
     unlockRecord: unlockLocalVault,

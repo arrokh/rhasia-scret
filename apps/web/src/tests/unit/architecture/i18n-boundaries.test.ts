@@ -67,7 +67,7 @@ describe("i18n architecture boundaries", () => {
   it("refreshes only the public navigation shells after a locale switch", () => {
     const worker = readFileSync(join(root, "public/sw.js"), "utf8");
     const switcher = readFileSync(join(sourceRoot, "i18n/locale-switcher.tsx"), "utf8");
-    expect(worker).toContain('event.data?.type !== "RHSIA_REFRESH_OFFLINE_SHELL"');
+    expect(worker).toContain('event.data?.type === "RHSIA_REFRESH_OFFLINE_SHELL"');
     expect(worker).toContain("precachePublicShells");
     expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');

@@ -5,10 +5,15 @@ import {
 import { base64ToBytes, bytesToBase64 } from "../../../shared/application/base64";
 import type { ClientCryptoPort } from "./crypto-ports";
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
+const SUPPORTED_FORMAT_VERSIONS = [2, 1] as const;
 const MAX_VAULT_NAME_LENGTH = 120;
 const MAX_ARCHIVED_ACCOUNT_BYTES = 16 * 1024;
-type VaultExportPayload = { version: 1; vaultName: string; accounts: string[] };
+type VaultExportPayload = {
+  version: (typeof SUPPORTED_FORMAT_VERSIONS)[number];
+  vaultName: string;
+  accounts: string[];
+};
 
 export function createVaultArchiveProtocol(crypto: ClientCryptoPort) {
   return {
@@ -51,29 +56,50 @@ export function createVaultArchiveProtocol(crypto: ClientCryptoPort) {
     ): Promise<{ vaultName: string; accounts: Uint8Array[] }> => {
       if (archive.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES) throw new Error("Encrypted vault export is too large.");
       const envelope = crypto.deserializeEncryptedEnvelope(archive);
-      if (envelope.version !== 2) throw new Error("Encrypted vault export is invalid.");
-      const plaintext = await crypto.decryptPayloadWithContext(archiveKey, envelope, {
-        purpose: "encrypted-archive",
-        payloadType: "vault-archive",
-        archiveVersion: FORMAT_VERSION,
-      });
+      if (envelope.version !== 2) {
+        envelope.nonce.fill(0);
+        envelope.ciphertext.fill(0);
+        throw new Error("Encrypted vault export is invalid.");
+      }
+      let plaintext: Uint8Array | undefined;
+      let archiveVersion: (typeof SUPPORTED_FORMAT_VERSIONS)[number] | undefined;
+      let decryptionFailure: unknown;
       try {
-        if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29)
-          throw new Error("Encrypted vault export is too large.");
-        const payload = parsePayload(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)));
-        const accounts: Uint8Array[] = [];
-        try {
-          for (const encoded of payload.accounts) accounts.push(base64ToBytes(encoded));
-          return { vaultName: payload.vaultName.trim(), accounts };
-        } catch (error) {
-          for (const account of accounts) account.fill(0);
-          throw error;
+        for (const version of SUPPORTED_FORMAT_VERSIONS) {
+          try {
+            plaintext = await crypto.decryptPayloadWithContext(archiveKey, envelope, {
+              purpose: "encrypted-archive",
+              payloadType: "vault-archive",
+              archiveVersion: version,
+            });
+            archiveVersion = version;
+            break;
+          } catch (error) {
+            decryptionFailure = error;
+          }
         }
-      } catch (error) {
-        if (error instanceof Error && error.message.startsWith("Encrypted vault export")) throw error;
-        throw new Error("Encrypted vault export is invalid.", { cause: error });
+        if (!plaintext || archiveVersion === undefined) throw decryptionFailure;
+        try {
+          if (plaintext.length > MAX_ENCRYPTED_VAULT_ARCHIVE_BYTES - 29)
+            throw new Error("Encrypted vault export is too large.");
+          const payload = parsePayload(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)));
+          if (payload.version !== archiveVersion) throw new Error("Encrypted vault export is invalid.");
+          const accounts: Uint8Array[] = [];
+          try {
+            for (const encoded of payload.accounts) accounts.push(base64ToBytes(encoded));
+            return { vaultName: payload.vaultName.trim(), accounts };
+          } catch (error) {
+            for (const account of accounts) account.fill(0);
+            throw error;
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message.startsWith("Encrypted vault export")) throw error;
+          throw new Error("Encrypted vault export is invalid.", { cause: error });
+        }
       } finally {
-        plaintext.fill(0);
+        plaintext?.fill(0);
+        envelope.nonce.fill(0);
+        envelope.ciphertext.fill(0);
       }
     },
   };
@@ -84,7 +110,7 @@ function parsePayload(value: unknown): VaultExportPayload {
   const payload = value as Partial<VaultExportPayload>;
   if (
     Object.keys(payload).sort().join(",") !== "accounts,vaultName,version" ||
-    payload.version !== FORMAT_VERSION ||
+    (payload.version !== 1 && payload.version !== FORMAT_VERSION) ||
     typeof payload.vaultName !== "string" ||
     !payload.vaultName.trim() ||
     payload.vaultName.length > MAX_VAULT_NAME_LENGTH ||

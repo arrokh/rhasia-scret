@@ -65,6 +65,7 @@ import {
   type AuthorizedWorkspaceResponse,
 } from "@rhasia-scret/client-vault-core";
 import { migrateLegacySharedVaultKeyWrapWithCrypto } from "@rhasia-scret/client-vault-core/modules/vault-membership/application/shared-vault-key-wrap-migration";
+import { beginPwaUpdateLock, cancelPwaUpdateLock } from "@/modules/sync/infrastructure/browser-vault-lock";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -389,6 +390,41 @@ describe("Vault workspace loading", () => {
     expect(personalSecret).toEqual(Uint8Array.of(0));
     expect(lateSecret).toEqual(Uint8Array.of(0));
     expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("wipes a workspace that finishes loading after PWA update preparation starts", async () => {
+    vi.stubGlobal("window", new EventTarget());
+    const response = workspaceResponse();
+    const userRootKey = Uint8Array.of(1);
+    const personalVaultKey = Uint8Array.of(2);
+    const lateSecret = Uint8Array.of(19);
+    let finishPersonalAccount: ((value: ReturnType<typeof account>) => void) | undefined;
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey });
+    mocks.decryptAccountConfiguration.mockImplementation(async (key) => {
+      if (key === personalVaultKey) {
+        return new Promise((resolve) => {
+          finishPersonalAccount = resolve;
+        });
+      }
+      return account("Shared", "member");
+    });
+
+    try {
+      const pending = loadUnlockedVaultWorkspace("secret", "personal-1");
+      await vi.waitFor(() => expect(finishPersonalAccount).toBeDefined());
+      beginPwaUpdateLock();
+      finishPersonalAccount?.(account("Personal", "owner", lateSecret));
+
+      await expect(pending).rejects.toThrow();
+      expect(userRootKey).toEqual(Uint8Array.of(0));
+      expect(personalVaultKey).toEqual(Uint8Array.of(0));
+      expect(lateSecret).toEqual(Uint8Array.of(0));
+      expect(mocks.replace).toHaveBeenCalledExactlyOnceWith(response.personalSnapshot);
+    } finally {
+      cancelPwaUpdateLock();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("clears personal and transient Shared key material when the workspace is locked", async () => {

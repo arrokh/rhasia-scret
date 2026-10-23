@@ -94,6 +94,32 @@ describe("browser-delivery security boundaries", () => {
     expect(worker).toContain('response.type === "basic"');
   });
 
+  it("keeps Account Tag names inside encrypted client payloads, never server or query contracts", () => {
+    const payload = read(
+      "../../packages/client-vault-core/src/modules/authenticator-account/application/account-payload.ts",
+    );
+    const manager = read("src/modules/authenticator-account/presentation/authenticator-account-manager-dialog.tsx");
+    const accountClient = read(
+      "src/modules/authenticator-account/infrastructure/browser-authenticator-account-client.ts",
+    );
+    const mutationHooks = read(
+      "src/modules/authenticator-account/presentation/hooks/use-authenticator-account-mutations.ts",
+    );
+    const personalApi = read("../../apps/api/src/route-handlers/vaults/[vaultId]/accounts/route.ts");
+    const sharedApi = read("../../apps/api/src/route-handlers/shared-vaults/[vaultId]/accounts/route.ts");
+
+    expect(payload).toContain("tags,");
+    expect(payload).toContain("version: 2");
+    expect(manager).toContain("encryptAccountConfiguration(vaultKey, nextAccount");
+    expect(manager).toContain("expectedRevision: account.revision");
+    for (const boundary of [accountClient, mutationHooks, personalApi, sharedApi]) {
+      expect(boundary).toContain("encryptedPayload");
+      expect(boundary).not.toMatch(/\btags?\b/i);
+    }
+    expect(personalApi).toContain(".strict()");
+    expect(sharedApi).toContain(".strict()");
+  });
+
   it("accepts messages only from the application origin", () => {
     expect(read("public/sw.js")).toContain("if (event.origin !== self.location.origin) return;");
     expect(read("src/modules/crypto/infrastructure/browser-vault-unlock-key-worker.ts")).toContain(

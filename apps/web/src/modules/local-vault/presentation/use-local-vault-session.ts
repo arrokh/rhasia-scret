@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeToLocalVaultLock } from "@/modules/sync";
 import type { LocalVaultSession, LocalVaultSessionState } from "../application/local-vault-session";
 import { createBrowserLocalVaultSession } from "../infrastructure/browser-local-vault-session";
 
@@ -11,6 +12,7 @@ export function useLocalVaultSession() {
     discovered: false,
     migrationRequired: false,
     record: null,
+    lastArchiveExportAt: null,
     vault: null,
   });
   const [discoveryError, setDiscoveryError] = useState<unknown>(null);
@@ -20,12 +22,14 @@ export function useLocalVaultSession() {
     let active = true;
     sessionRef.current = session;
     const unsubscribe = session.subscribe(setState);
+    const unsubscribeLock = subscribeToLocalVaultLock(() => session.lock());
     void session.discover().catch((error) => {
       if (active) setDiscoveryError(error);
     });
     return () => {
       active = false;
       unsubscribe();
+      unsubscribeLock();
       session.dispose();
       if (sessionRef.current === session) sessionRef.current = null;
     };
@@ -45,6 +49,10 @@ export function useLocalVaultSession() {
       migrate: (passphrase: string) => invoke((current) => current.migrate(passphrase)),
       mutate: <Result>(operation: (vault: NonNullable<LocalVaultSessionState["vault"]>) => Promise<Result>) =>
         invoke((current) => current.mutate(operation)),
+      performSensitiveWorkflow: <Result>(
+        operation: (vault: NonNullable<LocalVaultSessionState["vault"]>) => Promise<Result>,
+        clearStaleResult?: (result: Result) => void,
+      ) => invoke((current) => current.performSensitiveWorkflow(operation, clearStaleResult)),
       refresh: () => invoke((current) => current.refresh()),
       lock,
       unlock: (passphrase: string) => invoke((current) => current.unlock(passphrase)),

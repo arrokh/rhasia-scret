@@ -1,3 +1,5 @@
+export * from "./modules/authenticator-account/domain/account-tags";
+export * from "./modules/authenticator-account/domain/account-search";
 export * from "./modules/authenticator-account/application/account-payload-ports";
 export * from "./modules/authenticator-account/application/account-payload";
 export * from "./modules/authenticator-account/application/hosted-authenticator-account-transport";
