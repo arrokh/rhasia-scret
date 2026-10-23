@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
 import { KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
@@ -23,7 +23,12 @@ import {
   isDuplicateAccount,
   type DecryptedAuthenticatorAccount,
 } from "../infrastructure/browser-account-payload";
-import { loadUnlockedVaultWorkspace, type UnlockedVaultWorkspace } from "@/modules/sync";
+import {
+  loadUnlockedVaultWorkspace,
+  subscribeToLocalVaultLock,
+  trackVaultSensitiveOperation,
+  type UnlockedVaultWorkspace,
+} from "@/modules/sync";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
 import { QrImportInput } from "./qr-import-input";
@@ -121,76 +126,107 @@ export function AuthenticatorAccountCreator({
     },
   });
 
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        accountForm.setFieldValue("uri", "");
+        accountForm.setFieldValue("accountLabel", "");
+        unlockForm.reset();
+        setDuplicate((current) => {
+          current?.secret.fill(0);
+          return null;
+        });
+        setSecretVisible(false);
+        setMessage(null);
+      }),
+    [accountForm, unlockForm],
+  );
+
   async function saveDuplicate() {
     if (!duplicate) return;
     try {
-      await save(duplicate, accountForm.state.values.selectedVaultId);
+      await save({ ...duplicate, secret: duplicate.secret.slice() }, accountForm.state.values.selectedVaultId);
     } catch (reason) {
       setMessage(classifyCreatorError(reason));
     }
   }
   async function save(candidate: DecryptedAuthenticatorAccount, selectedVaultId: string) {
-    if (!workspace) return;
-    const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
-    if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) {
-      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
-        operation: "create",
-        failure_code: "destination_unavailable",
-      });
-      throw new AccountCreatorError("destinationUnavailable");
-    }
-    const encryptedPayload = await encryptAccountConfiguration(vault.key, candidate, {
-      purpose: "authenticator-account",
-      payloadType: "totp-configuration",
-      vaultId: vault.id,
-      keyVersion: 1,
-    });
-    let created: { id: string; revision: number };
     try {
-      created = await createAccountMutation.mutateAsync({
-        vaultId: vault.id,
-        vaultType: vault.type,
-        keyVersion: vault.keyVersion,
-        encryptedPayload: bytesToBase64(encryptedPayload),
-        encryptionVersion: 1,
-      });
-    } catch (error) {
-      if (
-        (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") ||
-        (error instanceof BrowserApiError && error.status === 409 && error.code === "stale_key_version")
-      ) {
-        await refreshWorkspaceAuthorization();
+      if (!workspace) return;
+      const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
+      if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) {
         captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
           operation: "create",
-          failure_code: error.status === 403 ? "permission_denied" : "unknown",
+          failure_code: "destination_unavailable",
         });
         throw new AccountCreatorError("destinationUnavailable");
       }
-      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
-        operation: "create",
-        failure_code: "unknown",
-      });
-      throw error;
-    }
-    setWorkspace({
-      ...workspace,
-      accounts: [
-        ...workspace.accounts,
-        {
-          ...candidate,
-          id: created.id,
-          revision: created.revision,
+      const encryptedPayload = await trackVaultSensitiveOperation(() =>
+        encryptAccountConfiguration(vault.key, candidate, {
+          purpose: "authenticator-account",
+          payloadType: "totp-configuration",
           vaultId: vault.id,
-          vaultName: vault.name,
+          keyVersion: 1,
+        }),
+      );
+      let created: { id: string; revision: number };
+      try {
+        created = await createAccountMutation.mutateAsync({
+          vaultId: vault.id,
           vaultType: vault.type,
-        },
-      ].sort(
-        (left, right) => left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName),
-      ),
-    });
-    captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountCreated, { vault_type: vault.type });
-    setDuplicate(null);
-    router.push("/vaults");
+          keyVersion: vault.keyVersion,
+          encryptedPayload: bytesToBase64(encryptedPayload),
+          encryptionVersion: 1,
+        });
+      } catch (error) {
+        if (
+          (error instanceof BrowserApiError && error.status === 403 && error.code === "account_permission_required") ||
+          (error instanceof BrowserApiError && error.status === 409 && error.code === "stale_key_version")
+        ) {
+          await refreshWorkspaceAuthorization();
+          captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
+            operation: "create",
+            failure_code: error.status === 403 ? "permission_denied" : "unknown",
+          });
+          throw new AccountCreatorError("destinationUnavailable");
+        }
+        captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountOperationFailed, {
+          operation: "create",
+          failure_code: "unknown",
+        });
+        throw error;
+      }
+      const retained = {
+        ...candidate,
+        secret: candidate.secret.slice(),
+        id: created.id,
+        revision: created.revision,
+        vaultId: vault.id,
+        vaultName: vault.name,
+        vaultType: vault.type,
+      };
+      setWorkspace((current) => {
+        if (!current) {
+          retained.secret.fill(0);
+          return current;
+        }
+        return {
+          ...current,
+          accounts: [...current.accounts, retained].sort(
+            (left, right) =>
+              left.issuer.localeCompare(right.issuer) || left.accountName.localeCompare(right.accountName),
+          ),
+        };
+      });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountCreated, { vault_type: vault.type });
+      setDuplicate((current) => {
+        current?.secret.fill(0);
+        return null;
+      });
+      router.push("/vaults");
+    } finally {
+      candidate.secret.fill(0);
+    }
   }
 
   const renderedMessage =

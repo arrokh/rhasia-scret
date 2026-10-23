@@ -136,6 +136,32 @@ describe("VaultArchiveExporter", () => {
     expect(mocks.recordVaultArchiveExport).not.toHaveBeenCalled();
   });
 
+  it("blocks an incomplete backup when the selected Vault has unreadable accounts", async () => {
+    const workspaceWithUnavailableAccount = {
+      ...workspace,
+      unavailableAccounts: [
+        {
+          id: "unreadable-account",
+          vaultId: "personal-1",
+          vaultName: "Personal",
+          vaultType: "PERSONAL" as const,
+          revision: 2,
+        },
+      ],
+    };
+    const container = mount();
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(createElement(VaultArchiveExporter, { workspace: workspaceWithUnavailableAccount })),
+    );
+    await act(async () => container.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click());
+    await act(async () => findButton(container, "Buat cadangan").click());
+
+    expect(container.textContent).toContain("Beberapa akun tidak dapat dibaca");
+    expect(mocks.recordVaultArchiveExport).not.toHaveBeenCalled();
+    expect(container.querySelector("#generated-archive-key")).toBeNull();
+  });
+
   it("does not release archive/key when audit recording fails", async () => {
     mocks.recordVaultArchiveExport.mockRejectedValue(new Error("Audit unavailable"));
     const container = mount();

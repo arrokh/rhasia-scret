@@ -126,6 +126,16 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   const accountList = page.locator('[data-slot="account-directory-list"]');
   await expect(accountList.getByText("Akun kerja")).toBeVisible();
   await expect(accountList.getByText("Layanan contoh")).toBeVisible();
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Work", exact: true }).click();
+  await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
+  await expect(accountList.getByText("Layanan contoh")).toBeVisible();
+  await expect(accountList.getByText("Akun kerja")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Filter akun" })).toHaveAttribute("data-active", "true");
+  const storedPreferences = await page.evaluate(() => JSON.stringify(Object.entries(localStorage)));
+  expect(storedPreferences).not.toContain("Work");
+  expect(storedPreferences).not.toContain("Recovery");
+  await filterOptions.getByRole("menuitemcheckbox", { name: "Semua tag" }).click();
+  await expect(accountList.locator("[data-account-key]")).toHaveCount(2);
   await filterOptions.getByRole("menuitemcheckbox", { name: "Semua brankas" }).click();
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-slot="dropdown-menu-content"][data-state="closed"]')).toHaveCount(0);
@@ -235,10 +245,14 @@ test("clears empty account filters by touch in the installed mobile PWA layout",
       const emptyLabel =
         locale === "id" ? "Tidak ada akun yang cocok dengan filter ini" : "No accounts match these filters";
       const clearLabel = locale === "id" ? "Hapus semua filter" : "Clear all filters";
+      const allVaultsLabel = locale === "id" ? "Semua brankas" : "All vaults";
+      const allIssuersLabel = locale === "id" ? "Semua penerbit" : "All issuers";
+      const allTagsLabel = locale === "id" ? "Semua tag" : "All tags";
       await page.getByRole("button", { name: filterLabel }).tap();
       const filterOptions = page.locator('[data-slot="dropdown-menu-content"]');
       await filterOptions.getByRole("menuitemcheckbox", { name: personalVault }).tap();
       await filterOptions.getByRole("menuitemcheckbox", { name: workIssuer }).tap();
+      await filterOptions.getByRole("menuitemcheckbox", { name: "Work", exact: true }).tap();
       const filterButton = page.locator('[data-slot="account-directory-filter-menu"]');
       await expect(filterButton).toHaveAttribute("data-active", "true");
       await expect(filterButton).toHaveAttribute(
@@ -246,11 +260,62 @@ test("clears empty account filters by touch in the installed mobile PWA layout",
         locale === "id" ? "Filter diterapkan" : "Filters applied",
       );
       await expect(filterButton.locator('[data-slot="account-directory-filter-indicator"]')).toBeVisible();
-      await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(0);
+      const accountList = page.locator('[data-slot="account-directory-list"] [data-account-key]');
+      await expect(accountList).toHaveCount(0);
+      await expect(page.getByText(emptyLabel, { exact: true })).toBeVisible();
+
+      const clearFromMenu = filterOptions.getByRole("button", { name: clearLabel });
+      await expect(clearFromMenu).toHaveAttribute("data-slot", "account-directory-clear-filters");
+      await expect(clearFromMenu).toHaveAttribute("title", clearLabel);
+      await expect(clearFromMenu).toHaveAttribute("data-size", "icon");
+      await expect(clearFromMenu).toHaveAttribute("data-variant", "outline");
+      expect((await clearFromMenu.textContent())?.trim()).toBe("");
+      const filterHeading = filterOptions.getByText(filterLabel, { exact: true });
+      const [filterHeadingBox, clearFromMenuBox] = await Promise.all([
+        filterHeading.boundingBox(),
+        clearFromMenu.boundingBox(),
+      ]);
+      expect(filterHeadingBox).not.toBeNull();
+      expect(clearFromMenuBox?.width).toBeGreaterThanOrEqual(44);
+      expect(clearFromMenuBox?.height).toBeGreaterThanOrEqual(44);
+      const filterHeadingCenter = (filterHeadingBox?.y ?? 0) + (filterHeadingBox?.height ?? 0) / 2;
+      const clearButtonCenter = (clearFromMenuBox?.y ?? 0) + (clearFromMenuBox?.height ?? 0) / 2;
+      expect(Math.abs(filterHeadingCenter - clearButtonCenter)).toBeLessThan(2);
+      if (locale === "id") {
+        await clearFromMenu.tap();
+      } else {
+        await clearFromMenu.focus();
+        await expect(clearFromMenu).toBeFocused();
+        await clearFromMenu.press("Enter");
+      }
+      await expect(filterOptions).toBeVisible();
+      await expect(filterOptions.getByRole("button", { name: clearLabel })).toHaveCount(0);
+      await expect(filterOptions.getByRole("menuitemcheckbox", { name: allVaultsLabel })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await expect(filterOptions.getByRole("menuitemcheckbox", { name: allIssuersLabel })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await expect(filterOptions.getByRole("menuitemcheckbox", { name: allTagsLabel })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await expect(accountList).toHaveCount(2);
+      await expect(filterButton).toHaveAttribute("data-active", "false");
+      await expect(filterButton).not.toHaveAttribute("aria-description");
+      await expect(filterButton.locator('[data-slot="account-directory-filter-indicator"]')).toHaveCount(0);
+      await expect(page.getByText(emptyLabel, { exact: true })).toHaveCount(0);
+
+      await filterOptions.getByRole("menuitemcheckbox", { name: personalVault }).tap();
+      await filterOptions.getByRole("menuitemcheckbox", { name: workIssuer }).tap();
+      await filterOptions.getByRole("menuitemcheckbox", { name: "Work", exact: true }).tap();
+      await expect(accountList).toHaveCount(0);
       await expect(page.getByText(emptyLabel, { exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
 
-      const clearFilters = page.getByRole("button", { name: clearLabel });
+      const clearFilters = page.getByRole("button", { name: clearLabel }).filter({ hasText: clearLabel });
       await expect(clearFilters).toBeVisible();
       const clearFiltersBox = await clearFilters.boundingBox();
       expect(clearFiltersBox?.height).toBeGreaterThanOrEqual(44);
@@ -1047,6 +1112,103 @@ test("orders the release version and footer links around the conditional languag
     }),
   );
   expect(hiddenLanguageOrder).toEqual(["version", "separator", "privacy", "separator", "support"]);
+});
+
+test("searches issuer and account name without persisting, sending, or logging search values in both locales", async ({
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("The browser test base URL is unavailable.");
+  const queryAccountName = "work@local.invalid";
+  const noMatch = "synthetic-no-match-query";
+
+  for (const locale of ["id", "en"] as const) {
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } });
+    try {
+      await context.addCookies([{ name: "RHSIA_LOCALE", value: locale, url: baseURL }]);
+      const page = await context.newPage();
+      const requestDetails: string[] = [];
+      const consoleMessages: string[] = [];
+      page.on("request", (request) => requestDetails.push(`${request.url()}\n${request.postData() ?? ""}`));
+      page.on("console", (message) => consoleMessages.push(message.text()));
+      const issuerQuery = locale === "id" ? "Layanan contoh" : "Sample service";
+      const searchLabel = locale === "id" ? "Cari penerbit atau nama akun" : "Search issuer or account name";
+      const showSearchLabel = locale === "id" ? "Tampilkan pencarian akun" : "Show account search";
+      const hideSearchLabel = locale === "id" ? "Sembunyikan pencarian akun" : "Hide account search";
+      const searchAppliedLabel = locale === "id" ? "Pencarian diterapkan" : "Search applied";
+      const directoryMenuLabel = locale === "id" ? "Opsi tampilan" : "Display options";
+      const clearSearchLabel = locale === "id" ? "Hapus pencarian" : "Clear search";
+      const noResultsLabel = locale === "id" ? "Akun tidak ditemukan" : "No accounts found";
+
+      await page.goto("/ui-preview");
+      const searchToggle = page.locator('[data-slot="account-directory-search-toggle"]');
+      const search = page.getByRole("searchbox", { name: searchLabel });
+      const accountList = page.locator('[data-slot="account-directory-list"]');
+      await expect(searchToggle).toHaveAttribute("data-size", "icon");
+      await expect(searchToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(search).toHaveCount(0);
+      expect(
+        await page
+          .locator('[data-slot="account-directory-controls"]')
+          .locator(":scope > button")
+          .evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
+      ).toEqual([directoryMenuLabel, locale === "id" ? "Filter akun" : "Filter accounts", showSearchLabel]);
+      await searchToggle.click();
+      await expect(search).toBeVisible();
+      await expect(searchToggle).toHaveAttribute("aria-expanded", "true");
+      await expect(searchToggle).toHaveAttribute("aria-controls", "preview-account-directory-search-panel");
+      await expect(search).toBeFocused();
+      await search.fill(issuerQuery);
+      await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
+      await expect(accountList).toContainText("example@local.invalid");
+      await search.fill(queryAccountName);
+      await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
+      await expect(accountList).toContainText(queryAccountName);
+      await search.fill(noMatch);
+      await expect(searchToggle).toHaveAttribute("aria-label", hideSearchLabel);
+      await expect(searchToggle).toHaveAttribute("data-active", "true");
+      await expect(searchToggle).toHaveAttribute("aria-description", searchAppliedLabel);
+      await expect(page.locator('[data-slot="account-search-empty-state"]')).toContainText(noResultsLabel);
+      await searchToggle.click();
+      await expect(search).toHaveCount(0);
+      await expect(searchToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(searchToggle).toHaveAttribute("aria-label", showSearchLabel);
+      await expect(searchToggle).toHaveAttribute("data-active", "true");
+      await expect(searchToggle).toHaveAttribute("aria-description", searchAppliedLabel);
+      await searchToggle.click();
+      await expect(search).toHaveValue(noMatch);
+      await expect(search).toBeFocused();
+      await page
+        .locator('[data-slot="account-search-empty-state"]')
+        .getByRole("button", { name: clearSearchLabel })
+        .click();
+      await expect(search).toHaveValue("");
+      await expect(searchToggle).toHaveAttribute("data-active", "false");
+      await expect(searchToggle).not.toHaveAttribute("aria-description");
+      await expect(accountList.locator("[data-account-key]")).toHaveCount(2);
+      expect(new URL(page.url()).search).toBe("");
+
+      const browserStorage = await page.evaluate(() =>
+        JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }),
+      );
+      for (const value of [issuerQuery, queryAccountName, noMatch, "example@local.invalid"])
+        expect(browserStorage).not.toContain(value);
+      const externalOutput = `${requestDetails.join("\n")}\n${consoleMessages.join("\n")}`;
+      for (const value of [issuerQuery, queryAccountName, noMatch, "example@local.invalid"])
+        expect(externalOutput).not.toContain(value);
+
+      await page.reload();
+      await expect(search).toHaveCount(0);
+      await expect(searchToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(searchToggle).toHaveAttribute("data-active", "false");
+      await searchToggle.click();
+      await expect(search).toHaveValue("");
+      await expect(search).toBeFocused();
+      await expect(page.locator('[data-slot="account-directory-list"] [data-account-key]')).toHaveCount(2);
+    } finally {
+      await context.close();
+    }
+  }
 });
 
 test("requires explicit confirmation for destructive Personal Vault reset", async ({ page }) => {

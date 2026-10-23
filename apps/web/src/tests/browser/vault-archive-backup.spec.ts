@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openEncryptedVaultExport } from "@/modules/crypto/infrastructure/browser-vault-export";
 
 test.describe("encrypted Vault archive backup", () => {
-  test("audits before releasing a client-only V1 archive and separate key", async ({ page }) => {
+  test("audits before releasing a client-only V2 archive with encrypted tags and a separate key", async ({ page }) => {
     let auditBody: string | null | undefined;
     await page.route("**/api/v1/vaults/preview-personal-vault/archive-exports", async (route) => {
       auditBody = route.request().postData();
@@ -34,7 +34,8 @@ test.describe("encrypted Vault archive backup", () => {
     const opened = await openArchive(Buffer.concat(chunks), Buffer.from(keyMaterial, "base64"));
     expect(opened.vaultName).toBe("Brankas Pribadi");
     expect(opened.accounts).toHaveLength(1);
-    expect(Buffer.from(opened.accounts[0], "base64").toString("utf8")).toContain("sample@local.invalid");
+    const accountPayload = JSON.parse(Buffer.from(opened.accounts[0]!, "base64").toString("utf8"));
+    expect(accountPayload).toMatchObject({ version: 2, tags: ["Work"], accountName: "sample@local.invalid" });
     const keyDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Unduh kunci" }).click();
     const keyDownload = await keyDownloadPromise;
@@ -49,7 +50,7 @@ test.describe("encrypted Vault archive backup", () => {
     const persisted = await page.evaluate(() =>
       JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }),
     );
-    for (const value of [keyMaterial, "Penerbit contoh", "sample@local.invalid"])
+    for (const value of [keyMaterial, "Penerbit contoh", "sample@local.invalid", "Work"])
       expect(persisted).not.toContain(value);
   });
 

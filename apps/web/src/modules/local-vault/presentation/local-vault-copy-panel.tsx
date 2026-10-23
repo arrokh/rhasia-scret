@@ -11,7 +11,7 @@ import {
   useCreateEncryptedAuthenticatorAccountMutation,
   encryptAccountConfiguration,
 } from "@/modules/authenticator-account";
-import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
+import { trackVaultSensitiveOperation, type WorkspaceAuthenticatorAccount } from "@/modules/sync";
 import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -60,12 +60,14 @@ export function LocalVaultCopyPanel({
       for (const account of vault.accounts.filter((entry) => selectedLocal.has(entry.id))) {
         const source = { ...account, secret: account.secret.slice() };
         try {
-          const encryptedPayload = await encryptAccountConfiguration(personalVaultKey, source, {
-            purpose: "authenticator-account",
-            payloadType: "totp-configuration",
-            vaultId: personalVaultId,
-            keyVersion: 1,
-          });
+          const encryptedPayload = await trackVaultSensitiveOperation(() =>
+            encryptAccountConfiguration(personalVaultKey, source, {
+              purpose: "authenticator-account",
+              payloadType: "totp-configuration",
+              vaultId: personalVaultId,
+              keyVersion: 1,
+            }),
+          );
           const created = await createMutation.mutateAsync({
             vaultId: personalVaultId,
             vaultType: "PERSONAL",
@@ -116,6 +118,7 @@ export function LocalVaultCopyPanel({
           algorithm: account.algorithm,
           digits: account.digits,
           period: account.period,
+          tags: account.tags,
         };
         await session.mutate((current) => addLocalAccount(current, source));
         copiedAccountIds.push(account.id);

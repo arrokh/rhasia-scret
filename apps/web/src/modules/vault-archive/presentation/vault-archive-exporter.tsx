@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUnlockedVaultWorkspace, VaultWorkspaceUnlock } from "@/modules/authenticator-account";
-import type { UnlockedVaultWorkspace } from "@/modules/sync";
+import { subscribeToLocalVaultLock, trackVaultSensitiveOperation, type UnlockedVaultWorkspace } from "@/modules/sync";
 import { recordVaultArchiveExport } from "@/modules/audit";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
@@ -38,6 +38,7 @@ type ExportMessageKey =
   | "ownerRequired"
   | "tooLarge"
   | "accountMismatch"
+  | "unavailableAccounts"
   | "exportError"
   | "copyError";
 
@@ -81,18 +82,25 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
         setMessage("vaultUnavailable");
         return;
       }
+      if (workspace.unavailableAccounts.some((account) => account.vaultId === vault.id)) {
+        setMessage("unavailableAccounts");
+        return;
+      }
       let next: PreparedVaultArchive | null = null;
       try {
-        next = await prepareEncryptedVaultArchive(
-          vault,
-          workspace.accounts.filter((account) => account.vaultId === vault.id),
-        );
-        if (!activeRef.current) {
-          clearPreparedVaultArchive(next);
-          next = null;
-          return;
-        }
-        await recordVaultArchiveExport(vault.id);
+        next = await trackVaultSensitiveOperation(async () => {
+          const prepared = await prepareEncryptedVaultArchive(
+            vault,
+            workspace.accounts.filter((account) => account.vaultId === vault.id),
+          );
+          try {
+            if (activeRef.current) await recordVaultArchiveExport(vault.id);
+            return prepared;
+          } catch (error) {
+            clearPreparedVaultArchive(prepared);
+            throw error;
+          }
+        }, clearPreparedVaultArchive);
         if (!activeRef.current) {
           clearPreparedVaultArchive(next);
           next = null;
@@ -116,6 +124,19 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
       preparedRef.current = null;
     };
   }, []);
+
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        clearPreparedVaultArchive(preparedRef.current);
+        preparedRef.current = null;
+        setPreparedState(null);
+        setMessage(null);
+        setCopied(false);
+        setKeyVisible(false);
+      }),
+    [],
+  );
 
   function replacePrepared(next: PreparedVaultArchive | null) {
     clearPreparedVaultArchive(preparedRef.current);
@@ -275,7 +296,7 @@ export function VaultArchiveExporter({ workspace }: { workspace: UnlockedVaultWo
         </form.Subscribe>
       </form>
       {message && (
-        <StatusBanner tone="danger" role="alert">
+        <StatusBanner tone={message === "unavailableAccounts" ? "warning" : "danger"} role="alert">
           {t(message)}
         </StatusBanner>
       )}

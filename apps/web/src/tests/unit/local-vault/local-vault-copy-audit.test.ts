@@ -22,6 +22,8 @@ vi.mock("@/modules/local-vault", () => ({
 vi.mock("@/modules/local-vault/infrastructure/browser-local-vault-repository", () => ({
   BrowserLocalVaultRepository: class {
     read = vi.fn(async () => ({ profileId: "local-profile-1" }));
+    readArchiveExportAt = vi.fn(async () => null);
+    recordArchiveExportAt = vi.fn(async () => undefined);
     create = vi.fn(async () => undefined);
     clear = vi.fn(async () => undefined);
   },
@@ -63,6 +65,7 @@ const personalAccount = {
   algorithm: "SHA-1" as const,
   digits: 6 as const,
   period: 30,
+  tags: ["Synthetic E2E Work"],
 };
 const unlockedLocalVault = {
   profileId: "local-profile-1",
@@ -121,6 +124,10 @@ describe("Local and Personal Vault copy audit", () => {
     await act(async () => container.querySelector<HTMLElement>("#copy-personal-account-1")?.click());
     await act(async () => findButton(container, "Salin pilihan ke Brankas Lokal").click());
     await vi.waitFor(() => expect(mocks.auditCopiesToLocal).toHaveBeenCalled());
+    expect(mocks.addLocalAccount).toHaveBeenCalledWith(
+      unlockedLocalVault,
+      expect.objectContaining({ tags: ["Synthetic E2E Work"] }),
+    );
     expect(mocks.auditCopiesToLocal).toHaveBeenCalledWith("personal-vault-1", ["personal-account-1"]);
   });
 

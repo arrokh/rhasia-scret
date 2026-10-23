@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { TotpConfiguration } from "@rhasia-scret/client-vault-core";
+import type { AccountPayloadConfiguration } from "@rhasia-scret/client-vault-core";
 import { generateTotp } from "@rhasia-scret/client-vault-core";
 import { BrowserHmacGenerator } from "../infrastructure/browser-hmac-generator";
 import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
@@ -29,7 +29,7 @@ export function TotpAccountButton({
   vaultDetailHref,
   vaultDetailLabel,
 }: {
-  configuration: TotpConfiguration;
+  configuration: AccountPayloadConfiguration;
   vaultName: string;
   onManage?: () => void;
   onAccess?: () => void | boolean | Promise<void | boolean>;
@@ -169,8 +169,19 @@ export function TotpAccountButton({
             label={t("remaining", { seconds })}
           />
         </span>
+        {configuration.tags && configuration.tags.length > 0 && (
+          <ul aria-label={t("tags")} className="col-span-2 flex list-none flex-wrap gap-1 p-0">
+            {configuration.tags.map((tag, index) => (
+              <li key={`${tag}:${index}`}>
+                <Badge variant="outline" className="bg-card text-muted-foreground">
+                  {tag}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
         <span className="col-span-2 h-px bg-border/70" aria-hidden="true" />
-        <div className="pointer-events-auto col-span-2 flex min-w-0 items-center gap-1">
+        <div className="pointer-events-none col-span-2 flex min-w-0 items-center gap-1">
           <Badge variant="secondary" className="mr-auto max-w-full truncate bg-muted text-muted-foreground">
             {vaultName}
           </Badge>
@@ -181,6 +192,7 @@ export function TotpAccountButton({
                   variant="ghost"
                   size="icon"
                   type="button"
+                  className="pointer-events-auto"
                   aria-label={t("manage", { account: configuration.accountName })}
                   title={t("manageTitle")}
                 >

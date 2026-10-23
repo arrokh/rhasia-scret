@@ -169,6 +169,19 @@ describe("Shared Vault account and lifecycle routes", () => {
     ).toBe(204);
   });
 
+  it("rejects tag metadata outside the encrypted Shared Vault account payload", async () => {
+    const response = await sharedAccountPost(
+      request("/v1/shared-vaults/vault-1/accounts", {
+        method: "POST",
+        body: JSON.stringify({ ...accountPayload, tags: ["Synthetic Work"] }),
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.sharedAccounts.create).not.toHaveBeenCalled();
+  });
+
   it("maps shared-account permission and availability outcomes without exposing Vault data", async () => {
     mocks.sharedAccounts.create
       .mockResolvedValueOnce({ status: "PERMISSION_DENIED" })

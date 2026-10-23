@@ -13,8 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import {
+  matchesAuthenticatorAccountSearch,
+  matchesAuthenticatorAccountTagFilter,
+} from "@rhasia-scret/client-vault-core";
 import { SurfaceCard, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { AccountDirectoryControls } from "./account-directory-controls";
+import { AccountDirectorySearch, AccountSearchEmptyState } from "./account-directory-search";
 import {
   accountDirectoryAccountKey,
   moveDirectoryAccount,
@@ -28,12 +33,18 @@ type PreviewAccount = {
   vaultName: string;
   issuer: string;
   accountName: string;
+  tags: string[];
 };
 
 export function AuthenticatorAccountDirectoryPreview() {
   const t = useTranslations("Preview.authenticatorAccounts");
+  const searchInputId = "preview-account-directory-search";
+  const searchPanelId = `${searchInputId}-panel`;
   const { preferences, setPreferences } = useAccountDirectoryPreferences("preview-profile");
   const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const { view, vaultFilters, order } = preferences;
   const vaults = useMemo(
     () => [
@@ -50,6 +61,7 @@ export function AuthenticatorAccountDirectoryPreview() {
         vaultName: t("personalVault"),
         issuer: t("sampleService"),
         accountName: "example@local.invalid",
+        tags: ["Work"],
       },
       {
         id: "preview-account-operations",
@@ -57,6 +69,7 @@ export function AuthenticatorAccountDirectoryPreview() {
         vaultName: t("operations"),
         issuer: t("workAccount"),
         accountName: "work@local.invalid",
+        tags: ["Recovery"],
       },
     ],
     [t],
@@ -74,10 +87,21 @@ export function AuthenticatorAccountDirectoryPreview() {
       (issuer, index, filters) => availableIssuers.has(issuer) && filters.indexOf(issuer) === index,
     );
   }, [issuerFilters, orderedAccounts]);
-  const visibleAccounts = orderedAccounts.filter(
-    (account) =>
-      (activeVaultFilters.length === 0 || activeVaultFilters.includes(account.vaultId)) &&
-      (activeIssuerFilters.length === 0 || activeIssuerFilters.includes(account.issuer)),
+  const tagOptions = useMemo(() => [...new Set(orderedAccounts.flatMap((account) => account.tags))], [orderedAccounts]);
+  const activeTagFilters = useMemo(
+    () => tagFilters.filter((tag, index, filters) => tagOptions.includes(tag) && filters.indexOf(tag) === index),
+    [tagFilters, tagOptions],
+  );
+  const visibleAccounts = useMemo(
+    () =>
+      orderedAccounts.filter(
+        (account) =>
+          (activeVaultFilters.length === 0 || activeVaultFilters.includes(account.vaultId)) &&
+          (activeIssuerFilters.length === 0 || activeIssuerFilters.includes(account.issuer)) &&
+          matchesAuthenticatorAccountTagFilter(account.tags, activeTagFilters) &&
+          matchesAuthenticatorAccountSearch(account, searchQuery),
+      ),
+    [activeIssuerFilters, activeTagFilters, activeVaultFilters, orderedAccounts, searchQuery],
   );
   const activeFilterLabel = useMemo(() => {
     const vaultLabel =
@@ -86,14 +110,19 @@ export function AuthenticatorAccountDirectoryPreview() {
         : activeVaultFilters.length === 1
           ? (vaults.find((vault) => vault.id === activeVaultFilters[0])?.name ?? t("allVaults"))
           : t("selectedVaults", { count: activeVaultFilters.length });
-    if (activeIssuerFilters.length === 0) return vaultLabel;
-    const issuerLabel =
-      activeIssuerFilters.length === 1
-        ? activeIssuerFilters[0]
-        : t("selectedIssuers", { count: activeIssuerFilters.length });
-    return `${vaultLabel} · ${issuerLabel}`;
-  }, [activeIssuerFilters, activeVaultFilters, t, vaults]);
-  const hasActiveFilters = activeVaultFilters.length > 0 || activeIssuerFilters.length > 0;
+    const labels = [vaultLabel];
+    if (activeIssuerFilters.length > 0) {
+      labels.push(
+        activeIssuerFilters.length === 1
+          ? (activeIssuerFilters[0] ?? "")
+          : t("selectedIssuers", { count: activeIssuerFilters.length }),
+      );
+    }
+    if (activeTagFilters.length > 0) labels.push(t("selectedTags", { count: activeTagFilters.length }));
+    return labels.join(" · ");
+  }, [activeIssuerFilters, activeTagFilters, activeVaultFilters, t, vaults]);
+  const hasActiveFilters =
+    activeVaultFilters.length > 0 || activeIssuerFilters.length > 0 || activeTagFilters.length > 0;
 
   function moveAccount(sourceKey: string, targetKey: string, placement: "before" | "after" = "before") {
     const keys = orderedAccounts.map(accountDirectoryAccountKey);
@@ -157,8 +186,16 @@ export function AuthenticatorAccountDirectoryPreview() {
             onVaultFiltersChange={(value) => setPreferences((current) => ({ ...current, vaultFilters: value }))}
             issuerFilters={activeIssuerFilters}
             onIssuerFiltersChange={setIssuerFilters}
+            tagOptions={tagOptions}
+            tagFilters={activeTagFilters}
+            onTagFiltersChange={setTagFilters}
             view={view}
             onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
+            directoryActionsEnabled={true}
+            searchOpen={searchOpen}
+            searchActive={searchQuery.trim().length > 0}
+            searchPanelId={searchPanelId}
+            onSearchOpenChange={setSearchOpen}
             reorderAccounts={orderedAccounts.map((account) => ({
               key: accountDirectoryAccountKey(account),
               issuer: account.issuer,
@@ -171,9 +208,15 @@ export function AuthenticatorAccountDirectoryPreview() {
               filterLabel: t("filterLabel"),
               filterByVault: t("filterByVault"),
               filterByIssuer: t("filterByIssuer"),
+              filterByTag: t("filterByTag"),
               filtersApplied: t("filtersApplied"),
+              clearFilters: t("clearFilters"),
+              showSearch: t("showSearch"),
+              hideSearch: t("hideSearch"),
+              searchApplied: t("searchApplied"),
               allVaults: t("allVaults"),
               allIssuers: t("allIssuers"),
+              allTags: t("allTags"),
               viewLabel: t("viewLabel"),
               compact: t("compact"),
               normal: t("normal"),
@@ -189,6 +232,15 @@ export function AuthenticatorAccountDirectoryPreview() {
           />
         </div>
       </div>
+      {searchOpen && (
+        <AccountDirectorySearch
+          query={searchQuery}
+          inputId={searchInputId}
+          panelId={searchPanelId}
+          autoFocus
+          onQueryChange={setSearchQuery}
+        />
+      )}
       {visibleAccounts.length ? (
         <ul
           data-slot="account-directory-list"
@@ -211,6 +263,15 @@ export function AuthenticatorAccountDirectoryPreview() {
                   <span className="grid min-w-0">
                     <strong className="truncate text-sm text-ink-strong">{account.issuer}</strong>
                     <span className="truncate text-sm text-muted-foreground">{account.accountName}</span>
+                    <ul aria-label={t("tags")} className="mt-1 flex list-none flex-wrap gap-1 p-0">
+                      {account.tags.map((tag) => (
+                        <li key={tag}>
+                          <Badge variant="outline" className="bg-card text-muted-foreground">
+                            {tag}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
                     <Badge
                       variant="secondary"
                       className="mt-2 w-fit max-w-full truncate bg-muted text-muted-foreground"
@@ -247,6 +308,20 @@ export function AuthenticatorAccountDirectoryPreview() {
             );
           })}
         </ul>
+      ) : searchQuery.trim().length > 0 ? (
+        <AccountSearchEmptyState
+          onClearSearch={() => setSearchQuery("")}
+          onClearFilters={
+            hasActiveFilters
+              ? () => {
+                  setSearchQuery("");
+                  setIssuerFilters([]);
+                  setTagFilters([]);
+                  setPreferences((current) => ({ ...current, vaultFilters: [] }));
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="grid justify-items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
           <p className="text-sm text-muted-foreground">{hasActiveFilters ? t("emptyFiltered") : t("empty")}</p>
@@ -255,7 +330,9 @@ export function AuthenticatorAccountDirectoryPreview() {
               type="button"
               variant="outline"
               onClick={() => {
+                setSearchQuery("");
                 setIssuerFilters([]);
+                setTagFilters([]);
                 setPreferences((current) => ({ ...current, vaultFilters: [] }));
               }}
             >

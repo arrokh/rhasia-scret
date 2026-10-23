@@ -2,12 +2,13 @@
 
 import type { LocalVaultCapabilityPort } from "../application/local-vault-capabilities";
 import type { LocalVaultRepository } from "../application/local-vault-repository";
-import { parseLocalVaultRecord, type LocalVaultRecord } from "../domain/local-vault-record";
+import { LOCAL_VAULT_RECORD_VERSION, parseLocalVaultRecord, type LocalVaultRecord } from "../domain/local-vault-record";
 
 const DATABASE_NAME = "rhasia-scret-local-vault";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "local-vault";
 const STORAGE_KEY = "singleton";
+const ARCHIVE_EXPORT_STORAGE_KEY = "archive-export";
 
 export class BrowserLocalVaultRepository implements LocalVaultRepository {
   constructor(private readonly openDatabase: () => Promise<IDBDatabase> = openLocalVaultDatabase) {}
@@ -24,6 +25,54 @@ export class BrowserLocalVaultRepository implements LocalVaultRepository {
     }
   }
 
+  async readArchiveExportAt(profileId: string): Promise<string | null> {
+    const database = await this.openDatabase();
+    try {
+      const value = await request<unknown>(
+        database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(ARCHIVE_EXPORT_STORAGE_KEY),
+      );
+      if (!isArchiveExportMarker(value) || value.profileId !== profileId) return null;
+      return value.exportedAt;
+    } finally {
+      database.close();
+    }
+  }
+
+  async clearOrphanedArchiveExportMarker(): Promise<void> {
+    const database = await this.openDatabase();
+    try {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const record = await request<unknown>(store.get(STORAGE_KEY));
+      if (record === undefined) store.delete(ARCHIVE_EXPORT_STORAGE_KEY);
+      await completed(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async recordArchiveExportAt(profileId: string, exportedAt: string): Promise<void> {
+    if (!canonicalTimestamp(exportedAt)) throw new Error("The Local Vault archive export timestamp is invalid.");
+    const database = await this.openDatabase();
+    try {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const value = await request<unknown>(store.get(STORAGE_KEY));
+      if (value === undefined) {
+        transaction.abort();
+        throw new Error("The Local Profile does not exist.");
+      }
+      if (parseLocalVaultRecord(value).profileId !== profileId) {
+        transaction.abort();
+        throw new Error("The Local Profile identity cannot change.");
+      }
+      store.put({ profileId, exportedAt }, ARCHIVE_EXPORT_STORAGE_KEY);
+      await completed(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
   async create(recordInput: LocalVaultRecord): Promise<void> {
     const record = parseLocalVaultRecord(recordInput);
     const database = await this.openDatabase();
@@ -35,8 +84,41 @@ export class BrowserLocalVaultRepository implements LocalVaultRepository {
         transaction.abort();
         throw new Error("A Local Profile already exists in this browser installation.");
       }
+      store.delete(ARCHIVE_EXPORT_STORAGE_KEY);
       store.put(record, STORAGE_KEY);
       await completed(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async update(transform: (record: LocalVaultRecord) => LocalVaultRecord): Promise<void> {
+    const database = await this.openDatabase();
+    try {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const updateResult = new Promise<void>((resolve, reject) => {
+        const getRequest = store.get(STORAGE_KEY);
+        getRequest.onerror = () => reject(getRequest.error ?? new Error("Local Vault storage operation failed."));
+        getRequest.onsuccess = () => {
+          try {
+            if (getRequest.result === undefined) throw new Error("The Local Profile does not exist.");
+            const current = parseLocalVaultRecord(getRequest.result);
+            const record = parseLocalVaultRecord(transform(current));
+            assertRecordReplacement(current, record);
+            store.put(record, STORAGE_KEY);
+            resolve();
+          } catch (error) {
+            try {
+              transaction.abort();
+            } catch {
+              // The transaction may already be inactive after an IndexedDB error.
+            }
+            reject(error);
+          }
+        };
+      });
+      await Promise.all([updateResult, completed(transaction)]);
     } finally {
       database.close();
     }
@@ -54,9 +136,11 @@ export class BrowserLocalVaultRepository implements LocalVaultRepository {
         throw new Error("The Local Profile does not exist.");
       }
       const current = parseLocalVaultRecord(existing);
-      if (current.profileId !== record.profileId || current.createdAt !== record.createdAt) {
+      try {
+        assertRecordReplacement(current, record);
+      } catch (error) {
         transaction.abort();
-        throw new Error("The Local Profile identity cannot change.");
+        throw error;
       }
       store.put(record, STORAGE_KEY);
       await completed(transaction);
@@ -69,7 +153,9 @@ export class BrowserLocalVaultRepository implements LocalVaultRepository {
     const database = await this.openDatabase();
     try {
       const transaction = database.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).delete(STORAGE_KEY);
+      const store = transaction.objectStore(STORE_NAME);
+      store.delete(STORAGE_KEY);
+      store.delete(ARCHIVE_EXPORT_STORAGE_KEY);
       await completed(transaction);
     } finally {
       database.close();
@@ -91,6 +177,30 @@ export async function readLocalVaultRecord(): Promise<LocalVaultRecord | null> {
 
 export async function clearLocalVault(): Promise<void> {
   await new BrowserLocalVaultRepository().clear();
+}
+
+function assertRecordReplacement(current: LocalVaultRecord, next: LocalVaultRecord): void {
+  if (current.profileId !== next.profileId || current.createdAt !== next.createdAt)
+    throw new Error("The Local Profile identity cannot change.");
+  if (current.version === LOCAL_VAULT_RECORD_VERSION && next.version !== current.version)
+    throw new Error("The Local Vault record version cannot be downgraded.");
+}
+
+function isArchiveExportMarker(value: unknown): value is { profileId: string; exportedAt: string } {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const marker = value as Record<string, unknown>;
+  return (
+    Object.keys(marker).sort().join(",") === "exportedAt,profileId" &&
+    typeof marker.profileId === "string" &&
+    /^[A-Za-z0-9_-]{16,128}$/.test(marker.profileId) &&
+    canonicalTimestamp(marker.exportedAt)
+  );
+}
+
+function canonicalTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" && Number.isFinite(new Date(value).getTime()) && new Date(value).toISOString() === value
+  );
 }
 
 function openLocalVaultDatabase(): Promise<IDBDatabase> {

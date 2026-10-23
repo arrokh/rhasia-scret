@@ -71,7 +71,12 @@ test("wires package selection to every consuming job without cancelling a differ
       8,
       "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
     ],
-    ["browser-e2e", "web", 8, "ci-web-browser-e2e-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}"],
+    [
+      "browser-e2e",
+      "web",
+      12,
+      "ci-web-browser-e2e-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
+    ],
     ["browser-production", "web", 12, "ci-web-production-${{ github.workflow }}-${{ github.ref_name }}"],
   ]) {
     const body = job(name);

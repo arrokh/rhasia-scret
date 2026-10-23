@@ -7,6 +7,8 @@ import {
   decryptAccountConfiguration,
   encryptAccountConfiguration,
   isDuplicateAccount,
+  parseDecryptedAccountPayload,
+  serializeDecryptedAccountPayload,
   sortAccounts,
 } from "@/modules/authenticator-account/infrastructure/browser-account-payload";
 
@@ -23,6 +25,40 @@ describe("browser account payload", () => {
     await expect(decryptAccountConfiguration(generateSymmetricKey(), encrypted)).rejects.toThrow(
       "authentication failed",
     );
+  });
+
+  it("reads legacy payloads without tags and writes bounded tags in account payload version two", () => {
+    const legacy = configuration();
+    const legacyPlaintext = new TextEncoder().encode(
+      JSON.stringify({
+        issuer: legacy.issuer,
+        accountName: legacy.accountName,
+        secret: bytesToBase64(legacy.secret),
+        algorithm: legacy.algorithm,
+        digits: legacy.digits,
+        period: legacy.period,
+      }),
+    );
+    const tagged = { ...configuration(), tags: ["Work", "Recovery"] };
+    const taggedPlaintext = serializeDecryptedAccountPayload(tagged);
+
+    try {
+      const parsedLegacy = parseDecryptedAccountPayload(legacyPlaintext);
+      expect(parsedLegacy).not.toHaveProperty("tags");
+      parsedLegacy.secret.fill(0);
+      expect(JSON.parse(new TextDecoder().decode(taggedPlaintext))).toMatchObject({
+        version: 2,
+        tags: ["Work", "Recovery"],
+      });
+      const parsedTagged = parseDecryptedAccountPayload(taggedPlaintext);
+      expect(parsedTagged.tags).toEqual(["Work", "Recovery"]);
+      parsedTagged.secret.fill(0);
+    } finally {
+      legacy.secret.fill(0);
+      tagged.secret.fill(0);
+      legacyPlaintext.fill(0);
+      taggedPlaintext.fill(0);
+    }
   });
 
   it("detects duplicates locally and derives alphabetical account order", () => {

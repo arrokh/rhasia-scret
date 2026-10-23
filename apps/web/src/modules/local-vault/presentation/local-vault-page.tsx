@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, Plus, Settings, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { AppPage, PageHeader, SectionHeading, StatusBanner, SurfaceCard } from "@/shared/presentation/app-ui";
+import { formatLocalDateTime } from "@/i18n/format";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
@@ -20,8 +21,21 @@ import {
   type TotpConfigurationErrorCode,
 } from "@/modules/otp-runtime";
 import { TotpAccountButton } from "@/modules/otp-runtime";
-import { VaultStatusIndicator } from "@/modules/sync";
-import { QrImportInput } from "@/modules/authenticator-account";
+import { requestLocalVaultLock, subscribeToLocalVaultLock, VaultStatusIndicator } from "@/modules/sync";
+import {
+  AccountDirectorySearch,
+  AccountSearchEmptyState,
+  AccountTagsEditor,
+  AccountTagsFilter,
+  QrImportInput,
+  type AccountPayloadConfiguration,
+} from "@/modules/authenticator-account";
+import {
+  AccountTagValidationError,
+  matchesAuthenticatorAccountSearch,
+  matchesAuthenticatorAccountTagFilter,
+  normalizeAuthenticatorAccountTags,
+} from "@rhasia-scret/client-vault-core";
 import { base64ToBytes, bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
 import { ANALYTICS_EVENTS } from "@/shared/infrastructure/browser-analytics-config";
@@ -30,7 +44,10 @@ import {
   deleteLocalAccount,
   exportLocalVault,
   importLocalVaultArchive,
+  LocalVaultConcurrentAccountUpdateError,
   LocalVaultMigrationRequiredError,
+  LocalVaultSessionLockedError,
+  recordLocalArchiveExport,
   previewLocalVaultArchiveImport,
   renameLocalVault,
   updateLocalAccount,
@@ -41,13 +58,14 @@ import {
 import { browserDownload } from "@/shared/infrastructure/browser-platform-ports";
 import { useLocalVaultSession } from "./use-local-vault-session";
 import { localVaultArchiveImportFeedback } from "./local-vault-archive-import-feedback";
+import { BrowserOriginStoragePersistenceNotice } from "./browser-origin-storage-persistence-notice";
 
 export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } = {}) {
   const t = useTranslations("LocalVault");
   const {
     discoveryError,
     session,
-    state: { available, discovered, migrationRequired, record, vault },
+    state: { available, discovered, migrationRequired, record, lastArchiveExportAt, vault },
   } = useLocalVaultSession();
   const [message, setMessage] = useState<{ tone: "danger" | "success" | "warning"; text: string } | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
@@ -55,8 +73,18 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   const [editing, setEditing] = useState<UnlockedLocalVaultAccount | null>(null);
   const displayedMessage = message ?? (discoveryError ? { tone: "danger" as const, text: t("storageError") } : null);
 
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        setEditing(null);
+        setClearOpen(false);
+        setMessage(null);
+      }),
+    [],
+  );
+
   function lock() {
-    session.lock();
+    requestLocalVaultLock();
     setEditing(null);
     setMessage(null);
     captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultLocked);
@@ -136,6 +164,7 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   return (
     <AppPage>
       <PageHeader title={t("title")} description={t("description")} backHref={backHref} />
+      <BrowserOriginStoragePersistenceNotice />
       {displayedMessage && (
         <div className="mb-5">
           <StatusBanner tone={displayedMessage.tone} role={displayedMessage.tone === "danger" ? "alert" : "status"}>
@@ -157,9 +186,13 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
       {record && vault && (
         <UnlockedLocalVaultView
           vault={vault}
+          lastArchiveExportAt={lastArchiveExportAt}
           onLock={lock}
           onClear={() => setClearOpen(true)}
           runMutation={(operation) => session.mutate(operation)}
+          performSensitiveWorkflow={(operation, clearStaleResult) =>
+            session.performSensitiveWorkflow(operation, clearStaleResult)
+          }
           refresh={() => session.refresh()}
           onRename={async (name) => {
             await session.mutate((current) => renameLocalVault(current, name));
@@ -209,6 +242,14 @@ function CreateLocalVaultForm({ onCreate }: { onCreate: (passphrase: string, nam
     defaultValues: { name: "", passphrase: "", confirmation: "" },
     onSubmit: async ({ value }) => onCreate(value.passphrase, value.name),
   });
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        form.reset();
+        setVisible(false);
+      }),
+    [form],
+  );
   return (
     <form
       noValidate
@@ -311,6 +352,14 @@ function UnlockLocalVaultForm({
     defaultValues: { passphrase: "" },
     onSubmit: async ({ value }) => onUnlock(value.passphrase),
   });
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        form.reset();
+        setVisible(false);
+      }),
+    [form],
+  );
   return (
     <form
       noValidate
@@ -366,31 +415,60 @@ function UnlockLocalVaultForm({
   );
 }
 
+type LocalVaultOperationExecutor = <Result>(
+  operation: (vault: UnlockedLocalVault) => Promise<Result>,
+  clearStaleResult?: (result: Result) => void,
+) => Promise<Result>;
+
+function clearArchiveExportResult(result: { archive: Uint8Array; key: Uint8Array }): void {
+  result.archive.fill(0);
+  result.key.fill(0);
+}
+
 function UnlockedLocalVaultView({
   vault,
+  lastArchiveExportAt,
   onLock,
   onClear,
   onRename,
   runMutation,
+  performSensitiveWorkflow,
   refresh,
   onEdit,
   onError,
   onStatus,
 }: {
   vault: UnlockedLocalVault;
+  lastArchiveExportAt: string | null | undefined;
   onLock: () => void;
   onClear: () => void;
   onRename: (name: string) => Promise<void>;
   runMutation: <Result>(operation: (vault: UnlockedLocalVault) => Promise<Result>) => Promise<Result>;
+  performSensitiveWorkflow: <Result>(
+    operation: (vault: UnlockedLocalVault) => Promise<Result>,
+    clearStaleResult?: (result: Result) => void,
+  ) => Promise<Result>;
   refresh: () => Promise<void>;
   onEdit: (account: UnlockedLocalVaultAccount) => void;
   onError: (message: string) => void;
   onStatus: (tone: "success" | "warning", message: string) => void;
 }) {
   const t = useTranslations("LocalVault");
+  const locale = useLocale();
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [activeTab, setActiveTab] = useState("vault");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+  const availableTags = [...new Set(vault.accounts.flatMap((account) => account.tags ?? []))];
+  const activeTagFilters = selectedTagFilters.filter((tag) => availableTags.includes(tag));
+  const visibleAccounts = vault.accounts.filter(
+    (account) =>
+      matchesAuthenticatorAccountTagFilter(account.tags, activeTagFilters) &&
+      matchesAuthenticatorAccountSearch(account, searchQuery),
+  );
+  const hasSearchQuery = searchQuery.trim().length > 0;
   async function add(configuration: TotpConfiguration): Promise<boolean> {
     try {
       await runMutation((current) => addLocalAccount(current, configuration));
@@ -406,17 +484,37 @@ function UnlockedLocalVaultView({
   async function backup() {
     setExporting(true);
     try {
-      const result = await exportLocalVault(vault);
-      download(result.archive, "local-vault.rhasia-vault");
-      download(new TextEncoder().encode(bytesToBase64(result.key)), "local-vault.key.txt", "text/plain");
+      let result: { archive: Uint8Array; key: Uint8Array } | undefined;
+      try {
+        result = await performSensitiveWorkflow((current) => exportLocalVault(current), clearArchiveExportResult);
+        download(result.archive, "local-vault.rhasia-vault");
+        const encodedKey = new TextEncoder().encode(bytesToBase64(result.key));
+        try {
+          download(encodedKey, "local-vault.key.txt", "text/plain");
+        } finally {
+          encodedKey.fill(0);
+        }
+      } catch (error) {
+        if (!(error instanceof LocalVaultSessionLockedError)) onError(t("backupError"));
+        return;
+      } finally {
+        result?.archive.fill(0);
+        result?.key.fill(0);
+      }
+
+      try {
+        await runMutation((current) => recordLocalArchiveExport(current, new Date().toISOString()));
+      } catch (error) {
+        if (!(error instanceof LocalVaultSessionLockedError)) onError(t("archiveExportMarkerError"));
+        return;
+      }
       captureAnalyticsEvent(ANALYTICS_EVENTS.localVaultArchiveExportPrepared, { account_count: vault.accounts.length });
-      result.key.fill(0);
-    } catch {
-      onError(t("backupError"));
+      onStatus("success", t("archiveReady"));
     } finally {
       setExporting(false);
     }
   }
+  const tAccounts = useTranslations("AuthenticatorAccount.accounts");
   return (
     <SurfaceCard className="p-0">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -436,16 +534,50 @@ function UnlockedLocalVaultView({
                 <h2 className="mt-1 text-xl font-bold text-ink-strong">{vault.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t("offline")}</p>
               </div>
-              <Button type="button" onClick={() => setActiveTab("add")}>
-                <Plus aria-hidden="true" />
-                {t("addTab")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <AccountTagsFilter
+                  availableTags={availableTags}
+                  selectedTags={activeTagFilters}
+                  onSelectedTagsChange={setSelectedTagFilters}
+                />
+                <Button type="button" onClick={() => setActiveTab("add")}>
+                  <Plus aria-hidden="true" />
+                  {t("addTab")}
+                </Button>
+              </div>
             </div>
+            <AccountDirectorySearch
+              query={searchQuery}
+              inputId="local-vault-account-search"
+              panelId="local-vault-account-search-panel"
+              onQueryChange={setSearchQuery}
+            />
+            {!reminderDismissed && (
+              <StatusBanner tone="info" title={t("archiveReminderTitle")} role="status">
+                <p>{t("archiveReminderDescription")}</p>
+                <p className="mt-1">
+                  {lastArchiveExportAt === undefined
+                    ? t("archiveReminderMarkerUnavailable")
+                    : lastArchiveExportAt
+                      ? t("archiveReminderLastExport", { date: formatLocalDateTime(lastArchiveExportAt, locale) })
+                      : t("archiveReminderNoExport")}
+                </p>
+                <p className="mt-1">{t("archiveReminderCaveat")}</p>
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setReminderDismissed(true)}>
+                    {t("dismissArchiveReminder")}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setActiveTab("backup")}>
+                    {t("openArchiveTools")}
+                  </Button>
+                </div>
+              </StatusBanner>
+            )}
           </div>
           <div className="border-t border-border">
-            {vault.accounts.length ? (
+            {visibleAccounts.length ? (
               <ul className="grid list-none gap-3 p-5 sm:p-6">
-                {vault.accounts.map((account) => (
+                {visibleAccounts.map((account) => (
                   <li key={account.id}>
                     <TotpAccountButton
                       configuration={account}
@@ -455,6 +587,25 @@ function UnlockedLocalVaultView({
                   </li>
                 ))}
               </ul>
+            ) : hasSearchQuery ? (
+              <AccountSearchEmptyState
+                onClearSearch={() => setSearchQuery("")}
+                onClearFilters={
+                  activeTagFilters.length > 0
+                    ? () => {
+                        setSearchQuery("");
+                        setSelectedTagFilters([]);
+                      }
+                    : undefined
+                }
+              />
+            ) : vault.accounts.length > 0 ? (
+              <div className="grid justify-items-center gap-3 p-6 text-center">
+                <p className="font-bold text-foreground">{tAccounts("emptyTagged")}</p>
+                <Button type="button" variant="outline" onClick={() => setSelectedTagFilters([])}>
+                  {tAccounts("clearTags")}
+                </Button>
+              </div>
             ) : (
               <div className="grid justify-items-center gap-3 p-6 text-center">
                 <p className="text-sm text-muted-foreground">{t("empty")}</p>
@@ -490,8 +641,8 @@ function UnlockedLocalVaultView({
               </div>
             </section>
             <LocalArchiveImporter
-              vault={vault}
               runMutation={runMutation}
+              performSensitiveWorkflow={performSensitiveWorkflow}
               refresh={refresh}
               onError={onError}
               onStatus={onStatus}
@@ -512,33 +663,53 @@ export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConf
   const t = useTranslations("LocalVault");
   const tError = useTranslations("OtpRuntime.errors");
   const [configuration, setConfiguration] = useState<TotpConfiguration | null>(null);
+  const configurationRef = useRef<TotpConfiguration | null>(null);
+  const mountedRef = useRef(true);
   const [parseError, setParseError] = useState<TotpConfigurationErrorCode | null>(null);
   const form = useForm({
     defaultValues: { uri: "", label: "" },
     onSubmit: async ({ value }) => {
-      if (!configuration) return;
-      if (await onAdd({ ...configuration, accountName: value.label.trim() })) {
-        configuration.secret.fill(0);
-        setConfiguration(null);
-        form.reset();
+      const current = configurationRef.current;
+      if (!current) return;
+      try {
+        await onAdd({ ...current, accountName: value.label.trim() });
+      } finally {
+        current.secret.fill(0);
+        if (configurationRef.current === current) replaceConfiguration(null);
+        if (mountedRef.current) form.reset();
       }
     },
   });
+  function replaceConfiguration(next: TotpConfiguration | null) {
+    if (configurationRef.current !== next) configurationRef.current?.secret.fill(0);
+    configurationRef.current = next;
+    if (mountedRef.current) setConfiguration(next);
+  }
+  useEffect(() => {
+    mountedRef.current = true;
+    const unsubscribe = subscribeToLocalVaultLock(() => {
+      configurationRef.current?.secret.fill(0);
+      configurationRef.current = null;
+      form.reset();
+      setConfiguration(null);
+      setParseError(null);
+    });
+    return () => {
+      unsubscribe();
+      mountedRef.current = false;
+      configurationRef.current?.secret.fill(0);
+      configurationRef.current = null;
+    };
+  }, [form]);
   function importUri(uri: string) {
     try {
       const parsed = parseTotpUri(uri);
-      setConfiguration((current) => {
-        current?.secret.fill(0);
-        return parsed;
-      });
+      replaceConfiguration(parsed);
       setParseError(null);
       form.setFieldValue("uri", uri);
       form.setFieldValue("label", parsed.accountName);
     } catch (reason) {
-      setConfiguration((current) => {
-        current?.secret.fill(0);
-        return null;
-      });
+      replaceConfiguration(null);
       setParseError(reason instanceof TotpConfigurationError ? reason.code : "invalidUri");
     }
   }
@@ -563,8 +734,7 @@ export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConf
               variant="ghost"
               size="sm"
               onClick={() => {
-                configuration.secret.fill(0);
-                setConfiguration(null);
+                replaceConfiguration(null);
                 form.reset();
               }}
             >
@@ -622,24 +792,40 @@ function LocalAccountEditor({
   account: UnlockedLocalVaultAccount;
   onCancel: () => void;
   onDelete: () => Promise<void>;
-  onSave: (configuration: TotpConfiguration) => Promise<void>;
+  onSave: (configuration: AccountPayloadConfiguration) => Promise<void>;
   onError: (message: string) => void;
 }) {
   const t = useTranslations("LocalVault");
   const tCommon = useTranslations("Common");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const tTags = useTranslations("AuthenticatorAccount.manager");
   const form = useForm({
-    defaultValues: { label: account.accountName },
-    onSubmit: async ({ value }) => onSave({ ...account, accountName: value.label.trim() }),
+    defaultValues: { label: account.accountName, tags: account.tags ?? [], tagDraft: "" },
+    onSubmit: async ({ value }) => onSave({ ...account, accountName: value.label.trim(), tags: value.tags }),
   });
+  function validateTags(tags: string[]): string | undefined {
+    try {
+      normalizeAuthenticatorAccountTags(tags);
+      return undefined;
+    } catch (error) {
+      if (error instanceof AccountTagValidationError) return tTags(`tagErrors.${error.code}`);
+      return tTags("tagErrors.notArray");
+    }
+  }
+  function validateTagDraft(draft: string, tags: string[]): string | undefined {
+    if (!draft.trim()) return undefined;
+    return validateTags([...tags, draft.trim()]);
+  }
   async function remove() {
     setDeleting(true);
     try {
       await onDelete();
       setDeleteOpen(false);
-    } catch {
-      onError(t("operationError"));
+    } catch (error) {
+      onError(
+        error instanceof LocalVaultConcurrentAccountUpdateError ? t("concurrentAccountUpdate") : t("operationError"),
+      );
     } finally {
       setDeleting(false);
     }
@@ -662,7 +848,15 @@ function LocalAccountEditor({
             className="grid gap-4"
             onSubmit={(event) => {
               event.preventDefault();
-              void form.handleSubmit().catch(() => onError(t("operationError")));
+              void form
+                .handleSubmit()
+                .catch((error: unknown) =>
+                  onError(
+                    error instanceof LocalVaultConcurrentAccountUpdateError
+                      ? t("concurrentAccountUpdate")
+                      : t("operationError"),
+                  ),
+                );
             }}
           >
             <SectionHeading icon={KeyRound} title={t("edit")} />
@@ -680,6 +874,44 @@ function LocalAccountEditor({
                     required
                   />
                 </div>
+              )}
+            </form.Field>
+            <form.Field
+              name="tags"
+              validators={{
+                onChange: ({ value }) => validateTags(value),
+                onSubmit: ({ value }) => validateTags(value),
+              }}
+            >
+              {(tagsField) => (
+                <form.Field
+                  name="tagDraft"
+                  validators={{
+                    onChange: ({ value }) => validateTagDraft(value, form.getFieldValue("tags")),
+                    onSubmit: ({ value }) => (value.trim() ? tTags("tagDraftNotAdded") : undefined),
+                  }}
+                >
+                  {(draftField) => (
+                    <AccountTagsEditor
+                      tags={tagsField.state.value}
+                      draft={draftField.state.value}
+                      errors={draftField.state.meta.errors}
+                      inputId="edit-local-account-tag"
+                      errorId="edit-local-account-tag-error"
+                      disabled={deleting}
+                      onDraftChange={draftField.handleChange}
+                      onAdd={() => {
+                        const tag = draftField.state.value.trim();
+                        if (!tag || draftField.state.meta.errors.length > 0) return;
+                        tagsField.handleChange([...tagsField.state.value, tag]);
+                        draftField.handleChange("");
+                      }}
+                      onRemove={(index) =>
+                        tagsField.handleChange(tagsField.state.value.filter((_, tagIndex) => tagIndex !== index))
+                      }
+                    />
+                  )}
+                </form.Field>
               )}
             </form.Field>
             <div className="grid gap-3">
@@ -824,16 +1056,19 @@ function LocalVaultSettings({
 }
 
 export function LocalArchiveImporter({
-  vault,
   runMutation,
+  performSensitiveWorkflow,
   refresh,
   onError,
   onStatus,
   importing,
   setImporting,
 }: {
-  vault: UnlockedLocalVault;
   runMutation: <Result>(operation: (vault: UnlockedLocalVault) => Promise<Result>) => Promise<Result>;
+  performSensitiveWorkflow: <Result>(
+    operation: (vault: UnlockedLocalVault) => Promise<Result>,
+    clearStaleResult?: (result: Result) => void,
+  ) => Promise<Result>;
   refresh: () => Promise<void>;
   onError: (message: string) => void;
   onStatus: (tone: "success" | "warning", message: string) => void;
@@ -849,19 +1084,23 @@ export function LocalArchiveImporter({
   const keyInput = useRef<HTMLInputElement>(null);
 
   async function withArchiveBytes<Result>(
-    operation: (keyBytes: Uint8Array, archiveBytes: Uint8Array) => Promise<Result>,
+    execute: LocalVaultOperationExecutor,
+    operation: (vault: UnlockedLocalVault, keyBytes: Uint8Array, archiveBytes: Uint8Array) => Promise<Result>,
+    clearStaleResult?: (result: Result) => void,
   ): Promise<Result | undefined> {
     if (!archive || !key) return undefined;
-    let keyBytes: Uint8Array | undefined;
-    let archiveBytes: Uint8Array | undefined;
-    try {
-      keyBytes = base64ToBytes((await key.text()).trim());
-      archiveBytes = new Uint8Array(await archive.arrayBuffer());
-      return await operation(keyBytes, archiveBytes);
-    } finally {
-      keyBytes?.fill(0);
-      archiveBytes?.fill(0);
-    }
+    return execute(async (vault) => {
+      let keyBytes: Uint8Array | undefined;
+      let archiveBytes: Uint8Array | undefined;
+      try {
+        keyBytes = base64ToBytes((await key.text()).trim());
+        archiveBytes = new Uint8Array(await archive.arrayBuffer());
+        return await operation(vault, keyBytes, archiveBytes);
+      } finally {
+        keyBytes?.fill(0);
+        archiveBytes?.fill(0);
+      }
+    }, clearStaleResult);
   }
 
   async function reviewImport() {
@@ -869,12 +1108,14 @@ export function LocalArchiveImporter({
     setReviewing(true);
     setReview(null);
     try {
-      const summary = await withArchiveBytes((keyBytes, archiveBytes) =>
-        previewLocalVaultArchiveImport(vault, keyBytes, archiveBytes),
+      const summary = await withArchiveBytes(
+        performSensitiveWorkflow,
+        (current, keyBytes, archiveBytes) => previewLocalVaultArchiveImport(current, keyBytes, archiveBytes),
+        () => setReview(null),
       );
       if (summary) setReview(summary);
-    } catch {
-      onError(t("importError"));
+    } catch (error) {
+      if (!(error instanceof LocalVaultSessionLockedError)) onError(t("importError"));
     } finally {
       setReviewing(false);
     }
@@ -884,8 +1125,8 @@ export function LocalArchiveImporter({
     if (!archive || !key || !review) return;
     setImporting(true);
     try {
-      const count = await withArchiveBytes((keyBytes, archiveBytes) =>
-        runMutation((current) => importLocalVaultArchive(current, keyBytes, archiveBytes, allowDuplicates)),
+      const count = await withArchiveBytes(runMutation, (current, keyBytes, archiveBytes) =>
+        importLocalVaultArchive(current, keyBytes, archiveBytes, allowDuplicates),
       );
       if (count === undefined) return;
       await refresh();
@@ -898,8 +1139,8 @@ export function LocalArchiveImporter({
       setKey(null);
       if (archiveInput.current) archiveInput.current.value = "";
       if (keyInput.current) keyInput.current.value = "";
-    } catch {
-      onError(t("importError"));
+    } catch (error) {
+      if (!(error instanceof LocalVaultSessionLockedError)) onError(t("importError"));
     } finally {
       setImporting(false);
     }

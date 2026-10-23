@@ -1,14 +1,13 @@
 "use client";
 
 import { browserClientCryptoPort, type CryptoEnvelopeContext } from "@/modules/crypto";
-import type { TotpConfiguration } from "@/modules/otp-runtime";
 import {
   createAuthenticatorAccountPayloadPort,
   isDuplicateAccount,
   parseDecryptedAccountPayload,
   serializeDecryptedAccountPayload,
 } from "@rhasia-scret/client-vault-core";
-import type { DecryptedAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
+import type { AccountPayloadConfiguration, DecryptedAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
 
 export type { DecryptedAuthenticatorAccount } from "@rhasia-scret/client-vault-core";
 export { isDuplicateAccount, parseDecryptedAccountPayload, serializeDecryptedAccountPayload };
@@ -31,7 +30,7 @@ function createBrowserAccountPayloadPort() {
 
 export function encryptAccountConfiguration(
   vaultKey: Uint8Array,
-  configuration: TotpConfiguration,
+  configuration: AccountPayloadConfiguration,
   context?: CryptoEnvelopeContext,
 ): Promise<Uint8Array> {
   return browserAccountPayloadPort.encryptAccountConfiguration(vaultKey, configuration, context);
