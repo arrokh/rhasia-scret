@@ -181,7 +181,7 @@ export function TotpAccountButton({
           </ul>
         )}
         <span className="col-span-2 h-px bg-border/70" aria-hidden="true" />
-        <div className="pointer-events-auto col-span-2 flex min-w-0 items-center gap-1">
+        <div className="pointer-events-none col-span-2 flex min-w-0 items-center gap-1">
           <Badge variant="secondary" className="mr-auto max-w-full truncate bg-muted text-muted-foreground">
             {vaultName}
           </Badge>
@@ -192,6 +192,7 @@ export function TotpAccountButton({
                   variant="ghost"
                   size="icon"
                   type="button"
+                  className="pointer-events-auto"
                   aria-label={t("manage", { account: configuration.accountName })}
                   title={t("manageTitle")}
                 >

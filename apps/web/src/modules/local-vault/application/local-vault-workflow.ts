@@ -18,6 +18,13 @@ export class LocalVaultMigrationRequiredError extends Error {
   }
 }
 
+export class LocalVaultConcurrentAccountUpdateError extends Error {
+  public constructor() {
+    super("The Local Vault account changed in another tab.");
+    this.name = "LocalVaultConcurrentAccountUpdateError";
+  }
+}
+
 export type UnlockedLocalVault = {
   profileId: string;
   createdAt: string;
@@ -397,14 +404,19 @@ export async function updateLocalAccount(
     const revision = current.revision + 1;
     await updateRecord(
       vault,
-      (record) => ({
-        ...record,
-        accounts: record.accounts.map((account) =>
-          account.id === accountId
-            ? { ...account, encryptedPayload: bytesToBase64(encryptedPayload), revision }
-            : account,
-        ),
-      }),
+      (record) => {
+        const persistedAccount = record.accounts.find((account) => account.id === accountId);
+        if (!persistedAccount || persistedAccount.revision !== current.revision)
+          throw new LocalVaultConcurrentAccountUpdateError();
+        return {
+          ...record,
+          accounts: record.accounts.map((account) =>
+            account.id === accountId
+              ? { ...account, encryptedPayload: bytesToBase64(encryptedPayload), revision }
+              : account,
+          ),
+        };
+      },
       dependencies,
     );
     const retained = { ...configuration, secret: configuration.secret.slice(), id: current.id, revision };
@@ -451,7 +463,12 @@ export async function deleteLocalAccount(
   if (!account) throw new Error("The Local Vault account was not found.");
   await updateRecord(
     vault,
-    (record) => ({ ...record, accounts: record.accounts.filter((entry) => entry.id !== accountId) }),
+    (record) => {
+      const persistedAccount = record.accounts.find((entry) => entry.id === accountId);
+      if (!persistedAccount || persistedAccount.revision !== account.revision)
+        throw new LocalVaultConcurrentAccountUpdateError();
+      return { ...record, accounts: record.accounts.filter((entry) => entry.id !== accountId) };
+    },
     dependencies,
   );
   account.secret.fill(0);
@@ -651,10 +668,10 @@ async function updateRecord(
   update: (record: LocalVaultRecord) => LocalVaultRecord,
   dependencies: LocalVaultWorkflowDependencies,
 ): Promise<void> {
-  const repository = dependencies.repository;
-  const current = await repository.read();
-  if (!current || current.profileId !== vault.profileId) throw new Error("The Local Profile is unavailable.");
-  await repository.replace(parseLocalVaultRecord({ ...update(current), version: LOCAL_VAULT_RECORD_VERSION }));
+  await dependencies.repository.update((current) => {
+    if (current.profileId !== vault.profileId) throw new Error("The Local Profile is unavailable.");
+    return parseLocalVaultRecord({ ...update(current), version: LOCAL_VAULT_RECORD_VERSION });
+  });
 }
 
 function hasLegacyEnvelope(record: LocalVaultRecord, dependencies: LocalVaultWorkflowDependencies): boolean {

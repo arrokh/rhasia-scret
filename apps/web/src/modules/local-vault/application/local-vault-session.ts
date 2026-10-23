@@ -6,7 +6,8 @@ export type LocalVaultSessionState = {
   discovered: boolean;
   migrationRequired: boolean;
   record: LocalVaultRecord | null;
-  lastArchiveExportAt: string | null;
+  /** `undefined` means the persisted export marker could not be read. */
+  lastArchiveExportAt: string | null | undefined;
   vault: UnlockedLocalVault | null;
 };
 
@@ -99,6 +100,14 @@ export class LocalVaultSession {
         }
         if (!this.isOperationAllowed(generation)) {
           this.ports.clearVault(vault);
+          this.commit({
+            ...this.current,
+            discovered: true,
+            migrationRequired: false,
+            record,
+            lastArchiveExportAt: null,
+            vault: null,
+          });
           throw new LocalVaultSessionLockedError();
         }
         this.replaceVault(vault);
@@ -118,9 +127,19 @@ export class LocalVaultSession {
     return this.runSensitiveOperation((generation) =>
       this.enqueue(async () => {
         this.assertOperationAllowed(generation);
-        const record = this.current.record ?? (await this.ports.readRecord());
+        const record = await this.ports.readRecord();
         this.assertOperationAllowed(generation);
-        if (!record) throw new Error("The Local Profile does not exist.");
+        if (!record) {
+          this.commit({
+            ...this.current,
+            discovered: true,
+            migrationRequired: false,
+            record: null,
+            lastArchiveExportAt: null,
+            vault: null,
+          });
+          throw new Error("The Local Profile does not exist.");
+        }
         try {
           const vault = await this.ports.unlockRecord(record, passphrase);
           if (!this.isOperationAllowed(generation)) {
@@ -293,7 +312,18 @@ export class LocalVaultSession {
       this.enqueue(async () => {
         this.assertOperationAllowed(generation);
         await this.ports.clearRecord();
-        this.assertOperationAllowed(generation);
+        if (!this.isOperationAllowed(generation)) {
+          this.clearCurrentVault();
+          this.commit({
+            ...this.current,
+            discovered: true,
+            migrationRequired: false,
+            record: null,
+            lastArchiveExportAt: null,
+            vault: null,
+          });
+          throw new LocalVaultSessionLockedError();
+        }
         this.clearCurrentVault();
         this.commit({
           ...this.current,
@@ -351,12 +381,8 @@ export class LocalVaultSession {
     return result;
   }
 
-  private async readArchiveExportAt(profileId: string): Promise<string | null> {
-    try {
-      return await this.ports.readArchiveExportAt(profileId);
-    } catch {
-      return null;
-    }
+  private readArchiveExportAt(profileId: string): Promise<string | null | undefined> {
+    return this.ports.readArchiveExportAt(profileId).catch(() => undefined);
   }
 
   private requireVault(): UnlockedLocalVault {

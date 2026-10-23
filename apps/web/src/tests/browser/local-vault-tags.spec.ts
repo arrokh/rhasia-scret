@@ -155,6 +155,20 @@ test("adds, filters, removes, and keeps Local Vault tags encrypted in both local
 
       await page.getByRole("button", { name: labels.manage }).click();
       await page.getByRole("menuitem", { name: labels.manageTitle }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.evaluate(() => window.dispatchEvent(new Event("rhasia-scret:lock-local-vault")));
+      await expect(page.locator("#local-vault-unlock")).toBeVisible();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await page.locator("#local-vault-unlock").fill(passphrase);
+      await page.evaluate(() => window.dispatchEvent(new Event("rhasia-scret:lock-local-vault")));
+      await expect(page.locator("#local-vault-unlock")).toHaveValue("");
+      await page.locator("#local-vault-unlock").fill(passphrase);
+      await page.getByRole("button", { name: labels.unlockVault, exact: true }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(page.getByRole("article").getByText(tagName, { exact: true })).toBeVisible();
+
+      await page.getByRole("button", { name: labels.manage }).click();
+      await page.getByRole("menuitem", { name: labels.manageTitle }).click();
       await page.getByRole("button", { name: labels.removeTag, exact: true }).click();
       await page.getByRole("button", { name: labels.update, exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);

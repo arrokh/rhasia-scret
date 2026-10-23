@@ -125,6 +125,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   await page.goto("/vaults");
   await initializePersonalVault(page, personalName, personalSecret);
   await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Passphrase Brankas", { exact: true })).toBeFocused();
   await unlockVault(page, personalSecret);
 
   let accountId = "";
@@ -168,6 +169,34 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     generatedOtp = copiedOtp.clipboard;
   });
 
+  await test.step("the account footer copies its OTP while the options button stays separate", async () => {
+    const copyButton = page.getByRole("button", { name: "Salin OTP untuk image-user, E2E Image" });
+    const accountCard = copyButton.locator("xpath=..");
+    const vaultBadge = accountCard.locator('[data-slot="badge"]').last();
+    const vaultBadgeBox = await vaultBadge.boundingBox();
+    if (!vaultBadgeBox) throw new Error("The account Vault badge is not visible.");
+    const displayedOtp = ((await page.getByLabel("OTP saat ini").first().textContent()) ?? "").replace(/\s/g, "");
+    await page.mouse.click(vaultBadgeBox.x + vaultBadgeBox.width / 2, vaultBadgeBox.y + vaultBadgeBox.height / 2);
+    await expect(page.getByText("Disalin", { exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ ?? "",
+      ),
+    ).toBe(displayedOtp);
+
+    await page.evaluate(() => {
+      (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ = "";
+    });
+    await accountCard.getByRole("button", { name: "Kelola image-user" }).click();
+    await expect(page.getByRole("menuitem", { name: "Kelola akun" })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __RHSIA_E2E_CLIPBOARD__?: string }).__RHSIA_E2E_CLIPBOARD__ ?? "",
+      ),
+    ).toBe("");
+    await page.keyboard.press("Escape");
+  });
+
   await test.step("manual import warns about a duplicate and requires explicit add-anyway confirmation", async () => {
     await page.getByRole("link", { name: "Tambahkan akun autentikator" }).click();
     await page.getByRole("button", { name: "Opsi lanjutan" }).click();
@@ -182,19 +211,38 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   });
 
   await test.step("edit increments revision and a stale overwrite remains a distinct conflict", async () => {
+    const previousViewport = page.viewportSize();
+    await page.setViewportSize({ width: 700, height: 900 });
     await page.getByRole("button", { name: "Kelola image-user" }).first().click();
     await page.getByRole("menuitem", { name: "Kelola akun" }).click();
     const dialog = page.getByRole("dialog");
+    const tagInput = dialog.locator(`#managed-account-tag-${accountId}`);
+    const addTagButton = dialog.getByRole("button", { name: "Tambahkan tag", exact: true });
+    const [tagInputBox, addTagBox, tagHelpBox] = await Promise.all([
+      tagInput.boundingBox(),
+      addTagButton.boundingBox(),
+      dialog.locator(`#managed-account-tag-${accountId}-help`).boundingBox(),
+    ]);
+    expect(tagInputBox).not.toBeNull();
+    expect(addTagBox).not.toBeNull();
+    expect(tagHelpBox).not.toBeNull();
+    expect(
+      Math.abs(
+        (tagInputBox?.y ?? 0) + (tagInputBox?.height ?? 0) / 2 - (addTagBox?.y ?? 0) - (addTagBox?.height ?? 0) / 2,
+      ),
+    ).toBeLessThan(2);
+    expect(addTagBox?.x).toBeGreaterThan(tagInputBox?.x ?? 0);
+    expect(tagHelpBox?.y).toBeGreaterThan((tagInputBox?.y ?? 0) + (tagInputBox?.height ?? 0));
     const label = dialog.getByLabel("Label akun");
     await label.fill("image-user-edited");
-    await page.locator(`#managed-account-tag-${accountId}`).fill(accountTag);
-    await dialog.getByRole("button", { name: "Tambahkan tag", exact: true }).click();
+    await tagInput.fill(accountTag);
+    await addTagButton.click();
     await expect(dialog.getByText(accountTag, { exact: true })).toBeVisible();
     const responsePromise = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" && response.url().includes(`/api/v1/vaults/${vaultId}/accounts`),
     );
-    await page.getByRole("dialog").getByRole("button", { name: "Simpan akun" }).click();
+    await dialog.getByRole("button", { name: "Simpan akun" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ id: accountId, revision: 2 });
@@ -227,6 +275,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
       },
     );
     expect(stale).toEqual({ status: 409, body: { error: "stale_revision" } });
+    if (previousViewport) await page.setViewportSize(previousViewport);
   });
 
   await test.step("delete and restore preserve edited ciphertext while advancing revision", async () => {
@@ -278,7 +327,10 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     await unlockVault(page, personalSecret);
     await expect(page.getByRole("button", { name: "Kelola image-user-edited" })).toBeVisible();
     await expect(page.getByLabel("2 akun")).toBeVisible();
+    const searchToggle = page.locator('[data-slot="account-directory-search-toggle"]');
+    await searchToggle.click();
     const search = page.getByRole("searchbox", { name: "Cari penerbit atau nama akun" });
+    await expect(search).toBeFocused();
     const accountList = page.locator('[data-slot="account-directory-list"]');
     const requestCountBeforeSearch = observed.requests.length;
     await search.fill("image-user");
@@ -290,6 +342,21 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     await expect(accountList.locator("[data-account-key]")).toHaveCount(1);
     await expect(accountList).toContainText("image-user-edited");
     await expect(accountList.getByRole("button", { name: /Salin OTP untuk image-user, E2E Image/ })).toHaveCount(0);
+  });
+
+  await test.step("lock clears an open account manager before the next unlock", async () => {
+    await page.goto("/vaults/manage/personal");
+    await unlockVault(page, personalSecret);
+    const managedAccount = page.getByRole("button", { name: "Kelola E2E Image image-user-edited" });
+    await expect(managedAccount).toBeVisible();
+    await managedAccount.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new Event("rhasia-scret:lock-local-vault")));
+    await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await unlockVault(page, personalSecret);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(managedAccount).toBeVisible();
   });
 
   await assertNoSensitiveLeak(page, observed, [

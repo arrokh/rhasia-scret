@@ -69,9 +69,9 @@ export function AccountTagsEditor({
         <p className="text-sm text-muted-foreground">{t("tagsEmpty")}</p>
       )}
       {!disabled && (
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <div className="grid gap-2">
-            <Label htmlFor={inputId}>{t("tagInputLabel")}</Label>
+        <div className="grid gap-2">
+          <Label htmlFor={inputId}>{t("tagInputLabel")}</Label>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <Input
               id={inputId}
               value={draft}
@@ -86,14 +86,20 @@ export function AccountTagsEditor({
                 onAdd();
               }}
             />
-            <p id={`${inputId}-help`} className="text-xs leading-5 text-muted-foreground">
-              {t("tagInputHelp")}
-            </p>
-            <FormFieldError id={errorId} errors={errors} />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={!draft.trim() || errors.length > 0}
+              onClick={onAdd}
+            >
+              {t("addTag")}
+            </Button>
           </div>
-          <Button type="button" variant="outline" disabled={!draft.trim() || errors.length > 0} onClick={onAdd}>
-            {t("addTag")}
-          </Button>
+          <p id={`${inputId}-help`} className="text-xs leading-5 text-muted-foreground">
+            {t("tagInputHelp")}
+          </p>
+          <FormFieldError id={errorId} errors={errors} />
         </div>
       )}
     </section>

@@ -31,6 +31,7 @@ export {
   unlockLocalVault as unlockLocalVaultWithPorts,
   updateLocalAccount as updateLocalAccountWithPorts,
 } from "./application/local-vault-workflow";
+export { LocalVaultConcurrentAccountUpdateError } from "./application/local-vault-workflow";
 export type { LocalVaultRepository } from "./application/local-vault-repository";
 export type {
   LocalVaultAccountPayloadPort,

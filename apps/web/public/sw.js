@@ -1,4 +1,4 @@
-const CACHE_VERSION = "rhasia-scret-static-v7";
+const CACHE_VERSION = "rhasia-scret-static-v8";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
 const LANDING_SHELL = "/";
 const OFFLINE_SHELL = "/offline";
@@ -6,15 +6,20 @@ const OFFLINE_NAVIGATION_DETECTED = "RHSIA_OFFLINE_NAVIGATION_DETECTED";
 const OFFLINE_SHELL_REFRESHED = "RHSIA_OFFLINE_SHELL_REFRESHED";
 const OFFLINE_SHELL_REFRESH_FAILED = "RHSIA_OFFLINE_SHELL_REFRESH_FAILED";
 const PRECACHE = ["/manifest.webmanifest", "/pwa/icon512_rounded.png"];
+const OFFLINE_SHELL_REFRESH_MARKER = "/__rhasia-offline-shell-refresh-in-progress";
+let offlineShellCachesUnsafe = false;
+let offlineShellCacheQueue = Promise.resolve();
 
 self.addEventListener("install", (event) => {
   event.waitUntil(precachePublicShells());
 });
 
-async function precachePublicShells() {
+async function precachePublicShells(expectedLocale) {
   const cache = await caches.open(CACHE_VERSION);
   await cache.addAll(PRECACHE);
   const shells = await Promise.all([LANDING_SHELL, OFFLINE_SHELL].map((pathname) => fetchNavigationShell(pathname)));
+  if (expectedLocale && shells.some((shell) => shell.locale !== expectedLocale))
+    throw new Error("The fetched offline shells do not match the requested locale.");
   const resources = [...new Set(shells.flatMap((shell) => shell.resources))];
   await cache.addAll(resources);
   const previousShells = await Promise.all(shells.map(({ pathname }) => cache.match(pathname)));
@@ -40,7 +45,7 @@ async function fetchNavigationShell(pathname) {
     .map((match) => new URL(match[1], self.location.origin))
     .filter((url) => url.origin === self.location.origin && isCacheableStatic(url.pathname))
     .map((url) => url.href);
-  return { pathname, response, resources };
+  return { pathname, response, resources, locale: readShellLocale(html) };
 }
 
 self.addEventListener("activate", (event) => {
@@ -63,7 +68,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.origin !== self.location.origin) return;
   if (event.data?.type === "RHSIA_REFRESH_OFFLINE_SHELL") {
-    event.waitUntil(refreshOfflineShell(event));
+    event.waitUntil(enqueueOfflineShellCacheTask(() => refreshOfflineShell(event)));
     return;
   }
   if (event.data?.type !== "RHSIA_APPLY_WAITING_UPDATE") return;
@@ -83,18 +88,20 @@ async function applyWaitingUpdate(event) {
   }
 
   try {
-    let cache = await caches.open(CACHE_VERSION);
-    let cachedShellsMatch = await Promise.all(
-      [LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cachedShellMatchesLocale(cache, pathname, requestedLocale)),
-    );
-    if (!cachedShellsMatch.every(Boolean)) {
-      await precachePublicShells();
-      cache = await caches.open(CACHE_VERSION);
-      cachedShellsMatch = await Promise.all(
+    await enqueueOfflineShellCacheTask(async () => {
+      let cache = await caches.open(CACHE_VERSION);
+      let cachedShellsMatch = await Promise.all(
         [LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cachedShellMatchesLocale(cache, pathname, requestedLocale)),
       );
-      if (!cachedShellsMatch.every(Boolean)) throw new Error("The offline shell locale could not be verified.");
-    }
+      if (!cachedShellsMatch.every(Boolean)) {
+        await updateOfflineShellCaches(requestedLocale, false);
+        cache = await caches.open(CACHE_VERSION);
+        cachedShellsMatch = await Promise.all(
+          [LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cachedShellMatchesLocale(cache, pathname, requestedLocale)),
+        );
+        if (!cachedShellsMatch.every(Boolean)) throw new Error("The offline shell locale could not be verified.");
+      }
+    });
   } catch {
     replyPort.postMessage({ type: "RHSIA_PWA_UPDATE_BLOCKED" });
     replyPort.close();
@@ -127,22 +134,162 @@ async function applyWaitingUpdate(event) {
 
 async function refreshOfflineShell(event) {
   const replyPort = event.ports[0];
+  if (!replyPort) return;
+
+  const requestedLocale = event.data?.locale;
+  if (!isAppLocale(requestedLocale)) {
+    replyPort.postMessage({ type: OFFLINE_SHELL_REFRESH_FAILED });
+    replyPort.close();
+    return;
+  }
+
   try {
-    await precachePublicShells();
-    replyPort?.postMessage({ type: OFFLINE_SHELL_REFRESHED });
+    await updateOfflineShellCaches(requestedLocale, true);
+    replyPort.postMessage({ type: OFFLINE_SHELL_REFRESHED });
   } catch {
-    replyPort?.postMessage({ type: OFFLINE_SHELL_REFRESH_FAILED });
+    replyPort.postMessage({ type: OFFLINE_SHELL_REFRESH_FAILED });
   } finally {
-    replyPort?.close();
+    replyPort.close();
+  }
+}
+
+async function updateOfflineShellCaches(requestedLocale, refreshOlderCaches) {
+  const previousShells = await snapshotOwnedOfflineShells();
+  const markerCache = await caches.open(CACHE_VERSION);
+  await markerCache.put(OFFLINE_SHELL_REFRESH_MARKER, new Response("refreshing"));
+  offlineShellCachesUnsafe = true;
+
+  try {
+    await precachePublicShells(requestedLocale);
+    if (refreshOlderCaches) await refreshOwnedOfflineShellCaches(requestedLocale);
+    await markerCache.delete(OFFLINE_SHELL_REFRESH_MARKER);
+    offlineShellCachesUnsafe = false;
+  } catch (error) {
+    try {
+      await restoreOwnedOfflineShells(previousShells);
+      await markerCache.delete(OFFLINE_SHELL_REFRESH_MARKER);
+      offlineShellCachesUnsafe = false;
+    } catch {
+      offlineShellCachesUnsafe = true;
+      try {
+        await invalidateOwnedOfflineShells();
+      } catch {
+        // Keep the marker so offline navigation continues to fail closed.
+      }
+    }
+    throw error;
+  }
+}
+
+function enqueueOfflineShellCacheTask(operation) {
+  const result = offlineShellCacheQueue.then(operation);
+  offlineShellCacheQueue = result.catch(() => {});
+  return result;
+}
+
+async function offlineShellCacheIsUnsafe() {
+  if (offlineShellCachesUnsafe) return true;
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    return Boolean(await cache.match(OFFLINE_SHELL_REFRESH_MARKER));
+  } catch {
+    return true;
+  }
+}
+
+async function snapshotOwnedOfflineShells() {
+  const cacheNames = (await caches.keys()).filter((name) => name.startsWith(OWNED_CACHE_PREFIX));
+  return Promise.all(
+    cacheNames.map(async (cacheName) => {
+      const cache = await caches.open(cacheName);
+      const shells = await Promise.all([LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cache.match(pathname)));
+      return { cacheName, shells };
+    }),
+  );
+}
+
+async function restoreOwnedOfflineShells(previousShells) {
+  const previousByName = new Map(previousShells.map(({ cacheName, shells }) => [cacheName, shells]));
+  const currentNames = (await caches.keys()).filter((name) => name.startsWith(OWNED_CACHE_PREFIX));
+  const cacheNames = new Set([...previousByName.keys(), ...currentNames]);
+  const cacheResults = await Promise.allSettled(
+    [...cacheNames].map(async (cacheName) => {
+      const cache = await caches.open(cacheName);
+      const previous = previousByName.get(cacheName) ?? [];
+      const shellResults = await Promise.allSettled(
+        [LANDING_SHELL, OFFLINE_SHELL].map((pathname, index) => {
+          const response = previous[index];
+          return response ? cache.put(pathname, response) : cache.delete(pathname);
+        }),
+      );
+      if (shellResults.some((result) => result.status === "rejected"))
+        throw new Error("An offline shell cache could not be restored.");
+    }),
+  );
+  if (cacheResults.some((result) => result.status === "rejected"))
+    throw new Error("An offline shell cache could not be restored.");
+}
+
+async function invalidateOwnedOfflineShells() {
+  const cacheNames = (await caches.keys()).filter((name) => name.startsWith(OWNED_CACHE_PREFIX));
+  const cacheResults = await Promise.allSettled(
+    cacheNames.map(async (cacheName) => {
+      const cache = await caches.open(cacheName);
+      const shellResults = await Promise.allSettled(
+        [LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cache.delete(pathname)),
+      );
+      if (shellResults.some((result) => result.status === "rejected"))
+        throw new Error("An unsafe offline shell cache could not be invalidated.");
+    }),
+  );
+  if (cacheResults.some((result) => result.status === "rejected"))
+    throw new Error("An unsafe offline shell cache could not be invalidated.");
+}
+
+async function refreshOwnedOfflineShellCaches(requestedLocale) {
+  const sourceCache = await caches.open(CACHE_VERSION);
+  const [landingShell, offlineShell] = await Promise.all([
+    sourceCache.match(LANDING_SHELL),
+    sourceCache.match(OFFLINE_SHELL),
+  ]);
+  if (!landingShell || !offlineShell) throw new Error("The refreshed offline shells are unavailable.");
+  const sourceShellsMatch = await Promise.all(
+    [LANDING_SHELL, OFFLINE_SHELL].map((pathname) => cachedShellMatchesLocale(sourceCache, pathname, requestedLocale)),
+  );
+  if (!sourceShellsMatch.every(Boolean)) throw new Error("The refreshed offline shell locale could not be verified.");
+
+  const cacheNames = await caches.keys();
+  for (const cacheName of cacheNames) {
+    if (!cacheName.startsWith(OWNED_CACHE_PREFIX) || cacheName === CACHE_VERSION) continue;
+    const cache = await caches.open(cacheName);
+    const previousShells = await Promise.all([cache.match(LANDING_SHELL), cache.match(OFFLINE_SHELL)]);
+    try {
+      await cache.put(LANDING_SHELL, landingShell.clone());
+      await cache.put(OFFLINE_SHELL, offlineShell.clone());
+    } catch (error) {
+      await Promise.all(
+        [LANDING_SHELL, OFFLINE_SHELL].map((pathname, index) => {
+          const previous = previousShells[index];
+          return previous ? cache.put(pathname, previous) : cache.delete(pathname);
+        }),
+      );
+      throw error;
+    }
   }
 }
 
 async function cachedShellMatchesLocale(cache, pathname, locale) {
   const response = await cache.match(pathname);
   if (!response) return false;
-  const html = await response.text();
-  const cachedLocale = html.match(/<html\b[^>]*\blang=["']([^"']+)["']/i)?.[1];
-  return cachedLocale === locale;
+  return readShellLocale(await response.text()) === locale;
+}
+
+function readShellLocale(html) {
+  return html.match(/<html\b[^>]*\blang=["']([^"']+)["']/i)?.[1] ?? null;
+}
+
+function isAppLocale(locale) {
+  return locale === "id" || locale === "en";
 }
 
 function prepareClientForUpdate(client) {
@@ -211,6 +358,7 @@ async function networkFirstNavigation(request) {
   } catch {
     const pathname = new URL(request.url).pathname;
     if (pathname !== OFFLINE_SHELL) await notifyOfflineClients();
+    if (await offlineShellCacheIsUnsafe()) return Response.error();
     const fallbackShell = pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL;
     return (await caches.match(fallbackShell)) || (await caches.match(OFFLINE_SHELL)) || Response.error();
   } finally {

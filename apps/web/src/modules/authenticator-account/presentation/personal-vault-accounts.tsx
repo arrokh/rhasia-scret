@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeftRight, KeyRound, Plus, ShieldKeyhole, Vault } from "lucide-react";
@@ -18,7 +19,6 @@ import { BrowserApiError } from "@/shared/infrastructure/browser-api-client";
 import { UserEncryptionIdentityRotation } from "@/modules/identity";
 import { StatusBanner, SURFACE_CARD_CONTENT_PADDING_CLASS } from "@/shared/presentation/app-ui";
 import { cn } from "@/lib/utils";
-import { LocalVaultCopyPanel } from "@/modules/local-vault";
 import { AccountDirectoryControls } from "./account-directory-controls";
 import { AccountDirectorySearch, AccountSearchEmptyState } from "./account-directory-search";
 import {
@@ -30,6 +30,20 @@ import {
 import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
+
+const LocalVaultCopyPanel = dynamic(
+  () => import("@/modules/local-vault").then(({ LocalVaultCopyPanel: Component }) => Component),
+  { loading: LocalVaultCopyPanelLoading },
+);
+
+function LocalVaultCopyPanelLoading() {
+  const t = useTranslations("LocalVaultCopy");
+  return (
+    <p role="status" className="text-sm text-muted-foreground">
+      {t("checking")}
+    </p>
+  );
+}
 
 function requiresWorkspaceRevalidation(error: unknown): boolean {
   return (
@@ -47,6 +61,8 @@ export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
 
 function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
+  const searchInputId = "hosted-account-directory-search";
+  const searchPanelId = `${searchInputId}-panel`;
   const tCommon = useTranslations("Common");
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
@@ -55,6 +71,7 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
   const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [reorderVersion, setReorderVersion] = useState(0);
   const accountListRef = useRef<HTMLUListElement>(null);
   const previousAccountRectsRef = useRef(new Map<string, DOMRect>());
@@ -315,58 +332,69 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
           >
             {visibleAccounts.length}
           </span>
-          {current && (
-            <AccountDirectoryControls
-              vaults={vaultOptions}
-              vaultFilters={activeVaultFilters}
-              onVaultFiltersChange={(value) => {
-                setPreferences((current) => ({ ...current, vaultFilters: value }));
-              }}
-              issuerFilters={activeIssuerFilters}
-              onIssuerFiltersChange={setIssuerFilters}
-              tagOptions={tagOptions}
-              tagFilters={activeTagFilters}
-              onTagFiltersChange={setSelectedTagFilters}
-              view={preferences.view}
-              onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
-              reorderAccounts={orderedAccounts.map((account) => ({
-                key: accountDirectoryAccountKey(account),
-                issuer: account.issuer,
-                accountName: account.accountName,
-                vaultName: account.vaultName,
-              }))}
-              onMoveAccount={moveAccount}
-              labels={{
-                menuLabel: t("directoryMenu"),
-                filterLabel: t("filterLabel"),
-                filterByVault: t("filterByVault"),
-                filterByIssuer: t("filterByIssuer"),
-                filterByTag: t("filterByTag"),
-                filtersApplied: t("filtersApplied"),
-                allVaults: t("allVaults"),
-                allIssuers: t("allIssuers"),
-                allTags: t("allTags"),
-                viewLabel: t("viewLabel"),
-                compact: t("compact"),
-                normal: t("normal"),
-                wide: t("wide"),
-                reorder: t("reorderAccounts"),
-                reorderTitle: t("reorderAccountsTitle"),
-                reorderDescription: t("reorderAccountsDescription"),
-                close: t("close"),
-                dragAccount: (account) => t("dragAccount", { account }),
-                moveUp: (account) => t("moveUp", { account }),
-                moveDown: (account) => t("moveDown", { account }),
-              }}
-            />
-          )}
+          <AccountDirectoryControls
+            vaults={vaultOptions}
+            vaultFilters={activeVaultFilters}
+            onVaultFiltersChange={(value) => {
+              setPreferences((current) => ({ ...current, vaultFilters: value }));
+            }}
+            issuerFilters={activeIssuerFilters}
+            onIssuerFiltersChange={setIssuerFilters}
+            tagOptions={tagOptions}
+            tagFilters={activeTagFilters}
+            onTagFiltersChange={setSelectedTagFilters}
+            view={preferences.view}
+            onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
+            directoryActionsEnabled={current}
+            searchOpen={searchOpen}
+            searchActive={hasSearchQuery}
+            searchPanelId={searchPanelId}
+            onSearchOpenChange={setSearchOpen}
+            reorderAccounts={orderedAccounts.map((account) => ({
+              key: accountDirectoryAccountKey(account),
+              issuer: account.issuer,
+              accountName: account.accountName,
+              vaultName: account.vaultName,
+            }))}
+            onMoveAccount={moveAccount}
+            labels={{
+              menuLabel: t("directoryMenu"),
+              filterLabel: t("filterLabel"),
+              filterByVault: t("filterByVault"),
+              filterByIssuer: t("filterByIssuer"),
+              filterByTag: t("filterByTag"),
+              filtersApplied: t("filtersApplied"),
+              clearFilters: t("clearFilters"),
+              showSearch: t("showSearch"),
+              hideSearch: t("hideSearch"),
+              searchApplied: t("searchApplied"),
+              allVaults: t("allVaults"),
+              allIssuers: t("allIssuers"),
+              allTags: t("allTags"),
+              viewLabel: t("viewLabel"),
+              compact: t("compact"),
+              normal: t("normal"),
+              wide: t("wide"),
+              reorder: t("reorderAccounts"),
+              reorderTitle: t("reorderAccountsTitle"),
+              reorderDescription: t("reorderAccountsDescription"),
+              close: t("close"),
+              dragAccount: (account) => t("dragAccount", { account }),
+              moveUp: (account) => t("moveUp", { account }),
+              moveDown: (account) => t("moveDown", { account }),
+            }}
+          />
         </div>
       </div>
-      <AccountDirectorySearch
-        query={searchQuery}
-        inputId="hosted-account-directory-search"
-        onQueryChange={setSearchQuery}
-      />
+      {searchOpen && (
+        <AccountDirectorySearch
+          query={searchQuery}
+          inputId={searchInputId}
+          panelId={searchPanelId}
+          autoFocus
+          onQueryChange={setSearchQuery}
+        />
+      )}
       <span className="sr-only" aria-live="polite">
         {lastMovedAccount && lastMovedPosition > 0
           ? t("reordered", { account: lastMovedAccount.accountName, position: lastMovedPosition })

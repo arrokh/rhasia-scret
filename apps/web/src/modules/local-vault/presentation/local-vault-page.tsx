@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useLocale, useTranslations } from "next-intl";
 import { Download, KeyRound, LockKeyhole, Plus, Settings, ShieldCheck, Trash2 } from "lucide-react";
@@ -21,7 +21,7 @@ import {
   type TotpConfigurationErrorCode,
 } from "@/modules/otp-runtime";
 import { TotpAccountButton } from "@/modules/otp-runtime";
-import { requestLocalVaultLock, VaultStatusIndicator } from "@/modules/sync";
+import { requestLocalVaultLock, subscribeToLocalVaultLock, VaultStatusIndicator } from "@/modules/sync";
 import {
   AccountDirectorySearch,
   AccountSearchEmptyState,
@@ -44,6 +44,7 @@ import {
   deleteLocalAccount,
   exportLocalVault,
   importLocalVaultArchive,
+  LocalVaultConcurrentAccountUpdateError,
   LocalVaultMigrationRequiredError,
   LocalVaultSessionLockedError,
   recordLocalArchiveExport,
@@ -71,6 +72,16 @@ export function LocalVaultPage({ backHref = "/sign-in" }: { backHref?: string } 
   const [clearing, setClearing] = useState(false);
   const [editing, setEditing] = useState<UnlockedLocalVaultAccount | null>(null);
   const displayedMessage = message ?? (discoveryError ? { tone: "danger" as const, text: t("storageError") } : null);
+
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        setEditing(null);
+        setClearOpen(false);
+        setMessage(null);
+      }),
+    [],
+  );
 
   function lock() {
     requestLocalVaultLock();
@@ -231,6 +242,14 @@ function CreateLocalVaultForm({ onCreate }: { onCreate: (passphrase: string, nam
     defaultValues: { name: "", passphrase: "", confirmation: "" },
     onSubmit: async ({ value }) => onCreate(value.passphrase, value.name),
   });
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        form.reset();
+        setVisible(false);
+      }),
+    [form],
+  );
   return (
     <form
       noValidate
@@ -333,6 +352,14 @@ function UnlockLocalVaultForm({
     defaultValues: { passphrase: "" },
     onSubmit: async ({ value }) => onUnlock(value.passphrase),
   });
+  useEffect(
+    () =>
+      subscribeToLocalVaultLock(() => {
+        form.reset();
+        setVisible(false);
+      }),
+    [form],
+  );
   return (
     <form
       noValidate
@@ -412,7 +439,7 @@ function UnlockedLocalVaultView({
   onStatus,
 }: {
   vault: UnlockedLocalVault;
-  lastArchiveExportAt: string | null;
+  lastArchiveExportAt: string | null | undefined;
   onLock: () => void;
   onClear: () => void;
   onRename: (name: string) => Promise<void>;
@@ -522,15 +549,18 @@ function UnlockedLocalVaultView({
             <AccountDirectorySearch
               query={searchQuery}
               inputId="local-vault-account-search"
+              panelId="local-vault-account-search-panel"
               onQueryChange={setSearchQuery}
             />
             {!reminderDismissed && (
               <StatusBanner tone="info" title={t("archiveReminderTitle")} role="status">
                 <p>{t("archiveReminderDescription")}</p>
                 <p className="mt-1">
-                  {lastArchiveExportAt
-                    ? t("archiveReminderLastExport", { date: formatLocalDateTime(lastArchiveExportAt, locale) })
-                    : t("archiveReminderNoExport")}
+                  {lastArchiveExportAt === undefined
+                    ? t("archiveReminderMarkerUnavailable")
+                    : lastArchiveExportAt
+                      ? t("archiveReminderLastExport", { date: formatLocalDateTime(lastArchiveExportAt, locale) })
+                      : t("archiveReminderNoExport")}
                 </p>
                 <p className="mt-1">{t("archiveReminderCaveat")}</p>
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -633,33 +663,53 @@ export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConf
   const t = useTranslations("LocalVault");
   const tError = useTranslations("OtpRuntime.errors");
   const [configuration, setConfiguration] = useState<TotpConfiguration | null>(null);
+  const configurationRef = useRef<TotpConfiguration | null>(null);
+  const mountedRef = useRef(true);
   const [parseError, setParseError] = useState<TotpConfigurationErrorCode | null>(null);
   const form = useForm({
     defaultValues: { uri: "", label: "" },
     onSubmit: async ({ value }) => {
-      if (!configuration) return;
-      if (await onAdd({ ...configuration, accountName: value.label.trim() })) {
-        configuration.secret.fill(0);
-        setConfiguration(null);
-        form.reset();
+      const current = configurationRef.current;
+      if (!current) return;
+      try {
+        await onAdd({ ...current, accountName: value.label.trim() });
+      } finally {
+        current.secret.fill(0);
+        if (configurationRef.current === current) replaceConfiguration(null);
+        if (mountedRef.current) form.reset();
       }
     },
   });
+  function replaceConfiguration(next: TotpConfiguration | null) {
+    if (configurationRef.current !== next) configurationRef.current?.secret.fill(0);
+    configurationRef.current = next;
+    if (mountedRef.current) setConfiguration(next);
+  }
+  useEffect(() => {
+    mountedRef.current = true;
+    const unsubscribe = subscribeToLocalVaultLock(() => {
+      configurationRef.current?.secret.fill(0);
+      configurationRef.current = null;
+      form.reset();
+      setConfiguration(null);
+      setParseError(null);
+    });
+    return () => {
+      unsubscribe();
+      mountedRef.current = false;
+      configurationRef.current?.secret.fill(0);
+      configurationRef.current = null;
+    };
+  }, [form]);
   function importUri(uri: string) {
     try {
       const parsed = parseTotpUri(uri);
-      setConfiguration((current) => {
-        current?.secret.fill(0);
-        return parsed;
-      });
+      replaceConfiguration(parsed);
       setParseError(null);
       form.setFieldValue("uri", uri);
       form.setFieldValue("label", parsed.accountName);
     } catch (reason) {
-      setConfiguration((current) => {
-        current?.secret.fill(0);
-        return null;
-      });
+      replaceConfiguration(null);
       setParseError(reason instanceof TotpConfigurationError ? reason.code : "invalidUri");
     }
   }
@@ -684,8 +734,7 @@ export function AddLocalAccountForm({ onAdd }: { onAdd: (configuration: TotpConf
               variant="ghost"
               size="sm"
               onClick={() => {
-                configuration.secret.fill(0);
-                setConfiguration(null);
+                replaceConfiguration(null);
                 form.reset();
               }}
             >
@@ -773,8 +822,10 @@ function LocalAccountEditor({
     try {
       await onDelete();
       setDeleteOpen(false);
-    } catch {
-      onError(t("operationError"));
+    } catch (error) {
+      onError(
+        error instanceof LocalVaultConcurrentAccountUpdateError ? t("concurrentAccountUpdate") : t("operationError"),
+      );
     } finally {
       setDeleting(false);
     }
@@ -797,7 +848,15 @@ function LocalAccountEditor({
             className="grid gap-4"
             onSubmit={(event) => {
               event.preventDefault();
-              void form.handleSubmit().catch(() => onError(t("operationError")));
+              void form
+                .handleSubmit()
+                .catch((error: unknown) =>
+                  onError(
+                    error instanceof LocalVaultConcurrentAccountUpdateError
+                      ? t("concurrentAccountUpdate")
+                      : t("operationError"),
+                  ),
+                );
             }}
           >
             <SectionHeading icon={KeyRound} title={t("edit")} />

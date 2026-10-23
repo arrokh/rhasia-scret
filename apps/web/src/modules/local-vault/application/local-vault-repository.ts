@@ -6,6 +6,7 @@ export interface LocalVaultRepository {
   readArchiveExportAt(profileId: string): Promise<string | null>;
   clearOrphanedArchiveExportMarker(): Promise<void>;
   recordArchiveExportAt(profileId: string, exportedAt: string): Promise<void>;
+  update(transform: (record: LocalVaultRecord) => LocalVaultRecord): Promise<void>;
   replace(record: LocalVaultRecord): Promise<void>;
   clear(): Promise<void>;
 }

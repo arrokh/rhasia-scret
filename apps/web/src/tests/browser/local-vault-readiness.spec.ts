@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const localVaultName = "Synthetic readiness vault";
 const passphrase = "synthetic-local-passphrase";
@@ -9,6 +9,7 @@ const copy = {
     persistenceDescription:
       "Penyimpanan persisten dapat mengurangi penghapusan otomatis data situs ini. Fitur ini tidak mencegah penghapusan data situs yang disengaja dan bukan cadangan.",
     notGranted: "Penyimpanan persisten belum diberikan.",
+    denied: "Browser menolak permintaan. Anda dapat mencoba lagi nanti.",
     granted: "Browser memberikan penyimpanan persisten untuk situs ini.",
     create: "Buat Brankas Lokal",
     reminderTitle: "Lindungi Brankas Lokal",
@@ -27,6 +28,7 @@ const copy = {
     persistenceDescription:
       "Persistent storage may reduce automatic eviction of data for this site. It cannot prevent deliberate site-data deletion and is not a backup.",
     notGranted: "Persistent storage has not been granted yet.",
+    denied: "The browser declined the request. You can ask again later.",
     granted: "The browser granted persistent storage for this site.",
     create: "Create Local Vault",
     reminderTitle: "Protect your Local Vault",
@@ -66,7 +68,7 @@ test("requests origin storage only on action and links a dismissible Local Vault
           configurable: true,
           value: async () => {
             requestCount += 1;
-            return true;
+            return requestCount > 1;
           },
         });
       });
@@ -81,10 +83,21 @@ test("requests origin storage only on action and links a dismissible Local Vault
       await expect(persistence).toContainText(labels.persistenceDescription);
       await expect(persistence).toContainText(labels.notGranted);
       expect(await persistenceRequestCount(page)).toBe(0);
+      await expectStorageStatusAndActionLayout(page, labels.notGranted, labels.requestStorage, "narrow");
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await expectStorageStatusAndActionLayout(page, labels.notGranted, labels.requestStorage, "wide");
+
+      await persistence.getByRole("button", { name: labels.requestStorage }).click();
+      await expect(persistence).toHaveAttribute("data-storage-persistence", "denied");
+      await expect(persistence).toContainText(labels.denied);
+      expect(await persistenceRequestCount(page)).toBe(1);
+      await expectStorageStatusAndActionLayout(page, labels.denied, labels.requestStorage, "wide");
+
       await persistence.getByRole("button", { name: labels.requestStorage }).click();
       await expect(persistence).toHaveAttribute("data-storage-persistence", "granted");
       await expect(persistence).toContainText(labels.granted);
-      expect(await persistenceRequestCount(page)).toBe(1);
+      expect(await persistenceRequestCount(page)).toBe(2);
+      await page.setViewportSize({ width: 390, height: 844 });
 
       await page.locator("#local-vault-name").fill(localVaultName);
       await page.locator("#local-vault-passphrase").fill(passphrase);
@@ -109,6 +122,30 @@ test("requests origin storage only on action and links a dismissible Local Vault
     }
   }
 });
+
+async function expectStorageStatusAndActionLayout(
+  page: Page,
+  statusText: string,
+  actionName: string,
+  layout: "narrow" | "wide",
+): Promise<void> {
+  const statusBounds = await page
+    .locator("[data-storage-persistence]")
+    .getByText(statusText, { exact: true })
+    .boundingBox();
+  const actionBounds = await page.getByRole("button", { name: actionName }).boundingBox();
+  if (!statusBounds || !actionBounds) throw new Error("Storage readiness status or action has no layout box.");
+
+  if (layout === "narrow") {
+    expect(actionBounds.y).toBeGreaterThan(statusBounds.y + statusBounds.height);
+    expect(actionBounds.width).toBeGreaterThan(250);
+    return;
+  }
+
+  expect(Math.abs(statusBounds.y + statusBounds.height / 2 - (actionBounds.y + actionBounds.height / 2))).toBeLessThan(
+    12,
+  );
+}
 
 async function persistenceRequestCount(page: import("@playwright/test").Page): Promise<number> {
   return page.evaluate(() => {

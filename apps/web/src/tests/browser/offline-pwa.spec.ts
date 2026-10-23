@@ -123,7 +123,7 @@ test.describe("encrypted read-only offline PWA", () => {
             channel.port1.close();
             channel.port2.close();
           };
-          controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL" }, [channel.port2]);
+          controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: "en" }, [channel.port2]);
         }),
     );
     await context.unroute("**/offline");
@@ -139,6 +139,315 @@ test.describe("encrypted read-only offline PWA", () => {
 
     expect(refreshResult).toBe("RHSIA_OFFLINE_SHELL_REFRESH_FAILED");
     expect(currentShells).toEqual(previousShells);
+  });
+
+  test("restores every owned offline shell when a later cache write fails", async ({ page, context, baseURL }) => {
+    if (!baseURL) throw new Error("The browser test base URL is unavailable.");
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseURL }]);
+    await page.goto("/offline");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) throw new Error("The offline page is not controlled by its worker.");
+    });
+
+    const olderCacheNames = ["rhasia-scret-static-review-first", "rhasia-scret-static-review-failing"];
+    const previousShells = await page.evaluate(async (cacheNames) => {
+      for (const cacheName of cacheNames) {
+        const cache = await caches.open(cacheName);
+        for (const pathname of ["/", "/offline"]) {
+          await cache.put(
+            pathname,
+            new Response(`<html lang="id"><body>${cacheName}:${pathname}</body></html>`, {
+              headers: { "content-type": "text/html; charset=utf-8" },
+            }),
+          );
+        }
+      }
+      const ownedNames = (await caches.keys()).filter((name) => name.startsWith("rhasia-scret-static-"));
+      return Promise.all(
+        ownedNames.map(async (cacheName) => {
+          const cache = await caches.open(cacheName);
+          const [landingShell, offlineShell] = await Promise.all([cache.match("/"), cache.match("/offline")]);
+          return [
+            cacheName,
+            [landingShell ? await landingShell.text() : null, offlineShell ? await offlineShell.text() : null],
+          ] as const;
+        }),
+      );
+    }, olderCacheNames);
+
+    const worker = context.serviceWorkers().find((candidate) => candidate.url().endsWith("/sw.js"));
+    if (!worker) throw new Error("The offline page service worker is unavailable.");
+    await worker.evaluate((failingCacheName) => {
+      const originalOpen = caches.open.bind(caches);
+      let failurePending = true;
+      Object.defineProperty(caches, "open", {
+        configurable: true,
+        value: async (cacheName: string) => {
+          const cache = await originalOpen(cacheName);
+          if (cacheName !== failingCacheName) return cache;
+          return new Proxy(cache, {
+            get(target, property) {
+              if (property === "put") {
+                return (request: RequestInfo | URL, response: Response) => {
+                  const pathname =
+                    request instanceof Request
+                      ? new URL(request.url).pathname
+                      : new URL(String(request), self.location.origin).pathname;
+                  if (failurePending && pathname === "/offline") {
+                    failurePending = false;
+                    throw new DOMException("Synthetic cache write failure.", "QuotaExceededError");
+                  }
+                  return target.put(request, response);
+                };
+              }
+              const value = Reflect.get(target, property, target);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        },
+      });
+    }, olderCacheNames[1]);
+
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseURL }]);
+    const refreshResult = await page.evaluate(
+      () =>
+        new Promise<string>((resolve, reject) => {
+          const controller = navigator.serviceWorker.controller;
+          if (!controller) {
+            reject(new Error("The service worker controller is unavailable."));
+            return;
+          }
+          const channel = new MessageChannel();
+          const timeout = window.setTimeout(() => reject(new Error("The worker did not reply.")), 10_000);
+          channel.port1.onmessage = (event: MessageEvent<{ type?: string }>) => {
+            window.clearTimeout(timeout);
+            resolve(event.data?.type ?? "missing-response");
+            channel.port1.close();
+            channel.port2.close();
+          };
+          controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: "en" }, [channel.port2]);
+        }),
+    );
+    const currentShells = await page.evaluate(async (cacheSnapshots) => {
+      const cacheNames = cacheSnapshots.map(([cacheName]) => cacheName);
+      return Promise.all(
+        cacheNames.map(async (cacheName) => {
+          const cache = await caches.open(cacheName);
+          const [landingShell, offlineShell] = await Promise.all([cache.match("/"), cache.match("/offline")]);
+          return [
+            cacheName,
+            [landingShell ? await landingShell.text() : null, offlineShell ? await offlineShell.text() : null],
+          ] as const;
+        }),
+      );
+    }, previousShells);
+
+    expect(refreshResult).toBe("RHSIA_OFFLINE_SHELL_REFRESH_FAILED");
+    expect(currentShells).toEqual(previousShells);
+  });
+
+  test("fails closed when offline-shell rollback also fails", async ({ page, context, baseURL }) => {
+    if (!baseURL) throw new Error("The browser test base URL is unavailable.");
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseURL }]);
+    await page.goto("/offline");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) throw new Error("The offline page is not controlled by its worker.");
+    });
+
+    const failingCacheName = "rhasia-scret-static-review-rollback-failing";
+    await page.evaluate(async (cacheName) => {
+      const cache = await caches.open(cacheName);
+      for (const pathname of ["/", "/offline"])
+        await cache.put(
+          pathname,
+          new Response(`<html lang="id"><body>${pathname}</body></html>`, {
+            headers: { "content-type": "text/html; charset=utf-8" },
+          }),
+        );
+    }, failingCacheName);
+
+    const worker = context.serviceWorkers().find((candidate) => candidate.url().endsWith("/sw.js"));
+    if (!worker) throw new Error("The offline page service worker is unavailable.");
+    await worker.evaluate((cacheName) => {
+      const originalOpen = caches.open.bind(caches);
+      let offlinePutFailuresRemaining = 3;
+      Object.defineProperty(caches, "open", {
+        configurable: true,
+        value: async (name: string) => {
+          const cache = await originalOpen(name);
+          if (name !== cacheName) return cache;
+          return new Proxy(cache, {
+            get(target, property) {
+              if (property === "put")
+                return (request: RequestInfo | URL, response: Response) => {
+                  const pathname =
+                    request instanceof Request
+                      ? new URL(request.url).pathname
+                      : new URL(String(request), self.location.origin).pathname;
+                  if (pathname === "/offline" && offlinePutFailuresRemaining > 0) {
+                    offlinePutFailuresRemaining -= 1;
+                    throw new DOMException("Synthetic cache write failure.", "QuotaExceededError");
+                  }
+                  return target.put(request, response);
+                };
+              const value = Reflect.get(target, property, target);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        },
+      });
+    }, failingCacheName);
+
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseURL }]);
+    const refreshResult = await page.evaluate(
+      () =>
+        new Promise<string>((resolve, reject) => {
+          const controller = navigator.serviceWorker.controller;
+          if (!controller) {
+            reject(new Error("The service worker controller is unavailable."));
+            return;
+          }
+          const channel = new MessageChannel();
+          const timeout = window.setTimeout(() => reject(new Error("The worker did not reply.")), 10_000);
+          channel.port1.onmessage = (event: MessageEvent<{ type?: string }>) => {
+            window.clearTimeout(timeout);
+            resolve(event.data?.type ?? "missing-response");
+            channel.port1.close();
+            channel.port2.close();
+          };
+          controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: "en" }, [channel.port2]);
+        }),
+    );
+    const cacheState = await page.evaluate(async () => {
+      const names = (await caches.keys()).filter((name) => name.startsWith("rhasia-scret-static-"));
+      const shells = await Promise.all(
+        names.map(async (name) => {
+          const cache = await caches.open(name);
+          const results = await Promise.all([cache.match("/"), cache.match("/offline")]);
+          return [name, results.map((result) => Boolean(result))] as const;
+        }),
+      );
+      const currentName = names.find((name) => name.endsWith("-v8"));
+      const marker = currentName
+        ? await (await caches.open(currentName)).match("/__rhasia-offline-shell-refresh-in-progress")
+        : null;
+      return { shells, markerExists: Boolean(marker) };
+    });
+
+    expect(refreshResult).toBe("RHSIA_OFFLINE_SHELL_REFRESH_FAILED");
+    expect(cacheState.shells.every(([, shellPresence]) => shellPresence.every((present) => !present))).toBe(true);
+    expect(cacheState.markerExists).toBe(true);
+  });
+
+  test("serializes overlapping locale refreshes and commits the last requested locale", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    if (!baseURL) throw new Error("The browser test base URL is unavailable.");
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseURL }]);
+    await page.goto("/offline");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) throw new Error("The offline page is not controlled by its worker.");
+    });
+
+    const olderCacheNames = ["rhasia-scret-static-review-locale-first", "rhasia-scret-static-review-locale-second"];
+    await page.evaluate(async (cacheNames) => {
+      for (const cacheName of cacheNames) {
+        const cache = await caches.open(cacheName);
+        for (const pathname of ["/", "/offline"])
+          await cache.put(
+            pathname,
+            new Response(`<html lang="id"><body>${cacheName}:${pathname}</body></html>`, {
+              headers: { "content-type": "text/html; charset=utf-8" },
+            }),
+          );
+      }
+    }, olderCacheNames);
+
+    let releaseFirstFetch: (() => void) | undefined;
+    let signalFirstFetch: (() => void) | undefined;
+    let isFirstOfflineFetch = true;
+    const firstFetchStarted = new Promise<void>((resolve) => {
+      signalFirstFetch = resolve;
+    });
+    await context.route("**/offline", async (route) => {
+      if (isFirstOfflineFetch) {
+        isFirstOfflineFetch = false;
+        await new Promise<void>((resolve) => {
+          releaseFirstFetch = resolve;
+          signalFirstFetch?.();
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: "text/html; charset=utf-8",
+          body: '<html lang="en"><body>Synthetic offline shell</body></html>',
+        });
+        return;
+      }
+      await route.continue();
+    });
+    const requestRefresh = (locale: "id" | "en") =>
+      page.evaluate(
+        (requestedLocale) =>
+          new Promise<string>((resolve, reject) => {
+            const controller = navigator.serviceWorker.controller;
+            if (!controller) {
+              reject(new Error("The service worker controller is unavailable."));
+              return;
+            }
+            const channel = new MessageChannel();
+            const timeout = window.setTimeout(() => reject(new Error("The worker did not reply.")), 10_000);
+            channel.port1.onmessage = (event: MessageEvent<{ type?: string }>) => {
+              window.clearTimeout(timeout);
+              resolve(event.data?.type ?? "missing-response");
+              channel.port1.close();
+              channel.port2.close();
+            };
+            controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: requestedLocale }, [channel.port2]);
+          }),
+        locale,
+      );
+
+    const firstRefresh = requestRefresh("en");
+    await firstFetchStarted;
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseURL }]);
+    const secondRefresh = requestRefresh("id");
+    if (!releaseFirstFetch) throw new Error("The first locale refresh did not reach the paused request.");
+    releaseFirstFetch();
+    const refreshResults = await Promise.all([firstRefresh, secondRefresh]);
+    await context.unroute("**/offline");
+
+    const cachedLocales = await page.evaluate(async () => {
+      const names = (await caches.keys()).filter((name) => name.startsWith("rhasia-scret-static-"));
+      return Promise.all(
+        names.map(async (name) => {
+          const cache = await caches.open(name);
+          const locales = await Promise.all(
+            ["/", "/offline"].map(async (pathname) => {
+              const response = await cache.match(pathname);
+              if (!response) return null;
+              const html = await response.text();
+              return html.match(/<html\b[^>]*\blang=["']([^"']+)["']/i)?.[1] ?? null;
+            }),
+          );
+          return [name, locales] as const;
+        }),
+      );
+    });
+
+    expect(refreshResults).toEqual(["RHSIA_OFFLINE_SHELL_REFRESHED", "RHSIA_OFFLINE_SHELL_REFRESHED"]);
+    expect(cachedLocales.length).toBeGreaterThanOrEqual(3);
+    expect(cachedLocales.every(([, locales]) => locales.every((locale) => locale === "id"))).toBe(true);
   });
 
   for (const locale of ["id", "en"] as const) {
@@ -381,6 +690,11 @@ test.describe("encrypted read-only offline PWA", () => {
     await page.goto("/offline");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
+    await page.evaluate(async () => {
+      const legacyCache = await caches.open("rhasia-scret-static-v0-locale-test");
+      await legacyCache.put("/", new Response('<html lang="id"><body>Old landing shell</body></html>'));
+      await legacyCache.put("/offline", new Response('<html lang="id"><body>Old offline shell</body></html>'));
+    });
     await installWaitingUpdate(page);
     await page.getByRole("button", { name: "Pilih bahasa" }).click();
     await page.getByRole("menuitemradio", { name: "English" }).click();
@@ -395,6 +709,15 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect
       .poll(() => page.evaluate(async () => (await caches.match("/offline"))?.text()))
       .toContain("Offline vault access");
+    const legacyShells = await page.evaluate(async () => {
+      const legacyCache = await caches.open("rhasia-scret-static-v0-locale-test");
+      return Promise.all(
+        [await legacyCache.match("/"), await legacyCache.match("/offline")].map(async (response) =>
+          response ? response.text() : null,
+        ),
+      );
+    });
+    expect(legacyShells.every((html) => html?.includes('lang="en"'))).toBe(true);
     await expect(page.getByRole("heading", { name: "Update ready" })).toBeVisible();
     await page.getByRole("button", { name: "Update now" }).click();
     await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible({ timeout: 20_000 });

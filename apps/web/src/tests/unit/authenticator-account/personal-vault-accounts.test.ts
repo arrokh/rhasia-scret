@@ -110,8 +110,13 @@ describe("PersonalVaultAccounts", () => {
       ),
     );
 
+    const searchToggle = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-search-toggle"]');
+    expect(searchToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
+    await act(async () => searchToggle?.click());
     const search = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
     expect(search).not.toBeNull();
+    expect(searchToggle?.getAttribute("aria-expanded")).toBe("true");
     mocks.captureAnalyticsEvent.mockClear();
     mocks.refreshUnlockedVaultWorkspace.mockClear();
     await act(async () => setInputValue(search, "work@example.test"));
@@ -152,6 +157,9 @@ describe("PersonalVaultAccounts", () => {
     await act(async () => requestLocalVaultLock());
     expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
     await act(async () => container.querySelector<HTMLButtonElement>("button")?.click());
+    const restoredToggle = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-search-toggle"]');
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
+    await act(async () => restoredToggle?.click());
     const restoredSearch = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
     expect(restoredSearch?.value).toBe("");
 
@@ -161,7 +169,38 @@ describe("PersonalVaultAccounts", () => {
         .find((button) => button.textContent === "Switch profile")
         ?.click(),
     );
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
+    const profileSearchToggle = container.querySelector<HTMLButtonElement>(
+      '[data-slot="account-directory-search-toggle"]',
+    );
+    await act(async () => profileSearchToggle?.click());
     expect(container.querySelector<HTMLInputElement>("#hosted-account-directory-search")?.value).toBe("");
+  });
+
+  it("loads the Local Vault copy panel when its optional sheet opens", async () => {
+    const container = document.createElement("div");
+    root = createRoot(container);
+
+    await act(async () =>
+      root?.render(
+        createElement(
+          TestQueryProvider,
+          null,
+          createElement(
+            UnlockedVaultWorkspaceProvider,
+            { initialWorkspace: workspace() },
+            createElement(PersonalVaultAccounts, { vaultId: "personal-1" }),
+          ),
+        ),
+      ),
+    );
+    const localAction = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent?.trim() === "Brankas Perangkat",
+    );
+    expect(localAction).not.toBeUndefined();
+
+    await act(async () => localAction?.click());
+    await act(async () => vi.waitFor(() => expect(document.body.textContent).toContain("Buka Brankas Lokal")));
   });
 
   it("reuses the in-memory Unlocked Vault Session after returning from the add-account page", async () => {
@@ -210,6 +249,9 @@ describe("PersonalVaultAccounts", () => {
       ),
     );
 
+    const searchToggle = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-search-toggle"]');
+    expect(container.querySelector("#hosted-account-directory-search")).toBeNull();
+    await act(async () => searchToggle?.click());
     const search = container.querySelector<HTMLInputElement>("#hosted-account-directory-search");
     expect(search).not.toBeNull();
     await act(async () => setInputValue(search, "missing-synthetic-account"));
@@ -334,6 +376,8 @@ describe("PersonalVaultAccounts", () => {
       ),
     );
 
+    const searchToggle = container.querySelector<HTMLButtonElement>('[data-slot="account-directory-search-toggle"]');
+    await act(async () => searchToggle?.click());
     await act(async () =>
       setInputValue(container.querySelector("#hosted-account-directory-search"), "work@example.test"),
     );

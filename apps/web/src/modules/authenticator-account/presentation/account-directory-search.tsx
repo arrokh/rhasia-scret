@@ -9,22 +9,27 @@ import { Label } from "@/components/ui/label";
 export function AccountDirectorySearch({
   query,
   inputId,
+  panelId,
+  autoFocus = false,
   onQueryChange,
 }: {
   query: string;
   inputId: string;
+  panelId: string;
+  autoFocus?: boolean;
   onQueryChange: (query: string) => void;
 }) {
   const t = useTranslations("AuthenticatorAccount.accounts");
 
   return (
-    <div className="grid min-w-0 gap-2" role="search" aria-label={t("searchLabel")}>
+    <div id={panelId} className="grid min-w-0 gap-2" role="search" aria-label={t("searchLabel")}>
       <div className="flex min-w-0 items-end gap-2">
         <div className="grid min-w-0 flex-1 gap-2">
           <Label htmlFor={inputId}>{t("searchLabel")}</Label>
           <Input
             id={inputId}
             type="search"
+            autoFocus={autoFocus}
             value={query}
             autoComplete="off"
             autoCapitalize="off"

@@ -9,8 +9,8 @@ export async function GET(): Promise<Response> {
 
   const source = await readFile(join(process.cwd(), "public/sw.js"), "utf8");
   const update = source.replace(
-    'const CACHE_VERSION = "rhasia-scret-static-v7";',
     'const CACHE_VERSION = "rhasia-scret-static-v8";',
+    'const CACHE_VERSION = "rhasia-scret-static-v9";',
   );
   if (update === source) return new Response(null, { status: 500 });
 

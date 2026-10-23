@@ -8,12 +8,14 @@ import { openAndValidateEncryptedVaultArchive } from "@/modules/vault-archive/in
 import {
   BrowserLocalVaultRepository,
   LEGACY_LOCAL_VAULT_RECORD_VERSION,
+  LOCAL_VAULT_ENCRYPTION_VERSION,
   LOCAL_VAULT_RECORD_VERSION,
   addLocalAccount,
   clearLocalVault,
   clearUnlockedLocalVault,
   createLocalVault,
   deleteLocalAccount,
+  LocalVaultConcurrentAccountUpdateError,
   LocalVaultMigrationRequiredError,
   migrateLegacyLocalVault,
   exportLocalVault,
@@ -68,6 +70,77 @@ describe("device-local Local Vault", () => {
 
     await expect(repository.replace(stale)).rejects.toThrow(/version cannot be downgraded/);
     expect(await repository.read()).toEqual(created);
+  });
+
+  it("preserves concurrent account changes from separate repository instances", async () => {
+    const record = await createLocalVault("synthetic-local-passphrase", "Synthetic device vault");
+    const firstRepository = new BrowserLocalVaultRepository();
+    const secondRepository = new BrowserLocalVaultRepository();
+    await firstRepository.create(record);
+    const firstAccount = {
+      id: "local-account-synthetic-0001",
+      encryptedPayload: "AQID",
+      encryptionVersion: LOCAL_VAULT_ENCRYPTION_VERSION,
+      revision: 1,
+    };
+    const secondAccount = {
+      id: "local-account-synthetic-0002",
+      encryptedPayload: "BAUG",
+      encryptionVersion: LOCAL_VAULT_ENCRYPTION_VERSION,
+      revision: 1,
+    };
+
+    await Promise.all([
+      firstRepository.update((current) => ({ ...current, accounts: [...current.accounts, firstAccount] })),
+      secondRepository.update((current) => ({ ...current, accounts: [...current.accounts, secondAccount] })),
+    ]);
+
+    const persisted = await firstRepository.read();
+    expect(persisted?.accounts).toHaveLength(2);
+    expect(persisted?.accounts).toEqual(expect.arrayContaining([firstAccount, secondAccount]));
+  });
+
+  it("rejects an account update based on a stale Local Vault session", async () => {
+    const passphrase = "synthetic-local-passphrase";
+    const created = await createLocalVault(passphrase, "Synthetic device vault");
+    const repository = new BrowserLocalVaultRepository();
+    await repository.create(created);
+    const initialVault = await unlockLocalVault(created, passphrase);
+    try {
+      await addLocalAccount(initialVault, account());
+    } finally {
+      clearUnlockedLocalVault(initialVault);
+    }
+
+    const currentRecord = (await repository.read())!;
+    const firstVault = await unlockLocalVault(currentRecord, passphrase);
+    const secondVault = await unlockLocalVault(currentRecord, passphrase);
+    const accountId = firstVault.accounts[0]!.id;
+    const firstChange = { ...account(["Synthetic first tag"]), accountName: "first@example.invalid" };
+    const secondChange = { ...account(["Synthetic second tag"]), accountName: "second@example.invalid" };
+
+    try {
+      const results = await Promise.allSettled([
+        updateLocalAccount(firstVault, accountId, firstChange),
+        updateLocalAccount(secondVault, accountId, secondChange),
+      ]);
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      const rejected = results.find((result) => result.status === "rejected");
+      if (!rejected || rejected.status !== "rejected") throw new Error("Expected one stale account update to fail.");
+      expect(rejected.reason).toBeInstanceOf(LocalVaultConcurrentAccountUpdateError);
+
+      const persisted = (await repository.read())!;
+      expect(persisted.accounts[0]?.revision).toBe(2);
+      const reopened = await unlockLocalVault(persisted, passphrase);
+      try {
+        expect(["first@example.invalid", "second@example.invalid"]).toContain(reopened.accounts[0]?.accountName);
+      } finally {
+        clearUnlockedLocalVault(reopened);
+      }
+    } finally {
+      clearUnlockedLocalVault(firstVault);
+      clearUnlockedLocalVault(secondVault);
+    }
   });
 
   it("upgrades legacy Local Vault records to v2 before writing new account payloads", async () => {

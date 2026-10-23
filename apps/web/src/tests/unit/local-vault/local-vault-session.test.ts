@@ -106,6 +106,16 @@ describe("LocalVaultSession", () => {
     expect(test.session.state.lastArchiveExportAt).toBeNull();
   });
 
+  it("distinguishes an unavailable export marker from an absent marker", async () => {
+    const test = harness();
+    vi.mocked(test.ports.readArchiveExportAt).mockRejectedValue(new Error("storage is temporarily unavailable"));
+
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+
+    expect(test.session.state.lastArchiveExportAt).toBeUndefined();
+  });
+
   it("refreshes the local export timestamp after a session mutation", async () => {
     const test = harness();
     await test.session.discover();
@@ -137,6 +147,18 @@ describe("LocalVaultSession", () => {
     expect(test.session.state.vault).toBeNull();
     expect(pendingVault.rootKey).toEqual(new Uint8Array(32));
     expect(pendingVault.vaultKey).toEqual(new Uint8Array(32));
+  });
+
+  it("uses the current encrypted record after a profile changes while locked", async () => {
+    const test = harness();
+    await test.session.discover();
+    const latest = record("profile_2");
+    test.setStored(latest);
+    test.session.lock();
+
+    await test.session.unlock("passphrase");
+
+    expect(test.ports.unlockRecord).toHaveBeenCalledWith(latest, "passphrase");
   });
 
   it("does not start an unlock queued before a lock", async () => {
@@ -233,6 +255,60 @@ describe("LocalVaultSession", () => {
     await test.session.create("passphrase", "Local");
     expect(test.ports.persistCreatedRecord).toHaveBeenCalledOnce();
     expect(test.session.state).toMatchObject({ discovered: true, record: record(), vault: { name: "Local 1" } });
+  });
+
+  it("publishes a newly persisted profile while keeping it locked after a concurrent lock", async () => {
+    const test = harness();
+    test.setStored(null);
+    await test.session.discover();
+    let startPersistence: (() => void) | undefined;
+    let finishPersistence: (() => void) | undefined;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      startPersistence = resolve;
+    });
+    const pendingPersistence = new Promise<void>((resolve) => {
+      finishPersistence = resolve;
+    });
+    vi.mocked(test.ports.persistCreatedRecord).mockImplementationOnce(async (next) => {
+      startPersistence?.();
+      await pendingPersistence;
+      test.setStored(next);
+    });
+
+    const creating = test.session.create("passphrase", "Local");
+    await persistenceStarted;
+    test.session.lock();
+    finishPersistence?.();
+
+    await expect(creating).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    expect(test.session.state).toMatchObject({ discovered: true, record: record(), vault: null });
+  });
+
+  it("publishes a completed clear after a concurrent lock", async () => {
+    const test = harness();
+    await test.session.discover();
+    await test.session.unlock("passphrase");
+    let startClear: (() => void) | undefined;
+    let finishClear: (() => void) | undefined;
+    const clearStarted = new Promise<void>((resolve) => {
+      startClear = resolve;
+    });
+    const pendingClear = new Promise<void>((resolve) => {
+      finishClear = resolve;
+    });
+    vi.mocked(test.ports.clearRecord).mockImplementationOnce(async () => {
+      test.setStored(null);
+      startClear?.();
+      await pendingClear;
+    });
+
+    const clearing = test.session.clear();
+    await clearStarted;
+    test.session.lock();
+    finishClear?.();
+
+    await expect(clearing).rejects.toBeInstanceOf(LocalVaultSessionLockedError);
+    expect(test.session.state).toMatchObject({ record: null, lastArchiveExportAt: null, vault: null });
   });
 
   it("publishes the migration transition and replaces it after migration", async () => {

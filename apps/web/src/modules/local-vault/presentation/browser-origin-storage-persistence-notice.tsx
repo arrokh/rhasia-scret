@@ -24,15 +24,23 @@ export function BrowserOriginStoragePersistenceNotice() {
   return (
     <div className="mb-5" data-storage-persistence={status}>
       <StatusBanner tone={tone} title={t("title")} role="status">
-        <p>{t("description")}</p>
-        <p className="mt-1">{t(statusMessage[status])}</p>
-        {canRequest && (
-          <div className="mt-3 flex justify-end">
-            <Button type="button" disabled={requesting} aria-busy={requesting} onClick={() => void request()}>
-              {requesting ? t("requesting") : t("request")}
-            </Button>
+        <div className="grid gap-3">
+          <span className="block">{t("description")}</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="min-w-0 flex-1">{t(statusMessage[status])}</span>
+            {canRequest && (
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                disabled={requesting}
+                aria-busy={requesting}
+                onClick={() => void request()}
+              >
+                {requesting ? t("requesting") : t("request")}
+              </Button>
+            )}
           </div>
-        )}
+        </div>
       </StatusBanner>
     </div>
   );

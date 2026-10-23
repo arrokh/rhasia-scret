@@ -38,10 +38,13 @@ type PreviewAccount = {
 
 export function AuthenticatorAccountDirectoryPreview() {
   const t = useTranslations("Preview.authenticatorAccounts");
+  const searchInputId = "preview-account-directory-search";
+  const searchPanelId = `${searchInputId}-panel`;
   const { preferences, setPreferences } = useAccountDirectoryPreferences("preview-profile");
   const [issuerFilters, setIssuerFilters] = useState<string[]>([]);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const { view, vaultFilters, order } = preferences;
   const vaults = useMemo(
     () => [
@@ -188,6 +191,11 @@ export function AuthenticatorAccountDirectoryPreview() {
             onTagFiltersChange={setTagFilters}
             view={view}
             onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
+            directoryActionsEnabled={true}
+            searchOpen={searchOpen}
+            searchActive={searchQuery.trim().length > 0}
+            searchPanelId={searchPanelId}
+            onSearchOpenChange={setSearchOpen}
             reorderAccounts={orderedAccounts.map((account) => ({
               key: accountDirectoryAccountKey(account),
               issuer: account.issuer,
@@ -202,6 +210,10 @@ export function AuthenticatorAccountDirectoryPreview() {
               filterByIssuer: t("filterByIssuer"),
               filterByTag: t("filterByTag"),
               filtersApplied: t("filtersApplied"),
+              clearFilters: t("clearFilters"),
+              showSearch: t("showSearch"),
+              hideSearch: t("hideSearch"),
+              searchApplied: t("searchApplied"),
               allVaults: t("allVaults"),
               allIssuers: t("allIssuers"),
               allTags: t("allTags"),
@@ -220,11 +232,15 @@ export function AuthenticatorAccountDirectoryPreview() {
           />
         </div>
       </div>
-      <AccountDirectorySearch
-        query={searchQuery}
-        inputId="preview-account-directory-search"
-        onQueryChange={setSearchQuery}
-      />
+      {searchOpen && (
+        <AccountDirectorySearch
+          query={searchQuery}
+          inputId={searchInputId}
+          panelId={searchPanelId}
+          autoFocus
+          onQueryChange={setSearchQuery}
+        />
+      )}
       {visibleAccounts.length ? (
         <ul
           data-slot="account-directory-list"

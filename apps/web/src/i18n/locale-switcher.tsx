@@ -227,7 +227,7 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
     setOfflineShellRefreshFailed(false);
     persistLocale(nextLocale);
     setRefreshingOfflineShell(true);
-    void refreshOfflineShell()
+    void refreshOfflineShell(nextLocale)
       .then(() => {
         setRefreshingOfflineShell(false);
         onCancel();
@@ -235,7 +235,7 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
       })
       .catch(async () => {
         persistLocale(locale);
-        await refreshOfflineShell().catch(() => {});
+        await refreshOfflineShell(locale).catch(() => {});
         setRefreshingOfflineShell(false);
         setOfflineShellRefreshFailed(true);
       });
@@ -262,22 +262,28 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
   );
 }
 
-async function refreshOfflineShell(): Promise<void> {
+async function refreshOfflineShell(locale: AppLocale): Promise<void> {
   if (!navigator.serviceWorker) return;
   const registration = await navigator.serviceWorker.getRegistration();
-  for (const worker of [registration?.waiting, navigator.serviceWorker.controller]) {
-    if (!worker) continue;
+  if (registration && !registration.waiting) await registration.update();
+  const workers = [...new Set([registration?.waiting, navigator.serviceWorker.controller])].filter(
+    (worker): worker is ServiceWorker => worker !== null && worker !== undefined,
+  );
+  for (const worker of workers) {
     const channel = new MessageChannel();
     let timeout = 0;
     try {
       await new Promise<void>((resolve, reject) => {
-        timeout = window.setTimeout(reject, 30_000);
+        timeout = window.setTimeout(() => reject(new Error("The offline shell refresh timed out.")), 5_000);
         channel.port1.onmessage = (event: MessageEvent<{ type?: unknown }>) => {
           if (event.data?.type === offlineShellRefreshedMessage) resolve();
-          else reject();
+          else reject(new Error("The offline shell refresh failed."));
         };
-        worker.postMessage({ type: refreshOfflineShellMessage }, [channel.port2]);
+        worker.postMessage({ type: refreshOfflineShellMessage, locale }, [channel.port2]);
       });
+      return;
+    } catch (error) {
+      if (worker === workers.at(-1)) throw error;
     } finally {
       clearTimeout(timeout);
       channel.port1.close();
