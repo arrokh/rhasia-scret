@@ -107,10 +107,12 @@ if (!/^    services:\n      postgres:/m.test(browserE2e))
 if (/pnpm run format:check/.test(ci)) failures.push("CI must not duplicate the dedicated Format workflow");
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
-if (ciTimeoutCount !== 6)
+if (ciTimeoutCount !== 5)
   failures.push(
-    `.github/workflows/ci.yml must enforce eight-minute timeouts for 6 standard jobs (found ${ciTimeoutCount})`,
+    `.github/workflows/ci.yml must enforce eight-minute timeouts for 5 standard jobs (found ${ciTimeoutCount})`,
   );
+if (!/^    timeout-minutes: 12$/m.test(browserE2e))
+  failures.push(".github/workflows/ci.yml must give the browser E2E job a twelve-minute ceiling");
 if (!/^  browser-production:[\s\S]*?^    timeout-minutes: 12$/m.test(ci))
   failures.push(".github/workflows/ci.yml must give the production PWA/performance job a twelve-minute ceiling");
 if (/^concurrency:/m.test(ci)) failures.push(".github/workflows/ci.yml must use job-scoped concurrency");
