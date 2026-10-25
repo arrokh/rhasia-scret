@@ -39,6 +39,24 @@ describe("Personal Vault account route contracts", () => {
     );
   });
 
+  it("rejects tag metadata outside the encrypted account payload", async () => {
+    const create = vi.fn();
+    const handlers = createPersonalAccountsHandlers({
+      ...authenticationDependencies(),
+      accounts: { create, list: async () => [], update: vi.fn(), delete: vi.fn(), restore: vi.fn() },
+    });
+    const response = await handlers.POST(
+      request("/v1/vaults/vault-1/accounts", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, tags: ["Synthetic Work"] }),
+      }),
+      { params: Promise.resolve({ vaultId: "vault-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("rejects an encrypted payload larger than the bounded ciphertext limit", async () => {
     const create = vi.fn();
     const handlers = createPersonalAccountsHandlers({

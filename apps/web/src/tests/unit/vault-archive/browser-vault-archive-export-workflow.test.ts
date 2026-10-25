@@ -18,6 +18,7 @@ const account = {
   algorithm: "SHA-1" as const,
   digits: 6 as const,
   period: 30,
+  tags: ["Work", "Recovery"],
 };
 
 const ownerVault = { id: "vault-1", name: "Personal", type: "PERSONAL" as const, role: "OWNER" as const };
@@ -35,7 +36,7 @@ describe("Vault archive export workflow", () => {
     plaintext.fill(0);
   });
 
-  it("prepares a V1 archive with a separate random key and generic filename", async () => {
+  it("prepares a V2 archive and preserves encrypted account tags with its separate random key", async () => {
     const prepared = await prepareEncryptedVaultArchive(ownerVault, [account], new Date("2026-07-27T12:00:00.000Z"));
     expect(prepared.filename).toBe("rhasia-vault-2026-07-27.rhasia-vault");
     expect(prepared.key).toHaveLength(32);
@@ -43,7 +44,7 @@ describe("Vault archive export workflow", () => {
     const opened = await openEncryptedVaultExport(prepared.key, prepared.archive);
     expect(opened.vaultName).toBe("Personal");
     expect(parseDecryptedAccountPayload(opened.accounts[0]!)).toEqual(
-      expect.objectContaining({ issuer: "Example", accountName: "alice@example.test" }),
+      expect.objectContaining({ issuer: "Example", accountName: "alice@example.test", tags: ["Work", "Recovery"] }),
     );
     for (const payload of opened.accounts) payload.fill(0);
     clearPreparedVaultArchive(prepared);

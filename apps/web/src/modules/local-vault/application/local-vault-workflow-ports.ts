@@ -1,5 +1,4 @@
-import type { DecryptedAuthenticatorAccount } from "@/modules/authenticator-account";
-import type { TotpConfiguration } from "@/modules/otp-runtime";
+import type { AccountPayloadConfiguration, DecryptedAuthenticatorAccount } from "@/modules/authenticator-account";
 import type { CryptoEnvelopeContext, EncryptedEnvelope } from "@/modules/crypto";
 import type { LocalVaultRepository } from "./local-vault-repository";
 
@@ -39,7 +38,7 @@ export interface LocalVaultCryptoPort {
 export interface LocalVaultAccountPayloadPort {
   encryptAccountConfiguration(
     vaultKey: Uint8Array,
-    configuration: TotpConfiguration,
+    configuration: AccountPayloadConfiguration,
     context: CryptoEnvelopeContext,
   ): Promise<Uint8Array>;
   decryptAccountConfiguration(
@@ -49,10 +48,10 @@ export interface LocalVaultAccountPayloadPort {
   ): Promise<DecryptedAuthenticatorAccount>;
   parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAuthenticatorAccount;
   isDuplicateAccount(
-    candidate: TotpConfiguration,
+    candidate: AccountPayloadConfiguration,
     accounts: Array<DecryptedAuthenticatorAccount & { id?: string }>,
   ): boolean;
-  serializeDecryptedAccountPayload(configuration: TotpConfiguration): Uint8Array;
+  serializeDecryptedAccountPayload(configuration: AccountPayloadConfiguration): Uint8Array;
 }
 
 export type LocalVaultWorkflowDependencies = {

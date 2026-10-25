@@ -4,13 +4,21 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  classifyBrowserVaultWorkspaceUnlockFailure: vi.fn(),
-  loadUnlockedVaultWorkspace: vi.fn(),
-  loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
-  passkeyEnrolled: false,
-  captureAnalyticsEvent: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const lockListeners = new Set<() => void>();
+  return {
+    classifyBrowserVaultWorkspaceUnlockFailure: vi.fn(),
+    loadUnlockedVaultWorkspace: vi.fn(),
+    loadUnlockedVaultWorkspaceWithPasskey: vi.fn(),
+    passkeyEnrolled: false,
+    captureAnalyticsEvent: vi.fn(),
+    lockListeners,
+    subscribeToLocalVaultLock: vi.fn((listener: () => void) => {
+      lockListeners.add(listener);
+      return () => lockListeners.delete(listener);
+    }),
+  };
+});
 
 vi.mock("@/modules/crypto", () => ({ hasRememberedBrowserForPersonalVault: vi.fn().mockResolvedValue(false) }));
 vi.mock("@/modules/identity", () => ({
@@ -22,6 +30,7 @@ vi.mock("@/modules/sync", () => ({
   loadUnlockedVaultWorkspace: mocks.loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey: mocks.loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser: vi.fn(),
+  subscribeToLocalVaultLock: mocks.subscribeToLocalVaultLock,
 }));
 vi.mock("@/shared/infrastructure/browser-analytics", () => ({ captureAnalyticsEvent: mocks.captureAnalyticsEvent }));
 
@@ -36,11 +45,29 @@ afterEach(async () => {
   root = undefined;
   document.body.innerHTML = "";
   mocks.passkeyEnrolled = false;
+  mocks.lockListeners.clear();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
 describe("locked Vault session", () => {
+  it("clears the entered passphrase when a vault lock is requested", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(createElement(VaultWorkspaceUnlock, { personalVaultId: "vault_test123", onUnlocked: vi.fn() })),
+    );
+    const input = container.querySelector<HTMLInputElement>("#vault-unlock-secret");
+    expect(document.activeElement).toBe(input);
+    await act(async () => setInputValue(input, "synthetic passphrase"));
+    expect(input?.value).toBe("synthetic passphrase");
+
+    await act(async () => mocks.lockListeners.forEach((listener) => listener()));
+
+    expect(input?.value).toBe("");
+  });
+
   it("shows a sign-in action when the session expires before the encrypted bundle is loaded", async () => {
     mocks.classifyBrowserVaultWorkspaceUnlockFailure.mockReturnValue("AUTHENTICATION");
     mocks.loadUnlockedVaultWorkspace.mockRejectedValueOnce(new Error("session expired"));

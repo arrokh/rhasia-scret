@@ -45,6 +45,7 @@ import {
   type WorkspaceAuthenticatorAccount,
 } from "@rhasia-scret/client-vault-core";
 import type { VaultWorkspacePlatformPorts } from "@rhasia-scret/client-vault-core";
+import { trackVaultSensitiveOperation } from "./browser-vault-lock";
 
 export { clearUnlockedVaultWorkspace, evictSharedVaultWorkspace, LocalStorageSyncError };
 export type { UnlockedVaultWorkspace, WorkspaceAuthenticatorAccount };
@@ -171,33 +172,31 @@ export function loadUnlockedVaultWorkspace(
   vaultUnlockSecret: string,
   personalVaultId: string,
 ): Promise<UnlockedVaultWorkspace> {
-  return loadUnlockedWorkspace(vaultUnlockSecret, personalVaultId, browserPorts());
+  return trackWorkspaceLoad(() => loadUnlockedWorkspace(vaultUnlockSecret, personalVaultId, browserPorts()));
 }
 
 export function loadUnlockedVaultWorkspaceWithRememberedBrowser(
   personalVaultId: string,
   signal?: AbortSignal,
 ): Promise<UnlockedVaultWorkspace> {
-  return loadUnlockedWorkspaceWithRememberedBrowser(
-    personalVaultId,
-    browserPorts(),
-    signal as CancellationPort | undefined,
+  return trackWorkspaceLoad(() =>
+    loadUnlockedWorkspaceWithRememberedBrowser(personalVaultId, browserPorts(), signal as CancellationPort | undefined),
   );
 }
 
 export function loadUnlockedVaultWorkspaceWithPasskey(personalVaultId: string): Promise<UnlockedVaultWorkspace> {
-  return loadUnlockedWorkspaceWithPasskey(personalVaultId, browserPorts());
+  return trackWorkspaceLoad(() => loadUnlockedWorkspaceWithPasskey(personalVaultId, browserPorts()));
 }
 
 export function loadOfflineVaultWorkspace(
   profileId: string,
   vaultUnlockSecret: string,
 ): Promise<UnlockedVaultWorkspace> {
-  return loadOfflineWorkspace(profileId, vaultUnlockSecret, browserPorts());
+  return trackWorkspaceLoad(() => loadOfflineWorkspace(profileId, vaultUnlockSecret, browserPorts()));
 }
 
 export function loadOfflineVaultWorkspaceWithRememberedBrowser(profileId: string): Promise<UnlockedVaultWorkspace> {
-  return loadOfflineWorkspaceWithRememberedBrowser(profileId, browserPorts());
+  return trackWorkspaceLoad(() => loadOfflineWorkspaceWithRememberedBrowser(profileId, browserPorts()));
 }
 
 export function refreshUnlockedVaultWorkspace(
@@ -205,5 +204,9 @@ export function refreshUnlockedVaultWorkspace(
   expectedProfileId: string,
   signal?: CancellationPort,
 ): Promise<UnlockedVaultWorkspace> {
-  return refreshWorkspace(userRootKey, expectedProfileId, browserPorts(), signal);
+  return trackWorkspaceLoad(() => refreshWorkspace(userRootKey, expectedProfileId, browserPorts(), signal));
+}
+
+function trackWorkspaceLoad(operation: () => Promise<UnlockedVaultWorkspace>): Promise<UnlockedVaultWorkspace> {
+  return trackVaultSensitiveOperation(operation, clearUnlockedVaultWorkspace);
 }

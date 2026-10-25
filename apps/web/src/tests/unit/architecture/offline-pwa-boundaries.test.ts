@@ -50,6 +50,29 @@ describe("offline PWA architecture boundaries", () => {
     }
   });
 
+  it("keeps browser-storage readiness and export metadata outside server, analytics, and offline caches", () => {
+    const persistenceClient = readFileSync(
+      join(sourceRoot, "modules/local-vault/infrastructure/browser-origin-storage-persistence.ts"),
+      "utf8",
+    );
+    const localVaultRecord = readFileSync(join(sourceRoot, "modules/local-vault/domain/local-vault-record.ts"), "utf8");
+    const localVaultRepository = readFileSync(
+      join(sourceRoot, "modules/local-vault/infrastructure/browser-local-vault-repository.ts"),
+      "utf8",
+    );
+    const worker = readFileSync(join(root, "public/sw.js"), "utf8");
+    expect(persistenceClient).toContain("storage.persisted()");
+    expect(persistenceClient).toContain("storage.persist()");
+    expect(persistenceClient).not.toMatch(
+      /fetch|browserApiClient|captureAnalyticsEvent|localStorage|sessionStorage|indexedDB|caches/i,
+    );
+    expect(localVaultRecord).not.toContain("lastArchiveExportAt");
+    expect(localVaultRepository).toContain('const ARCHIVE_EXPORT_STORAGE_KEY = "archive-export"');
+    expect(localVaultRepository).toContain("readArchiveExportAt(profileId: string)");
+    expect(localVaultRepository).toContain("recordArchiveExportAt(profileId: string, exportedAt: string)");
+    expect(worker).not.toContain("lastArchiveExportAt");
+  });
+
   it("keeps Local Vault Snapshots outside Query persistence and forbids replay primitives", () => {
     const source = files(sourceRoot)
       .filter((path) => !path.includes("/tests/"))
@@ -72,20 +95,40 @@ describe("offline PWA architecture boundaries", () => {
     expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
-    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v5"');
+    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v8"');
     expect(worker).toContain("/_next/static/");
     expect(worker).toContain("caches.match(request)");
     expect(worker).toContain("networkFirstNavigation(request)");
-    expect(worker).toContain("cacheNavigationShell(cache, LANDING_SHELL)");
+    expect(worker).toContain("[LANDING_SHELL, OFFLINE_SHELL].map((pathname) => fetchNavigationShell(pathname))");
+    expect(worker).toContain("await cache.addAll(resources)");
+    expect(worker).toContain(
+      "const previousShells = await Promise.all(shells.map(({ pathname }) => cache.match(pathname)))",
+    );
+    expect(worker).toContain("for (const shell of shells) await cache.put(shell.pathname, shell.response)");
+    expect(worker).toContain("return previous ? cache.put(pathname, previous) : cache.delete(pathname)");
+    expect(worker).toContain("event.data?.locale");
+    expect(worker).toContain("enqueueOfflineShellCacheTask");
+    expect(worker).toContain("offlineShellCacheIsUnsafe");
+    expect(worker).toContain("invalidateOwnedOfflineShells");
     expect(worker).toContain("pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL");
     expect(worker).toContain("OFFLINE_NAVIGATION_DETECTED");
     expect(worker).toContain("notifyOfflineClients()");
+    expect(worker).toContain('event.data?.type !== "RHSIA_APPLY_WAITING_UPDATE"');
+    expect(worker).toContain("prepareClientForUpdate(client)");
+    expect(worker).toContain('event.data?.type === "RHSIA_PWA_UPDATE_CLIENT_READY"');
+    expect(worker).toContain("await self.skipWaiting()");
+    const installHandler = worker.match(/self\.addEventListener\("install",\s*\(event\) => \{([\s\S]*?)\n\}\);/)?.[1];
+    expect(installHandler).toContain("precachePublicShells()");
+    expect(installHandler).not.toContain("skipWaiting");
     expect(worker).toContain("controller.abort(), 2000");
     expect(worker).toContain('!pathname.endsWith(".map")');
     expect(worker).toContain('response.headers.get("content-type")?.startsWith("text/html")');
     expect(worker).toContain('response.type === "basic"');
     expect(registration).toContain("removeDevelopmentServiceWorkers().catch");
     expect(registration).toContain('name.startsWith("rhasia-scret-static-")');
+    expect(registration).toContain("subscribeToLocalVaultLock(() =>");
+    expect(registration).toContain("beginPwaUpdateLock()");
+    expect(registration).toContain('const prepareForUpdateMessage = "RHSIA_PREPARE_FOR_PWA_UPDATE"');
     expect(worker).not.toMatch(/indexedDB|localStorage|sessionStorage|Background Sync|periodic/i);
   });
 });

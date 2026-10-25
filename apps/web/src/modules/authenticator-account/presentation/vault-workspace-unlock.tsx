@@ -22,6 +22,7 @@ import {
   loadUnlockedVaultWorkspace,
   loadUnlockedVaultWorkspaceWithPasskey,
   loadUnlockedVaultWorkspaceWithRememberedBrowser,
+  subscribeToLocalVaultLock,
   type UnlockedVaultWorkspace,
 } from "@/modules/sync";
 
@@ -74,6 +75,7 @@ export function VaultWorkspaceUnlock({
     };
   }, [personalVaultId]);
   useEffect(() => () => rememberedOperationRef.current?.abort(), []);
+  useEffect(() => subscribeToLocalVaultLock(() => form.reset()), [form]);
 
   async function unlockRememberedBrowser() {
     setStatus("idle");
@@ -166,6 +168,7 @@ export function VaultWorkspaceUnlock({
               disabled={passkeyUnlocking || rememberedUnlocking}
               required
               autoComplete="current-password"
+              autoFocus
             />
             <FormFieldError id="vault-unlock-secret-error" errors={field.state.meta.errors} />
           </div>

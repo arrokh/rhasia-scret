@@ -1,8 +1,12 @@
 import type { ClientCryptoPort } from "../../crypto/application/crypto-ports";
 import type { CryptoEnvelopeContext } from "../../crypto/application/encrypted-envelope-types";
-import type { TotpConfiguration } from "../../otp-runtime/domain/totp-configuration";
 import { base64ToBytes, bytesToBase64 } from "../../../shared/application/base64";
-import type { AuthenticatorAccountPayloadPort, DecryptedAuthenticatorAccount } from "./account-payload-ports";
+import { normalizeAuthenticatorAccountTags } from "../domain/account-tags";
+import type {
+  AccountPayloadConfiguration,
+  AuthenticatorAccountPayloadPort,
+  DecryptedAuthenticatorAccount,
+} from "./account-payload-ports";
 
 const MAX_ACCOUNT_PAYLOAD_BYTES = 16 * 1024;
 const MAX_ACCOUNT_LABEL_LENGTH = 240;
@@ -39,15 +43,18 @@ export function createAuthenticatorAccountPayloadPort(crypto: ClientCryptoPort):
   };
 }
 
-export function serializeDecryptedAccountPayload(configuration: TotpConfiguration): Uint8Array {
+export function serializeDecryptedAccountPayload(configuration: AccountPayloadConfiguration): Uint8Array {
+  const tags = normalizeAuthenticatorAccountTags(configuration.tags ?? []);
   const plaintext = new TextEncoder().encode(
     JSON.stringify({
+      version: 2,
       issuer: configuration.issuer,
       accountName: configuration.accountName,
       secret: bytesToBase64(configuration.secret),
       algorithm: configuration.algorithm,
       digits: configuration.digits,
       period: configuration.period,
+      tags,
     }),
   );
   try {
@@ -70,7 +77,11 @@ export function parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAu
   }
   if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) invalidPayload();
   const record = decoded as Record<string, unknown>;
-  if (Object.keys(record).sort().join(",") !== "accountName,algorithm,digits,issuer,period,secret") invalidPayload();
+  const keys = Object.keys(record).sort().join(",");
+  const legacyPayload = keys === "accountName,algorithm,digits,issuer,period,secret";
+  const taggedPayload =
+    keys === "accountName,algorithm,digits,issuer,period,secret,tags,version" && record.version === 2;
+  if (!legacyPayload && !taggedPayload) invalidPayload();
   if (!validLabel(record.issuer) || !validLabel(record.accountName) || typeof record.secret !== "string")
     invalidPayload();
   if (record.algorithm !== "SHA-1" && record.algorithm !== "SHA-256" && record.algorithm !== "SHA-512")
@@ -88,6 +99,15 @@ export function parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAu
     secret.fill(0);
     invalidPayload();
   }
+  let tags: string[] | undefined;
+  if (taggedPayload) {
+    try {
+      tags = normalizeAuthenticatorAccountTags(record.tags);
+    } catch {
+      secret.fill(0);
+      invalidPayload();
+    }
+  }
   return {
     issuer: record.issuer,
     accountName: record.accountName,
@@ -95,6 +115,7 @@ export function parseDecryptedAccountPayload(plaintext: Uint8Array): DecryptedAu
     algorithm: record.algorithm,
     digits: record.digits,
     period: record.period,
+    ...(tags && tags.length > 0 ? { tags } : {}),
   };
 }
 

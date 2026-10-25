@@ -4,6 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AddLocalAccountForm } from "@/modules/local-vault/presentation/local-vault-page";
+import { requestLocalVaultLock } from "@/modules/sync";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -24,6 +25,39 @@ describe("Local Vault account import", () => {
     await enterManualUri(container, "not-an-otpauth-uri");
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("URI autentikator tidak valid");
+    expect(container.querySelector("#local-account-label")).toBeNull();
+  });
+
+  it("clears a pending account import when the Local Vault locks", async () => {
+    const container = mount();
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(AddLocalAccountForm, { onAdd: vi.fn() })));
+    await enterManualUri(
+      container,
+      "otpauth://totp/Example:alice%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+    );
+    expect(container.querySelector("#local-account-label")).not.toBeNull();
+
+    await act(async () => requestLocalVaultLock());
+
+    expect(container.querySelector("#local-account-label")).toBeNull();
+    await act(async () => findButton(container, "Opsi lanjutan").click());
+    expect(container.querySelector<HTMLInputElement>("#manual-authenticator-uri")?.value).toBe("");
+  });
+
+  it("clears the reviewed account after an unsuccessful save", async () => {
+    const onAdd = vi.fn().mockResolvedValue(false);
+    const container = mount();
+    root = createRoot(container);
+    await act(async () => root?.render(createElement(AddLocalAccountForm, { onAdd })));
+    await enterManualUri(
+      container,
+      "otpauth://totp/Example:alice%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+    );
+
+    await act(async () => findButton(container, "Simpan ke Brankas Lokal").click());
+
+    expect(onAdd).toHaveBeenCalledOnce();
     expect(container.querySelector("#local-account-label")).toBeNull();
   });
 

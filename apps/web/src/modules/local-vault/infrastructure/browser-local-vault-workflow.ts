@@ -29,6 +29,7 @@ import {
   migrateLegacyLocalVault as migrateLegacyLocalVaultWorkflow,
   previewLocalVaultArchive as previewLocalVaultArchiveWorkflow,
   previewLocalVaultArchiveImport as previewLocalVaultArchiveImportWorkflow,
+  recordLocalArchiveExport as recordLocalArchiveExportWorkflow,
   refreshUnlockedLocalVault as refreshUnlockedLocalVaultWorkflow,
   renameLocalVault as renameLocalVaultWorkflow,
   unlockLocalVault as unlockLocalVaultWorkflow,
@@ -108,6 +109,10 @@ export async function deleteLocalAccount(vault: UnlockedLocalVault, accountId: s
 
 export async function exportLocalVault(vault: UnlockedLocalVault): Promise<{ archive: Uint8Array; key: Uint8Array }> {
   return exportLocalVaultWorkflow(vault, browserDependencies());
+}
+
+export async function recordLocalArchiveExport(vault: UnlockedLocalVault, exportedAt: string): Promise<void> {
+  return recordLocalArchiveExportWorkflow(vault, exportedAt, browserDependencies());
 }
 
 export async function previewLocalVaultArchive(

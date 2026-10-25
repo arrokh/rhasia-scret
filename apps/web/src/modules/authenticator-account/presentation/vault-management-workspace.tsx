@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ALL_ACCOUNT_PERMISSIONS, SecureShareLinkRedemption } from "@/modules/vault-membership";
@@ -20,7 +20,7 @@ import { useDeleteEncryptedAuthenticatorAccountMutation } from "./hooks/use-auth
 import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
-import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
+import { subscribeToLocalVaultLock, type WorkspaceAuthenticatorAccount } from "@/modules/sync";
 
 export function VaultDirectoryWorkspace({ personalVaultId }: { personalVaultId: string }) {
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
@@ -39,6 +39,7 @@ export function PersonalVaultDetailWorkspace({
   const t = useTranslations("AuthenticatorAccount.workspace");
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
+  useEffect(() => subscribeToLocalVaultLock(() => setManagedAccount(null)), []);
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;
@@ -113,6 +114,7 @@ export function SharedVaultDetailWorkspace({
   const router = useRouter();
   const { workspace, setWorkspace, refreshWorkspaceAuthorization } = useUnlockedVaultWorkspace();
   const [managedAccount, setManagedAccount] = useState<WorkspaceAuthenticatorAccount | null>(null);
+  useEffect(() => subscribeToLocalVaultLock(() => setManagedAccount(null)), []);
   const deleteAccount = useDeleteEncryptedAuthenticatorAccountMutation();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
   if (workspace.syncState !== "CURRENT") return <ReadOnlyWorkspaceNotice />;

@@ -110,6 +110,7 @@ function createPreviewWorkspace(labels: {
         revision: 1,
         issuer: labels.issuer,
         accountName: "sample@local.invalid",
+        tags: ["Work"],
         secret: new Uint8Array([1, 2, 3, 4]),
         algorithm: "SHA-1",
         digits: 6,

@@ -1,4 +1,5 @@
 export {
+  LEGACY_LOCAL_VAULT_RECORD_VERSION,
   LOCAL_VAULT_ENCRYPTION_VERSION,
   LOCAL_VAULT_RECORD_VERSION,
   parseLocalVaultRecord,
@@ -9,7 +10,11 @@ export type {
   LocalVaultRecord,
 } from "./domain/local-vault-record";
 export type { LocalVaultCapabilityPort } from "./application/local-vault-capabilities";
-export { LocalVaultSession, LocalVaultSessionDisposedError } from "./application/local-vault-session";
+export {
+  LocalVaultSession,
+  LocalVaultSessionDisposedError,
+  LocalVaultSessionLockedError,
+} from "./application/local-vault-session";
 export type { LocalVaultSessionPorts, LocalVaultSessionState } from "./application/local-vault-session";
 export {
   addLocalAccount as addLocalAccountWithPorts,
@@ -20,11 +25,13 @@ export {
   migrateLegacyLocalVault as migrateLegacyLocalVaultWithPorts,
   previewLocalVaultArchive as previewLocalVaultArchiveWithPorts,
   previewLocalVaultArchiveImport as previewLocalVaultArchiveImportWithPorts,
+  recordLocalArchiveExport as recordLocalArchiveExportWithPorts,
   refreshUnlockedLocalVault as refreshUnlockedLocalVaultWithPorts,
   renameLocalVault as renameLocalVaultWithPorts,
   unlockLocalVault as unlockLocalVaultWithPorts,
   updateLocalAccount as updateLocalAccountWithPorts,
 } from "./application/local-vault-workflow";
+export { LocalVaultConcurrentAccountUpdateError } from "./application/local-vault-workflow";
 export type { LocalVaultRepository } from "./application/local-vault-repository";
 export type {
   LocalVaultAccountPayloadPort,
@@ -49,6 +56,7 @@ export {
   migrateLegacyLocalVault,
   previewLocalVaultArchive,
   previewLocalVaultArchiveImport,
+  recordLocalArchiveExport,
   refreshUnlockedLocalVault,
   renameLocalVault,
   unlockLocalVault,

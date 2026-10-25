@@ -274,7 +274,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     name: Browser e2e (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     concurrency:
       group: ci-web-browser-e2e-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}
       cancel-in-progress: true

@@ -11,6 +11,7 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 }));
 
 import type { WorkspaceAuthenticatorAccount } from "@/modules/sync";
+import { encryptAccountConfiguration } from "@/modules/authenticator-account/infrastructure/browser-account-payload";
 import { AuthenticatorAccountManagerDialog } from "@/modules/authenticator-account/presentation/authenticator-account-manager-dialog";
 import { TestQueryProvider } from "@/tests/test-query-provider";
 
@@ -37,7 +38,17 @@ describe("AuthenticatorAccountManagerDialog", () => {
     await renderDialog(root, { onUpdated });
 
     await act(async () => setInputValue(document.body.querySelector("input"), "Alice Mobile"));
+    await act(async () =>
+      setInputValue(document.body.querySelector<HTMLInputElement>("#managed-account-tag-account-1"), "Synthetic Work"),
+    );
+    await act(async () => findButton(document.body, "Tambahkan tag").click());
     await act(async () => document.body.querySelector<HTMLFormElement>("form")?.requestSubmit());
+
+    expect(vi.mocked(encryptAccountConfiguration)).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({ accountName: "Alice Mobile", tags: ["Synthetic Work"] }),
+      expect.objectContaining({ purpose: "authenticator-account", vaultId: "personal-1" }),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/vaults/personal-1/accounts",
@@ -46,17 +57,22 @@ describe("AuthenticatorAccountManagerDialog", () => {
         body: expect.stringContaining('"expectedRevision":1'),
       }),
     );
-    expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({ accountName: "Alice Mobile", revision: 2 }));
+    expect(onUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ accountName: "Alice Mobile", tags: ["Synthetic Work"], revision: 2 }),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.body).not.toContain("Synthetic Work");
   });
 
   it("renders edit and delete capabilities independently", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
-    await renderDialog(root, { canEdit: false, canDelete: true });
+    await renderDialog(root, { canEdit: false, canDelete: true, accountTags: ["Synthetic Recovery"] });
 
     expect(document.body.querySelector<HTMLInputElement>("input")?.disabled).toBe(true);
-    expect([...document.body.querySelectorAll("button")].some((button) => button.textContent === "Simpan label")).toBe(
+    expect(document.body.querySelector("#managed-account-tag-account-1")).toBeNull();
+    expect(document.body.textContent).toContain("Synthetic Recovery");
+    expect([...document.body.querySelectorAll("button")].some((button) => button.textContent === "Simpan akun")).toBe(
       false,
     );
     expect(findButton(document.body, "Hapus akun")).toBeDefined();
@@ -93,6 +109,7 @@ async function renderDialog(
     onDeleted?: (account: WorkspaceAuthenticatorAccount) => void;
     canEdit?: boolean;
     canDelete?: boolean;
+    accountTags?: string[];
   },
 ) {
   await act(async () =>
@@ -113,6 +130,7 @@ async function renderDialog(
             algorithm: "SHA-1",
             digits: 6,
             period: 30,
+            tags: callbacks.accountTags,
           },
           vaultKey: new Uint8Array(32),
           canEdit: callbacks.canEdit,

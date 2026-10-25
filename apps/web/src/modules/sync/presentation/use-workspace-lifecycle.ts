@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { WorkspaceLifecycle, type UnlockedVaultWorkspace } from "@rhasia-scret/client-vault-core";
 import { createBrowserWorkspaceLifecyclePorts } from "../infrastructure/browser-workspace-lifecycle";
+import { requestLocalVaultLock } from "../infrastructure/browser-vault-lock";
 
 export type BrowserWorkspaceLifecycle = {
   workspace: UnlockedVaultWorkspace | null;
@@ -68,9 +69,10 @@ export function useWorkspaceLifecycle(
       workspaceRef.current = next;
       setWorkspaceState(next);
     }
+    if (!next) requestLocalVaultLock();
   }, []);
 
-  const lockWorkspace = useCallback(() => controllerRef.current?.lock(), []);
+  const lockWorkspace = useCallback(() => requestLocalVaultLock(), []);
   const refreshWorkspaceAuthorization = useCallback(async () => {
     await controllerRef.current?.refreshAuthorization();
   }, []);

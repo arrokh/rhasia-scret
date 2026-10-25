@@ -1,0 +1,7 @@
+# Version encrypted Authenticator Account tags compatibly
+
+- Status: Accepted
+- Date: 2026-10-22
+- Related: ADR-0033, ADR-0038, ADR-0047
+
+Authenticator Account tags can reveal sensitive relationships, so tag names remain inside the existing client-encrypted account payload and use the same account edit authorization and Account Revision checks. New normalized account payloads use content version 2 and include a bounded tags array; readers continue to accept the existing unversioned payload as version 1 with no tags. New Encrypted Vault Archives use format version 2 and the corresponding authenticated archive context, while readers continue to open version 1 archives and their tagless account payloads. Archive-version compatibility is explicit: clients try only the supported authenticated archive contexts and require the decrypted payload version to match the context used. The hosted mutation APIs retain Account Revision checks, so stale writes cannot overwrite a newer encrypted account payload. Local Vault records advance to outer format version 2 on creation and on each write; current clients read legacy v1 records, while strict v1 clients reject v2 records instead of overwriting a record that may contain tagged payloads. This avoids changing server-readable account metadata or database contracts while ensuring older clients fail closed rather than silently misreading or stripping tagged content.

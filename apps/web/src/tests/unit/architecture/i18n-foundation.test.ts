@@ -27,15 +27,38 @@ const TestIntlProvider = NextIntlClientProvider as ComponentType<{
 }>;
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
+class TestMessagePort {
+  public peer: TestMessagePort | null = null;
+  public onmessage: ((event: MessageEvent) => void) | null = null;
+
+  public start(): void {}
+  public close(): void {}
+  public postMessage(data: unknown): void {
+    this.peer?.onmessage?.(new MessageEvent("message", { data }));
+  }
+}
+
+class FakeMessageChannel {
+  public readonly port1 = new TestMessagePort();
+  public readonly port2 = new TestMessagePort();
+
+  public constructor() {
+    this.port1.peer = this.port2;
+    this.port2.peer = this.port1;
+  }
+}
+
 let root: Root | undefined;
 afterEach(async () => {
   await act(async () => root?.unmount());
+  vi.unstubAllGlobals();
   root = undefined;
   refresh.mockClear();
   document.cookie = `${localeCookieName}=; Path=/; Max-Age=0`;
   document.documentElement.lang = "id";
   window.history.replaceState(null, "", "/");
   document.body.innerHTML = "";
+  Reflect.deleteProperty(navigator, "serviceWorker");
 });
 
 describe("i18n foundation", () => {
@@ -123,6 +146,130 @@ describe("i18n foundation", () => {
     expect(options[1]?.getAttribute("aria-checked")).toBe("true");
   });
 
+  it("keeps the current locale when the active worker cannot refresh the offline shell", async () => {
+    vi.stubGlobal("MessageChannel", FakeMessageChannel);
+    const worker = {
+      postMessage: vi.fn((_message: unknown, ports: Transferable[]) => {
+        const port = ports[0];
+        const reply = port && Reflect.get(port, "postMessage");
+        if (typeof reply === "function") reply.call(port, { type: "RHSIA_OFFLINE_SHELL_REFRESH_FAILED" });
+      }),
+    };
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: async () => ({ waiting: null, update: vi.fn() }), controller: worker },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(TestIntlProvider, { locale: "id", messages: idMessages }, createElement(LocaleSwitcher)),
+      ),
+    );
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Pilih bahasa"]');
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const englishOption = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (option) => option.textContent === "English",
+    );
+    await act(async () => englishOption?.click());
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Ganti bahasa",
+    );
+    await act(async () => confirm?.click());
+    await act(async () =>
+      vi.waitFor(() => expect(document.body.textContent).toContain("Bahasa saat ini dipertahankan")),
+    );
+
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
+    expect(document.cookie).toContain(`${localeCookieName}=id`);
+    expect(document.documentElement.lang).toBe("id");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("discovers a compatible waiting worker before messaging an older active worker", async () => {
+    vi.stubGlobal("MessageChannel", FakeMessageChannel);
+    const waitingWorker = {
+      postMessage: vi.fn((_message: unknown, ports: Transferable[]) => {
+        const port = ports[0];
+        const reply = port && Reflect.get(port, "postMessage");
+        if (typeof reply === "function") reply.call(port, { type: "RHSIA_OFFLINE_SHELL_REFRESHED" });
+      }),
+    };
+    const oldActiveWorker = { postMessage: vi.fn() };
+    const update = vi.fn(async () => {});
+    const registration = { waiting: null as typeof waitingWorker | null, update };
+    update.mockImplementation(async () => {
+      registration.waiting = waitingWorker;
+    });
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: async () => registration, controller: oldActiveWorker },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(TestIntlProvider, { locale: "id", messages: idMessages }, createElement(LocaleSwitcher)),
+      ),
+    );
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Pilih bahasa"]');
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const englishOption = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (option) => option.textContent === "English",
+    );
+    await act(async () => englishOption?.click());
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Ganti bahasa",
+    );
+    await act(async () => confirm?.click());
+
+    await act(async () => vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce()));
+    expect(registration.update).toHaveBeenCalledOnce();
+    expect(waitingWorker.postMessage).toHaveBeenCalledOnce();
+    expect(oldActiveWorker.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("lets the waiting worker refresh every owned shell cache without waiting for an older active worker", async () => {
+    vi.stubGlobal("MessageChannel", FakeMessageChannel);
+    const waitingWorker = {
+      postMessage: vi.fn((_message: unknown, ports: Transferable[]) => {
+        const port = ports[0];
+        const reply = port && Reflect.get(port, "postMessage");
+        if (typeof reply === "function") reply.call(port, { type: "RHSIA_OFFLINE_SHELL_REFRESHED" });
+      }),
+    };
+    const oldActiveWorker = { postMessage: vi.fn() };
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: async () => ({ waiting: waitingWorker }), controller: oldActiveWorker },
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root?.render(
+        createElement(TestIntlProvider, { locale: "id", messages: idMessages }, createElement(LocaleSwitcher)),
+      ),
+    );
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Pilih bahasa"]');
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    const englishOption = [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (option) => option.textContent === "English",
+    );
+    await act(async () => englishOption?.click());
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Ganti bahasa",
+    );
+    await act(async () => confirm?.click());
+
+    await act(async () => vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce()));
+    expect(waitingWorker.postMessage).toHaveBeenCalledOnce();
+    expect(oldActiveWorker.postMessage).not.toHaveBeenCalled();
+    expect(document.cookie).toContain(`${localeCookieName}=en`);
+  });
+
   it("writes the locale cookie, updates document language, and refreshes without changing routes", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -193,6 +340,7 @@ function validateCatalog(locale: "id" | "en", messages: typeof idMessages): stri
     source: "source",
     topic: "topic",
     value: "value",
+    tag: "tag",
     token: (chunks: ReactNode) => chunks,
   };
   for (const { key } of catalogEntries(messages)) translator.rich(key as never, values as never);
