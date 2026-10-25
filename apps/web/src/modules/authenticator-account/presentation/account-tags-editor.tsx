@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +14,7 @@ export function AccountTagsEditor({
   inputId,
   errorId,
   disabled,
+  busy,
   onDraftChange,
   onAdd,
   onRemove,
@@ -25,6 +25,7 @@ export function AccountTagsEditor({
   inputId: string;
   errorId: string;
   disabled: boolean;
+  busy: boolean;
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -44,18 +45,19 @@ export function AccountTagsEditor({
         <ul aria-label={t("selectedTags")} className="flex list-none flex-wrap gap-2 p-0">
           {tags.map((tag, index) => (
             <li key={`${tag}:${index}`}>
-              <span className="inline-flex items-center gap-1 rounded-full border border-border p-1">
-                <Badge variant="secondary" className="bg-muted text-foreground">
+              <span className="inline-flex min-h-12 max-w-full items-center gap-1 rounded-full border border-border bg-muted/50 pl-3 pr-0.5">
+                <span className="min-w-0 max-w-48 truncate text-sm font-medium text-foreground" title={tag}>
                   {tag}
-                </Badge>
+                </span>
                 {!disabled && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-12 min-h-12 shrink-0 p-0"
+                    className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
                     aria-label={t("removeTag", { tag })}
                     title={t("removeTag", { tag })}
+                    disabled={busy}
                     onClick={() => onRemove(index)}
                   >
                     <X aria-hidden="true" />
@@ -79,6 +81,7 @@ export function AccountTagsEditor({
               placeholder={t("tagPlaceholder")}
               aria-invalid={errors.length > 0}
               aria-describedby={describedBy}
+              disabled={busy}
               onChange={(event) => onDraftChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
@@ -90,7 +93,7 @@ export function AccountTagsEditor({
               type="button"
               variant="outline"
               className="w-full sm:w-auto"
-              disabled={!draft.trim() || errors.length > 0}
+              disabled={busy || !draft.trim() || errors.length > 0}
               onClick={onAdd}
             >
               {t("addTag")}

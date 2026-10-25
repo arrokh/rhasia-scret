@@ -327,7 +327,8 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span
-            className="grid min-w-8 place-items-center rounded-full bg-gold-soft px-2 py-1 text-xs font-bold text-ink-strong"
+            data-slot="account-directory-count"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-gold-soft text-xs font-bold text-ink-strong"
             aria-label={t("count", { count: visibleAccounts.length })}
           >
             {visibleAccounts.length}

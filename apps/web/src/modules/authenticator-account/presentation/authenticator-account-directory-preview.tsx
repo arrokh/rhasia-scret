@@ -179,7 +179,13 @@ export function AuthenticatorAccountDirectoryPreview() {
           <h2 className="mt-1 text-lg font-bold text-ink-strong">{t("accounts")}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Badge className="bg-gold-soft text-ink-strong">{visibleAccounts.length}</Badge>
+          <span
+            data-slot="account-directory-count"
+            aria-label={t("accountCount", { count: visibleAccounts.length })}
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-gold-soft text-xs font-bold text-ink-strong"
+          >
+            {visibleAccounts.length}
+          </span>
           <AccountDirectoryControls
             vaults={vaults}
             vaultFilters={activeVaultFilters}

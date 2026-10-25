@@ -1569,6 +1569,7 @@
       "emptyFiltered": "Tidak ada akun yang cocok dengan filter ini",
       "clearFilters": "Hapus semua filter",
       "accounts": "Akun autentikator",
+      "accountCount": "{count, plural, one {# akun} other {# akun}}",
       "personalVault": "Brankas Pribadi",
       "sampleService": "Layanan contoh",
       "workAccount": "Akun kerja",

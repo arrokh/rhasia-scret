@@ -567,6 +567,13 @@ test("keeps preview controls within the viewport in both locales", async ({ page
       for (const route of routes) {
         await page.goto(route);
         await page.waitForLoadState("networkidle");
+        if (route === "/ui-preview") {
+          const accountCount = page.locator('[data-slot="account-directory-count"]');
+          await expect(accountCount).toBeVisible();
+          const accountCountBox = await accountCount.boundingBox();
+          expect(accountCountBox?.width).toBe(accountCountBox?.height);
+          expect(accountCountBox?.width).toBe(32);
+        }
         if (route === "/ui-preview/vaults") {
           const labels =
             locale === "id"

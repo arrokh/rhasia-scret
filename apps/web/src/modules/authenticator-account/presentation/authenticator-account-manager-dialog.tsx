@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useTranslations } from "next-intl";
-import { Trash2 } from "lucide-react";
+import { CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -151,9 +151,14 @@ export function AuthenticatorAccountManagerDialog({
           showCloseButton={!updateMutation.isPending && !deleteMutation.isPending}
           closeLabel={tCommon("close")}
         >
-          <DialogHeader>
+          <DialogHeader className="min-w-0">
             <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{t("manage")}</p>
-            <DialogTitle className="text-xl font-bold text-ink-strong">{account.accountName}</DialogTitle>
+            <DialogTitle
+              className="min-w-0 w-full max-w-full truncate pr-10 text-xl font-bold text-ink-strong"
+              title={account.accountName}
+            >
+              {account.accountName}
+            </DialogTitle>
             <DialogDescription>
               {account.issuer} · {account.vaultName}
             </DialogDescription>
@@ -177,7 +182,10 @@ export function AuthenticatorAccountManagerDialog({
                   <Input
                     id={`managed-account-label-${account.id}`}
                     value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
+                    onChange={(event) => {
+                      setStatus(null);
+                      field.handleChange(event.target.value);
+                    }}
                     aria-invalid={field.state.meta.errors.length > 0}
                     aria-describedby={
                       field.state.meta.errors.length ? `managed-account-label-${account.id}-error` : undefined
@@ -211,28 +219,31 @@ export function AuthenticatorAccountManagerDialog({
                       errors={draftField.state.meta.errors}
                       inputId={`managed-account-tag-${account.id}`}
                       errorId={`managed-account-tag-${account.id}-error`}
-                      disabled={!online || !canEdit || updateMutation.isPending}
-                      onDraftChange={draftField.handleChange}
+                      disabled={!online || !canEdit}
+                      busy={updateMutation.isPending}
+                      onDraftChange={(value) => {
+                        setStatus(null);
+                        draftField.handleChange(value);
+                      }}
                       onAdd={() => {
                         const tag = draftField.state.value.trim();
                         if (!tag || draftField.state.meta.errors.length > 0) return;
+                        setStatus(null);
                         tagsField.handleChange([...tagsField.state.value, tag]);
                         draftField.handleChange("");
                       }}
-                      onRemove={(index) =>
-                        tagsField.handleChange(tagsField.state.value.filter((_, tagIndex) => tagIndex !== index))
-                      }
+                      onRemove={(index) => {
+                        setStatus(null);
+                        tagsField.handleChange(tagsField.state.value.filter((_, tagIndex) => tagIndex !== index));
+                      }}
                     />
                   )}
                 </form.Field>
               )}
             </form.Field>
             {!online && <StatusBanner tone="offline">{t("offline")}</StatusBanner>}
-            {status && (
-              <StatusBanner
-                tone={status === "updated" ? "success" : "danger"}
-                role={status === "updated" ? "status" : "alert"}
-              >
+            {status && status !== "updated" && (
+              <StatusBanner tone="danger" role="alert">
                 {t(status)}
               </StatusBanner>
             )}
@@ -251,10 +262,17 @@ export function AuthenticatorAccountManagerDialog({
               {canEdit && (
                 <Button
                   type="submit"
-                  disabled={!online || updateMutation.isPending}
+                  className={
+                    status === "updated"
+                      ? "border-success/30 bg-success/10 text-success hover:bg-success/10 disabled:bg-success/10 disabled:text-success"
+                      : undefined
+                  }
+                  disabled={!online || updateMutation.isPending || status === "updated"}
                   aria-busy={updateMutation.isPending}
+                  aria-live={status === "updated" ? "polite" : undefined}
                 >
-                  {updateMutation.isPending ? t("saving") : t("save")}
+                  {status === "updated" && <CheckCircle2 className="size-5" aria-hidden="true" />}
+                  {status === "updated" ? t("updated") : updateMutation.isPending ? t("saving") : t("save")}
                 </Button>
               )}
             </DialogFooter>

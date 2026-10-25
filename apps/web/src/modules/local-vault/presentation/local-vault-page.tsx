@@ -898,7 +898,8 @@ function LocalAccountEditor({
                       errors={draftField.state.meta.errors}
                       inputId="edit-local-account-tag"
                       errorId="edit-local-account-tag-error"
-                      disabled={deleting}
+                      disabled={false}
+                      busy={deleting}
                       onDraftChange={draftField.handleChange}
                       onAdd={() => {
                         const tag = draftField.state.value.trim();

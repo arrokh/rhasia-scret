@@ -1569,6 +1569,7 @@
       "emptyFiltered": "No accounts match these filters",
       "clearFilters": "Clear all filters",
       "accounts": "Authenticator accounts",
+      "accountCount": "{count, plural, one {# account} other {# accounts}}",
       "personalVault": "Personal Vault",
       "sampleService": "Sample service",
       "workAccount": "Work account",
