@@ -33,6 +33,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.2.4]
+
+<!-- Draft generated from first-parent history v0.2.3..668b726fc11efb64b5e8a142d0014c4c560a2970 (first-parent, exclusive of tag); release-base 668b726fc11efb64b5e8a142d0014c4c560a2970. Review and curate before publication. -->
+
+### Changes
+
+- [docs] Add research-backed product feature opportunities
+- [infra][ci] Skip PostgreSQL for browser smoke (#299)
+- [web][feat] Improve offline safety and account discovery (#304)
+
 ## [0.2.3]
 
 <!-- Draft generated from first-parent history v0.2.2..3e39a972e55b359225d388b404e69dc23834213e (first-parent, exclusive of tag); release-base 3e39a972e55b359225d388b404e69dc23834213e. Review and curate before publication. -->
