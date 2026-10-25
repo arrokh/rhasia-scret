@@ -35,13 +35,15 @@ notes follow the [repository release process](docs/release-process.md).
 
 ## [0.2.4]
 
-<!-- Draft generated from first-parent history v0.2.3..668b726fc11efb64b5e8a142d0014c4c560a2970 (first-parent, exclusive of tag); release-base 668b726fc11efb64b5e8a142d0014c4c560a2970. Review and curate before publication. -->
+<!-- Draft generated from first-parent history v0.2.3..fb0b3ecb392958dc6a577d8cb67d60ef069493fe (first-parent, exclusive of tag); release-base fb0b3ecb392958dc6a577d8cb67d60ef069493fe. Review and curate before publication. -->
 
 ### Changes
 
 - [docs] Add research-backed product feature opportunities
 - [infra][ci] Skip PostgreSQL for browser smoke (#299)
 - [web][feat] Improve offline safety and account discovery (#304)
+- build(deps-dev): bump fast-uri from 3.1.8 to 3.1.9 (#305)
+- build(deps): bump nodemailer from 10.1.1 to 10.1.4 (#306)
 
 ## [0.2.3]
 
