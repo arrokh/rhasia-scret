@@ -97,6 +97,7 @@
     "ip-address": "10.7.4",
     "lint-staged": "17.6.0",
     "prettier": "3.9.10",
+    "vite": "8.1.6",
     "zod": "^4.6.7"
   },
   "lint-staged": {
