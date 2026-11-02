@@ -16,9 +16,9 @@
     "@rhasia-scret/api-contract": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "eslint": "^10.13.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "5.0.5"
   }
 }
