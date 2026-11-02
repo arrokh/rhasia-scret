@@ -94,10 +94,10 @@
     "dependency-cruiser": "^18.7.0",
     "esbuild": "0.28.2",
     "fast-uri": "4.2.3",
-    "ip-address": "10.7.4",
+    "ip-address": "10.7.5",
     "lint-staged": "17.6.0",
     "prettier": "3.9.10",
-    "vite": "8.1.6",
+    "vite": "8.3.5",
     "zod": "^4.6.7"
   },
   "lint-staged": {
