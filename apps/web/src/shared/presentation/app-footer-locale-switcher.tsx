@@ -14,7 +14,7 @@ export function footerLanguageIsHidden(pathname: string | null) {
 }
 
 export function footerLanguageIsMobileOnly(pathname: string | null) {
-  return pathname === "/";
+  return pathname === "/" || pathname === "/landing";
 }
 
 export function AppFooterLocaleSwitcher() {

@@ -38,6 +38,7 @@ export { AccountTagsFilter } from "./presentation/account-tags-filter";
 export { AccountDirectorySearch, AccountSearchEmptyState } from "./presentation/account-directory-search";
 export {
   UnlockedVaultWorkspaceProvider,
+  PreviewUnlockedVaultWorkspaceProvider,
   useUnlockedVaultWorkspace,
 } from "./presentation/unlocked-vault-workspace-provider";
 export { VaultWorkspaceUnlock } from "./presentation/vault-workspace-unlock";

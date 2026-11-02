@@ -20,18 +20,23 @@ export function SharedVaultCreator({
   userEncryptionPublicKey,
   profileId,
   onCreated,
+  previewOnly = false,
+  initialName = "",
 }: {
   userEncryptionPublicKey?: PortableJsonWebKey;
   profileId: string;
   onCreated?: (vault: { id: string; name: string; key: Uint8Array }) => void;
+  previewOnly?: boolean;
+  initialName?: string;
 }) {
   const t = useTranslations("VaultManagement.creator");
   const [status, setStatus] = useState<"offlineError" | "identityUnavailable" | "success" | "error" | null>(null);
   const online = useOnlineStatus();
   const createMutation = useCreateSharedVaultMutation();
   const form = useForm({
-    defaultValues: { name: "" },
+    defaultValues: { name: initialName },
     onSubmit: async ({ value }) => {
+      if (previewOnly) return;
       if (!online) {
         setStatus("offlineError");
         return;

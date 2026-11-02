@@ -8,6 +8,8 @@ export { PersonalVaultDetails } from "./presentation/personal-vault-manager";
 export type { PersonalVaultSummary } from "./presentation/personal-vault-manager";
 export { SharedVaultDirectory, SharedVaultDetails } from "./presentation/shared-vault-manager";
 export type { SharedVaultSummary } from "./presentation/shared-vault-manager";
+export { VaultAccountManagementList } from "./presentation/vault-account-management-list";
+export type { ManagedVaultAccountSummary } from "./presentation/vault-account-management-list";
 export { createSharedVaultMaterial } from "./infrastructure/browser-shared-vault-creator";
 export {
   migratePersonalAuthenticatorAccount,

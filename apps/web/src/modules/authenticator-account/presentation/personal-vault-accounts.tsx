@@ -27,6 +27,7 @@ import {
   orderDirectoryAccounts,
   useAccountDirectoryPreferences,
 } from "./account-directory-preferences";
+import type { AccountDirectoryView } from "./account-directory-preferences";
 import { AuthenticatorAccountManagerDialog } from "./authenticator-account-manager-dialog";
 import { useUnlockedVaultWorkspace } from "./unlocked-vault-workspace-provider";
 import { VaultWorkspaceUnlock } from "./vault-workspace-unlock";
@@ -54,12 +55,40 @@ function requiresWorkspaceRevalidation(error: unknown): boolean {
   );
 }
 
-export function PersonalVaultAccounts({ vaultId }: { vaultId: string }) {
+export function PersonalVaultAccounts({
+  vaultId,
+  previewDensity,
+  previewOnly = false,
+  previewPassphraseValue,
+}: {
+  vaultId: string;
+  previewDensity?: AccountDirectoryView;
+  previewOnly?: boolean;
+  previewPassphraseValue?: string;
+}) {
   const { workspace } = useUnlockedVaultWorkspace();
-  return <PersonalVaultAccountsWorkspace key={`${workspace?.profileId ?? "locked"}:${vaultId}`} vaultId={vaultId} />;
+  return (
+    <PersonalVaultAccountsWorkspace
+      key={`${workspace?.profileId ?? "locked"}:${vaultId}`}
+      vaultId={vaultId}
+      previewDensity={previewDensity}
+      previewOnly={previewOnly}
+      previewPassphraseValue={previewPassphraseValue}
+    />
+  );
 }
 
-function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
+function PersonalVaultAccountsWorkspace({
+  vaultId,
+  previewDensity,
+  previewOnly,
+  previewPassphraseValue,
+}: {
+  vaultId: string;
+  previewDensity?: AccountDirectoryView;
+  previewOnly: boolean;
+  previewPassphraseValue?: string;
+}) {
   const t = useTranslations("AuthenticatorAccount.accounts");
   const searchInputId = "hosted-account-directory-search";
   const searchPanelId = `${searchInputId}-panel`;
@@ -76,7 +105,10 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
   const accountListRef = useRef<HTMLUListElement>(null);
   const previousAccountRectsRef = useRef(new Map<string, DOMRect>());
   const animationFrameRef = useRef<number | null>(null);
-  const { preferences, setPreferences } = useAccountDirectoryPreferences(workspace?.profileId ?? null);
+  const { preferences, setPreferences } = useAccountDirectoryPreferences(
+    previewOnly ? null : (workspace?.profileId ?? null),
+  );
+  const displayDensity = previewDensity ?? preferences.view;
   const orderedAccounts = useMemo(
     () => orderDirectoryAccounts(workspace?.accounts ?? [], preferences.order),
     [preferences.order, workspace?.accounts],
@@ -176,7 +208,7 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
       if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     };
-  }, [activeVaultFilters, orderedAccounts, preferences.view, reorderVersion]);
+  }, [activeVaultFilters, displayDensity, orderedAccounts, reorderVersion]);
 
   const moveAccount = useCallback(
     (sourceKey: string, targetKey: string, placement: "before" | "after" = "before") => {
@@ -191,7 +223,14 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
     [orderedAccounts, setPreferences],
   );
 
-  if (!workspace) return <VaultWorkspaceUnlock personalVaultId={vaultId} onUnlocked={setWorkspace} />;
+  if (!workspace)
+    return (
+      <VaultWorkspaceUnlock
+        personalVaultId={vaultId}
+        onUnlocked={setWorkspace}
+        previewPassphrase={previewPassphraseValue}
+      />
+    );
   const current = workspace.syncState === "CURRENT";
   const personalVault = workspace.vaults.find((vault) => vault.id === vaultId && vault.type === "PERSONAL");
   const personalAccounts = workspace.accounts.filter(
@@ -203,6 +242,7 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
 
   return (
     <section
+      inert={previewOnly ? true : undefined}
       className={cn("grid min-w-0 gap-5", SURFACE_CARD_CONTENT_PADDING_CLASS)}
       aria-labelledby="account-list-heading"
     >
@@ -344,7 +384,7 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
             tagOptions={tagOptions}
             tagFilters={activeTagFilters}
             onTagFiltersChange={setSelectedTagFilters}
-            view={preferences.view}
+            view={displayDensity}
             onViewChange={(value) => setPreferences((current) => ({ ...current, view: value }))}
             directoryActionsEnabled={current}
             searchOpen={searchOpen}
@@ -405,12 +445,12 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
         <ul
           ref={accountListRef}
           data-slot="account-directory-list"
-          data-view-mode={preferences.view}
+          data-view-mode={displayDensity}
           className={cn(
             "grid list-none p-0 transition-[gap,grid-template-columns] duration-300 ease-out",
-            preferences.view === "compact" && "grid-cols-1 gap-2 sm:grid-cols-2",
-            preferences.view === "normal" && "grid-cols-1 gap-3",
-            preferences.view === "wide" && "grid-cols-1 gap-4",
+            displayDensity === "compact" && "grid-cols-1 gap-2 sm:grid-cols-2",
+            displayDensity === "normal" && "grid-cols-1 gap-3",
+            displayDensity === "wide" && "grid-cols-1 gap-4",
           )}
         >
           {visibleAccounts.map((account) => {
@@ -434,7 +474,7 @@ function PersonalVaultAccountsWorkspace({ vaultId }: { vaultId: string }) {
                 <TotpAccountButton
                   configuration={account}
                   vaultName={account.vaultName}
-                  density={preferences.view}
+                  density={displayDensity}
                   vaultDetailHref={vaultDetailHref}
                   vaultDetailLabel={vaultDetailLabel}
                   onManage={canEdit || canDelete ? () => setManagedAccount(account) : undefined}

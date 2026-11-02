@@ -104,7 +104,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
-  await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
+  await expect(page.getByText(/Semua nama akun dan kode TOTP di pratinjau ini bersifat sintetis/)).toBeVisible();
   const directoryMenu = page.getByRole("button", { name: "Opsi tampilan" });
   const filterMenu = page.getByRole("button", { name: "Filter akun" });
   await filterMenu.click();

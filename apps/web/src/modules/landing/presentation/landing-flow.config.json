@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "intro": {
+    "initialState": "locked",
+    "states": [
+      {
+        "id": "locked",
+        "screen": "vault-locked",
+        "passphraseEmpty": true,
+        "scrollHint": "top"
+      },
+      {
+        "id": "unlocking",
+        "screen": "vault-locked",
+        "process": "animate-unlock",
+        "processingIndicator": true
+      },
+      {
+        "id": "unlocked",
+        "screen": "vaults-home",
+        "sampleAccountCount": 1,
+        "syntheticData": true,
+        "clock": "current-time",
+        "scrollHint": "top"
+      },
+      {
+        "id": "expanding",
+        "screen": "device-showcase",
+        "process": "expand-showcase-and-reveal-hero"
+      },
+      {
+        "id": "devices",
+        "screen": "device-showcase",
+        "heroCard": true,
+        "scrollHint": "hero"
+      },
+      {
+        "id": "contracting",
+        "screen": "device-showcase",
+        "process": "contract-showcase"
+      },
+      {
+        "id": "leaving",
+        "screen": "device-showcase",
+        "process": "move-phone-to-journey"
+      },
+      {
+        "id": "returning",
+        "screen": "device-showcase",
+        "process": "return-to-showcase"
+      },
+      {
+        "id": "settled",
+        "screen": "vaults-home",
+        "journeyStartGuide": true
+      }
+    ],
+    "transitions": [
+      { "from": "locked", "trigger": "scroll-down", "to": "unlocking" },
+      { "from": "unlocking", "trigger": "unlock-animation-complete", "to": "unlocked" },
+      { "from": "unlocked", "trigger": "scroll-down", "to": "expanding" },
+      { "from": "expanding", "trigger": "showcase-transition-complete", "to": "devices" },
+      { "from": "devices", "trigger": "scroll-down", "to": "leaving" },
+      { "from": "leaving", "trigger": "phone-handoff-complete", "to": "settled" },
+      { "from": "settled", "trigger": "scroll-up-at-page-top", "to": "returning" },
+      { "from": "returning", "trigger": "showcase-transition-complete", "to": "devices" },
+      { "from": "devices", "trigger": "scroll-up", "to": "contracting" },
+      { "from": "contracting", "trigger": "showcase-transition-complete", "to": "unlocked" },
+      { "from": "unlocked", "trigger": "scroll-up", "to": "locked" }
+    ],
+    "processingStates": ["unlocking", "expanding", "contracting", "leaving", "returning"],
+    "input": {
+      "mode": "discrete-scroll-steps",
+      "ignoreDuringProcessing": true,
+      "forwardKeys": ["ArrowDown", "PageDown", "Space"],
+      "backwardKeys": ["ArrowUp", "PageUp"],
+      "touchThresholdPx": 20,
+      "wheelGestureReleaseMs": 420
+    },
+    "durationsMs": {
+      "showcaseExpansion": 850,
+      "deviceTransition": 1200,
+      "deviceDepartureDelay": 560
+    },
+    "unlockDemo": {
+      "maskedPassphraseLength": 12,
+      "cursorTravel": 460,
+      "characterInterval": 72,
+      "buttonPress": 180,
+      "clickFeedback": 420,
+      "startDelay": 80,
+      "preUnlockPause": 120
+    }
+  },
+  "showcase": {
+    "phoneModelId": "iphone-17-pro-max",
+    "modelPaths": {
+      "iphone": "/models/landing/iphone-17-pro-max.glb",
+      "macbook": "/models/landing/macbook-pro-16.glb"
+    },
+    "devices": [
+      {
+        "kind": "tablet",
+        "view": "accounts",
+        "accountCount": 2,
+        "viewportWidth": 1024,
+        "viewportHeight": 768,
+        "x": -7.6,
+        "z": 4.8,
+        "scale": 0.67,
+        "yaw": 0.035
+      },
+      {
+        "kind": "tablet",
+        "view": "accounts",
+        "accountCount": 3,
+        "viewportWidth": 1024,
+        "viewportHeight": 768,
+        "x": 7.6,
+        "z": 4.8,
+        "scale": 0.67,
+        "yaw": -0.035
+      },
+      {
+        "kind": "laptop",
+        "view": "accounts",
+        "accountCount": 4,
+        "viewportWidth": 1440,
+        "viewportHeight": 876,
+        "x": -7.6,
+        "z": -4.8,
+        "scale": 0.9,
+        "yaw": 0.035
+      },
+      {
+        "kind": "laptop",
+        "view": "accounts",
+        "accountCount": 5,
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "x": 7.6,
+        "z": -4.8,
+        "scale": 0.9,
+        "yaw": -0.035
+      }
+    ]
+  },
+  "journey": {
+    "mode": "scroll-timeline",
+    "activeStepSelection": "nearest-visible-step-to-viewport-center",
+    "steps": [
+      { "id": "accounts", "phoneView": "accounts" },
+      { "id": "scan", "phoneView": "scan" },
+      { "id": "review", "phoneView": "review" },
+      { "id": "added", "phoneView": "added" },
+      { "id": "sharedCreate", "phoneView": "sharedCreate" },
+      { "id": "sharedInvite", "phoneView": "sharedInvite" },
+      { "id": "sharedPermissions", "phoneView": "sharedPermissions" },
+      { "id": "sharedReady", "phoneView": "sharedReady" }
+    ],
+    "afterJourney": ["final-cta", "footer"]
+  }
+}

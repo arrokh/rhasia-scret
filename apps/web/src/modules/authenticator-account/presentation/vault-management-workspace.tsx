@@ -286,7 +286,15 @@ export function InvitationRedemptionWorkspace({ personalVaultId }: { personalVau
   );
 }
 
-export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaultId: string }) {
+export function SharedVaultCreationWorkspace({
+  personalVaultId,
+  previewOnly = false,
+  initialName,
+}: {
+  personalVaultId: string;
+  previewOnly?: boolean;
+  initialName?: string;
+}) {
   const router = useRouter();
   const { workspace, setWorkspace } = useUnlockedVaultWorkspace();
   if (!workspace) return <VaultWorkspaceUnlock personalVaultId={personalVaultId} onUnlocked={setWorkspace} />;
@@ -296,6 +304,8 @@ export function SharedVaultCreationWorkspace({ personalVaultId }: { personalVaul
       <SharedVaultCreator
         userEncryptionPublicKey={workspace.userEncryptionPublicKey}
         profileId={workspace.profileId}
+        previewOnly={previewOnly}
+        initialName={initialName}
         onCreated={(vault) => {
           setWorkspace((current) =>
             current

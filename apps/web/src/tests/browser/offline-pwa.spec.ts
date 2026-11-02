@@ -333,7 +333,7 @@ test.describe("encrypted read-only offline PWA", () => {
           return [name, results.map((result) => Boolean(result))] as const;
         }),
       );
-      const currentName = names.find((name) => name.endsWith("-v8"));
+      const currentName = names.find((name) => name.endsWith("-v9"));
       const marker = currentName
         ? await (await caches.open(currentName)).match("/__rhasia-offline-shell-refresh-in-progress")
         : null;
@@ -664,7 +664,7 @@ test.describe("encrypted read-only offline PWA", () => {
 
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/landing$/);
 
     await page.getByRole("button", { name: "Buka brankas luring" }).click();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
@@ -672,12 +672,12 @@ test.describe("encrypted read-only offline PWA", () => {
   });
 
   test("keeps the landing page and asks before offline access on a direct reload", async ({ page, context }) => {
-    await page.goto("/");
+    await page.goto("/landing");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded" });
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/landing$/);
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toHaveCount(0);

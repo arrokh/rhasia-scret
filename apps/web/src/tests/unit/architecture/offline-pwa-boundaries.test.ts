@@ -91,11 +91,12 @@ describe("offline PWA architecture boundaries", () => {
       "utf8",
     );
     expect(worker).toContain('const LANDING_SHELL = "/"');
+    expect(worker).toContain('const LANDING_ROUTE = "/landing"');
     expect(worker).toContain('const OFFLINE_SHELL = "/offline"');
     expect(worker).toContain('url.pathname.startsWith("/api/v1/")');
     expect(worker).toContain('url.pathname.startsWith("/auth/")');
     expect(worker).toContain('request.method !== "GET"');
-    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v8"');
+    expect(worker).toContain('const CACHE_VERSION = "rhasia-scret-static-v9"');
     expect(worker).toContain("/_next/static/");
     expect(worker).toContain("caches.match(request)");
     expect(worker).toContain("networkFirstNavigation(request)");
@@ -110,7 +111,9 @@ describe("offline PWA architecture boundaries", () => {
     expect(worker).toContain("enqueueOfflineShellCacheTask");
     expect(worker).toContain("offlineShellCacheIsUnsafe");
     expect(worker).toContain("invalidateOwnedOfflineShells");
-    expect(worker).toContain("pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL");
+    expect(worker).toContain(
+      "pathname === LANDING_SHELL || pathname === LANDING_ROUTE ? LANDING_SHELL : OFFLINE_SHELL",
+    );
     expect(worker).toContain("OFFLINE_NAVIGATION_DETECTED");
     expect(worker).toContain("notifyOfflineClients()");
     expect(worker).toContain('event.data?.type !== "RHSIA_APPLY_WAITING_UPDATE"');

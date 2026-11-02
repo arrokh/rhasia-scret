@@ -49,9 +49,11 @@ class AccountCreatorError extends Error {
 export function AuthenticatorAccountCreator({
   personalVaultId,
   preferredVaultId,
+  preview,
 }: {
   personalVaultId: string;
   preferredVaultId?: string;
+  preview?: { initialUri?: string; initialAccountLabel?: string };
 }) {
   const t = useTranslations("AuthenticatorAccount.creator");
   const tCommon = useTranslations("Common");
@@ -65,8 +67,13 @@ export function AuthenticatorAccountCreator({
   const createAccountMutation = useCreateEncryptedAuthenticatorAccountMutation();
   const initialVaultId = workspace ? selectWritableVaultId(workspace, preferredVaultId) : "";
   const accountForm = useForm({
-    defaultValues: { selectedVaultId: initialVaultId, uri: "", accountLabel: "" },
+    defaultValues: {
+      selectedVaultId: initialVaultId,
+      uri: preview?.initialUri ?? "",
+      accountLabel: preview?.initialAccountLabel ?? "",
+    },
     onSubmit: async ({ value }) => {
+      if (preview) return;
       if (!workspace || !online) return;
       try {
         const candidate = { ...parseTotpUri(value.uri), accountName: value.accountLabel.trim() };
@@ -152,6 +159,7 @@ export function AuthenticatorAccountCreator({
   }
   async function save(candidate: DecryptedAuthenticatorAccount, selectedVaultId: string) {
     try {
+      if (preview) return;
       if (!workspace) return;
       const vault = workspace.vaults.find((entry) => entry.id === selectedVaultId);
       if (!vault || !vault.effectiveAccountPermissions.permissions.canAddAccounts) {
@@ -315,19 +323,28 @@ export function AuthenticatorAccountCreator({
                 void accountForm.handleSubmit();
               }}
             >
-              <SectionHeading
-                icon={ShieldCheck}
-                title={t("reviewTitle")}
-                description={t("reviewDescription")}
-                action={
-                  <span className="flex items-center gap-1">
-                    <Button type="button" variant="ghost" size="sm" onClick={clearImportedAuthenticator}>
-                      {t("importAnother")}
-                    </Button>
-                    <ContextualHelpButton topic="authenticatorAccountImport" size="icon-sm" />
-                  </span>
-                }
-              />
+              <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                <div className="grid min-w-0 gap-2">
+                  <div className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3">
+                    <span
+                      className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-foreground"
+                      aria-hidden="true"
+                    >
+                      <ShieldCheck className="size-5" />
+                    </span>
+                    <h2 className="min-w-0 text-lg leading-6 font-bold text-ink-strong">{t("reviewTitle")}</h2>
+                  </div>
+                  <p className="min-w-0 max-w-[48rem] text-sm leading-6 text-muted-foreground">
+                    {t("reviewDescription")}
+                  </p>
+                </div>
+                <span className="flex min-w-0 flex-wrap items-center justify-start gap-1 lg:justify-end lg:pl-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={clearImportedAuthenticator}>
+                    {t("importAnother")}
+                  </Button>
+                  <ContextualHelpButton topic="authenticatorAccountImport" size="icon-sm" />
+                </span>
+              </div>
               <accountForm.Field
                 name="selectedVaultId"
                 validators={{ onSubmit: ({ value }) => (value.trim() ? undefined : t("destinationRequired")) }}

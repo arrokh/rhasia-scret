@@ -1,6 +1,7 @@
-const CACHE_VERSION = "rhasia-scret-static-v8";
+const CACHE_VERSION = "rhasia-scret-static-v9";
 const OWNED_CACHE_PREFIX = "rhasia-scret-static-";
 const LANDING_SHELL = "/";
+const LANDING_ROUTE = "/landing";
 const OFFLINE_SHELL = "/offline";
 const OFFLINE_NAVIGATION_DETECTED = "RHSIA_OFFLINE_NAVIGATION_DETECTED";
 const OFFLINE_SHELL_REFRESHED = "RHSIA_OFFLINE_SHELL_REFRESHED";
@@ -37,7 +38,10 @@ async function precachePublicShells(expectedLocale) {
 }
 
 async function fetchNavigationShell(pathname) {
-  const response = await fetch(pathname, { cache: "reload", credentials: "include" });
+  const response = await fetch(pathname === LANDING_SHELL ? LANDING_ROUTE : pathname, {
+    cache: "reload",
+    credentials: "include",
+  });
   if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html"))
     throw new Error(`Navigation shell could not be cached: ${pathname}`);
   const html = await response.clone().text();
@@ -359,7 +363,7 @@ async function networkFirstNavigation(request) {
     const pathname = new URL(request.url).pathname;
     if (pathname !== OFFLINE_SHELL) await notifyOfflineClients();
     if (await offlineShellCacheIsUnsafe()) return Response.error();
-    const fallbackShell = pathname === LANDING_SHELL ? LANDING_SHELL : OFFLINE_SHELL;
+    const fallbackShell = pathname === LANDING_SHELL || pathname === LANDING_ROUTE ? LANDING_SHELL : OFFLINE_SHELL;
     return (await caches.match(fallbackShell)) || (await caches.match(OFFLINE_SHELL)) || Response.error();
   } finally {
     clearTimeout(timeout);

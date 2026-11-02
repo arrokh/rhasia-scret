@@ -4,10 +4,13 @@ import {
   createContext,
   type Dispatch,
   type ReactNode,
+  useCallback,
   type SetStateAction,
   useContext,
   useEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
 import { usePathname } from "next/navigation";
 import { useWorkspaceLifecycle, type UnlockedVaultWorkspace } from "@/modules/sync";
@@ -69,6 +72,26 @@ export function UnlockedVaultWorkspaceProvider({
       {children}
     </WorkspaceContext>
   );
+}
+
+/** Provides an in-memory synthetic workspace for read-only product previews. */
+export function PreviewUnlockedVaultWorkspaceProvider({
+  children,
+  initialWorkspace,
+}: {
+  children?: ReactNode;
+  initialWorkspace: UnlockedVaultWorkspace | null;
+}) {
+  const [workspace, setWorkspace] = useState<UnlockedVaultWorkspace | null>(initialWorkspace);
+  const replaceWorkspace = useCallback((next: UnlockedVaultWorkspace | null) => setWorkspace(next), []);
+  const lockWorkspace = useCallback(() => setWorkspace(null), []);
+  const refreshWorkspaceAuthorization = useCallback(async () => undefined, []);
+  const session = useMemo(
+    () => ({ workspace, setWorkspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization }),
+    [workspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization],
+  );
+
+  return <WorkspaceContext value={session}>{children}</WorkspaceContext>;
 }
 
 function workspaceKeyMaterialIsCleared(workspace: UnlockedVaultWorkspace): boolean {

@@ -9,7 +9,7 @@ All production and development-preview presentation copy is available in Indones
 ## Language
 
 **Public Landing**:
-The unauthenticated root presentation that explains Local and hosted Vault choices and links into their workflows. It owns marketing composition and preview-only demonstrations, not Vault state, authentication, cryptography, or TOTP behavior.
+The public presentation at `/landing` that explains Local and hosted Vault choices and links into their workflows. The root route directs authenticated sessions to `/vaults` and other visitors to `/landing`; `/?to=landing` explicitly opens the Public Landing. It owns marketing composition and preview-only demonstrations, not Vault state, authentication, cryptography, or TOTP behavior.
 _Avoid_: Landing Vault, public Vault
 
 **Product Release Version**:

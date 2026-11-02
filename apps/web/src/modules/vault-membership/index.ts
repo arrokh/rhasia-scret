@@ -33,6 +33,7 @@ export {
   VaultMemberPermissionNotice,
   VaultMembershipDefaults,
   VaultMembershipOwnerPanel,
+  VaultMembershipOwnerPanelPreview,
 } from "./presentation/vault-membership-owner-panel";
 export {
   useDeleteVaultParticipantMutation,

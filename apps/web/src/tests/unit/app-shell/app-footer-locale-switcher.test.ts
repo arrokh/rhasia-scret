@@ -27,6 +27,7 @@ describe("footer language placement", () => {
 
   it("limits the landing footer switcher to mobile", () => {
     expect(footerLanguageIsMobileOnly("/")).toBe(true);
+    expect(footerLanguageIsMobileOnly("/landing")).toBe(true);
     expect(footerLanguageIsMobileOnly("/offline")).toBe(false);
     expect(footerLanguageIsMobileOnly(null)).toBe(false);
   });

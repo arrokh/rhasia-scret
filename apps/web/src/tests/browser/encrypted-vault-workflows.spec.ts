@@ -41,7 +41,10 @@ test("verified email session, Personal Vault initialization, lock, unlock, and l
 
   await test.step("a configured verified-email test session reaches first-login setup", async () => {
     await authenticate(context, alias);
-    await page.goto("/vaults");
+    await page.goto("/?to=landing");
+    await expect(page).toHaveURL(/\/landing$/);
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/vaults$/);
     await expect(page.getByRole("heading", { name: "Siapkan Brankas Pribadi" })).toBeVisible();
     await page.getByLabel("Nama Brankas").fill(personalName);
     await verifyContextualHelp(

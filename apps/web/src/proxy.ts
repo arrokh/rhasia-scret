@@ -66,6 +66,7 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest, nonc
   if (
     request.nextUrl.pathname.startsWith("/api/") ||
     request.nextUrl.pathname.startsWith("/auth/") ||
+    request.nextUrl.pathname === "/" ||
     isProtectedPagePath(request.nextUrl.pathname)
   ) {
     response.headers.set("Cache-Control", "no-store, private");
@@ -102,6 +103,13 @@ export function createAuthProxy(verifySession: VerifySession = createIdentityPro
     const serverTiming = `auth_claims;dur=${Math.max(0, performance.now() - verificationStartedAt).toFixed(2)}`;
     if (configurationError)
       logWebServerEvent("error", "web_authentication_misconfigured", { requestId: requestId(request) });
+    if (request.nextUrl.pathname === "/") {
+      const target = request.nextUrl.searchParams.get("to") === "landing" || !hasSession ? "/landing" : "/vaults";
+      const redirect = NextResponse.redirect(new URL(target, request.url));
+      for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
+      redirect.headers.set("server-timing", serverTiming);
+      return applySecurityHeaders(redirect, request, nonce);
+    }
     if (!hasSession && isProtectedPagePath(request.nextUrl.pathname)) {
       const redirect = redirectToSignIn(request, response, configurationError ? "configuration_error" : "required");
       redirect.headers.set("server-timing", serverTiming);
