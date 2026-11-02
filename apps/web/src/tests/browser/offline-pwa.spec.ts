@@ -485,7 +485,12 @@ test.describe("encrypted read-only offline PWA", () => {
 
       await page.getByRole("button", { name: lockLabel }).click();
       await expect(page.getByRole("heading", { name: updateTitle })).toBeVisible();
+      const updateReload = page.waitForEvent("framenavigated", {
+        predicate: (frame) => frame === page.mainFrame(),
+        timeout: 20_000,
+      });
       await page.getByRole("button", { name: updateLabel }).click();
+      await updateReload;
 
       await expect(page.getByRole("textbox", { name: passphraseLabel })).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText("Personal User", { exact: true })).toHaveCount(0);
@@ -719,7 +724,12 @@ test.describe("encrypted read-only offline PWA", () => {
     });
     expect(legacyShells.every((html) => html?.includes('lang="en"'))).toBe(true);
     await expect(page.getByRole("heading", { name: "Update ready" })).toBeVisible();
+    const updateReload = page.waitForEvent("framenavigated", {
+      predicate: (frame) => frame === page.mainFrame(),
+      timeout: 20_000,
+    });
     await page.getByRole("button", { name: "Update now" }).click();
+    await updateReload;
     await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible({ timeout: 20_000 });
 
     await context.setOffline(true);

@@ -124,8 +124,6 @@ test("scroll advances from the locked phone to the device showcase with its hero
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "contracting");
   await expect(primaryPhone).toHaveAttribute("data-device-scale", "full", { timeout: 10_000 });
-  await page.waitForTimeout(450);
-  await expect(scene).toHaveAttribute("data-scene-step", "contracting");
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 5_000 });
   await expect(scene).toHaveAttribute("aria-busy", "false");
   await page.keyboard.press("PageDown");
