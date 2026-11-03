@@ -52,8 +52,10 @@ function LandingExperienceContent() {
   const sceneStepRef = useRef<LandingSceneStep>(landingFlowConfig.intro.initialState);
   const showcaseReadyRef = useRef(false);
   const languageDialogOpenRef = useRef(true);
+  const [languageDialogOpen, setLanguageDialogOpen] = useState(true);
   const handleLanguageDialogOpenChange = useCallback((open: boolean) => {
     languageDialogOpenRef.current = open;
+    setLanguageDialogOpen(open);
   }, []);
   const wheelGestureActiveRef = useRef(false);
   const wheelGestureDirectionRef = useRef<number | null>(null);
@@ -446,16 +448,18 @@ function LandingExperienceContent() {
         style={sceneTimingStyle}
         onTransitionEnd={handleInitialPhoneTransitionEnd}
       >
-        <LandingPhoneMockup
-          view={storyStageStarted ? storyView : initialPhoneView}
-          layout="scene"
-          transparentFloor={
-            (showShowcase && showcaseReady && showcaseFloorActive) || sceneStep === "settled" || storyStageStarted
-          }
-          startUnlockDemo={unlockDemoStarted}
-          unlockDemoResetToken={unlockDemoResetToken}
-          onUnlockComplete={handleUnlockComplete}
-        />
+        {!languageDialogOpen && (
+          <LandingPhoneMockup
+            view={storyStageStarted ? storyView : initialPhoneView}
+            layout="scene"
+            transparentFloor={
+              (showShowcase && showcaseReady && showcaseFloorActive) || sceneStep === "settled" || storyStageStarted
+            }
+            startUnlockDemo={unlockDemoStarted}
+            unlockDemoResetToken={unlockDemoResetToken}
+            onUnlockComplete={handleUnlockComplete}
+          />
+        )}
       </div>
       <div
         data-landing-device-showcase="true"
@@ -471,12 +475,14 @@ function LandingExperienceContent() {
           !showShowcase || !showcaseReady || sceneStep === "unlocking" || sceneStep === "unlocked" || storyStageStarted
         }
       >
-        <LandingDeviceShowcase
-          progress={showcaseTargetProgress}
-          transitionDuration={showcaseTransitionDuration}
-          onReady={handleShowcaseReady}
-          onTransitionComplete={handleShowcaseTransitionComplete}
-        />
+        {!languageDialogOpen && (
+          <LandingDeviceShowcase
+            progress={showcaseTargetProgress}
+            transitionDuration={showcaseTransitionDuration}
+            onReady={handleShowcaseReady}
+            onTransitionComplete={handleShowcaseTransitionComplete}
+          />
+        )}
       </div>
       <section
         ref={sceneSectionRef}
