@@ -62,7 +62,7 @@ describe("browser test gate inventory", () => {
 
     expect(workflow).not.toContain("suite: [smoke, e2e]");
     expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }})");
-    expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }}, shard ${{ matrix.shard }}/2)");
+    expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }}, shard ${{ matrix.shard }}/3)");
     expect(workflow).toContain("name: Browser e2e (${{ matrix.browser }})");
     expect(workflow).toContain(
       "browser:\n          - chromium\n          # - firefox: intentionally deferred from hosted CI coverage\n          # - webkit: intentionally deferred from hosted CI coverage",
@@ -81,7 +81,7 @@ describe("browser test gate inventory", () => {
     expect(smokeAggregate).toContain("exit 1");
     expect(smokeShards).toContain("needs: changes");
     expect(smokeShards).toContain("if: needs.changes.outputs.web == 'true'");
-    expect(smokeShards).toContain("shard: [1, 2]");
+    expect(smokeShards).toContain("shard: [1, 2, 3]");
     expect(smokeShards).toContain(
       "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}-${{ matrix.shard }}",
     );
@@ -92,7 +92,7 @@ describe("browser test gate inventory", () => {
     expect(smokeShards).not.toContain("prisma:migrate:deploy");
     expect(smokeShards).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(smokeShards).toContain(
-      'pnpm run test:browser:smoke --project="${{ matrix.browser }}" --shard="${{ matrix.shard }}/2"',
+      'pnpm run test:browser:smoke --project="${{ matrix.browser }}" --shard="${{ matrix.shard }}/3"',
     );
     expect(e2eJob).toContain("services:\n      postgres:");
     expect(e2eJob).toContain("prisma:migrate:deploy");

@@ -101,11 +101,11 @@ test("wires package selection to every consuming job without cancelling a differ
   const browserSmokeShards = job("browser-smoke-shards");
   assert.match(
     browserSmokeShards,
-    /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}, shard \$\{\{ matrix\.shard \}\}\/2\)$/m,
+    /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}, shard \$\{\{ matrix\.shard \}\}\/3\)$/m,
   );
-  assert.match(browserSmokeShards, /^        shard: \[1, 2\]$/m);
+  assert.match(browserSmokeShards, /^        shard: \[1, 2, 3\]$/m);
   assert.match(browserSmokeShards, /^      PLAYWRIGHT_WORKERS: 1$/m);
-  assert.match(browserSmokeShards, /--shard="\$\{\{ matrix\.shard \}\}\/2"/);
+  assert.match(browserSmokeShards, /--shard="\$\{\{ matrix\.shard \}\}\/3"/);
   assert.doesNotMatch(browserSmokeShards, /^    services:/m);
   assert.match(
     browserSmokeShards,

@@ -401,6 +401,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       `/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults%2Finvitations%2Fredeem&handoff=${handoffId}`,
     );
     await expect.poll(() => handoffPublished).toBe(true);
+    await page.bringToFront();
     await expect.poll(() => handoffAccepted).toBe(true);
     await expect(page.getByText("Meneruskan sesi masuk ke aplikasi terpasang…")).toBeVisible({ timeout: 15_000 });
     expect(pollSentRefreshCredential).toBe(false);
