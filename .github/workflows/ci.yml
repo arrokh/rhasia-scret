@@ -215,7 +215,8 @@ jobs:
     env:
       # Smoke tests mock database-backed API operations. Keep accidental DB access fail-closed.
       DATABASE_URL: postgresql://browser-smoke:unused@127.0.0.1:1/browser_smoke?schema=public
-      PLAYWRIGHT_WORKERS: 1
+      # Run the complete smoke suite within the unchanged eight-minute job ceiling.
+      PLAYWRIGHT_WORKERS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

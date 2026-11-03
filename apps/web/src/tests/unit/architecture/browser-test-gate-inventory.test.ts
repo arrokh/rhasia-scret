@@ -75,7 +75,8 @@ describe("browser test gate inventory", () => {
     expect(smokeJob).not.toContain("prisma:migrate:deploy");
     expect(e2eJob).toContain("services:\n      postgres:");
     expect(e2eJob).toContain("prisma:migrate:deploy");
-    expect(workflow).toContain("PLAYWRIGHT_WORKERS: 1");
+    expect(smokeJob).toContain("PLAYWRIGHT_WORKERS: 2");
+    expect(e2eJob).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(workflow).toContain("PLAYWRIGHT_E2E_WORKERS: 2");
     expect(workflow).toContain("restore-keys:");
     expect(workflow).toContain("pnpm run test:browser:pwa --project=chromium");
