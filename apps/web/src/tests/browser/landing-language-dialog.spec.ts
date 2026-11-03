@@ -9,7 +9,7 @@ for (const locale of ["id", "en"] as const) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/landing");
 
-    const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]');
+    const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]:visible');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("Choose your language");
     await expect(dialog).toContainText("Pilih bahasa");
@@ -43,7 +43,7 @@ test("keeps the landing intro still behind the chooser on a narrow screen", asyn
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/landing");
 
-  const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]');
+  const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]:visible');
   await expect(dialog).toBeVisible();
   const dialogBounds = await dialog.boundingBox();
   expect(dialogBounds).not.toBeNull();
@@ -75,7 +75,7 @@ test("skips the chooser for a valid locale cookie and reopens it for an invalid 
   ]);
   await page.goto("/landing");
 
-  const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]');
+  const dialog = page.locator('[role="dialog"][data-landing-language-choice="true"]:visible');
   await expect(dialog).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
