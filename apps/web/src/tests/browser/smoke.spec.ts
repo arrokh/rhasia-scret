@@ -29,7 +29,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
   );
   const originalCanvas = await primaryPhone.locator("canvas").first().elementHandle();
   expect(originalCanvas).not.toBeNull();
-  await expect(scene.locator('[class*="__scrollCue"]')).toContainText("Gulir ke bawah untuk melanjutkan");
+  await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir ke bawah untuk melanjutkan");
   await expect(scene.locator('[class*="__heroOverlay"]')).toHaveAttribute("data-visible", "false");
 
   await page.mouse.wheel(0, 500);
@@ -137,7 +137,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
   await expect(primaryPhone).toHaveAttribute("data-device-scale", "full");
   await expect.poll(phoneStageLeft).toBeLessThan(-100);
   await expect(scene).toHaveAttribute("data-scene-step", "settled", { timeout: 15_000 });
-  await expect(scene.locator('[class*="__heroScrollCue"]')).toHaveAttribute("data-visible", "false");
+  await expect(scene.locator("[data-landing-scroll-cue]")).toHaveAttribute("data-visible", "false");
   await page.evaluate(() => {
     const journey = document.querySelector<HTMLElement>("#landing-journey");
     if (journey) window.scrollTo({ top: journey.offsetTop + window.innerHeight * 0.35, behavior: "instant" });
@@ -161,7 +161,7 @@ test("keeps the locked landing scene within narrow mobile viewports", async ({ p
     const scene = page.locator('[data-landing-desktop-scene="true"]');
     await expect(scene).toHaveAttribute("data-scene-step", "locked");
     await expect(page.locator("[data-landing-primary-phone]")).toHaveAttribute("data-visible", "true");
-    await expect(scene.locator('[class*="__scrollCue"]')).toContainText("Gulir ke bawah untuk melanjutkan");
+    await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir ke bawah untuk melanjutkan");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });

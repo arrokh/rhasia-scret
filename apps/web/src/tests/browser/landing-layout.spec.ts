@@ -7,6 +7,54 @@ test("distinguishes the sign-in action from the external self-hosting guide", as
   await expect(actions.locator('a[target="_blank"] svg')).toHaveClass(/lucide-arrow-up-right/);
 });
 
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 2056, height: 1166 },
+  { width: 390, height: 844 },
+  { width: 320, height: 568 },
+  { width: 844, height: 390 },
+]) {
+  test(`keeps every intro scroll cue at the viewport bottom at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/landing");
+    const scene = page.locator("[data-landing-desktop-scene]");
+    const cue = scene.locator("[data-landing-scroll-cue]");
+    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    await expect(cue).toHaveCount(1);
+    let initialTop: number | undefined;
+    for (const step of ["locked", "unlocked", "devices"]) {
+      if (step !== "locked") await page.keyboard.press("PageDown");
+      await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+      await expect(cue).toHaveAttribute("aria-hidden", "false");
+      await expect(cue).toBeVisible();
+      await expect
+        .poll(async () => {
+          const bounds = await cue.boundingBox();
+          if (!bounds) return false;
+          const bottomGap = viewport.height - bounds.y - bounds.height;
+          return bounds.y >= viewport.height * 0.8 && bottomGap >= 8 && bottomGap <= 48;
+        })
+        .toBe(true);
+      const bounds = await cue.boundingBox();
+      if (!bounds) throw new Error("The scroll cue is unavailable.");
+      initialTop ??= bounds.y;
+      expect(Math.abs(bounds.y - initialTop)).toBeLessThanOrEqual(1);
+    }
+    if (viewport.width === 844) {
+      const intro = scene.locator("[data-landing-intro-scroll]");
+      await intro.focus();
+      await page.keyboard.press("PageDown");
+      await expect.poll(async () => intro.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(scene).toHaveAttribute("data-scene-step", "devices");
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(Math.abs((await cue.boundingBox())!.y - initialTop!)).toBeLessThanOrEqual(1);
+    }
+  });
+}
+
 test("dissolves only the phone screen when the active journey card changes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/landing");
@@ -261,7 +309,7 @@ for (const locale of ["id", "en"] as const) {
     ]) {
       await page.setViewportSize(viewport);
       const hero = scene.locator('[class*="__heroOverlay"]');
-      const cue = scene.locator('[class*="__heroScrollCue"]');
+      const cue = scene.locator("[data-landing-scroll-cue]");
       await expect(hero).toHaveAttribute("data-visible", "true");
       await expect
         .poll(async () => {

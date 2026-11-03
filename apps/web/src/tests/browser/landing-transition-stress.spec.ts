@@ -5,9 +5,16 @@ type StableSceneStep = "locked" | "unlocked" | "devices";
 type InputAction =
   | Readonly<{ kind: "key"; key: "ArrowDown" | "ArrowUp" | "PageDown" | "PageUp" }>
   | Readonly<{ kind: "wheel"; deltaY: number }>;
+type LandingTransitionStressInputRecord = Readonly<{
+  startedAt: number;
+  initialIsTrusted: boolean;
+  initialDefaultPrevented: boolean;
+  reversalDefaultPrevented: readonly boolean[];
+}>;
 type LandingTransitionWindow = Window & {
   __landingTransitionStressSteps?: StableSceneStep[];
   __landingTransitionStressObserver?: MutationObserver;
+  __landingTransitionStressInput?: LandingTransitionStressInputRecord;
 };
 
 test("recovers through repeated landing steps after deterministic wheel and key reversals", async ({ page }) => {
@@ -222,13 +229,9 @@ async function settleTransition(
   const budgetMs = getTransitionBudget(from, to, options);
   const shouldReverseDuringProcessing =
     options.reverseDuringProcessing && options.reducedMotion === "no-preference" && to !== "locked";
-  await sendAction(page, scene, action);
-  if (shouldReverseDuringProcessing) {
-    await expect(scene).toHaveAttribute("aria-busy", "true", { timeout: 2_000 });
-  }
-  const startedAt = await page.evaluate(() => performance.now());
-
-  if (shouldReverseDuringProcessing) await sendRapidReversalBurst(page, scene);
+  const startedAt = shouldReverseDuringProcessing
+    ? await sendActionAndRapidReversalBurst(page, scene, action)
+    : await sendActionAndRecordStart(page, scene, action);
 
   await expect(scene).toHaveAttribute("data-scene-step", to, { timeout: budgetMs });
   await expect(scene).toHaveAttribute("aria-busy", "false", { timeout: budgetMs });
@@ -238,7 +241,10 @@ async function settleTransition(
     `${from} → ${to} should settle within its ${budgetMs}ms configured-duration budget (elapsed ${Math.round(elapsedMs)}ms)`,
   ).toBeLessThanOrEqual(budgetMs);
 
-  await page.waitForTimeout(options.quietPeriodMs);
+  await page.evaluate(
+    (durationMs) => new Promise<void>((resolve) => window.setTimeout(resolve, durationMs)),
+    options.quietPeriodMs,
+  );
   await expect(scene).toHaveAttribute("data-scene-step", to);
   await expect(scene).toHaveAttribute("aria-busy", "false");
 }
@@ -258,36 +264,61 @@ function getTransitionBudget(
   return 500;
 }
 
-async function sendAction(page: Page, scene: Locator, action: InputAction) {
+async function sendActionAndRecordStart(page: Page, scene: Locator, action: InputAction) {
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   if (action.kind === "key") {
     await page.keyboard.press(action.key);
-    return;
+  } else {
+    await page.mouse.wheel(0, action.deltaY);
   }
-  await page.mouse.wheel(0, action.deltaY);
+  return page.evaluate(() => performance.now());
 }
 
-async function sendRapidReversalBurst(page: Page, scene: Locator) {
+async function sendActionAndRapidReversalBurst(page: Page, scene: Locator, action: InputAction) {
   await expect(scene).toHaveAttribute("data-input-ready", "true");
-  await page.evaluate(() => {
+  await page.evaluate((action) => {
+    const trackedWindow = window as LandingTransitionWindow;
     const activeScene = document.querySelector<HTMLElement>('[data-landing-desktop-scene="true"]');
-    if (!activeScene) throw new Error("The landing scene is unavailable for rapid input.");
-    const dispatch = (event: Event) => {
-      if (activeScene.getAttribute("data-input-ready") !== "true") {
-        throw new Error("Landing input listeners are not ready for the rapid input burst.");
-      }
-      window.dispatchEvent(event);
+    if (!activeScene || activeScene.getAttribute("data-input-ready") !== "true") {
+      throw new Error("Landing input listeners are not ready for the transition stress test.");
+    }
+    const eventType = action.kind === "key" ? "keydown" : "wheel";
+    const listener: EventListener = (event) => {
+      const startedAt = performance.now();
+      const reversalEvents = [
+        new WheelEvent("wheel", { deltaY: -640, bubbles: true, cancelable: true }),
+        new WheelEvent("wheel", { deltaY: 640, bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", { key: "PageDown", bubbles: true, cancelable: true }),
+        new WheelEvent("wheel", { deltaY: -640, bubbles: true, cancelable: true }),
+        new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }),
+      ];
+      const reversalDefaultPrevented = reversalEvents.map((reversalEvent) => {
+        window.dispatchEvent(reversalEvent);
+        return reversalEvent.defaultPrevented;
+      });
+      trackedWindow.__landingTransitionStressInput = {
+        startedAt,
+        initialIsTrusted: event.isTrusted,
+        initialDefaultPrevented: event.defaultPrevented,
+        reversalDefaultPrevented,
+      };
     };
-    const wheel = (deltaY: number) => dispatch(new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true }));
-    const key = (value: string) =>
-      dispatch(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }));
+    delete trackedWindow.__landingTransitionStressInput;
+    window.addEventListener(eventType, listener, { once: true });
+  }, action);
 
-    wheel(-640);
-    wheel(640);
-    key("PageDown");
-    wheel(-640);
-    key("ArrowUp");
-  });
+  if (action.kind === "key") {
+    await page.keyboard.press(action.key);
+  } else {
+    await page.mouse.wheel(0, action.deltaY);
+  }
+
+  const input = await page.evaluate(() => (window as LandingTransitionWindow).__landingTransitionStressInput ?? null);
+  if (!input) throw new Error("The trusted landing input did not trigger the reversal burst.");
+  expect(input.initialIsTrusted).toBe(true);
+  expect(input.initialDefaultPrevented).toBe(true);
+  expect(input.reversalDefaultPrevented).toEqual([true, true, true, true, true]);
+  return input.startedAt;
 }
 
 async function startSettledStepRecording(page: Page) {

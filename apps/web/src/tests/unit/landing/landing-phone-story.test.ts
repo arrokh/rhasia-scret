@@ -347,7 +347,7 @@ describe("LandingPhoneStoryProvider", () => {
     expect(connectorDot?.getAttribute("visibility")).toBe("visible");
   });
 
-  it("clamps the desktop phone above the privacy note and hides it when no safe space remains", async () => {
+  it("lets the desktop phone leave gradually above the privacy note before hiding and restores it on reverse", async () => {
     installFrameQueue();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
@@ -372,13 +372,26 @@ describe("LandingPhoneStoryProvider", () => {
 
     const clampedBounds = frame.getBoundingClientRect();
     expect(fixture.stage.style.visibility).toBe("");
-    expect(clampedBounds.bottom).toBeLessThanOrEqual(noteTop - 18 + 1);
+    expect(clampedBounds.bottom).toBeLessThanOrEqual(noteTop - Math.max(18, clampedBounds.height * 0.06) + 1);
     expect(clampedBounds.top).toBeGreaterThanOrEqual(8);
 
     noteTop = 400;
     await act(async () => window.dispatchEvent(new Event("scroll")));
     await flushAnimationFrames();
+    expect(fixture.stage.style.visibility).toBe("");
+    expect(frame.getBoundingClientRect().top).toBeLessThan(0);
+    expect(frame.getBoundingClientRect().bottom).toBeLessThanOrEqual(noteTop - 422 * 0.06 + 1);
+
+    noteTop = 20;
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
     expect(fixture.stage.style.visibility).toBe("hidden");
+
+    noteTop = 500;
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(fixture.stage.style.visibility).toBe("");
+    expect(frame.getBoundingClientRect().top).toBeGreaterThanOrEqual(8);
   });
 
   it("selects all eight phone views from their real journey-card sequence", async () => {

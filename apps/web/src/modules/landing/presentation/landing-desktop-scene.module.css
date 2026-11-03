@@ -228,37 +228,6 @@
   text-align: center;
 }
 
-.heroScrollCue {
-  position: absolute;
-  z-index: 4;
-  bottom: max(2rem, calc(env(safe-area-inset-bottom) + 1.25rem));
-  left: 50%;
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 0.15rem;
-  color: rgb(39 48 57 / 78%);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  line-height: 1.2;
-  text-align: center;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 320ms ease;
-}
-
-.heroScrollCue[data-visible="true"] {
-  opacity: 1;
-}
-
-.heroScrollCue[data-visible="false"] {
-  visibility: hidden;
-}
-
 .sceneGuide {
   position: absolute;
   z-index: 4;
@@ -337,14 +306,14 @@
 
 .scrollCue {
   position: absolute;
-  z-index: 3;
-  top: max(2rem, calc(env(safe-area-inset-top) + 1.25rem));
+  z-index: 4;
+  bottom: max(2rem, calc(env(safe-area-inset-bottom) + 1.25rem));
   left: 50%;
   display: flex;
   align-items: center;
   flex-direction: column;
   gap: 0.15rem;
-  color: rgb(39 48 57 / 72%);
+  color: rgb(39 48 57 / 78%);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -353,15 +322,21 @@
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
-  transform: translateX(-50%);
+  transform: translate(-50%, 0);
+  opacity: 0;
+  visibility: hidden;
   transition:
     opacity 260ms ease,
-    translate 260ms ease;
+    transform 260ms ease;
 }
 
-.scrollCue[data-hidden="true"] {
-  opacity: 0;
-  translate: 0 8px;
+.scrollCue[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.scrollCue[data-visible="false"] {
+  transform: translate(-50%, 8px);
 }
 
 .scrollDoodle {
@@ -847,7 +822,7 @@
     line-height: 1.6;
   }
 
-  .heroScrollCue {
+  .scrollCue {
     bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem));
     font-size: 0.58rem;
   }
@@ -865,7 +840,7 @@
 
 @media (max-height: 660px) {
   .scrollCue {
-    top: max(1rem, env(safe-area-inset-top));
+    bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem));
   }
 
   .scrollCue .scrollDoodle {
@@ -876,8 +851,7 @@
 @media (prefers-reduced-motion: reduce) {
   .initialPhone[data-scene-step],
   .deviceShowcase,
-  .heroOverlay,
-  .heroScrollCue {
+  .heroOverlay {
     transition: none;
   }
 

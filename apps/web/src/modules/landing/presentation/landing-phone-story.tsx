@@ -172,7 +172,7 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       stage.style.height = `${window.innerHeight}px`;
       const phoneFitsJourneyEnd = keepPhoneWithinJourneyEnd(stage, journeySection);
       const journeyEnd = journeySection.querySelector<HTMLElement>("[data-landing-phone-story-end]");
-      const journeyGuideActive = !journeyEnd || journeyEnd.getBoundingClientRect().top >= window.innerHeight;
+      const journeyGuideActive = !journeyEnd || journeyEnd.getBoundingClientRect().top > 0;
       journeySection.dataset.phoneVisible = phoneFitsJourneyEnd ? "true" : "false";
       if (!phoneFitsJourneyEnd) {
         stage.style.visibility = "hidden";
@@ -547,17 +547,19 @@ function keepPhoneWithinJourneyEnd(stage: HTMLElement, journeySection: HTMLEleme
     finalCta?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
     window.innerHeight,
   );
-  const maxBottom = boundaryTop - PHONE_BOUNDARY_CLEARANCE;
-  const phoneHeight = phoneBounds.bottom - phoneBounds.top;
-  const minimumTop = 8;
-  if (maxBottom - minimumTop < phoneHeight) return false;
-  if (phoneBounds.bottom <= maxBottom) return true;
+  const chassisClearance = Math.max(PHONE_BOUNDARY_CLEARANCE, (phoneBounds.bottom - phoneBounds.top) * 0.06);
+  const maxBottom = boundaryTop - chassisClearance;
+  const minimumVisibleBottom = 8;
+  if (maxBottom <= minimumVisibleBottom) return false;
+  if (phoneBounds.bottom <= maxBottom) return phoneBounds.bottom > minimumVisibleBottom;
 
   const currentTop = Number.parseFloat(stage.style.top) || 0;
   stage.style.top = `${currentTop + maxBottom - phoneBounds.bottom}px`;
   const adjustedPhoneBounds = getPhoneVisualBounds(stage);
   return Boolean(
-    adjustedPhoneBounds && adjustedPhoneBounds.top >= minimumTop && adjustedPhoneBounds.bottom <= maxBottom + 1,
+    adjustedPhoneBounds &&
+    adjustedPhoneBounds.bottom > minimumVisibleBottom &&
+    adjustedPhoneBounds.bottom <= maxBottom + 1,
   );
 }
 

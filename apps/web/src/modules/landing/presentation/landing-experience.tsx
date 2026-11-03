@@ -421,6 +421,7 @@ function LandingExperienceContent() {
   const currentSceneConfig = states.find((state) => state.id === sceneStep);
   const topScrollReady = currentSceneConfig?.scrollHint === "top";
   const bottomScrollReady = currentSceneConfig?.scrollHint === "hero" && heroOnScreen;
+  const scrollCueVisible = topScrollReady || bottomScrollReady;
   const showcaseTransitionDuration =
     sceneStep === "expanding" || sceneStep === "contracting"
       ? durationsMs.showcaseExpansion
@@ -489,7 +490,12 @@ function LandingExperienceContent() {
         <div className={styles.sceneStage}>
           <div data-landing-phone-anchor="hero" className={styles.heroPhoneAnchor} aria-hidden="true" />
 
-          <div className={styles.scrollCue} data-hidden={!topScrollReady} aria-hidden={!topScrollReady}>
+          <div
+            className={styles.scrollCue}
+            data-landing-scroll-cue="true"
+            data-visible={scrollCueVisible}
+            aria-hidden={!scrollCueVisible}
+          >
             <ScrollArrow />
             <span>{journeyT("scrollPrompt")}</span>
           </div>
@@ -524,11 +530,6 @@ function LandingExperienceContent() {
               <p className={`${experienceStyles.hostedAccess} ${styles.sceneHostedAccess}`}>{t("hostedAccess")}</p>
             </div>
           </section>
-
-          <div className={styles.heroScrollCue} data-visible={bottomScrollReady} aria-hidden={!bottomScrollReady}>
-            <ScrollArrow />
-            <span>{journeyT("scrollPrompt")}</span>
-          </div>
 
           <div
             className={styles.sceneLoadingIndicator}

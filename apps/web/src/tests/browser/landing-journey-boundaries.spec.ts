@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const viewport of [
   { width: 1440, height: 900 },
+  { width: 2056, height: 1166 },
   { width: 390, height: 844 },
   { width: 320, height: 568 },
 ]) {
@@ -19,6 +20,35 @@ for (const viewport of [
     }
     const phone = page.locator('[data-landing-primary-phone] iframe[data-device-kind="phone"]');
     const finalCta = page.locator('[data-slot="landing-final-cta"]');
+    const journey = page.locator("[data-landing-phone-story-journey]");
+    for (const fraction of [0.5, 0.35, 0.2]) {
+      await journey.evaluate((section, fraction) => {
+        const lastCard = Array.from(section.querySelectorAll<HTMLElement>("[data-landing-phone-view]"))
+          .filter((card) => card.getClientRects().length > 0)
+          .at(-1);
+        if (!lastCard) throw new Error("The final journey step is unavailable.");
+        const bounds = lastCard.getBoundingClientRect();
+        window.scrollTo({
+          top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight * fraction,
+          behavior: "instant",
+        });
+      }, fraction);
+      await expect(phone.contentFrame().locator('[data-landing-phone-screen-entry="sharedReady"]')).toBeVisible();
+      await expect(phone).toBeVisible();
+      await expect
+        .poll(async () => {
+          const frame = await phone.boundingBox();
+          const note = await page.locator("[data-landing-phone-story-end]").boundingBox();
+          return Boolean(frame && note && frame.y + frame.height > 8 && frame.y + frame.height <= note.y - 17);
+        })
+        .toBe(true);
+      if (viewport.width > 720) {
+        await expect(page.locator('svg[class*="phoneStoryConnector"] circle').first()).toHaveAttribute(
+          "visibility",
+          "visible",
+        );
+      }
+    }
     for (const topOffset of [0, 100, 300]) {
       await finalCta.evaluate((element, offset) => {
         window.scrollTo({
