@@ -20,7 +20,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     const cue = scene.locator("[data-landing-scroll-cue]");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     await expect(cue).toHaveCount(1);
@@ -58,7 +58,7 @@ for (const viewport of [
 test("dissolves only the phone screen when the active journey card changes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/landing");
-  const scene = page.locator("[data-landing-desktop-scene]");
+  const scene = page.locator("[data-landing-desktop-scene]:visible");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   for (const step of ["unlocked", "devices", "settled"]) {
     await page.keyboard.press("PageDown");
@@ -126,7 +126,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: width === 320 ? 568 : 900 });
       await page.goto("/landing");
-      const scene = page.locator("[data-landing-desktop-scene]");
+      const scene = page.locator("[data-landing-desktop-scene]:visible");
       await expect(scene).toHaveAttribute("data-input-ready", "true");
       await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true", {
         timeout: 15_000,
@@ -178,7 +178,7 @@ for (const width of [1440, 2056]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     for (const step of ["unlocked", "devices", "settled"]) {
       await page.keyboard.press("PageDown");
@@ -228,7 +228,7 @@ for (const locale of ["id", "en"] as const) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     for (const step of ["unlocked", "devices", "settled"]) {
       await page.keyboard.press("PageDown");
@@ -294,7 +294,7 @@ for (const locale of ["id", "en"] as const) {
     await context.addCookies([{ name: "RHSIA_LOCALE", value: locale, url: "http://127.0.0.1" }]);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
@@ -312,24 +312,24 @@ for (const locale of ["id", "en"] as const) {
     ]) {
       await page.setViewportSize(viewport);
       const hero = scene.locator('[class*="__heroOverlay"]');
-      const cue = scene.locator("[data-landing-scroll-cue]");
       await expect(hero).toHaveAttribute("data-visible", "true");
       await expect
-        .poll(async () => {
-          const card = await hero.boundingBox();
-          const hint = await cue.boundingBox();
-          return Boolean(
-            card &&
-            hint &&
-            card.y >= 0 &&
-            card.y + card.height + 8 <= hint.y &&
-            hint.y + hint.height <= viewport.height &&
-            card.x >= 0 &&
-            card.x + card.width <= viewport.width &&
-            Math.abs(card.x + card.width / 2 - viewport.width / 2) <= 1 &&
-            Math.abs(card.y + card.height / 2 - viewport.height / 2) <= 1,
-          );
-        })
+        .poll(() =>
+          hero.evaluate((element) => {
+            const card = element.getBoundingClientRect();
+            const hint = document.querySelector("[data-landing-scroll-cue]")?.getBoundingClientRect();
+            return Boolean(
+              hint &&
+              card.y >= 0 &&
+              card.bottom + 8 <= hint.y &&
+              hint.bottom <= window.innerHeight &&
+              card.x >= 0 &&
+              card.right <= window.innerWidth &&
+              Math.abs(card.x + card.width / 2 - window.innerWidth / 2) <= 1 &&
+              Math.abs(card.y + card.height / 2 - window.innerHeight / 2) <= 1,
+            );
+          }),
+        )
         .toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
@@ -338,11 +338,13 @@ for (const locale of ["id", "en"] as const) {
       await action.focus();
       await expect(action).toBeFocused();
       await expect
-        .poll(async () => {
-          const control = await action.boundingBox();
-          const card = await hero.boundingBox();
-          return Boolean(control && card && control.y >= card.y && control.y + control.height <= card.y + card.height);
-        })
+        .poll(() =>
+          action.evaluate((element) => {
+            const control = element.getBoundingClientRect();
+            const card = element.closest('[data-landing-intro-scroll="true"]')?.getBoundingClientRect();
+            return Boolean(card && control.y >= card.y && control.bottom <= card.bottom);
+          }),
+        )
         .toBe(true);
     }
 

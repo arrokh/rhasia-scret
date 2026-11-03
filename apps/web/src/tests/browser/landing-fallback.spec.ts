@@ -23,7 +23,7 @@ test("uses the styled fallback when a phone iframe stylesheet fails", async ({ p
     return route.fulfill({ contentType: "text/css", body: "/* synthetic stylesheet fixture */" });
   });
   await page.goto("/landing");
-  const scene = page.locator("[data-landing-desktop-scene]");
+  const scene = page.locator("[data-landing-desktop-scene]:visible");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
@@ -39,7 +39,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.route("**/models/landing/*.glb", (route) => route.abort());
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });

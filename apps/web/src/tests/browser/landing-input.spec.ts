@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("keeps keyboard traversal and input usable during processing while blocking link navigation", async ({ page }) => {
   await page.clock.install();
   await page.goto("/landing");
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-scene-step", "locked");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   // Install before app timers run, then hold processing while exercising real controls.
@@ -72,7 +72,7 @@ test("treats a wheel direction reversal as a new discrete gesture", async ({ pag
 
 test("resets a canceled touch gesture before accepting another move", async ({ page }) => {
   await page.goto("/landing");
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-scene-step", "locked");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
 
@@ -96,7 +96,7 @@ test("lets the hero card scroll before advancing the intro at its boundary", asy
   await page.setViewportSize({ width: 844, height: 390 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing");
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 15_000 });
@@ -104,6 +104,7 @@ test("lets the hero card scroll before advancing the intro at its boundary", asy
   await expect(scene).toHaveAttribute("data-scene-step", "devices");
 
   const hero = scene.locator('[data-landing-intro-scroll="true"]');
+  await expect(hero).toBeVisible();
   await expect.poll(() => hero.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   await hero.focus();
   await page.keyboard.press("PageDown");
@@ -158,7 +159,7 @@ test("lets the hero card scroll before advancing the intro at its boundary", asy
 test("does not reverse when natural scrolling reaches the page top", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing");
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-input-ready", "true");
 
   await page.keyboard.press("PageDown");

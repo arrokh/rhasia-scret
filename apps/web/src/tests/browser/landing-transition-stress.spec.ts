@@ -29,7 +29,7 @@ test("keeps the mobile phone continuous through departure and return", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/landing");
-  const scene = page.locator("[data-landing-desktop-scene]");
+  const scene = page.locator("[data-landing-desktop-scene]:visible");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true");
   await page.keyboard.press("PageDown");
@@ -114,7 +114,7 @@ async function runLandingTransitionStress(
   await page.emulateMedia({ reducedMotion });
   await page.goto("/landing");
 
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-scene-step", "locked");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await expect(scene).toHaveAttribute("aria-busy", "false");

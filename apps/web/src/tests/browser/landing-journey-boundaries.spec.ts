@@ -12,7 +12,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/landing");
-    const scene = page.locator("[data-landing-desktop-scene]");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     for (const step of ["unlocked", "devices", "settled"]) {
       await page.keyboard.press("PageDown");
