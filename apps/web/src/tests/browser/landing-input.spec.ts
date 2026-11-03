@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 test("keeps keyboard traversal and input usable during processing while blocking link navigation", async ({ page }) => {
+  await page.clock.install();
   await page.goto("/landing");
   const scene = page.locator('[data-landing-desktop-scene="true"]');
   await expect(scene).toHaveAttribute("data-scene-step", "locked");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
+  // Install before app timers run, then hold processing while exercising real controls.
+  await page.clock.pauseAt(await page.evaluate(() => new Date(Date.now() + 60_000)));
 
   await page.mouse.wheel(0, 500);
   await expect(scene).toHaveAttribute("data-scene-step", "unlocking");
@@ -50,12 +53,13 @@ test("keeps keyboard traversal and input usable during processing while blocking
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/landing$/);
   await expect(scene).toHaveAttribute("data-scene-step", "unlocking");
+  await page.clock.resume();
 });
 
 test("treats a wheel direction reversal as a new discrete gesture", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing");
-  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
   await expect(scene).toHaveAttribute("data-input-ready", "true");
 
   await page.keyboard.press("PageDown");
@@ -135,8 +139,20 @@ test("lets the hero card scroll before advancing the intro at its boundary", asy
     element.scrollTop = element.scrollHeight;
   });
   await hero.focus();
+  await scene.evaluate((element) => {
+    new MutationObserver((records, observer) => {
+      if (
+        !records.some((record) => record.oldValue === "leaving") &&
+        element.getAttribute("data-scene-step") !== "leaving"
+      )
+        return;
+      element.setAttribute("data-leaving-observed", "true");
+      observer.disconnect();
+    }).observe(element, { attributes: true, attributeFilter: ["data-scene-step"], attributeOldValue: true });
+  });
   await page.keyboard.press("PageDown");
-  await expect(scene).toHaveAttribute("data-scene-step", "leaving");
+  await expect(scene).toHaveAttribute("data-leaving-observed", "true");
+  await expect(scene).toHaveAttribute("data-scene-step", "settled");
 });
 
 test("does not reverse when natural scrolling reaches the page top", async ({ page }) => {
