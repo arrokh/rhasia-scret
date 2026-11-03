@@ -50,6 +50,7 @@ function LandingExperienceContent() {
   const [heroVisible, setHeroVisible] = useState(false);
   const sceneSectionRef = useRef<HTMLElement | null>(null);
   const sceneStepRef = useRef<LandingSceneStep>(landingFlowConfig.intro.initialState);
+  const showcaseReadyRef = useRef(false);
   const languageDialogOpenRef = useRef(true);
   const handleLanguageDialogOpenChange = useCallback((open: boolean) => {
     languageDialogOpenRef.current = open;
@@ -91,6 +92,7 @@ function LandingExperienceContent() {
     [completeReverseTransition],
   );
   const handleShowcaseReady = useCallback(() => {
+    showcaseReadyRef.current = true;
     setShowcaseReady(true);
     if (sceneStepRef.current !== "expanding") return;
     setShowInitialPhone(false);
@@ -150,9 +152,10 @@ function LandingExperienceContent() {
         return;
       }
 
+      const isShowcaseReady = showcaseReadyRef.current;
       setSceneStepValue(targetStep);
-      setShowcaseTargetProgress(showcaseReady ? 0.5 : 0);
-      if (showcaseReady) {
+      setShowcaseTargetProgress(isShowcaseReady ? 0.5 : 0);
+      if (isShowcaseReady) {
         setShowInitialPhone(false);
         setHeroVisible(true);
       }
@@ -172,7 +175,7 @@ function LandingExperienceContent() {
       return;
     }
     return;
-  }, [setSceneStepValue, showcaseReady]);
+  }, [setSceneStepValue]);
 
   const triggerPreviousStep = useCallback(() => {
     const currentStep = sceneStepRef.current;

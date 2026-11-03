@@ -128,6 +128,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await page.goto("/landing");
       const scene = page.locator("[data-landing-desktop-scene]");
       await expect(scene).toHaveAttribute("data-input-ready", "true");
+      await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true", {
+        timeout: 15_000,
+      });
       for (const step of ["unlocked", "devices", "settled"]) {
         await page.keyboard.press("PageDown");
         await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
