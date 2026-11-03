@@ -317,7 +317,10 @@ for (const locale of ["id", "en"] as const) {
         .poll(() =>
           hero.evaluate((element) => {
             const card = element.getBoundingClientRect();
-            const hint = document.querySelector("[data-landing-scroll-cue]")?.getBoundingClientRect();
+            const hint = element
+              .closest("[data-landing-desktop-scene]")
+              ?.querySelector("[data-landing-scroll-cue]")
+              ?.getBoundingClientRect();
             return Boolean(
               hint &&
               card.y >= 0 &&
