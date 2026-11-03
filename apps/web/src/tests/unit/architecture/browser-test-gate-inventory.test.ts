@@ -62,20 +62,40 @@ describe("browser test gate inventory", () => {
 
     expect(workflow).not.toContain("suite: [smoke, e2e]");
     expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }})");
+    expect(workflow).toContain("name: Browser smoke (${{ matrix.browser }}, shard ${{ matrix.shard }}/2)");
     expect(workflow).toContain("name: Browser e2e (${{ matrix.browser }})");
     expect(workflow).toContain(
       "browser:\n          - chromium\n          # - firefox: intentionally deferred from hosted CI coverage\n          # - webkit: intentionally deferred from hosted CI coverage",
     );
     expect(workflow).toContain('pnpm run test:browser:smoke --project="${{ matrix.browser }}"');
     expect(workflow).toContain('pnpm run test:browser:e2e --project="${{ matrix.browser }}"');
-    const smokeJob = workflow.split("  browser-smoke:\n")[1]?.split("\n  browser-e2e:\n")[0] ?? "";
+    const smokeAggregate = workflow.split("  browser-smoke:\n")[1]?.split("\n  browser-smoke-shards:\n")[0] ?? "";
+    const smokeShards = workflow.split("  browser-smoke-shards:\n")[1]?.split("\n  browser-e2e:\n")[0] ?? "";
     const e2eJob = workflow.split("  browser-e2e:\n")[1]?.split("\n  browser-production:\n")[0] ?? "";
-    expect(smokeJob).not.toContain("services:");
-    expect(smokeJob).toContain("127.0.0.1:1/browser_smoke");
-    expect(smokeJob).not.toContain("prisma:migrate:deploy");
+    expect(smokeAggregate).toContain("needs:\n      - changes\n      - browser-smoke-shards");
+    expect(smokeAggregate).toContain("if: always() && needs.changes.outputs.web == 'true'");
+    expect(smokeAggregate).toContain("timeout-minutes: 1");
+    expect(smokeAggregate).toContain('BROWSER_SMOKE_SHARDS_RESULT: "${{ needs.browser-smoke-shards.result }}"');
+    expect(smokeAggregate).toContain("shell: bash");
+    expect(smokeAggregate).toContain('[[ "$BROWSER_SMOKE_SHARDS_RESULT" != "success" ]]');
+    expect(smokeAggregate).toContain("exit 1");
+    expect(smokeShards).toContain("needs: changes");
+    expect(smokeShards).toContain("if: needs.changes.outputs.web == 'true'");
+    expect(smokeShards).toContain("shard: [1, 2]");
+    expect(smokeShards).toContain(
+      "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}-${{ matrix.shard }}",
+    );
+    expect(smokeShards).toContain(
+      "DATABASE_URL: postgresql://browser-smoke:unused@127.0.0.1:1/browser_smoke?schema=public",
+    );
+    expect(smokeShards).not.toContain("services:");
+    expect(smokeShards).not.toContain("prisma:migrate:deploy");
+    expect(smokeShards).toContain("PLAYWRIGHT_WORKERS: 1");
+    expect(smokeShards).toContain(
+      'pnpm run test:browser:smoke --project="${{ matrix.browser }}" --shard="${{ matrix.shard }}/2"',
+    );
     expect(e2eJob).toContain("services:\n      postgres:");
     expect(e2eJob).toContain("prisma:migrate:deploy");
-    expect(smokeJob).toContain("PLAYWRIGHT_WORKERS: 2");
     expect(e2eJob).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(workflow).toContain("PLAYWRIGHT_E2E_WORKERS: 2");
     expect(workflow).toContain("restore-keys:");

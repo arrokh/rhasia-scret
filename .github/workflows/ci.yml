@@ -197,13 +197,39 @@ jobs:
         run: pnpm --filter @rhasia-scret/web run performance:bundles:verify
 
   browser-smoke:
+    needs:
+      - changes
+      - browser-smoke-shards
+    if: always() && needs.changes.outputs.web == 'true'
+    name: Browser smoke (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        browser:
+          - chromium
+          # - firefox: intentionally deferred from hosted CI coverage
+          # - webkit: intentionally deferred from hosted CI coverage
+    steps:
+      - name: Verify all browser smoke shards passed
+        shell: bash
+        env:
+          BROWSER_SMOKE_SHARDS_RESULT: "${{ needs.browser-smoke-shards.result }}"
+        run: |
+          if [[ "$BROWSER_SMOKE_SHARDS_RESULT" != "success" ]]; then
+            echo "::error::Browser smoke shard matrix did not succeed."
+            exit 1
+          fi
+
+  browser-smoke-shards:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    name: Browser smoke (${{ matrix.browser }})
+    name: Browser smoke (${{ matrix.browser }}, shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 8
     concurrency:
-      group: ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}
+      group: ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}-${{ matrix.shard }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -212,11 +238,12 @@ jobs:
           - chromium
           # - firefox: intentionally deferred from hosted CI coverage
           # - webkit: intentionally deferred from hosted CI coverage
+        shard: [1, 2]
     env:
       # Smoke tests mock database-backed API operations. Keep accidental DB access fail-closed.
       DATABASE_URL: postgresql://browser-smoke:unused@127.0.0.1:1/browser_smoke?schema=public
-      # Run the complete smoke suite within the unchanged eight-minute job ceiling.
-      PLAYWRIGHT_WORKERS: 2
+      # Each isolated runner executes one worker from a distinct suite shard.
+      PLAYWRIGHT_WORKERS: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -267,8 +294,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
 
-      - name: Run browser smoke suite
-        run: pnpm run test:browser:smoke --project="${{ matrix.browser }}" --reporter=list
+      - name: Run browser smoke suite shard
+        run: pnpm run test:browser:smoke --project="${{ matrix.browser }}" --shard="${{ matrix.shard }}/2" --reporter=list
 
   browser-e2e:
     needs: changes

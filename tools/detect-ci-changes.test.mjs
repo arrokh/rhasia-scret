@@ -66,10 +66,10 @@ test("wires package selection to every consuming job without cancelling a differ
     ["core", "core", 8, "ci-core-${{ github.workflow }}-${{ github.ref_name }}"],
     ["quality", "web", 8, "ci-web-quality-${{ github.workflow }}-${{ github.ref_name }}"],
     [
-      "browser-smoke",
+      "browser-smoke-shards",
       "web",
       8,
-      "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}",
+      "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}-${{ matrix.shard }}",
     ],
     [
       "browser-e2e",
@@ -88,12 +88,30 @@ test("wires package selection to every consuming job without cancelling a differ
   }
   const browserSmoke = job("browser-smoke");
   assert.match(browserSmoke, /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}\)$/m);
-  assert.doesNotMatch(browserSmoke, /^    services:/m);
+  assert.match(browserSmoke, /^    needs:\n      - changes\n      - browser-smoke-shards$/m);
+  assert.match(browserSmoke, /^    if: always\(\) && needs\.changes\.outputs\.web == 'true'$/m);
+  assert.match(browserSmoke, /^    timeout-minutes: 1$/m);
   assert.match(
     browserSmoke,
+    /^          BROWSER_SMOKE_SHARDS_RESULT: "\$\{\{ needs\.browser-smoke-shards\.result \}\}"$/m,
+  );
+  assert.match(browserSmoke, /^        shell: bash$/m);
+  assert.match(browserSmoke, /BROWSER_SMOKE_SHARDS_RESULT.*success/);
+  assert.match(browserSmoke, /exit 1/);
+  const browserSmokeShards = job("browser-smoke-shards");
+  assert.match(
+    browserSmokeShards,
+    /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}, shard \$\{\{ matrix\.shard \}\}\/2\)$/m,
+  );
+  assert.match(browserSmokeShards, /^        shard: \[1, 2\]$/m);
+  assert.match(browserSmokeShards, /^      PLAYWRIGHT_WORKERS: 1$/m);
+  assert.match(browserSmokeShards, /--shard="\$\{\{ matrix\.shard \}\}\/2"/);
+  assert.doesNotMatch(browserSmokeShards, /^    services:/m);
+  assert.match(
+    browserSmokeShards,
     /^      DATABASE_URL: postgresql:\/\/browser-smoke:unused@127\.0\.0\.1:1\/browser_smoke\?schema=public$/m,
   );
-  assert.doesNotMatch(browserSmoke, /prisma:migrate:deploy/);
+  assert.doesNotMatch(browserSmokeShards, /prisma:migrate:deploy/);
   const browserE2e = job("browser-e2e");
   assert.match(browserE2e, /^    name: Browser e2e \(\$\{\{ matrix\.browser \}\}\)$/m);
   assert.match(browserE2e, /^    services:\n      postgres:/m);
