@@ -229,13 +229,25 @@ async function settleTransition(
   const budgetMs = getTransitionBudget(from, to, options);
   const shouldReverseDuringProcessing =
     options.reverseDuringProcessing && options.reducedMotion === "no-preference" && to !== "locked";
+  await scene.evaluate((element, expectedStep) => {
+    element.removeAttribute("data-transition-settled-at");
+    const observer = new MutationObserver(() => {
+      if (element.getAttribute("data-scene-step") !== expectedStep || element.getAttribute("aria-busy") !== "false")
+        return;
+      element.setAttribute("data-transition-settled-at", String(performance.now()));
+      observer.disconnect();
+    });
+    observer.observe(element, { attributes: true, attributeFilter: ["data-scene-step", "aria-busy"] });
+  }, to);
   const startedAt = shouldReverseDuringProcessing
     ? await sendActionAndRapidReversalBurst(page, scene, action)
     : await sendActionAndRecordStart(page, scene, action);
 
   await expect(scene).toHaveAttribute("data-scene-step", to, { timeout: budgetMs });
   await expect(scene).toHaveAttribute("aria-busy", "false", { timeout: budgetMs });
-  const elapsedMs = await page.evaluate((start) => performance.now() - start, startedAt);
+  const settledAt = Number(await scene.getAttribute("data-transition-settled-at"));
+  expect(settledAt).toBeGreaterThanOrEqual(startedAt);
+  const elapsedMs = settledAt - startedAt;
   expect(
     elapsedMs,
     `${from} → ${to} should settle within its ${budgetMs}ms configured-duration budget (elapsed ${Math.round(elapsedMs)}ms)`,
@@ -266,12 +278,22 @@ function getTransitionBudget(
 
 async function sendActionAndRecordStart(page: Page, scene: Locator, action: InputAction) {
   await expect(scene).toHaveAttribute("data-input-ready", "true");
+  await scene.evaluate(
+    (element, eventType) => {
+      window.addEventListener(
+        eventType,
+        () => element.setAttribute("data-transition-started-at", String(performance.now())),
+        { once: true, capture: true },
+      );
+    },
+    action.kind === "key" ? "keydown" : "wheel",
+  );
   if (action.kind === "key") {
     await page.keyboard.press(action.key);
   } else {
     await page.mouse.wheel(0, action.deltaY);
   }
-  return page.evaluate(() => performance.now());
+  return Number(await scene.getAttribute("data-transition-started-at"));
 }
 
 async function sendActionAndRapidReversalBurst(page: Page, scene: Locator, action: InputAction) {
