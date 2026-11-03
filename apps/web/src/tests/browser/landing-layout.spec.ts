@@ -310,6 +310,9 @@ for (const locale of ["id", "en"] as const) {
       { width: 390, height: 844 },
       { width: 320, height: 568 },
     ]) {
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
       await page.setViewportSize(viewport);
       const hero = scene.locator('[class*="__heroOverlay"]');
       await expect(hero).toHaveAttribute("data-visible", "true");
