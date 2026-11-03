@@ -218,14 +218,27 @@
   fill: none;
   stroke: #c88717;
   stroke-linecap: round;
-  stroke-width: 1.7;
+  stroke-width: 1.5;
   opacity: 0.8;
 }
 
 .phoneStoryConnector circle {
   fill: #fffdf9;
   stroke: #c88717;
-  stroke-width: 2;
+  stroke-width: 1.6;
+}
+
+.phoneConnectorTransition {
+  animation: landing-connector-reveal 280ms ease-out both;
+}
+
+@keyframes landing-connector-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .phoneWebglCanvas,
@@ -510,6 +523,13 @@
   background: transparent;
   padding: clamp(2rem, 5vh, 4rem) clamp(1rem, 4vw, 4rem) 4rem;
   scroll-margin-top: 4rem;
+  visibility: hidden;
+  transition: none;
+}
+
+.journey[data-scene-settled="true"] {
+  margin-top: -100svh;
+  visibility: visible;
 }
 
 .journeyGrid {
@@ -522,7 +542,7 @@
 .guideColumn {
   display: grid;
   gap: clamp(3rem, 9vh, 7rem);
-  padding-top: 1rem;
+  padding-top: max(1rem, calc(50svh - 10.5rem));
 }
 
 .journeyCard {
@@ -541,6 +561,41 @@
     box-shadow 220ms ease,
     transform 220ms ease;
   scroll-margin-block: 35vh;
+}
+
+.journey[aria-hidden="true"] .journeyCard {
+  opacity: 0;
+}
+
+.journey[aria-hidden="false"] .journeyCard {
+  animation: landing-journey-card-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.journey[aria-hidden="false"] .journeyCardContent {
+  animation: landing-journey-card-content-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes landing-journey-card-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landing-journey-card-content-enter {
+  from {
+    transform: translateY(7px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.journeyCardContent {
+  display: flex;
+  flex-direction: column;
 }
 
 .journeyCardLeft {
@@ -627,12 +682,11 @@
 
 .journeyPhoneSticky {
   position: sticky;
-  top: 7vh;
+  top: calc(50svh - min(47svh, 30rem));
   display: grid;
-  height: min(94vh, 60rem);
+  height: min(94svh, 60rem);
   align-content: center;
   justify-items: center;
-  padding-top: 1rem;
 }
 
 .journeyPhoneSticky .phoneSceneJourney {
@@ -658,6 +712,10 @@
   font-weight: 800;
   box-shadow: 0 8px 22px rgb(39 48 57 / 8%);
   backdrop-filter: blur(12px);
+}
+
+.journey[data-phone-visible="false"] .journeyPhoneCaption {
+  visibility: hidden;
 }
 
 .journeyPhoneCaption > span:last-child {
@@ -889,11 +947,14 @@
     font-size: 0.62rem;
   }
   .mobileJourneyGuide {
+    display: flex;
     min-height: 0;
-    align-self: start;
-    padding: 0.45rem 0 0.75rem;
+    flex-direction: column;
+    align-self: stretch;
+    padding: 0.75rem 0 0.75rem;
   }
   .mobileJourneyGuide .journeyCard {
+    flex: 0 1 auto;
     height: auto;
     max-height: 100%;
     min-height: 0;
@@ -994,5 +1055,19 @@
   }
   .journeyCard {
     transition: none;
+  }
+  .journey[aria-hidden="true"] .journeyCard {
+    opacity: 0;
+  }
+  .journey[aria-hidden="false"] .journeyCard,
+  .journey[aria-hidden="false"] .journeyCardContent {
+    opacity: 1;
+    animation: none;
+  }
+  .journey[aria-hidden="false"] .journeyCardContent {
+    transform: none;
+  }
+  .phoneConnectorTransition {
+    animation: none;
   }
 }

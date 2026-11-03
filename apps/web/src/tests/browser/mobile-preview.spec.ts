@@ -946,7 +946,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
   await expect(footerDeveloperLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
-  await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: page.url() }]);
+  await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: new URL(page.url()).origin }]);
   await page.reload();
   await page.getByRole("tab", { name: "Invitations" }).click();
   const invitedUsersEnglish = page.locator('[aria-labelledby="invited-users-title"]');

@@ -161,6 +161,11 @@
     }
   },
   "Home": {
+    "landingLanguageChoice": {
+      "title": "Pilih bahasa / Choose your language",
+      "description": "Pilih bahasa untuk melanjutkan. Bahasa Indonesia digunakan sampai Anda memilih. / Choose a language to continue. Indonesian is used until you choose. Pilihan Anda disimpan di browser ini. / Your choice is saved in this browser.",
+      "offlineStatus": "Bahasa lain tidak tersedia saat luring. Hubungkan perangkat untuk mengganti bahasa. / Other languages are unavailable offline. Connect your device to change language."
+    },
     "landing": {
       "eyebrow": "Open Source · Local First · Zero Knowledge",
       "title": "Autentikator Anda, sesuai ketentuan Anda.",

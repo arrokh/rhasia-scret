@@ -24,6 +24,7 @@ export type { LandingDeviceKind, LandingPhoneView } from "./landing-flow.config"
 type LandingPhoneMockupProps = {
   view: LandingPhoneView;
   layout: "story" | "scene";
+  /** The parent phase signal now invalidates layers only; StoryEnvironment owns the floor. */
   transparentFloor?: boolean;
   startUnlockDemo?: boolean;
   unlockDemoResetToken?: number;
@@ -39,6 +40,11 @@ type LandingModelKey = "iphone" | "macbook";
 
 const LANDING_PHONE_MODEL_ID = landingFlowConfig.showcase.phoneModelId;
 const LANDING_FLOOR_LEVEL = -0.17;
+export const LANDING_FLOOR_APPEARANCE = Object.freeze({
+  color: 0xf8f4ed,
+  gridStrength: 1,
+  toneMapped: false,
+} as const);
 const PHONE_SCREEN_STYLESHEET_WARMUP_MS = 320;
 
 const landingModelPaths: Readonly<Record<LandingModelKey, string>> = landingFlowConfig.showcase.modelPaths;
@@ -176,7 +182,7 @@ type DeviceShowcaseController = Readonly<{
 }>;
 
 type PhoneSceneController = Readonly<{
-  setTransparentFloor: (transparent: boolean) => void;
+  render: () => void;
   cleanup: () => void;
 }>;
 
@@ -187,17 +193,194 @@ type LandingDeviceShowcaseProps = Readonly<{
   onTransitionComplete?: () => void;
 }>;
 
+type LandingProgressTransitionRequest = Readonly<{
+  progress: number;
+  duration: number;
+  available: boolean;
+  snap: boolean;
+  applyProgress: (progress: number) => void;
+  onComplete: () => void;
+}>;
+
+type LandingProgressTransitionScheduler = Readonly<{
+  now: () => number;
+  requestFrame: (callback: FrameRequestCallback) => number;
+  cancelFrame: (frame: number) => void;
+}>;
+
+type LandingCameraFitVector = Readonly<{ x: number; y: number; z: number }>;
+
+type LandingShowcaseCameraFitInput = Readonly<{
+  points: readonly LandingCameraFitVector[];
+  viewportWidth: number;
+  viewportHeight: number;
+  verticalFovDegrees: number;
+  cameraRight: LandingCameraFitVector;
+  cameraUp: LandingCameraFitVector;
+  cameraPositionDirection: LandingCameraFitVector;
+  frameOccupancy?: number;
+}>;
+
+export function getLandingShowcaseCameraDistance({
+  points,
+  viewportWidth,
+  viewportHeight,
+  verticalFovDegrees,
+  cameraRight,
+  cameraUp,
+  cameraPositionDirection,
+  frameOccupancy = 0.84,
+}: LandingShowcaseCameraFitInput) {
+  if (
+    points.length === 0 ||
+    viewportWidth <= 0 ||
+    viewportHeight <= 0 ||
+    verticalFovDegrees <= 0 ||
+    verticalFovDegrees >= 180 ||
+    frameOccupancy <= 0 ||
+    frameOccupancy > 1
+  ) {
+    return 0;
+  }
+
+  const verticalTangent = Math.tan((verticalFovDegrees * Math.PI) / 360);
+  const horizontalTangent = verticalTangent * (viewportWidth / viewportHeight);
+  if (verticalTangent <= 0 || horizontalTangent <= 0) return 0;
+
+  let requiredDistance = 0;
+  for (const point of points) {
+    const depthOffset =
+      point.x * cameraPositionDirection.x + point.y * cameraPositionDirection.y + point.z * cameraPositionDirection.z;
+    const horizontalOffset = point.x * cameraRight.x + point.y * cameraRight.y + point.z * cameraRight.z;
+    const verticalOffset = point.x * cameraUp.x + point.y * cameraUp.y + point.z * cameraUp.z;
+    requiredDistance = Math.max(
+      requiredDistance,
+      depthOffset + Math.abs(horizontalOffset) / (horizontalTangent * frameOccupancy),
+      depthOffset + Math.abs(verticalOffset) / (verticalTangent * frameOccupancy),
+    );
+  }
+  return Math.max(0, requiredDistance);
+}
+
+const browserLandingProgressTransitionScheduler: LandingProgressTransitionScheduler = {
+  now: () => performance.now(),
+  requestFrame: (callback) => requestAnimationFrame(callback),
+  cancelFrame: (frame) => cancelAnimationFrame(frame),
+};
+
+export function createLandingShowcaseProgressApplier(applyProgress: (progress: number) => void) {
+  let currentProgress: number | null = null;
+
+  return {
+    setProgress(progress: number) {
+      currentProgress = progress;
+      applyProgress(progress);
+    },
+    reapply() {
+      if (currentProgress === null) return false;
+      applyProgress(currentProgress);
+      return true;
+    },
+  };
+}
+
+export function createLandingProgressTransitionDriver(
+  initialProgress: number,
+  scheduler: LandingProgressTransitionScheduler = browserLandingProgressTransitionScheduler,
+) {
+  let currentProgress = initialProgress;
+  let targetProgress = initialProgress;
+  let frame: number | null = null;
+  let generation = 0;
+  let completionPending = false;
+
+  const cancelScheduledFrame = () => {
+    if (frame === null) return;
+    scheduler.cancelFrame(frame);
+    frame = null;
+    generation += 1;
+  };
+
+  const complete = (applyProgress: (progress: number) => void, onComplete: () => void) => {
+    currentProgress = targetProgress;
+    completionPending = false;
+    applyProgress(targetProgress);
+    onComplete();
+  };
+
+  const setTarget = ({
+    progress,
+    duration,
+    available,
+    snap,
+    applyProgress,
+    onComplete,
+  }: LandingProgressTransitionRequest) => {
+    if (progress !== targetProgress) {
+      cancelScheduledFrame();
+      targetProgress = progress;
+      completionPending = true;
+    }
+    if (!completionPending) return;
+    if (snap) {
+      cancelScheduledFrame();
+      complete(applyProgress, onComplete);
+      return;
+    }
+    if (!available) {
+      cancelScheduledFrame();
+      return;
+    }
+    if (currentProgress === targetProgress) {
+      complete(applyProgress, onComplete);
+      return;
+    }
+    if (frame !== null) return;
+    if (duration <= 0) {
+      complete(applyProgress, onComplete);
+      return;
+    }
+
+    const startProgress = currentProgress;
+    const startTime = scheduler.now();
+    const animationGeneration = ++generation;
+    const animate = (now: number) => {
+      if (animationGeneration !== generation) return;
+      const elapsed = Math.max(0, Math.min(1, (now - startTime) / duration));
+      const eased = elapsed * elapsed * elapsed * (elapsed * (elapsed * 6 - 15) + 10);
+      currentProgress = startProgress + (targetProgress - startProgress) * eased;
+      if (elapsed >= 1) {
+        frame = null;
+        currentProgress = targetProgress;
+        completionPending = false;
+        applyProgress(targetProgress);
+        onComplete();
+        return;
+      }
+      applyProgress(currentProgress);
+      frame = scheduler.requestFrame(animate);
+    };
+    frame = scheduler.requestFrame(animate);
+  };
+
+  return {
+    getCurrentProgress: () => currentProgress,
+    getTargetProgress: () => targetProgress,
+    setTarget,
+    cancelAnimation: cancelScheduledFrame,
+  };
+}
+
 export function LandingPhoneMockup({
   view,
   layout,
-  transparentFloor = false,
+  transparentFloor,
   startUnlockDemo = false,
   unlockDemoResetToken = 0,
   onUnlockComplete,
 }: LandingPhoneMockupProps) {
   const sceneContainer = useRef<HTMLDivElement>(null);
   const phoneSceneRef = useRef<PhoneSceneController | null>(null);
-  const transparentFloorRef = useRef(transparentFloor);
   const [screenHost, setScreenHost] = useState<HTMLElement | null>(null);
   const [sceneError, setSceneError] = useState(false);
   const t = useTranslations("Home.landing.phone");
@@ -207,18 +390,36 @@ export function LandingPhoneMockup({
     if (!container) return;
 
     let disposed = false;
+    let screenFrameFailed = false;
     let showcaseModelPreloadTimer: number | null = null;
     const phoneViewport = { kind: "phone" as const, viewportWidth: 390, viewportHeight: 844 };
     const screenFrame = createDeviceScreenFrame(phoneViewport);
 
+    const failScreenFrame = () => {
+      if (disposed) return;
+      screenFrameFailed = true;
+      phoneSceneRef.current?.cleanup();
+      phoneSceneRef.current = null;
+      setScreenHost(null);
+      setSceneError(true);
+    };
     const prepareScreenFrame = async () => {
       if (disposed) return;
-      const body = await prepareDeviceScreenFrame(screenFrame, phoneViewport);
-      if (disposed) return;
-      if (body) setScreenHost(body);
+      try {
+        const body = await prepareDeviceScreenFrame(screenFrame, phoneViewport, failScreenFrame);
+        if (disposed) return;
+        if (!body) {
+          failScreenFrame();
+          return;
+        }
+        setScreenHost(body);
+      } catch {
+        failScreenFrame();
+      }
     };
 
     screenFrame.addEventListener("load", prepareScreenFrame, { once: true });
+    screenFrame.addEventListener("error", failScreenFrame, { once: true });
     screenFrame.srcdoc =
       '<!doctype html><html><head><meta name="viewport" content="width=390, initial-scale=1"></head><body></body></html>';
 
@@ -229,7 +430,7 @@ export function LandingPhoneMockup({
       import("three/addons/libs/meshopt_decoder.module.js"),
     ])
       .then(async ([three, css3d, gltfLoader, meshoptDecoder]) => {
-        if (disposed) return;
+        if (disposed || screenFrameFailed) return;
         try {
           const controller = await initializePhoneScene(
             three,
@@ -239,18 +440,18 @@ export function LandingPhoneMockup({
             container,
             screenFrame,
           );
-          if (disposed) {
+          if (disposed || screenFrameFailed) {
             controller.cleanup();
             return;
           }
           phoneSceneRef.current = controller;
-          controller.setTransparentFloor(transparentFloorRef.current);
           showcaseModelPreloadTimer = window.setTimeout(() => {
             showcaseModelPreloadTimer = null;
             if (disposed) return;
             void loadLandingModel("macbook", three, gltfLoader, meshoptDecoder).catch(() => undefined);
           }, 160);
         } catch {
+          if (disposed) return;
           container.replaceChildren();
           setScreenHost(null);
           setSceneError(true);
@@ -267,33 +468,48 @@ export function LandingPhoneMockup({
       disposed = true;
       if (showcaseModelPreloadTimer !== null) window.clearTimeout(showcaseModelPreloadTimer);
       screenFrame.removeEventListener("load", prepareScreenFrame);
+      screenFrame.removeEventListener("error", failScreenFrame);
       phoneSceneRef.current?.cleanup();
       phoneSceneRef.current = null;
       screenFrame.remove();
-      setScreenHost(null);
     };
   }, []);
 
   useEffect(() => {
-    transparentFloorRef.current = transparentFloor;
-    phoneSceneRef.current?.setTransparentFloor(transparentFloor);
-  }, [transparentFloor]);
+    // Repaint the composited layers after screen or scene-phase changes. The persistent
+    // StoryEnvironment owns the backdrop in every primary-phone state.
+    phoneSceneRef.current?.render();
+  }, [screenHost, transparentFloor, view, startUnlockDemo, unlockDemoResetToken]);
 
-  const screen =
-    layout === "scene" ? (
-      <>
-        <div hidden={view !== "accounts"}>
-          <LandingVaultsHomePreview
-            startUnlockDemo={startUnlockDemo}
-            unlockDemoResetToken={unlockDemoResetToken}
-            onUnlockComplete={onUnlockComplete}
-          />
-        </div>
-        {view !== "accounts" && <LandingHostedVaultScreen view={view} />}
-      </>
-    ) : (
+  const hostedScreen = (
+    <div key={view} className={styles.phoneScreenEntry} data-landing-phone-screen-entry={view}>
       <LandingHostedVaultScreen view={view} />
-    );
+    </div>
+  );
+  const screen = (
+    <div className={styles.phoneScreenStack} data-landing-phone-screen-stack>
+      {layout === "scene" ? (
+        <>
+          <div
+            className={styles.phoneScreenTransition}
+            data-landing-phone-screen="accounts"
+            data-active={view === "accounts"}
+            aria-hidden={view !== "accounts"}
+            inert={view !== "accounts"}
+          >
+            <LandingVaultsHomePreview
+              startUnlockDemo={startUnlockDemo}
+              unlockDemoResetToken={unlockDemoResetToken}
+              onUnlockComplete={onUnlockComplete}
+            />
+          </div>
+          {view !== "accounts" && hostedScreen}
+        </>
+      ) : (
+        hostedScreen
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -332,7 +548,7 @@ export function LandingStoryEnvironment({ active }: { active: boolean }) {
         if (disposed) return;
 
         const scene = new three.Scene();
-        scene.background = new three.Color(0xf8f4ed);
+        scene.background = new three.Color(LANDING_FLOOR_APPEARANCE.color);
 
         const camera = new three.PerspectiveCamera(48, 1, 0.1, 120);
         camera.up.set(0, 0, -1);
@@ -345,7 +561,7 @@ export function LandingStoryEnvironment({ active }: { active: boolean }) {
           powerPreference: "low-power",
           stencil: false,
         });
-        renderer.setClearColor(0xf8f4ed, 1);
+        renderer.setClearColor(LANDING_FLOOR_APPEARANCE.color, 1);
         renderer.outputColorSpace = three.SRGBColorSpace;
         renderer.toneMapping = three.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1;
@@ -353,17 +569,15 @@ export function LandingStoryEnvironment({ active }: { active: boolean }) {
         renderer.domElement.setAttribute("aria-hidden", "true");
         container.append(renderer.domElement);
 
-        const floorTexture = createFloorTexture(three);
-        const floorMaterial = new three.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
+        const floorTexture = createFloorTexture(three, LANDING_FLOOR_APPEARANCE.gridStrength);
+        const floorMaterial = new three.MeshBasicMaterial({
+          map: floorTexture,
+          toneMapped: LANDING_FLOOR_APPEARANCE.toneMapped,
+        });
         const floor = new three.Mesh(new three.PlaneGeometry(120, 120), floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = LANDING_FLOOR_LEVEL;
         scene.add(floor);
-
-        const ambientLight = new three.HemisphereLight(0xfff7e8, 0x4a4e51, 1.8);
-        const keyLight = new three.DirectionalLight(0xfffbf3, 4.2);
-        keyLight.position.set(-10, 12, -8);
-        scene.add(ambientLight, keyLight, keyLight.target);
 
         const render = () => renderer.render(scene, camera);
         renderEnvironmentRef.current = render;
@@ -426,8 +640,7 @@ export function LandingDeviceShowcase({
 }: LandingDeviceShowcaseProps) {
   const sceneContainer = useRef<HTMLDivElement>(null);
   const sceneController = useRef<DeviceShowcaseController | null>(null);
-  const progressRef = useRef(progress);
-  const transitionFrameRef = useRef<number | null>(null);
+  const [progressTransition] = useState(() => createLandingProgressTransitionDriver(progress));
   const callbacksRef = useRef({ onReady, onTransitionComplete });
   const readyNotifiedRef = useRef(false);
   const [screenPortals, setScreenPortals] = useState<ScreenPortal[]>([]);
@@ -475,9 +688,10 @@ export function LandingDeviceShowcase({
             return;
           }
           sceneController.current = cleanupScene;
-          cleanupScene.setProgress(progressRef.current);
+          cleanupScene.setProgress(progressTransition.getCurrentProgress());
           setSceneInitialized(true);
         } catch {
+          if (disposed) return;
           container.replaceChildren();
           setSceneError(true);
         }
@@ -490,10 +704,7 @@ export function LandingDeviceShowcase({
 
     return () => {
       disposed = true;
-      if (transitionFrameRef.current !== null) {
-        cancelAnimationFrame(transitionFrameRef.current);
-        transitionFrameRef.current = null;
-      }
+      progressTransition.cancelAnimation();
       const cleanupScene = sceneController.current;
       cleanupScene?.cleanup();
       sceneController.current = null;
@@ -501,7 +712,7 @@ export function LandingDeviceShowcase({
       setScreenPortals([]);
     };
     // This scene is initialized once; animated scene transitions go through its controller.
-  }, []);
+  }, [progressTransition]);
 
   useEffect(() => {
     if (readyNotifiedRef.current) return;
@@ -512,54 +723,24 @@ export function LandingDeviceShowcase({
   }, [sceneError, sceneInitialized, screenPortals.length]);
 
   useEffect(() => {
-    if (progressRef.current === progress) return;
-    if (transitionFrameRef.current !== null) {
-      cancelAnimationFrame(transitionFrameRef.current);
-      transitionFrameRef.current = null;
-    }
-
     const controller = sceneController.current;
-    if (sceneError) {
-      progressRef.current = progress;
-      callbacksRef.current.onTransitionComplete?.();
-      return;
-    }
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion && (!controller || !sceneInitialized)) {
-      progressRef.current = progress;
-      callbacksRef.current.onTransitionComplete?.();
-      return;
-    }
-    if (!controller || !sceneInitialized) return;
-
-    const finishTransition = () => {
-      progressRef.current = progress;
-      controller.setProgress(progress);
-      transitionFrameRef.current = null;
-      callbacksRef.current.onTransitionComplete?.();
-    };
-    if (transitionDuration <= 0 || reducedMotion) {
-      finishTransition();
-      return;
-    }
-
-    const startProgress = progressRef.current;
-    const startTime = performance.now();
-    const animate = (now: number) => {
-      const elapsed = Math.min(1, (now - startTime) / transitionDuration);
-      const eased = elapsed < 0.5 ? 4 * elapsed * elapsed * elapsed : 1 - Math.pow(-2 * elapsed + 2, 3) / 2;
-      const nextProgress = startProgress + (progress - startProgress) * eased;
-      progressRef.current = nextProgress;
-      controller.setProgress(nextProgress);
-      if (elapsed >= 1) {
-        transitionFrameRef.current = null;
-        callbacksRef.current.onTransitionComplete?.();
-        return;
-      }
-      transitionFrameRef.current = requestAnimationFrame(animate);
-    };
-    transitionFrameRef.current = requestAnimationFrame(animate);
-  }, [progress, sceneError, sceneInitialized, transitionDuration]);
+    progressTransition.setTarget({
+      progress,
+      duration: transitionDuration,
+      available: Boolean(controller && sceneInitialized),
+      snap: sceneError || reducedMotion,
+      applyProgress: (nextProgress) => {
+        if (!controller) return;
+        try {
+          controller.setProgress(nextProgress);
+        } catch {
+          setSceneError(true);
+        }
+      },
+      onComplete: () => callbacksRef.current.onTransitionComplete?.(),
+    });
+  }, [progressTransition, progress, sceneError, sceneInitialized, transitionDuration]);
 
   return (
     <div
@@ -618,6 +799,7 @@ function createDeviceScreenHost(device: DeviceScreenDimensions) {
 async function prepareDeviceScreenFrame(
   screenFrame: HTMLIFrameElement,
   device: Pick<DeviceScreenDimensions, "viewportWidth" | "viewportHeight">,
+  onStylesheetError: () => void,
 ): Promise<HTMLElement | null> {
   const frameDocument = screenFrame.contentDocument;
   if (!frameDocument) return null;
@@ -637,7 +819,14 @@ async function prepareDeviceScreenFrame(
       stylesheetLoads.push(
         new Promise((resolve) => {
           clone.addEventListener("load", () => resolve(), { once: true });
-          clone.addEventListener("error", () => resolve(), { once: true });
+          clone.addEventListener(
+            "error",
+            () => {
+              onStylesheetError();
+              resolve();
+            },
+            { once: true },
+          );
         }),
       );
     }
@@ -664,10 +853,9 @@ async function initializePhoneScene(
   screenFrame: HTMLIFrameElement,
 ) {
   const phoneSource = await loadLandingModel("iphone", three, gltfLoader, meshoptDecoder);
-  const isStoryScene = container.dataset.layout === "story";
   const scene = new three.Scene();
-  const background = new three.Color(0xf8f4ed);
-  if (!isStoryScene) scene.background = background;
+  scene.background = null;
+  // The persistent StoryEnvironment is the canonical floor and background for this phone.
 
   const camera = new three.PerspectiveCamera(48, 1, 0.1, 100);
   camera.up.set(0, 0, -1);
@@ -680,7 +868,7 @@ async function initializePhoneScene(
     powerPreference: "low-power",
     stencil: false,
   });
-  webglRenderer.setClearColor(0xf8f4ed, isStoryScene ? 0 : 1);
+  webglRenderer.setClearColor(0x000000, 0);
   webglRenderer.outputColorSpace = three.SRGBColorSpace;
   webglRenderer.toneMapping = three.ACESFilmicToneMapping;
   webglRenderer.toneMappingExposure = 0.82;
@@ -695,17 +883,7 @@ async function initializePhoneScene(
   scene.environment = environmentTexture;
   scene.environmentIntensity = 0.62;
 
-  const floorTexture = isStoryScene ? null : createFloorTexture(three);
-  const floorMaterial = floorTexture
-    ? new three.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 })
-    : null;
-  const floor = floorMaterial ? new three.Mesh(new three.PlaneGeometry(120, 120), floorMaterial) : null;
   const floorLevel = LANDING_FLOOR_LEVEL;
-  if (floor) {
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = floorLevel;
-    scene.add(floor);
-  }
 
   const phoneCenterZ = -0.85;
 
@@ -759,6 +937,9 @@ async function initializePhoneScene(
     height = nextHeight;
     pixelRatio = nextPixelRatio;
 
+    const cameraDistance = Math.max(16.5, (16.5 * 720) / height);
+    camera.position.set(0, cameraDistance, 0);
+    camera.lookAt(0, 0, 0);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     webglRenderer.setPixelRatio(pixelRatio);
@@ -772,24 +953,16 @@ async function initializePhoneScene(
   resize();
 
   return {
-    setTransparentFloor: (transparent: boolean) => {
-      const transparentScene = isStoryScene || transparent;
-      scene.background = transparentScene ? null : background;
-      if (floor) floor.visible = !transparentScene;
-      webglRenderer.setClearColor(0xf8f4ed, transparentScene ? 0 : 1);
-      render();
-    },
+    render,
     cleanup: () => {
       resizeObserver.disconnect();
       webglRenderer.dispose();
       environmentTexture?.dispose();
-      floorTexture?.dispose();
       phoneShadowTexture.dispose();
-      floor?.geometry.dispose();
-      floorMaterial?.dispose();
       phoneShadow.geometry.dispose();
       phoneShadowMaterial.dispose();
-      container.replaceChildren();
+      webglRenderer.domElement.remove();
+      cssRenderer.domElement.remove();
     },
   };
 }
@@ -855,6 +1028,7 @@ function createRealLaptop(
   source: ThreeTypes.Group,
   viewportWidth: number,
   viewportHeight: number,
+  keepMaterial: <T extends ThreeTypes.Material>(material: T) => T,
 ) {
   const laptop = new three.Group();
   const deviceModel = source.clone(true);
@@ -893,6 +1067,7 @@ function createRealLaptop(
   const displayMaterials = Array.isArray(isolatedDisplayMaterials)
     ? isolatedDisplayMaterials
     : [isolatedDisplayMaterials];
+  displayMaterials.forEach(keepMaterial);
   for (const material of displayMaterials) {
     if (!(material instanceof three.MeshStandardMaterial)) continue;
     material.map = null;
@@ -961,7 +1136,7 @@ async function initializeDeviceShowcase(
 ): Promise<DeviceShowcaseController> {
   const laptopSource = await loadLandingModel("macbook", three, gltfLoader, meshoptDecoder);
   const scene = new three.Scene();
-  scene.background = new three.Color(0xf8f4ed);
+  scene.background = new three.Color(LANDING_FLOOR_APPEARANCE.color);
 
   const camera = new three.PerspectiveCamera(48, 1, 0.1, 140);
   const topCamera = new three.PerspectiveCamera(48, 1, 0.1, 140);
@@ -972,11 +1147,21 @@ async function initializeDeviceShowcase(
   sideCamera.up.set(0, 1, 0);
   sideCamera.position.set(0, 18, 25);
   sideCamera.lookAt(0, 0, 0);
+  const compactSideCamera = new three.PerspectiveCamera(44, 1, 0.1, 140);
+  compactSideCamera.up.set(0, 1, 0);
+  compactSideCamera.position.set(0, 30, 15);
+  compactSideCamera.lookAt(0, 0, 0);
   const topRotation = topCamera.quaternion.clone();
   const sideRotation = sideCamera.quaternion.clone();
+  const compactSideRotation = compactSideCamera.quaternion.clone();
   const topPosition = new three.Vector3(0, 16.5, 0.01);
   const sidePosition = new three.Vector3(0, 18, 25);
+  const compactSidePosition = new three.Vector3(0, 30, 15);
   const nextCameraPosition = new three.Vector3();
+  const cameraBounds = new three.Box3();
+  const deviceBounds = new three.Box3();
+  const cameraBoundsPoints: LandingCameraFitVector[] = [];
+  const progressApplier = createLandingShowcaseProgressApplier(applyProgress);
 
   const webglRenderer = new three.WebGLRenderer({
     alpha: false,
@@ -984,7 +1169,7 @@ async function initializeDeviceShowcase(
     powerPreference: "low-power",
     stencil: false,
   });
-  webglRenderer.setClearColor(0xf8f4ed, 1);
+  webglRenderer.setClearColor(LANDING_FLOOR_APPEARANCE.color, 1);
   webglRenderer.outputColorSpace = three.SRGBColorSpace;
   webglRenderer.toneMapping = three.ACESFilmicToneMapping;
   webglRenderer.toneMappingExposure = 0.78;
@@ -999,8 +1184,11 @@ async function initializeDeviceShowcase(
   scene.environment = environmentTexture;
   scene.environmentIntensity = 0.58;
 
-  const floorTexture = createFloorTexture(three, 0.68);
-  const floorMaterial = new three.MeshBasicMaterial({ map: floorTexture, toneMapped: false });
+  const floorTexture = createFloorTexture(three, LANDING_FLOOR_APPEARANCE.gridStrength);
+  const floorMaterial = new three.MeshBasicMaterial({
+    map: floorTexture,
+    toneMapped: LANDING_FLOOR_APPEARANCE.toneMapped,
+  });
   const floor = new three.Mesh(createLandingCycloramaGeometry(three), floorMaterial);
   floor.position.y = -0.17;
   scene.add(floor);
@@ -1211,7 +1399,15 @@ async function initializeDeviceShowcase(
 
     if (spec.kind === "laptop") {
       handset.add(
-        createRealLaptop(three, CSS3DObject, screenHost, laptopSource, spec.viewportWidth, spec.viewportHeight),
+        createRealLaptop(
+          three,
+          CSS3DObject,
+          screenHost,
+          laptopSource,
+          spec.viewportWidth,
+          spec.viewportHeight,
+          keepMaterial,
+        ),
       );
     }
 
@@ -1234,7 +1430,16 @@ async function initializeDeviceShowcase(
     contactShadow.scale.setScalar(spec.scale);
     contactShadow.renderOrder = 3;
     scene.add(handset, shadow, contactShadow);
-    return [{ handset, shadow, contactShadow, spec, floorOffset }];
+    return [
+      {
+        handset,
+        shadow,
+        contactShadow,
+        spec,
+        floorOffset,
+        exitDirection: new three.Vector2(spec.x, spec.z).normalize(),
+      },
+    ];
   });
 
   container.append(webglRenderer.domElement, cssRenderer.domElement);
@@ -1261,7 +1466,7 @@ async function initializeDeviceShowcase(
     webglRenderer.setPixelRatio(pixelRatio);
     webglRenderer.setSize(width, height, false);
     cssRenderer.setSize(width, height);
-    render();
+    if (!progressApplier.reapply()) render();
   };
   // Warm the expanded view before it is shown. Three's material compile pass does not
   // prepare the environment map or guarantee that the actual view has rendered, so the
@@ -1275,23 +1480,25 @@ async function initializeDeviceShowcase(
   resizeObserver.observe(container);
   resize();
 
-  const setProgress = (progress: number) => {
-    const expanded = smoothstep(0.14, 0.5, progress);
-    const leaving = smoothstep(0.8, 0.97, progress);
+  function applyProgress(progress: number) {
+    // One eased progress moves the camera, device positions, and scales together from the center.
+    const expanded = Math.max(0, Math.min(1, progress * 2));
+    const leaving = Math.max(0, Math.min(1, (progress - 0.5) * 2));
+    const compactLayout = width <= 900;
+    const nextSidePosition = compactLayout ? compactSidePosition : sidePosition;
+    const nextSideRotation = compactLayout ? compactSideRotation : sideRotation;
     const sideAmount = expanded * (1 - leaving);
-    camera.position.copy(nextCameraPosition.lerpVectors(topPosition, sidePosition, sideAmount));
-    camera.quaternion.slerpQuaternions(topRotation, sideRotation, sideAmount);
+    const baseCameraPosition = nextCameraPosition.lerpVectors(topPosition, nextSidePosition, sideAmount);
+    camera.position.copy(baseCameraPosition);
+    camera.quaternion.slerpQuaternions(topRotation, nextSideRotation, sideAmount);
     camera.fov = 48 - 4 * sideAmount;
     camera.updateProjectionMatrix();
-    camera.updateMatrixWorld();
 
-    const compactLayout = width <= 720;
-    const horizontalScale = compactLayout ? 0.52 : 1;
-    const depthScale = compactLayout ? 0.62 : 1;
+    const horizontalScale = compactLayout ? 0.62 : 1;
+    const depthScale = compactLayout ? 4 : 1;
     const exitSpread = compactLayout ? 9 : 15;
 
-    devices.forEach(({ handset, shadow, contactShadow, spec, floorOffset }) => {
-      const exitDirection = new three.Vector2(spec.x, spec.z).normalize();
+    devices.forEach(({ handset, shadow, contactShadow, spec, floorOffset, exitDirection }) => {
       const x = spec.x * horizontalScale * expanded + exitDirection.x * exitSpread * leaving;
       const z = spec.z * depthScale * expanded + exitDirection.y * exitSpread * leaving;
       const scale = spec.scale * expanded * (1 - leaving);
@@ -1307,11 +1514,45 @@ async function initializeDeviceShowcase(
       contactShadow.scale.setScalar(scale);
       contactShadow.visible = scale > 0.001;
     });
+
+    fitCameraToDeviceBounds(baseCameraPosition.length(), leaving);
+    camera.updateMatrixWorld();
     render();
-  };
+  }
+
+  function fitCameraToDeviceBounds(baseDistance: number, leaving: number) {
+    if (leaving !== 0) return;
+    cameraBounds.makeEmpty();
+    devices.forEach(({ handset }) => {
+      if (!handset.visible) return;
+      handset.updateMatrixWorld(true);
+      cameraBounds.union(deviceBounds.setFromObject(handset));
+    });
+    if (cameraBounds.isEmpty()) return;
+
+    cameraBoundsPoints.length = 0;
+    for (const x of [cameraBounds.min.x, cameraBounds.max.x]) {
+      for (const y of [cameraBounds.min.y, cameraBounds.max.y]) {
+        for (const z of [cameraBounds.min.z, cameraBounds.max.z]) cameraBoundsPoints.push({ x, y, z });
+      }
+    }
+    const cameraRight = new three.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const cameraUp = new three.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const cameraPositionDirection = new three.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).normalize();
+    const fittedDistance = getLandingShowcaseCameraDistance({
+      points: cameraBoundsPoints,
+      viewportWidth: width,
+      viewportHeight: height,
+      verticalFovDegrees: camera.fov,
+      cameraRight,
+      cameraUp,
+      cameraPositionDirection,
+    });
+    camera.position.copy(cameraPositionDirection.multiplyScalar(Math.max(baseDistance, fittedDistance)));
+  }
 
   return {
-    setProgress,
+    setProgress: progressApplier.setProgress,
     cleanup: () => {
       resizeObserver.disconnect();
       webglRenderer.dispose();
@@ -1325,11 +1566,6 @@ async function initializeDeviceShowcase(
       container.replaceChildren();
     },
   };
-}
-
-function smoothstep(minimum: number, maximum: number, value: number) {
-  const amount = Math.max(0, Math.min(1, (value - minimum) / (maximum - minimum)));
-  return amount * amount * (3 - 2 * amount);
 }
 
 function roundedRectangle(three: ThreeRuntime, width: number, height: number, radius: number) {
@@ -1403,13 +1639,13 @@ function createLandingCycloramaGeometry(three: ThreeRuntime) {
   return geometry;
 }
 
-function createFloorTexture(three: ThreeRuntime, gridStrength = 1) {
+function createFloorTexture(three: ThreeRuntime, gridStrength = LANDING_FLOOR_APPEARANCE.gridStrength) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
   const context = canvas.getContext("2d");
   if (context) {
-    context.fillStyle = "#f8f4ed";
+    context.fillStyle = `#${LANDING_FLOOR_APPEARANCE.color.toString(16).padStart(6, "0")}`;
     context.fillRect(0, 0, canvas.width, canvas.height);
     for (let offset = 0; offset <= 256; offset += 64) {
       const isMajorGridLine = offset % 128 === 0;

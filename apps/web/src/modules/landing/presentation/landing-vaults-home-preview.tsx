@@ -65,7 +65,6 @@ function LandingVaultsHomePreviewScreen({
   const currentPhoneTime = useLandingPhoneClock();
   const { setWorkspace } = useUnlockedVaultWorkspace();
   const phoneUiRef = useRef<HTMLDivElement>(null);
-  const animationStartedRef = useRef(false);
   const onUnlockCompleteRef = useRef(onUnlockComplete);
   const [phase, setPhase] = useState<UnlockDemoPhase>("locked");
   const [previewPassphraseValue, setPreviewPassphraseValue] = useState("");
@@ -128,8 +127,7 @@ function LandingVaultsHomePreviewScreen({
   }, [startUnlockDemo]);
 
   useEffect(() => {
-    if (!startUnlockDemo || animationStartedRef.current) return;
-    animationStartedRef.current = true;
+    if (!startUnlockDemo) return;
     const animationWindow = window;
     if (animationWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const frameId = animationWindow.requestAnimationFrame(() => {

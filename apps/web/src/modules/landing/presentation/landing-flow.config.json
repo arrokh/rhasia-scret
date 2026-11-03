@@ -78,9 +78,9 @@
       "wheelGestureReleaseMs": 420
     },
     "durationsMs": {
-      "showcaseExpansion": 850,
-      "deviceTransition": 1200,
-      "deviceDepartureDelay": 560
+      "showcaseExpansion": 950,
+      "deviceTransition": 800,
+      "deviceDepartureDelay": 300
     },
     "unlockDemo": {
       "maskedPassphraseLength": 12,

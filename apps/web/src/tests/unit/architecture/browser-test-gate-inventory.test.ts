@@ -4,6 +4,12 @@ import { describe, expect, it } from "vitest";
 
 const smokeSpecs = [
   "granular-loading.spec.ts",
+  "landing-fallback.spec.ts",
+  "landing-input.spec.ts",
+  "landing-journey-boundaries.spec.ts",
+  "landing-language-dialog.spec.ts",
+  "landing-layout.spec.ts",
+  "landing-transition-stress.spec.ts",
   "local-vault-archive-import.spec.ts",
   "local-vault-readiness.spec.ts",
   "local-vault-tags.spec.ts",

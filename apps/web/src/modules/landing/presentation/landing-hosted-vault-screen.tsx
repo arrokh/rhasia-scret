@@ -55,7 +55,13 @@ export function LandingHostedVaultScreen({
     if (!target) return;
     target.dataset.landingPhoneTarget = view;
     target.classList.add(styles.phoneTargetCue);
-    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const scrollTarget = view === "sharedPermissions" ? (target.closest<HTMLElement>("form") ?? target) : target;
+    const targetBounds = scrollTarget.getBoundingClientRect();
+    const viewportBounds = viewport.getBoundingClientRect();
+    viewport.scrollTop = Math.max(
+      0,
+      targetBounds.top - viewportBounds.top - (viewport.clientHeight - targetBounds.height) / 2,
+    );
   }, [view]);
 
   return (
@@ -115,9 +121,9 @@ function BrowserChrome() {
 }
 
 function findJourneyControl(viewport: HTMLElement, view: LandingPhoneView): HTMLElement | null {
-  if (view === "accounts" || view === "added") {
-    return viewport.querySelector<HTMLElement>('a[href="/vaults/accounts/new"]');
-  }
+  if (view === "accounts") return viewport.querySelector<HTMLElement>('a[href="/vaults/accounts/new"]');
+  if (view === "added")
+    return viewport.querySelector<HTMLElement>('[data-slot="account-directory-list"] li:last-child button');
   if (view === "scan") return viewport.querySelector<HTMLElement>('button[class~="w-full"]');
   if (view === "review") return viewport.querySelector<HTMLElement>("#account-label");
   if (view === "sharedCreate") {

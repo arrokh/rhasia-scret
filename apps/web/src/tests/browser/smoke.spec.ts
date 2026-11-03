@@ -17,7 +17,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await expect(primaryPhone).toHaveAttribute("data-visible", "true");
   const storyEnvironment = page.locator("[data-landing-story-environment]");
-  await expect(storyEnvironment).toHaveAttribute("data-visible", "false");
+  await expect(storyEnvironment).toHaveAttribute("data-visible", "true");
   await expect(storyEnvironment.locator("canvas")).toHaveCount(1, { timeout: 15_000 });
   const phonePreview = primaryPhone.getByRole("img").locator('iframe[data-device-kind="phone"]').first().contentFrame();
   await expect(phonePreview.locator("[data-unlock-phase]")).toHaveAttribute("data-unlock-phase", "locked", {
@@ -78,7 +78,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
         },
       ),
   );
-  expect(blockedInput).toEqual({ wheel: true, click: true, key: true, inert: true, busy: true });
+  expect(blockedInput).toEqual({ wheel: true, click: true, key: false, inert: true, busy: true });
   await page.evaluate(() => {
     const activeScene = document.querySelector<HTMLElement>("[data-landing-desktop-scene]");
     if (!activeScene) return;
@@ -116,7 +116,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
   await expect(primaryPhone.locator("[data-device-model]")).toHaveAttribute("data-device-model", "iphone-17-pro-max");
   const heroBounds = await hero.boundingBox();
   expect(heroBounds).not.toBeNull();
-  expect(heroBounds!.y + heroBounds!.height / 2).toBeGreaterThan(900 * 0.53);
+  expect(heroBounds!.y + heroBounds!.height / 2).toBeCloseTo(900 / 2, 0);
 
   await page.keyboard.press("PageUp");
   await expect(scene).toHaveAttribute("data-scene-step", "contracting");
@@ -270,7 +270,7 @@ test("keeps the shared Hosted Vault journey and device viewport on the page", as
     await page.goto("/");
     const journey = page.locator("#landing-journey");
     await expect(journey).toHaveCount(1);
-    await expect(journey.locator('[class*="__guideColumn"] article')).toHaveCount(7);
+    await expect(journey.locator('[class*="__guideColumn"] article')).toHaveCount(8);
     await expect(journey.locator('[class*="__mobileJourneySteps"] [data-landing-phone-view]')).toHaveCount(8);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }

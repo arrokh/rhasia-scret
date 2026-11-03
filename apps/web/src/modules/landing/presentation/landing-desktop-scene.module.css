@@ -13,8 +13,12 @@
   isolation: isolate;
 }
 
+.scenePage[data-scene-step="settled"] {
+  pointer-events: none;
+}
+
 .scenePage:not([data-scene-step="settled"]) .sceneStage {
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .initialPhone,
@@ -27,6 +31,29 @@
 }
 
 .initialPhone {
+  --landing-device-ease: linear(
+    0 0%,
+    0.00116 5%,
+    0.00856 10%,
+    0.02661 15%,
+    0.05792 20%,
+    0.10352 25%,
+    0.16308 30%,
+    0.23517 35%,
+    0.31744 40%,
+    0.40687 45%,
+    0.5 50%,
+    0.59313 55%,
+    0.68256 60%,
+    0.76483 65%,
+    0.83692 70%,
+    0.89648 75%,
+    0.94208 80%,
+    0.97339 85%,
+    0.99144 90%,
+    0.99884 95%,
+    1 100%
+  );
   position: fixed;
   z-index: 2;
   pointer-events: none;
@@ -34,7 +61,7 @@
   transform-origin: center;
   transition:
     opacity 360ms ease,
-    transform var(--landing-showcase-expansion-duration, 850ms) cubic-bezier(0.22, 1, 0.36, 1);
+    transform var(--landing-showcase-expansion-duration, 950ms) var(--landing-device-ease);
 }
 
 .initialPhone[data-device-scale="showcase"] {
@@ -44,17 +71,20 @@
 .initialPhone[data-scene-step="leaving"] {
   transition:
     opacity 360ms ease,
-    transform var(--landing-device-transition-duration, 1200ms) cubic-bezier(0.22, 1, 0.36, 1)
-      var(--landing-device-departure-delay, 560ms),
-    left var(--landing-device-transition-duration, 1200ms) cubic-bezier(0.22, 1, 0.36, 1)
-      var(--landing-device-departure-delay, 560ms);
+    transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms),
+    left var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms),
+    top var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms);
 }
 
 .initialPhone[data-scene-step="returning"] {
   transition:
     opacity 360ms ease,
-    transform var(--landing-device-transition-duration, 1200ms) cubic-bezier(0.22, 1, 0.36, 1),
-    left var(--landing-device-transition-duration, 1200ms) cubic-bezier(0.22, 1, 0.36, 1);
+    transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease),
+    left var(--landing-device-transition-duration, 800ms) var(--landing-device-ease),
+    top var(--landing-device-transition-duration, 800ms) var(--landing-device-ease);
 }
 
 .initialPhone[data-visible="false"] {
@@ -87,9 +117,14 @@
 .heroOverlay {
   position: absolute;
   z-index: 4;
-  top: 62%;
+  top: 50%;
   left: 50%;
   width: min(50rem, calc(100% - 3rem));
+  max-height: calc(100svh - 13rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c88717 #f8f4ed;
   padding: clamp(1.5rem, 3.6vw, 2.8rem);
   border: 1px solid rgb(255 255 255 / 82%);
   border-radius: 1.6rem;
@@ -106,23 +141,46 @@
   will-change: opacity, transform;
 }
 
-@media (max-height: 860px) and (min-width: 721px) {
-  .heroScrollCue {
-    top: 1rem;
-    bottom: auto;
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .heroOverlay {
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 45%), rgb(255 255 255 / 10%) 48%, rgb(255 255 255 / 22%)),
+      rgb(248 244 237 / 70%);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  .heroOverlay > p:first-child {
+    color: #80510a;
+  }
+
+  .heroOverlay .sceneHeroDescription,
+  .heroOverlay .sceneHostedAccess {
+    color: #35414b;
+  }
+
+  .heroOverlay[data-visible="false"] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
-@media (max-height: 660px) and (min-width: 721px) {
+@media (prefers-reduced-transparency: reduce) {
   .heroOverlay {
-    top: 55%;
+    background: #f8f4ed;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
+}
+
+.scenePage[data-scene-step="expanding"] .heroOverlay[data-visible="true"] {
+  transition-delay: calc(var(--landing-showcase-expansion-duration, 950ms) * 0.45);
 }
 
 .heroOverlay[data-visible="false"] {
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -46%) scale(0.985);
+  transform: translate(-50%, calc(-50% + 0.6rem)) scale(0.985);
 }
 
 .heroOverlay .sceneHeroTitle {
@@ -339,7 +397,11 @@
   z-index: 0;
   inset: 0;
   overflow: hidden;
-  background: #f8f4ed;
+  background-color: #f8f4ed;
+  background-image:
+    linear-gradient(rgb(39 48 57 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(39 48 57 / 8%) 1px, transparent 1px);
+  background-size: 64px 64px;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -409,6 +471,47 @@
   border: 0;
   border-radius: 0.2rem;
   box-shadow: none;
+}
+
+.phoneScreenStack {
+  position: relative;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+}
+
+.phoneScreenTransition,
+.phoneScreenEntry {
+  position: absolute;
+  inset: 0;
+}
+
+.phoneScreenTransition {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 280ms ease;
+}
+
+.phoneScreenTransition[data-active="false"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 280ms ease,
+    visibility 0s linear 280ms;
+}
+
+.phoneScreenEntry {
+  animation: landing-phone-screen-dissolve 280ms ease-out both;
+}
+
+@keyframes landing-phone-screen-dissolve {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .phoneUi {
@@ -628,6 +731,8 @@
   position: absolute;
   inset: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   perspective: 1400px;
 }
@@ -641,7 +746,7 @@
   border-radius: 52px;
   background: #101316;
   box-shadow: 0 30px 70px rgb(39 48 57 / 22%);
-  transform: rotateX(12deg) rotateZ(-4deg) scale(min(1, calc(100vw / 460), calc(100svh / 960)));
+  transform: rotateX(12deg) rotateZ(-4deg) scale(min(1, calc((100vw - 2rem) / 500px), calc((100svh - 8rem) / 960px)));
 }
 
 .phoneFallbackFrame .phoneUi {
@@ -693,6 +798,15 @@
 }
 
 @media (max-width: 720px) {
+  .initialPhone[data-scene-step="leaving"] > .phoneScene {
+    transition: transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms);
+  }
+
+  .initialPhone[data-scene-step="returning"] > .phoneScene {
+    transition: transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease);
+  }
+
   .sceneGuide {
     display: none;
   }
@@ -709,9 +823,16 @@
 
   .heroOverlay {
     top: 50%;
+    bottom: auto;
     width: calc(100% - 1.25rem);
+    max-height: calc(100svh - 12rem);
+    transform: translate(-50%, -50%);
     padding: 1.35rem 1.25rem;
     border-radius: 1.2rem;
+  }
+
+  .heroOverlay[data-visible="false"] {
+    transform: translate(-50%, -46%) scale(0.985);
   }
 
   .heroOverlay .sceneHeroTitle {
@@ -742,8 +863,18 @@
   }
 }
 
+@media (max-height: 660px) {
+  .scrollCue {
+    top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .scrollCue .scrollDoodle {
+    height: 32px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .initialPhone,
+  .initialPhone[data-scene-step],
   .deviceShowcase,
   .heroOverlay,
   .heroScrollCue {
@@ -770,6 +901,16 @@
   .scrollDoodleArrow {
     animation: none;
     stroke-dashoffset: 0;
+  }
+
+  .initialPhone[data-scene-step] > .phoneScene {
+    transition: none;
+  }
+
+  .phoneScreenTransition,
+  .phoneScreenEntry {
+    transition: none;
+    animation: none;
   }
 
   .unlockDemoCursor {

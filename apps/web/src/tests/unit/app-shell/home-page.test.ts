@@ -3,6 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n/locale-switcher", () => ({ LocaleSwitcher: () => null }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => "/landing",
+}));
 import LandingPage from "@/app/landing/page";
 
 describe("LandingPage", () => {

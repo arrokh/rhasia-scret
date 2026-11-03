@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
-import { localeCookieMaxAge, localeCookieName, locales, type AppLocale } from "./config";
+import { isAppLocale, localeCookieMaxAge, localeCookieName, locales, type AppLocale } from "./config";
 
 export const refreshOfflineShellMessage = "RHSIA_REFRESH_OFFLINE_SHELL";
 const offlineShellRefreshedMessage = "RHSIA_OFFLINE_SHELL_REFRESHED";
@@ -26,6 +26,30 @@ function persistLocale(nextLocale: AppLocale) {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${localeCookieName}=${nextLocale}; Path=/; Max-Age=${localeCookieMaxAge}; SameSite=Lax${secure}`;
   document.documentElement.lang = nextLocale;
+}
+
+export async function applyLocalePreference(
+  nextLocale: AppLocale,
+  currentLocale: AppLocale,
+  { firstChoice = false }: { firstChoice?: boolean } = {},
+): Promise<boolean> {
+  const previousCookie = document.cookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(`${localeCookieName}=`))
+    ?.slice(localeCookieName.length + 1);
+  persistLocale(nextLocale);
+  if (nextLocale === currentLocale && !navigator.onLine) return true;
+
+  try {
+    await refreshOfflineShell(nextLocale);
+    return true;
+  } catch {
+    persistLocale(currentLocale);
+    await refreshOfflineShell(currentLocale).catch(() => {});
+    if (firstChoice && !isAppLocale(previousCookie)) document.cookie = `${localeCookieName}=; Path=/; Max-Age=0`;
+    return false;
+  }
 }
 
 export function LocaleSwitcher({
@@ -225,20 +249,16 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
   function confirmLocaleChange() {
     if (nextLocale === locale || pending || refreshingOfflineShell || !online) return;
     setOfflineShellRefreshFailed(false);
-    persistLocale(nextLocale);
     setRefreshingOfflineShell(true);
-    void refreshOfflineShell(nextLocale)
-      .then(() => {
-        setRefreshingOfflineShell(false);
-        onCancel();
-        startTransition(() => router.refresh());
-      })
-      .catch(async () => {
-        persistLocale(locale);
-        await refreshOfflineShell(locale).catch(() => {});
-        setRefreshingOfflineShell(false);
+    void applyLocalePreference(nextLocale, locale).then((applied) => {
+      setRefreshingOfflineShell(false);
+      if (!applied) {
         setOfflineShellRefreshFailed(true);
-      });
+        return;
+      }
+      onCancel();
+      startTransition(() => router.refresh());
+    });
   }
 
   function cancelLocaleChange() {
