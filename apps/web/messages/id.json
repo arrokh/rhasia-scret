@@ -161,15 +161,13 @@
     }
   },
   "Home": {
-    "landingLanguageChoice": {
-      "title": "Pilih bahasa / Choose your language",
-      "description": "Pilih bahasa untuk melanjutkan. Bahasa Indonesia digunakan sampai Anda memilih. / Choose a language to continue. Indonesian is used until you choose. Pilihan Anda disimpan di browser ini. / Your choice is saved in this browser.",
-      "offlineStatus": "Bahasa lain tidak tersedia saat luring. Hubungkan perangkat untuk mengganti bahasa. / Other languages are unavailable offline. Connect your device to change language."
-    },
     "landing": {
-      "eyebrow": "Open Source · Local First · Zero Knowledge",
-      "title": "Autentikator Anda, sesuai ketentuan Anda.",
-      "description": "Mulai dengan Local Vault TOTP yang sepenuhnya lokal. Pindah ke Personal Vault terenkripsi atau Shared Vault terkelola hanya saat Anda memilihnya.",
+      "navigation": {
+        "label": "Navigasi utama"
+      },
+      "eyebrow": "Open source · Local-first · Zero knowledge",
+      "title": "Authenticator, sesuai pilihan Anda.",
+      "description": "Mulai dengan Local Vault di browser—tanpa masuk. Salin akun ke Personal atau Shared Vault terenkripsi hanya jika Anda memilih.",
       "heroImageAlt": "Ilustrasi amplop tertutup dan maskot burung hantu rhasia-scret.",
       "signIn": "Masuk",
       "localVault": "Coba Local Vault",
@@ -179,121 +177,121 @@
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
       "footerAuthor": "nooroctavian.id",
-      "hostedAccess": "Brankas Lokal tidak memerlukan masuk. Hosted Vault tersedia dengan alamat email terverifikasi.",
+      "hostedAccess": "Local Vault tidak perlu masuk. Hosted Vault memerlukan email terverifikasi; enkripsi berlangsung di browser.",
       "journey": {
-        "scrollHint": "Gulir untuk mengikuti alur",
-        "scrollPrompt": "Gulir ke bawah untuk melanjutkan",
+        "scrollHint": "Gulir untuk mengikuti langkah",
+        "scrollPrompt": "Gulir untuk lanjut",
         "eyebrow": "Hosted Vault, langkah demi langkah",
-        "title": "Dari satu akun ke Vault tim.",
-        "description": "Ikuti pengalaman hosted yang sebenarnya: tambahkan akun authenticator, buat Shared Vault, undang rekan tim, lalu pilih tindakan yang dapat mereka lakukan.",
-        "phoneStageLabel": "Pratinjau interaktif Hosted Vault",
-        "privacyNote": "Semua nama, email, dan kode di sini adalah konten demo sintetis. Konten Vault dienkripsi di browser sebelum dikirim ke layanan.",
+        "title": "Dari akun pribadi ke Vault tim.",
+        "description": "Lihat alur hosted: tambah akun, buat Shared Vault, undang anggota, lalu atur izinnya.",
+        "phoneStageLabel": "Pratinjau Hosted Vault",
+        "privacyNote": "Semua data di sini sintetis. Konten Vault dienkripsi di browser sebelum dikirim ke layanan.",
         "phoneCaption": {
-          "accounts": "Hosted /vaults · satu akun contoh",
-          "scan": "Tambah akun · pemindaian",
-          "review": "Tambah akun · tinjau detail",
+          "accounts": "Hosted · daftar akun",
+          "scan": "Tambah akun · pindai",
+          "review": "Tambah akun · tinjau",
           "added": "Personal Vault · akun ditambahkan",
           "sharedCreate": "Shared Vault · buat",
           "sharedInvite": "Shared Vault · undang",
-          "sharedPermissions": "Shared Vault · izin anggota",
-          "sharedReady": "Shared Vault · anggota bergabung"
+          "sharedPermissions": "Shared Vault · izin",
+          "sharedReady": "Shared Vault · siap"
         },
         "steps": {
           "accounts": {
             "eyebrow": "01 · Hosted Vault Anda",
             "left": {
-              "title": "Mulai dengan satu akun.",
-              "description": "Ponsel membuka daftar akun Hosted Vault yang sebenarnya, berisi satu contoh sintetis. Gulir untuk mengikuti proses saat Anda menambahkan akun berikutnya."
+              "title": "Mulai dengan akun contoh.",
+              "description": "Daftar Hosted Vault menampilkan satu akun sintetis. Gulir untuk melihat cara menambah akun."
             },
             "right": {
-              "title": "Ini adalah layar produk.",
-              "description": "Mockup menggunakan kembali komponen /vaults dan tata letak ponsel yang sama dengan aplikasi. Hanya data akun walkthrough ini yang dibuat-buat."
+              "title": "Layar yang sama dengan aplikasi.",
+              "description": "Pratinjau memakai komponen /vaults yang sama, dengan data akun sintetis."
             },
-            "note": "Contoh OTP dibuat di browser dari secret demo sintetis."
+            "note": "OTP contoh dibuat di browser dari secret sintetis."
           },
           "scan": {
             "eyebrow": "02 · Tambahkan akun",
             "left": {
-              "title": "Mulai dari Vault Anda.",
-              "description": "Pilih Tambah akun untuk membuka alur akun hosted yang sama. Pindai QR penyedia di browser atau pilih gambar dari perangkat Anda."
+              "title": "Tambahkan akun ke Vault.",
+              "description": "Pilih Tambah akun, lalu pindai QR atau pilih gambar dari perangkat."
             },
             "right": {
-              "title": "Secret tetap di perangkat Anda.",
-              "description": "Alur hosted membaca data penyiapan di browser. Pratinjau baca-saja ini menampilkan formulir pemindaian yang sama dengan data sintetis dan tidak membuka kamera."
+              "title": "Secret tetap di browser.",
+              "description": "Data penyiapan dibaca di browser. Pratinjau ini tidak membuka kamera."
             },
-            "note": "Aplikasi meminta akses kamera hanya setelah Anda memilih untuk memindai."
+            "note": "Aplikasi meminta akses kamera hanya saat Anda memilih pindai."
           },
           "review": {
             "eyebrow": "03 · Tinjau detail",
             "left": {
               "title": "Periksa sebelum menyimpan.",
-              "description": "Pastikan penerbit dan label akun contoh sudah benar, lalu pilih Vault tujuan. Mockup ini hanya memakai nilai sintetis."
+              "description": "Pastikan penerbit dan label akun, lalu pilih Vault tujuan. Data contoh tetap sintetis."
             },
             "right": {
-              "title": "Pilih tujuan secara eksplisit.",
-              "description": "Alur ini menambahkan akun ke Personal Vault. Menyalin akun ke Vault lain adalah tindakan terpisah yang Anda kendalikan."
+              "title": "Pilih tujuan akun.",
+              "description": "Akun ditambahkan ke Personal Vault. Menyalin ke Vault lain adalah tindakan terpisah."
             },
-            "note": "Nama Vault dan label akun merupakan konten terenkripsi."
+            "note": "Nama Vault dan label akun dienkripsi."
           },
           "added": {
             "eyebrow": "04 · Akun ditambahkan",
             "left": {
-              "title": "Akun muncul di Personal Vault.",
-              "description": "Akun authenticator baru bergabung dengan akun contoh yang sudah ada. Secret penyiapannya tidak ditampilkan di pratinjau landing page ini."
+              "title": "Akun ada di Personal Vault.",
+              "description": "Akun baru bergabung dengan akun contoh. Secret penyiapan tidak ditampilkan di sini."
             },
             "right": {
-              "title": "Gunakan dari ponsel Anda.",
-              "description": "Buka akun untuk melihat kode berbasis waktu di aplikasi yang sudah dibuka. Pratinjau menghitung kode sepenuhnya di browser dari secret demo sintetis."
+              "title": "Lihat kode di ponsel.",
+              "description": "Buka akun untuk melihat OTP. Kode contoh dihitung di browser dari secret sintetis."
             },
-            "note": "Pembukaan Vault dan pembuatan kode berlangsung di browser."
+            "note": "Vault dibuka dan OTP dibuat di browser."
           },
           "sharedCreate": {
             "eyebrow": "05 · Buat Shared Vault",
             "left": {
-              "title": "Buat ruang untuk tim.",
-              "description": "Beri nama Shared Vault, lalu buat dari akun yang sudah masuk. Shared Vault memiliki kunci enkripsinya sendiri."
+              "title": "Buat Vault untuk tim.",
+              "description": "Beri nama dan buat dari akun yang sudah masuk. Shared Vault punya kunci enkripsi sendiri."
             },
             "right": {
               "title": "Server menyimpan konten terenkripsi.",
-              "description": "Nama tim di contoh ini hanya data demo. Di produk, nama Shared Vault dan detail akun dienkripsi sebelum disimpan."
+              "description": "Nama Vault dan detail akun dienkripsi sebelum disimpan."
             },
-            "note": "Membuat Shared Vault tidak otomatis mengundang siapa pun."
+            "note": "Membuat Shared Vault tidak otomatis mengundang anggota."
           },
           "sharedInvite": {
             "eyebrow": "06 · Undang rekan tim",
             "left": {
-              "title": "Undang satu alamat email terverifikasi.",
-              "description": "Masukkan alamat rekan tim dan buat undangan sekali pakai. Pratinjau memakai teammate@example.test dan tidak pernah menampilkan secret untuk berbagi."
+              "title": "Undang lewat email terverifikasi.",
+              "description": "Buat undangan sekali pakai untuk teammate@example.test. Secret tautan tidak ditampilkan."
             },
             "right": {
-              "title": "Undangan ditebus setelah mereka masuk.",
-              "description": "Penerima masuk dengan email terverifikasi tersebut, lalu membuka Secure Share Link sekali pakai untuk menebus undangan di browser mereka."
+              "title": "Undangan ditebus setelah masuk.",
+              "description": "Penerima masuk dengan email terverifikasi, lalu membuka Secure Share Link sekali pakai di browser."
             },
-            "note": "Secret tautan tidak pernah disimpan atau dikirim ke server."
+            "note": "Secret Secure Share Link tidak disimpan atau dikirim ke server."
           },
           "sharedPermissions": {
             "eyebrow": "07 · Atur izin",
             "left": {
-              "title": "Pilih perubahan yang boleh dilakukan anggota.",
-              "description": "Berikan akses tambah, edit, dan hapus secara terpisah. Dalam contoh ini, rekan tim boleh menambah akun, tetapi tidak boleh mengedit atau menghapusnya."
+              "title": "Pilih perubahan yang diizinkan.",
+              "description": "Atur tambah, edit, dan hapus secara terpisah. Contoh ini hanya mengizinkan tambah."
             },
             "right": {
-              "title": "Akses dimulai dengan izin minimum.",
-              "description": "Izin Shared Vault diberikan secara eksplisit. Anggota dapat melihat dan menyalin kode yang dapat mereka akses; perubahan akun bergantung pada izin yang Anda berikan."
+              "title": "Anggota dapat melihat dan menyalin.",
+              "description": "Akses baca dan salin tersedia. Tambah, edit, dan hapus mengikuti izin masing-masing."
             },
-            "note": "Kontrol izin asli ditampilkan dalam keadaan baca-saja di pratinjau ini."
+            "note": "Kontrol izin asli ditampilkan dalam pratinjau baca-saja."
           },
           "sharedReady": {
             "eyebrow": "08 · Shared Vault siap",
             "left": {
-              "title": "Rekan tim bergabung ke Vault.",
-              "description": "Setelah undangan ditebus, Shared Vault muncul untuk anggota dengan akses yang Anda pilih. Di sini, mereka dapat menambah akun serta melihat atau menyalin akun contoh yang sudah ada."
+              "title": "Anggota bergabung ke Vault.",
+              "description": "Setelah undangan ditebus, anggota melihat Shared Vault. Di contoh ini, mereka dapat menambah akun serta melihat atau menyalin akun contoh."
             },
             "right": {
-              "title": "Anda tetap mengendalikan akses.",
-              "description": "Tinjau keanggotaan, sesuaikan izin, atau cabut akses dari pengaturan Shared Vault saat kondisi tim berubah."
+              "title": "Akses tetap bisa diatur.",
+              "description": "Tinjau anggota, ubah izin, atau cabut akses dari pengaturan Shared Vault."
             },
-            "note": "Berbagi aman memerlukan koneksi online dan akun terverifikasi."
+            "note": "Berbagi perlu koneksi online dan akun terverifikasi."
           }
         }
       },
@@ -304,10 +302,10 @@
       },
       "finalCta": {
         "eyebrow": "Vault Anda, pilihan Anda",
-        "title": "Siap mencoba dengan akun Anda sendiri?",
-        "description": "Mulai dengan pengalaman hosted atau jalankan seluruh sistem authenticator di infrastruktur yang Anda kendalikan.",
+        "title": "Siap mencoba dengan akun Anda?",
+        "description": "Coba Hosted Vault atau jalankan rhasia-scret di infrastruktur Anda.",
         "tryNow": "Coba sekarang",
-        "hostYourOwn": "Host sistem authenticator Anda sendiri"
+        "hostYourOwn": "Jalankan sendiri"
       },
       "comparison": {
         "eyebrow": "Penjelasan sederhana",

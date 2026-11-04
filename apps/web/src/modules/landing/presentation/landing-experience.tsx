@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AppFooterContent } from "@/shared/presentation/app-ui";
 import { LandingDeviceShowcase, LandingPhoneMockup } from "./landing-phone-mockup";
 import { LandingJourney } from "./landing-journey";
-import { LandingLanguageDialog } from "./landing-language-dialog";
+import { LandingHeader } from "./landing-header";
 import { LandingPhoneStoryProvider, useLandingPhoneStory, useLandingPhoneStoryStarted } from "./landing-phone-story";
 import { landingFlowConfig, type LandingSceneStep } from "./landing-flow.config";
 import styles from "./landing-desktop-scene.module.css";
@@ -51,12 +51,6 @@ function LandingExperienceContent() {
   const sceneSectionRef = useRef<HTMLElement | null>(null);
   const sceneStepRef = useRef<LandingSceneStep>(landingFlowConfig.intro.initialState);
   const showcaseReadyRef = useRef(false);
-  const languageDialogOpenRef = useRef(true);
-  const [languageDialogOpen, setLanguageDialogOpen] = useState(true);
-  const handleLanguageDialogOpenChange = useCallback((open: boolean) => {
-    languageDialogOpenRef.current = open;
-    setLanguageDialogOpen(open);
-  }, []);
   const wheelGestureActiveRef = useRef(false);
   const wheelGestureDirectionRef = useRef<number | null>(null);
   const wheelGestureReleaseTimerRef = useRef<number | null>(null);
@@ -222,15 +216,21 @@ function LandingExperienceContent() {
       if (!(event.target instanceof Element)) return false;
       if (
         event.target.closest(
-          "input, select, textarea, [role=textbox], [role=combobox], [role=searchbox], [role=spinbutton], [contenteditable]:not([contenteditable='false'])",
+          "input, select, textarea, [role=textbox], [role=combobox], [role=searchbox], [role=spinbutton], [role=menu], [role=menubar], [contenteditable]:not([contenteditable='false'])",
         )
+      )
+        return true;
+      if (
+        (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+        event.target.closest("[data-slot=dropdown-menu-trigger]")
       )
         return true;
       return event.key === " " && event.target.closest("button, a, [role=button], [role=link]") !== null;
     };
-    const canScrollIntroContentInDirection = (target: EventTarget | null, direction: number) => {
+    const scrollableContentSelector = '[data-landing-intro-scroll], [data-landing-phone-guide="mobile"]';
+    const canScrollContentInDirection = (target: EventTarget | null, direction: number) => {
       if (!(target instanceof Element)) return false;
-      const scrollContainer = target.closest<HTMLElement>("[data-landing-intro-scroll]");
+      const scrollContainer = target.closest<HTMLElement>(scrollableContentSelector);
       if (!scrollContainer) return false;
       if (direction > 0) {
         return scrollContainer.scrollTop + scrollContainer.clientHeight < scrollContainer.scrollHeight - 1;
@@ -272,7 +272,7 @@ function LandingExperienceContent() {
       releaseWheelGestureSoon();
     };
     const blockProcessingInput = (event: Event) => {
-      if (languageDialogOpenRef.current || !isTransitioning()) return;
+      if (!isTransitioning()) return;
       if (event.type === "keydown") {
         const keyboardEvent = event as KeyboardEvent;
         if (getKeyboardDirection(keyboardEvent) === 0 || isInteractiveKeyboardTarget(keyboardEvent)) return;
@@ -312,9 +312,9 @@ function LandingExperienceContent() {
     ];
 
     const handleWheel = (event: WheelEvent) => {
-      if (languageDialogOpenRef.current || event.deltaY === 0) return;
+      if (event.deltaY === 0) return;
       const direction = event.deltaY > 0 ? 1 : -1;
-      if (canScrollIntroContentInDirection(event.target, direction)) return;
+      if (canScrollContentInDirection(event.target, direction)) return;
       const currentStep = sceneStepRef.current;
       if (currentStep === "settled" && (direction > 0 || !isAtTop())) {
         noteWheelGesture(direction);
@@ -330,10 +330,10 @@ function LandingExperienceContent() {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (languageDialogOpenRef.current) return;
+      if (event.defaultPrevented) return;
       const direction = getKeyboardDirection(event);
       if (direction === 0 || isInteractiveKeyboardTarget(event)) return;
-      if (canScrollIntroContentInDirection(event.target, direction)) return;
+      if (canScrollContentInDirection(event.target, direction)) return;
       const currentStep = sceneStepRef.current;
       if (currentStep === "settled" && (direction > 0 || !isAtTop())) return;
       event.preventDefault();
@@ -346,21 +346,20 @@ function LandingExperienceContent() {
     };
 
     const handleTouchStart = (event: TouchEvent) => {
-      if (languageDialogOpenRef.current) return;
       touchStartY = event.touches[0]?.clientY ?? null;
       touchStartAtTop = isAtTop();
       touchGestureActive = false;
       touchScrollContainer =
-        event.target instanceof Element ? event.target.closest<HTMLElement>("[data-landing-intro-scroll]") : null;
+        event.target instanceof Element ? event.target.closest<HTMLElement>(scrollableContentSelector) : null;
     };
     const handleTouchMove = (event: TouchEvent) => {
-      if (languageDialogOpenRef.current || touchStartY === null) return;
+      if (touchStartY === null) return;
       const currentY = event.touches[0]?.clientY;
       if (currentY === undefined) return;
       const deltaY = touchStartY - currentY;
       if (Math.abs(deltaY) < input.touchThresholdPx) return;
       const direction = deltaY > 0 ? 1 : -1;
-      if (touchScrollContainer && canScrollIntroContentInDirection(touchScrollContainer, direction)) return;
+      if (touchScrollContainer && canScrollContentInDirection(touchScrollContainer, direction)) return;
       const currentStep = sceneStepRef.current;
       const isBackwardAtTop = currentStep === "settled" && deltaY < 0 && touchStartAtTop && isAtTop();
       if (currentStep === "settled" && !isBackwardAtTop) return;
@@ -376,7 +375,6 @@ function LandingExperienceContent() {
     };
     const handleTouchEnd = () => resetTouchGesture();
     const keepIntroAtTop = () => {
-      if (languageDialogOpenRef.current) return;
       if (sceneStepRef.current !== "settled" && window.scrollY > 0) {
         window.scrollTo({ top: 0, behavior: "instant" });
       }
@@ -436,7 +434,7 @@ function LandingExperienceContent() {
 
   return (
     <main className={experienceStyles.page}>
-      <LandingLanguageDialog onOpenChange={handleLanguageDialogOpenChange} />
+      <LandingHeader githubLabel={t("github")} />
       <div
         data-landing-primary-phone
         className={styles.initialPhone}
@@ -448,18 +446,16 @@ function LandingExperienceContent() {
         style={sceneTimingStyle}
         onTransitionEnd={handleInitialPhoneTransitionEnd}
       >
-        {!languageDialogOpen && (
-          <LandingPhoneMockup
-            view={storyStageStarted ? storyView : initialPhoneView}
-            layout="scene"
-            transparentFloor={
-              (showShowcase && showcaseReady && showcaseFloorActive) || sceneStep === "settled" || storyStageStarted
-            }
-            startUnlockDemo={unlockDemoStarted}
-            unlockDemoResetToken={unlockDemoResetToken}
-            onUnlockComplete={handleUnlockComplete}
-          />
-        )}
+        <LandingPhoneMockup
+          view={storyStageStarted ? storyView : initialPhoneView}
+          layout="scene"
+          transparentFloor={
+            (showShowcase && showcaseReady && showcaseFloorActive) || sceneStep === "settled" || storyStageStarted
+          }
+          startUnlockDemo={unlockDemoStarted}
+          unlockDemoResetToken={unlockDemoResetToken}
+          onUnlockComplete={handleUnlockComplete}
+        />
       </div>
       <div
         data-landing-device-showcase="true"
@@ -475,14 +471,12 @@ function LandingExperienceContent() {
           !showShowcase || !showcaseReady || sceneStep === "unlocking" || sceneStep === "unlocked" || storyStageStarted
         }
       >
-        {!languageDialogOpen && (
-          <LandingDeviceShowcase
-            progress={showcaseTargetProgress}
-            transitionDuration={showcaseTransitionDuration}
-            onReady={handleShowcaseReady}
-            onTransitionComplete={handleShowcaseTransitionComplete}
-          />
-        )}
+        <LandingDeviceShowcase
+          progress={showcaseTargetProgress}
+          transitionDuration={showcaseTransitionDuration}
+          onReady={handleShowcaseReady}
+          onTransitionComplete={handleShowcaseTransitionComplete}
+        />
       </div>
       <section
         ref={sceneSectionRef}

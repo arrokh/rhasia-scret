@@ -92,6 +92,64 @@ test("keeps the mobile phone continuous through departure and return", async ({ 
   expect(reducedStyles.innerProperty).toBe("none");
 });
 
+for (const reducedMotion of ["reduce", "no-preference"] as const) {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    test(`restores the 3D phone from the footer at ${viewport.width}px with ${reducedMotion} motion`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion });
+      await page.goto("/landing");
+      const scene = page.locator("[data-landing-desktop-scene]:visible");
+      const primary = page.locator("[data-landing-primary-phone]");
+      const phone = primary.locator('iframe[data-device-kind="phone"]');
+      await expect(scene).toHaveAttribute("data-input-ready", "true");
+      for (const step of ["unlocked", "devices", "settled"]) {
+        await page.keyboard.press("PageDown");
+        await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+      }
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+      await expect(page.locator("main > footer")).toBeInViewport();
+      for (const view of ["sharedReady", "sharedCreate", "scan"]) {
+        await page.locator(`[data-landing-phone-view="${view}"]:visible`).evaluate((card) => {
+          const bounds = card.getBoundingClientRect();
+          const journey = card.closest("[data-landing-phone-story-journey]");
+          const sectionTop = journey ? journey.getBoundingClientRect().top + scrollY : 0;
+          const target =
+            innerWidth <= 720
+              ? bounds.top + scrollY - innerHeight * 0.57
+              : bounds.top + scrollY + bounds.height / 2 - innerHeight / 2;
+          window.scrollTo({ top: Math.max(sectionTop, target), behavior: "instant" });
+        });
+        await expect(phone.contentFrame().locator(`[data-landing-phone-screen-entry="${view}"]`)).toBeVisible();
+        await expect(primary).toHaveCSS("visibility", "visible");
+        await expect(primary).toHaveCSS("opacity", "1");
+        await expect(primary.locator("canvas")).toBeVisible();
+        await expect
+          .poll(() =>
+            primary.locator("[data-landing-phone-body-bounds]").evaluate((body) => {
+              const bounds = body.getBoundingClientRect();
+              const top = document.querySelector("[data-landing-header]")?.getBoundingClientRect().bottom ?? 0;
+              return Math.min(bounds.bottom, innerHeight) - Math.max(bounds.top, top);
+            }),
+          )
+          .toBeGreaterThanOrEqual(80);
+      }
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      for (const step of ["devices", "unlocked"]) {
+        await page.keyboard.press("PageUp");
+        await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+        await expect(primary).toHaveCSS("visibility", "visible");
+        await expect(primary.locator("canvas")).toBeVisible();
+      }
+    });
+  }
+}
+
 async function runLandingTransitionStress(
   page: Page,
   reducedMotion: "reduce" | "no-preference",
@@ -195,7 +253,7 @@ async function runLandingTransitionStress(
   await expect(scene).toHaveAttribute("data-scene-step", "devices");
   await expect(scene).toHaveAttribute("aria-busy", "false");
   await expect(page).toHaveURL(/\/landing$/);
-  const hero = scene.locator('[class*="__heroOverlay"]');
+  const hero = scene.locator('[class*="heroOverlay"]');
   await expect(hero).not.toHaveAttribute("inert", "");
   const localVaultLink = hero.locator('a[href="/local?from=landing"]');
   await expect(localVaultLink).toBeVisible();

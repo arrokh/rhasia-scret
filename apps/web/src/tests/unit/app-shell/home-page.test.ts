@@ -16,9 +16,16 @@ describe("LandingPage", () => {
 
     expect(markup).toContain("rhasia-");
     expect(markup).toContain("scret");
-    expect(markup).toContain("Autentikator Anda, sesuai ketentuan Anda");
-    expect(markup).toContain("Ini adalah layar produk.");
-    expect(markup).toContain("Mulai dengan satu akun.");
+    expect(markup).toContain("Authenticator, sesuai pilihan Anda.");
+    expect(markup).toContain("Layar yang sama dengan aplikasi.");
+    expect(markup).toContain("Mulai dengan akun contoh.");
+    expect(markup).toContain("data-landing-header");
+    expect(markup).toContain('aria-label="Navigasi utama"');
+    const header = markup.match(/<header\b[^>]*data-landing-header[^>]*>[\s\S]*?<\/header>/)?.[0];
+    expect(header).toBeDefined();
+    expect(header).not.toContain('href="/sign-in"');
+    expect(header).not.toContain('href="/local?from=landing"');
+    expect(header).toContain('href="https://github.com/arrokh/rhasia-scret"');
     expect(markup).toContain('href="/sign-in"');
     expect(markup).toContain('href="/local?from=landing"');
     expect(markup).toContain('href="https://nooroctavian.id/"');

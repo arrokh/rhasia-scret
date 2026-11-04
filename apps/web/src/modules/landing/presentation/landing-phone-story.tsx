@@ -208,11 +208,23 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       scheduleUpdate();
     };
 
+    const handleResize = () => {
+      plannedMobileJourneyFit = null;
+      scheduleUpdate();
+    };
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (entries.some(({ target }) => target.hasAttribute("data-landing-phone-body-bounds"))) {
+        plannedMobileJourneyFit = null;
+      }
+      scheduleUpdate();
+    });
     let screenFrame: HTMLIFrameElement | null = null;
     let observedScreenDocument: Document | null = null;
     let screenFrameLoadListener: (() => void) | null = null;
     const screenTargetObserver = new MutationObserver(scheduleUpdate);
     const observeScreenDocument = () => {
+      const bodyBounds = stage.querySelector<HTMLElement>("[data-landing-phone-body-bounds]");
+      if (bodyBounds) resizeObserver.observe(bodyBounds);
       const nextScreenFrame = stage.querySelector<HTMLIFrameElement>(
         'iframe[data-slot="landing-phone-screen"][data-device-kind="phone"]',
       );
@@ -258,11 +270,10 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
     updateLayoutRef.current = updateLayout;
     scheduleUpdate();
     window.addEventListener("scroll", scheduleUpdate, { passive: true });
-    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("resize", handleResize);
     stage.addEventListener("transitionend", handlePhoneSceneTransitionEnd);
     reducedMotionQuery.addEventListener("change", handleReducedMotionChange);
 
-    const resizeObserver = new ResizeObserver(scheduleUpdate);
     targetObserver.observe(heroSection, {
       subtree: true,
       attributes: true,
@@ -282,7 +293,7 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
     return () => {
       disposed = true;
       window.removeEventListener("scroll", scheduleUpdate);
-      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("resize", handleResize);
       stage.removeEventListener("transitionend", handlePhoneSceneTransitionEnd);
       reducedMotionQuery.removeEventListener("change", handleReducedMotionChange);
       if (screenFrame && screenFrameLoadListener) {
@@ -338,7 +349,7 @@ type MobileJourneyFitArea = Readonly<{
 const PHONE_SCREEN_FIT_RATIO = 0.86;
 const PHONE_TARGET_HIGHLIGHT_OUTSET = 5;
 const PHONE_GUIDE_INSET = 20;
-const PHONE_BOUNDARY_CLEARANCE = 18;
+const PHONE_BOUNDARY_CLEARANCE = 24;
 
 function setPhoneSceneScale(stage: HTMLElement, scale: number) {
   const phoneScene = stage.querySelector<HTMLElement>('[data-layout="scene"]');
@@ -357,7 +368,7 @@ function getPhoneScreenFrame(stage: HTMLElement) {
 }
 
 function getPhoneVisualBounds(stage: HTMLElement): PhoneRect | null {
-  const visual = getPhoneScreenFrame(stage) ?? stage.querySelector<HTMLElement>('[class*="__phoneFallbackFrame"]');
+  const visual = getPhoneScreenFrame(stage) ?? stage.querySelector<HTMLElement>("[data-landing-phone-fallback-frame]");
   if (!visual) return null;
   return toPhoneRect(visual.getBoundingClientRect());
 }
@@ -402,12 +413,13 @@ function getMobileJourneyPhoneFit(
   currentPhoneSceneScale: number,
   anticipatedSettledOffset = 0,
 ): MobileJourneyPhoneFit | null {
-  const screenFrame = getPhoneScreenFrame(stage);
-  if (!screenFrame) return null;
+  const screenBounds = getPhoneVisualBounds(stage);
+  if (!screenBounds) return null;
   const fitArea = getMobileJourneyFitArea(journeyAnchor, anticipatedSettledOffset);
   if (!fitArea) return null;
 
-  const screenBounds = screenFrame.getBoundingClientRect();
+  const visualWidth = screenBounds.right - screenBounds.left;
+  const visualHeight = screenBounds.bottom - screenBounds.top;
   const stageBounds = stage.getBoundingClientRect();
   const stageWidth = Number.parseFloat(stage.style.width) || window.innerWidth;
   const stageHeight = Number.parseFloat(stage.style.height) || window.innerHeight;
@@ -415,16 +427,16 @@ function getMobileJourneyPhoneFit(
   const stageScaleY = stageBounds.height > 0 ? stageBounds.height / stageHeight : 1;
   const screenScaleX = stageScaleX * currentPhoneSceneScale;
   const screenScaleY = stageScaleY * currentPhoneSceneScale;
-  if (screenBounds.width <= 0 || screenBounds.height <= 0 || screenScaleX <= 0 || screenScaleY <= 0) {
+  if (visualWidth <= 0 || visualHeight <= 0 || screenScaleX <= 0 || screenScaleY <= 0) {
     return null;
   }
 
   const stageCenterX = stageBounds.left + stageBounds.width / 2;
   const stageCenterY = stageBounds.top + stageBounds.height / 2;
-  const screenOffsetX = (screenBounds.left + screenBounds.width / 2 - stageCenterX) / screenScaleX;
-  const screenOffsetY = (screenBounds.top + screenBounds.height / 2 - stageCenterY) / screenScaleY;
-  const screenWidth = screenBounds.width / screenScaleX;
-  const screenHeight = screenBounds.height / screenScaleY;
+  const screenOffsetX = (screenBounds.left + visualWidth / 2 - stageCenterX) / screenScaleX;
+  const screenOffsetY = (screenBounds.top + visualHeight / 2 - stageCenterY) / screenScaleY;
+  const screenWidth = visualWidth / screenScaleX;
+  const screenHeight = visualHeight / screenScaleY;
   const scale = Math.min(
     1,
     (fitArea.width * PHONE_SCREEN_FIT_RATIO) / screenWidth,
@@ -537,7 +549,9 @@ function clearConnector(path: SVGPathElement | null, dot: SVGCircleElement | nul
 }
 
 function keepPhoneWithinJourneyEnd(stage: HTMLElement, journeySection: HTMLElement) {
-  const phoneBounds = getPhoneVisualBounds(stage);
+  const getBodyBounds = () =>
+    stage.querySelector<HTMLElement>("[data-landing-phone-body-bounds]")?.getBoundingClientRect();
+  const phoneBounds = getBodyBounds();
   if (!phoneBounds) return true;
 
   const note = journeySection.querySelector<HTMLElement>("[data-landing-phone-story-end]");
@@ -547,15 +561,14 @@ function keepPhoneWithinJourneyEnd(stage: HTMLElement, journeySection: HTMLEleme
     finalCta?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
     window.innerHeight,
   );
-  const chassisClearance = Math.max(PHONE_BOUNDARY_CLEARANCE, (phoneBounds.bottom - phoneBounds.top) * 0.06);
-  const maxBottom = boundaryTop - chassisClearance;
+  const maxBottom = boundaryTop - PHONE_BOUNDARY_CLEARANCE;
   const minimumVisibleBottom = 8;
   if (maxBottom <= minimumVisibleBottom) return false;
   if (phoneBounds.bottom <= maxBottom) return phoneBounds.bottom > minimumVisibleBottom;
 
   const currentTop = Number.parseFloat(stage.style.top) || 0;
   stage.style.top = `${currentTop + maxBottom - phoneBounds.bottom}px`;
-  const adjustedPhoneBounds = getPhoneVisualBounds(stage);
+  const adjustedPhoneBounds = getBodyBounds();
   return Boolean(
     adjustedPhoneBounds &&
     adjustedPhoneBounds.bottom > minimumVisibleBottom &&
@@ -604,7 +617,7 @@ function updateConnector(
     return;
   }
 
-  const guideX = cardRect.left + PHONE_GUIDE_INSET;
+  const guideX = isMobile ? cardRect.right - PHONE_GUIDE_INSET : cardRect.left + PHONE_GUIDE_INSET;
   const guideY = cardRect.top + 1;
   let connectorPath: string;
   if (isMobile) {
@@ -613,7 +626,7 @@ function updateConnector(
     const phoneBounds = target.phoneBounds;
     const rightExitX = Math.min(
       window.innerWidth - 4,
-      Math.max(phoneBounds.right, captionBounds?.right ?? phoneBounds.right) + 14,
+      Math.max(Math.max(phoneBounds.right, captionBounds?.right ?? phoneBounds.right) + 14, guideX + 16),
     );
     const routeBottom = cardRect.top - 4;
     const obstaclesBottom = Math.max(phoneBounds.bottom, captionBounds?.bottom ?? phoneBounds.bottom);

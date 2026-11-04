@@ -1,4 +1,5 @@
 .page {
+  --landing-header-height: calc(4.5rem + env(safe-area-inset-top));
   overflow-x: clip;
 }
 
@@ -521,7 +522,7 @@
   max-width: none;
   margin-inline: auto;
   background: transparent;
-  padding: clamp(2rem, 5vh, 4rem) clamp(1rem, 4vw, 4rem) 4rem;
+  padding: clamp(2rem, 5vh, 4rem) clamp(1rem, 4vw, 4rem) 0;
   scroll-margin-top: 4rem;
   visibility: hidden;
   transition: none;
@@ -757,7 +758,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   margin-bottom: 3rem;
   padding: clamp(1.5rem, 4vw, 3.2rem);
   border: 1px solid rgb(255 255 255 / 10%);
@@ -911,7 +912,7 @@
 
   .journey:global(.landing-shell) {
     width: min(calc(100% - 1.25rem), 92rem);
-    padding: 1.5rem 0 3rem;
+    padding: 0;
   }
   .journeyGrid {
     display: none;
@@ -920,12 +921,17 @@
     display: block;
   }
   .mobileJourneyStage {
+    --landing-mobile-phone-height: clamp(6rem, calc(100svh - var(--landing-header-height) - 18rem), 44svh);
     position: sticky;
     z-index: 8;
     top: 0;
     display: grid;
     height: 100svh;
-    grid-template-rows: minmax(0, 56svh) minmax(0, 1fr);
+    grid-template-rows: minmax(0, auto) minmax(0, auto);
+    align-content: center;
+    gap: 0.5rem;
+    padding-top: var(--landing-header-height);
+    padding-bottom: 0.75rem;
     background: transparent;
   }
   .mobileJourneyPhone {
@@ -934,16 +940,18 @@
     min-height: 0;
     align-content: center;
     justify-items: center;
+    gap: 0.5rem;
     margin-inline: -0.45rem;
     background: transparent;
   }
   .mobileJourneyPhone .phoneSceneJourney {
     width: min(100%, 25rem);
-    height: min(54svh, 31rem);
-    min-height: 15rem;
+    height: var(--landing-mobile-phone-height);
+    min-height: 0;
   }
   .mobileJourneyPhone .journeyPhoneCaption {
-    bottom: 0;
+    position: relative;
+    bottom: auto;
     font-size: 0.62rem;
   }
   .mobileJourneyGuide {
@@ -951,7 +959,12 @@
     min-height: 0;
     flex-direction: column;
     align-self: stretch;
-    padding: 0.75rem 0 0.75rem;
+    max-height: min(
+      16rem,
+      calc((100svh - var(--landing-header-height)) * 0.44),
+      max(0px, calc(100svh - var(--landing-header-height) - var(--landing-mobile-phone-height) - 4rem))
+    );
+    padding: 0;
   }
   .mobileJourneyGuide .journeyCard {
     flex: 0 1 auto;
@@ -963,6 +976,7 @@
     margin: 0;
     padding: 1rem;
     scroll-margin: 0;
+    transform: none;
   }
   .mobileJourneyGuide .journeyCard h3 {
     font-size: 1.25rem;

@@ -64,6 +64,11 @@
     transform var(--landing-showcase-expansion-duration, 950ms) var(--landing-device-ease);
 }
 
+.initialPhone:is([data-scene-step="locked"], [data-scene-step="unlocking"], [data-scene-step="unlocked"])
+  > .phoneScene {
+  top: var(--landing-header-height, 4.5rem);
+}
+
 .initialPhone[data-device-scale="showcase"] {
   transform: scale(0.52);
 }
@@ -403,6 +408,11 @@
 
 .phoneScene[data-layout="showcase"] {
   touch-action: pan-y;
+}
+
+.phoneBodyBounds {
+  position: absolute;
+  pointer-events: none;
 }
 
 .phoneWebglCanvas,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -49,6 +49,31 @@ test("missing or invalid comparison commits conservatively select every check", 
   }
 });
 
+test("fails the required smoke gate when change detection or any shard does not succeed", () => {
+  const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
+  const gate = workflow.match(/^  browser-smoke:\n([\s\S]*?)(?=^  browser-smoke-shards:)/m)?.[1];
+  assert.ok(gate);
+  const script = gate.split("run: |\n")[1]?.replace(/^ {10}/gm, "");
+  assert.ok(script);
+  for (const [changes, shards, expected] of [
+    ["success", "success", 0],
+    ["failure", "success", 1],
+    ["cancelled", "success", 1],
+    ["skipped", "success", 1],
+    ["", "success", 1],
+    ["success", "failure", 1],
+    ["success", "cancelled", 1],
+    ["success", "skipped", 1],
+    ["success", "", 1],
+  ]) {
+    const result = spawnSync("bash", ["-c", script], {
+      env: { ...process.env, CHANGE_DETECTION_RESULT: changes, BROWSER_SMOKE_SHARDS_RESULT: shards },
+      encoding: "utf8",
+    });
+    assert.equal(result.status, expected, `changes=${changes}, shards=${shards}: ${result.stderr}`);
+  }
+});
+
 test("wires package selection to every consuming job without cancelling a different commit", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
   const job = (name) => {
@@ -89,7 +114,12 @@ test("wires package selection to every consuming job without cancelling a differ
   const browserSmoke = job("browser-smoke");
   assert.match(browserSmoke, /^    name: Browser smoke \(\$\{\{ matrix\.browser \}\}\)$/m);
   assert.match(browserSmoke, /^    needs:\n      - changes\n      - browser-smoke-shards$/m);
-  assert.match(browserSmoke, /^    if: always\(\) && needs\.changes\.outputs\.web == 'true'$/m);
+  assert.ok(
+    browserSmoke.includes(
+      "if: always() && (needs.changes.result != 'success' || needs.changes.outputs.web != 'false')",
+    ),
+  );
+  assert.ok(browserSmoke.includes('CHANGE_DETECTION_RESULT: "${{ needs.changes.result }}"'));
   assert.match(browserSmoke, /^    timeout-minutes: 1$/m);
   assert.match(
     browserSmoke,

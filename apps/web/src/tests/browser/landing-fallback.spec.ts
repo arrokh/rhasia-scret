@@ -27,7 +27,7 @@ test("uses the styled fallback when a phone iframe stylesheet fails", async ({ p
   await expect(scene).toHaveAttribute("data-input-ready", "true");
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
-  await expect(page.locator("[data-landing-primary-phone] [class*=__phoneFallbackFrame]")).toBeVisible();
+  await expect(page.locator("[data-landing-primary-phone] [data-landing-phone-fallback-frame]")).toBeVisible();
   expect(blockedStylesheets).toBeGreaterThan(0);
 });
 
@@ -43,7 +43,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
     await expect(scene).toHaveAttribute("data-input-ready", "true");
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
-    const fallback = page.locator("[data-landing-primary-phone] [class*=__phoneFallbackFrame]");
+    const fallback = page.locator("[data-landing-primary-phone] [data-landing-phone-fallback-frame]");
     await expect(fallback).toBeVisible();
     expect(await fallback.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none");
     for (const viewport of [
@@ -72,5 +72,24 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
     await expect(scene.locator('a[href="/local?from=landing"]')).toBeVisible();
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "settled", { timeout: 20_000 });
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 320, height: 568 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await expect
+        .poll(() =>
+          fallback.evaluate((element) => {
+            const body = element.getBoundingClientRect();
+            const caption = Array.from(document.querySelectorAll("[data-landing-phone-caption]"))
+              .find((item) => item.getClientRects().length > 0)
+              ?.getBoundingClientRect();
+            const header = document.querySelector("[data-landing-header]")?.getBoundingClientRect();
+            return Boolean(caption && header && body.top >= header.bottom && body.bottom + 2 <= caption.top);
+          }),
+        )
+        .toBe(true);
+    }
   });
 }
