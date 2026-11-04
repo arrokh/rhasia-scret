@@ -4,6 +4,11 @@ packages:
   - "tools/api-migration-runtime"
 
 overrides:
+  # Fix GHSA-3g3m-2fjr-6pw4; archiver-utils uses the retained CommonJS sync API.
+  "archiver-utils>glob": 14.0.3
+  # Fix GHSA-g3hv-75wg-m249 in callers of the modern named-export API.
+  # v3/v5 callers need the legacy callable API and have no optimizationLevel=2.
+  "minimatch@>=9 <11.0.1": 11.0.4
   hono: 4.13.13
   find-my-way: 9.7.0
   postcss: 8.5.23
