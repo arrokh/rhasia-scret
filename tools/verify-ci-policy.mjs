@@ -94,6 +94,7 @@ requireText(
   "focus hosted browser coverage on Chromium with Firefox and WebKit deferred",
 );
 const browserSmoke = ci.match(/^  browser-smoke:\n([\s\S]*?)(?=^  browser-e2e:)/m)?.[1] ?? "";
+const browserSmokeShards = ci.match(/^  browser-smoke-shards:\n([\s\S]*?)(?=^  browser-e2e:)/m)?.[1] ?? "";
 const browserE2e = ci.match(/^  browser-e2e:\n([\s\S]*?)(?=^  browser-production:)/m)?.[1] ?? "";
 if (/^    services:/m.test(browserSmoke)) failures.push("browser smoke must not start PostgreSQL");
 if (
@@ -107,10 +108,12 @@ if (!/^    services:\n      postgres:/m.test(browserE2e))
 if (/pnpm run format:check/.test(ci)) failures.push("CI must not duplicate the dedicated Format workflow");
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
-if (ciTimeoutCount !== 5)
+if (ciTimeoutCount !== 4)
   failures.push(
-    `.github/workflows/ci.yml must enforce eight-minute timeouts for 5 standard jobs (found ${ciTimeoutCount})`,
+    `.github/workflows/ci.yml must enforce eight-minute timeouts for 4 standard jobs (found ${ciTimeoutCount})`,
   );
+if (!/^    timeout-minutes: 12$/m.test(browserSmokeShards))
+  failures.push(".github/workflows/ci.yml must give browser smoke shards a twelve-minute ceiling");
 if (!/^    timeout-minutes: 12$/m.test(browserE2e))
   failures.push(".github/workflows/ci.yml must give the browser E2E job a twelve-minute ceiling");
 if (!/^  browser-production:[\s\S]*?^    timeout-minutes: 12$/m.test(ci))

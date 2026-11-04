@@ -93,7 +93,7 @@ test("wires package selection to every consuming job without cancelling a differ
     [
       "browser-smoke-shards",
       "web",
-      8,
+      12,
       "ci-web-browser-smoke-${{ github.workflow }}-${{ github.ref_name }}-${{ matrix.browser }}-${{ matrix.shard }}",
     ],
     [

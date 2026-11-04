@@ -47,8 +47,10 @@ test("scroll advances from the locked phone to the device showcase with its hero
           const hero = element.querySelector<HTMLElement>('[class*="heroOverlay"]');
           const link = hero?.querySelector<HTMLAnchorElement>('a[href="/local?from=landing"]');
           if (!hero || !link) return reject(new Error("The landing action is unavailable."));
+          let wheelDuringTransition: number | null = null;
           const timeout = window.setTimeout(() => {
             observer.disconnect();
+            if (wheelDuringTransition !== null) window.clearInterval(wheelDuringTransition);
             reject(new Error("The hero did not appear during the transition."));
           }, 25_000);
           const observer = new MutationObserver(() => {
@@ -57,6 +59,23 @@ test("scroll advances from the locked phone to the device showcase with its hero
             const key = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
             link.dispatchEvent(click);
             link.dispatchEvent(key);
+            wheelDuringTransition = window.setInterval(() => {
+              if (element.getAttribute("aria-busy") !== "true") {
+                if (wheelDuringTransition !== null) window.clearInterval(wheelDuringTransition);
+                return;
+              }
+              const wheel = new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true });
+              window.dispatchEvent(wheel);
+              if (wheel.defaultPrevented) element.dataset.processingWheelSeen = "true";
+              let scrollReachedObservers = false;
+              const observeScroll = () => {
+                scrollReachedObservers = true;
+              };
+              window.addEventListener("scroll", observeScroll);
+              window.dispatchEvent(new Event("scroll"));
+              window.removeEventListener("scroll", observeScroll);
+              if (!scrollReachedObservers) element.dataset.processingScrollIgnored = "true";
+            }, 80);
             observer.disconnect();
             window.clearTimeout(timeout);
             resolve({
@@ -79,24 +98,8 @@ test("scroll advances from the locked phone to the device showcase with its hero
       ),
   );
   expect(blockedInput).toEqual({ wheel: true, click: true, key: false, inert: true, busy: true });
-  await page.evaluate(() => {
-    const activeScene = document.querySelector<HTMLElement>("[data-landing-desktop-scene]");
-    if (!activeScene) return;
-    const wheelDuringTransition = window.setInterval(() => {
-      const wheel = new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true });
-      window.dispatchEvent(wheel);
-      if (wheel.defaultPrevented) activeScene.dataset.processingWheelSeen = "true";
-      let scrollReachedObservers = false;
-      const observeScroll = () => {
-        scrollReachedObservers = true;
-      };
-      window.addEventListener("scroll", observeScroll);
-      window.dispatchEvent(new Event("scroll"));
-      window.removeEventListener("scroll", observeScroll);
-      if (!scrollReachedObservers) activeScene.dataset.processingScrollIgnored = "true";
-      if (activeScene.dataset.sceneStep !== "expanding") window.clearInterval(wheelDuringTransition);
-    }, 80);
-  });
+  // Keep the test runner paused beyond the scene transition; browser-side input checks must stop on their own.
+  await page.waitForTimeout(1_200);
   await expect(scene).toHaveAttribute("data-processing-wheel-seen", "true");
   await expect(scene).toHaveAttribute("data-processing-scroll-ignored", "true");
   const hero = scene.locator('[class*="heroOverlay"]');
