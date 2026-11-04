@@ -1474,6 +1474,7 @@ async function initializeDeviceShowcase(
   let height = 0;
   let pixelRatio = 0;
   let framingDistanceOffset = 0;
+  let framingViewportDirty = true;
   const render = () => {
     webglRenderer.render(scene, camera);
     cssRenderer.render(scene, camera);
@@ -1493,6 +1494,7 @@ async function initializeDeviceShowcase(
     webglRenderer.setPixelRatio(pixelRatio);
     webglRenderer.setSize(width, height, false);
     cssRenderer.setSize(width, height);
+    framingViewportDirty = true;
     if (!progressApplier.reapply()) render();
   };
   // Warm the expanded view before it is shown. Three's material compile pass does not
@@ -1507,10 +1509,15 @@ async function initializeDeviceShowcase(
   resizeObserver.observe(container);
   resize();
 
-  function applyProgress(progress: number) {
+  function applyProgress(progress: number, renderFrame = true) {
     // One eased progress moves the camera, device positions, and scales together from the center.
     const expanded = Math.max(0, Math.min(1, progress * 2));
     const leaving = Math.max(0, Math.min(1, (progress - 0.5) * 2));
+    if (framingViewportDirty && leaving > 0) {
+      // Refit the expanded reference pose before replaying departure for the new viewport.
+      // Do not draw the reference: only the requested pose should reach the compositor.
+      applyProgress(0.5, false);
+    }
     const compactLayout = width <= 900;
     const nextSidePosition = compactLayout ? compactSidePosition : sidePosition;
     const nextSideRotation = compactLayout ? compactSideRotation : sideRotation;
@@ -1544,7 +1551,7 @@ async function initializeDeviceShowcase(
 
     fitCameraToDeviceBounds(baseCameraPosition.length(), leaving);
     camera.updateMatrixWorld();
-    render();
+    if (renderFrame) render();
   }
 
   function fitCameraToDeviceBounds(baseDistance: number, leaving: number) {
@@ -1553,6 +1560,7 @@ async function initializeDeviceShowcase(
       camera.position.setLength(baseDistance + framingDistanceOffset * (1 - leaving));
       return;
     }
+    framingViewportDirty = false;
     cameraBounds.makeEmpty();
     devices.forEach(({ handset }) => {
       if (!handset.visible) return;

@@ -199,7 +199,9 @@ for (const viewport of [
 }
 
 for (const width of [390, 1440]) {
-  test(`keeps the showcase floor camera continuous during departure and return at ${width}px`, async ({ page }) => {
+  test(`keeps the showcase floor camera continuous through departure and a resized return at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.goto("/landing");
     const scene = page.locator("[data-landing-desktop-scene]:visible");
@@ -211,6 +213,9 @@ for (const width of [390, 1440]) {
       await page.keyboard.press("PageDown");
       await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
     }
+    await page.exposeFunction("resizeLandingShowcase", () =>
+      page.setViewportSize(width === 390 ? { width: 1440, height: 900 } : { width: 390, height: 844 }),
+    );
     const { samples, segments } = await page.evaluate(async () => {
       const container = document.querySelector<HTMLElement>('[data-layout="showcase"]');
       const gl = container?.querySelector("canvas")?.getContext("webgl2");
@@ -218,7 +223,7 @@ for (const width of [390, 1440]) {
       const programs = new Map<WebGLProgram, boolean>();
       const originalUseProgram = WebGL2RenderingContext.prototype.useProgram;
       const originalWidth = container.style.width;
-      const samples: { distance: number; sideAmount: number }[] = [];
+      const samples: { distance: number; sideAmount: number; width: number }[] = [];
       let capturing = false;
       let currentFloor = false;
       const originalDrawElements = WebGL2RenderingContext.prototype.drawElements;
@@ -258,7 +263,11 @@ for (const width of [390, 1440]) {
           const topAngle = Math.atan2(16.5, 0.01);
           const sideAngle = innerWidth <= 900 ? Math.atan2(30, 15) : Math.atan2(18, 25);
           const angle = Math.acos(Math.min(1, Math.max(-1, matrix[5])));
-          return { distance: Math.hypot(x, y, z), sideAmount: (topAngle - angle) / (topAngle - sideAngle) };
+          return {
+            distance: Math.hypot(x, y, z),
+            sideAmount: (topAngle - angle) / (topAngle - sideAngle),
+            width: innerWidth,
+          };
         }
         throw new Error("The static floor camera matrix is unavailable.");
       };
@@ -274,6 +283,12 @@ for (const width of [390, 1440]) {
         capturing = true;
         const segments: { start: number; initialDistance: number }[] = [];
         for (const key of ["PageDown", "PageUp"]) {
+          if (key === "PageUp") {
+            const resizedWindow = window as Window & { resizeLandingShowcase?: () => Promise<void> };
+            if (!resizedWindow.resizeLandingShowcase) throw new Error("The viewport resize bridge is unavailable.");
+            await resizedWindow.resizeLandingShowcase();
+            await nextFrames();
+          }
           segments.push({ start: samples.length, initialDistance: readCamera().distance });
           const transitionStarted = performance.now();
           window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
@@ -304,17 +319,22 @@ for (const width of [390, 1440]) {
     });
     // Recover transition progress from camera orientation, not wall-clock cadence.
     // Every actual draw must follow the same fitted-distance path, even on a slow GPU.
-    const sideY = width <= 900 ? 30 : 18;
-    const sideZ = width <= 900 ? 15 : 25;
-    const fittedOffset = samples[0].distance - Math.hypot(sideY, sideZ);
-    expect(fittedOffset).toBeGreaterThan(0);
     expect(segments).toHaveLength(2);
-    for (const sample of samples) {
-      const amount = sample.sideAmount;
-      const baseDistance = Math.hypot(16.5 + (sideY - 16.5) * amount, 0.01 + (sideZ - 0.01) * amount);
-      expect(Math.abs(sample.distance - (baseDistance + fittedOffset * amount))).toBeLessThan(0.05);
+    for (const [index, segment] of segments.entries()) {
+      const frames = samples.slice(segment.start, segments[index + 1]?.start);
+      const reference = index === 0 ? samples[0] : frames.at(-1);
+      if (!reference) throw new Error("The camera reference draw is unavailable.");
+      const sideY = reference.width <= 900 ? 30 : 18;
+      const sideZ = reference.width <= 900 ? 15 : 25;
+      const fittedOffset = reference.distance - Math.hypot(sideY, sideZ);
+      expect(fittedOffset).toBeGreaterThan(0);
+      for (const sample of frames) {
+        const amount = sample.sideAmount;
+        const baseDistance = Math.hypot(16.5 + (sideY - 16.5) * amount, 0.01 + (sideZ - 0.01) * amount);
+        expect(Math.abs(sample.distance - (baseDistance + fittedOffset * amount))).toBeLessThan(0.05);
+      }
     }
-    expect(samples.at(-1)?.distance).toBeCloseTo(samples[0].distance, 0);
+    expect(samples.at(-1)?.width).toBe(width === 390 ? 1440 : 390);
     await expect(scene).toHaveAttribute("data-scene-step", "devices");
   });
 }

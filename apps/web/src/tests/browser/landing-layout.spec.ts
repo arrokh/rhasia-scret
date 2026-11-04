@@ -470,6 +470,11 @@ for (const locale of ["id", "en"] as const) {
     await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 20_000 });
+    // Reduced motion can reveal the hero before the asynchronously loaded showcase is ready.
+    // Wait for its renderer warmup before exercising viewport changes and exact geometry.
+    await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true", {
+      timeout: 15_000,
+    });
     const heroSurface = scene.locator('[data-landing-intro-scroll="true"]');
     await expect(heroSurface).toHaveCSS("backdrop-filter", /blur\(18px\)/);
 
@@ -484,29 +489,49 @@ for (const locale of ["id", "en"] as const) {
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       });
       await page.setViewportSize(viewport);
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      );
       const hero = scene.locator('[class*="heroOverlay"]');
       await expect(hero).toHaveAttribute("data-visible", "true");
       await expect
-        .poll(() =>
-          hero.evaluate((element) => {
-            const card = element.getBoundingClientRect();
-            const hint = element
-              .closest("[data-landing-desktop-scene]")
-              ?.querySelector("[data-landing-scroll-cue]")
-              ?.getBoundingClientRect();
-            return Boolean(
-              hint &&
-              card.y >= 0 &&
-              card.bottom + 8 <= hint.y &&
-              hint.bottom <= window.innerHeight &&
-              card.x >= 0 &&
-              card.right <= window.innerWidth &&
-              Math.abs(card.x + card.width / 2 - window.innerWidth / 2) <= 1 &&
-              Math.abs(card.y + card.height / 2 - window.innerHeight / 2) <= 1,
-            );
-          }),
+        .poll(
+          () =>
+            hero.evaluate((element) => {
+              const card = element.getBoundingClientRect();
+              const hint = element
+                .closest("[data-landing-desktop-scene]")
+                ?.querySelector("[data-landing-scroll-cue]")
+                ?.getBoundingClientRect();
+              return {
+                cardInViewport: card.y >= 0 && card.x >= 0 && card.right <= innerWidth,
+                cueInViewport: Boolean(hint && hint.bottom <= innerHeight),
+                cardCueClearance: Boolean(hint && card.bottom + 8 <= hint.y),
+                horizontallyCentered: Math.abs(card.x + card.width / 2 - innerWidth / 2) <= 1,
+                verticallyCentered: Math.abs(card.y + card.height / 2 - innerHeight / 2) <= 1,
+              };
+            }),
+          { message: `Hero/cue geometry at ${viewport.width}x${viewport.height} (${locale})` },
         )
-        .toBe(true);
+        .toEqual({
+          cardInViewport: true,
+          cueInViewport: true,
+          cardCueClearance: true,
+          horizontallyCentered: true,
+          verticallyCentered: true,
+        })
+        .catch(async (cause: unknown) => {
+          const measurements = await hero.evaluate((element) => ({
+            card: element.getBoundingClientRect().toJSON(),
+            parent: element.parentElement?.getBoundingClientRect().toJSON(),
+            scrollY,
+            innerHeight,
+            transform: getComputedStyle(element).transform,
+          }));
+          throw new Error(`Hero/cue geometry failure: ${JSON.stringify({ viewport, locale, measurements })}`, {
+            cause,
+          });
+        });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
       const action = hero.locator('a[href="/sign-in"]');
