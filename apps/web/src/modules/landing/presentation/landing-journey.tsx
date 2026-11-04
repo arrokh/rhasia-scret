@@ -57,7 +57,7 @@ export function LandingJourney() {
         </div>
 
         <div className={styles.mobileJourney}>
-          <div className={styles.mobileJourneyStage}>
+          <div className={styles.mobileJourneyStage} data-landing-mobile-stage>
             <div className={styles.mobileJourneyPhone} aria-label={t("phoneStageLabel")}>
               <div
                 data-landing-phone-anchor="journey"

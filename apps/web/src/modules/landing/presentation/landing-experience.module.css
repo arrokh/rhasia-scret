@@ -918,20 +918,20 @@
     display: none;
   }
   .mobileJourney {
-    display: block;
+    display: flow-root;
   }
   .mobileJourneyStage {
     --landing-mobile-phone-height: clamp(6rem, calc(100svh - var(--landing-header-height) - 18rem), 44svh);
     position: sticky;
     z-index: 8;
-    top: 0;
+    top: var(--landing-mobile-stage-top, var(--landing-header-height));
     display: grid;
-    height: 100svh;
+    height: auto;
+    margin-top: var(--landing-mobile-stage-top, var(--landing-header-height));
     grid-template-rows: minmax(0, auto) minmax(0, auto);
     align-content: center;
     gap: 0.5rem;
-    padding-top: var(--landing-header-height);
-    padding-bottom: 0.75rem;
+    padding: 0;
     background: transparent;
   }
   .mobileJourneyPhone {
@@ -998,7 +998,9 @@
   .mobileJourneySteps {
     position: relative;
     z-index: 1;
-    margin-top: -100svh;
+    margin-top: calc(
+      -1 * (var(--landing-mobile-stage-height, 0px) + var(--landing-mobile-stage-top, var(--landing-header-height)))
+    );
   }
   .mobileJourneyTrigger {
     min-height: 100svh;

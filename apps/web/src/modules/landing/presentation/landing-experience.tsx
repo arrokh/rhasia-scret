@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, TransitionEvent as ReactTransitionEvent } from "react";
-import { ArrowUpRight, Cloud, Laptop, LogIn } from "lucide-react";
+import { Cloud, Laptop } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AppFooterContent } from "@/shared/presentation/app-ui";
@@ -557,10 +557,7 @@ function LandingExperienceContent() {
         </div>
         <div className={experienceStyles.finalCtaActions}>
           <Button asChild>
-            <Link href="/sign-in">
-              {t("finalCta.tryNow")}
-              <LogIn aria-hidden="true" />
-            </Link>
+            <Link href="/sign-in">{t("finalCta.tryNow")}</Link>
           </Button>
           <Button asChild variant="outline">
             <a
@@ -569,7 +566,6 @@ function LandingExperienceContent() {
               rel="noopener noreferrer"
             >
               {t("finalCta.hostYourOwn")}
-              <ArrowUpRight aria-hidden="true" />
             </a>
           </Button>
         </div>

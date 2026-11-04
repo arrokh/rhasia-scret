@@ -44,6 +44,9 @@ for (const viewport of [
               ?.querySelector("[data-landing-phone-body-bounds]")
               ?.getBoundingClientRect();
             const note = document.querySelector("[data-landing-phone-story-end]")?.getBoundingClientRect();
+            const caption = Array.from(document.querySelectorAll<HTMLElement>("[data-landing-phone-caption]"))
+              .find((element) => element.getClientRects().length > 0)
+              ?.getBoundingClientRect();
             return Boolean(
               body &&
               note &&
@@ -51,7 +54,8 @@ for (const viewport of [
               body.width > frame.width &&
               body.height > frame.height &&
               body.bottom <= note.top - 23 &&
-              (innerWidth <= 720 || Math.abs(note.top - body.bottom - 24) <= 1),
+              caption &&
+              body.bottom <= caption.top - 7,
             );
           });
         })
@@ -79,6 +83,21 @@ for (const viewport of [
           return frame.y + frame.height <= card.y;
         })
         .toBe(true);
+    }
+    if (viewport.width <= 720) {
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const guide = document.querySelector('[data-landing-phone-guide="mobile"]')?.getBoundingClientRect();
+            const note = document.querySelector("[data-landing-phone-story-end]")?.getBoundingClientRect();
+            const cta = document.querySelector('[data-slot="landing-final-cta"]')?.getBoundingClientRect();
+            return guide && note && cta
+              ? { above: Math.round(note.top - guide.bottom), below: Math.round(cta.top - note.bottom) }
+              : null;
+          }),
+        )
+        .toEqual({ above: 24, below: 24 });
     }
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await expect(scene).toHaveAttribute("data-scene-step", "settled");

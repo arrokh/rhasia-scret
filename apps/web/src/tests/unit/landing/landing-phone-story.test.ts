@@ -400,6 +400,33 @@ describe("LandingPhoneStoryProvider", () => {
     expect(frame.getBoundingClientRect().top).toBeGreaterThanOrEqual(8);
   });
 
+  it("moves the chassis above a rising caption and restores it when scrolling back", async () => {
+    installFrameQueue();
+    fixture = createStoryFixture();
+    setRect(fixture.journeySection, () => makeRect(0, 0, 1000, 2000));
+    const body = document.createElement("div");
+    body.dataset.landingPhoneBodyBounds = "";
+    fixture.stage.append(body);
+    setRenderedStageRect(fixture.stage);
+    setRenderedPhoneFrameRect(body, fixture.stage, fixture.stage, makeRect(300, 100, 195, 422));
+    const caption = document.createElement("div");
+    caption.dataset.landingPhoneCaption = "";
+    let captionTop = 450;
+    setRect(caption, () => makeRect(300, captionTop, 200, 35));
+    fixture.journeySection.append(caption);
+
+    await renderStory();
+    expect(captionTop - body.getBoundingClientRect().bottom).toBeCloseTo(8);
+    captionTop = 300;
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(captionTop - body.getBoundingClientRect().bottom).toBeCloseTo(8);
+    captionTop = 700;
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(body.getBoundingClientRect().top).toBeCloseTo(100);
+  });
+
   it("keeps the same footer gap for the fallback phone without a CSS3D screen", async () => {
     installFrameQueue();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });

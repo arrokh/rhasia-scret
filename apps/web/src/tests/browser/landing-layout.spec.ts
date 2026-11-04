@@ -96,12 +96,31 @@ for (const locale of ["id", "en"] as const) {
   });
 }
 
-test("distinguishes the sign-in action from the external self-hosting guide", async ({ page }) => {
-  await page.goto("/landing");
-  const actions = page.locator('[data-slot="landing-final-cta"]');
-  await expect(actions.locator('a[href="/sign-in"] svg')).toHaveClass(/lucide-log-in/);
-  await expect(actions.locator('a[target="_blank"] svg')).toHaveClass(/lucide-arrow-up-right/);
-});
+for (const locale of ["id", "en"] as const) {
+  test(`keeps final CTA copy and destinations without right-side icons in ${locale}`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    if (!baseURL) throw new Error("The browser test base URL is required.");
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: locale, url: baseURL }]);
+    await page.goto("/landing");
+    const actions = page.locator('[data-slot="landing-final-cta"]');
+    const signIn = actions.getByRole("link", { name: locale === "id" ? "Coba sekarang" : "Try now", exact: true });
+    const selfHost = actions.getByRole("link", {
+      name: locale === "id" ? "Jalankan sendiri" : "Self-host it",
+      exact: true,
+    });
+    await expect(signIn).toHaveAttribute("href", "/sign-in");
+    await expect(selfHost).toHaveAttribute(
+      "href",
+      "https://github.com/arrokh/rhasia-scret/blob/main/docs/self-hosting.md",
+    );
+    await expect(selfHost).toHaveAttribute("target", "_blank");
+    await expect(selfHost).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(actions.locator("a svg")).toHaveCount(0);
+  });
+}
 
 for (const viewport of [
   { width: 1440, height: 900 },
@@ -151,68 +170,81 @@ for (const viewport of [
   });
 }
 
-test("dissolves only the phone screen when the active journey card changes", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/landing");
-  const scene = page.locator("[data-landing-desktop-scene]:visible");
-  await expect(scene).toHaveAttribute("data-input-ready", "true");
-  for (const step of ["unlocked", "devices", "settled"]) {
-    await page.keyboard.press("PageDown");
-    await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
-  }
-  const phone = page.locator('[data-landing-primary-phone] iframe[data-device-kind="phone"]');
-  const originalBounds = await phone.boundingBox();
-  for (const view of ["scan", "review", "added", "sharedPermissions"]) {
-    await page.locator(`[class*="journeyGrid"] [data-landing-phone-view="${view}"]`).evaluate((card) => {
-      const bounds = card.getBoundingClientRect();
-      window.scrollTo({
-        top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2,
-        behavior: "instant",
-      });
-    });
-    const entry = phone.contentFrame().locator(`[data-landing-phone-screen-entry="${view}"]`);
-    await expect(entry).toBeVisible();
-    await expect(entry).toHaveCSS("animation-name", /landing-phone-screen-dissolve/);
-    await expect(entry).toHaveCSS("animation-duration", "0.28s");
-    expect(await entry.locator('[class*="phoneUi"]').evaluate((root) => root.scrollTop)).toBe(0);
-    expect(
-      await entry.locator('[class*="phoneStatusBar"]').evaluate((bar) => bar.getBoundingClientRect().top),
-    ).toBeGreaterThanOrEqual(0);
-    if (view === "added") {
-      const frame = phone.contentFrame();
-      await expect(
-        frame.locator('[data-slot="account-directory-list"] li').last().locator('[data-landing-phone-target="added"]'),
-      ).toHaveCount(1);
-      await expect(frame.locator('a[href="/vaults/accounts/new"][data-landing-phone-target]')).toHaveCount(0);
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`keeps the phone screen opaque when the active journey card changes at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/landing");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
+    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    for (const step of ["unlocked", "devices", "settled"]) {
+      await page.keyboard.press("PageDown");
+      await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
     }
-    if (view === "sharedPermissions") {
+    const phone = page.locator('[data-landing-primary-phone] iframe[data-device-kind="phone"]');
+    const originalBounds = await phone.boundingBox();
+    for (const view of ["scan", "review", "added", "sharedPermissions"]) {
+      await page.locator(`[data-landing-phone-view="${view}"]:visible`).evaluate((card) => {
+        const bounds = card.getBoundingClientRect();
+        window.scrollTo({
+          top:
+            innerWidth <= 720
+              ? scrollY + bounds.top - innerHeight * 0.57
+              : scrollY + bounds.top + bounds.height / 2 - innerHeight / 2,
+          behavior: "instant",
+        });
+      });
+      const entry = phone.contentFrame().locator(`[data-landing-phone-screen-entry="${view}"]`);
+      await expect(entry).toBeVisible();
+      await expect(entry).toHaveCSS("animation-name", "none");
+      await expect(entry).toHaveCSS("opacity", "1");
+      expect(await entry.locator('[class*="phoneUi"]').evaluate((root) => root.scrollTop)).toBe(0);
+      expect(
+        await entry.locator('[class*="phoneStatusBar"]').evaluate((bar) => bar.getBoundingClientRect().top),
+      ).toBeGreaterThanOrEqual(0);
+      if (view === "added") {
+        const frame = phone.contentFrame();
+        await expect(
+          frame
+            .locator('[data-slot="account-directory-list"] li')
+            .last()
+            .locator('[data-landing-phone-target="added"]'),
+        ).toHaveCount(1);
+        await expect(frame.locator('a[href="/vaults/accounts/new"][data-landing-phone-target]')).toHaveCount(0);
+      }
+      if (view === "sharedPermissions") {
+        await expect
+          .poll(async () =>
+            phone
+              .contentFrame()
+              .locator("#vault-default-canAddAccounts")
+              .evaluate((control) => {
+                const bounds = control.getBoundingClientRect();
+                return bounds.top >= 80 && bounds.bottom <= window.innerHeight - 80;
+              }),
+          )
+          .toBe(true);
+      }
       await expect
-        .poll(async () =>
-          phone
-            .contentFrame()
-            .locator("#vault-default-canAddAccounts")
-            .evaluate((control) => {
-              const bounds = control.getBoundingClientRect();
-              return bounds.top >= 80 && bounds.bottom <= window.innerHeight - 80;
-            }),
-        )
+        .poll(async () => {
+          const bounds = await phone.boundingBox();
+          return Boolean(
+            bounds &&
+            originalBounds &&
+            Math.abs(bounds.x - originalBounds.x) <= 2 &&
+            Math.abs(bounds.y - originalBounds.y) <= 2,
+          );
+        })
         .toBe(true);
     }
-    await expect
-      .poll(async () => {
-        const bounds = await phone.boundingBox();
-        return Boolean(
-          bounds &&
-          originalBounds &&
-          Math.abs(bounds.x - originalBounds.x) <= 2 &&
-          Math.abs(bounds.y - originalBounds.y) <= 2,
-        );
-      })
-      .toBe(true);
-  }
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(phone.contentFrame().locator("[data-landing-phone-screen-entry]")).toHaveCSS("animation-name", "none");
-});
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(phone.contentFrame().locator("[data-landing-phone-screen-entry]")).toHaveCSS("animation-name", "none");
+  });
+}
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`reveals journey cards without moving their connector anchors with ${reducedMotion} motion`, async ({

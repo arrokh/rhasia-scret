@@ -98,7 +98,7 @@ describe("LandingPhoneMockup screen transitions", () => {
     await render("review");
     const reviewEntry = testContainer.querySelector<HTMLElement>('[data-landing-phone-screen-entry="review"]');
     expect(reviewEntry).not.toBeNull();
-    expect(reviewEntry).not.toBe(scanEntry);
+    expect(reviewEntry).toBe(scanEntry);
     expect(reviewEntry?.parentElement).toBe(screenStack);
     expect(accountsLayer).toBe(testContainer.querySelector('[data-landing-phone-screen="accounts"]'));
     expect(accountsPreview).toBe(testContainer.querySelector("[data-landing-vaults-home-preview]"));

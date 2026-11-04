@@ -78,6 +78,14 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       const sceneStep = heroSection.dataset.sceneStep;
       const canStartStory = sceneStep === "settled" && heroSection.getAttribute("aria-busy") !== "true";
       journeySection.dataset.sceneSettled = `${canStartStory}`;
+      const mobileStage = journeySection.querySelector<HTMLElement>("[data-landing-mobile-stage]");
+      if (window.innerWidth <= 720 && mobileStage) {
+        const height = mobileStage.getBoundingClientRect().height;
+        const headerHeight = document.querySelector("[data-landing-header]")?.getBoundingClientRect().height ?? 0;
+        const top = Math.max(headerHeight, (window.innerHeight + headerHeight - height) / 2);
+        journeySection.style.setProperty("--landing-mobile-stage-height", `${height}px`);
+        journeySection.style.setProperty("--landing-mobile-stage-top", `${top}px`);
+      }
       const journeyAnchor = getVisibleJourneyAnchor();
       if (!journeyAnchor) return;
 
@@ -288,6 +296,8 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
     observeScreenDocument();
     resizeObserver.observe(heroSection);
     resizeObserver.observe(journeySection);
+    const mobileStage = journeySection.querySelector<HTMLElement>("[data-landing-mobile-stage]");
+    if (mobileStage) resizeObserver.observe(mobileStage);
     resizeObserver.observe(stage);
 
     return () => {
@@ -561,7 +571,11 @@ function keepPhoneWithinJourneyEnd(stage: HTMLElement, journeySection: HTMLEleme
     finalCta?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
     window.innerHeight,
   );
-  const maxBottom = boundaryTop - PHONE_BOUNDARY_CLEARANCE;
+  const captionTop = getVisibleElement("[data-landing-phone-caption]")?.getBoundingClientRect().top;
+  const maxBottom = Math.min(
+    boundaryTop - PHONE_BOUNDARY_CLEARANCE,
+    captionTop === undefined ? Number.POSITIVE_INFINITY : captionTop - 8,
+  );
   const minimumVisibleBottom = 8;
   if (maxBottom <= minimumVisibleBottom) return false;
   if (phoneBounds.bottom <= maxBottom) return phoneBounds.bottom > minimumVisibleBottom;

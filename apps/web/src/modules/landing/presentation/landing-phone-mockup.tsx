@@ -482,7 +482,7 @@ export function LandingPhoneMockup({
   }, [screenHost, transparentFloor, view, startUnlockDemo, unlockDemoResetToken]);
 
   const hostedScreen = (
-    <div key={view} className={styles.phoneScreenEntry} data-landing-phone-screen-entry={view}>
+    <div className={styles.phoneScreenEntry} data-landing-phone-screen-entry={view}>
       <LandingHostedVaultScreen view={view} />
     </div>
   );
@@ -1473,6 +1473,7 @@ async function initializeDeviceShowcase(
   let width = 0;
   let height = 0;
   let pixelRatio = 0;
+  let framingDistanceOffset = 0;
   const render = () => {
     webglRenderer.render(scene, camera);
     cssRenderer.render(scene, camera);
@@ -1547,14 +1548,21 @@ async function initializeDeviceShowcase(
   }
 
   function fitCameraToDeviceBounds(baseDistance: number, leaving: number) {
-    if (leaving !== 0) return;
+    if (leaving !== 0) {
+      // Carry the responsive framing into departure instead of snapping to the unfitted camera.
+      camera.position.setLength(baseDistance + framingDistanceOffset * (1 - leaving));
+      return;
+    }
     cameraBounds.makeEmpty();
     devices.forEach(({ handset }) => {
       if (!handset.visible) return;
       handset.updateMatrixWorld(true);
       cameraBounds.union(deviceBounds.setFromObject(handset));
     });
-    if (cameraBounds.isEmpty()) return;
+    if (cameraBounds.isEmpty()) {
+      framingDistanceOffset = 0;
+      return;
+    }
 
     cameraBoundsPoints.length = 0;
     for (const x of [cameraBounds.min.x, cameraBounds.max.x]) {
@@ -1574,7 +1582,8 @@ async function initializeDeviceShowcase(
       cameraUp,
       cameraPositionDirection,
     });
-    camera.position.copy(cameraPositionDirection.multiplyScalar(Math.max(baseDistance, fittedDistance)));
+    framingDistanceOffset = Math.max(0, fittedDistance - baseDistance);
+    camera.position.copy(cameraPositionDirection.multiplyScalar(baseDistance + framingDistanceOffset));
   }
 
   return {

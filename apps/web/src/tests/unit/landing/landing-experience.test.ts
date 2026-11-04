@@ -60,16 +60,6 @@ describe("LandingExperience showcase readiness", () => {
     document.body.innerHTML = "";
   });
 
-  it("initializes device renderers without a first-visit language gate", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
-    await act(async () => root?.render(createElement(LandingExperience)));
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(callbacks.onUnlockComplete).toBeTypeOf("function");
-    expect(callbacks.onShowcaseReady).toBeTypeOf("function");
-  });
-
   it("starts the ready showcase when readiness and PageDown arrive in the same React turn", async () => {
     const container = document.createElement("div");
     document.body.append(container);

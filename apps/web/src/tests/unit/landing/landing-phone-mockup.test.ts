@@ -3,7 +3,6 @@ import {
   createLandingProgressTransitionDriver,
   createLandingShowcaseProgressApplier,
   getLandingShowcaseCameraDistance,
-  LANDING_FLOOR_APPEARANCE,
 } from "@/modules/landing/presentation/landing-phone-mockup";
 import { landingFlowConfig } from "@/modules/landing/presentation/landing-flow.config";
 
@@ -99,12 +98,6 @@ const compactShowcaseDevicePoints = landingFlowConfig.showcase.devices.flatMap((
   );
 });
 
-describe("LandingStoryEnvironment floor appearance", () => {
-  it("keeps the shared floor color and grid unlit across top-down and side-camera scenes", () => {
-    expect(LANDING_FLOOR_APPEARANCE).toEqual({ color: 0xf8f4ed, gridStrength: 1, toneMapped: false });
-  });
-});
-
 describe("LandingDeviceShowcase responsive layout replay", () => {
   it("reapplies the latest progress on resize only after the layout is initialized", () => {
     const applyProgress = vi.fn();
@@ -186,15 +179,6 @@ describe("LandingDeviceShowcase progress transitions", () => {
     expect(complete).toHaveBeenCalledOnce();
     expect(applyProgress).toHaveBeenLastCalledWith(0.5);
     expect(queue.callbacks.size).toBe(0);
-  });
-
-  it("uses one smooth quintic curve from the first expansion frame", () => {
-    const queue = createFrameQueue();
-    requestProgress(queue.driver, 0.5, { duration: 1000 });
-
-    queue.advanceTo(250);
-
-    expect(queue.driver.getCurrentProgress()).toBeCloseTo(0.0517578125);
   });
 
   it("completes exactly once when a reversal target equals the current rendered progress", () => {

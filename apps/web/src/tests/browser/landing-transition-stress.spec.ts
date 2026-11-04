@@ -31,7 +31,9 @@ test("keeps the mobile phone continuous through departure and return", async ({ 
   await page.goto("/landing");
   const scene = page.locator("[data-landing-desktop-scene]:visible");
   await expect(scene).toHaveAttribute("data-input-ready", "true");
-  await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true");
+  await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true", {
+    timeout: 15_000,
+  });
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked");
   await page.keyboard.press("PageDown");
@@ -148,6 +150,173 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
       }
     });
   }
+}
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`keeps one canonical 3D renderer and viewport across states at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/landing");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
+    const primary = page.locator("[data-landing-primary-phone]");
+    const renderer = primary.locator('[data-layout="scene"]');
+    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    await expect(primary.locator("[data-landing-phone-body-bounds]")).toBeAttached();
+    const canvas = await primary.locator("canvas").elementHandle();
+    const screen = await primary.locator('iframe[data-device-kind="phone"]').elementHandle();
+    if (!canvas || !screen) throw new Error("The canonical phone renderer is unavailable.");
+    const model = await renderer.getAttribute("data-device-model");
+    const intrinsicBounds = () =>
+      primary.locator("[data-landing-phone-body-bounds]").evaluate((element) => ({
+        width: element.style.width,
+        height: element.style.height,
+      }));
+    const originalBounds = await intrinsicBounds();
+    const transitions = [
+      ["locked", null],
+      ["unlocked", "PageDown"],
+      ["devices", "PageDown"],
+      ["settled", "PageDown"],
+      ["devices", "PageUp"],
+      ["unlocked", "PageUp"],
+    ] as const;
+    for (const [step, key] of transitions) {
+      if (key) await page.keyboard.press(key);
+      await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+      await expect.poll(() => renderer.evaluate((element) => element.clientHeight)).toBe(viewport.height);
+      await expect(renderer).toHaveAttribute("data-device-model", model ?? "");
+      expect(await primary.locator("canvas").evaluate((element, original) => element === original, canvas)).toBe(true);
+      expect(
+        await primary
+          .locator('iframe[data-device-kind="phone"]')
+          .evaluate((element, original) => element === original, screen),
+      ).toBe(true);
+      await expect.poll(intrinsicBounds).toEqual(originalBounds);
+    }
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`keeps the showcase floor camera continuous during departure and return at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.goto("/landing");
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
+    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    await expect(page.locator("[data-landing-device-showcase]")).toHaveAttribute("data-ready", "true", {
+      timeout: 15_000,
+    });
+    for (const step of ["unlocked", "devices"]) {
+      await page.keyboard.press("PageDown");
+      await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+    }
+    const { samples, segments } = await page.evaluate(async () => {
+      const container = document.querySelector<HTMLElement>('[data-layout="showcase"]');
+      const gl = container?.querySelector("canvas")?.getContext("webgl2");
+      if (!container || !gl) throw new Error("The showcase WebGL renderer is unavailable.");
+      const programs = new Map<WebGLProgram, boolean>();
+      const originalUseProgram = WebGL2RenderingContext.prototype.useProgram;
+      const originalWidth = container.style.width;
+      const samples: { distance: number; sideAmount: number }[] = [];
+      let capturing = false;
+      let currentFloor = false;
+      const originalDrawElements = WebGL2RenderingContext.prototype.drawElements;
+      const originalDrawArrays = WebGL2RenderingContext.prototype.drawArrays;
+      WebGL2RenderingContext.prototype.useProgram = function (program) {
+        if (this === gl && program && !programs.has(program)) {
+          const source = (gl.getAttachedShaders(program) ?? []).map((shader) => gl.getShaderSource(shader)).join("\n");
+          programs.set(
+            program,
+            source.includes("#define SHADER_TYPE MeshBasicMaterial") &&
+              source.includes("#define USE_MAP") &&
+              source.includes("#define OPAQUE"),
+          );
+        }
+        if (this === gl) currentFloor = program !== null && programs.get(program) === true;
+        return originalUseProgram.call(this, program);
+      };
+      WebGL2RenderingContext.prototype.drawElements = function (mode, count, type, offset) {
+        if (this === gl && capturing && currentFloor) samples.push(readCamera());
+        return originalDrawElements.call(this, mode, count, type, offset);
+      };
+      WebGL2RenderingContext.prototype.drawArrays = function (mode, first, count) {
+        if (this === gl && capturing && currentFloor) samples.push(readCamera());
+        return originalDrawArrays.call(this, mode, first, count);
+      };
+      const readCamera = () => {
+        for (const [program, floor] of programs) {
+          if (!floor) continue;
+          const location = gl.getUniformLocation(program, "modelViewMatrix");
+          if (!location) continue;
+          const matrix: unknown = gl.getUniform(program, location);
+          if (!(matrix instanceof Float32Array)) continue;
+          // Invert the static floor's view matrix; its only model transform is y=-0.17.
+          const x = -(matrix[0] * matrix[12] + matrix[1] * matrix[13] + matrix[2] * matrix[14]);
+          const y = -(matrix[4] * matrix[12] + matrix[5] * matrix[13] + matrix[6] * matrix[14]) - 0.17;
+          const z = -(matrix[8] * matrix[12] + matrix[9] * matrix[13] + matrix[10] * matrix[14]);
+          const topAngle = Math.atan2(16.5, 0.01);
+          const sideAngle = innerWidth <= 900 ? Math.atan2(30, 15) : Math.atan2(18, 25);
+          const angle = Math.acos(Math.min(1, Math.max(-1, matrix[5])));
+          return { distance: Math.hypot(x, y, z), sideAmount: (topAngle - angle) / (topAngle - sideAngle) };
+        }
+        throw new Error("The static floor camera matrix is unavailable.");
+      };
+      const nextFrames = () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      try {
+        // Repaint the settled frame to identify the floor program before sampling departure.
+        container.style.width = `${innerWidth - 1}px`;
+        await nextFrames();
+        container.style.width = originalWidth;
+        await nextFrames();
+        samples.push(readCamera());
+        capturing = true;
+        const segments: { start: number; initialDistance: number }[] = [];
+        for (const key of ["PageDown", "PageUp"]) {
+          segments.push({ start: samples.length, initialDistance: readCamera().distance });
+          const transitionStarted = performance.now();
+          window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+          await new Promise<void>((resolve, reject) => {
+            const sample = (time: number) => {
+              try {
+                const target = key === "PageDown" ? "settled" : "devices";
+                if (document.querySelector<HTMLElement>("[data-landing-desktop-scene]")?.dataset.sceneStep === target) {
+                  return resolve();
+                }
+                if (time - transitionStarted > 10_000)
+                  return reject(new Error(`The ${key} showcase transition did not complete.`));
+                requestAnimationFrame(sample);
+              } catch (error) {
+                reject(error);
+              }
+            };
+            requestAnimationFrame(sample);
+          });
+        }
+        return { samples, segments };
+      } finally {
+        container.style.width = originalWidth;
+        WebGL2RenderingContext.prototype.useProgram = originalUseProgram;
+        WebGL2RenderingContext.prototype.drawElements = originalDrawElements;
+        WebGL2RenderingContext.prototype.drawArrays = originalDrawArrays;
+      }
+    });
+    // Recover transition progress from camera orientation, not wall-clock cadence.
+    // Every actual draw must follow the same fitted-distance path, even on a slow GPU.
+    const sideY = width <= 900 ? 30 : 18;
+    const sideZ = width <= 900 ? 15 : 25;
+    const fittedOffset = samples[0].distance - Math.hypot(sideY, sideZ);
+    expect(fittedOffset).toBeGreaterThan(0);
+    expect(segments).toHaveLength(2);
+    for (const sample of samples) {
+      const amount = sample.sideAmount;
+      const baseDistance = Math.hypot(16.5 + (sideY - 16.5) * amount, 0.01 + (sideZ - 0.01) * amount);
+      expect(Math.abs(sample.distance - (baseDistance + fittedOffset * amount))).toBeLessThan(0.05);
+    }
+    expect(samples.at(-1)?.distance).toBeCloseTo(samples[0].distance, 0);
+    await expect(scene).toHaveAttribute("data-scene-step", "devices");
+  });
 }
 
 async function runLandingTransitionStress(
