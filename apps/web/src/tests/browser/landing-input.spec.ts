@@ -156,6 +156,58 @@ test("lets the hero card scroll before advancing the intro at its boundary", asy
   await expect(scene).toHaveAttribute("data-scene-step", "settled");
 });
 
+test("lets the navbar language menu consume arrow keys without advancing the intro", async ({ page }) => {
+  await page.goto("/landing");
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
+  await expect(scene).toHaveAttribute("data-input-ready", "true");
+  const language = page.locator("[data-landing-header]").getByRole("button", { name: "Pilih bahasa" });
+  await language.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(scene).toHaveAttribute("data-scene-step", "locked");
+  await page.keyboard.press("ArrowDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "locked");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
+test("lets an overflowing mobile guide consume upward wheel and touch scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 480 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/landing");
+  const scene = page.locator('[data-landing-desktop-scene="true"]:visible');
+  await expect(scene).toHaveAttribute("data-input-ready", "true");
+  for (const step of ["unlocked", "devices", "settled"]) {
+    await page.keyboard.press("PageDown");
+    await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
+  }
+  const guide = page.locator('[data-landing-phone-guide="mobile"][data-active="true"]');
+  const initialScroll = await guide.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    return element.scrollTop;
+  });
+  expect(initialScroll).toBeGreaterThan(0);
+  await guide.hover();
+  await page.mouse.wheel(0, -20);
+  await expect.poll(() => guide.evaluate((element) => element.scrollTop)).toBeLessThan(initialScroll);
+  await expect(scene).toHaveAttribute("data-scene-step", "settled");
+  const prevented = await guide.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    const dispatchTouch = (type: string, clientY: number | null) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "touches", { value: clientY === null ? [] : [{ clientY }] });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    dispatchTouch("touchstart", 100);
+    const blocked = dispatchTouch("touchmove", 200);
+    dispatchTouch("touchend", null);
+    return blocked;
+  });
+  expect(prevented).toBe(false);
+  await expect(scene).toHaveAttribute("data-scene-step", "settled");
+});
+
 test("does not reverse when natural scrolling reaches the page top", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing");

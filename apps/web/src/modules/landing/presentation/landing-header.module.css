@@ -1,0 +1,63 @@
+.header {
+  position: fixed;
+  z-index: 40;
+  inset: 0 0 auto;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  box-shadow: 0 4px 16px rgb(39 48 57 / 5%);
+}
+
+.navigation {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+}
+
+.brand {
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.actions :global([data-slot="dropdown-menu-trigger"]) {
+  min-height: 3rem;
+}
+
+@media (max-width: 639px) {
+  .navigation:global(.landing-shell) {
+    width: calc(100% - 1rem);
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .actions :global([data-slot="dropdown-menu-trigger"]) {
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
+    padding: 0;
+  }
+
+  .actions :global([data-slot="dropdown-menu-trigger"]) > span {
+    display: none;
+  }
+}

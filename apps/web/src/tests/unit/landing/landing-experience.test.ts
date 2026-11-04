@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, createElement, useLayoutEffect, type ReactNode } from "react";
+import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -8,8 +8,6 @@ const callbacks = vi.hoisted(() => ({
   onUnlockComplete: undefined as (() => void) | undefined,
   onShowcaseReady: undefined as (() => void) | undefined,
   onShowcaseTransitionComplete: undefined as (() => void) | undefined,
-  languageChoiceOpen: false,
-  onLanguageOpenChange: undefined as ((open: boolean) => void) | undefined,
 }));
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -22,13 +20,7 @@ vi.mock("@/components/ui/button", () => ({
 }));
 vi.mock("@/shared/presentation/app-ui", () => ({ AppFooterContent: () => null }));
 vi.mock("@/modules/landing/presentation/landing-journey", () => ({ LandingJourney: () => null }));
-vi.mock("@/modules/landing/presentation/landing-language-dialog", () => ({
-  LandingLanguageDialog: ({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) => {
-    callbacks.onLanguageOpenChange = onOpenChange;
-    useLayoutEffect(() => onOpenChange?.(callbacks.languageChoiceOpen), [onOpenChange]);
-    return null;
-  },
-}));
+vi.mock("@/modules/landing/presentation/landing-header", () => ({ LandingHeader: () => null }));
 vi.mock("@/modules/landing/presentation/landing-phone-story", () => ({
   LandingPhoneStoryProvider: ({ children }: { children: ReactNode }) => children,
   useLandingPhoneStory: () => "accounts",
@@ -62,25 +54,18 @@ describe("LandingExperience showcase readiness", () => {
   afterEach(async () => {
     await act(async () => root?.unmount());
     root = undefined;
-    callbacks.languageChoiceOpen = false;
-    callbacks.onLanguageOpenChange = undefined;
     callbacks.onUnlockComplete = undefined;
     callbacks.onShowcaseReady = undefined;
     callbacks.onShowcaseTransitionComplete = undefined;
     document.body.innerHTML = "";
   });
 
-  it("defers device renderers until the language choice closes", async () => {
-    callbacks.languageChoiceOpen = true;
+  it("initializes device renderers without a first-visit language gate", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
     await act(async () => root?.render(createElement(LandingExperience)));
-    expect(callbacks.onUnlockComplete).toBeUndefined();
-    expect(callbacks.onShowcaseReady).toBeUndefined();
-    const closeLanguageChoice = callbacks.onLanguageOpenChange;
-    if (!closeLanguageChoice) throw new Error("Expected language choice callback.");
-    await act(async () => closeLanguageChoice(false));
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
     expect(callbacks.onUnlockComplete).toBeTypeOf("function");
     expect(callbacks.onShowcaseReady).toBeTypeOf("function");
   });

@@ -29,12 +29,12 @@ test("scroll advances from the locked phone to the device showcase with its hero
   );
   const originalCanvas = await primaryPhone.locator("canvas").first().elementHandle();
   expect(originalCanvas).not.toBeNull();
-  await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir ke bawah untuk melanjutkan");
-  await expect(scene.locator('[class*="__heroOverlay"]')).toHaveAttribute("data-visible", "false");
+  await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir untuk lanjut");
+  await expect(scene.locator('[class*="heroOverlay"]')).toHaveAttribute("data-visible", "false");
 
   await page.mouse.wheel(0, 500);
   await expect(scene).toHaveAttribute("data-scene-step", "unlocking");
-  await expect(scene.locator('[class*="__sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "true");
+  await expect(scene.locator('[class*="sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "true");
   await expect(phonePreview.locator("[data-unlock-phase]")).toHaveAttribute("data-unlock-phase", "unlocked", {
     timeout: 10_000,
   });
@@ -44,7 +44,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
     (element) =>
       new Promise<{ wheel: boolean; click: boolean; key: boolean; inert: boolean; busy: boolean }>(
         (resolve, reject) => {
-          const hero = element.querySelector<HTMLElement>('[class*="__heroOverlay"]');
+          const hero = element.querySelector<HTMLElement>('[class*="heroOverlay"]');
           const link = hero?.querySelector<HTMLAnchorElement>('a[href="/local?from=landing"]');
           if (!hero || !link) return reject(new Error("The landing action is unavailable."));
           const timeout = window.setTimeout(() => {
@@ -99,7 +99,7 @@ test("scroll advances from the locked phone to the device showcase with its hero
   });
   await expect(scene).toHaveAttribute("data-processing-wheel-seen", "true");
   await expect(scene).toHaveAttribute("data-processing-scroll-ignored", "true");
-  const hero = scene.locator('[class*="__heroOverlay"]');
+  const hero = scene.locator('[class*="heroOverlay"]');
   const localLink = hero.locator('a[href="/local?from=landing"]');
   await expect(page).toHaveURL(/\/landing$/);
   await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 15_000 });
@@ -109,8 +109,8 @@ test("scroll advances from the locked phone to the device showcase with its hero
   await expect(hero).not.toHaveAttribute("inert", "");
   await localLink.focus();
   await expect(localLink).toBeFocused();
-  await expect(page.locator('[class*="__deviceShowcase"]')).toHaveAttribute("data-visible", "true");
-  await expect(scene.locator('[class*="__heroOverlay"]')).toHaveAttribute("data-visible", "true");
+  await expect(page.locator('[class*="deviceShowcase"]')).toHaveAttribute("data-visible", "true");
+  await expect(scene.locator('[class*="heroOverlay"]')).toHaveAttribute("data-visible", "true");
   await expect(page.locator('[data-layout="showcase"]')).toHaveAttribute("data-device-count", "4");
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
   await expect(primaryPhone.locator("[data-device-model]")).toHaveAttribute("data-device-model", "iphone-17-pro-max");
@@ -161,7 +161,7 @@ test("keeps the locked landing scene within narrow mobile viewports", async ({ p
     const scene = page.locator('[data-landing-desktop-scene="true"]');
     await expect(scene).toHaveAttribute("data-scene-step", "locked");
     await expect(page.locator("[data-landing-primary-phone]")).toHaveAttribute("data-visible", "true");
-    await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir ke bawah untuk melanjutkan");
+    await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir untuk lanjut");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
@@ -183,7 +183,7 @@ test("reduced motion skips animations and allows moving backwards through landin
   });
   await page.mouse.wheel(0, 500);
   await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 10_000 });
-  await expect(scene.locator('[class*="__sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "false");
+  await expect(scene.locator('[class*="sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "false");
   await page.keyboard.press("PageDown");
   await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 25_000 });
   await page.keyboard.press("PageUp");
@@ -270,8 +270,8 @@ test("keeps the shared Hosted Vault journey and device viewport on the page", as
     await page.goto("/");
     const journey = page.locator("#landing-journey");
     await expect(journey).toHaveCount(1);
-    await expect(journey.locator('[class*="__guideColumn"] article')).toHaveCount(8);
-    await expect(journey.locator('[class*="__mobileJourneySteps"] [data-landing-phone-view]')).toHaveCount(8);
+    await expect(journey.locator('[class*="guideColumn"] article')).toHaveCount(8);
+    await expect(journey.locator('[class*="mobileJourneySteps"] [data-landing-phone-view]')).toHaveCount(8);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });

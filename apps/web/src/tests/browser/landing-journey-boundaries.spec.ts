@@ -37,9 +37,23 @@ for (const viewport of [
       await expect(phone).toBeVisible();
       await expect
         .poll(async () => {
-          const frame = await phone.boundingBox();
-          const note = await page.locator("[data-landing-phone-story-end]").boundingBox();
-          return Boolean(frame && note && frame.y + frame.height > 8 && frame.y + frame.height <= note.y - 17);
+          return phone.evaluate((element) => {
+            const frame = element.getBoundingClientRect();
+            const body = element
+              .closest("[data-landing-primary-phone]")
+              ?.querySelector("[data-landing-phone-body-bounds]")
+              ?.getBoundingClientRect();
+            const note = document.querySelector("[data-landing-phone-story-end]")?.getBoundingClientRect();
+            return Boolean(
+              body &&
+              note &&
+              frame.bottom > 8 &&
+              body.width > frame.width &&
+              body.height > frame.height &&
+              body.bottom <= note.top - 23 &&
+              (innerWidth <= 720 || Math.abs(note.top - body.bottom - 24) <= 1),
+            );
+          });
         })
         .toBe(true);
       if (viewport.width > 720) {

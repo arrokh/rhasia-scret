@@ -75,12 +75,7 @@ function setRenderedStageRect(stage: HTMLElement) {
   });
 }
 
-function setRenderedPhoneFrameRect(
-  frame: HTMLIFrameElement,
-  stage: HTMLElement,
-  scene: HTMLElement,
-  initialBounds: DOMRect,
-) {
+function setRenderedPhoneFrameRect(frame: HTMLElement, stage: HTMLElement, scene: HTMLElement, initialBounds: DOMRect) {
   setRect(frame, () => {
     const stageBounds = stage.getBoundingClientRect();
     const scale = getScale(stage) * getScale(scene);
@@ -279,7 +274,7 @@ describe("LandingPhoneStoryProvider", () => {
     expect(connectorDot?.getAttribute("visibility")).toBe("hidden");
   });
 
-  it("routes the mobile connector around the phone and caption to the guide card's inset corner", async () => {
+  it("routes the mobile connector around the phone and caption to the guide card's top-right inset corner", async () => {
     installFrameQueue();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
@@ -325,21 +320,26 @@ describe("LandingPhoneStoryProvider", () => {
     const connectorDot = fixture.container.querySelector("svg circle");
     const targetX = phoneBounds.left + (325 / 390) * phoneBounds.width;
     const targetY = phoneBounds.top + (220 / 844) * phoneBounds.height;
-    const rightExitX = Math.min(window.innerWidth - 4, Math.max(phoneBounds.right, captionBounds.right) + 14);
+    const guideX = cardBounds.right - 20;
+    const rightExitX = Math.min(
+      window.innerWidth - 4,
+      Math.max(Math.max(phoneBounds.right, captionBounds.right) + 14, guideX + 16),
+    );
     const routeBottom = cardBounds.top - 4;
     const guideNode = fixture.container.querySelector("[data-landing-guide-node]");
     expect(guideNode).not.toBeNull();
-    expect(guideNode?.getAttribute("cx")).toBe("36");
+    expect(guideNode?.getAttribute("cx")).toBe("354");
     expect(guideNode?.getAttribute("cy")).toBe("501");
 
     expect(connectorPath?.getAttribute("d")).toMatch(/^M [0-9.]+ [0-9.]+ C [0-9.]+ [0-9.]+/);
     expect(Number(connectorPath?.getAttribute("d")?.split(" ")[1])).toBeCloseTo(targetX);
     expect(connectorPath?.getAttribute("d")).toContain(`C ${rightExitX} `);
     expect(connectorPath?.getAttribute("d")).toContain(`L ${rightExitX} ${routeBottom - 8}`);
-    expect(connectorPath?.getAttribute("d")).toContain(`L 44 ${routeBottom}`);
-    expect(connectorPath?.getAttribute("d")).toMatch(/Q 36 [^ ]+, 36 501$/);
+    expect(connectorPath?.getAttribute("d")).toContain(`L 362 ${routeBottom}`);
+    expect(connectorPath?.getAttribute("d")).toMatch(/Q 354 [^ ]+, 354 501$/);
     expect(rightExitX).toBeGreaterThan(phoneBounds.right);
     expect(routeBottom).toBeGreaterThan(phoneBounds.bottom);
+    expect(rightExitX - 8).toBeGreaterThanOrEqual(guideX + 8);
     expect(routeBottom).toBeGreaterThan(captionBounds.bottom);
     expect(routeBottom).toBeLessThan(cardBounds.top);
     expect(Number(connectorDot?.getAttribute("cx"))).toBeCloseTo(targetX);
@@ -367,9 +367,14 @@ describe("LandingPhoneStoryProvider", () => {
     fixture.stage.append(frame);
     setRenderedStageRect(fixture.stage);
     setRenderedPhoneFrameRect(frame, fixture.stage, fixture.stage, makeRect(300, 100, 195, 422));
+    const body = document.createElement("div");
+    body.dataset.landingPhoneBodyBounds = "";
+    fixture.stage.append(body);
+    setRenderedPhoneFrameRect(body, fixture.stage, fixture.stage, makeRect(290, 80, 215, 462));
 
     await renderStory();
 
+    expect(noteTop - body.getBoundingClientRect().bottom).toBeCloseTo(24);
     const clampedBounds = frame.getBoundingClientRect();
     expect(fixture.stage.style.visibility).toBe("");
     expect(clampedBounds.bottom).toBeLessThanOrEqual(noteTop - Math.max(18, clampedBounds.height * 0.06) + 1);
@@ -381,6 +386,7 @@ describe("LandingPhoneStoryProvider", () => {
     expect(fixture.stage.style.visibility).toBe("");
     expect(frame.getBoundingClientRect().top).toBeLessThan(0);
     expect(frame.getBoundingClientRect().bottom).toBeLessThanOrEqual(noteTop - 422 * 0.06 + 1);
+    expect(noteTop - body.getBoundingClientRect().bottom).toBeCloseTo(24);
 
     noteTop = 20;
     await act(async () => window.dispatchEvent(new Event("scroll")));
@@ -392,6 +398,31 @@ describe("LandingPhoneStoryProvider", () => {
     await flushAnimationFrames();
     expect(fixture.stage.style.visibility).toBe("");
     expect(frame.getBoundingClientRect().top).toBeGreaterThanOrEqual(8);
+  });
+
+  it("keeps the same footer gap for the fallback phone without a CSS3D screen", async () => {
+    installFrameQueue();
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 1000 });
+    fixture = createStoryFixture();
+    setRect(fixture.journeySection, () => makeRect(0, 0, 1000, 2000));
+    setRect(fixture.journeyAnchor, () => makeRect(530, 400, 200, 200));
+    const privacyNote = document.createElement("p");
+    privacyNote.dataset.landingPhoneStoryEnd = "";
+    setRect(privacyNote, () => makeRect(0, 500, 1000, 60));
+    fixture.journeySection.append(privacyNote);
+    const body = document.createElement("div");
+    body.dataset.landingPhoneBodyBounds = "";
+    body.dataset.landingPhoneFallbackFrame = "";
+    fixture.stage.append(body);
+    setRenderedStageRect(fixture.stage);
+    setRenderedPhoneFrameRect(body, fixture.stage, fixture.stage, makeRect(300, 100, 195, 422));
+
+    await renderStory();
+
+    expect(fixture.stage.style.visibility).toBe("");
+    expect(500 - body.getBoundingClientRect().bottom).toBeCloseTo(24);
   });
 
   it("selects all eight phone views from their real journey-card sequence", async () => {
@@ -618,6 +649,15 @@ describe("LandingPhoneStoryProvider", () => {
     expect(getScale(scene)).toBeCloseTo(departureScale);
     expect(Number.parseFloat(fixture.stage.style.top)).toBeCloseTo(departureTop);
     expect(frame.getBoundingClientRect().top).toBeCloseTo(departurePhoneTop);
+
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 640 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 360 });
+    setRect(fixture.journeyAnchor, () => makeRect(10, 80, 620, 96));
+    setRenderedPhoneFrameRect(frame, fixture.stage, scene, makeRect(270, 80, 100, 200));
+    await act(async () => window.dispatchEvent(new Event("resize")));
+    await flushAnimationFrames();
+    expect(frame.getBoundingClientRect().height).toBeCloseTo(96 * 0.86);
+    expect(frame.getBoundingClientRect().top + frame.getBoundingClientRect().height / 2).toBeCloseTo(128);
   });
 
   it("fits the mobile phone during departure and smoothly restores its original bounds on return", async () => {

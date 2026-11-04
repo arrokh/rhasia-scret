@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { useOnlineStatus } from "@/shared/presentation/use-online-status";
-import { isAppLocale, localeCookieMaxAge, localeCookieName, locales, type AppLocale } from "./config";
+import { localeCookieMaxAge, localeCookieName, locales, type AppLocale } from "./config";
 
 export const refreshOfflineShellMessage = "RHSIA_REFRESH_OFFLINE_SHELL";
 const offlineShellRefreshedMessage = "RHSIA_OFFLINE_SHELL_REFRESHED";
@@ -28,16 +28,7 @@ function persistLocale(nextLocale: AppLocale) {
   document.documentElement.lang = nextLocale;
 }
 
-export async function applyLocalePreference(
-  nextLocale: AppLocale,
-  currentLocale: AppLocale,
-  { firstChoice = false }: { firstChoice?: boolean } = {},
-): Promise<boolean> {
-  const previousCookie = document.cookie
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith(`${localeCookieName}=`))
-    ?.slice(localeCookieName.length + 1);
+export async function applyLocalePreference(nextLocale: AppLocale, currentLocale: AppLocale): Promise<boolean> {
   persistLocale(nextLocale);
   if (nextLocale === currentLocale && !navigator.onLine) return true;
 
@@ -47,7 +38,6 @@ export async function applyLocalePreference(
   } catch {
     persistLocale(currentLocale);
     await refreshOfflineShell(currentLocale).catch(() => {});
-    if (firstChoice && !isAppLocale(previousCookie)) document.cookie = `${localeCookieName}=; Path=/; Max-Age=0`;
     return false;
   }
 }

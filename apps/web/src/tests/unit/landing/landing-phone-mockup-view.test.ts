@@ -76,6 +76,9 @@ describe("LandingPhoneMockup screen transitions", () => {
     expect(screenStack).not.toBeNull();
     expect(accountsLayer).not.toBeNull();
     expect(accountsPreview).not.toBeNull();
+    expect(
+      testContainer.querySelector("[data-landing-phone-fallback-frame][data-landing-phone-body-bounds]"),
+    ).not.toBeNull();
     if (!screenStack || !accountsLayer || !accountsPreview) {
       throw new Error("The accounts preview should be rendered in the phone screen stack.");
     }

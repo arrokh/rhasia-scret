@@ -1,5 +1,101 @@
 import { expect, test } from "@playwright/test";
 
+for (const locale of ["id", "en"] as const) {
+  test(`keeps landing navigation accessible and aligned in ${locale}`, async ({ page, context }) => {
+    await context.addCookies([{ name: "RHSIA_LOCALE", value: locale, url: "http://127.0.0.1" }]);
+    await page.goto("/landing");
+    const header = page.locator("[data-landing-header]");
+    await expect(header.locator("img")).toHaveCount(0);
+    const navigation = header.getByRole("navigation", { name: locale === "id" ? "Navigasi utama" : "Main navigation" });
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+      { width: 320, height: 568 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(navigation).toBeVisible();
+      await expect(page.locator('[data-slot="app-footer"]')).toBeHidden();
+      await expect(navigation.getByRole("link", { name: /rhasia-scret/ })).toHaveAttribute("href", "/");
+      const github = navigation.getByRole("link", {
+        name: locale === "id" ? "Repositori GitHub" : "GitHub repository",
+        exact: true,
+      });
+      await expect(github).toHaveAttribute("href", "https://github.com/arrokh/rhasia-scret");
+      const language = navigation.getByRole("button", {
+        name: locale === "id" ? "Pilih bahasa" : "Choose language",
+        exact: true,
+      });
+      await language.focus();
+      await expect(language).toBeFocused();
+      await expect(navigation.locator('a[href="/sign-in"]')).toHaveCount(0);
+      await expect(navigation.locator('a[href="/local?from=landing"]')).toHaveCount(0);
+      await expect(page.locator('[data-landing-intro-scroll] a[href="/sign-in"]')).toHaveCount(1);
+      await expect(page.locator('[data-landing-intro-scroll] a[href="/local?from=landing"]')).toHaveCount(1);
+      await expect(header).toHaveCSS("position", "fixed");
+      const sizes = await header.evaluate((element) => ({
+        width: document.documentElement.scrollWidth,
+        viewport: innerWidth,
+        actions: [...element.querySelectorAll('button, a[data-slot="button"]')]
+          .filter((action) => action.getClientRects().length)
+          .map((action) => action.getBoundingClientRect().height),
+      }));
+      expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
+      expect(sizes.actions).toHaveLength(2);
+      expect(sizes.actions.every((height) => height === 48)).toBe(true);
+      await expect
+        .poll(() =>
+          page.locator("[data-landing-primary-phone] iframe").evaluate((screen) => {
+            const phone = screen.getBoundingClientRect();
+            const header = document.querySelector("[data-landing-header]")?.getBoundingClientRect();
+            const footer = document.querySelector("footer")?.getBoundingClientRect();
+            const top = header?.bottom ?? 0;
+            const bottom = footer && footer.top > top && footer.top < innerHeight ? footer.top : innerHeight;
+            return Math.max(
+              Math.abs(phone.x + phone.width / 2 - innerWidth / 2),
+              Math.abs(phone.y + phone.height / 2 - (top + bottom) / 2),
+            );
+          }),
+        )
+        .toBeLessThanOrEqual(12);
+    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const scene = page.locator("[data-landing-desktop-scene]:visible");
+    for (const step of ["unlocked", "devices", "settled"]) {
+      await page.keyboard.press("PageDown");
+      await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 15_000 });
+      if (step !== "devices") continue;
+      const hero = scene.locator("[data-landing-intro-scroll]");
+      await expect(hero).toHaveAttribute("data-visible", "true");
+      await expect(hero.locator('a[href="/sign-in"]')).toBeVisible();
+      await expect(hero.locator('a[href="/local?from=landing"]')).toBeVisible();
+    }
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+      await expect(header).toBeVisible();
+      await expect(header).not.toHaveAttribute("inert");
+      await expect(header.locator('a[href="/local?from=landing"]')).toHaveCount(0);
+      await expect(header.locator('a[href="/sign-in"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="landing-final-cta"] a[target="_blank"]')).toBeVisible();
+      await expect(page.locator('[data-slot="landing-final-cta"] a[href="/sign-in"]')).toBeVisible();
+      await expect
+        .poll(() =>
+          page.locator('[data-slot="landing-final-cta"]').evaluate((cta) => {
+            const note = document.querySelector("[data-landing-phone-story-end]");
+            if (!note) throw new Error("The journey privacy note is unavailable.");
+            return cta.getBoundingClientRect().top - note.getBoundingClientRect().bottom;
+          }),
+        )
+        .toBe(24);
+      expect(await header.evaluate((element) => Math.abs(element.getBoundingClientRect().top))).toBeLessThanOrEqual(1);
+    }
+  });
+}
+
 test("distinguishes the sign-in action from the external self-hosting guide", async ({ page }) => {
   await page.goto("/landing");
   const actions = page.locator('[data-slot="landing-final-cta"]');
@@ -67,7 +163,7 @@ test("dissolves only the phone screen when the active journey card changes", asy
   const phone = page.locator('[data-landing-primary-phone] iframe[data-device-kind="phone"]');
   const originalBounds = await phone.boundingBox();
   for (const view of ["scan", "review", "added", "sharedPermissions"]) {
-    await page.locator(`[class*="__journeyGrid"] [data-landing-phone-view="${view}"]`).evaluate((card) => {
+    await page.locator(`[class*="journeyGrid"] [data-landing-phone-view="${view}"]`).evaluate((card) => {
       const bounds = card.getBoundingClientRect();
       window.scrollTo({
         top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2,
@@ -78,9 +174,9 @@ test("dissolves only the phone screen when the active journey card changes", asy
     await expect(entry).toBeVisible();
     await expect(entry).toHaveCSS("animation-name", /landing-phone-screen-dissolve/);
     await expect(entry).toHaveCSS("animation-duration", "0.28s");
-    expect(await entry.locator('[class*="__phoneUi"]').evaluate((root) => root.scrollTop)).toBe(0);
+    expect(await entry.locator('[class*="phoneUi"]').evaluate((root) => root.scrollTop)).toBe(0);
     expect(
-      await entry.locator('[class*="__phoneStatusBar"]').evaluate((bar) => bar.getBoundingClientRect().top),
+      await entry.locator('[class*="phoneStatusBar"]').evaluate((bar) => bar.getBoundingClientRect().top),
     ).toBeGreaterThanOrEqual(0);
     if (view === "added") {
       const frame = phone.contentFrame();
@@ -140,7 +236,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       if (reducedMotion === "reduce") {
         await expect(card).toHaveCSS("animation-name", "none");
         await expect(card).toHaveCSS("opacity", "1");
-        await expect(card.locator('[class*="__journeyCardContent"]')).toHaveCSS("animation-name", "none");
+        await expect(card.locator('[class*="journeyCardContent"]')).toHaveCSS("animation-name", "none");
         continue;
       }
       const entrance = await card.evaluate(async (element) => {
@@ -184,7 +280,7 @@ for (const width of [1440, 2056]) {
       await page.keyboard.press("PageDown");
       await expect(scene).toHaveAttribute("data-scene-step", step, { timeout: 20_000 });
     }
-    const firstCard = page.locator('[class*="__guideColumn"] article').first();
+    const firstCard = page.locator('[class*="guideColumn"] article').first();
     await expect(firstCard).toHaveAttribute("data-landing-phone-view", "accounts");
     await expect(firstCard).toHaveAttribute("data-active", "true");
     await expect(page.locator("[data-landing-phone-story-journey]")).toHaveAttribute("aria-hidden", "false");
@@ -198,7 +294,7 @@ for (const width of [1440, 2056]) {
     const environment = page.locator("[data-landing-story-environment]");
     await expect(environment).toHaveAttribute("data-visible", "true");
     const initial = await phone.boundingBox();
-    const dock = await page.locator('[class*="__journeyGrid"] [data-landing-phone-anchor="journey"]').boundingBox();
+    const dock = await page.locator('[class*="journeyGrid"] [data-landing-phone-anchor="journey"]').boundingBox();
     expect(initial).not.toBeNull();
     expect(dock).not.toBeNull();
     expect(Math.abs(initial!.x + initial!.width / 2 - dock!.x - dock!.width / 2)).toBeLessThanOrEqual(2);
@@ -237,6 +333,8 @@ for (const locale of ["id", "en"] as const) {
     for (const viewport of [
       { width: 390, height: 844 },
       { width: 320, height: 568 },
+      { width: 640, height: 360 },
+      { width: 568, height: 320 },
     ]) {
       await page.setViewportSize(viewport);
       await page.locator("#landing-journey").evaluate((element) => {
@@ -258,6 +356,7 @@ for (const locale of ["id", "en"] as const) {
             frame.x >= 0 &&
             frame.y >= 0 &&
             frame.x + frame.width <= viewport.width &&
+            frame.height >= 80 &&
             frame.y + frame.height < card.y &&
             card.y + card.height <= viewport.height,
           );
@@ -279,12 +378,51 @@ for (const locale of ["id", "en"] as const) {
           }),
         )
         .toBe(true);
+      const measureGroup = () =>
+        guide.evaluate((card) => {
+          const panel = card.closest('[class*="mobileJourneyStage"]');
+          const anchor = panel?.querySelector('[data-landing-phone-anchor="journey"]')?.getBoundingClientRect();
+          const caption = panel?.querySelector("[data-landing-phone-caption]")?.getBoundingClientRect();
+          const bounds = card.getBoundingClientRect();
+          const header = document.querySelector("[data-landing-header]")?.getBoundingClientRect();
+          if (!anchor || !caption || !header) return null;
+          return {
+            anchorCaptionGap: Math.round(caption.top - anchor.bottom),
+            captionCardGap: Math.round(bounds.top - caption.bottom),
+            centered: Math.abs((anchor.top + bounds.bottom) / 2 - (header.bottom + innerHeight) / 2) <= 12,
+          };
+        });
+      await expect.poll(measureGroup).toEqual({ anchorCaptionGap: 8, captionCardGap: 8, centered: true });
+      const views = [
+        "accounts",
+        "scan",
+        "review",
+        "added",
+        "sharedCreate",
+        "sharedInvite",
+        "sharedPermissions",
+        "sharedReady",
+      ];
+      for (const [index, view] of views.entries()) {
+        await page.locator(`[data-landing-phone-view="${view}"]:visible`).evaluate((element) => {
+          const journey = element.closest("[data-landing-phone-story-journey]");
+          const journeyTop = journey ? journey.getBoundingClientRect().top + scrollY : 0;
+          window.scrollTo({
+            top: Math.max(journeyTop, element.getBoundingClientRect().top + scrollY - innerHeight * 0.57),
+            behavior: "instant",
+          });
+        });
+        await expect(guide.locator('[class*="cardIndex"]')).toHaveText(`0${index + 1}`);
+        await expect.poll(measureGroup).toEqual({ anchorCaptionGap: 8, captionCardGap: 8, centered: true });
+      }
       await expect
         .poll(async () => {
           const card = await guide.boundingBox();
           const nodeX = Number(await guideNode.getAttribute("cx"));
           const nodeY = Number(await guideNode.getAttribute("cy"));
-          return Boolean(card && Math.abs(nodeX - card.x - 20) <= 1 && Math.abs(nodeY - card.y - 1) <= 1);
+          return Boolean(
+            card && Math.abs(nodeX - (card.x + card.width - 20)) <= 1 && Math.abs(nodeY - card.y - 1) <= 1,
+          );
         })
         .toBe(true);
     }
@@ -314,7 +452,7 @@ for (const locale of ["id", "en"] as const) {
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       });
       await page.setViewportSize(viewport);
-      const hero = scene.locator('[class*="__heroOverlay"]');
+      const hero = scene.locator('[class*="heroOverlay"]');
       await expect(hero).toHaveAttribute("data-visible", "true");
       await expect
         .poll(() =>

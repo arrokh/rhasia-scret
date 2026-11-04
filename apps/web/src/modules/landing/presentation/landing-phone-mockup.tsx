@@ -522,7 +522,9 @@ export function LandingPhoneMockup({
     >
       {sceneError ? (
         <div className={styles.fallbackScene}>
-          <div className={styles.phoneFallbackFrame}>{screen}</div>
+          <div className={styles.phoneFallbackFrame} data-landing-phone-body-bounds data-landing-phone-fallback-frame>
+            {screen}
+          </div>
         </div>
       ) : (
         screenHost && createPortal(screen, screenHost)
@@ -885,7 +887,7 @@ async function initializePhoneScene(
 
   const floorLevel = LANDING_FLOOR_LEVEL;
 
-  const phoneCenterZ = -0.85;
+  const phoneCenterZ = 0;
 
   const phoneShadowWidth = 7.2;
   const phoneShadowHeight = 14.4;
@@ -917,7 +919,21 @@ async function initializePhoneScene(
   handset.updateMatrixWorld(true);
   scene.add(handset);
 
-  container.append(webglRenderer.domElement, cssRenderer.domElement);
+  // Expose the projected chassis, not the smaller CSS3D screen, to journey layout.
+  handsetBounds.setFromObject(handset);
+  const bodyCorners: ThreeTypes.Vector3[] = [];
+  for (const x of [handsetBounds.min.x, handsetBounds.max.x]) {
+    for (const y of [handsetBounds.min.y, handsetBounds.max.y]) {
+      for (const z of [handsetBounds.min.z, handsetBounds.max.z]) {
+        bodyCorners.push(new three.Vector3(x, y, z));
+      }
+    }
+  }
+  const bodyBounds = document.createElement("div");
+  bodyBounds.className = styles.phoneBodyBounds;
+  bodyBounds.dataset.landingPhoneBodyBounds = "";
+  bodyBounds.setAttribute("aria-hidden", "true");
+  container.append(webglRenderer.domElement, cssRenderer.domElement, bodyBounds);
 
   let width = 0;
   let height = 0;
@@ -925,6 +941,15 @@ async function initializePhoneScene(
   const render = () => {
     webglRenderer.render(scene, camera);
     cssRenderer.render(scene, camera);
+    const projected = bodyCorners.map((corner) => corner.clone().project(camera));
+    const left = ((Math.min(...projected.map((corner) => corner.x)) + 1) * width) / 2;
+    const right = ((Math.max(...projected.map((corner) => corner.x)) + 1) * width) / 2;
+    const top = ((1 - Math.max(...projected.map((corner) => corner.y))) * height) / 2;
+    const bottom = ((1 - Math.min(...projected.map((corner) => corner.y))) * height) / 2;
+    bodyBounds.style.left = `${left}px`;
+    bodyBounds.style.top = `${top}px`;
+    bodyBounds.style.width = `${right - left}px`;
+    bodyBounds.style.height = `${bottom - top}px`;
   };
   const resize = () => {
     const nextWidth = container.clientWidth;
@@ -961,6 +986,7 @@ async function initializePhoneScene(
       phoneShadowTexture.dispose();
       phoneShadow.geometry.dispose();
       phoneShadowMaterial.dispose();
+      bodyBounds.remove();
       webglRenderer.domElement.remove();
       cssRenderer.domElement.remove();
     },

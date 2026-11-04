@@ -7,7 +7,7 @@ const smokeSpecs = [
   "landing-fallback.spec.ts",
   "landing-input.spec.ts",
   "landing-journey-boundaries.spec.ts",
-  "landing-language-dialog.spec.ts",
+  "landing-locale-navigation.spec.ts",
   "landing-layout.spec.ts",
   "landing-transition-stress.spec.ts",
   "local-vault-archive-import.spec.ts",
@@ -73,7 +73,10 @@ describe("browser test gate inventory", () => {
     const smokeShards = workflow.split("  browser-smoke-shards:\n")[1]?.split("\n  browser-e2e:\n")[0] ?? "";
     const e2eJob = workflow.split("  browser-e2e:\n")[1]?.split("\n  browser-production:\n")[0] ?? "";
     expect(smokeAggregate).toContain("needs:\n      - changes\n      - browser-smoke-shards");
-    expect(smokeAggregate).toContain("if: always() && needs.changes.outputs.web == 'true'");
+    expect(smokeAggregate).toContain(
+      "if: always() && (needs.changes.result != 'success' || needs.changes.outputs.web != 'false')",
+    );
+    expect(smokeAggregate).toContain('CHANGE_DETECTION_RESULT: "${{ needs.changes.result }}"');
     expect(smokeAggregate).toContain("timeout-minutes: 1");
     expect(smokeAggregate).toContain('BROWSER_SMOKE_SHARDS_RESULT: "${{ needs.browser-smoke-shards.result }}"');
     expect(smokeAggregate).toContain("shell: bash");
