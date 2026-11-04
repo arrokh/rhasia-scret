@@ -17,6 +17,7 @@ describe("authentication proxy contract", () => {
 
   it.each([
     "/",
+    "/landing",
     "/sign-in",
     "/auth/confirm",
     "/auth/pwa-confirm",
@@ -95,11 +96,32 @@ describe("authentication proxy contract", () => {
     expect(response.cookies.get("sb-session")).toMatchObject({ value: "", path: "/", httpOnly: true });
   });
 
-  it("does not block public routes when no session exists", async () => {
-    const response = await createAuthProxy(async () => false)(request("/"));
+  it("does not block the landing page when no session exists", async () => {
+    const response = await createAuthProxy(async () => false)(request("/landing"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it.each([
+    ["/", false, "/landing"],
+    ["/", true, "/vaults"],
+    ["/?to=landing", false, "/landing"],
+    ["/?to=landing", true, "/landing"],
+    ["/?to=https://example.test", true, "/vaults"],
+  ])("redirects %s according to the session and landing override", async (path, hasSession, target) => {
+    const response = await createAuthProxy(async () => hasSession)(request(path));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(`https://vault.example.test${target}`);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+  });
+
+  it("preserves refreshed cookies on the root redirect", async () => {
+    const response = await createAuthProxy(async (_request, setAuthCookies) => {
+      setAuthCookies([{ name: "session", value: "refreshed", options: { path: "/", httpOnly: true } }]);
+      return true;
+    })(request("/"));
+    expect(response.cookies.get("session")).toMatchObject({ value: "refreshed", path: "/", httpOnly: true });
   });
 
   it("prevents API and auth responses from being cached", async () => {

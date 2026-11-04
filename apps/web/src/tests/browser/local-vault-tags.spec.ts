@@ -65,9 +65,13 @@ test("adds, filters, removes, and keeps Local Vault tags encrypted in both local
       const labels = copy[locale];
       const requestBodies: string[] = [];
       const requestUrls: string[] = [];
+      const applicationRequestUrls: string[] = [];
       const consoleMessages: string[] = [];
       page.on("request", (request) => {
         requestUrls.push(request.url());
+        const requestUrl = new URL(request.url());
+        if (["fetch", "xhr"].includes(request.resourceType()) && requestUrl.pathname.startsWith("/api/"))
+          applicationRequestUrls.push(request.url());
         const body = request.postData();
         if (body) requestBodies.push(body);
       });
@@ -120,7 +124,7 @@ test("adds, filters, removes, and keeps Local Vault tags encrypted in both local
       await expect(tagFilter).toHaveAttribute("aria-description", labels.applied);
       await expect(page.getByRole("article").getByText(tagName, { exact: true })).toBeVisible();
       await expect(search).toBeVisible();
-      const searchRequestCount = requestUrls.length;
+      const searchRequestCount = applicationRequestUrls.length;
       await search.fill("Example");
       await expect(page.getByRole("article").getByText(accountName, { exact: true })).toBeVisible();
       await search.fill(accountName);
@@ -137,7 +141,7 @@ test("adds, filters, removes, and keeps Local Vault tags encrypted in both local
       await expect(search).toHaveValue("");
       await expect(tagFilter).toHaveAttribute("data-active", "true");
       await expect(page.getByRole("article").getByText(accountName, { exact: true })).toBeVisible();
-      expect(requestUrls).toHaveLength(searchRequestCount);
+      expect(applicationRequestUrls).toHaveLength(searchRequestCount);
       expect(requestBodies.join("\n")).not.toContain("no-such-synthetic-account");
       expect(requestBodies.join("\n")).not.toContain(accountName);
       expect(requestUrls.join("\n")).not.toContain("no-such-synthetic-account");

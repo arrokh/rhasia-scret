@@ -162,9 +162,12 @@
   },
   "Home": {
     "landing": {
-      "eyebrow": "Open Source · Local First · Zero Knowledge",
-      "title": "Autentikator Anda, sesuai ketentuan Anda.",
-      "description": "Mulai dengan Local Vault TOTP yang sepenuhnya lokal. Pindah ke Personal Vault terenkripsi atau Shared Vault terkelola hanya saat Anda memilihnya.",
+      "navigation": {
+        "label": "Navigasi utama"
+      },
+      "eyebrow": "Open source · Local-first · Zero knowledge",
+      "title": "Authenticator, sesuai pilihan Anda.",
+      "description": "Mulai dengan Local Vault di browser—tanpa masuk. Salin akun ke Personal atau Shared Vault terenkripsi hanya jika Anda memilih.",
       "heroImageAlt": "Ilustrasi amplop tertutup dan maskot burung hantu rhasia-scret.",
       "signIn": "Masuk",
       "localVault": "Coba Local Vault",
@@ -174,7 +177,136 @@
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
       "footerAuthor": "nooroctavian.id",
-      "hostedAccess": "Brankas Lokal tidak memerlukan masuk. Hosted Vault tersedia dengan alamat email terverifikasi.",
+      "hostedAccess": "Local Vault tidak perlu masuk. Hosted Vault memerlukan email terverifikasi; enkripsi berlangsung di browser.",
+      "journey": {
+        "scrollHint": "Gulir untuk mengikuti langkah",
+        "scrollPrompt": "Gulir untuk lanjut",
+        "eyebrow": "Hosted Vault, langkah demi langkah",
+        "title": "Dari akun pribadi ke Vault tim.",
+        "description": "Lihat alur hosted: tambah akun, buat Shared Vault, undang anggota, lalu atur izinnya.",
+        "phoneStageLabel": "Pratinjau Hosted Vault",
+        "privacyNote": "Semua data di sini sintetis. Konten Vault dienkripsi di browser sebelum dikirim ke layanan.",
+        "phoneCaption": {
+          "accounts": "Hosted · daftar akun",
+          "scan": "Tambah akun · pindai",
+          "review": "Tambah akun · tinjau",
+          "added": "Personal Vault · akun ditambahkan",
+          "sharedCreate": "Shared Vault · buat",
+          "sharedInvite": "Shared Vault · undang",
+          "sharedPermissions": "Shared Vault · izin",
+          "sharedReady": "Shared Vault · siap"
+        },
+        "steps": {
+          "accounts": {
+            "eyebrow": "01 · Hosted Vault Anda",
+            "left": {
+              "title": "Mulai dengan akun contoh.",
+              "description": "Daftar Hosted Vault menampilkan satu akun sintetis. Gulir untuk melihat cara menambah akun."
+            },
+            "right": {
+              "title": "Layar yang sama dengan aplikasi.",
+              "description": "Pratinjau memakai komponen /vaults yang sama, dengan data akun sintetis."
+            },
+            "note": "OTP contoh dibuat di browser dari secret sintetis."
+          },
+          "scan": {
+            "eyebrow": "02 · Tambahkan akun",
+            "left": {
+              "title": "Tambahkan akun ke Vault.",
+              "description": "Pilih Tambah akun, lalu pindai QR atau pilih gambar dari perangkat."
+            },
+            "right": {
+              "title": "Secret tetap di browser.",
+              "description": "Data penyiapan dibaca di browser. Pratinjau ini tidak membuka kamera."
+            },
+            "note": "Aplikasi meminta akses kamera hanya saat Anda memilih pindai."
+          },
+          "review": {
+            "eyebrow": "03 · Tinjau detail",
+            "left": {
+              "title": "Periksa sebelum menyimpan.",
+              "description": "Pastikan penerbit dan label akun, lalu pilih Vault tujuan. Data contoh tetap sintetis."
+            },
+            "right": {
+              "title": "Pilih tujuan akun.",
+              "description": "Akun ditambahkan ke Personal Vault. Menyalin ke Vault lain adalah tindakan terpisah."
+            },
+            "note": "Nama Vault dan label akun dienkripsi."
+          },
+          "added": {
+            "eyebrow": "04 · Akun ditambahkan",
+            "left": {
+              "title": "Akun ada di Personal Vault.",
+              "description": "Akun baru bergabung dengan akun contoh. Secret penyiapan tidak ditampilkan di sini."
+            },
+            "right": {
+              "title": "Lihat kode di ponsel.",
+              "description": "Buka akun untuk melihat OTP. Kode contoh dihitung di browser dari secret sintetis."
+            },
+            "note": "Vault dibuka dan OTP dibuat di browser."
+          },
+          "sharedCreate": {
+            "eyebrow": "05 · Buat Shared Vault",
+            "left": {
+              "title": "Buat Vault untuk tim.",
+              "description": "Beri nama dan buat dari akun yang sudah masuk. Shared Vault punya kunci enkripsi sendiri."
+            },
+            "right": {
+              "title": "Server menyimpan konten terenkripsi.",
+              "description": "Nama Vault dan detail akun dienkripsi sebelum disimpan."
+            },
+            "note": "Membuat Shared Vault tidak otomatis mengundang anggota."
+          },
+          "sharedInvite": {
+            "eyebrow": "06 · Undang rekan tim",
+            "left": {
+              "title": "Undang lewat email terverifikasi.",
+              "description": "Buat undangan sekali pakai untuk teammate@example.test. Secret tautan tidak ditampilkan."
+            },
+            "right": {
+              "title": "Undangan ditebus setelah masuk.",
+              "description": "Penerima masuk dengan email terverifikasi, lalu membuka Secure Share Link sekali pakai di browser."
+            },
+            "note": "Secret Secure Share Link tidak disimpan atau dikirim ke server."
+          },
+          "sharedPermissions": {
+            "eyebrow": "07 · Atur izin",
+            "left": {
+              "title": "Pilih perubahan yang diizinkan.",
+              "description": "Atur tambah, edit, dan hapus secara terpisah. Contoh ini hanya mengizinkan tambah."
+            },
+            "right": {
+              "title": "Anggota dapat melihat dan menyalin.",
+              "description": "Akses baca dan salin tersedia. Tambah, edit, dan hapus mengikuti izin masing-masing."
+            },
+            "note": "Kontrol izin asli ditampilkan dalam pratinjau baca-saja."
+          },
+          "sharedReady": {
+            "eyebrow": "08 · Shared Vault siap",
+            "left": {
+              "title": "Anggota bergabung ke Vault.",
+              "description": "Setelah undangan ditebus, anggota melihat Shared Vault. Di contoh ini, mereka dapat menambah akun serta melihat atau menyalin akun contoh."
+            },
+            "right": {
+              "title": "Akses tetap bisa diatur.",
+              "description": "Tinjau anggota, ubah izin, atau cabut akses dari pengaturan Shared Vault."
+            },
+            "note": "Berbagi perlu koneksi online dan akun terverifikasi."
+          }
+        }
+      },
+      "phone": {
+        "screenReaderLabel": "Pratinjau maket ponsel tiga dimensi untuk layar Hosted Vault.",
+        "deviceShowcaseScreenReaderLabel": "Showcase perangkat tiga dimensi dengan layar Hosted Vault pada ponsel, tablet, dan laptop.",
+        "hostedPreview": "Hosted Vault · antarmuka produk dengan data contoh"
+      },
+      "finalCta": {
+        "eyebrow": "Vault Anda, pilihan Anda",
+        "title": "Siap mencoba dengan akun Anda?",
+        "description": "Coba Hosted Vault atau jalankan rhasia-scret di infrastruktur Anda.",
+        "tryNow": "Coba sekarang",
+        "hostYourOwn": "Jalankan sendiri"
+      },
       "comparison": {
         "eyebrow": "Penjelasan sederhana",
         "title": "Apa itu rhasia-scret?",
@@ -183,12 +315,19 @@
         "googleAuthenticator": "Google Authenticator",
         "otherAuthenticatorApps": "Aplikasi authenticator lain",
         "rhasiaScret": "rhasia-scret",
-        "tabs": { "compare": "Bandingkan pendekatan", "flow": "Lihat alur Anda" },
+        "tabs": {
+          "compare": "Bandingkan pendekatan",
+          "flow": "Lihat alur Anda"
+        },
         "flow": {
           "title": "Satu authenticator, sesuai ketentuan Anda",
           "description": "Gunakan perangkat yang Anda pilih untuk melindungi layanan yang dipakai. rhasia-scret menyimpan setiap akun di Brankas pilihan Anda.",
           "devices": "Perangkat apa pun",
-          "device": { "browser": "Browser", "phone": "Ponsel", "desktop": "Aplikasi desktop" },
+          "device": {
+            "browser": "Browser",
+            "phone": "Ponsel",
+            "desktop": "Aplikasi desktop"
+          },
           "vault": "Brankas Lokal, Pribadi, atau Bersama Anda yang terenkripsi",
           "services": "Layanan terlindungi",
           "localFirst": {
@@ -1532,7 +1671,7 @@
   "Preview": {
     "authenticatorAccounts": {
       "title": "Akun autentikator",
-      "description": "Tidak ada materi akun, passphrase, OTP, atau kunci yang digunakan dalam data contoh ini.",
+      "description": "Semua nama akun dan kode TOTP di pratinjau ini bersifat sintetis; data contoh tetap di browser ini dan tidak dikirim ke layanan.",
       "listLabel": "Daftar akun autentikator",
       "vaults": "Brankas",
       "localAction": "Brankas Perangkat",
@@ -1577,7 +1716,18 @@
       "filterByTag": "Filter berdasarkan tag",
       "allTags": "Semua tag",
       "selectedTags": "{count, plural, one {# tag dipilih} other {# tag dipilih}}",
-      "tags": "Tag akun"
+      "tags": "Tag akun",
+      "sampleDemoAppName": "Demo App",
+      "sampleDemoAppAccountName": "demo@example.test",
+      "sampleExampleCloudName": "Example Cloud",
+      "sampleExampleCloudAccountName": "cloud@example.test",
+      "sampleStudioName": "Sample Studio",
+      "sampleStudioAccountName": "studio@example.test",
+      "sampleSandboxName": "Sandbox",
+      "sampleSandboxAccountName": "sandbox@example.test",
+      "sampleAddedExampleName": "Added Example",
+      "sampleAddedExampleAccountName": "added@example.test",
+      "sampleTeammateAccountName": "teammate@example.test"
     },
     "vaults": {
       "back": "Kembali ke pratinjau akun",

@@ -1,200 +1,199 @@
 import { expect, test } from "@playwright/test";
 
-const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
-
 test("renders the browser smoke page", async ({ page }) => {
   await page.goto("/smoke");
   await expect(page.getByTestId("smoke-ready")).toHaveText("Siap");
 });
 
-test("renders the public landing page in Bahasa Indonesia", async ({ page }) => {
+test("scroll advances from the locked phone to the device showcase with its hero card", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
+  await expect(page).toHaveURL(/\/landing$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
   await expect(page).toHaveTitle("rhasia-scret");
-  const brandLink = page.getByRole("link", { name: "rhasia-scret" }).first();
-  await expect(brandLink).toBeVisible();
-  const brandIcon = brandLink.locator("img");
-  await expect(brandIcon).toHaveAttribute("src", /icon512_rounded\.png/);
-  expect(await brandIcon.locator("..").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
-    "rgba(0, 0, 0, 0)",
+  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  const primaryPhone = page.locator("[data-landing-primary-phone]");
+  await expect(scene).toHaveAttribute("data-scene-step", "locked");
+  await expect(scene).toHaveAttribute("data-input-ready", "true");
+  await expect(primaryPhone).toHaveAttribute("data-visible", "true");
+  const storyEnvironment = page.locator("[data-landing-story-environment]");
+  await expect(storyEnvironment).toHaveAttribute("data-visible", "true");
+  await expect(storyEnvironment.locator("canvas")).toHaveCount(1, { timeout: 15_000 });
+  const phonePreview = primaryPhone.getByRole("img").locator('iframe[data-device-kind="phone"]').first().contentFrame();
+  await expect(phonePreview.locator("[data-unlock-phase]")).toHaveAttribute("data-unlock-phase", "locked", {
+    timeout: 15_000,
+  });
+  await expect(primaryPhone.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    "Pratinjau maket ponsel tiga dimensi untuk layar Hosted Vault.",
   );
-  await expect(page.getByRole("heading", { name: /Autentikator Anda, sesuai ketentuan Anda/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Apa itu rhasia-scret?" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tetap lokal. Pindah hanya saat bermanfaat." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
-  const landingHeader = page.locator("main > header");
-  await expect(landingHeader.getByRole("link", { name: "Masuk" })).toHaveCount(0);
-  await expect(landingHeader.getByRole("link", { name: "Repositori GitHub" })).toHaveAttribute(
-    "href",
-    "https://github.com/arrokh/rhasia-scret",
+  const originalCanvas = await primaryPhone.locator("canvas").first().elementHandle();
+  expect(originalCanvas).not.toBeNull();
+  await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir untuk lanjut");
+  await expect(scene.locator('[class*="heroOverlay"]')).toHaveAttribute("data-visible", "false");
+
+  await page.mouse.wheel(0, 500);
+  await expect(scene).toHaveAttribute("data-scene-step", "unlocking");
+  await expect(scene.locator('[class*="sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "true");
+  await expect(phonePreview.locator("[data-unlock-phase]")).toHaveAttribute("data-unlock-phase", "unlocked", {
+    timeout: 10_000,
+  });
+  await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 10_000 });
+
+  const blockedInput = await scene.evaluate(
+    (element) =>
+      new Promise<{ wheel: boolean; click: boolean; key: boolean; inert: boolean; busy: boolean }>(
+        (resolve, reject) => {
+          const hero = element.querySelector<HTMLElement>('[class*="heroOverlay"]');
+          const link = hero?.querySelector<HTMLAnchorElement>('a[href="/local?from=landing"]');
+          if (!hero || !link) return reject(new Error("The landing action is unavailable."));
+          const timeout = window.setTimeout(() => {
+            observer.disconnect();
+            reject(new Error("The hero did not appear during the transition."));
+          }, 25_000);
+          const observer = new MutationObserver(() => {
+            if (hero.dataset.visible !== "true" || element.getAttribute("aria-busy") !== "true") return;
+            const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+            const key = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+            link.dispatchEvent(click);
+            link.dispatchEvent(key);
+            observer.disconnect();
+            window.clearTimeout(timeout);
+            resolve({
+              wheel: extraWheel.defaultPrevented,
+              click: click.defaultPrevented,
+              key: key.defaultPrevented,
+              inert: hero.inert,
+              busy: true,
+            });
+          });
+          observer.observe(element, {
+            attributes: true,
+            subtree: true,
+            attributeFilter: ["data-visible", "aria-busy"],
+          });
+          window.dispatchEvent(new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true }));
+          const extraWheel = new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true });
+          window.dispatchEvent(extraWheel);
+        },
+      ),
   );
-  const localVaultLink = page.locator('a[href="/local?from=landing"]').first();
-  await expect(localVaultLink).toBeVisible();
-  await expect(localVaultLink).toHaveAttribute("href", "/local?from=landing");
-  const landingFooter = page
-    .locator("main.landing-page")
-    .locator("footer")
-    .filter({
-      has: page.locator('a[href*="sign-in"]'),
-    });
-  await expect(landingFooter).toBeVisible();
-  const signInLink = landingFooter.locator('a[href*="sign-in"]').first();
-  await expect(signInLink).toBeVisible();
-  await expect(signInLink).toHaveAttribute("href", /(^https:\/\/rhasia-scret\.vercel\.app)?\/sign-in$/);
-  await expect(landingFooter.locator('a[href="https://nooroctavian.id/"]').first()).toHaveAttribute(
-    "href",
-    "https://nooroctavian.id/",
-  );
-  await expect(landingFooter.getByRole("link", { name: "Privasi" })).toHaveAttribute("href", "/privacy");
-  await expect(landingFooter.getByRole("link", { name: "Dukungan" })).toHaveAttribute("href", "/support");
+  expect(blockedInput).toEqual({ wheel: true, click: true, key: false, inert: true, busy: true });
   await page.evaluate(() => {
-    const heroEnd = document.getElementById("landing-hero-end");
-    const fallback = document.body.scrollHeight;
-    const target = heroEnd ? heroEnd.getBoundingClientRect().top + window.scrollY + 1 : fallback;
-    window.scrollTo({ top: target, behavior: "instant" });
-    window.dispatchEvent(new Event("scroll"));
+    const activeScene = document.querySelector<HTMLElement>("[data-landing-desktop-scene]");
+    if (!activeScene) return;
+    const wheelDuringTransition = window.setInterval(() => {
+      const wheel = new WheelEvent("wheel", { deltaY: 500, bubbles: true, cancelable: true });
+      window.dispatchEvent(wheel);
+      if (wheel.defaultPrevented) activeScene.dataset.processingWheelSeen = "true";
+      let scrollReachedObservers = false;
+      const observeScroll = () => {
+        scrollReachedObservers = true;
+      };
+      window.addEventListener("scroll", observeScroll);
+      window.dispatchEvent(new Event("scroll"));
+      window.removeEventListener("scroll", observeScroll);
+      if (!scrollReachedObservers) activeScene.dataset.processingScrollIgnored = "true";
+      if (activeScene.dataset.sceneStep !== "expanding") window.clearInterval(wheelDuringTransition);
+    }, 80);
   });
-  const stickyHeader = page.getByTestId("landing-sticky-header");
-  await expect(stickyHeader).toHaveAttribute("aria-hidden", "false", { timeout: 10_000 });
-  await expect(stickyHeader.getByRole("link", { name: "Coba Local Vault" })).toHaveAttribute(
-    "href",
-    "/local?from=landing",
-  );
-  await expect(stickyHeader.getByRole("link", { name: "Gunakan Hosted Vault" })).toHaveAttribute("href", "/sign-in");
-  await expect(stickyHeader.getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
+  await expect(scene).toHaveAttribute("data-processing-wheel-seen", "true");
+  await expect(scene).toHaveAttribute("data-processing-scroll-ignored", "true");
+  const hero = scene.locator('[class*="heroOverlay"]');
+  const localLink = hero.locator('a[href="/local?from=landing"]');
+  await expect(page).toHaveURL(/\/landing$/);
+  await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  await expect(scene).toHaveAttribute("data-scene-step", "devices");
+  await expect(scene).toHaveAttribute("aria-busy", "false");
+  await expect(hero).not.toHaveAttribute("inert", "");
+  await localLink.focus();
+  await expect(localLink).toBeFocused();
+  await expect(page.locator('[class*="deviceShowcase"]')).toHaveAttribute("data-visible", "true");
+  await expect(scene.locator('[class*="heroOverlay"]')).toHaveAttribute("data-visible", "true");
+  await expect(page.locator('[data-layout="showcase"]')).toHaveAttribute("data-device-count", "4");
   await expect(page.getByLabel("Alamat email yang diundang")).toHaveCount(0);
+  await expect(primaryPhone.locator("[data-device-model]")).toHaveAttribute("data-device-model", "iphone-17-pro-max");
+  const heroBounds = await hero.boundingBox();
+  expect(heroBounds).not.toBeNull();
+  expect(heroBounds!.y + heroBounds!.height / 2).toBeCloseTo(900 / 2, 0);
+
+  await page.keyboard.press("PageUp");
+  await expect(scene).toHaveAttribute("data-scene-step", "contracting");
+  await expect(scene).toHaveAttribute("aria-busy", "true");
+  await page.keyboard.press("PageDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "contracting");
+  await expect(primaryPhone).toHaveAttribute("data-device-scale", "full", { timeout: 10_000 });
+  await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 5_000 });
+  await expect(scene).toHaveAttribute("aria-busy", "false");
+  await page.keyboard.press("PageDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "expanding");
+  await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 15_000 });
+
+  const phoneStageLeft = () => primaryPhone.evaluate((element) => Number.parseFloat(element.style.left || "0"));
+  expect(await phoneStageLeft()).toBeCloseTo(0, 1);
+  await page.mouse.wheel(0, 500);
+  await expect(scene).toHaveAttribute("data-scene-step", "leaving");
+  await expect(primaryPhone).toHaveAttribute("data-device-scale", "full");
+  await expect.poll(phoneStageLeft).toBeLessThan(-100);
+  await expect(scene).toHaveAttribute("data-scene-step", "settled", { timeout: 15_000 });
+  await expect(scene.locator("[data-landing-scroll-cue]")).toHaveAttribute("data-visible", "false");
+  await page.evaluate(() => {
+    const journey = document.querySelector<HTMLElement>("#landing-journey");
+    if (journey) window.scrollTo({ top: journey.offsetTop + window.innerHeight * 0.35, behavior: "instant" });
+  });
+  await expect(scene).toHaveAttribute("data-story-handoff", "true", { timeout: 10_000 });
+  await expect(primaryPhone.locator("[data-device-model]")).toHaveAttribute("data-device-model", "iphone-17-pro-max");
+  expect(
+    await originalCanvas?.evaluate(
+      (canvas) => canvas === document.querySelector("[data-landing-primary-phone] canvas"),
+    ),
+  ).toBe(true);
 });
 
-test("keeps mobile landing actions readable and navigable at narrow widths", async ({ page }) => {
-  const origin = `http://127.0.0.1:${browserTestPort}`;
-  for (const locale of ["id", "en"] as const) {
-    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
-    await page.setViewportSize({ width: 320, height: 700 });
+test("keeps the locked landing scene within narrow mobile viewports", async ({ page }) => {
+  for (const viewport of [
+    { width: 320, height: 700 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await page.locator("#landing-hero-actions").scrollIntoViewIfNeeded();
-    await page.evaluate(() => window.scrollBy({ top: window.innerHeight, behavior: "instant" }));
-
-    const mobileHeader = page.locator('header:not([data-testid="landing-sticky-header"])');
-    const localeButton = mobileHeader.getByRole("button", {
-      name: locale === "id" ? "Pilih bahasa" : "Choose language",
-    });
-    await expect(localeButton).toHaveAttribute(
-      "title",
-      locale === "id" ? "Bahasa saat ini: Bahasa Indonesia" : "Current language: English",
-    );
-    await expect(localeButton).toHaveCSS("width", "48px");
-    await expect(localeButton).toHaveCSS("height", "48px");
-
-    const mobileCta = page.locator('[data-slot="landing-mobile-cta"]');
-    await expect(mobileCta).toHaveAttribute("aria-hidden", "false");
-    const localLink = mobileCta.getByRole("link", { name: locale === "id" ? "Coba Local Vault" : "Try Local Vault" });
-    const hostedLink = mobileCta.getByRole("link", {
-      name: locale === "id" ? "Gunakan Hosted Vault" : "Use Hosted Vault",
-    });
-    await expect(localLink).toHaveAttribute("href", "/local?from=landing");
-    await expect(hostedLink).toHaveAttribute("href", "/sign-in");
-    const actionLayout = await mobileCta.locator("a").evaluateAll((links) =>
-      links.map((link) => {
-        const bounds = link.getBoundingClientRect();
-        return {
-          height: Math.round(bounds.height),
-          hasOverflow: link.scrollWidth > link.clientWidth,
-          boundsOverflow: bounds.left < 0 || bounds.right > window.innerWidth,
-        };
-      }),
-    );
-    expect(actionLayout).toEqual([
-      { height: 48, hasOverflow: false, boundsOverflow: false },
-      { height: 48, hasOverflow: false, boundsOverflow: false },
-    ]);
+    const scene = page.locator('[data-landing-desktop-scene="true"]');
+    await expect(scene).toHaveAttribute("data-scene-step", "locked");
+    await expect(page.locator("[data-landing-primary-phone]")).toHaveAttribute("data-visible", "true");
+    await expect(scene.locator("[data-landing-scroll-cue]")).toContainText("Gulir untuk lanjut");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await localLink.focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/local\?from=landing$/);
   }
 });
 
-test("copies the displayed landing example code with keyboard feedback in both locales", async ({ page }) => {
-  await page.addInitScript(() => {
-    let clipboardContent = "";
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (value: string) => {
-          clipboardContent = value;
-        },
-        readText: async () => clipboardContent,
-      },
-    });
-  });
-  await page.goto("/");
-  const origin = new URL(page.url()).origin;
-
-  for (const locale of ["id", "en"] as const) {
-    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
-    for (const viewport of [
-      { width: 390, height: 844 },
-      { width: 1280, height: 900 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await page.goto("/");
-      await page.waitForLoadState("networkidle");
-      const copyCard = page.locator('[data-slot="landing-vault-preview-card"]').first();
-      const button = copyCard.locator('[data-slot="copy-preview"]');
-      const code = (await button.locator('[data-slot="example-code"]').innerText()).replace(/\s/g, "");
-      expect(code).toMatch(/^\d{6}$/);
-      const accessibleName = await button.getAttribute("aria-label");
-      expect(accessibleName).toContain(locale === "id" ? "Salin kode contoh untuk" : "Copy the example code for");
-      expect(accessibleName).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
-
-      await button.focus();
-      await expect(button).toBeFocused();
-      await button.press("Enter");
-      await expect(copyCard.locator('[role="status"]')).toHaveText(
-        locale === "id" ? "Kode contoh disalin" : "Example code copied",
-      );
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(code);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    }
-  }
-});
-
-test("announces localized copy failures without motion on a narrow screen", async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async () => {
-          throw new DOMException("Clipboard access denied", "NotAllowedError");
-        },
-      },
-    });
-  });
-  await page.setViewportSize({ width: 320, height: 700 });
+test("reduced motion skips animations and allows moving backwards through landing steps", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const origin = `http://127.0.0.1:${browserTestPort}`;
-
-  for (const locale of ["id", "en"] as const) {
-    await page.context().addCookies([{ name: "RHSIA_LOCALE", value: locale, url: origin }]);
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    const copyCard = page.locator('[data-slot="landing-vault-preview-card"]').first();
-    const button = copyCard.locator('[data-slot="copy-preview"]');
-    await button.click();
-    const toast = copyCard.locator(".landing-copy-toast");
-    await expect(toast).toHaveText(locale === "id" ? "Gagal menyalin" : "Copy unavailable");
-    await expect(toast).toBeVisible();
-    await expect(toast).toHaveCSS("animation-name", "none");
-    await expect(copyCard).toHaveCSS("animation-name", "none");
-    await expect(button.locator('[data-slot="example-code"]')).toHaveCSS("user-select", "text");
-    await expect(copyCard.locator('[role="status"]')).toHaveText(
-      locale === "id"
-        ? "Kode contoh tidak dapat disalin. Pilih dan salin kode yang terlihat, atau masukkan secara manual."
-        : "Could not copy the example code. Select and copy the visible code, or enter it manually.",
-    );
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  }
+  await page.goto("/");
+  const scene = page.locator('[data-landing-desktop-scene="true"]');
+  await expect(scene).toHaveAttribute("data-scene-step", "locked");
+  await expect(scene).toHaveAttribute("data-input-ready", "true");
+  const phonePreview = page
+    .locator("[data-landing-primary-phone]")
+    .getByRole("img")
+    .locator('iframe[data-device-kind="phone"]')
+    .first()
+    .contentFrame();
+  await expect(phonePreview.locator("[data-unlock-phase]")).toHaveAttribute("data-unlock-phase", "locked", {
+    timeout: 15_000,
+  });
+  await page.mouse.wheel(0, 500);
+  await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 10_000 });
+  await expect(scene.locator('[class*="sceneLoadingIndicator"]')).toHaveAttribute("data-visible", "false");
+  await page.keyboard.press("PageDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 25_000 });
+  await page.keyboard.press("PageUp");
+  await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 10_000 });
+  await page.keyboard.press("PageDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 10_000 });
+  await page.keyboard.press("PageDown");
+  await expect(scene).toHaveAttribute("data-scene-step", "settled", { timeout: 10_000 });
+  await page.keyboard.press("PageUp");
+  await expect(scene).toHaveAttribute("data-scene-step", "devices", { timeout: 10_000 });
 });
 
 test("aligns the landing footer as brand and a right-side utility group", async ({ page }) => {
@@ -203,9 +202,9 @@ test("aligns the landing footer as brand and a right-side utility group", async 
     { width: 600, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await page.goto("/landing");
 
-    const alignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
+    const alignment = await page.locator("main > footer > div").evaluate((footer) => {
       const footerBox = footer.getBoundingClientRect();
       const [brand, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
       const brandChildren = footer.querySelectorAll("p > *");
@@ -233,14 +232,12 @@ test("aligns the landing footer as brand and a right-side utility group", async 
     expect(Math.abs(alignment.brandColumnCenter - alignment.footerCenter)).toBeLessThan(2);
     expect(Math.abs(alignment.navigationCenter - alignment.footerCenter)).toBeLessThan(2);
     expect(alignment.documentWidth).toBeLessThanOrEqual(alignment.viewportWidth);
-    await expect(
-      page.locator("main.landing-page > footer").getByRole("button", { name: "Pilih bahasa" }),
-    ).toBeVisible();
+    await expect(page.locator("main > footer").getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
   }
 
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/");
-  const desktopAlignment = await page.locator("main.landing-page > footer > div").evaluate((footer) => {
+  await page.goto("/landing");
+  const desktopAlignment = await page.locator("main > footer > div").evaluate((footer) => {
     const footerBox = footer.getBoundingClientRect();
     const [brand, navigation] = Array.from(footer.children).map((item) => item.getBoundingClientRect());
     return {
@@ -261,39 +258,20 @@ test("aligns the landing footer as brand and a right-side utility group", async 
   expect(Math.abs(desktopAlignment.brandLeft - desktopAlignment.left)).toBeLessThan(2);
   expect(Math.abs(desktopAlignment.navigationRight - desktopAlignment.right)).toBeLessThan(2);
   expect(desktopAlignment.documentWidth).toBeLessThanOrEqual(desktopAlignment.viewportWidth);
-  await expect(page.locator("main.landing-page > footer").getByRole("button")).toHaveCount(0);
+  await expect(page.locator("main > footer").getByRole("button")).toHaveCount(0);
 });
 
-test("keeps every Vault flow connector straight at mobile and desktop widths", async ({ page }) => {
+test("keeps the shared Hosted Vault journey and device viewport on the page", async ({ page }) => {
   for (const viewport of [
     { width: 430, height: 932 },
     { width: 1280, height: 800 },
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
-
-    const connectorGeometry = await page
-      .locator(".comparison-flow-device, .comparison-flow-service")
-      .evaluateAll((cards) =>
-        cards.map((card) => {
-          const connector = card.querySelector<HTMLElement>(
-            ".comparison-flow-device-connector, .comparison-flow-service-connector",
-          );
-          const cardBox = card.getBoundingClientRect();
-          const connectorBox = connector?.getBoundingClientRect();
-          return {
-            connectorHeight: connectorBox?.height ?? Number.POSITIVE_INFINITY,
-            centerDelta: Math.abs(
-              (connectorBox?.top ?? 0) + (connectorBox?.height ?? 0) / 2 - (cardBox.top + cardBox.height / 2),
-            ),
-          };
-        }),
-      );
-
-    expect(connectorGeometry).toHaveLength(6);
-    expect(
-      connectorGeometry.every(({ connectorHeight, centerDelta }) => connectorHeight <= 1.5 && centerDelta <= 1),
-    ).toBe(true);
+    const journey = page.locator("#landing-journey");
+    await expect(journey).toHaveCount(1);
+    await expect(journey.locator('[class*="guideColumn"] article')).toHaveCount(8);
+    await expect(journey.locator('[class*="mobileJourneySteps"] [data-landing-phone-view]')).toHaveCount(8);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
@@ -423,6 +401,7 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
       `/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults%2Finvitations%2Fredeem&handoff=${handoffId}`,
     );
     await expect.poll(() => handoffPublished).toBe(true);
+    await page.bringToFront();
     await expect.poll(() => handoffAccepted).toBe(true);
     await expect(page.getByText("Meneruskan sesi masuk ke aplikasi terpasang…")).toBeVisible({ timeout: 15_000 });
     expect(pollSentRefreshCredential).toBe(false);
@@ -432,20 +411,14 @@ test("hands a passwordless session to a new installed-PWA window", async ({ page
 });
 
 test("switches to English without changing routes and persists through redirects and reloads", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ui-preview");
   await switchLanguage(page, "English", "en");
-
-  await expect(
-    page.locator('main.landing-page > header:not([data-testid="landing-sticky-header"])').getByRole("button", {
-      name: "Choose language",
-    }),
-  ).toContainText("English");
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("link", { name: "Use Hosted Vault" })).toBeVisible();
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator('[data-landing-desktop-scene="true"]')).toHaveAttribute("data-scene-step", "locked");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await page.getByRole("link", { name: "Use Hosted Vault" }).click();
-  await expect(page).toHaveURL(/\/sign-in$/);
+  await page.goto("/sign-in");
   await expect(page.getByLabel("Email address")).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue with email" })).toBeVisible();
   await expect(page.getByText("Sign in or create an account with a verified email address.")).toBeVisible();
@@ -464,12 +437,11 @@ test("switches to English without changing routes and persists through redirects
   await expect(page.getByText("Sign in to continue.")).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
+  await page.goto("/ui-preview");
   await switchLanguage(page, "Bahasa Indonesia", "id");
-  await expect(page.getByRole("button", { name: "Pilih bahasa" })).toHaveAttribute(
-    "title",
-    "Bahasa saat ini: Bahasa Indonesia",
-  );
-  await expect(page.getByText("Silakan masuk untuk melanjutkan.")).toBeVisible();
+  await page.goto("/sign-in");
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  await expect(page.getByText("Masuk atau buat akun dengan alamat email terverifikasi.")).toBeVisible();
 });
 
 test("renders representative English OTP, Shared Vault, validation, and recovery previews", async ({ page }) => {

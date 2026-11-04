@@ -333,7 +333,7 @@ test.describe("encrypted read-only offline PWA", () => {
           return [name, results.map((result) => Boolean(result))] as const;
         }),
       );
-      const currentName = names.find((name) => name.endsWith("-v8"));
+      const currentName = names.find((name) => name.endsWith("-v9"));
       const marker = currentName
         ? await (await caches.open(currentName)).match("/__rhasia-offline-shell-refresh-in-progress")
         : null;
@@ -485,7 +485,12 @@ test.describe("encrypted read-only offline PWA", () => {
 
       await page.getByRole("button", { name: lockLabel }).click();
       await expect(page.getByRole("heading", { name: updateTitle })).toBeVisible();
+      const updateReload = page.waitForEvent("framenavigated", {
+        predicate: (frame) => frame === page.mainFrame(),
+        timeout: 20_000,
+      });
       await page.getByRole("button", { name: updateLabel }).click();
+      await updateReload;
 
       await expect(page.getByRole("textbox", { name: passphraseLabel })).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText("Personal User", { exact: true })).toHaveCount(0);
@@ -664,7 +669,7 @@ test.describe("encrypted read-only offline PWA", () => {
 
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/landing$/);
 
     await page.getByRole("button", { name: "Buka brankas luring" }).click();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
@@ -672,12 +677,12 @@ test.describe("encrypted read-only offline PWA", () => {
   });
 
   test("keeps the landing page and asks before offline access on a direct reload", async ({ page, context }) => {
-    await page.goto("/");
+    await page.goto("/landing");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded" });
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/landing$/);
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Buka akses luring?" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toHaveCount(0);
@@ -719,7 +724,12 @@ test.describe("encrypted read-only offline PWA", () => {
     });
     expect(legacyShells.every((html) => html?.includes('lang="en"'))).toBe(true);
     await expect(page.getByRole("heading", { name: "Update ready" })).toBeVisible();
+    const updateReload = page.waitForEvent("framenavigated", {
+      predicate: (frame) => frame === page.mainFrame(),
+      timeout: 20_000,
+    });
     await page.getByRole("button", { name: "Update now" }).click();
+    await updateReload;
     await expect(page.getByRole("heading", { name: "Offline vault access" })).toBeVisible({ timeout: 20_000 });
 
     await context.setOffline(true);

@@ -1,0 +1,901 @@
+.scenePage {
+  position: relative;
+  z-index: 3;
+  isolation: isolate;
+  min-height: 100svh;
+}
+
+.sceneStage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: clip;
+  isolation: isolate;
+}
+
+.scenePage[data-scene-step="settled"] {
+  pointer-events: none;
+}
+
+.scenePage:not([data-scene-step="settled"]) .sceneStage {
+  touch-action: pan-y;
+}
+
+.initialPhone,
+.deviceShowcase {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: opacity;
+  transition: opacity 360ms ease;
+}
+
+.initialPhone {
+  --landing-device-ease: linear(
+    0 0%,
+    0.00116 5%,
+    0.00856 10%,
+    0.02661 15%,
+    0.05792 20%,
+    0.10352 25%,
+    0.16308 30%,
+    0.23517 35%,
+    0.31744 40%,
+    0.40687 45%,
+    0.5 50%,
+    0.59313 55%,
+    0.68256 60%,
+    0.76483 65%,
+    0.83692 70%,
+    0.89648 75%,
+    0.94208 80%,
+    0.97339 85%,
+    0.99144 90%,
+    0.99884 95%,
+    1 100%
+  );
+  position: fixed;
+  z-index: 2;
+  pointer-events: none;
+  transform: scale(1);
+  transform-origin: center;
+  transition:
+    opacity 360ms ease,
+    transform var(--landing-showcase-expansion-duration, 950ms) var(--landing-device-ease);
+}
+
+/* Move the shared viewport without resizing either renderer during a state change. */
+.initialPhone > .phoneScene {
+  translate: 0 0;
+  transition: translate var(--landing-showcase-expansion-duration, 950ms) var(--landing-device-ease);
+}
+
+.initialPhone:is(
+    [data-scene-step="locked"],
+    [data-scene-step="unlocking"],
+    [data-scene-step="unlocked"],
+    [data-scene-step="contracting"]
+  )
+  > .phoneScene {
+  translate: 0 calc(var(--landing-header-height, 4.5rem) / 2);
+}
+
+.initialPhone[data-device-scale="showcase"] {
+  transform: scale(0.52);
+}
+
+.initialPhone[data-scene-step="leaving"] {
+  transition:
+    opacity 360ms ease,
+    transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms),
+    left var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms),
+    top var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms);
+}
+
+.initialPhone[data-scene-step="returning"] {
+  transition:
+    opacity 360ms ease,
+    transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease),
+    left var(--landing-device-transition-duration, 800ms) var(--landing-device-ease),
+    top var(--landing-device-transition-duration, 800ms) var(--landing-device-ease);
+}
+
+.initialPhone[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.deviceShowcase {
+  position: fixed;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.deviceShowcase[data-visible="true"] {
+  opacity: 1;
+}
+
+.heroPhoneAnchor {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: clamp(12rem, 27vw, 31rem);
+  width: min(25vw, 23rem);
+  height: min(72svh, 48rem);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.heroOverlay {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: min(50rem, calc(100% - 3rem));
+  max-height: calc(100svh - 13rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c88717 #f8f4ed;
+  padding: clamp(1.5rem, 3.6vw, 2.8rem);
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 1.6rem;
+  background: #f8f4ed;
+  box-shadow:
+    0 24px 72px rgb(39 48 57 / 15%),
+    inset 0 1px 0 rgb(255 255 255 / 94%);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  transition:
+    opacity 420ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .heroOverlay {
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 45%), rgb(255 255 255 / 10%) 48%, rgb(255 255 255 / 22%)),
+      rgb(248 244 237 / 70%);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  .heroOverlay > p:first-child {
+    color: #80510a;
+  }
+
+  .heroOverlay .sceneHeroDescription,
+  .heroOverlay .sceneHostedAccess {
+    color: #35414b;
+  }
+
+  .heroOverlay[data-visible="false"] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .heroOverlay {
+    background: #f8f4ed;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.scenePage[data-scene-step="expanding"] .heroOverlay[data-visible="true"] {
+  transition-delay: calc(var(--landing-showcase-expansion-duration, 950ms) * 0.45);
+}
+
+.heroOverlay[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-50% + 0.6rem)) scale(0.985);
+}
+
+.heroOverlay .sceneHeroTitle {
+  margin: 1rem auto 0;
+  max-width: 48rem;
+  font-size: clamp(2.8rem, 5.2vw, 4.6rem);
+}
+
+.heroOverlay .sceneHeroDescription {
+  margin: 1.15rem auto 0;
+  max-width: 40rem;
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+}
+
+.sceneHeroActions {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.sceneHeroButtonRow {
+  width: fit-content;
+  margin-inline: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.sceneHostedAccess {
+  max-width: 24rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.heroOverlay .sceneHeroActions {
+  align-items: center;
+}
+
+.heroOverlay .sceneHeroButtonRow {
+  justify-content: center;
+}
+
+.heroOverlay .sceneHostedAccess {
+  align-self: center;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.sceneGuide {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: clamp(2rem, 9vw, 10rem);
+  width: min(44rem, calc(50vw - 3rem));
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, calc(-50% + 0.6rem), 0);
+  transition:
+    opacity 360ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sceneGuide[data-visible="true"] {
+  opacity: 1;
+  transform: translate3d(0, -50%, 0);
+}
+
+.sceneGuide article {
+  min-height: 0;
+  padding: clamp(1.4rem, 2.5vw, 2.25rem);
+}
+
+.sceneLoadingIndicator {
+  position: absolute;
+  z-index: 7;
+  top: auto;
+  bottom: clamp(3.8rem, 7vh, 5rem);
+  left: 50%;
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 0.85rem 1.2rem;
+  border: 1px solid rgb(222 216 208 / 92%);
+  border-radius: 999px;
+  background: rgb(255 253 249 / 94%);
+  color: #273039;
+  font-size: 0.82rem;
+  font-weight: 750;
+  box-shadow: 0 16px 44px rgb(39 48 57 / 14%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, 0.45rem, 0) scale(0.98);
+  transition:
+    opacity 180ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sceneLoadingIndicator[data-visible="true"] {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0) scale(1);
+}
+
+.sceneLoadingSpinner {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: 0 0 auto;
+  border: 2px solid rgb(200 135 23 / 24%);
+  border-top-color: #c88717;
+  border-radius: 50%;
+  animation: landing-scene-spin 780ms linear infinite;
+}
+
+.showcaseFallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 3rem;
+  background: #f8f4ed;
+  pointer-events: none;
+}
+
+.scrollCue {
+  position: absolute;
+  z-index: 4;
+  bottom: max(2rem, calc(env(safe-area-inset-bottom) + 1.25rem));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: rgb(39 48 57 / 78%);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+}
+
+.scrollCue[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.scrollCue[data-visible="false"] {
+  transform: translate(-50%, 8px);
+}
+
+.scrollDoodle {
+  width: 38px;
+  height: 48px;
+  overflow: visible;
+  animation: scroll-doodle-float 2.2s ease-in-out 1.3s infinite;
+}
+
+.scrollDoodleArrow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.scrollDoodleArrow {
+  stroke: #c88717;
+  stroke-width: 2.2px;
+  stroke-dasharray: 54;
+  stroke-dashoffset: 54;
+  animation: scroll-doodle-draw 650ms cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+}
+
+.phoneScene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.storyEnvironment {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background-color: #f8f4ed;
+  background-image:
+    linear-gradient(rgb(39 48 57 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(39 48 57 / 8%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 280ms ease;
+}
+
+.storyEnvironment[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.storyEnvironmentCanvas {
+  position: absolute !important;
+  inset: 0;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+}
+
+.phoneScene[data-layout="scene"] {
+  touch-action: pan-y;
+}
+
+.phoneScene[data-layout="showcase"] {
+  touch-action: pan-y;
+}
+
+.phoneBodyBounds {
+  position: absolute;
+  pointer-events: none;
+}
+
+.phoneWebglCanvas,
+.phoneCss3dLayer {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+.phoneWebglCanvas {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.phoneCss3dLayer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.phoneScreenFrame {
+  display: block;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+  border: 1px solid rgb(8 11 13 / 78%);
+  border-radius: 45px;
+  background: #fbfaf8;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  backface-visibility: hidden;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+.phoneScreenFrame[data-device-kind="tablet"] {
+  border-radius: 38px;
+}
+
+.phoneScreenFrame[data-device-kind="laptop"] {
+  border: 0;
+  border-radius: 0.2rem;
+  box-shadow: none;
+}
+
+.phoneScreenStack {
+  position: relative;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+}
+
+.phoneScreenTransition,
+.phoneScreenEntry {
+  position: absolute;
+  inset: 0;
+}
+
+.phoneScreenTransition {
+  opacity: 1;
+  visibility: visible;
+}
+
+.phoneScreenTransition[data-active="false"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.phoneUi {
+  position: relative;
+  display: flex;
+  width: 390px;
+  height: 844px;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), sans-serif;
+  text-align: left;
+}
+
+.phoneStatusBar {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 24px 0;
+  color: #171d22;
+  font-family: var(--font-roboto-mono), monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.phoneStatusIcons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phoneSignal {
+  display: flex;
+  height: 12px;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.phoneSignal i {
+  width: 3px;
+  border-radius: 2px;
+  background: #273039;
+}
+
+.phoneSignal i:nth-child(1) {
+  height: 4px;
+}
+
+.phoneSignal i:nth-child(2) {
+  height: 6px;
+}
+
+.phoneSignal i:nth-child(3) {
+  height: 9px;
+}
+
+.phoneSignal i:nth-child(4) {
+  height: 12px;
+}
+
+.phoneBattery {
+  position: relative;
+  width: 17px;
+  height: 9px;
+  border: 1px solid #273039;
+  border-radius: 3px;
+}
+
+.phoneBattery::before {
+  position: absolute;
+  inset: 2px 3px 2px 2px;
+  border-radius: 1px;
+  background: #3d7452;
+  content: "";
+}
+
+.phoneBattery::after {
+  position: absolute;
+  top: 2px;
+  right: -3px;
+  width: 2px;
+  height: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #273039;
+  content: "";
+}
+
+.phoneNotch {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  left: 50%;
+  display: flex;
+  width: 88px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 999px;
+  background: #090b0d;
+  transform: translateX(-50%);
+}
+
+.phoneNotch span {
+  width: 31px;
+  height: 4px;
+  border-radius: 999px;
+  background: #25292c;
+}
+
+.phoneNotch i {
+  width: 6px;
+  height: 6px;
+  border: 1px solid #192024;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #32556a 0 20%, #07090a 55%);
+}
+
+.phoneScreenViewport {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--background);
+  scrollbar-width: none;
+}
+
+.phoneScreenViewport::-webkit-scrollbar {
+  display: none;
+}
+
+.phoneScreenContent {
+  min-height: 100%;
+}
+.phoneScreenContent[inert] :global(:focus) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.unlockScreenReveal {
+  animation: unlock-screen-reveal 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.unlockDemoCursor {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: 25px;
+  height: 25px;
+  color: #182126;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 28%));
+  transition:
+    transform var(--landing-unlock-cursor-duration, 460ms) cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 120ms ease-out;
+}
+
+.unlockDemoCursor svg {
+  width: 25px;
+  height: 25px;
+  fill: #fffdf8;
+  stroke-width: 1.8px;
+}
+
+.unlockDemoCursor::after {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #d1911c;
+  border-radius: 50%;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+}
+
+.phoneUi[data-unlock-phase="cursorReady"] .unlockDemoCursor,
+.phoneUi[data-unlock-phase="movingToPassphrase"] .unlockDemoCursor,
+.phoneUi[data-unlock-phase="typing"] .unlockDemoCursor,
+.phoneUi[data-unlock-phase="movingToUnlock"] .unlockDemoCursor,
+.phoneUi[data-unlock-phase="clickingUnlock"] .unlockDemoCursor {
+  opacity: 1;
+}
+
+.phoneUi[data-unlock-phase="typing"] .unlockDemoCursor::after,
+.phoneUi[data-unlock-phase="clickingUnlock"] .unlockDemoCursor::after {
+  animation: unlock-demo-click var(--landing-unlock-click-feedback-duration, 420ms) ease-out;
+}
+
+.phoneUi[data-unlock-phase="clickingUnlock"] :global([data-landing-demo-unlock]) {
+  filter: brightness(0.94);
+  transform: scale(0.985);
+}
+
+.phoneUi :global([data-landing-demo-unlock]) {
+  transition:
+    filter var(--landing-unlock-button-duration, 180ms) ease-out,
+    transform var(--landing-unlock-button-duration, 180ms) ease-out;
+}
+
+.phoneAppPage {
+  min-height: 0 !important;
+  max-width: none !important;
+  padding: 1rem 0.75rem !important;
+}
+
+.fallbackScene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  perspective: 1400px;
+}
+
+.phoneFallbackFrame {
+  width: 410px;
+  height: 864px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid #15191c;
+  border-radius: 52px;
+  background: #101316;
+  box-shadow: 0 30px 70px rgb(39 48 57 / 22%);
+  transform: rotateX(12deg) rotateZ(-4deg) scale(min(1, calc((100vw - 2rem) / 500px), calc((100svh - 8rem) / 960px)));
+}
+
+.phoneFallbackFrame .phoneUi {
+  border-radius: 42px;
+}
+
+@keyframes unlock-demo-click {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+}
+
+@keyframes unlock-screen-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scroll-doodle-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes scroll-doodle-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 4px;
+  }
+}
+
+@keyframes landing-scene-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .initialPhone[data-scene-step="leaving"] > .phoneScene {
+    transition: transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease)
+      var(--landing-device-departure-delay, 300ms);
+  }
+
+  .initialPhone[data-scene-step="returning"] > .phoneScene {
+    transition: transform var(--landing-device-transition-duration, 800ms) var(--landing-device-ease);
+  }
+
+  .sceneGuide {
+    display: none;
+  }
+
+  .scenePage {
+    min-height: 100svh;
+  }
+
+  .heroPhoneAnchor {
+    left: 50%;
+    width: min(58vw, 19rem);
+    height: min(67svh, 40rem);
+  }
+
+  .heroOverlay {
+    top: 50%;
+    bottom: auto;
+    width: calc(100% - 1.25rem);
+    max-height: calc(100svh - 12rem);
+    transform: translate(-50%, -50%);
+    padding: 1.35rem 1.25rem;
+    border-radius: 1.2rem;
+  }
+
+  .heroOverlay[data-visible="false"] {
+    transform: translate(-50%, -46%) scale(0.985);
+  }
+
+  .heroOverlay .sceneHeroTitle {
+    margin-top: 0.9rem;
+    font-size: clamp(2.1rem, 9vw, 3.6rem);
+    line-height: 1.02;
+  }
+
+  .heroOverlay .sceneHeroDescription {
+    margin-top: 0.9rem;
+    font-size: 0.93rem;
+    line-height: 1.6;
+  }
+
+  .scrollCue {
+    bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem));
+    font-size: 0.58rem;
+  }
+
+  .sceneLoadingIndicator {
+    bottom: max(3rem, calc(env(safe-area-inset-bottom) + 2.35rem));
+    max-width: calc(100% - 2rem);
+    font-size: 0.78rem;
+  }
+
+  .showcaseFallback {
+    padding: 1rem;
+  }
+}
+
+@media (max-height: 660px) {
+  .scrollCue {
+    bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+  }
+
+  .scrollCue .scrollDoodle {
+    height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .initialPhone[data-scene-step],
+  .deviceShowcase,
+  .heroOverlay {
+    transition: none;
+  }
+
+  .scrollCue {
+    transition: none;
+  }
+
+  .sceneLoadingIndicator {
+    transition: none;
+  }
+
+  .sceneLoadingSpinner {
+    animation: none;
+    border-top-color: #c88717;
+  }
+
+  .scrollDoodle {
+    animation: none;
+  }
+
+  .scrollDoodleArrow {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .initialPhone[data-scene-step] > .phoneScene {
+    transition: none;
+  }
+
+  .phoneScreenTransition,
+  .phoneScreenEntry {
+    transition: none;
+    animation: none;
+  }
+
+  .unlockDemoCursor {
+    transition: none;
+  }
+
+  .unlockScreenReveal {
+    animation-duration: 1ms;
+  }
+}

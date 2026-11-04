@@ -13,7 +13,7 @@ export function OfflineAccessPrompt() {
   const online = useOnlineStatus();
   const t = useTranslations("Sync.offlinePrompt");
   const [dismissed, setDismissed] = useState(false);
-  const isLandingPage = pathname === "/";
+  const isLandingPage = pathname === "/" || pathname === "/landing";
 
   useEffect(() => {
     const handleOnline = () => setDismissed(false);

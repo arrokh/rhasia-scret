@@ -104,7 +104,7 @@ test("renders the ciphertext-free vault layout at a mobile viewport", async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByText("Brankas Pribadi")).toBeVisible();
   await expect(page.getByText("Tim Operasional")).toBeVisible();
-  await expect(page.getByText(/Tidak ada materi akun, passphrase, OTP, atau kunci/)).toBeVisible();
+  await expect(page.getByText(/Semua nama akun dan kode TOTP di pratinjau ini bersifat sintetis/)).toBeVisible();
   const directoryMenu = page.getByRole("button", { name: "Opsi tampilan" });
   const filterMenu = page.getByRole("button", { name: "Filter akun" });
   await filterMenu.click();
@@ -946,7 +946,7 @@ test("uses dedicated, consistent Vault navigation and management tabs", async ({
   await expect(footerDeveloperLink).toHaveAttribute("target", "_blank");
   await expect(footerDeveloperLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("footer img")).toHaveCount(0);
-  await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: page.url() }]);
+  await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: new URL(page.url()).origin }]);
   await page.reload();
   await page.getByRole("tab", { name: "Invitations" }).click();
   const invitedUsersEnglish = page.locator('[aria-labelledby="invited-users-title"]');

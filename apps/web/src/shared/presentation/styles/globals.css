@@ -397,6 +397,10 @@
   }
 }
 
+body:has([data-landing-desktop-scene="true"]) [data-slot="app-footer"] {
+  display: none;
+}
+
 @keyframes comparison-flow-branch {
   0% {
     opacity: 0;

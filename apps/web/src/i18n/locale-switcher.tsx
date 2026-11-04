@@ -28,6 +28,20 @@ function persistLocale(nextLocale: AppLocale) {
   document.documentElement.lang = nextLocale;
 }
 
+export async function applyLocalePreference(nextLocale: AppLocale, currentLocale: AppLocale): Promise<boolean> {
+  persistLocale(nextLocale);
+  if (nextLocale === currentLocale && !navigator.onLine) return true;
+
+  try {
+    await refreshOfflineShell(nextLocale);
+    return true;
+  } catch {
+    persistLocale(currentLocale);
+    await refreshOfflineShell(currentLocale).catch(() => {});
+    return false;
+  }
+}
+
 export function LocaleSwitcher({
   embedded = false,
   onLocaleRequested,
@@ -225,20 +239,16 @@ export function LocaleChangeConfirmation({ nextLocale, onCancel }: { nextLocale:
   function confirmLocaleChange() {
     if (nextLocale === locale || pending || refreshingOfflineShell || !online) return;
     setOfflineShellRefreshFailed(false);
-    persistLocale(nextLocale);
     setRefreshingOfflineShell(true);
-    void refreshOfflineShell(nextLocale)
-      .then(() => {
-        setRefreshingOfflineShell(false);
-        onCancel();
-        startTransition(() => router.refresh());
-      })
-      .catch(async () => {
-        persistLocale(locale);
-        await refreshOfflineShell(locale).catch(() => {});
-        setRefreshingOfflineShell(false);
+    void applyLocalePreference(nextLocale, locale).then((applied) => {
+      setRefreshingOfflineShell(false);
+      if (!applied) {
         setOfflineShellRefreshFailed(true);
-      });
+        return;
+      }
+      onCancel();
+      startTransition(() => router.refresh());
+    });
   }
 
   function cancelLocaleChange() {

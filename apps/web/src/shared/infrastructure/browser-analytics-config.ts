@@ -201,6 +201,7 @@ const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referre
 // fail closed, including future dynamic routes and user-controlled 404 paths.
 const STATIC_ANALYTICS_ROUTES = [
   "/",
+  "/landing",
   "/privacy",
   "/support",
   "/local",

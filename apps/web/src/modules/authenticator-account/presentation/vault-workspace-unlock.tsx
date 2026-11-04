@@ -29,21 +29,25 @@ import {
 export function VaultWorkspaceUnlock({
   personalVaultId,
   onUnlocked,
+  previewPassphrase,
 }: {
   personalVaultId: string;
   onUnlocked: (workspace: UnlockedVaultWorkspace) => void;
+  previewPassphrase?: string;
 }) {
+  const isPreview = previewPassphrase !== undefined;
   const t = useTranslations("AuthenticatorAccount.unlock");
   const [status, setStatus] = useState<UnlockStatus>("idle");
   const [passkeyUnlocking, setPasskeyUnlocking] = useState(false);
   const [rememberedUnlocking, setRememberedUnlocking] = useState(false);
   const [rememberedAvailable, setRememberedAvailable] = useState(false);
   const [secretVisible, setSecretVisible] = useState(false);
-  const recoveryStatus = usePasskeyRecoveryStatusQuery();
+  const recoveryStatus = usePasskeyRecoveryStatusQuery(!isPreview);
   const rememberedOperationRef = useRef<AbortController | null>(null);
   const form = useForm({
     defaultValues: { secret: "" },
     onSubmit: async ({ value }) => {
+      if (isPreview) return;
       setStatus("idle");
       try {
         onUnlocked(await loadUnlockedVaultWorkspace(value.secret, personalVaultId));
@@ -62,6 +66,12 @@ export function VaultWorkspaceUnlock({
   });
 
   useEffect(() => {
+    if (previewPassphrase === undefined) return;
+    form.setFieldValue("secret", previewPassphrase);
+  }, [form, previewPassphrase]);
+
+  useEffect(() => {
+    if (isPreview) return;
     let active = true;
     hasRememberedBrowserForPersonalVault(personalVaultId)
       .then((available) => {
@@ -73,11 +83,15 @@ export function VaultWorkspaceUnlock({
     return () => {
       active = false;
     };
-  }, [personalVaultId]);
+  }, [isPreview, personalVaultId]);
   useEffect(() => () => rememberedOperationRef.current?.abort(), []);
-  useEffect(() => subscribeToLocalVaultLock(() => form.reset()), [form]);
+  useEffect(() => {
+    if (isPreview) return;
+    return subscribeToLocalVaultLock(() => form.reset());
+  }, [form, isPreview]);
 
   async function unlockRememberedBrowser() {
+    if (isPreview) return;
     setStatus("idle");
     setRememberedUnlocking(true);
     const controller = new AbortController();
@@ -108,6 +122,7 @@ export function VaultWorkspaceUnlock({
   }
 
   async function unlockWithPasskey() {
+    if (isPreview) return;
     setStatus("idle");
     setPasskeyUnlocking(true);
     try {
@@ -168,7 +183,8 @@ export function VaultWorkspaceUnlock({
               disabled={passkeyUnlocking || rememberedUnlocking}
               required
               autoComplete="current-password"
-              autoFocus
+              autoFocus={!isPreview}
+              data-landing-demo-passphrase={isPreview ? "" : undefined}
             />
             <FormFieldError id="vault-unlock-secret-error" errors={field.state.meta.errors} />
           </div>
@@ -181,12 +197,13 @@ export function VaultWorkspaceUnlock({
             className="w-full"
             disabled={isSubmitting || passkeyUnlocking || rememberedUnlocking}
             aria-busy={isSubmitting}
+            data-landing-demo-unlock={isPreview ? "" : undefined}
           >
             {isSubmitting ? t("unlocking") : t("unlock")}
           </Button>
         )}
       </form.Subscribe>
-      {rememberedAvailable && (
+      {rememberedAvailable && !isPreview && (
         <>
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}
@@ -208,7 +225,7 @@ export function VaultWorkspaceUnlock({
           <p className="text-center text-xs leading-5 text-muted-foreground">{t("rememberedHelp")}</p>
         </>
       )}
-      {recoveryStatus.data?.enrolled && (
+      {(isPreview || recoveryStatus.data?.enrolled) && (
         <>
           <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             {t("or")}

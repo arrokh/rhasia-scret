@@ -13,30 +13,52 @@ type LandingMobileCtaProps = {
 
 export function LandingMobileCta({ localVaultLabel, hostedVaultLabel }: LandingMobileCtaProps) {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
+  const [isJourneyVisible, setIsJourneyVisible] = useState(false);
+  const [isFinalCtaVisible, setIsFinalCtaVisible] = useState(false);
   const showActions = !isHeroVisible;
 
   useEffect(() => {
     const heroActions = document.getElementById("landing-hero-actions");
-    if (!heroActions) return;
+    const journey = document.getElementById("landing-journey");
+    const finalCta = document.querySelector<HTMLElement>("[data-slot='landing-final-cta']");
+    let animationFrame: number | undefined;
+    const isVisible = (element: Element | null) => {
+      const bounds = element?.getBoundingClientRect();
+      return Boolean(bounds && bounds.bottom > 0 && bounds.top < window.innerHeight);
+    };
+    const updateVisibility = () => {
+      setIsHeroVisible(isVisible(heroActions));
+      setIsJourneyVisible(isVisible(journey));
+      setIsFinalCtaVisible(isVisible(finalCta));
+    };
+    const scheduleUpdate = () => {
+      if (animationFrame !== undefined) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        updateVisibility();
+      });
+    };
 
-    const heroObserver = new IntersectionObserver(
-      ([entry]) => {
-        setIsHeroVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 },
-    );
-    heroObserver.observe(heroActions);
-    return () => heroObserver.disconnect();
+    updateVisibility();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
   }, []);
+
+  const showMobileActions = showActions && !isJourneyVisible && !isFinalCtaVisible;
 
   return (
     <div
       data-slot="landing-mobile-cta"
-      aria-hidden={!showActions}
-      inert={showActions ? undefined : true}
+      aria-hidden={!showMobileActions}
+      inert={showMobileActions ? undefined : true}
       className={cn(
         "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:hidden",
-        showActions ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0",
+        showMobileActions ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0",
       )}
     >
       <div className="mx-auto grid max-w-md grid-cols-2 gap-2">

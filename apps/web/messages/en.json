@@ -162,9 +162,12 @@
   },
   "Home": {
     "landing": {
-      "eyebrow": "Open source · Local first · Zero knowledge",
-      "title": "Your authenticator, on your terms.",
-      "description": "Start with a fully local TOTP Vault. Move to encrypted personal or governed shared Vaults only when you choose.",
+      "navigation": {
+        "label": "Main navigation"
+      },
+      "eyebrow": "Open source · Local-first · Zero-knowledge",
+      "title": "Your authenticator, your choice.",
+      "description": "Start in a browser-based Local Vault—no sign-in. Copy accounts to an encrypted Personal or Shared Vault only when you choose.",
       "heroImageAlt": "An illustration of sealed envelopes and the rhasia-scret owl mascot.",
       "signIn": "Sign in",
       "localVault": "Try Local Vault",
@@ -174,7 +177,136 @@
       "footerProductPrefix": "rhasia-",
       "footerProductSuffix": "scret",
       "footerAuthor": "nooroctavian.id",
-      "hostedAccess": "Local Vault needs no sign-in. Hosted Vaults are available with a verified email address.",
+      "hostedAccess": "Local Vault needs no sign-in. Hosted Vault needs a verified email; encryption happens in your browser.",
+      "journey": {
+        "scrollHint": "Scroll to follow the steps",
+        "scrollPrompt": "Scroll to continue",
+        "eyebrow": "A hosted Vault, step by step",
+        "title": "From personal accounts to a team Vault.",
+        "description": "See the hosted flow: add an account, create a Shared Vault, invite a member, and set permissions.",
+        "phoneStageLabel": "Hosted Vault preview",
+        "privacyNote": "All data here is synthetic. Vault content is encrypted in your browser before it reaches the service.",
+        "phoneCaption": {
+          "accounts": "Hosted · account list",
+          "scan": "Add account · scan",
+          "review": "Add account · review",
+          "added": "Personal Vault · account added",
+          "sharedCreate": "Shared Vault · create",
+          "sharedInvite": "Shared Vault · invite",
+          "sharedPermissions": "Shared Vault · permissions",
+          "sharedReady": "Shared Vault · ready"
+        },
+        "steps": {
+          "accounts": {
+            "eyebrow": "01 · Your Hosted Vault",
+            "left": {
+              "title": "Start with a sample account.",
+              "description": "The Hosted Vault list shows one synthetic account. Scroll to see how to add another."
+            },
+            "right": {
+              "title": "The app's real screen.",
+              "description": "This preview uses the same /vaults components with synthetic account data."
+            },
+            "note": "Example OTPs are generated in the browser from synthetic secrets."
+          },
+          "scan": {
+            "eyebrow": "02 · Add an account",
+            "left": {
+              "title": "Add an account to your Vault.",
+              "description": "Choose Add account, then scan a QR code or select an image."
+            },
+            "right": {
+              "title": "The secret stays in your browser.",
+              "description": "Setup data is read in your browser. This preview does not open the camera."
+            },
+            "note": "The app asks for camera access only when you choose to scan."
+          },
+          "review": {
+            "eyebrow": "03 · Review details",
+            "left": {
+              "title": "Check before saving.",
+              "description": "Check the issuer and account label, then choose a Vault. Sample data is synthetic."
+            },
+            "right": {
+              "title": "Choose where the account goes.",
+              "description": "This flow adds it to the Personal Vault. Copying it to another Vault is a separate action."
+            },
+            "note": "Vault names and account labels are encrypted."
+          },
+          "added": {
+            "eyebrow": "04 · Account added",
+            "left": {
+              "title": "It is in your Personal Vault.",
+              "description": "The new account joins the sample account. Its setup secret is not shown here."
+            },
+            "right": {
+              "title": "See codes on your phone.",
+              "description": "Open an account to see its OTP. Example codes use synthetic secrets and are generated in your browser."
+            },
+            "note": "Vault unlock and OTP generation happen in your browser."
+          },
+          "sharedCreate": {
+            "eyebrow": "05 · Create a Shared Vault",
+            "left": {
+              "title": "Create a Vault for your team.",
+              "description": "Name it and create it from your signed-in account. A Shared Vault has its own encryption key."
+            },
+            "right": {
+              "title": "The server stores encrypted content.",
+              "description": "Vault names and account details are encrypted before storage."
+            },
+            "note": "Creating a Shared Vault does not invite anyone."
+          },
+          "sharedInvite": {
+            "eyebrow": "06 · Invite a teammate",
+            "left": {
+              "title": "Invite by verified email.",
+              "description": "Create a one-time invitation for teammate@example.test. The link secret is not shown."
+            },
+            "right": {
+              "title": "They redeem it after sign-in.",
+              "description": "The invitee signs in with that verified email, then opens the one-time Secure Share Link in their browser."
+            },
+            "note": "The Secure Share Link secret is never stored or sent to the server."
+          },
+          "sharedPermissions": {
+            "eyebrow": "07 · Set permissions",
+            "left": {
+              "title": "Choose what members can change.",
+              "description": "Set add, edit, and delete permissions separately. This example allows adding only."
+            },
+            "right": {
+              "title": "Members can view and copy.",
+              "description": "Members can view and copy codes. Add, edit, and delete each need permission."
+            },
+            "note": "The real permission controls appear read-only in this preview."
+          },
+          "sharedReady": {
+            "eyebrow": "08 · Shared Vault ready",
+            "left": {
+              "title": "The member joins the Vault.",
+              "description": "After redeeming the invite, the member sees the Shared Vault. Here, they can add accounts and view or copy the sample account."
+            },
+            "right": {
+              "title": "You stay in control.",
+              "description": "Review members, change permissions, or revoke access in Shared Vault settings."
+            },
+            "note": "Sharing requires an internet connection and a verified account."
+          }
+        }
+      },
+      "phone": {
+        "screenReaderLabel": "Three-dimensional phone mockup preview of the Hosted Vault screen.",
+        "deviceShowcaseScreenReaderLabel": "Three-dimensional device showcase with the Hosted Vault screen on a phone, tablet, and laptop.",
+        "hostedPreview": "Hosted Vault · product interface with sample data"
+      },
+      "finalCta": {
+        "eyebrow": "Your Vault, your choice",
+        "title": "Ready to try it with your own account?",
+        "description": "Try Hosted Vault or run rhasia-scret on infrastructure you control.",
+        "tryNow": "Try now",
+        "hostYourOwn": "Self-host it"
+      },
       "comparison": {
         "eyebrow": "A simple explanation",
         "title": "What is rhasia-scret?",
@@ -183,12 +315,19 @@
         "googleAuthenticator": "Google Authenticator",
         "otherAuthenticatorApps": "Other authenticator apps",
         "rhasiaScret": "rhasia-scret",
-        "tabs": { "compare": "Compare approaches", "flow": "See your flow" },
+        "tabs": {
+          "compare": "Compare approaches",
+          "flow": "See your flow"
+        },
         "flow": {
           "title": "One authenticator, on your terms",
           "description": "Use the devices you prefer to protect the services you use. rhasia-scret keeps each account in the Vault you choose.",
           "devices": "Any device",
-          "device": { "browser": "Browser", "phone": "Mobile phone", "desktop": "Desktop app" },
+          "device": {
+            "browser": "Browser",
+            "phone": "Mobile phone",
+            "desktop": "Desktop app"
+          },
           "vault": "Your encrypted Local, Personal, or Shared Vault",
           "services": "Protected services",
           "localFirst": {
@@ -1532,7 +1671,7 @@
   "Preview": {
     "authenticatorAccounts": {
       "title": "Authenticator accounts",
-      "description": "No account material, passphrase, OTP, or key is used in this sample data.",
+      "description": "All account names and TOTP codes in this preview are synthetic; example data stays in this browser and is never sent to the service.",
       "listLabel": "Authenticator account list",
       "vaults": "Vaults",
       "localAction": "Device Vault",
@@ -1577,7 +1716,18 @@
       "filterByTag": "Filter by tag",
       "allTags": "All tags",
       "selectedTags": "{count, plural, one {# tag selected} other {# tags selected}}",
-      "tags": "Account tags"
+      "tags": "Account tags",
+      "sampleDemoAppName": "Demo App",
+      "sampleDemoAppAccountName": "demo@example.test",
+      "sampleExampleCloudName": "Example Cloud",
+      "sampleExampleCloudAccountName": "cloud@example.test",
+      "sampleStudioName": "Sample Studio",
+      "sampleStudioAccountName": "studio@example.test",
+      "sampleSandboxName": "Sandbox",
+      "sampleSandboxAccountName": "sandbox@example.test",
+      "sampleAddedExampleName": "Added Example",
+      "sampleAddedExampleAccountName": "added@example.test",
+      "sampleTeammateAccountName": "teammate@example.test"
     },
     "vaults": {
       "back": "Back to account preview",

@@ -58,9 +58,11 @@ type MembershipVault = { id: string; key: Uint8Array; keyVersion: number };
 export function VaultMembershipDefaults({
   vaultId,
   initial,
+  readOnlyPreview = false,
 }: {
   vaultId: string;
   initial?: { permissions: SharedVaultAccountPermissions; revision: number };
+  readOnlyPreview?: boolean;
 }) {
   const t = useTranslations("VaultManagement.permissions");
   const defaults = useVaultDefaultAccountPermissionsQuery(vaultId, !initial);
@@ -85,6 +87,7 @@ export function VaultMembershipDefaults({
       vaultId={vaultId}
       permissions={state.permissions}
       revision={state.revision}
+      readOnlyPreview={readOnlyPreview}
     />
   ) : null;
 }
@@ -118,6 +121,40 @@ export function VaultMembershipOwnerPanel({
   );
 }
 
+/** Read-only, client-side presentation harness for synthetic landing previews. */
+export function VaultMembershipOwnerPanelPreview({
+  vaultId,
+  vaultKey,
+  vaultKeyVersion,
+  participants,
+  initialEmail,
+  configureParticipantKey,
+}: {
+  vaultId: string;
+  vaultKey: Uint8Array;
+  vaultKeyVersion: number;
+  participants: BrowserVaultParticipant[];
+  initialEmail?: string;
+  configureParticipantKey?: string;
+}) {
+  return (
+    <InvitationPanel
+      vault={{ id: vaultId, key: vaultKey, keyVersion: vaultKeyVersion }}
+      participants={participants}
+      loading={false}
+      loadingMore={false}
+      failed={false}
+      hasMore={false}
+      onLoadMore={() => undefined}
+      onCreated={() => undefined}
+      onAudit={() => undefined}
+      initialEmail={initialEmail}
+      configureParticipantKey={configureParticipantKey}
+      readOnlyPreview
+    />
+  );
+}
+
 export function VaultMemberPermissionNotice({ effective }: { effective: EffectiveSharedVaultAccountPermissions }) {
   const t = useTranslations("VaultManagement.permissions");
   return (
@@ -134,10 +171,12 @@ function VaultDefaultPermissionsForm({
   vaultId,
   permissions,
   revision,
+  readOnlyPreview = false,
 }: {
   vaultId: string;
   permissions: SharedVaultAccountPermissions;
   revision: number;
+  readOnlyPreview?: boolean;
 }) {
   const t = useTranslations("VaultManagement.permissions");
   const mutation = useUpdateVaultDefaultAccountPermissionsMutation(vaultId);
@@ -146,6 +185,7 @@ function VaultDefaultPermissionsForm({
   const form = useForm({
     defaultValues: { ...permissions },
     onSubmit: async ({ value }) => {
+      if (readOnlyPreview) return;
       setStatus(null);
       try {
         await mutation.mutateAsync({ expectedRevision: revision, permissions: value });
@@ -249,10 +289,12 @@ function MemberPermissionsDialog({
   vaultId,
   participant,
   onClose,
+  readOnlyPreview = false,
 }: {
   vaultId: string;
   participant: BrowserVaultParticipant;
   onClose: () => void;
+  readOnlyPreview?: boolean;
 }) {
   const t = useTranslations("VaultManagement.permissions");
   const tCommon = useTranslations("Common");
@@ -268,6 +310,7 @@ function MemberPermissionsDialog({
       canDeleteAccounts: overrideChoice(overrides?.canDeleteAccounts ?? null),
     },
     onSubmit: async ({ value }) => {
+      if (readOnlyPreview) return;
       if (!participant.userId || !revision) return;
       setStatus(null);
       try {
@@ -425,6 +468,9 @@ function InvitationPanel({
   onCreated,
   onAudit,
   onWorkspaceRefresh,
+  initialEmail,
+  configureParticipantKey,
+  readOnlyPreview = false,
 }: {
   vault: MembershipVault;
   participants: BrowserVaultParticipant[];
@@ -436,10 +482,15 @@ function InvitationPanel({
   onCreated: () => void;
   onAudit: (participant: BrowserVaultParticipant) => void;
   onWorkspaceRefresh?: () => Promise<void>;
+  initialEmail?: string;
+  configureParticipantKey?: string;
+  readOnlyPreview?: boolean;
 }) {
   const t = useTranslations("VaultManagement.invitations");
   const [participantToDelete, setParticipantToDelete] = useState<BrowserVaultParticipant | null>(null);
-  const [participantToConfigure, setParticipantToConfigure] = useState<BrowserVaultParticipant | null>(null);
+  const [participantToConfigure, setParticipantToConfigure] = useState<BrowserVaultParticipant | null>(
+    () => participants.find(({ key }) => key === configureParticipantKey) ?? null,
+  );
   const [pendingLinks, setPendingLinks] = useState<Record<string, string>>({});
   const [createdInvitations, setCreatedInvitations] = useState<Array<{ id: string; email: string; expiresAt: string }>>(
     [],
@@ -475,6 +526,7 @@ function InvitationPanel({
       })),
   ];
   async function removeParticipant() {
+    if (readOnlyPreview) return;
     if (!participantToDelete) return;
     const participantType = participantToDelete.kind === "MEMBER" ? "member" : "invitation";
     try {
@@ -499,6 +551,7 @@ function InvitationPanel({
     }
   }
   async function copyPendingInvitation(invitationId: string) {
+    if (readOnlyPreview) return;
     const link = pendingLinks[invitationId];
     if (!link) {
       setCopyStatus("unavailable");
@@ -548,6 +601,7 @@ function InvitationPanel({
   }
 
   async function reinvite(participant: BrowserVaultParticipant) {
+    if (readOnlyPreview) return;
     if (!participant.invitationId || participant.invitationState !== "EXPIRED") return;
     setReinvitingInvitationId(participant.invitationId);
     setReinvitationFailed(false);
@@ -576,6 +630,8 @@ function InvitationPanel({
         vault={vault}
         onCreated={(invitation) => rememberInvitation(invitation)}
         onWorkspaceRefresh={onWorkspaceRefresh}
+        initialEmail={initialEmail}
+        readOnlyPreview={readOnlyPreview}
       />
       {latestInvitation && <SecureInvitationLink email={latestInvitation.email} link={latestInvitation.link} />}
       {emailConfirmationFailed && (
@@ -622,11 +678,13 @@ function InvitationPanel({
               return (
                 <li
                   key={participant.key}
-                  className="grid items-center gap-3 rounded-md border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  className="grid min-w-0 items-start gap-3 rounded-md border bg-card p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
                 >
                   <span className="grid min-w-0 gap-1">
-                    <strong className="break-all text-sm sm:truncate">{participant.email}</strong>
-                    <span className="flex flex-wrap items-center gap-2">
+                    <strong className="min-w-0 truncate text-sm" title={participant.email}>
+                      {participant.email}
+                    </strong>
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <Badge
                         className={
                           expired ? "w-fit bg-danger-surface text-destructive" : "w-fit bg-muted text-muted-foreground"
@@ -634,14 +692,14 @@ function InvitationPanel({
                       >
                         {participant.kind === "MEMBER" ? t("active") : expired ? t("expired") : t("pending")}
                       </Badge>
-                      {participant.effectiveAccountPermissions && (
-                        <span className="text-xs text-muted-foreground">
-                          <PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} />
-                        </span>
-                      )}
                     </span>
+                    {participant.effectiveAccountPermissions && (
+                      <span className="min-w-0 max-w-full break-words text-xs leading-5 text-muted-foreground">
+                        <PermissionSummary permissions={participant.effectiveAccountPermissions.permissions} />
+                      </span>
+                    )}
                   </span>
-                  <span className="flex flex-wrap items-center justify-end gap-1">
+                  <span className="flex min-w-0 flex-wrap items-center justify-start gap-1 lg:justify-end">
                     {expired && (
                       <Button
                         variant="outline"
@@ -769,6 +827,7 @@ function InvitationPanel({
             vaultId={vault.id}
             participant={participantToConfigure}
             onClose={() => setParticipantToConfigure(null)}
+            readOnlyPreview={readOnlyPreview}
           />
         )}
     </div>
@@ -779,16 +838,21 @@ function InvitationForm({
   vault,
   onCreated,
   onWorkspaceRefresh,
+  initialEmail = "",
+  readOnlyPreview = false,
 }: {
   vault: MembershipVault;
   onCreated: (invitation: { id: string; email: string; expiresAt: string; link: string }) => void;
   onWorkspaceRefresh?: () => Promise<void>;
+  initialEmail?: string;
+  readOnlyPreview?: boolean;
 }) {
   const t = useTranslations("VaultManagement.invitations");
   const [error, setError] = useState(false);
   const form = useForm({
-    defaultValues: { email: "" },
+    defaultValues: { email: initialEmail },
     onSubmit: async ({ value }) => {
+      if (readOnlyPreview) return;
       setError(false);
       try {
         const email = value.email.trim().toLowerCase();

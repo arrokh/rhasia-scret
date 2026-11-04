@@ -28,7 +28,24 @@ export default defineConfig({
   workers: configuredPlaywrightWorkers(3),
   timeout: 60_000,
   projects: supportedBrowserProjects,
-  use: { baseURL: browserTestBaseUrl },
+  use: {
+    baseURL: browserTestBaseUrl,
+    storageState: {
+      cookies: [
+        {
+          name: "RHSIA_LOCALE",
+          value: "id",
+          domain: "127.0.0.1",
+          path: "/",
+          expires: -1,
+          httpOnly: false,
+          secure: false,
+          sameSite: "Lax",
+        },
+      ],
+      origins: [],
+    },
+  },
   webServer: {
     command: `pnpm exec tsx scripts/run-browser-server.ts ${browserTestPort}`,
     url: browserTestBaseUrl,
