@@ -22,13 +22,13 @@ This document is the maintenance contract for production UI and development prev
 | `icon-sm`        | 40px square (`size-10`) | Compact contextual icon action                            |
 | `xs` / `icon-xs` | 32px high/square        | Dense, secondary controls only                            |
 
-Within one section header, toolbar, or action group, all peer actions must use the same size tier and align on the same center line. Prefer `default` with `icon` for standard section actions; use compact sizes only when the entire peer group has a deliberate compact treatment. Icon-only controls require an accessible name and tooltip/title where appropriate. Do not override dimensions ad hoc in a page to hide a mismatch—change or add a shared Button token and test it.
+Within one section header, toolbar, or action group, all peer actions must use the same size tier and align on the same center line. Prefer `default` with `icon` for standard section actions; use compact sizes only when the entire peer group has a deliberate compact treatment. Icon-only controls require an accessible name and tooltip/title where appropriate. Do not override dimensions ad hoc in a page to hide a mismatch—change or add a shared Button token and review the affected surfaces.
 
 ## Card surfaces and content spacing
 
 - Use the shared `SurfaceCard` for equivalent card shells instead of styling parallel routes independently.
 - The standard inset for paired primary-card content is `SURFACE_CARD_CONTENT_PADDING_CLASS` from `apps/web/src/shared/presentation/app-ui.tsx`: 20px on narrow layouts and 24px from the `sm` breakpoint. Keep grid gaps and internal section spacing separate from this outer content inset.
-- If comparable pages need different card surfaces or padding for a deliberate reason, document the distinction. Otherwise, browser regression coverage should compare computed card-surface styles and all four responsive content paddings.
+- If comparable pages need different card surfaces or padding for a deliberate reason, document the distinction. Otherwise, review the surfaces and responsive content paddings directly; computed-style equality alone does not justify a browser test.
 
 ## Responsive and accessibility review
 
@@ -41,13 +41,15 @@ Within one section header, toolbar, or action group, all peer actions must use t
 - Loading placeholders should reserve the same header slots and geometry as the resolved route, including back actions and right-side controls. Use a route-specific skeleton option when those slots differ.
 - Match placeholder action dimensions to the shared Button tokens and keep skeleton card surfaces/content insets consistent with the loaded card.
 - Approximate the resolved content's main responsive heights and wrapping. Prefer modest, deliberate reserved space over a skeleton whose replacement causes a large vertical jump.
-- Add regression coverage for route-specific skeleton structure and the matching loading boundary when changing these dimensions.
+- Test the loading boundary when it affects core-action availability or sensitive-state visibility; review skeleton dimensions directly.
 
 ## Regression coverage
 
-When a shared visual token or component geometry changes:
+Follow [core-flow testing policy](core-flow-testing.md). Visual rules above guide implementation and direct review; cosmetic fidelity alone is not an automated acceptance criterion.
 
-1. Add/update a test at the shared component seam that locks the intended token/geometry.
-2. Update the affected component or browser test to cover the rendered group when route composition or responsive behavior changes.
-3. Inspect all affected preview routes and verify they still represent production UI.
-4. Run the focused test and formatting checks; use the Chromium browser suite for route-level or responsive visual changes.
+When a shared visual token or component changes:
+
+1. Inspect affected production and preview routes and verify that previews still represent production UI.
+2. Preserve core-action reachability, accessible names, keyboard/touch use, and safety warnings.
+3. Add/update focused tests only for changed functional behavior. Use Chromium when actual browser layout or focus/touch behavior is necessary to prove a core action remains usable.
+4. Review appearance directly rather than asserting exact token classes, dimensions, surfaces, or animation geometry. Run the existing required gates; changes to their selection await the test-pruning review.

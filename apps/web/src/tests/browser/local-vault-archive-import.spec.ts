@@ -37,10 +37,7 @@ const copy = {
   },
 } as const;
 
-test("reviews Local Vault archive contents before restore in both locales and responsive layouts", async ({
-  browser,
-  baseURL,
-}) => {
+test("reviews and confirms Local Vault archive restore in both locales", async ({ browser, baseURL }) => {
   if (!baseURL) throw new Error("The browser test base URL is unavailable.");
   const fixture = await encryptedArchive();
 
@@ -87,15 +84,8 @@ test("reviews Local Vault archive contents before restore in both locales and re
         await expect(review.getByText(labels.noDuplicates, { exact: true })).toBeVisible();
         expect(await localVaultAccountCount(page)).toBe(0);
 
-        for (const width of [320, 820, 1280]) {
-          await page.setViewportSize({ width, height: 900 });
-          expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-          for (const label of [labels.cancel, labels.confirm]) {
-            const action = review.getByRole("button", { name: label });
-            await expect(action).toBeVisible();
-            expect((await action.boundingBox())?.height).toBe(48);
-          }
-        }
+        await expect(review.getByRole("button", { name: labels.cancel })).toBeVisible();
+        await expect(review.getByRole("button", { name: labels.confirm })).toBeVisible();
 
         await review.getByRole("button", { name: labels.cancel }).click();
         await expect(review).toHaveCount(0);

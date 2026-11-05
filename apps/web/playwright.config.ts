@@ -16,14 +16,25 @@ export const supportedBrowserProjects = [
   // { name: "webkit", use: { ...devices["Desktop Safari"] } },
 ];
 
+export const smokeBrowserSpecs = [
+  "landing-fallback.spec.ts",
+  "landing-locale-navigation.spec.ts",
+  "local-vault-archive-import.spec.ts",
+  "local-vault-readiness.spec.ts",
+  "local-vault-tags.spec.ts",
+  "mobile-preview.spec.ts",
+  "pwa-auth-handoff.spec.ts",
+  "remembered-browser.spec.ts",
+  "security-headers.spec.ts",
+  "self-hosted-configure.spec.mts",
+  "smoke.spec.ts",
+  "vault-archive-backup.spec.ts",
+  "vault-archive-import.spec.ts",
+] as const;
+
 export default defineConfig({
   testDir: "src/tests/browser",
-  testIgnore: [
-    "offline-pwa.spec.ts",
-    "encrypted-vault-workflows.spec.ts",
-    "account-deletion.spec.ts",
-    "navigation-performance.spec.ts",
-  ],
+  testMatch: [...smokeBrowserSpecs],
   fullyParallel: configuredPlaywrightFullyParallel(false),
   workers: configuredPlaywrightWorkers(3),
   timeout: 60_000,

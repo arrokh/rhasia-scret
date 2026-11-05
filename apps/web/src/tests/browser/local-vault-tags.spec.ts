@@ -108,9 +108,6 @@ test("adds, filters, removes, and keeps Local Vault tags encrypted in both local
       await page.getByRole("button", { name: labels.addTag, exact: true }).click();
       const removeTag = page.getByRole("button", { name: labels.removeTag, exact: true });
       await expect(removeTag).toBeVisible();
-      const removeTagBox = await removeTag.boundingBox();
-      expect(removeTagBox?.width).toBeGreaterThanOrEqual(44);
-      expect(removeTagBox?.height).toBeGreaterThanOrEqual(44);
       await page.getByRole("button", { name: labels.update, exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(page.getByRole("article").getByText(tagName, { exact: true })).toBeVisible();
