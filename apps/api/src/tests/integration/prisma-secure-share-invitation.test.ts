@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { StaleRecipientEncryptionIdentityError } from "@api/modules/vault-membership/application/secure-share-link-repository";
+import {
+  SecureShareLinkUnavailableError,
+  StaleRecipientEncryptionIdentityError,
+} from "@api/modules/vault-membership/application/secure-share-link-repository";
 import { PrismaSecureShareLinkRepository } from "@api/modules/vault-membership/infrastructure/prisma-secure-share-link-repository";
 import { prisma } from "@api/tests/integration/prisma";
 
@@ -86,6 +89,72 @@ describe("PrismaSecureShareLinkRepository email invitation", () => {
       await expect(
         repository.findForRecipient({ userId: recipient.id, email: recipientEmail }, verifier),
       ).resolves.toBeNull();
+    },
+  );
+
+  it.skipIf(!process.env.DATABASE_URL)(
+    "rejects wrong-email lookup and redemption without consuming an unbound pending invitation",
+    async () => {
+      const owner = await user("owner");
+      const wrongRecipient = await user("wrong-recipient");
+      const recipientEmail = `not-yet-provisioned-${randomUUID()}@example.test`;
+      const vault = await prisma.vault.create({
+        data: {
+          ownerId: owner.id,
+          type: "SHARED",
+          lifecycle: "ACTIVE",
+          encryptedName: bytes("synthetic-encrypted-name"),
+          encryptionVersion: 1,
+          members: {
+            create: { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("owner-key"), keyVersion: 1 },
+          },
+        },
+      });
+      vaultIds.push(vault.id);
+      const repository = new PrismaSecureShareLinkRepository(prisma);
+      const verifier = new Uint8Array(32).fill(9);
+      const invitation = await repository.createForEmail(owner.id, vault.id, recipientEmail, {
+        linkVerifier: verifier,
+        encryptedPackage: bytes("synthetic-encrypted-package"),
+        expectedKeyVersion: 1,
+      });
+      await expect(
+        prisma.vaultInvitation.findUnique({
+          where: { id: invitation.id },
+          select: { recipientEmail: true, recipientUserId: true, status: true },
+        }),
+      ).resolves.toEqual({ recipientEmail, recipientUserId: null, status: "PENDING" });
+      const wrongIdentity = { userId: wrongRecipient.id, email: wrongRecipient.email };
+
+      await expect(repository.findForRecipient(wrongIdentity, verifier)).resolves.toBeNull();
+      await expect(
+        repository.redeem(wrongIdentity, invitation.id, bytes("wrong-recipient-wrapped-key"), 1, publicKey),
+      ).rejects.toBeInstanceOf(SecureShareLinkUnavailableError);
+      await expect(
+        prisma.vaultInvitation.findUnique({
+          where: { id: invitation.id },
+          select: { recipientUserId: true, status: true, redeemedAt: true },
+        }),
+      ).resolves.toEqual({ recipientUserId: null, status: "PENDING", redeemedAt: null });
+      await expect(
+        prisma.vaultMember.findUnique({
+          where: { vaultId_userId: { vaultId: vault.id, userId: wrongRecipient.id } },
+        }),
+      ).resolves.toBeNull();
+
+      const intendedRecipient = await user("intended-recipient", recipientEmail);
+      const intendedIdentity = { userId: intendedRecipient.id, email: recipientEmail };
+      await expect(repository.findForRecipient(intendedIdentity, verifier)).resolves.toMatchObject({
+        id: invitation.id,
+        vaultId: vault.id,
+      });
+      await repository.redeem(intendedIdentity, invitation.id, bytes("intended-recipient-wrapped-key"), 1, publicKey);
+      await expect(
+        prisma.vaultMember.findUnique({
+          where: { vaultId_userId: { vaultId: vault.id, userId: intendedRecipient.id } },
+          select: { role: true, status: true },
+        }),
+      ).resolves.toEqual({ role: "VIEWER", status: "ACTIVE" });
     },
   );
 

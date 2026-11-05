@@ -43,6 +43,15 @@ These were gaps in specific inspected assertions, not evidence that the implemen
 | A3  | Medium   | `crypto/unlocked-vault-session.test.ts` checks input-copy isolation and that entries disappear after lock/logout, but not mutation of a returned key or same-Vault replacement. Implementation returns a copy and locks the prior entry on replacement. Broader workspace zeroing tests already exist.                                             | Mutating a returned key must not alter the stored key; replacing one Vault key must preserve another Vault; repeated lock/logout must be safe. Do not claim this small test already verifies zeroing merely because `isUnlocked` becomes false. |
 | A4  | High     | `vault-archive/browser-vault-archive-workflow.test.ts` calls `clearOpenedVaultArchive` but only checks the original fixture secret remains unchanged. Implementation in `packages/client-vault-core/src/modules/vault-archive/application/open-and-validate-encrypted-vault-archive.ts` zeroes opened secret buffers and empties the account list. | Retain references to the opened account buffers before clearing; assert they are zeroed and the list is empty, then assert repeated/null cleanup is safe and the original fixture remains untouched.                                            |
 
+## Follow-up authorization assertions
+
+A late audit identified two additional core negative cases, approved by the owner after the initial PR:
+
+- `apps/api/src/tests/integration/prisma-secure-share-invitation.test.ts`: prove a pending invitation is initially unbound; reject lookup and redemption by a different authenticated email even with the correct verifier/invitation ID; leave the invitation pending and create no wrong-recipient membership; then prove the intended recipient can still redeem it.
+- `apps/api/src/tests/integration/prisma-shared-vault-account-permissions.test.ts`: reject direct account creation for both an inherited false Vault default and an explicit false member override over a true default. Assert no account or successful-add audit was persisted; retain an owner success control.
+
+These are three added integration cases, not new browser scenarios or product changes. Verify them with the disposable PostgreSQL integration gate and a fresh complete local gate before PR publication. Existing real-stack leak coverage is retained rather than duplicating it at every layer; final verification evidence belongs in the PR test plan.
+
 ## Approval boundary
 
 The owner approved K1, S1–S3, R1–R3, and A1–A4 in the current conversation and requested implementation with subagents. Preserve functional replacement coverage when pruning mixed tests and rerun the fresh full local gate before commit/PR handoff. CI schedules/check names, security scanning, branch protection, and navigation performance are unchanged by this scope. Record measured runtime changes rather than predicting speedup from deleted test counts.

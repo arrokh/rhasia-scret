@@ -78,6 +78,30 @@ describe("Shared Vault account permission persistence", () => {
     },
   );
 
+  it.skipIf(!process.env.DATABASE_URL).each([
+    { source: "Vault default", membersCanAddAccounts: false, canAddAccountsOverride: null },
+    { source: "member override", membersCanAddAccounts: true, canAddAccountsOverride: false },
+  ])(
+    "denies direct account creation under a false $source without persisting an account or success audit",
+    async ({ membersCanAddAccounts, canAddAccountsOverride }) => {
+      const { owner, member, vault } = await createSharedVault(
+        { canAddAccountsOverride, canEditAccountsOverride: null, canDeleteAccountsOverride: null },
+        { membersCanAddAccounts, membersCanEditAccounts: false, membersCanDeleteAccounts: false },
+      );
+      const repository = new PrismaSharedAccountRepository(prisma);
+
+      await expect(repository.create(member.id, vault.id, bytes("denied-member-ciphertext"), 1, 1)).resolves.toEqual({
+        status: "PERMISSION_DENIED",
+      });
+      expect(await prisma.authenticatorAccount.count({ where: { vaultId: vault.id } })).toBe(0);
+      expect(await prisma.vaultAuditEvent.count({ where: { vaultId: vault.id, eventType: "ACCOUNT_ADDED" } })).toBe(0);
+
+      const ownerCreated = await repository.create(owner.id, vault.id, bytes("owner-ciphertext"), 1, 1);
+      expect(ownerCreated.status).toBe("SUCCESS");
+      expect(await prisma.authenticatorAccount.count({ where: { vaultId: vault.id } })).toBe(1);
+    },
+  );
+
   it.skipIf(!process.env.DATABASE_URL)(
     "migrates account ciphertext only for an authorized current member and preserves revision",
     async () => {
