@@ -24,7 +24,7 @@ The main-push and pull-request workflow targets a sub-five-minute critical path 
 - **Quality:** Prisma generation/schema and staged passwordless migration verification, API lint/typecheck/unit/real-PostgreSQL integration/build checks, web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
-Standard CI jobs have an eight-minute hard timeout; the combined production PWA and navigation performance job has a twelve-minute ceiling because it runs two browser stages after cold setup. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks.
+Change detection, repository, core, and quality jobs have an eight-minute hard timeout. Browser smoke shards get twelve minutes because Playwright installs operating-system packages from Ubuntu mirrors; encrypted browser workflows and the combined production PWA/navigation job also get twelve minutes for cold browser setup and suite work. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks.
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
 JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter to the
