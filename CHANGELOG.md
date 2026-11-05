@@ -33,6 +33,22 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.3.0]
+
+<!-- Draft generated from first-parent history v0.2.4..27c255e4c1eb27069c224c450a31f6fe1df7602d (first-parent, exclusive of tag); release-base 27c255e4c1eb27069c224c450a31f6fe1df7602d. Review and curate before publication. -->
+
+### Changes
+
+- build(deps): bump the workspace-dependencies group with 12 updates (#309)
+- build(deps): bump the github-actions group with 2 updates (#310)
+- build(deps): patch Dependabot security alerts (#311)
+- build(deps): bump the workspace-dependencies group with 14 updates (#312)
+- [web][feat] Add interactive hosted vault landing journey (#313)
+- [ImgBot] Optimize images (#314)
+- build(deps): remediate and triage Dependabot alerts (#315)
+- [infra][fix] Stabilize browser smoke CI (#316)
+- [web][test] Prioritize core Vault flow coverage (#317)
+
 ## [0.2.4]
 
 <!-- Draft generated from first-parent history v0.2.3..fb0b3ecb392958dc6a577d8cb67d60ef069493fe (first-parent, exclusive of tag); release-base fb0b3ecb392958dc6a577d8cb67d60ef069493fe. Review and curate before publication. -->
