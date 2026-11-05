@@ -53,6 +53,56 @@ function request(body: unknown, headers: Record<string, string> = {}) {
 }
 
 describe("POST /v1/auth/session/refresh credential selection", () => {
+  it("renews the bounded assertion only for an active verified passwordless session", async () => {
+    const request = new ApiRequest("https://api.example.test/v1/auth/session/refresh", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://api.example.test",
+        cookie: "rhsia-passwordless-assertion=valid-assertion",
+      },
+      body: JSON.stringify({ client: "web" }),
+    });
+    attachApiRequestContext(request, {
+      database: {},
+      bindings: {
+        AUTH_BACKEND: "passwordless",
+        AUTH_APP_ORIGIN: "https://app.example.test",
+        AUTH_MAGIC_LINK_SECRET: "synthetic-magic-link-secret-00000000",
+        AUTH_SESSION_SECRET: "synthetic-session-secret-00000000000000",
+      },
+      identity: {
+        sessionVerifier: {
+          verify: async () => ({
+            issuer: "rhasia:passwordless",
+            sessionId: "synthetic-session-id-1234",
+            sessionExpiresAt: new Date(Date.now() + 30 * 86_400_000),
+            assurance: "active-session",
+          }),
+        },
+      },
+    } as unknown as ApiRequestContext);
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(response.cookies.getAll()).toHaveLength(1);
+    expect(response.cookies.getAll()[0]).toContain("rhsia-passwordless-assertion=");
+    expect(response.cookies.getAll()[0]).toContain("Max-Age=604800");
+  });
+
+  it("does not mint a passwordless assertion for a providerless browser session", async () => {
+    const { request: e2eRequest } = request(
+      { client: "web" },
+      { origin: "https://api.example.test", cookie: "rhsia-e2e-session=synthetic-user" },
+    );
+
+    const response = await POST(e2eRequest);
+
+    expect(response.status).toBe(200);
+    expect(response.cookies.getAll()).toEqual([]);
+  });
+
   it("accepts only same-origin web requests and never refreshes from a body token", async () => {
     const browser = request(
       { client: "web" },

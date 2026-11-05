@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Roboto_Mono } from "next/font/google";
-import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Suspense, type ReactNode } from "react";
@@ -18,12 +17,6 @@ import "@/shared/presentation/styles/globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });
-const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
-const cloudflareAnalyticsScriptProps = {
-  src: "https://static.cloudflareinsights.com/beacon.min.js",
-  crossOrigin: "anonymous",
-  "data-cf-beacon": JSON.stringify({ token: cloudflareAnalyticsToken }),
-} as const;
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
@@ -106,9 +99,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             </div>
           </QueryProvider>
         </NextIntlClientProvider>
-        {cloudflareAnalyticsToken ? (
-          <Script {...cloudflareAnalyticsScriptProps} id="cloudflare-web-analytics" strategy="lazyOnload" />
-        ) : null}
       </body>
     </html>
   );

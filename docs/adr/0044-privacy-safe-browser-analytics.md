@@ -1,6 +1,6 @@
 # Privacy-safe browser analytics
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0062 for route scope; remaining payload safeguards stay in force
 - **Date:** 2026-08-23
 - **Related:** ADR-0038, ADR-0041
 

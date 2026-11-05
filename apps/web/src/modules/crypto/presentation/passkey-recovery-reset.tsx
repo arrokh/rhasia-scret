@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SectionHeading, StatusBanner } from "@/shared/presentation/app-ui";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { PasswordInput } from "@/shared/presentation/password-input";
-import { validateVaultUnlockSecret } from "../infrastructure/browser-vault-unlock-key";
+import { validateNewVaultUnlockSecret } from "../infrastructure/browser-vault-unlock-key";
 import { resetVaultUnlockSecretWithPasskey } from "../infrastructure/browser-passkey-recovery-workflow";
 import { generateVaultUnlockSecret } from "./generate-vault-unlock-secret";
 import { browserClipboard } from "@/shared/infrastructure/browser-platform-ports";
@@ -312,7 +312,7 @@ function currentSecret(mode: SecretMode, generatedSecret: string, customSecret: 
 }
 function validateCustomSecret(secret: string, invalidMessage: string): string | undefined {
   try {
-    validateVaultUnlockSecret(secret);
+    validateNewVaultUnlockSecret(secret);
     return undefined;
   } catch {
     return invalidMessage;

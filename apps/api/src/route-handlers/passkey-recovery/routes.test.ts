@@ -56,6 +56,7 @@ const encryptedRecoveryPackage = Buffer.alloc(13, 2).toString("base64");
 
 beforeEach(() => {
   mocks.authenticate.mockResolvedValue(user);
+  mocks.updateCounter.mockResolvedValue(true);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -172,7 +173,32 @@ describe("passkey recovery route contracts", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ encryptedRecoveryPackage: "CQgH" });
-    expect(mocks.updateCounter).toHaveBeenCalledWith("user-1", 4n);
+    expect(mocks.updateCounter).toHaveBeenCalledWith("user-1", Uint8Array.of(1, 2, 3), 3n, 4n);
+  });
+
+  it("does not release recovery material if the verified credential changed concurrently", async () => {
+    mocks.consumeChallenge.mockResolvedValue("authentication-challenge");
+    mocks.getCredential.mockResolvedValue({
+      credentialId: Uint8Array.of(1, 2, 3),
+      encryptedRecoveryPackage: Uint8Array.of(9, 8, 7),
+      publicKey: Uint8Array.of(4, 5, 6),
+      counter: 3n,
+    });
+    mocks.verifyAuthenticationResponse.mockResolvedValue({
+      verified: true,
+      authenticationInfo: { userVerified: true, newCounter: 4 },
+    });
+    mocks.updateCounter.mockResolvedValue(false);
+
+    const response = await authenticationVerify(
+      apiTestRequest("/v1/passkey-recovery/authentication/verify", {
+        method: "POST",
+        body: JSON.stringify({ response: { id: "AQID" } }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "passkey_verification_failed" });
   });
 
   it("reports enrollment and removes the user's credential without returning package bytes", async () => {

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 
 const mocks = vi.hoisted(() => ({ clearAllOfflineVaultData: vi.fn(), requestLocalVaultLock: vi.fn() }));
 vi.mock("@/modules/sync", () => ({
@@ -8,12 +9,31 @@ vi.mock("@/modules/sync", () => ({
   requestLocalVaultLock: mocks.requestLocalVaultLock,
 }));
 
-import { terminateBrowserSession } from "@/modules/identity/infrastructure/browser-session-client";
+import {
+  refreshBrowserSessionAssertion,
+  terminateBrowserSession,
+} from "@/modules/identity/infrastructure/browser-session-client";
 
 describe("terminateBrowserSession", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.resetAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it("renews the assertion through the identity API client", async () => {
+    const postJson = vi.spyOn(browserApiClient, "postJson").mockResolvedValue({ refreshed: true });
+
+    await refreshBrowserSessionAssertion();
+
+    expect(postJson).toHaveBeenCalledOnce();
+    expect(postJson).toHaveBeenCalledWith("/api/v1/auth/session/refresh", { client: "web" });
+  });
+
+  it("keeps anonymous or expired-session refresh failures quiet", async () => {
+    vi.spyOn(browserApiClient, "postJson").mockRejectedValue(new Error("synthetic session unavailable"));
+
+    await expect(refreshBrowserSessionAssertion()).resolves.toBeUndefined();
   });
 
   it("clears all local snapshot and Remembered Browser data before successful server logout", async () => {

@@ -7,6 +7,7 @@ import {
   serializeEncryptedEnvelope,
 } from "./browser-crypto-envelope";
 import { deriveVaultUnlockKey } from "./browser-vault-unlock-key";
+import { validateNewVaultUnlockSecret } from "@rhasia-scret/client-vault-core";
 
 export type RewrappedUserRootKey = {
   vaultUnlockSalt: Uint8Array;
@@ -39,6 +40,7 @@ export async function wrapUserRootKeyWithVaultUnlockSecret(
   userRootKey: Uint8Array,
   nextSecret: string,
 ): Promise<RewrappedUserRootKey> {
+  validateNewVaultUnlockSecret(nextSecret);
   const vaultUnlockSalt = randomBytes(16);
   let nextUnlockKey: Uint8Array | undefined;
   try {

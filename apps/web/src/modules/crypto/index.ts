@@ -57,6 +57,7 @@ export {
   wrapUserRootKeyWithVaultUnlockSecret,
 } from "./infrastructure/browser-vault-unlock-secret-change";
 export { deriveVaultUnlockKey, validateVaultUnlockSecret } from "./infrastructure/browser-vault-unlock-key";
+export { validateNewVaultUnlockSecret } from "@rhasia-scret/client-vault-core";
 export { ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM } from "./infrastructure/vault-unlock-key-parameters";
 export {
   createUserEncryptionIdentity,

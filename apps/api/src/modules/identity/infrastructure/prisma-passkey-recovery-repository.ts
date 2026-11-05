@@ -9,21 +9,25 @@ export class PrismaPasskeyRecoveryRepository {
     purpose: "REGISTRATION" | "AUTHENTICATION",
     challenge: string,
   ): Promise<void> {
-    await this.database.$transaction([
-      this.database.passkeyRecoveryChallenge.deleteMany({ where: { userId, purpose } }),
-      this.database.passkeyRecoveryChallenge.create({
+    await this.database.$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${userId}:${purpose}`}))`;
+      await transaction.passkeyRecoveryChallenge.deleteMany({ where: { userId, purpose } });
+      await transaction.passkeyRecoveryChallenge.create({
         data: { userId, purpose, challenge, expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS) },
-      }),
-    ]);
+      });
+    });
   }
 
   public async consumeChallenge(userId: string, purpose: "REGISTRATION" | "AUTHENTICATION"): Promise<string | null> {
-    const record = await this.database.passkeyRecoveryChallenge.findFirst({
-      where: { userId, purpose, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${userId}:${purpose}`}))`;
+      const record = await transaction.passkeyRecoveryChallenge.findFirst({
+        where: { userId, purpose, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: "desc" },
+      });
+      const consumed = await transaction.passkeyRecoveryChallenge.deleteMany({ where: { userId, purpose } });
+      return consumed.count > 0 ? (record?.challenge ?? null) : null;
     });
-    await this.database.passkeyRecoveryChallenge.deleteMany({ where: { userId, purpose } });
-    return record?.challenge ?? null;
   }
 
   public async getCredential(userId: string) {
@@ -66,8 +70,17 @@ export class PrismaPasskeyRecoveryRepository {
     });
   }
 
-  public async updateCounter(userId: string, counter: bigint): Promise<void> {
-    await this.database.passkeyRecoveryCredential.update({ where: { userId }, data: { counter } });
+  public async updateCounter(
+    userId: string,
+    credentialId: Uint8Array,
+    expectedCounter: bigint,
+    counter: bigint,
+  ): Promise<boolean> {
+    const updated = await this.database.passkeyRecoveryCredential.updateMany({
+      where: { userId, credentialId: copyBytes(credentialId), counter: expectedCounter },
+      data: { counter },
+    });
+    return updated.count === 1;
   }
 
   public async removeCredential(userId: string): Promise<void> {

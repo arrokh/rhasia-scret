@@ -1,17 +1,10 @@
 "use client";
 
 import type { BeforeSendFn, PostHogConfig } from "posthog-js/dist/module.full.no-external";
+import { isAnalyticsPublicRoute } from "./analytics-route-policy";
 
-/**
- * Automatic capture is enabled only with the safeguards below: private routes
- * expose only redacted page/performance events, DOM interaction capture is
- * ignored there, copied text is disabled, and before_send drops sensitive
- * fields before anything leaves the browser. Browser persistence is disabled
- * because the SDK's session-properties manager can otherwise retain the raw
- * current URL before before_send runs.
- */
+/** Analytics is restricted to public information pages and the public landing surface. */
 export const ANALYTICS_EVENTS = {
-  applicationOpened: "application_opened",
   authenticationSignInLinkRequested: "authentication_sign_in_link_requested",
   authenticationSignInLinkRequestFailed: "authentication_sign_in_link_request_failed",
   authenticationSessionEstablished: "authentication_session_established",
@@ -80,7 +73,6 @@ type AnalyticsAccountOperation = "create" | "update" | "delete";
 type AnalyticsParticipantType = "member" | "invitation";
 
 type AnalyticsEventProperties = {
-  application_opened: undefined;
   authentication_sign_in_link_requested: { method: AnalyticsAuthenticationMethod };
   authentication_sign_in_link_request_failed: {
     method: AnalyticsAuthenticationMethod;
@@ -232,7 +224,6 @@ const STATIC_ANALYTICS_ROUTES = [
   "/ui-preview/remembered-browser",
   "/ui-preview/vaults",
 ] as const;
-const PRIVATE_ROUTE_PREFIXES = ["/account", "/auth", "/local", "/offline", "/sign-in", "/totp", "/vaults"] as const;
 const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 const SAFE_ERROR_DIGEST_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 // The SDK adds `token` to every capture as a required ingestion property. It is
@@ -257,41 +248,16 @@ const SAFE_ANALYTICS_PROPERTY_KEYS = new Set([
   "$viewport_width",
   "$timezone",
 ]);
-const PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS = new Set([
+const KNOWN_AUTOMATIC_EVENTS = new Set([
   "$pageview",
   "$pageleave",
   "$web_vitals",
   "$performance_event",
-]);
-const KNOWN_AUTOMATIC_EVENTS = new Set([
-  ...PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS,
   "$autocapture",
   "$dead_click",
   "$exception",
-  "$identify",
   "$rageclick",
 ]);
-const EXPLICIT_EVENT_PROPERTY_KEYS: Record<string, ReadonlySet<string>> = {
-  authentication_sign_in_link_requested: new Set(["method"]),
-  authentication_sign_in_link_request_failed: new Set(["method", "failure_code"]),
-  shared_vault_participant_removed: new Set(["participant_type"]),
-  shared_vault_operation_failed: new Set(["operation", "failure_code"]),
-  vault_unlocked: new Set(["method"]),
-  vault_unlock_failed: new Set(["method", "failure_code"]),
-  offline_vault_unlocked: new Set(["method"]),
-  offline_vault_unlock_failed: new Set(["method", "failure_code"]),
-  local_vault_unlocked: new Set(["method"]),
-  local_vault_unlock_failed: new Set(["method", "failure_code"]),
-  local_vault_archive_export_prepared: new Set(["account_count"]),
-  local_vault_archive_import_completed: new Set(["account_count"]),
-  authenticator_account_created: new Set(["vault_type"]),
-  authenticator_account_updated: new Set(["vault_type"]),
-  authenticator_account_deleted: new Set(["vault_type"]),
-  authenticator_account_operation_failed: new Set(["operation", "failure_code"]),
-  vault_archive_export_prepared: new Set(["vault_type"]),
-  vault_archive_import_completed: new Set(["account_count", "destination_type", "created_new_vault"]),
-  client_error: new Set(["error_name", "error_digest"]),
-};
 const SAFE_WEB_VITAL_PROPERTY_PATTERN = /^\$web_vitals_(?:LCP|CLS|FCP|INP)_value$/;
 const SAFE_PERFORMANCE_PROPERTY_PATTERN = /^\$performance_[a-z0-9_]+_(?:duration|value|count)$/;
 const SAFE_ANALYTICS_NUMBER = (value: unknown): value is number =>
@@ -299,17 +265,11 @@ const SAFE_ANALYTICS_NUMBER = (value: unknown): value is number =>
 
 export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): ReturnType<BeforeSendFn> {
   if (!capture) return null;
-  const automaticCapture = capture.event.startsWith("$") && capture.event !== "$identify";
+  const automaticCapture = capture.event.startsWith("$");
   const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
-  const privateRoute = isPrivateRoute(getAnalyticsPath(capture));
+  if (!automaticCapture && !explicitClientError) return null;
+  if (!isAnalyticsPublicRoute(getAnalyticsPath(capture))) return null;
   if (automaticCapture && !KNOWN_AUTOMATIC_EVENTS.has(capture.event)) return null;
-  if (
-    !automaticCapture &&
-    capture.event !== "$identify" &&
-    !Object.values(ANALYTICS_EVENTS).includes(capture.event as (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS])
-  )
-    return null;
-  if (automaticCapture && privateRoute && !PRIVATE_ROUTE_ALLOWED_AUTOMATIC_EVENTS.has(capture.event)) return null;
 
   for (const property of Object.keys(capture.properties)) {
     const value = capture.properties[property];
@@ -332,7 +292,7 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
       continue;
     }
     if (property === "$exception_list") {
-      if (capture.event !== "$exception" || privateRoute) delete capture.properties[property];
+      if (capture.event !== "$exception") delete capture.properties[property];
       else {
         const exceptionList = sanitizeAnalyticsExceptionList(value);
         if (exceptionList.length === 0) delete capture.properties[property];
@@ -354,12 +314,8 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
       if (!isAllowedAutomaticProperty(capture.event, property, value)) delete capture.properties[property];
     } else if (
       !isPrimitiveAnalyticsValue(value) ||
-      (capture.event !== "$identify" &&
-        !SAFE_ANALYTICS_PROPERTY_KEYS.has(property) &&
-        !isAllowedExplicitProperty(capture.event, property, value))
+      (!SAFE_ANALYTICS_PROPERTY_KEYS.has(property) && !isAllowedExplicitProperty(property, value))
     ) {
-      delete capture.properties[property];
-    } else if (capture.event === "$identify" && !SAFE_ANALYTICS_PROPERTY_KEYS.has(property)) {
       delete capture.properties[property];
     }
   }
@@ -378,62 +334,9 @@ function isAllowedAutomaticProperty(event: string, property: string, value: unkn
   return false;
 }
 
-function isAllowedExplicitProperty(event: string, property: string, value: unknown): boolean {
-  if (!EXPLICIT_EVENT_PROPERTY_KEYS[event]?.has(property)) return false;
+function isAllowedExplicitProperty(property: string, value: unknown): boolean {
   if (property === "error_name") return typeof value === "string" && normalizeAnalyticsErrorName(value) === value;
   if (property === "error_digest") return typeof value === "string" && normalizeAnalyticsErrorDigest(value) === value;
-  if (property === "account_count")
-    return Number.isInteger(value) && typeof value === "number" && value >= 0 && value <= 10_000;
-  if (property === "created_new_vault") return typeof value === "boolean";
-  if (property === "vault_type" || property === "destination_type") return value === "PERSONAL" || value === "SHARED";
-  if (property === "participant_type") return value === "member" || value === "invitation";
-  if (property === "method") return ["email", "passphrase", "remembered_browser", "passkey"].includes(String(value));
-  if (property === "failure_code")
-    return [
-      "rate_limited",
-      "provider_error",
-      "authentication_failed",
-      "crypto_unlock_failed",
-      "invalid_secret",
-      "key_derivation_failed",
-      "local_storage_failed",
-      "personal_vault_key_wrap_failed",
-      "personal_vault_mismatch",
-      "personal_vault_name_decryption_failed",
-      "profile_data_invalid",
-      "profile_migration_failed",
-      "profile_rewrap_failed",
-      "root_key_wrap_failed",
-      "remembered_browser_error",
-      "passkey_error",
-      "sync_failed",
-      "workspace_bundle_invalid",
-      "workspace_processing_failed",
-      "workspace_response_failed",
-      "vault_content_decryption_failed",
-      "user_encryption_key_recovery_failed",
-      "user_encryption_envelope_invalid",
-      "user_encryption_key_decryption_failed",
-      "user_encryption_legacy_envelope",
-      "user_encryption_private_key_invalid",
-      "migration_required",
-      "permission_denied",
-      "duplicate",
-      "destination_unavailable",
-      "unknown",
-    ].includes(String(value));
-  if (property === "operation")
-    return [
-      "rename",
-      "delete",
-      "invite",
-      "reinvite",
-      "remove_participant",
-      "update_permissions",
-      "update_default_permissions",
-      "create",
-      "update",
-    ].includes(String(value));
   return false;
 }
 
@@ -493,10 +396,6 @@ function getAnalyticsPath(capture: NonNullable<Parameters<BeforeSendFn>[0]>): st
     }
   }
   return typeof window === "undefined" ? "" : window.location.pathname;
-}
-
-function isPrivateRoute(pathname: string): boolean {
-  return PRIVATE_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 export const BROWSER_ANALYTICS_CONFIG = {
@@ -563,9 +462,8 @@ export const BROWSER_ANALYTICS_CONFIG = {
   disable_external_dependency_loading: true,
   // Console logs are deliberately disabled: third-party and application log
   // messages can contain URL fragments, labels, secrets, or stack data. Use
-  // redacted product events and the explicit error-boundary event instead.
+  // redacted automatic events and the explicit error-boundary event instead.
   logs: { captureConsoleLogs: false },
-  loaded: (posthog) => posthog.capture(ANALYTICS_EVENTS.applicationOpened),
   before_send: sanitizeAnalyticsUrls,
   debug: process.env.NODE_ENV === "development",
 } satisfies Partial<PostHogConfig>;

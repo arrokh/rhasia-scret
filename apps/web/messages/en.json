@@ -88,7 +88,7 @@
           "hosting": "The reference host is Vercel; a CDN or reverse proxy may handle network and request logs. The deployment operator controls access, TLS, and retention.",
           "tailscale": "Optional Tailscale Serve is limited by tailnet access policy; Funnel is public. The host daemon receives application HTTP after HTTPS termination and forwards it over loopback. The operator controls local request access, logs, and retention.",
           "database": "PostgreSQL stores encrypted content and permitted metadata through server-side Prisma. Browser database access is not part of the supported boundary.",
-          "analytics": "PostHog and Cloudflare Web Analytics are optional and default-off. When enabled, the documented allowlists and operator payload review apply."
+          "analytics": "PostHog is optional and default-off. When enabled, it runs only on public information pages and uses the documented event allowlist."
         }
       },
       "retention": {
@@ -705,7 +705,7 @@
       "generated": "Generate one randomly",
       "recommended": "Recommended",
       "custom": "Create your own",
-      "minimum": "At least 3 characters",
+      "minimum": "At least 12 characters",
       "newPassphrase": "New Vault Passphrase",
       "generating": "Generating passphrase…",
       "copied": "Copied",
@@ -713,8 +713,8 @@
       "regenerate": "Generate another passphrase",
       "copyError": "The passphrase could not be copied. Copy it manually from the field above.",
       "copiedAnnouncement": "New Vault Passphrase copied",
-      "customHelp": "Use at least 3 characters and store the passphrase offline.",
-      "invalid": "Vault Passphrase must contain at least 3 characters.",
+      "customHelp": "Use at least 12 characters and store the passphrase offline.",
+      "invalid": "Vault Passphrase must contain at least 12 characters.",
       "confirmationMismatch": "Confirmation must match the new passphrase.",
       "reenter": "Re-enter the new passphrase",
       "confirmation": "New Vault Passphrase confirmation",
@@ -1013,8 +1013,8 @@
       "generating": "Generating passphrase…",
       "regenerate": "Generate another passphrase",
       "yourPassphrase": "Your Vault Passphrase",
-      "customGuidance": "Use at least 3 characters. Choose a unique passphrase that is difficult to guess.",
-      "passphraseInvalid": "Vault Passphrase must contain at least 3 characters.",
+      "customGuidance": "Use at least 12 characters. Choose a unique passphrase that is difficult to guess.",
+      "passphraseInvalid": "Vault Passphrase must contain at least 12 characters.",
       "confirmationMismatch": "Vault Passphrase confirmation does not match your Vault Passphrase.",
       "reenter": "Re-enter your Vault Passphrase",
       "confirmation": "Vault Passphrase confirmation",

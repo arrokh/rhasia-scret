@@ -3,13 +3,12 @@ import { logWebServerEvent, requestId } from "@/shared/infrastructure/server-log
 import { createIdentityProxyVerifier, type SetAuthCookies } from "@/modules/identity/proxy";
 import type { ProxySessionVerification } from "@/modules/identity/infrastructure/proxy-session-verifier";
 import { DEFAULT_AUTH_RETURN_PATH, INVITATION_AUTH_RETURN_PATH } from "@/modules/identity/application/auth-return-path";
+import { isAnalyticsPublicRoute } from "@/shared/infrastructure/analytics-route-policy";
 type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<ProxySessionVerification>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
-const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
-const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
 const cloudflareTurnstileHost = "https://challenges.cloudflare.com";
 const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -22,13 +21,14 @@ const SECURITY_HEADERS: Record<string, string> = {
   "X-Permitted-Cross-Domain-Policies": "none",
 };
 
-function createCsp(nonce: string): string {
+function createCsp(nonce: string, pathname: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+  const analyticsScriptSources = isAnalyticsPublicRoute(pathname) ? [posthogAssetsHost] : [];
+  const analyticsConnectSources = isAnalyticsPublicRoute(pathname) ? [posthogHost] : [];
   // Next.js can omit a nonce from dynamically inserted chunk elements; keep inline scripts nonced while allowing immutable same-origin chunks.
   const scriptElementPolicy = [
     `script-src-elem 'self' 'nonce-${nonce}'`,
-    posthogAssetsHost,
-    cloudflareAnalyticsScriptHost,
+    ...analyticsScriptSources,
     cloudflareTurnstileHost,
   ]
     .filter(Boolean)
@@ -37,8 +37,7 @@ function createCsp(nonce: string): string {
     "default-src 'self'",
     [
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${developmentScriptPolicy}`,
-      posthogAssetsHost,
-      cloudflareAnalyticsScriptHost,
+      ...analyticsScriptSources,
       cloudflareTurnstileHost,
     ]
       .filter(Boolean)
@@ -47,9 +46,7 @@ function createCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost, cloudflareTurnstileHost]
-      .filter(Boolean)
-      .join(" "),
+    ["connect-src 'self'", ...analyticsConnectSources, cloudflareTurnstileHost].filter(Boolean).join(" "),
     `frame-src 'self' ${cloudflareTurnstileHost}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
@@ -62,7 +59,7 @@ function createCsp(nonce: string): string {
 
 function applySecurityHeaders(response: NextResponse, request: NextRequest, nonce: string): NextResponse {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(name, value);
-  response.headers.set("Content-Security-Policy", createCsp(nonce));
+  response.headers.set("Content-Security-Policy", createCsp(nonce, request.nextUrl.pathname));
   if (
     request.nextUrl.pathname.startsWith("/api/") ||
     request.nextUrl.pathname.startsWith("/auth/") ||

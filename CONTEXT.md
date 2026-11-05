@@ -48,7 +48,7 @@ The owner-initiated replacement of an active Shared Vault's Vault Encryption Key
 _Avoid_: Server-side re-encryption, scheduled rotation, partial rotation
 
 **Vault Unlock Secret**:
-An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase but accepts a user-created passphrase whose trimmed value is at least three characters long. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas** and the English product label is **Vault Passphrase**.
+An app-specific passphrase known only to the user, from which a client derives the Vault Unlock Key. The client recommends a randomly generated multi-word passphrase and requires at least twelve trimmed Unicode characters for every newly created or changed user-authored passphrase. Existing passphrases remain usable to unlock Vaults. It is separate from the authentication credential and recoverable only through previously enrolled Passkey-Assisted Recovery. The Indonesian product label is **Passphrase Brankas** and the English product label is **Vault Passphrase**.
 _Avoid_: Rahasia Pembuka Brankas, PIN, Vault password, master key
 
 **Vault Unlock Key**:

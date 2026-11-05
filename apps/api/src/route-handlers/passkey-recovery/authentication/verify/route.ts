@@ -24,7 +24,13 @@ export async function POST(request: ApiRequest) {
     const bindings = getApiRequestContext(request).bindings;
     const authenticationResponse = parsed.data.response as AuthenticationResponseJSON;
     if (browserE2eAuthenticationVerified(authenticationResponse, credential.credentialId, bindings)) {
-      await repository.updateCounter(user.id, credential.counter + 1n);
+      const counterUpdated = await repository.updateCounter(
+        user.id,
+        credential.credentialId,
+        credential.counter,
+        credential.counter + 1n,
+      );
+      if (!counterUpdated) return ApiResponse.json({ error: "passkey_verification_failed" }, { status: 400 });
       return ApiResponse.json({
         encryptedRecoveryPackage: Buffer.from(credential.encryptedRecoveryPackage).toString("base64"),
       });
@@ -45,7 +51,13 @@ export async function POST(request: ApiRequest) {
     });
     if (!verification.verified || !verification.authenticationInfo.userVerified)
       return ApiResponse.json({ error: "passkey_verification_failed" }, { status: 400 });
-    await repository.updateCounter(user.id, BigInt(verification.authenticationInfo.newCounter));
+    const counterUpdated = await repository.updateCounter(
+      user.id,
+      credential.credentialId,
+      credential.counter,
+      BigInt(verification.authenticationInfo.newCounter),
+    );
+    if (!counterUpdated) return ApiResponse.json({ error: "passkey_verification_failed" }, { status: 400 });
     return ApiResponse.json({
       encryptedRecoveryPackage: Buffer.from(credential.encryptedRecoveryPackage).toString("base64"),
     });

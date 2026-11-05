@@ -3,10 +3,12 @@ import { initializePersonalVaultInBrowser } from "@/modules/crypto/infrastructur
 import { clearPersonalVaultInitializationMaterial } from "@rhasia-scret/client-vault-core";
 
 describe("initializePersonalVaultInBrowser", () => {
-  it("accepts a custom Vault Unlock Secret with at least three characters", async () => {
-    await expect(initializePersonalVaultInBrowser("ab", "Personal Vault")).rejects.toThrow("at least three characters");
+  it("requires twelve characters for a newly created custom Vault Passphrase", async () => {
+    await expect(initializePersonalVaultInBrowser("short", "Personal Vault")).rejects.toThrow(
+      "at least twelve characters",
+    );
 
-    const material = await initializePersonalVaultInBrowser("abc", "Personal Vault");
+    const material = await initializePersonalVaultInBrowser("abcdefgh1234", "Personal Vault");
     expect(material.encryptionVersion).toBe(1);
   });
 

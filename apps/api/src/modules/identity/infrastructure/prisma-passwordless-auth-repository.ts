@@ -321,6 +321,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       emailVerified: identity.emailVerifiedAt !== null,
       assurance: "active-session",
       sessionId: session.id,
+      sessionExpiresAt: session.refreshExpiresAt,
       issuedAt: session.createdAt,
     };
   }
@@ -352,6 +353,7 @@ export class PrismaPasswordlessAuthRepository implements PasswordlessAuthReposit
       emailVerified: identity.emailVerifiedAt !== null,
       assurance: "active-session",
       sessionId: session.id,
+      sessionExpiresAt: session.refreshExpiresAt,
       issuedAt: session.createdAt,
     };
   }
