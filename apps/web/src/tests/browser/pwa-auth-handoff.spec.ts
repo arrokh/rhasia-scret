@@ -60,7 +60,8 @@ test("hands an external-browser session to a resumed PWA with isolated storage",
     );
     await app.goto("/sign-in");
     await initialPollStarted;
-    await app.clock.pauseAt(new Date(Date.now() + 100));
+    const pausedTime = new Date(await app.evaluate(() => Date.now() + 900));
+    await app.clock.pauseAt(pausedTime);
     releaseInitialPoll();
     await (await initialPollResponse).finished();
     await app.evaluate(() => new Promise<void>((resolve) => queueMicrotask(() => queueMicrotask(resolve))));

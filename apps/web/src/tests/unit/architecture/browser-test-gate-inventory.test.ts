@@ -3,13 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const smokeSpecs = [
-  "granular-loading.spec.ts",
   "landing-fallback.spec.ts",
-  "landing-input.spec.ts",
-  "landing-journey-boundaries.spec.ts",
   "landing-locale-navigation.spec.ts",
-  "landing-layout.spec.ts",
-  "landing-transition-stress.spec.ts",
   "local-vault-archive-import.spec.ts",
   "local-vault-readiness.spec.ts",
   "local-vault-tags.spec.ts",
@@ -17,6 +12,7 @@ const smokeSpecs = [
   "pwa-auth-handoff.spec.ts",
   "remembered-browser.spec.ts",
   "security-headers.spec.ts",
+  "self-hosted-configure.spec.mts",
   "smoke.spec.ts",
   "vault-archive-backup.spec.ts",
   "vault-archive-import.spec.ts",
@@ -29,7 +25,7 @@ const browserTestDirectory = resolve(process.cwd(), "src/tests/browser");
 
 function browserSpecFiles(): string[] {
   return readdirSync(browserTestDirectory)
-    .filter((file) => file.endsWith(".spec.ts"))
+    .filter((file) => /\.spec\.m?ts$/.test(file))
     .sort();
 }
 
@@ -38,6 +34,19 @@ describe("browser test gate inventory", () => {
     const expected = [...smokeSpecs, ...e2eSpecs, ...pwaSpecs, ...separatelyRunSpecs].sort();
     expect(browserSpecFiles()).toEqual(expected);
     expect(new Set(expected).size).toBe(expected.length);
+  });
+
+  it("selects smoke specs with an explicit core-flow allowlist", () => {
+    const playwrightConfig = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const configuredSmokeSpecs = playwrightConfig.match(
+      /export const smokeBrowserSpecs = \[([\s\S]*?)\] as const/,
+    )?.[1];
+
+    expect(playwrightConfig).toContain("testMatch: [...smokeBrowserSpecs]");
+    expect(configuredSmokeSpecs).toBeDefined();
+    expect([...(configuredSmokeSpecs ?? "").matchAll(/\"([^\"]+\.spec\.m?ts)\"/g)].map((match) => match[1])).toEqual(
+      smokeSpecs,
+    );
   });
 
   it("runs the two development suites in isolated directories and ports before the PWA suite", () => {

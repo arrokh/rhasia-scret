@@ -46,7 +46,7 @@
 - Use `next-intl` only in `apps/web/src/i18n`, App Router composition, and web presentation layers. Domain, application, infrastructure, API, database, archive, audit, and cryptographic contracts must expose typed locale-independent values or error codes rather than localized messages.
 - Do not add locale-prefixed or translated paths, infer locale from `Accept-Language`, or persist locale in Prisma, IndexedDB, TanStack Query, encrypted content, or cryptographic payloads. Locale selection remains the validated `RHSIA_LOCALE` cookie defined by ADR-0035.
 - Never place user-provided Vault/account labels, TOTP configuration, OTPs, secrets, keys, Secure Share Link material, or decrypted content in message catalogs, locale state, Query caches, or service-worker caches.
-- Extend catalog-parity, hard-coded-copy, architecture, contract, and browser/offline coverage with each localized surface. Preserve the exact destructive-reset token `HAPUS DATA BRANKAS` in both locales.
+- Maintain catalog-parity, hard-coded-copy, architecture, and locale-independent contract coverage. Use representative browser/offline checks for locale selection and core-flow usability rather than repeating every copy assertion or visual layout in both locales. Preserve the exact destructive-reset token `HAPUS DATA BRANKAS` in both locales.
 
 ## API validation and control flow
 
@@ -56,14 +56,21 @@
 
 ## Quality
 
+### Core-flow testing
+
+- Before adding, deleting, or restructuring tests or CI test selection, read `docs/core-flow-testing.md`. Prioritize Vault setup → unlock → add account → generate OTP; lock/logout key and session cleanup; plaintext leak prevention; Shared Vault invitations and access restrictions; backup/restore with wrong-key and corrupt-archive failures; and offline/PWA data safety.
+- Add unit tests only for core functionality and its correctness, confidentiality, authorization, key/session lifecycle, recovery, and data-integrity guarantees. Cosmetic appearance and ordinary wording alone do not justify new unit tests. Keep architecture and security-policy checks as separate guardrails.
+- Test observable outcomes and failure safety at the cheapest reliable layer. Browser smoke covers core flows only; cosmetic colors, spacing, alignment, animation geometry, and ordinary copy are not automated acceptance criteria. Preserve functional accessibility, destructive confirmation, localization contracts, and security warnings.
+- For test-pruning reviews, list keep/simplify/remove/add decisions with evidence and confirmed coverage gaps. Obtain review of the decision list before removing existing tests or changing CI gates; document current selection separately from the intended policy.
+
 ### Visual and design consistency
 
 - Before changing presentation, inspect the target screen, sibling routes, and relevant `apps/web/src/app/ui-preview/**` compositions. Reuse shared components and design tokens instead of adding one-off styling.
 - Keep peer actions in a section header, toolbar, or action group on the same size tier and alignment. The shared Button contract is documented in `docs/ui-design-consistency.md`; standard labeled and icon-only actions both use 48px geometry (`default` and `icon`). Use compact sizes only when the whole peer group is intentionally compact.
-- Reuse `SurfaceCard` for card shells and `SURFACE_CARD_CONTENT_PADDING_CLASS` for matching primary-card content insets. When equivalent pages are compared, keep the card surface and responsive content padding identical and cover both in browser geometry tests.
-- Keep loading placeholders aligned with their resolved page headers and cards: preserve back/action slots, button dimensions, content insets, and major section heights. Use route-specific skeleton variants where header structure differs, and test the transition geometry.
+- Reuse `SurfaceCard` for card shells and `SURFACE_CARD_CONTENT_PADDING_CLASS` for matching primary-card content insets. When equivalent pages are compared, keep the card surface and responsive content padding identical. Review appearance directly; add automated coverage only when a mismatch prevents a core action.
+- Keep loading placeholders aligned with their resolved page headers and cards: preserve back/action slots, button dimensions, content insets, and major section heights. Use route-specific skeleton variants where header structure differs. Test loading behavior when it blocks a core flow or exposes sensitive state, rather than locking pixel geometry.
 - For icon-only actions, preserve accessible names and appropriate titles/tooltips. Check desktop and narrow layouts, both locales (including long labels), keyboard focus, contrast, and reduced-motion behavior.
-- When a shared visual component or token changes, inspect all affected production and preview surfaces and update the matching regression tests. Add a shared-component geometry test for size-token changes; use Chromium browser coverage when route composition or responsive behavior changes.
+- When a shared visual component or token changes, inspect all affected production and preview surfaces. Update automated tests for changed core interactions, keyboard access, or safety behavior; use Chromium coverage when the behavior depends on actual browser APIs or touch/focus handling.
 
 ### Vercel deployment scope
 
@@ -82,6 +89,6 @@
 - Use pnpm workspaces as the monorepo boundary and the root `pnpm-lock.yaml` as the sole JavaScript dependency lockfile. The web/PWA client belongs under `apps/web`, and platform-neutral client workflows belong in a named `packages/*` package with a public entry point. Run `pnpm run test:full` as the final verification before merge/PR handoff; it covers lint, typecheck, unit/integration/contract tests, architecture checks, build, performance bundle checks, and browser tests.
 - Before creating a commit, opening or updating a pull request, deploying, or merging any branch into `main`, run a fresh complete `pnpm run test:full` from the repository root with all required environment variables after the final code or configuration change. An agent must never merge to `main` unless this exact local gate passed; diagnose failures, fix the cause, and rerun the complete suite. Targeted tests are supplementary and never replace the full gate; report any environment-blocked phase explicitly instead of claiming the gate passed. This verification requirement does not authorize changes to persistent or operational databases; the only migration application covered by root test gates is to their wrapper-owned disposable Testcontainer, under the authority rule above.
 - Hosted and required local browser verification currently focuses on Chromium only. Keep Firefox and WebKit entries commented out in `.github/workflows/ci.yml` and Playwright project configuration, and do not add or require Firefox/WebKit tests unless this support decision changes.
-- Add unit tests for domain rules and architecture tests for import boundaries. Add integration, contract, and browser tests with each vertical slice.
+- Add unit tests for core domain rules within the scope above, and architecture tests for import boundaries. Add integration/contract coverage for persistence and authorization boundaries, and browser coverage only for core flows or browser-specific safety behavior; avoid repeating the same invariant at every layer.
 - Preserve strict TypeScript. Avoid `any`, TODO placeholders, dead code, and compatibility shims.
 - Update `CONTEXT.md` immediately when domain language is resolved. Add an ADR only for hard-to-reverse, surprising trade-offs.

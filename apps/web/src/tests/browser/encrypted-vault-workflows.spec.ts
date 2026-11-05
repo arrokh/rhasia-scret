@@ -1,13 +1,5 @@
 import { resolve } from "node:path";
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Locator,
-  type Page,
-  type Response,
-  type TestInfo,
-} from "@playwright/test";
+import { expect, test, type BrowserContext, type Locator, type Page, type Response } from "@playwright/test";
 import { cleanBrowserE2eUsers } from "./support/e2e-database";
 import { e2eUserAlias, e2eUserEmail, type E2E_BROWSER_SCENARIOS, type E2E_BROWSER_ROLES } from "./support/e2e-users";
 import { expectVaultLockAction, lockVaultFromSettings } from "./support/vault-account-settings";
@@ -155,11 +147,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
     expect(created.revision).toBe(1);
     vaultId = new URL(response.url()).pathname.split("/")[4] ?? "";
     await expect(page).toHaveURL(/\/vaults$/);
-    const accountCount = page.getByLabel("1 akun");
-    await expect(accountCount).toBeVisible();
-    const accountCountBox = await accountCount.boundingBox();
-    expect.soft(accountCountBox?.width).toBe(accountCountBox?.height);
-    expect.soft(accountCountBox?.width).toBe(32);
+    await expect(page.getByLabel("1 akun")).toBeVisible();
   });
 
   await test.step("local OTP generation exposes a countdown and copies only on explicit action", async () => {
@@ -220,42 +208,19 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
   });
 
   await test.step("edit increments revision and a stale overwrite remains a distinct conflict", async () => {
-    const previousViewport = page.viewportSize();
-    await page.setViewportSize({ width: 700, height: 900 });
     await page.getByRole("button", { name: "Kelola image-user" }).first().click();
     await page.getByRole("menuitem", { name: "Kelola akun" }).click();
     const dialog = page.getByRole("dialog");
     const tagInput = dialog.locator(`#managed-account-tag-${accountId}`);
     const addTagButton = dialog.getByRole("button", { name: "Tambahkan tag", exact: true });
-    const [tagInputBox, addTagBox, tagHelpBox] = await Promise.all([
-      tagInput.boundingBox(),
-      addTagButton.boundingBox(),
-      dialog.locator(`#managed-account-tag-${accountId}-help`).boundingBox(),
-    ]);
-    expect(tagInputBox).not.toBeNull();
-    expect(addTagBox).not.toBeNull();
-    expect(tagHelpBox).not.toBeNull();
-    expect(
-      Math.abs(
-        (tagInputBox?.y ?? 0) + (tagInputBox?.height ?? 0) / 2 - (addTagBox?.y ?? 0) - (addTagBox?.height ?? 0) / 2,
-      ),
-    ).toBeLessThan(2);
-    expect(addTagBox?.x).toBeGreaterThan(tagInputBox?.x ?? 0);
-    expect(tagHelpBox?.y).toBeGreaterThan((tagInputBox?.y ?? 0) + (tagInputBox?.height ?? 0));
+
     const label = dialog.getByLabel("Label akun");
     await label.fill(editedAccountName);
     await tagInput.fill(accountTag);
     await addTagButton.click();
     await expect(dialog.getByText(accountTag, { exact: true })).toBeVisible();
     const removeTag = dialog.getByRole("button", { name: `Hapus tag ${accountTag}`, exact: true });
-    const tagChipBox = await removeTag.locator("xpath=..").boundingBox();
-    const removeTagBox = await removeTag.boundingBox();
-    expect.soft(tagChipBox?.height).toBeLessThan(56);
-    expect.soft(removeTagBox?.width).toBeGreaterThanOrEqual(44);
-    expect.soft(removeTagBox?.height).toBeGreaterThanOrEqual(44);
-
-    const dialogBeforeSave = await dialog.boundingBox();
-    if (!dialogBeforeSave) throw new Error("The account manager dialog is not visible.");
+    await expect(removeTag).toBeVisible();
     let releaseAccountUpdate!: () => void;
     let accountUpdateIntercepted!: () => void;
     const waitForAccountUpdate = new Promise<void>((resolve) => {
@@ -272,7 +237,7 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
       await route.continue();
     };
     await page.route(accountUpdateUrl, pauseAccountUpdate);
-    const updateGeometry = await (async () => {
+    const updateResult = await (async () => {
       try {
         const responsePromise = page.waitForResponse(
           (response) =>
@@ -281,14 +246,12 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
         const saveClick = dialog.getByRole("button", { name: "Simpan akun" }).click();
         await waitForAccountUpdate;
         await expect(dialog.getByRole("button", { name: "Menyimpan…" })).toBeVisible();
-        const duringSave = await dialog.boundingBox();
         const tagInputVisibleDuringSave = await tagInput.isVisible();
         const removeTagVisibleDuringSave = await removeTag.isVisible();
         releaseAccountUpdate();
         await saveClick;
         return {
           response: await responsePromise,
-          duringSave,
           tagInputVisibleDuringSave,
           removeTagVisibleDuringSave,
         };
@@ -297,22 +260,12 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
         await page.unroute(accountUpdateUrl, pauseAccountUpdate);
       }
     })();
-    expect.soft(updateGeometry.tagInputVisibleDuringSave).toBe(true);
-    expect.soft(updateGeometry.removeTagVisibleDuringSave).toBe(true);
-    expect.soft(updateGeometry.duringSave?.height).toBeCloseTo(dialogBeforeSave.height, 0);
-    expect.soft(updateGeometry.duringSave?.y).toBeCloseTo(dialogBeforeSave.y, 0);
-    const response = updateGeometry.response;
+    expect(updateResult.tagInputVisibleDuringSave).toBe(true);
+    expect(updateResult.removeTagVisibleDuringSave).toBe(true);
+    const response = updateResult.response;
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ id: accountId, revision: 2 });
     await expect(page.getByText("Akun diperbarui.")).toBeVisible();
-    const dialogAfterSave = await dialog.boundingBox();
-    const dialogTitleAfterSave = await dialog.locator('[data-slot="dialog-title"]').boundingBox();
-    if (!dialogAfterSave || !dialogTitleAfterSave) throw new Error("The saved account dialog title is not visible.");
-    expect
-      .soft(dialogTitleAfterSave.x + dialogTitleAfterSave.width)
-      .toBeLessThanOrEqual(dialogAfterSave.x + dialogAfterSave.width - 16);
-    expect.soft(dialogAfterSave.height).toBeCloseTo(dialogBeforeSave.height, 0);
-    expect.soft(dialogAfterSave.y).toBeCloseTo(dialogBeforeSave.y, 0);
     const requestBody = JSON.parse(response.request().postData() ?? "{}") as {
       encryptedPayload: string;
     };
@@ -341,7 +294,6 @@ test("QR image and manual TOTP workflows preserve encryption, revisions, recover
       },
     );
     expect(stale).toEqual({ status: 409, body: { error: "stale_revision" } });
-    if (previousViewport) await page.setViewportSize(previousViewport);
   });
 
   await test.step("delete and restore preserve edited ciphertext while advancing revision", async () => {
@@ -442,7 +394,7 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
   context,
   browser,
   browserName,
-}, testInfo) => {
+}) => {
   const ownerAlias = scenarioAlias(browserName, "shared", "owner");
   const leaveAlias = scenarioAlias(browserName, "shared", "viewer-leave");
   const revokeAlias = scenarioAlias(browserName, "shared", "viewer-revoke");
@@ -510,50 +462,18 @@ test("Shared Vault invitations, Viewer boundaries, audit, membership loss, delet
       pendingInvitation = await createInvitation(page, e2eUserEmail(revokeAlias));
       expect(pendingInvitation).toContain("#");
       expect(observed.requests.join("\n")).not.toContain(pendingInvitation.split("#")[1] ?? "missing-secret");
-      await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId);
-      await page.getByRole("tab", { name: "Keamanan" }).click();
-      await captureRotationLayout(
-        page,
-        testInfo,
-        "vault-rotation-id",
-        page.locator('section[aria-labelledby^="vault-key-rotation-"]'),
-      );
     });
 
     await test.step("owner rotates the Shared Vault key and User Encryption identity in English", async () => {
-      await page.goto("/vaults", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "Brankas Anda terkunci" })).toBeVisible({ timeout: 30_000 });
-      await unlockVault(page, ownerSecret);
-      await page.getByRole("button", { name: "Keamanan", exact: true }).click();
-      await expect(page.getByRole("heading", { name: "Rotasi Pasangan Kunci Enkripsi Pengguna" })).toBeVisible();
-      await captureRotationLayout(
-        page,
-        testInfo,
-        "identity-rotation-id",
-        page.locator('section[aria-labelledby="user-encryption-identity-rotation-title"]'),
-      );
-
       await page.context().addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseUrl }]);
       await page.goto("/vaults", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "Your vault is locked" })).toBeVisible({ timeout: 30_000 });
       await unlockVault(page, ownerSecret, "en");
       await page.getByRole("button", { name: "Security", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Rotate User Encryption Key Pair" })).toBeVisible();
-      await captureRotationLayout(
-        page,
-        testInfo,
-        "identity-rotation-en",
-        page.locator('section[aria-labelledby="user-encryption-identity-rotation-title"]'),
-      );
 
       await openSharedManagement(page, ownerSecret, sharedName, sharedVaultId, "en");
       await page.getByRole("tab", { name: "Security" }).click();
-      await captureRotationLayout(
-        page,
-        testInfo,
-        "vault-rotation-en",
-        page.locator('section[aria-labelledby^="vault-key-rotation-"]'),
-      );
       await page.getByRole("button", { name: "Prepare Vault key rotation" }).click();
       await expect(page.getByText(/Key generation 1 will become 2/)).toBeVisible();
       await page.getByRole("button", { name: "Review rotation" }).click();
@@ -1336,26 +1256,6 @@ async function redeemInvitation(
       name: "Salin OTP untuk manual-user, E2E Manual",
     }),
   ).toBeVisible();
-}
-
-async function captureRotationLayout(page: Page, testInfo: TestInfo, name: string, section: Locator): Promise<void> {
-  for (const viewport of [
-    { label: "desktop", width: 1280, height: 900 },
-    { label: "narrow", width: 390, height: 844 },
-  ]) {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await expect(section).toBeVisible();
-    const bounds = await section.boundingBox();
-    expect(bounds).not.toBeNull();
-    if (!bounds) throw new Error("Expected the key-rotation panel to have rendered geometry.");
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
-    await page.screenshot({
-      path: testInfo.outputPath(`${name}-${viewport.label}.png`),
-      fullPage: true,
-    });
-  }
-  await page.setViewportSize({ width: 1280, height: 900 });
 }
 
 async function expectInvitationInvalidated(page: Page, invitation: string, secret: string): Promise<void> {

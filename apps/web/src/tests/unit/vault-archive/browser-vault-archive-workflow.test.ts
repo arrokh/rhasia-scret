@@ -25,12 +25,20 @@ const configuration = {
 };
 
 describe("encrypted Vault archive browser workflow", () => {
-  it("opens only the supported version with the correct key and validates normalized accounts", async () => {
+  it("opens a supported archive and clears opened buffers safely without changing the fixture", async () => {
     const { archive, archiveKey } = await createArchive(accountPayload(configuration));
     const opened = await openAndValidateEncryptedVaultArchive(archiveKey, archive);
     expect(opened.vaultName).toBe("Imported Vault");
     expect(opened.accounts).toEqual([configuration]);
+
+    const openedSecrets = opened.accounts.map((account) => account.secret);
+    expect(openedSecrets[0]).not.toBe(configuration.secret);
     clearOpenedVaultArchive(opened);
+
+    expect(openedSecrets[0]).toEqual(new Uint8Array([0, 0, 0, 0]));
+    expect(opened.accounts).toEqual([]);
+    clearOpenedVaultArchive(opened);
+    clearOpenedVaultArchive(null);
     expect(configuration.secret).toEqual(new Uint8Array([1, 2, 3, 4]));
   });
 

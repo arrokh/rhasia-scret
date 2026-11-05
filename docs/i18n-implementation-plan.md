@@ -6,6 +6,10 @@ Make every user-facing web application surface available in English and Indonesi
 
 A complete implementation includes visible copy, accessibility text, validation and error messages, dates and plurals, metadata, the web app manifest, development previews, and browser tests. API contracts, domain enums, cryptographic formats, and encrypted user content remain locale-independent.
 
+## Testing scope
+
+Apply [core-flow testing policy](core-flow-testing.md) when maintaining this plan's coverage: keep catalog parity, locale-independent errors, cookie/redirect behavior, destructive confirmation, and representative bilingual core-flow usability. Browser tests need not repeat every wording or cosmetic layout assertion in both languages. The [approved test review decisions](reviews/core-flow-test-review.md) record the pruning and preserved functional coverage.
+
 ## Current state
 
 - `apps/web/src/app/layout.tsx` resolves `<html lang>` and localized metadata.

@@ -1,5 +1,7 @@
 # Continuous integration and security automation
 
+Test scope follows [core-flow testing policy](core-flow-testing.md): protect functional outcomes, confidentiality, authorization, and recovery rather than cosmetic fidelity. The [test review decision list](reviews/core-flow-test-review.md) records proposed pruning and coverage gaps. The approved pruning uses an explicit core-flow smoke allowlist; real-stack E2E and production offline/PWA remain separate safety gates. CI schedules, required check names, and navigation performance are unchanged.
+
 GitHub Actions provides main-push and pull-request quality gates, a lightweight pull-request formatting check, and fork-safe pull-request security checks. The workflows and their test fixtures use only synthetic, non-PII database/authentication values and do not require deployment, signing, provider, or production database secrets. Never copy user-provided TOTP URIs, account labels, issuer names, QR payloads, or credentials into CI fixtures.
 
 ## Events and permissions
@@ -69,7 +71,7 @@ pnpm run test:release-process
 pnpm run test:full
 ```
 
-For the browser topology used in CI, run one suite/engine cell at a time. The hosted workflow uses a two-cell Chromium matrix so its suites do not serialize behind one runner; Firefox and WebKit are intentionally commented out:
+For the browser topology used in CI, run one suite/engine cell at a time. The hosted workflow distributes the explicit smoke allowlist across three Chromium shards and runs real-stack E2E separately; Firefox and WebKit are intentionally commented out:
 
 ```bash
 CI=true PLAYWRIGHT_WORKERS=1 pnpm run test:browser:smoke --project=chromium --reporter=list
