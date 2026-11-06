@@ -143,7 +143,9 @@ describe("browser analytics", () => {
       disable_external_dependency_loading: true,
       logs: { captureConsoleLogs: false },
     });
-    expect(options.loaded).toBeUndefined();
+    expect(options.loaded).toBeTypeOf("function");
+    options.loaded?.(posthogMocks);
+    expect(posthogMocks.reset).toHaveBeenCalledExactlyOnceWith(true);
     expect(options.before_send).toBeTypeOf("function");
     expect(posthogMocks.capture).not.toHaveBeenCalled();
     expect(posthogMocks.identify).not.toHaveBeenCalled();

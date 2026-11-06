@@ -448,8 +448,7 @@ export const BROWSER_ANALYTICS_CONFIG = {
   disable_session_recording: true,
   disable_surveys: true,
   disable_persistence: true,
-  // Keep the former key so the SDK removes legacy sessionStorage data during
-  // the transition to disabled persistence.
+  // Keep the former key so the SDK removes legacy stored identity.
   persistence_name: "rhasia_scret_posthog",
   disable_capture_url_hashes: true,
   save_referrer: false,

@@ -49,7 +49,13 @@ function loadPostHog(configuration: BrowserAnalyticsRuntimeConfiguration | undef
   activeConfiguration = configuration;
   posthogPromise ??= import("posthog-js/dist/module.full.no-external")
     .then(({ default: posthog }) => {
-      posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
+      posthog.init(projectToken, {
+        api_host: posthogHost,
+        ...BROWSER_ANALYTICS_CONFIG,
+        // Disabled persistence still hydrates legacy identity in memory. Reset
+        // it before PostHog schedules the initial pageview.
+        loaded: () => posthog.reset(true),
+      });
       return posthog;
     })
     .catch(() => null);
