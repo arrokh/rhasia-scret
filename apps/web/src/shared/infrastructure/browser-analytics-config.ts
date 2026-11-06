@@ -187,8 +187,7 @@ type AnalyticsEventProperties = {
 };
 
 export type AnalyticsEventPropertiesFor<Name extends AnalyticsEventName> = AnalyticsEventProperties[Name];
-
-const SANITIZED_URL_PROPERTIES = ["$current_url", "$referrer", "$initial_referrer"] as const;
+const SANITIZED_URL_PROPERTIES = ["$current_url"] as const;
 // Only source-controlled route segments may leave the browser. Unknown suffixes
 // fail closed, including future dynamic routes and user-controlled 404 paths.
 const STATIC_ANALYTICS_ROUTES = [
@@ -268,11 +267,15 @@ export function sanitizeAnalyticsCapture(capture: Parameters<BeforeSendFn>[0]): 
   const automaticCapture = capture.event.startsWith("$");
   const explicitClientError = capture.event === ANALYTICS_EVENTS.clientError;
   if (!automaticCapture && !explicitClientError) return null;
+  if (typeof window !== "undefined" && !isAnalyticsPublicRoute(window.location.pathname)) return null;
   if (!isAnalyticsPublicRoute(getAnalyticsPath(capture))) return null;
   if (automaticCapture && !KNOWN_AUTOMATIC_EVENTS.has(capture.event)) return null;
-
   for (const property of Object.keys(capture.properties)) {
     const value = capture.properties[property];
+    if (property === "$referrer" || property === "$initial_referrer") {
+      delete capture.properties[property];
+      continue;
+    }
     if (SANITIZED_URL_PROPERTIES.includes(property as (typeof SANITIZED_URL_PROPERTIES)[number])) {
       if (typeof value !== "string") {
         delete capture.properties[property];
@@ -390,7 +393,9 @@ function getAnalyticsPath(capture: NonNullable<Parameters<BeforeSendFn>[0]>): st
   const currentUrl = capture.properties.$current_url;
   if (typeof currentUrl === "string") {
     try {
-      return new URL(currentUrl).pathname;
+      const url = new URL(currentUrl);
+      if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+      return url.pathname;
     } catch {
       return "";
     }

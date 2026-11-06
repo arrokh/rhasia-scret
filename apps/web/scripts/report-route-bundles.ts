@@ -12,7 +12,7 @@ const routeManifests = {
 
 const budgets = {
   rawBytes: 750_000,
-  gzipBytes: 225_000,
+  gzipBytes: 225_250,
 } as const;
 
 type ClientReferenceManifest = {

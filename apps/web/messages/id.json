@@ -88,7 +88,7 @@
           "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.",
           "tailscale": "Tailscale Serve opsional dibatasi kebijakan akses tailnet; Funnel bersifat publik. Daemon host menerima HTTP aplikasi setelah TLS diakhiri lalu meneruskannya melalui loopback. Operator mengendalikan akses request lokal, log, dan retensi.",
           "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses database dari browser bukan bagian dari batas yang didukung.",
-          "analytics": "PostHog bersifat opsional dan default-nya nonaktif. Saat diaktifkan, PostHog hanya berjalan di halaman informasi publik dan menggunakan allowlist peristiwa yang terdokumentasi."
+          "analytics": "Cloudflare Web Analytics dan PostHog bersifat opsional dan default-nya nonaktif. Saat diaktifkan, keduanya hanya mengukur halaman informasi publik; halaman Brankas dan akun tidak pernah dilacak."
         }
       },
       "retention": {

@@ -42,6 +42,7 @@ describe("authentication proxy contract", () => {
     expect(response.headers.get("content-security-policy")).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
     expect(response.headers.get("content-security-policy")).toMatch(/script-src-elem 'self' 'nonce-[^']+'/);
     expect(response.headers.get("content-security-policy")).not.toContain("posthog.test");
+    expect(response.headers.get("referrer-policy")).toBe("origin");
     expect(response.headers.get("strict-transport-security")).toContain("preload");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
@@ -102,12 +103,25 @@ describe("authentication proxy contract", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("excludes analytics sources from authentication route policy", async () => {
+  it("allows analytics CSP sources only on exact configured public pages", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test_project_token");
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://analytics.example.test");
-    const response = await createAuthProxy(async () => false)(request("/sign-in"));
-    const policy = response.headers.get("content-security-policy") ?? "";
-    expect(policy).not.toContain("analytics.example.test");
-    expect(policy).toContain("https://challenges.cloudflare.com");
+    vi.stubEnv("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN", "synthetic-cloudflare-analytics-token");
+
+    const publicResponse = await createAuthProxy(async () => false)(request("/landing"));
+    const publicPolicy = publicResponse.headers.get("content-security-policy") ?? "";
+    expect(publicPolicy).toContain("analytics.example.test");
+    expect(publicPolicy).toContain("https://static.cloudflareinsights.com");
+    expect(publicPolicy).toContain("https://cloudflareinsights.com");
+
+    for (const path of ["/sign-in", "/vaults", "/landing/details"]) {
+      const response = await createAuthProxy(async () => false)(request(path));
+      const policy = response.headers.get("content-security-policy") ?? "";
+      expect(policy).not.toContain("analytics.example.test");
+      expect(policy).not.toContain("static.cloudflareinsights.com");
+      expect(policy).not.toContain("cloudflareinsights.com");
+      expect(policy).toContain("https://challenges.cloudflare.com");
+    }
   });
 
   it.each([

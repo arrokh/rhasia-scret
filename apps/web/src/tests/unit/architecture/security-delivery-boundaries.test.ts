@@ -20,6 +20,11 @@ describe("browser-delivery security boundaries", () => {
     const layout = read("src/app/layout.tsx");
     expect(layout).not.toContain("cloudflareinsights.com");
     expect(layout).toContain("BrowserAnalyticsBootstrap");
+    expect(layout).toContain('readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN")');
+    expect(layout).not.toMatch(/process\.env\.NEXT_PUBLIC_(?:POSTHOG|CLOUDFLARE_WEB_ANALYTICS)/);
+    const proxy = read("src/proxy.ts");
+    expect(proxy).toContain('readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN")');
+    expect(proxy).not.toMatch(/process\.env\.NEXT_PUBLIC_(?:POSTHOG|CLOUDFLARE_WEB_ANALYTICS)/);
   });
 
   it("avoids preloading non-critical analytics and font resources", () => {

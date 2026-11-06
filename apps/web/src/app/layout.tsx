@@ -9,6 +9,7 @@ import { BrowserSessionRefresh } from "@/modules/identity/presentation/browser-s
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { AppFooter } from "@/shared/presentation/app-ui";
 import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
+import type { BrowserAnalyticsRuntimeConfiguration } from "@/shared/infrastructure/browser-analytics-runtime-config";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
 import { OfflineAccessPrompt } from "@/modules/sync/presentation/offline-access-prompt";
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
@@ -81,13 +82,18 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const browserAnalyticsConfiguration: BrowserAnalyticsRuntimeConfiguration = {
+    cloudflareWebAnalyticsToken: readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN"),
+    posthogProjectToken: readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"),
+    posthogHost: readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_HOST"),
+  };
   return (
     <html lang={locale}>
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
           <QueryProvider>
             {readWebAuthBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
-            <BrowserAnalyticsBootstrap />
+            <BrowserAnalyticsBootstrap configuration={browserAnalyticsConfiguration} />
             <ServiceWorkerRegistration />
             <OfflineAccessPrompt />
             <Suspense fallback={null}>
@@ -102,6 +108,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </body>
     </html>
   );
+}
+
+function readRuntimePublicValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
 }
 
 function readWebAuthBackend(): "none" | "passwordless" | "invalid" {

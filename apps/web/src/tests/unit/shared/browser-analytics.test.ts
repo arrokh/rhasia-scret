@@ -4,7 +4,11 @@ import { readdirSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANALYTICS_EVENTS, sanitizeAnalyticsCapture } from "@/shared/infrastructure/browser-analytics-config";
 import type { BROWSER_ANALYTICS_CONFIG } from "@/shared/infrastructure/browser-analytics-config";
-import { isAnalyticsPublicRoute } from "@/shared/infrastructure/analytics-route-policy";
+import {
+  isAnalyticsPublicRoute,
+  requiresAnalyticsDocumentNavigation,
+} from "@/shared/infrastructure/analytics-route-policy";
+import type { BrowserAnalyticsRuntimeConfiguration } from "@/shared/infrastructure/browser-analytics-runtime-config";
 
 const posthogMocks = vi.hoisted(() => ({
   capture: vi.fn(),
@@ -14,6 +18,11 @@ const posthogMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("posthog-js/dist/module.full.no-external", () => ({ default: posthogMocks }));
+
+const POSTHOG_CONFIGURATION: BrowserAnalyticsRuntimeConfiguration = {
+  posthogProjectToken: "phc_test_project_token",
+  posthogHost: "https://us.i.posthog.test",
+};
 
 type AnalyticsInitOptions = {
   autocapture?: {
@@ -76,8 +85,6 @@ describe("browser analytics", () => {
     vi.resetModules();
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/");
-    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test_project_token");
-    vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://us.i.posthog.test");
   });
 
   afterEach(() => {
@@ -87,8 +94,8 @@ describe("browser analytics", () => {
   it("initializes PostHog without identifying users or emitting product events", async () => {
     const { initializeBrowserAnalytics } = await import("@/shared/infrastructure/browser-analytics");
 
-    initializeBrowserAnalytics();
-    initializeBrowserAnalytics();
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
 
     await vi.waitFor(() => expect(posthogMocks.init).toHaveBeenCalledOnce());
     const options = posthogMocks.init.mock.calls[0]?.[1] as AnalyticsInitOptions;
@@ -243,6 +250,17 @@ describe("browser analytics", () => {
     });
   });
 
+  it("drops stale public events after the browser has navigated to a private route", () => {
+    window.history.replaceState({}, "", "/vaults/accounts/new");
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "stale-public-pageview-test",
+      event: "$pageview",
+      properties: { $current_url: "https://vault.example.test/landing" },
+    });
+
+    expect(capture).toBeNull();
+  });
+
   it("keeps only aggregate Web Vitals values", () => {
     const capture = sanitizeAnalyticsCapture({
       uuid: "web-vitals-test-uuid",
@@ -312,6 +330,7 @@ describe("browser analytics", () => {
     ["/privacy", "/privacy"],
     ["/support", "/support"],
   ])("records only the public route structure for %s", (path, expected) => {
+    window.history.replaceState({}, "", path);
     for (const event of ["$pageview", "$pageleave", "$web_vitals", "$performance_event"]) {
       const capture = sanitizeAnalyticsCapture({
         uuid: "route-test-uuid",
@@ -325,8 +344,6 @@ describe("browser analytics", () => {
       });
       expect(capture?.properties).toEqual({
         $current_url: `https://vault.example.test${expected}`,
-        $referrer: `https://vault.example.test${expected}`,
-        $initial_referrer: `https://vault.example.test${expected}`,
         $pathname: expected,
       });
     }
@@ -339,6 +356,7 @@ describe("browser analytics", () => {
     expect(pages.length).toBeGreaterThan(0);
     for (const page of pages) {
       const path = `/${page.replace(/(?:^|\/)page\.tsx$/, "")}`;
+      window.history.replaceState({}, "", path);
       const capture = sanitizeAnalyticsCapture({
         uuid: "static-route-inventory-test",
         event: "$pageview",
@@ -346,6 +364,15 @@ describe("browser analytics", () => {
       });
       expect(capture !== null, page).toBe(isAnalyticsPublicRoute(path));
     }
+  });
+
+  it("uses document navigation across the public/private boundary and between Cloudflare public pages", () => {
+    expect(requiresAnalyticsDocumentNavigation("/landing", "/vaults", false)).toBe(true);
+    expect(requiresAnalyticsDocumentNavigation("/vaults", "/privacy", false)).toBe(true);
+    expect(requiresAnalyticsDocumentNavigation("/landing", "/support", true)).toBe(true);
+    expect(requiresAnalyticsDocumentNavigation("/landing", "/support", false)).toBe(false);
+    expect(requiresAnalyticsDocumentNavigation("/vaults", "/vaults/accounts/new", true)).toBe(false);
+    expect(requiresAnalyticsDocumentNavigation("/privacy", "/privacy", true)).toBe(false);
   });
 
   it("removes URL credentials and rejects non-web or malformed URLs", () => {
@@ -359,7 +386,39 @@ describe("browser analytics", () => {
         $pathname: "//alice:secret@vault.example.test",
       },
     });
-    expect(capture?.properties).toEqual({ $current_url: "https://vault.example.test/landing" });
+    expect(capture?.properties).toEqual({
+      $current_url: "https://vault.example.test/landing",
+    });
+  });
+
+  it("drops raw referrers and campaign values from PostHog pageviews", () => {
+    const capture = sanitizeAnalyticsCapture({
+      uuid: "attribution-redaction-test",
+      event: "$pageview",
+      properties: {
+        $current_url:
+          "https://vault.example.test/landing?utm_source=instagram&utm_medium=paid_social&utm_campaign=cmp_launch_01&email=alice%40example.test",
+        $referrer: "https://www.instagram.com/private-profile?private=hidden",
+        $initial_referrer: "https://www.instagram.com/private-profile?private=hidden",
+        public_source: "referral",
+        public_medium: "referral",
+      },
+    });
+
+    expect(capture?.properties).toEqual({
+      $current_url: "https://vault.example.test/landing",
+    });
+
+    const unsafeCampaign = sanitizeAnalyticsCapture({
+      uuid: "unsafe-campaign-redaction-test",
+      event: "$pageview",
+      properties: {
+        $current_url: "https://vault.example.test/landing?utm_campaign=alice%40example.test",
+      },
+    });
+    expect(unsafeCampaign?.properties).toEqual({
+      $current_url: "https://vault.example.test/landing",
+    });
   });
 
   it("drops page and performance events on application routes", () => {
@@ -396,8 +455,10 @@ describe("browser analytics", () => {
   });
 
   it("transmits only bounded explicit errors from public routes", async () => {
-    const { captureAnalyticsError, captureAnalyticsEvent } = await import("@/shared/infrastructure/browser-analytics");
+    const { captureAnalyticsError, captureAnalyticsEvent, initializeBrowserAnalytics } =
+      await import("@/shared/infrastructure/browser-analytics");
 
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
     captureAnalyticsEvent(ANALYTICS_EVENTS.authenticatorAccountCreated, { vault_type: "PERSONAL" });
     captureAnalyticsError(Object.assign(new Error("synthetic private details"), { digest: "synthetic-digest" }));
 
@@ -418,7 +479,7 @@ describe("browser analytics", () => {
     const { captureAnalyticsEvent, initializeBrowserAnalytics } =
       await import("@/shared/infrastructure/browser-analytics");
 
-    initializeBrowserAnalytics();
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
     captureAnalyticsEvent(ANALYTICS_EVENTS.vaultUnlocked, { method: "passphrase" });
     await Promise.resolve();
 
@@ -428,8 +489,10 @@ describe("browser analytics", () => {
   });
 
   it("does not identify the application user on public routes", async () => {
-    const { captureAnalyticsError } = await import("@/shared/infrastructure/browser-analytics");
+    const { captureAnalyticsError, initializeBrowserAnalytics } =
+      await import("@/shared/infrastructure/browser-analytics");
 
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
     captureAnalyticsError(new Error("synthetic public page error"));
 
     await vi.waitFor(() => expect(posthogMocks.capture).toHaveBeenCalledOnce());
@@ -437,12 +500,14 @@ describe("browser analytics", () => {
   });
 
   it("normalizes error boundary properties before capture", async () => {
-    const { captureAnalyticsError } = await import("@/shared/infrastructure/browser-analytics");
+    const { captureAnalyticsError, initializeBrowserAnalytics } =
+      await import("@/shared/infrastructure/browser-analytics");
     const error = Object.assign(new Error("private details"), {
       name: "Error: alice@example.test",
       digest: "https://example.test/?secret=private",
     });
 
+    initializeBrowserAnalytics(POSTHOG_CONFIGURATION);
     captureAnalyticsError(error);
 
     await vi.waitFor(() =>
@@ -454,10 +519,9 @@ describe("browser analytics", () => {
   });
 
   it("stays disabled when public PostHog configuration is incomplete", async () => {
-    vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
     const { initializeBrowserAnalytics } = await import("@/shared/infrastructure/browser-analytics");
 
-    initializeBrowserAnalytics();
+    initializeBrowserAnalytics({ posthogProjectToken: "", posthogHost: POSTHOG_CONFIGURATION.posthogHost });
     await Promise.resolve();
 
     expect(posthogMocks.init).not.toHaveBeenCalled();

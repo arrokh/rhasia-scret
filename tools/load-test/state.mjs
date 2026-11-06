@@ -225,6 +225,7 @@ export function generateEnvironment(project, commit, smtpCaBase64) {
     `PASSKEY_ORIGIN=${WEB_ORIGIN}`,
     "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=",
     "NEXT_PUBLIC_POSTHOG_HOST=",
+    "NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN=",
   ];
   return `${lines.join("\n")}\n`;
 }

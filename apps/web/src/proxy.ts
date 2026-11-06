@@ -7,11 +7,11 @@ import { isAnalyticsPublicRoute } from "@/shared/infrastructure/analytics-route-
 type VerifySession = (request: NextRequest, setAuthCookies: SetAuthCookies) => Promise<ProxySessionVerification>;
 
 const PROTECTED_PAGE_PATHS = ["/totp", "/vaults"] as const;
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
 const cloudflareTurnstileHost = "https://challenges.cloudflare.com";
+const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
+const cloudflareAnalyticsConnectHost = "https://cloudflareinsights.com";
 const SECURITY_HEADERS: Record<string, string> = {
-  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Referrer-Policy": "origin",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
@@ -21,10 +21,30 @@ const SECURITY_HEADERS: Record<string, string> = {
   "X-Permitted-Cross-Domain-Policies": "none",
 };
 
+function readRuntimePublicValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
+}
+
 function createCsp(nonce: string, pathname: string): string {
   const developmentScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
-  const analyticsScriptSources = isAnalyticsPublicRoute(pathname) ? [posthogAssetsHost] : [];
-  const analyticsConnectSources = isAnalyticsPublicRoute(pathname) ? [posthogHost] : [];
+  const publicAnalyticsRoute = isAnalyticsPublicRoute(pathname);
+  const posthogHost = readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_HOST");
+  const posthogEnabled = Boolean(readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN") && posthogHost);
+  const cloudflareAnalyticsEnabled = Boolean(readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN"));
+  const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
+  const analyticsScriptSources = publicAnalyticsRoute
+    ? [
+        posthogEnabled ? posthogAssetsHost : undefined,
+        cloudflareAnalyticsEnabled ? cloudflareAnalyticsScriptHost : undefined,
+      ]
+    : [];
+  const analyticsConnectSources = publicAnalyticsRoute
+    ? [
+        posthogEnabled ? posthogHost : undefined,
+        cloudflareAnalyticsEnabled ? cloudflareAnalyticsConnectHost : undefined,
+      ]
+    : [];
   // Next.js can omit a nonce from dynamically inserted chunk elements; keep inline scripts nonced while allowing immutable same-origin chunks.
   const scriptElementPolicy = [
     `script-src-elem 'self' 'nonce-${nonce}'`,

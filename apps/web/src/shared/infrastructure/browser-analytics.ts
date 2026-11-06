@@ -7,16 +7,17 @@ import {
   normalizeAnalyticsErrorDigest,
   normalizeAnalyticsErrorName,
 } from "./browser-analytics-config";
+import type { BrowserAnalyticsRuntimeConfiguration } from "./browser-analytics-runtime-config";
 import { isAnalyticsPublicRoute } from "./analytics-route-policy";
 
 type PostHogClient = typeof import("posthog-js/dist/module.full.no-external").default;
-const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 let posthogPromise: Promise<PostHogClient | null> | undefined;
+let activeConfiguration: BrowserAnalyticsRuntimeConfiguration | undefined;
 
-export function initializeBrowserAnalytics(): void {
+export function initializeBrowserAnalytics(configuration: BrowserAnalyticsRuntimeConfiguration): void {
   if (!isCurrentRoutePublic()) return;
-  void loadPostHog();
+  activeConfiguration = configuration;
+  void loadPostHog(configuration);
 }
 
 export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
@@ -26,11 +27,11 @@ export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
     : [properties: AnalyticsEventPropertiesFor<EventName>]
 ): void {
   if (event !== ANALYTICS_EVENTS.clientError || !isCurrentRoutePublic()) return;
-  void loadPostHog().then((posthog) => posthog?.capture(event, properties[0]));
+  void loadPostHog(activeConfiguration).then((posthog) => posthog?.capture(event, properties[0]));
 }
 
 export function resetAnalytics(): void {
-  void loadPostHog().then((posthog) => posthog?.reset());
+  void loadPostHog(activeConfiguration).then((posthog) => posthog?.reset());
 }
 
 export function captureAnalyticsError(error: Error & { digest?: string }): void {
@@ -40,9 +41,12 @@ export function captureAnalyticsError(error: Error & { digest?: string }): void 
   });
 }
 
-function loadPostHog(): Promise<PostHogClient | null> {
+function loadPostHog(configuration: BrowserAnalyticsRuntimeConfiguration | undefined): Promise<PostHogClient | null> {
   if (!isCurrentRoutePublic()) return Promise.resolve(null);
+  const projectToken = configuration?.posthogProjectToken?.trim();
+  const posthogHost = configuration?.posthogHost?.trim();
   if (!projectToken || !posthogHost) return Promise.resolve(null);
+  activeConfiguration = configuration;
   posthogPromise ??= import("posthog-js/dist/module.full.no-external")
     .then(({ default: posthog }) => {
       posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });

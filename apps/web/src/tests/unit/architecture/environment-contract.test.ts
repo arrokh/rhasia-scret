@@ -13,6 +13,8 @@ describe("workspace environment contract", () => {
     expect(example).toContain("# Hosted API service: self-managed passwordless authentication (server-only)");
     expect(example).toContain("# Docker Compose: database bootstrap and published web port");
     expect(example).toContain("AUTH_BACKEND=passwordless");
+    expect(example).toContain("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN=");
+    expect(example).toContain("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=");
     expect(example).toContain("AUTH_APP_ORIGIN=");
     expect(example).toContain("NEXT_ALLOWED_DEV_ORIGINS=");
     expect(example).not.toContain("EXPO_PUBLIC_");

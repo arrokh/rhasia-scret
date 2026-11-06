@@ -1,6 +1,6 @@
 # Privacy-safe analytics events
 
-The sole web client retains a typed product-event contract in `apps/web/src/shared/infrastructure/browser-analytics-config.ts`. Product events are not transmitted on any route. PostHog receives aggregate page/performance events, redacted public click/submit interactions, bounded exception types, and the bounded error-boundary event on `/`, `/landing`, `/privacy`, and `/support` when its public configuration is enabled. The application never identifies a PostHog user.
+The sole web client retains a typed product-event contract in `apps/web/src/shared/infrastructure/browser-analytics-config.ts`. Product events are not transmitted on any route. When configured, Cloudflare Web Analytics receives aggregate visits, public page paths, external referring-site dimensions, geography, and performance metrics. PostHog receives aggregate page/performance events, redacted public click/submit interactions, bounded exception types, and the bounded error-boundary event on `/`, `/landing`, `/privacy`, and `/support`; it receives no referrer or campaign attribution. Neither integration runs on Vault or account routes, and the application never identifies a PostHog user.
 
 ## Event catalog
 
@@ -101,20 +101,23 @@ The browser SDK explicitly enables only these automatic reports on public
 routes, along with the bounded error-boundary event:
 
 - **Web Analytics / page reports:** `$pageview` and `$pageleave`. Only `/`, `/landing`, `/privacy`, and `/support` are allowed. Query strings, fragments, credentials, titles, DOM text, and element attributes are removed.
+- **Cloudflare Web Analytics:** aggregate page visits, page paths, external referring-site dimensions, geography, browser/device details, and performance for public page loads. The site's Referrer-Policy limits referrers sent from rhasia-scret pages to the site origin. Cloudflare says query strings are not logged. The beacon has SPA tracking disabled; links between different public pages use a document navigation so each public page load is measurable.
+- **Acquisition attribution:** use Cloudflare's aggregate referring-site and geography reports. PostHog referrer collection and campaign-parameter capture remain disabled; no referrer or UTM value is sent to PostHog.
 - **Public interactions:** click/submit events are limited to links and buttons. DOM text, attributes, and URL values are removed; each remaining event represents a redacted interaction on a public path.
 - **Web Vitals:** `$web_vitals` for LCP, CLS, FCP, and INP. Only bounded numeric metric values survive the client sanitizer; attribution objects and navigation URLs do not.
 - **Live traffic:** PostHog Live Events contain public page, performance, redacted interaction, and bounded exception events only; application routes produce no events.
-- **Installation health:** use PostHog's deployment/project health view and the event delivery/request error indicators. Keep staging and production projects separate.
+- **Installation health:** use Cloudflare Web Analytics for aggregate traffic, geography, and page performance. Use PostHog's deployment/project health view and event delivery/request error indicators. Keep staging and production projects separate.
 - **Error tracking:** unhandled errors and promise rejections are enabled; console capture is disabled. Automatic exceptions retain only a bounded error type. The explicit `client_error` event retains only a bounded error name and digest.
 - **Logs:** browser console-log capture is intentionally disabled. PostHog browser log records attach current URL metadata outside the event `before_send` sanitizer, so arbitrary browser logs would violate the privacy contract. Do not enable console logs until a URL-redacting log hook is available.
 
 The sanitizer is allowlist-first at runtime: unknown automatic events and explicit events are dropped, event properties are validated by event name, counts are bounded, and only fixed enum values are accepted. The unit tests in `src/tests/unit/shared/browser-analytics.test.ts` are the contract for this policy.
 
-## Configure in PostHog
+## Configure the public analytics providers
 
-The application sends public-only analytics; dashboards and insights are configured in the PostHog project. Repeat the smoke check after each analytics-policy change. Product-event funnels listed in the typed catalog cannot receive new events under ADR-0062.
+The application sends public-only analytics; dashboards and insights are configured in the provider projects. Repeat the smoke check after each analytics-policy change. Product-event funnels listed in the typed catalog cannot receive new events under ADR-0062.
 
-1. Confirm the deployed environment has `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` set to the intended PostHog project. Keep staging and production in separate projects when possible.
-2. Deploy to staging, open one of the allowed public pages, and verify that only a sanitized pageview and aggregate Web Vitals are received. Do not use real or user-provided Vault names, account labels, email addresses, secrets, or QR data during the test.
-3. Create a dashboard from **Dashboards → New dashboard → Blank dashboard**, name it `RHSIA Public Page Health`, and add pageview and Web Vitals insights only. See the [PostHog dashboard documentation](https://posthog.com/docs/product-analytics/dashboards) for dashboard filters, date ranges, and sharing. Set a shared date range such as **Last 30 days** after data is available; use **Last 7 days** for the operating view.
-4. Share the dashboard only with the intended team, and review the received properties once after deployment. If an unexpected property appears, disable the integration and update the sanitizer test before re-enabling it.
+1. Create a Cloudflare Web Analytics site for the public website and set its browser token as `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`. Keep staging and production sites separate where possible.
+2. If using PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` to the intended project. Keep staging and production in separate projects where possible.
+3. Deploy to staging, open the allowed public pages, and verify Cloudflare page visits and PostHog sanitized pageviews/Web Vitals. Confirm PostHog receives no referrer or UTM values. Do not use real or user-provided Vault names, account labels, email addresses, secrets, or QR data during the test.
+4. In PostHog, create a dashboard from **Dashboards → New dashboard → Blank dashboard**, name it `RHSIA Public Page Health`, and add pageview and Web Vitals insights. Use Cloudflare Web Analytics for aggregate acquisition, geography, and referring-site reporting. See the [PostHog Web Analytics dashboard documentation](https://posthog.com/docs/web-analytics/dashboard) for dashboard filters, date ranges, and sharing. Set a shared date range such as **Last 30 days** after data is available; use **Last 7 days** for the operating view.
+5. Share dashboards only with the intended team, and review received properties once after deployment. If an unexpected property appears, disable that integration and update its policy test before re-enabling it.
