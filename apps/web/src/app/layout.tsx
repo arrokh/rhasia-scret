@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Roboto_Mono } from "next/font/google";
-import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Suspense, type ReactNode } from "react";
@@ -10,6 +9,7 @@ import { BrowserSessionRefresh } from "@/modules/identity/presentation/browser-s
 import { readAuthConfiguration } from "@/modules/identity/infrastructure/auth-backend";
 import { AppFooter } from "@/shared/presentation/app-ui";
 import { BrowserAnalyticsBootstrap } from "@/shared/presentation/browser-analytics-bootstrap";
+import type { BrowserAnalyticsRuntimeConfiguration } from "@/shared/infrastructure/browser-analytics-runtime-config";
 import { ServiceWorkerRegistration } from "@/modules/sync/presentation/service-worker-registration";
 import { OfflineAccessPrompt } from "@/modules/sync/presentation/offline-access-prompt";
 import { NavigationProgress } from "@/shared/presentation/navigation-progress";
@@ -18,12 +18,6 @@ import "@/shared/presentation/styles/globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", preload: false });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });
-const cloudflareAnalyticsToken = process.env.NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
-const cloudflareAnalyticsScriptProps = {
-  src: "https://static.cloudflareinsights.com/beacon.min.js",
-  crossOrigin: "anonymous",
-  "data-cf-beacon": JSON.stringify({ token: cloudflareAnalyticsToken }),
-} as const;
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Metadata");
@@ -88,13 +82,18 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const browserAnalyticsConfiguration: BrowserAnalyticsRuntimeConfiguration = {
+    cloudflareWebAnalyticsToken: readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN"),
+    posthogProjectToken: readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"),
+    posthogHost: readRuntimePublicValue("NEXT_PUBLIC_POSTHOG_HOST"),
+  };
   return (
     <html lang={locale}>
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
           <QueryProvider>
             {readWebAuthBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
-            <BrowserAnalyticsBootstrap />
+            <BrowserAnalyticsBootstrap configuration={browserAnalyticsConfiguration} />
             <ServiceWorkerRegistration />
             <OfflineAccessPrompt />
             <Suspense fallback={null}>
@@ -106,12 +105,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             </div>
           </QueryProvider>
         </NextIntlClientProvider>
-        {cloudflareAnalyticsToken ? (
-          <Script {...cloudflareAnalyticsScriptProps} id="cloudflare-web-analytics" strategy="lazyOnload" />
-        ) : null}
       </body>
     </html>
   );
+}
+
+function readRuntimePublicValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
 }
 
 function readWebAuthBackend(): "none" | "passwordless" | "invalid" {

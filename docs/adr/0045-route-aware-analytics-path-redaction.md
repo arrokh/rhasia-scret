@@ -1,6 +1,6 @@
 # Route-aware analytics path redaction
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0062
 - **Related:** ADR-0044
 
 ## Context

@@ -7,6 +7,7 @@ export type VerifiedPrincipal = {
   emailVerified: boolean;
   assurance: SessionAssurance;
   sessionId?: string;
+  sessionExpiresAt?: Date;
   issuedAt?: Date;
 };
 

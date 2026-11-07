@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   decryptPayloadWithContext,
   encryptPayload,
+  encryptPayloadWithContext,
   generateSymmetricKey,
   serializeEncryptedEnvelope,
   deserializeEncryptedEnvelope,
@@ -16,6 +17,40 @@ import { wrapUserRootKeyWithVaultUnlockSecret } from "@/modules/crypto/infrastru
 import { PersonalVaultUnlockError } from "@rhasia-scret/client-vault-core";
 
 describe("unlockPersonalVault", () => {
+  it("keeps opening a Vault created with a legacy three-character passphrase", async () => {
+    const legacySecret = "abc";
+    const salt = new Uint8Array(16).fill(1);
+    const userRootKey = new Uint8Array(32).fill(2);
+    const personalVaultKey = new Uint8Array(32).fill(3);
+    const unlockKey = await deriveVaultUnlockKey(legacySecret, salt);
+    const profile = {
+      vaultUnlockSalt: salt,
+      wrappedUserRootKey: serializeEncryptedEnvelope(
+        await encryptPayloadWithContext(unlockKey, userRootKey, {
+          purpose: "user-root-key-wrap",
+          payloadType: "user-root-key",
+          keyVersion: 1,
+        }),
+      ),
+      encryptedPersonalVaultKey: serializeEncryptedEnvelope(
+        await encryptPayloadWithContext(userRootKey, personalVaultKey, {
+          purpose: "vault-key-wrap",
+          payloadType: "vault-encryption-key",
+          keyVersion: 1,
+        }),
+      ),
+      encryptionVersion: 1,
+    };
+    unlockKey.fill(0);
+    userRootKey.fill(0);
+    personalVaultKey.fill(0);
+
+    await expect(unlockPersonalVault(legacySecret, profile)).resolves.toMatchObject({
+      userRootKey: expect.any(Uint8Array),
+      personalVaultKey: expect.any(Uint8Array),
+    });
+  });
+
   it("recovers the Personal Vault Encryption Key only with the Vault Unlock Secret", async () => {
     const secret = "alpha bravo charlie delta echo foxtrot";
     const material = await initializePersonalVaultInBrowser(secret, "Personal Vault");

@@ -14,7 +14,7 @@ import {
   clearPersonalVaultInitializationMaterial,
   generateVaultUnlockSecret,
   initializePersonalVaultInBrowser,
-  validateVaultUnlockSecret,
+  validateNewVaultUnlockSecret,
 } from "@/modules/crypto";
 import { bytesToBase64 } from "@/shared/infrastructure/browser-base64";
 import { captureAnalyticsEvent } from "@/shared/infrastructure/browser-analytics";
@@ -370,7 +370,7 @@ function getSetupFailureCategory(stage: SetupFailureStage, error: unknown): Setu
 
 function isVaultUnlockSecretValid(secret: string): boolean {
   try {
-    validateVaultUnlockSecret(secret);
+    validateNewVaultUnlockSecret(secret);
     return true;
   } catch {
     return false;

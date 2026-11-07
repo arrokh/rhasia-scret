@@ -4,23 +4,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { posthog } from "posthog-js";
 import { BROWSER_ANALYTICS_CONFIG } from "@/shared/infrastructure/browser-analytics-config";
 
-describe("PostHog navigation path redaction", () => {
+describe("PostHog public-route navigation policy", () => {
   afterEach(async () => {
     await posthog.shutdown();
     window.sessionStorage.clear();
     window.localStorage.clear();
   });
 
-  it("captures sanitized initial and client-side navigation paths through the real SDK", async () => {
-    window.history.replaceState({}, "", "/vaults");
+  it("allows public pageviews and suppresses client-side navigation to application routes", async () => {
+    window.history.replaceState({}, "", "/landing");
     const pageviews: Record<string, unknown>[] = [];
+    const candidates: Record<string, unknown>[] = [];
     posthog.init("phc_navigation_test", {
       ...BROWSER_ANALYTICS_CONFIG,
       api_host: "https://us.i.posthog.test",
-      loaded: () => undefined,
       capture_performance: false,
       autocapture: false,
       before_send: (capture) => {
+        if (capture?.event === "$pageview") candidates.push(capture.properties);
         const sanitized = BROWSER_ANALYTICS_CONFIG.before_send(capture);
         if (sanitized?.event === "$pageview") pageviews.push(sanitized.properties);
         // Exercise SDK capture without sending test traffic.
@@ -29,20 +30,13 @@ describe("PostHog navigation path redaction", () => {
     });
 
     await vi.waitFor(() => expect(pageviews).toHaveLength(1));
+    expect(pageviews.map((properties) => properties.$pathname)).toEqual(["/landing"]);
     window.history.pushState({}, "", "/vaults/manage/cms1btg0p00wt9spon6tz59d4?secret=hidden#key");
     window.history.replaceState({}, "", "/vaults/manage/personal");
-    await vi.waitFor(() => expect(pageviews).toHaveLength(3));
+    await vi.waitFor(() => expect(candidates).toHaveLength(3));
 
-    expect(pageviews.map((properties) => properties.$pathname)).toEqual([
-      "/vaults",
-      "/vaults/manage/[redacted]",
-      "/vaults/manage/personal",
-    ]);
-    expect(pageviews.map((properties) => new URL(String(properties.$current_url)).pathname)).toEqual([
-      "/vaults",
-      "/vaults/manage/[redacted]",
-      "/vaults/manage/personal",
-    ]);
+    expect(pageviews).toHaveLength(1);
+    expect(new URL(String(pageviews[0]?.$current_url)).pathname).toBe("/landing");
     expect(JSON.stringify(pageviews)).not.toMatch(/cms1btg0p00wt9spon6tz59d4|secret=hidden|#key/);
     expect(Object.keys(window.sessionStorage)).toEqual([]);
     expect(Object.keys(window.localStorage)).toEqual([]);

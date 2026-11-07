@@ -31,7 +31,7 @@ export async function createPersonalVaultInitialization(
   vaultName: string,
   ports: PersonalVaultInitializationPorts,
 ): Promise<PersonalVaultInitializationMaterial> {
-  validateVaultUnlockSecret(vaultUnlockSecret);
+  validateNewVaultUnlockSecret(vaultUnlockSecret);
   if (!vaultName.trim()) throw new Error("A Vault Name is required.");
 
   const vaultUnlockSalt = ports.crypto.randomBytes(vaultUnlockSaltBytes);
@@ -99,4 +99,10 @@ export function clearPersonalVaultInitializationMaterial(material: PersonalVault
 
 export function validateVaultUnlockSecret(secret: string): void {
   if (secret.trim().length < 3) throw new Error("A Vault Unlock Secret must contain at least three characters.");
+}
+
+export function validateNewVaultUnlockSecret(secret: string): void {
+  validateVaultUnlockSecret(secret);
+  if (Array.from(secret.trim()).length < 12)
+    throw new Error("A new Vault Unlock Secret must contain at least twelve characters.");
 }

@@ -5,26 +5,16 @@ import { loadWorkspaceEnvironment, WEB_RUNTIME_ENVIRONMENT_KEYS } from "./script
 loadWorkspaceEnvironment({ allowedKeys: WEB_RUNTIME_ENVIRONMENT_KEYS });
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-const posthogAssetsHost = posthogHost?.replace(/:\/\/([a-z0-9-]+)\.i\./, "://$1-assets.i.");
-const cloudflareAnalyticsScriptHost = "https://static.cloudflareinsights.com";
-const cloudflareAnalyticsEndpointHost = "https://cloudflareinsights.com";
 const cloudflareTurnstileHost = "https://challenges.cloudflare.com";
 
 const staticContentSecurityPolicy = [
   "default-src 'self'",
-  ["script-src 'self' 'wasm-unsafe-eval'", posthogAssetsHost, cloudflareAnalyticsScriptHost, cloudflareTurnstileHost]
-    .filter(Boolean)
-    .join(" "),
-  ["script-src-elem 'self'", posthogAssetsHost, cloudflareAnalyticsScriptHost, cloudflareTurnstileHost]
-    .filter(Boolean)
-    .join(" "),
+  `script-src 'self' 'wasm-unsafe-eval' ${cloudflareTurnstileHost}`,
+  `script-src-elem 'self' ${cloudflareTurnstileHost}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  ["connect-src 'self'", posthogHost, cloudflareAnalyticsEndpointHost, cloudflareTurnstileHost]
-    .filter(Boolean)
-    .join(" "),
+  `connect-src 'self' ${cloudflareTurnstileHost}`,
   `frame-src 'self' ${cloudflareTurnstileHost}`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
@@ -35,7 +25,7 @@ const staticContentSecurityPolicy = [
 ].join("; ");
 
 const securityHeaders = [
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Referrer-Policy", value: "origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },

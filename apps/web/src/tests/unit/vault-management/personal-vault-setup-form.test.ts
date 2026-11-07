@@ -25,8 +25,8 @@ const cryptoMocks = vi.hoisted(() => ({
       material.encryptedUserPrivateKey.fill(0);
     },
   ),
-  validateVaultUnlockSecret: vi.fn((secret: string) => {
-    if (secret.trim().length < 3) throw new Error("At least three characters are required.");
+  validateNewVaultUnlockSecret: vi.fn((secret: string) => {
+    if (Array.from(secret.trim()).length < 12) throw new Error("At least twelve characters are required.");
   }),
 }));
 const navigationMocks = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn() }));
@@ -103,7 +103,7 @@ describe("PersonalVaultSetupForm", () => {
 
     expect(submit?.disabled).toBe(false);
     expect(container.querySelector("output")).toBeNull();
-    expect(container.textContent).toContain("minimal 3 karakter");
+    expect(container.textContent).toContain("minimal 12 karakter");
 
     const form = container.querySelector<HTMLFormElement>("form");
     const customSecret = container.querySelector<HTMLInputElement>("#custom-unlock-secret");
@@ -128,8 +128,8 @@ describe("PersonalVaultSetupForm", () => {
     expect(container.querySelector('[aria-label="Sembunyikan Passphrase Brankas Anda"]')).not.toBeNull();
 
     await act(async () => {
-      setInputValue(customSecret, "abc");
-      setInputValue(confirmation, "abd");
+      setInputValue(customSecret, "abcdefgh1234");
+      setInputValue(confirmation, "abcdefgh1235");
     });
     expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("true");
     expect(confirmation?.getAttribute("aria-invalid")).toBe("true");
@@ -138,26 +138,26 @@ describe("PersonalVaultSetupForm", () => {
     );
 
     await act(async () => {
-      setInputValue(customSecret, "ab");
-      setInputValue(confirmation, "ab");
+      setInputValue(customSecret, "short");
+      setInputValue(confirmation, "short");
       acknowledgement?.click();
     });
     expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("false");
     await act(async () => form?.requestSubmit());
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("minimal 3 karakter");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("minimal 12 karakter");
     expect(confirmation?.getAttribute("aria-invalid")).toBe("false");
     expect(cryptoMocks.initializePersonalVaultInBrowser).not.toHaveBeenCalled();
 
     await act(async () => {
-      setInputValue(customSecret, "abc");
-      setInputValue(confirmation, "abc");
+      setInputValue(customSecret, "abcdefgh1234");
+      setInputValue(confirmation, "abcdefgh1234");
     });
     expect(customSecret?.getAttribute("data-personal-vault-passphrase-valid")).toBe("true");
     expect(submit?.disabled).toBe(false);
     await act(async () => form?.requestSubmit());
 
-    expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abc", "Brankas Pribadi");
+    expect(cryptoMocks.initializePersonalVaultInBrowser).toHaveBeenCalledWith("abcdefgh1234", "Brankas Pribadi");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/personal-vault/initialize",
       expect.objectContaining({ method: "POST" }),

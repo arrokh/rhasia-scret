@@ -26,7 +26,6 @@ describe("offline PWA architecture boundaries", () => {
       "src/modules/identity/infrastructure/browser-passwordless-client.ts",
       "src/modules/identity/infrastructure/browser-session-client.ts",
       "src/modules/identity/infrastructure/browser-user-encryption-identity-rotation-client.ts",
-      "src/modules/identity/presentation/browser-session-refresh.tsx",
       "src/modules/vault-archive/infrastructure/browser-vault-import-client.ts",
       "src/modules/vault-management/infrastructure/browser-vault-key-rotation-client.ts",
       "src/modules/vault-management/infrastructure/browser-vault-management-client.ts",

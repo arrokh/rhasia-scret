@@ -7,24 +7,17 @@ import {
   normalizeAnalyticsErrorDigest,
   normalizeAnalyticsErrorName,
 } from "./browser-analytics-config";
+import type { BrowserAnalyticsRuntimeConfiguration } from "./browser-analytics-runtime-config";
+import { isAnalyticsPublicRoute } from "./analytics-route-policy";
 
 type PostHogClient = typeof import("posthog-js/dist/module.full.no-external").default;
-const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 let posthogPromise: Promise<PostHogClient | null> | undefined;
+let activeConfiguration: BrowserAnalyticsRuntimeConfiguration | undefined;
 
-export function initializeBrowserAnalytics(): void {
-  void loadPostHog();
-}
-
-export async function identifyAnalyticsUser(userId: string): Promise<boolean> {
-  if (!/^[A-Za-z0-9_-]{8,128}$/.test(userId)) return false;
-  const hashedUserId = await hashAnalyticsUserId(userId);
-  if (!hashedUserId) return false;
-  const posthog = await loadPostHog();
-  if (!posthog) return false;
-  posthog.identify(hashedUserId);
-  return true;
+export function initializeBrowserAnalytics(configuration: BrowserAnalyticsRuntimeConfiguration): void {
+  if (!isCurrentRoutePublic()) return;
+  activeConfiguration = configuration;
+  void loadPostHog(configuration);
 }
 
 export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
@@ -33,11 +26,12 @@ export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
     ? []
     : [properties: AnalyticsEventPropertiesFor<EventName>]
 ): void {
-  void loadPostHog().then((posthog) => posthog?.capture(event, properties[0]));
+  if (event !== ANALYTICS_EVENTS.clientError || !isCurrentRoutePublic()) return;
+  void loadPostHog(activeConfiguration).then((posthog) => posthog?.capture(event, properties[0]));
 }
 
 export function resetAnalytics(): void {
-  void loadPostHog().then((posthog) => posthog?.reset());
+  void loadPostHog(activeConfiguration).then((posthog) => posthog?.reset());
 }
 
 export function captureAnalyticsError(error: Error & { digest?: string }): void {
@@ -47,23 +41,27 @@ export function captureAnalyticsError(error: Error & { digest?: string }): void 
   });
 }
 
-async function hashAnalyticsUserId(userId: string): Promise<string | null> {
-  if (typeof crypto === "undefined" || !crypto.subtle) return null;
-  try {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(userId));
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch {
-    return null;
-  }
-}
-
-function loadPostHog(): Promise<PostHogClient | null> {
+function loadPostHog(configuration: BrowserAnalyticsRuntimeConfiguration | undefined): Promise<PostHogClient | null> {
+  if (!isCurrentRoutePublic()) return Promise.resolve(null);
+  const projectToken = configuration?.posthogProjectToken?.trim();
+  const posthogHost = configuration?.posthogHost?.trim();
   if (!projectToken || !posthogHost) return Promise.resolve(null);
+  activeConfiguration = configuration;
   posthogPromise ??= import("posthog-js/dist/module.full.no-external")
     .then(({ default: posthog }) => {
-      posthog.init(projectToken, { api_host: posthogHost, ...BROWSER_ANALYTICS_CONFIG });
+      posthog.init(projectToken, {
+        api_host: posthogHost,
+        ...BROWSER_ANALYTICS_CONFIG,
+        // Disabled persistence still hydrates legacy identity in memory. Reset
+        // it before PostHog schedules the initial pageview.
+        loaded: () => posthog.reset(true),
+      });
       return posthog;
     })
     .catch(() => null);
   return posthogPromise;
+}
+
+function isCurrentRoutePublic(): boolean {
+  return typeof window !== "undefined" && isAnalyticsPublicRoute(window.location.pathname);
 }

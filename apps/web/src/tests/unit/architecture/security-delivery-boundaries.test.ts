@@ -13,17 +13,18 @@ describe("browser-delivery security boundaries", () => {
     expect(config).toContain("Content-Security-Policy");
     expect(config).toContain("script-src 'self' 'wasm-unsafe-eval'");
     expect(config).toContain("script-src-elem 'self'");
-    expect(config).toContain("https://static.cloudflareinsights.com");
-    expect(config).toContain("https://cloudflareinsights.com");
     expect(config).toContain("https://challenges.cloudflare.com");
     expect(config).toContain("frame-src 'self'");
     expect(config).toContain("frame-ancestors 'none'");
     expect(config).toContain("Cache-Control");
     const layout = read("src/app/layout.tsx");
-    expect(layout).toContain('src: "https://static.cloudflareinsights.com/beacon.min.js"');
-    expect(layout).toContain('crossOrigin: "anonymous"');
-    expect(layout).toContain('"data-cf-beacon": JSON.stringify({ token: cloudflareAnalyticsToken })');
-    expect(layout).toContain("{...cloudflareAnalyticsScriptProps}");
+    expect(layout).not.toContain("cloudflareinsights.com");
+    expect(layout).toContain("BrowserAnalyticsBootstrap");
+    expect(layout).toContain('readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN")');
+    expect(layout).not.toMatch(/process\.env\.NEXT_PUBLIC_(?:POSTHOG|CLOUDFLARE_WEB_ANALYTICS)/);
+    const proxy = read("src/proxy.ts");
+    expect(proxy).toContain('readRuntimePublicValue("NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN")');
+    expect(proxy).not.toMatch(/process\.env\.NEXT_PUBLIC_(?:POSTHOG|CLOUDFLARE_WEB_ANALYTICS)/);
   });
 
   it("avoids preloading non-critical analytics and font resources", () => {
@@ -34,7 +35,7 @@ describe("browser-delivery security boundaries", () => {
     expect(layout).toContain(
       'const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono", preload: false });',
     );
-    expect(layout).toContain('strategy="lazyOnload"');
+    expect(layout).not.toContain("next/script");
     expect(layout).not.toContain('type="module"');
   });
 

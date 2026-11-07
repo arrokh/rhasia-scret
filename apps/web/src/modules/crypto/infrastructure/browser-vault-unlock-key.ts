@@ -15,6 +15,7 @@ import {
 type DerivationResponse = { ok: true; key: ArrayBuffer } | { ok: false };
 
 export { validateVaultUnlockSecret } from "@rhasia-scret/client-vault-core";
+export { validateNewVaultUnlockSecret } from "@rhasia-scret/client-vault-core";
 
 export class BrowserArgon2idPort implements KeyDerivationPort {
   deriveArgon2id(

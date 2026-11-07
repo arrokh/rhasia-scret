@@ -67,7 +67,7 @@
           "auth": "Layanan passwordless yang dikelola sendiri menangani metadata identitas, event autentikasi, dan sesi buram; layanan tersebut tidak menerima plaintext Vault dari aplikasi ini.",
           "hosting": "Host referensi adalah Vercel; CDN atau reverse proxy dapat menangani log jaringan dan request. Operator deployment mengendalikan akses, TLS, dan retensi.",
           "database": "PostgreSQL menyimpan konten terenkripsi dan metadata yang diizinkan melalui Prisma di server. Akses database dari browser bukan bagian dari batas yang didukung.",
-          "analytics": "PostHog dan Cloudflare Web Analytics bersifat opsional dan default-nya nonaktif. Saat diaktifkan, allowlist dan tinjauan payload operator berlaku."
+          "analytics": "PostHog bersifat opsional dan default-nya nonaktif. Saat diaktifkan, PostHog hanya berjalan di halaman informasi publik dan menggunakan allowlist peristiwa yang terdokumentasi."
         }
       },
       "retention": {
@@ -540,7 +540,7 @@
       "generated": "Dibuatkan secara acak",
       "recommended": "Direkomendasikan",
       "custom": "Buat sendiri",
-      "minimum": "Minimal 3 karakter",
+      "minimum": "Minimal 12 karakter",
       "newPassphrase": "Passphrase Brankas baru",
       "generating": "Membuat passphrase…",
       "copied": "Disalin",
@@ -548,8 +548,8 @@
       "regenerate": "Buat passphrase lain",
       "copyError": "Passphrase tidak dapat disalin. Salin secara manual dari kolom di atas.",
       "copiedAnnouncement": "Passphrase Brankas baru disalin",
-      "customHelp": "Gunakan minimal 3 karakter dan simpan passphrase secara luring.",
-      "invalid": "Passphrase Brankas harus berisi minimal 3 karakter.",
+      "customHelp": "Gunakan minimal 12 karakter dan simpan passphrase secara luring.",
+      "invalid": "Passphrase Brankas harus berisi minimal 12 karakter.",
       "confirmationMismatch": "Konfirmasi harus cocok dengan passphrase baru.",
       "reenter": "Masukkan kembali passphrase baru",
       "confirmation": "Konfirmasi Passphrase Brankas baru",
@@ -786,8 +786,8 @@
       "generating": "Membuat passphrase…",
       "regenerate": "Buat passphrase lain",
       "yourPassphrase": "Passphrase Brankas Anda",
-      "customGuidance": "Gunakan minimal 3 karakter. Pilih passphrase yang sulit ditebak dan unik untuk brankas ini.",
-      "passphraseInvalid": "Passphrase Brankas harus berisi minimal 3 karakter.",
+      "customGuidance": "Gunakan minimal 12 karakter. Pilih passphrase yang sulit ditebak dan unik untuk brankas ini.",
+      "passphraseInvalid": "Passphrase Brankas harus berisi minimal 12 karakter.",
       "confirmationMismatch": "Konfirmasi Passphrase Brankas tidak cocok dengan Passphrase Brankas Anda.",
       "reenter": "Masukkan kembali Passphrase Brankas",
       "confirmation": "Konfirmasi Passphrase Brankas",
