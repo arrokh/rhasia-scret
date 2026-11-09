@@ -46,7 +46,7 @@
     "jose": "6.2.15",
     "jsqr": "1.4.0",
     "lucide-react": "^1.69.0",
-    "next": "^16.4.5",
+    "next": "^16.4.3",
     "next-intl": "^4.14.9",
     "posthog-js": "^1.447.1",
     "radix-ui": "^1.8.1",
@@ -68,14 +68,14 @@
     "@vitest/coverage-v8": "5.1.0",
     "dependency-cruiser": "^18.7.2",
     "eslint": "^10.14.0",
-    "eslint-config-next": "^16.4.5",
+    "eslint-config-next": "^16.4.3",
     "fake-indexeddb": "^6.2.7",
     "jsdom": "31.0.0",
     "playwright": "^1.65.0",
     "shadcn": "^4.23.0",
     "tailwindcss": "^4.3.4",
     "tsx": "4.23.15",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vitest": "5.1.0"
   }
 }
