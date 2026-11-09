@@ -9,13 +9,16 @@ import { updateReleasePullRequest } from "./release-update.mjs";
 
 const initialVersion = "0.2.0";
 
-test("release commands create a PR and update it with newly merged main commits", () => {
+test("release commands bypass pagers while creating and updating a PR with newly merged main commits", () => {
   const fixture = createRepositoryFixture();
   const originalPath = process.env.PATH;
   const originalStatePath = process.env.GH_TEST_STATE;
   const originalGateLogPath = process.env.PNPM_TEST_LOG;
   const originalCi = process.env.CI;
+  const originalPagers = { GIT_PAGER: process.env.GIT_PAGER, GH_PAGER: process.env.GH_PAGER };
   try {
+    process.env.GIT_PAGER = "synthetic-interactive-pager";
+    process.env.GH_PAGER = "synthetic-interactive-pager";
     process.env.PATH = `${fixture.binDirectory}${process.platform === "win32" ? ";" : ":"}${originalPath ?? ""}`;
     process.env.GH_TEST_STATE = fixture.ghStatePath;
     process.env.PNPM_TEST_LOG = fixture.pnpmLogPath;
@@ -143,6 +146,10 @@ test("release commands create a PR and update it with newly merged main commits"
     else process.env.PNPM_TEST_LOG = originalGateLogPath;
     if (originalCi === undefined) delete process.env.CI;
     else process.env.CI = originalCi;
+    for (const [key, value] of Object.entries(originalPagers)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     rmSync(fixture.fixtureRoot, { recursive: true, force: true });
   }
 });
@@ -205,7 +212,7 @@ function createRepositoryFixture() {
   writeJson(root, "gh-state.json", { pullRequests: [], nextNumber: 1 });
   writeExecutable(
     join(binDirectory, "pnpm"),
-    '#!/bin/sh\nif [ "$1" = "--version" ]; then printf \'11.17.0\\n\'; exit 0; fi\nprintf \'%s\\n\' "$*" >> "$PNPM_TEST_LOG"\nexit 0\n',
+    '#!/bin/sh\nif [ "$GIT_PAGER" != "cat" ] || [ "$GH_PAGER" != "cat" ]; then printf \'Release subprocesses must disable pagers.\\n\' >&2; exit 1; fi\nif [ "$1" = "--version" ]; then printf \'11.17.0\\n\'; exit 0; fi\nprintf \'%s\\n\' "$*" >> "$PNPM_TEST_LOG"\nexit 0\n',
   );
   writeExecutable(join(binDirectory, "gh"), fakeGitHubCli());
   return { root: worktree, fixtureRoot: root, binDirectory, ghStatePath, pnpmLogPath };
@@ -214,6 +221,10 @@ function createRepositoryFixture() {
 function fakeGitHubCli() {
   return `#!/usr/bin/env node
 const fs = require("node:fs");
+if (process.env.GIT_PAGER !== "cat" || process.env.GH_PAGER !== "cat") {
+  process.stderr.write("Release subprocesses must disable pagers.\\n");
+  process.exit(1);
+}
 const statePath = process.env.GH_TEST_STATE;
 const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
 const args = process.argv.slice(2);

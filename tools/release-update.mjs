@@ -386,7 +386,12 @@ function readJson(root, path) {
 
 function capture(command, args, root) {
   try {
-    return execFileSync(command, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }).trim();
+    return execFileSync(command, args, {
+      cwd: root,
+      env: { ...process.env, GIT_PAGER: "cat", GH_PAGER: "cat" },
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    }).trim();
   } catch (error) {
     throw new Error(`${command} ${args.join(" ")} failed.`, { cause: error });
   }
@@ -394,7 +399,11 @@ function capture(command, args, root) {
 
 function run(command, args, root) {
   try {
-    execFileSync(command, args, { cwd: root, stdio: "inherit" });
+    execFileSync(command, args, {
+      cwd: root,
+      env: { ...process.env, GIT_PAGER: "cat", GH_PAGER: "cat" },
+      stdio: "inherit",
+    });
   } catch (error) {
     throw new Error(`${command} ${args.join(" ")} failed.`, { cause: error });
   }
