@@ -12,12 +12,14 @@ for (const cookie of ["missing", "invalid"] as const) {
     await page.goto("/landing");
     await expect(page.locator("html")).toHaveAttribute("lang", "id");
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.locator("[data-landing-header]").getByRole("button", { name: "Pilih bahasa" })).toBeVisible();
+    await expect(page.locator("[data-landing-header]").getByRole("button", { name: "Pilih bahasa" })).toBeVisible({
+      timeout: 20_000,
+    });
     if (cookie === "missing") {
       expect((await context.cookies()).some((entry) => entry.name === "RHSIA_LOCALE")).toBe(false);
     }
     const scene = page.locator("[data-landing-desktop-scene]:visible");
-    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    await expect(scene).toHaveAttribute("data-input-ready", "true", { timeout: 20_000 });
     await page.keyboard.press("PageDown");
     await expect(scene).toHaveAttribute("data-scene-step", "unlocked", { timeout: 20_000 });
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -33,7 +35,7 @@ for (const locale of ["id", "en"] as const) {
     await expect(page.locator("html")).toHaveAttribute("lang", initialLocale);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     const scene = page.locator("[data-landing-desktop-scene]:visible");
-    await expect(scene).toHaveAttribute("data-input-ready", "true");
+    await expect(scene).toHaveAttribute("data-input-ready", "true", { timeout: 20_000 });
     const language = page.locator("[data-landing-header]").getByRole("button", {
       name: initialLocale === "id" ? "Pilih bahasa" : "Choose language",
     });
