@@ -33,6 +33,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.3.1]
+
+<!-- Draft generated from first-parent history v0.3.0..bc29818c5419a17b56677d095c8f69c2dcdc3a90 (first-parent, exclusive of tag); release-base bc29818c5419a17b56677d095c8f69c2dcdc3a90. Review and curate before publication. -->
+
+### Changes
+
+- [security][fix] Harden identity, passphrases, and analytics boundaries (#319)
+- build(deps): bump the workspace-dependencies group with 22 updates (#320)
+- build(deps): bump the github-actions group with 3 updates (#321)
+
 ## [0.3.0]
 
 <!-- Draft generated from first-parent history v0.2.4..27c255e4c1eb27069c224c450a31f6fe1df7602d (first-parent, exclusive of tag); release-base 27c255e4c1eb27069c224c450a31f6fe1df7602d. Review and curate before publication. -->
