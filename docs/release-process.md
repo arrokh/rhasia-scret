@@ -44,6 +44,8 @@ pnpm release:major
 
 Choose the bump explicitly. The command fetches `origin/main` and tags, requires local `main` to match `origin/main`, and refuses dirty worktrees, duplicate candidates, existing branches, or an already-published version. It updates only top-level package `version` fields and drafts changelog entries from first-parent history after the latest release tag. It preserves older entries and `[Unreleased]`, then creates `infra/chore/prepare-release-vX.Y.Z`, commits with DCO sign-off, runs the release checks and full repository gate, pushes the branch, and opens a non-draft PR titled `[infra][chore] Prepare release vX.Y.Z`.
 
+All `release:*` commands disable Git and GitHub CLI output pagers for their subprocesses, including checks. Output stays in the terminal without opening an interactive viewer or waiting for `q`. This does not skip validation, authentication, or PR review.
+
 Review and curate the generated changelog in the PR before merging. The automatic release flow does not generate or require a candidate readiness record. The command does not merge the PR, create a release tag, publish a GitHub Release, deploy services, or run operational migrations.
 
 ## Updating a release candidate
