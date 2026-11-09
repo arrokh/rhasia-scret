@@ -115,6 +115,9 @@ jobs:
 
   verify:
     name: Verify exact release source
+    env:
+      PLAYWRIGHT_WORKERS: 1
+      PLAYWRIGHT_E2E_WORKERS: 2
     needs: candidate
     if: needs.candidate.outputs.publish == 'true'
     runs-on: ubuntu-latest
