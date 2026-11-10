@@ -3,6 +3,16 @@
   overflow-x: clip;
 }
 
+.eyebrow {
+  margin: 0;
+  color: #c88717;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
 .hero {
   display: grid;
   min-height: calc(100svh - 6rem);
@@ -523,36 +533,6 @@
   visibility: visible;
 }
 
-.journeyIntro {
-  width: calc(50% - 2rem);
-  margin-left: auto;
-  padding-block: calc(var(--landing-header-height) + 1rem) 0;
-  text-align: left;
-}
-
-.journeyIntro h2 {
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(1.8rem, 3.5vw, 3rem);
-  font-weight: 750;
-  letter-spacing: -0.04em;
-  line-height: 1.12;
-  text-wrap: balance;
-  scroll-margin-top: calc(var(--landing-header-height) + 1rem);
-}
-
-.journeyIntro h2:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 6px;
-}
-
-.journeyIntro > p {
-  margin: 1rem 0 0;
-  color: var(--muted-foreground);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
 .journeyGrid {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
@@ -563,7 +543,7 @@
 .guideColumn {
   display: grid;
   gap: clamp(3rem, 9vh, 7rem);
-  padding-top: 2rem;
+  padding-top: max(1rem, calc(50svh - 10.5rem));
 }
 
 .journeyCard {
@@ -638,7 +618,7 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  color: var(--warning);
+  color: #a38755;
   font-family: var(--font-roboto-mono), monospace;
   font-size: 0.72rem;
   font-weight: 700;
@@ -652,8 +632,8 @@
   place-items: center;
   border: 1px solid rgb(200 135 23 / 22%);
   border-radius: 0.9rem;
-  background: var(--accent);
-  color: var(--warning);
+  background: #fff2d8;
+  color: #a87516;
 }
 
 .cardIcon svg {
@@ -663,7 +643,7 @@
 
 .cardEyebrow {
   margin: 0.9rem 0 0;
-  color: var(--warning);
+  color: #a87516;
   font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: 0.14em;
@@ -691,7 +671,7 @@
   margin: 0.75rem 0 0;
   padding-top: 0.65rem;
   border-top: 1px solid var(--border);
-  color: var(--muted-foreground);
+  color: #788187;
   font-size: 0.76rem;
   line-height: 1.6;
 }
@@ -783,19 +763,19 @@
   padding: clamp(1.5rem, 4vw, 3.2rem);
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 1.75rem;
-  background: var(--secondary);
-  color: var(--secondary-foreground);
-  box-shadow: var(--shadow-card);
+  background: #1b252c;
+  color: #fffdf9;
+  box-shadow: 0 18px 50px rgb(27 37 44 / 14%);
 }
 
 .finalCtaCopy {
   max-width: 39rem;
 }
 .finalCtaCopy h2 {
-  margin: 0;
+  margin: 0.65rem 0 0;
   font-size: clamp(1.8rem, 3.3vw, 2.7rem);
   font-weight: 800;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.05em;
   line-height: 1.08;
   text-wrap: balance;
 }
@@ -806,6 +786,10 @@
   font-size: 0.95rem;
   line-height: 1.7;
 }
+.finalCta .eyebrow {
+  color: #e5a72e;
+}
+
 .finalCtaActions {
   display: grid;
   min-width: max-content;
@@ -815,30 +799,22 @@
 .finalCtaActions a {
   justify-content: center;
 }
-.finalCtaActions a[data-variant="outline"] {
-  color: var(--foreground);
-}
-
 .finalCtaActions a:last-child {
-  color: var(--secondary-foreground);
+  border-color: rgb(255 253 249 / 72%);
+  background: #fffdf9;
+  color: #1b252c;
 }
 .finalCtaActions a:last-child:hover {
-  background: var(--foreground);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  background: #f1e7d6;
+  color: #1b252c;
 }
 
 .footer {
   position: relative;
   z-index: 1;
   border-top: 1px solid rgb(222 216 208 / 85%);
-  background: rgb(248 244 237 / 92%);
+  background: var(--background);
   padding: 0 1rem env(safe-area-inset-bottom);
-  backdrop-filter: blur(10px);
-}
-
-.footer :global(.text-primary) {
-  color: var(--warning);
 }
 
 @keyframes scroll-nudge {
@@ -937,11 +913,6 @@
     width: min(calc(100% - 1.25rem), 92rem);
     padding: 0;
   }
-  .journeyIntro {
-    width: auto;
-    padding-inline: 0.75rem;
-    text-align: center;
-  }
   .journeyGrid {
     display: none;
   }
@@ -955,7 +926,7 @@
     top: var(--landing-mobile-stage-top, var(--landing-header-height));
     display: grid;
     height: auto;
-    margin-top: 0;
+    margin-top: var(--landing-mobile-stage-top, var(--landing-header-height));
     grid-template-rows: minmax(0, auto) minmax(0, auto);
     align-content: center;
     gap: 0.5rem;
@@ -1026,7 +997,9 @@
   .mobileJourneySteps {
     position: relative;
     z-index: 1;
-    margin-top: calc(-1 * var(--landing-mobile-stage-height, 0px));
+    margin-top: calc(
+      -1 * (var(--landing-mobile-stage-height, 0px) + var(--landing-mobile-stage-top, var(--landing-header-height)))
+    );
   }
   .mobileJourneyTrigger {
     min-height: 100svh;

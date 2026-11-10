@@ -23,7 +23,7 @@ describe("LandingPage", () => {
     expect(markup).toContain('aria-label="Navigasi utama"');
     const header = markup.match(/<header\b[^>]*data-landing-header[^>]*>[\s\S]*?<\/header>/)?.[0];
     expect(header).toBeDefined();
-    expect(header).toContain('href="/sign-in"');
+    expect(header).not.toContain('href="/sign-in"');
     expect(header).not.toContain('href="/local?from=landing"');
     expect(header).toContain('href="https://github.com/arrokh/rhasia-scret"');
     expect(markup).toContain('href="/sign-in"');

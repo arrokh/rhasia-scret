@@ -27,14 +27,8 @@ export function LandingJourney() {
         inert={!storyStarted}
         data-landing-phone-story-journey
       >
-        <div className={styles.journeyIntro}>
-          <h2 id="landing-journey-title" tabIndex={-1}>
-            {t("title")}
-          </h2>
-          <p>{t("description")}</p>
-        </div>
         <div className={styles.journeyGrid}>
-          <div className={styles.journeyPhoneColumn} role="group" aria-label={t("phoneStageLabel")}>
+          <div className={styles.journeyPhoneColumn} aria-label={t("phoneStageLabel")}>
             <div className={styles.journeyPhoneSticky}>
               <div
                 data-landing-phone-anchor="journey"
@@ -64,7 +58,7 @@ export function LandingJourney() {
 
         <div className={styles.mobileJourney}>
           <div className={styles.mobileJourneyStage} data-landing-mobile-stage>
-            <div className={styles.mobileJourneyPhone} role="group" aria-label={t("phoneStageLabel")}>
+            <div className={styles.mobileJourneyPhone} aria-label={t("phoneStageLabel")}>
               <div
                 data-landing-phone-anchor="journey"
                 className={`${styles.phoneScene} ${styles.phoneSceneJourney} ${styles.phoneAnchor}`}

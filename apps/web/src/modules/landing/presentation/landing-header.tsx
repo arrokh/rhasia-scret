@@ -14,7 +14,7 @@ type LandingHeaderProps = {
 
 export function LandingHeader({ githubLabel }: LandingHeaderProps) {
   const headerRef = useRef<HTMLElement>(null);
-  const t = useTranslations("Home.landing");
+  const t = useTranslations("Home.landing.navigation");
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -30,10 +30,10 @@ export function LandingHeader({ githubLabel }: LandingHeaderProps) {
 
   return (
     <header ref={headerRef} data-landing-header data-testid="landing-sticky-header" className={styles.header}>
-      <nav aria-label={t("navigation.label")} className={`landing-shell ${styles.navigation}`}>
+      <nav aria-label={t("label")} className={`landing-shell ${styles.navigation}`}>
         <Link href="/" className={styles.brand}>
           <span className="text-foreground">rhasia-</span>
-          <span className="text-warning">scret</span>
+          <span className="text-primary">scret</span>
         </Link>
         <div className={styles.actions}>
           <Button asChild variant="ghost" size="icon">
@@ -48,9 +48,6 @@ export function LandingHeader({ githubLabel }: LandingHeaderProps) {
             </a>
           </Button>
           <LocaleSwitcher compactAtNarrow />
-          <Button asChild variant="secondary">
-            <Link href="/sign-in">{t("signIn")}</Link>
-          </Button>
         </div>
       </nav>
     </header>
