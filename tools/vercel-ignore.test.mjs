@@ -14,12 +14,13 @@ import {
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 
-test("restricts both Vercel projects to main and configures path-aware ignore commands", () => {
+test("limits Vercel to main except the exact temporary Go runtime probe branch and configures path-aware ignore commands", () => {
   const web = JSON.parse(readFileSync(join(repositoryRoot, "vercel.json"), "utf8"));
   const api = JSON.parse(readFileSync(join(repositoryRoot, "apps/api/vercel.json"), "utf8"));
+  const probeBranch = "infra/verify/vercel-go-runtime-20261110";
   assert.deepEqual(web.git?.deploymentEnabled, { main: true, "**": false });
   assert.equal(web.ignoreCommand, "node ../../tools/vercel-ignore.mjs web");
-  assert.deepEqual(api.git?.deploymentEnabled, { main: true, "**": false });
+  assert.deepEqual(api.git?.deploymentEnabled, { main: true, "**": false, [probeBranch]: true });
   assert.equal(api.ignoreCommand, "node ../../tools/vercel-ignore.mjs api");
 });
 

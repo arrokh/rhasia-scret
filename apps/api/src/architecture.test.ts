@@ -114,9 +114,13 @@ describe("API extraction ownership boundaries", () => {
     expect(vercelJson.regions).toEqual(["sin1"]);
     expect(vercelJson.installCommand).toContain("--frozen-lockfile");
     expect(vercelJson.ignoreCommand).toBe("node ../../tools/vercel-ignore.mjs api");
-    expect(vercelJson.git?.deploymentEnabled).toEqual({ main: true, "**": false });
+    expect(vercelJson.git?.deploymentEnabled).toEqual({
+      main: true,
+      "**": false,
+      "infra/verify/vercel-go-runtime-20261110": true,
+    });
     expect(vercelJson.buildCommand).toBe(
-      "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
+      "DEPLOYMENT_TARGET=vercel pnpm run build:vercel && go version && go test ./...",
     );
     expect(vercelJson.rewrites).toEqual([
       { source: "/v1/health", destination: "/api/health" },
@@ -127,6 +131,7 @@ describe("API extraction ownership boundaries", () => {
       expect(vercelJson.functions?.[functionName]?.maxDuration).toBe(60);
       expect(vercelJson.functions?.[functionName]?.includeFiles).toBe("dist/**");
     }
+    expect(vercelJson.functions?.["api/go-runtime-verification.go"]?.maxDuration).toBe(10);
     expect(vercelJson.crons).toEqual([{ path: "/v1/internal/retention-purge", schedule: "0 3 * * *" }]);
     expect(apiSources).not.toContain("HYPERDRIVE");
     expect(packageJson.dependencies).toHaveProperty("@hono/node-server");

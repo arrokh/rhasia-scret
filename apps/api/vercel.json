@@ -2,10 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "regions": ["sin1"],
-  "git": { "deploymentEnabled": { "main": true, "**": false } },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "**": false,
+      "infra/verify/vercel-go-runtime-20261110": true
+    }
+  },
   "ignoreCommand": "node ../../tools/vercel-ignore.mjs api",
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
-  "buildCommand": "DEPLOYMENT_TARGET=vercel VERIFY_DEPLOYMENT_PRODUCTION=1 pnpm run verify:deployment-config && pnpm run build:vercel",
+  "buildCommand": "DEPLOYMENT_TARGET=vercel pnpm run build:vercel && go version && go test ./...",
   "rewrites": [
     { "source": "/v1/health", "destination": "/api/health" },
     { "source": "/v1/time", "destination": "/api/time" },
@@ -23,6 +29,9 @@
     "api/time.ts": {
       "maxDuration": 60,
       "includeFiles": "dist/**"
+    },
+    "api/go-runtime-verification.go": {
+      "maxDuration": 10
     }
   },
   "crons": [{ "path": "/v1/internal/retention-purge", "schedule": "0 3 * * *" }]
