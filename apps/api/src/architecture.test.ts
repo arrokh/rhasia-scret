@@ -120,7 +120,7 @@ describe("API extraction ownership boundaries", () => {
       "infra/verify/vercel-go-runtime-20261110": true,
     });
     expect(vercelJson.buildCommand).toBe(
-      "DEPLOYMENT_TARGET=vercel pnpm run build:vercel && go version && go test ./...",
+      "DEPLOYMENT_TARGET=vercel pnpm run verify:deployment-config && pnpm run build:vercel",
     );
     expect(vercelJson.rewrites).toEqual([
       { source: "/v1/health", destination: "/api/health" },

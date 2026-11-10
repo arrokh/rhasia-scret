@@ -11,7 +11,7 @@
   },
   "ignoreCommand": "node ../../tools/vercel-ignore.mjs api",
   "installCommand": "pnpm install --filter @rhasia-scret/api... --frozen-lockfile",
-  "buildCommand": "DEPLOYMENT_TARGET=vercel pnpm run build:vercel && go version && go test ./...",
+  "buildCommand": "DEPLOYMENT_TARGET=vercel pnpm run verify:deployment-config && pnpm run build:vercel",
   "rewrites": [
     { "source": "/v1/health", "destination": "/api/health" },
     { "source": "/v1/time", "destination": "/api/time" },
