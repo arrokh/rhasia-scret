@@ -27,6 +27,7 @@ type LandingPhoneMockupProps = {
   /** The parent phase signal now invalidates layers only; StoryEnvironment owns the floor. */
   transparentFloor?: boolean;
   startUnlockDemo?: boolean;
+  skipUnlockDemo?: boolean;
   unlockDemoResetToken?: number;
   onUnlockComplete?: () => void;
 };
@@ -376,6 +377,7 @@ export function LandingPhoneMockup({
   layout,
   transparentFloor,
   startUnlockDemo = false,
+  skipUnlockDemo = false,
   unlockDemoResetToken = 0,
   onUnlockComplete,
 }: LandingPhoneMockupProps) {
@@ -479,7 +481,7 @@ export function LandingPhoneMockup({
     // Repaint the composited layers after screen or scene-phase changes. The persistent
     // StoryEnvironment owns the backdrop in every primary-phone state.
     phoneSceneRef.current?.render();
-  }, [screenHost, transparentFloor, view, startUnlockDemo, unlockDemoResetToken]);
+  }, [screenHost, transparentFloor, view, startUnlockDemo, skipUnlockDemo, unlockDemoResetToken]);
 
   const hostedScreen = (
     <div className={styles.phoneScreenEntry} data-landing-phone-screen-entry={view}>
@@ -488,7 +490,7 @@ export function LandingPhoneMockup({
   );
   const screen = (
     <div className={styles.phoneScreenStack} data-landing-phone-screen-stack>
-      {layout === "scene" ? (
+      {layout === "scene" && !skipUnlockDemo ? (
         <>
           <div
             className={styles.phoneScreenTransition}

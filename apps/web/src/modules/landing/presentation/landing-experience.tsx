@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, TransitionEvent as ReactTransitionEvent } from "react";
-import { Cloud, Laptop } from "lucide-react";
+import { ArrowDown, ArrowRight, Cloud, Laptop } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AppFooterContent } from "@/shared/presentation/app-ui";
@@ -15,7 +15,7 @@ import { landingFlowConfig, type LandingSceneStep } from "./landing-flow.config"
 import styles from "./landing-desktop-scene.module.css";
 import experienceStyles from "./landing-experience.module.css";
 
-const { durationsMs, input, processingStates, states, transitions } = landingFlowConfig.intro;
+const { durationsMs, input, processingStates, transitions } = landingFlowConfig.intro;
 const initialPhoneView = landingFlowConfig.journey.steps[0]?.phoneView ?? "accounts";
 const sceneTimingStyle = {
   "--landing-showcase-expansion-duration": `${durationsMs.showcaseExpansion}ms`,
@@ -42,6 +42,7 @@ export function LandingExperience() {
 function LandingExperienceContent() {
   const [unlockDemoStarted, setUnlockDemoStarted] = useState(false);
   const [unlockDemoResetToken, setUnlockDemoResetToken] = useState(0);
+  const [introSkipped, setIntroSkipped] = useState(false);
   const [sceneStep, setSceneStep] = useState<LandingSceneStep>(landingFlowConfig.intro.initialState);
   const [showShowcase, setShowShowcase] = useState(false);
   const [showcaseReady, setShowcaseReady] = useState(false);
@@ -55,8 +56,8 @@ function LandingExperienceContent() {
   const wheelGestureDirectionRef = useRef<number | null>(null);
   const wheelGestureReleaseTimerRef = useRef<number | null>(null);
   const sceneStepTimerRef = useRef<number | null>(null);
+  const skipFocusPendingRef = useRef(false);
   const t = useTranslations("Home.landing");
-  const journeyT = useTranslations("Home.landing.journey");
   const commonT = useTranslations("Common");
   const storyStageStarted = useLandingPhoneStoryStarted();
   const storyView = useLandingPhoneStory();
@@ -174,6 +175,7 @@ function LandingExperienceContent() {
   }, [setSceneStepValue]);
 
   const triggerPreviousStep = useCallback(() => {
+    if (introSkipped) return;
     const currentStep = sceneStepRef.current;
     if (currentStep === "locked") return;
     if (currentStep === "unlocked") {
@@ -200,7 +202,26 @@ function LandingExperienceContent() {
     setSceneStepValue(targetStep);
     setHeroVisible(true);
     setShowcaseTargetProgress(0.5);
+  }, [introSkipped, setSceneStepValue]);
+
+  const skipIntro = useCallback(() => {
+    if (sceneStepTimerRef.current !== null) {
+      window.clearTimeout(sceneStepTimerRef.current);
+      sceneStepTimerRef.current = null;
+    }
+    skipFocusPendingRef.current = true;
+    setIntroSkipped(true);
+    setShowShowcase(false);
+    setShowInitialPhone(true);
+    setHeroVisible(false);
+    setSceneStepValue("settled");
   }, [setSceneStepValue]);
+
+  useEffect(() => {
+    if (!storyStageStarted || !skipFocusPendingRef.current) return;
+    skipFocusPendingRef.current = false;
+    document.getElementById("landing-journey-title")?.focus({ preventScroll: true });
+  }, [storyStageStarted]);
 
   useEffect(() => {
     const sceneSection = sceneSectionRef.current;
@@ -225,7 +246,7 @@ function LandingExperienceContent() {
         event.target.closest("[data-slot=dropdown-menu-trigger]")
       )
         return true;
-      return event.key === " " && event.target.closest("button, a, [role=button], [role=link]") !== null;
+      return event.target.closest("button, a, [role=button], [role=link]") !== null;
     };
     const scrollableContentSelector = '[data-landing-intro-scroll], [data-landing-phone-guide="mobile"]';
     const canScrollContentInDirection = (target: EventTarget | null, direction: number) => {
@@ -273,6 +294,7 @@ function LandingExperienceContent() {
     };
     const blockProcessingInput = (event: Event) => {
       if (!isTransitioning()) return;
+      if (event.target instanceof Element && !sceneSection?.contains(event.target)) return;
       if (event.type === "keydown") {
         const keyboardEvent = event as KeyboardEvent;
         if (getKeyboardDirection(keyboardEvent) === 0 || isInteractiveKeyboardTarget(keyboardEvent)) return;
@@ -290,26 +312,7 @@ function LandingExperienceContent() {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
     };
-    const blockedEvents = [
-      "keydown",
-      "pointerdown",
-      "pointerup",
-      "pointermove",
-      "mousedown",
-      "mouseup",
-      "mousemove",
-      "click",
-      "auxclick",
-      "dblclick",
-      "contextmenu",
-      "dragstart",
-      "wheel",
-      "touchstart",
-      "touchmove",
-      "touchend",
-      "touchcancel",
-      "scroll",
-    ];
+    const blockedEvents = ["keydown", "wheel", "touchmove", "scroll"];
 
     const handleWheel = (event: WheelEvent) => {
       if (event.deltaY === 0) return;
@@ -419,12 +422,11 @@ function LandingExperienceContent() {
   const showcaseCameraActive = ["expanding", "devices", "returning"].includes(sceneStep);
   const showcaseFloorActive = ["expanding", "devices", "contracting", "leaving", "returning"].includes(sceneStep);
   const primaryPhoneScale = showShowcase && showcaseCameraActive && !storyStageStarted ? "showcase" : "full";
-  const heroOnScreen = heroVisible;
+  const overviewVisible =
+    ["locked", "unlocking", "unlocked", "contracting"].includes(sceneStep) ||
+    (sceneStep === "expanding" && !showcaseReady);
+  const heroOnScreen = heroVisible || overviewVisible;
   const sceneAnimating = isProcessingStep(sceneStep);
-  const currentSceneConfig = states.find((state) => state.id === sceneStep);
-  const topScrollReady = currentSceneConfig?.scrollHint === "top";
-  const bottomScrollReady = currentSceneConfig?.scrollHint === "hero" && heroOnScreen;
-  const scrollCueVisible = topScrollReady || bottomScrollReady;
   const showcaseTransitionDuration =
     sceneStep === "expanding" || sceneStep === "contracting"
       ? durationsMs.showcaseExpansion
@@ -440,9 +442,11 @@ function LandingExperienceContent() {
         className={styles.initialPhone}
         data-visible={initialPhoneVisible}
         data-device-scale={primaryPhoneScale}
+        data-overview={overviewVisible}
         data-scene-step={sceneStep}
         data-story-handoff={storyStageStarted}
         aria-hidden={!initialPhoneVisible}
+        aria-busy={sceneAnimating}
         style={sceneTimingStyle}
         onTransitionEnd={handleInitialPhoneTransitionEnd}
       >
@@ -453,6 +457,7 @@ function LandingExperienceContent() {
             (showShowcase && showcaseReady && showcaseFloorActive) || sceneStep === "settled" || storyStageStarted
           }
           startUnlockDemo={unlockDemoStarted}
+          skipUnlockDemo={introSkipped}
           unlockDemoResetToken={unlockDemoResetToken}
           onUnlockComplete={handleUnlockComplete}
         />
@@ -487,31 +492,20 @@ function LandingExperienceContent() {
         data-input-ready="false"
         data-scene-step={sceneStep}
         style={sceneTimingStyle}
-        aria-busy={sceneAnimating}
-        aria-label={t("phone.hostedPreview")}
+        aria-label={t("tour.label")}
       >
         <div className={styles.sceneStage}>
           <div data-landing-phone-anchor="hero" className={styles.heroPhoneAnchor} aria-hidden="true" />
-
-          <div
-            className={styles.scrollCue}
-            data-landing-scroll-cue="true"
-            data-visible={scrollCueVisible}
-            aria-hidden={!scrollCueVisible}
-          >
-            <ScrollArrow />
-            <span>{journeyT("scrollPrompt")}</span>
-          </div>
 
           <section
             className={styles.heroOverlay}
             data-landing-intro-scroll="true"
             data-visible={heroOnScreen}
+            data-overview={overviewVisible}
             aria-hidden={!heroOnScreen}
-            inert={!heroOnScreen || sceneAnimating}
+            inert={!heroOnScreen}
             tabIndex={0}
           >
-            <p className={experienceStyles.eyebrow}>{t("eyebrow")}</p>
             <h1 className={`${experienceStyles.heroTitle} ${styles.sceneHeroTitle}`}>{t("title")}</h1>
             <p className={`${experienceStyles.heroDescription} ${styles.sceneHeroDescription}`}>{t("description")}</p>
             <div className={`${experienceStyles.heroActions} ${styles.sceneHeroActions}`}>
@@ -523,7 +517,7 @@ function LandingExperienceContent() {
                   </Link>
                 </Button>
                 <span className={experienceStyles.choiceSeparator}>{t("choiceSeparator")}</span>
-                <Button asChild className="bg-[#1b252c] text-card hover:bg-[#2b3a44] active:bg-[#11181d]">
+                <Button asChild variant="secondary">
                   <Link href="/sign-in">
                     <Cloud aria-hidden="true" />
                     {t("hostedVault")}
@@ -532,18 +526,34 @@ function LandingExperienceContent() {
               </div>
               <p className={`${experienceStyles.hostedAccess} ${styles.sceneHostedAccess}`}>{t("hostedAccess")}</p>
             </div>
+            <p className={styles.proofLine}>{t("eyebrow")}</p>
           </section>
 
-          <div
-            className={styles.sceneLoadingIndicator}
-            data-visible={sceneAnimating}
-            role="status"
-            aria-label={commonT("processing")}
-            aria-hidden={!sceneAnimating}
-          >
-            <span className={styles.sceneLoadingSpinner} aria-hidden="true" />
-            <span>{commonT("processing")}</span>
-          </div>
+          {sceneStep !== "settled" && (
+            <div className={styles.tourPanel}>
+              <p>{t("tour.sampleData")}</p>
+              <div className={styles.tourActions}>
+                <Button
+                  variant="outline"
+                  onClick={triggerNextStep}
+                  disabled={sceneAnimating}
+                  aria-busy={sceneAnimating}
+                  data-landing-tour-next
+                >
+                  <ArrowDown aria-hidden="true" />
+                  {sceneAnimating
+                    ? commonT("processing")
+                    : sceneStep === "locked"
+                      ? t("tour.explore")
+                      : t("tour.continue")}
+                </Button>
+                <Button variant="ghost" onClick={skipIntro} data-landing-skip-intro>
+                  {t("tour.skip")}
+                  <ArrowRight aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -551,15 +561,17 @@ function LandingExperienceContent() {
 
       <section className={`landing-shell ${experienceStyles.finalCta}`} data-slot="landing-final-cta">
         <div className={experienceStyles.finalCtaCopy}>
-          <p className={experienceStyles.eyebrow}>{t("finalCta.eyebrow")}</p>
           <h2>{t("finalCta.title")}</h2>
           <p>{t("finalCta.description")}</p>
         </div>
         <div className={experienceStyles.finalCtaActions}>
           <Button asChild>
-            <Link href="/sign-in">{t("finalCta.tryNow")}</Link>
+            <Link href="/local?from=landing">{t("localVault")}</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link href="/sign-in">{t("hostedVault")}</Link>
+          </Button>
+          <Button asChild variant="ghost">
             <a
               href="https://github.com/arrokh/rhasia-scret/blob/main/docs/self-hosting.md"
               target="_blank"
@@ -575,16 +587,5 @@ function LandingExperienceContent() {
         <AppFooterContent />
       </footer>
     </main>
-  );
-}
-
-function ScrollArrow() {
-  return (
-    <svg className={styles.scrollDoodle} viewBox="0 0 38 48" fill="none" aria-hidden="true">
-      <path
-        className={styles.scrollDoodleArrow}
-        d="M19 4c-1 10-.2 20 0 31m-9-9c2.5 3 5.7 5.9 9 9 3-3.1 6-6.1 9.4-9.1"
-      />
-    </svg>
   );
 }

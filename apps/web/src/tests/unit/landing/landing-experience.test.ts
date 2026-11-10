@@ -15,9 +15,6 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children?: ReactNode; href: string }) => createElement("a", { href }, children),
 }));
-vi.mock("@/components/ui/button", () => ({
-  Button: ({ children }: { children: ReactNode }) => createElement("div", null, children),
-}));
 vi.mock("@/shared/presentation/app-ui", () => ({ AppFooterContent: () => null }));
 vi.mock("@/modules/landing/presentation/landing-journey", () => ({ LandingJourney: () => null }));
 vi.mock("@/modules/landing/presentation/landing-header", () => ({ LandingHeader: () => null }));
@@ -58,6 +55,82 @@ describe("LandingExperience showcase readiness", () => {
     callbacks.onShowcaseReady = undefined;
     callbacks.onShowcaseTransitionComplete = undefined;
     document.body.innerHTML = "";
+  });
+
+  it("keeps both Vault entry paths available before the demo starts", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(LandingExperience)));
+
+    const heading = container.querySelector("h1");
+    expect(heading?.closest('[aria-hidden="true"], [inert]')).toBeNull();
+    expect(
+      container.querySelector('a[href="/local?from=landing"]')?.closest('[aria-hidden="true"], [inert]'),
+    ).toBeNull();
+    expect(container.querySelector('a[href="/sign-in"]')?.closest('[aria-hidden="true"], [inert]')).toBeNull();
+  });
+
+  it("lets a visitor skip a running intro without waiting for model callbacks", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(LandingExperience)));
+    await act(async () =>
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", bubbles: true, cancelable: true })),
+    );
+    expect(container.querySelector<HTMLElement>("[data-landing-desktop-scene]")?.dataset.sceneStep).toBe("unlocking");
+
+    const localLink = container.querySelector<HTMLAnchorElement>('a[href="/local?from=landing"]');
+    if (!localLink) throw new Error("Expected the Local Vault entry link.");
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    localLink.addEventListener("click", (event) => event.preventDefault(), { once: true });
+    const reachedLink = vi.fn();
+    localLink.addEventListener("click", reachedLink, { once: true });
+    await act(async () => localLink.dispatchEvent(click));
+    expect(reachedLink).toHaveBeenCalledOnce();
+
+    const skip = container.querySelector<HTMLButtonElement>("[data-landing-skip-intro]");
+    if (!skip) throw new Error("Expected an intro skip button.");
+    await act(async () => skip.click());
+    expect(container.querySelector<HTMLElement>("[data-landing-desktop-scene]")?.dataset.sceneStep).toBe("settled");
+    expect(container.querySelector("[data-landing-primary-phone]")?.getAttribute("aria-busy")).toBe("false");
+
+    await act(async () => {
+      callbacks.onUnlockComplete?.();
+      callbacks.onShowcaseReady?.();
+      callbacks.onShowcaseTransitionComplete?.();
+    });
+    expect(container.querySelector<HTMLElement>("[data-landing-desktop-scene]")?.dataset.sceneStep).toBe("settled");
+    const wheel = new WheelEvent("wheel", { deltaY: 100, cancelable: true });
+    window.dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(false);
+  });
+
+  it("keeps Vault entry paths available while the device showcase is still loading", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(LandingExperience)));
+    const pressPageDown = () =>
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", bubbles: true, cancelable: true }));
+    await act(async () => pressPageDown());
+    await act(async () => callbacks.onUnlockComplete?.());
+    await act(async () => pressPageDown());
+
+    expect(container.querySelector<HTMLElement>("[data-landing-desktop-scene]")?.dataset.sceneStep).toBe("expanding");
+    const heading = container.querySelector("h1");
+    expect(heading?.closest('[aria-hidden="true"], [inert]')).toBeNull();
+    expect(
+      container.querySelector('a[href="/local?from=landing"]')?.closest('[aria-hidden="true"], [inert]'),
+    ).toBeNull();
+    expect(container.querySelector('a[href="/sign-in"]')?.closest('[aria-hidden="true"], [inert]')).toBeNull();
+
+    await act(async () => callbacks.onShowcaseReady?.());
+    expect(heading?.closest('[aria-hidden="true"], [inert]')).toBeNull();
   });
 
   it("starts the ready showcase when readiness and PageDown arrive in the same React turn", async () => {

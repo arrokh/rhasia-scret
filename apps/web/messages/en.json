@@ -165,6 +165,13 @@
       "navigation": {
         "label": "Main navigation"
       },
+      "tour": {
+        "label": "Product overview and guided demo",
+        "sampleData": "Hosted Vault preview · synthetic sample data",
+        "explore": "Explore the demo",
+        "continue": "Continue demo",
+        "skip": "Skip intro"
+      },
       "eyebrow": "Open source · Local-first · Zero-knowledge",
       "title": "Your authenticator, your choice.",
       "description": "Start in a browser-based Local Vault—no sign-in. Copy accounts to an encrypted Personal or Shared Vault only when you choose.",
@@ -303,7 +310,7 @@
       "finalCta": {
         "eyebrow": "Your Vault, your choice",
         "title": "Ready to try it with your own account?",
-        "description": "Try Hosted Vault or run rhasia-scret on infrastructure you control.",
+        "description": "Start in a Local Vault without signing in. Choose Hosted Vault for sharing, or run rhasia-scret on infrastructure you control.",
         "tryNow": "Try now",
         "hostYourOwn": "Self-host it"
       },

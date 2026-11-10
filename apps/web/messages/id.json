@@ -165,6 +165,13 @@
       "navigation": {
         "label": "Navigasi utama"
       },
+      "tour": {
+        "label": "Ringkasan produk dan demo terpandu",
+        "sampleData": "Pratinjau Hosted Vault · data contoh sintetis",
+        "explore": "Jelajahi demo",
+        "continue": "Lanjutkan demo",
+        "skip": "Lewati intro"
+      },
       "eyebrow": "Open source · Local-first · Zero knowledge",
       "title": "Authenticator, sesuai pilihan Anda.",
       "description": "Mulai dengan Local Vault di browser—tanpa masuk. Salin akun ke Personal atau Shared Vault terenkripsi hanya jika Anda memilih.",
@@ -303,7 +310,7 @@
       "finalCta": {
         "eyebrow": "Vault Anda, pilihan Anda",
         "title": "Siap mencoba dengan akun Anda?",
-        "description": "Coba Hosted Vault atau jalankan rhasia-scret di infrastruktur Anda.",
+        "description": "Mulai dengan Local Vault tanpa masuk. Pilih Hosted Vault untuk berbagi, atau jalankan rhasia-scret di infrastruktur Anda.",
         "tryNow": "Coba sekarang",
         "hostYourOwn": "Jalankan sendiri"
       },
