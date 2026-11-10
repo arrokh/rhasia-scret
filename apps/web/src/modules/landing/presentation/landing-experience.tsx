@@ -547,7 +547,7 @@ function LandingExperienceContent() {
         </div>
       </section>
 
-      <LandingJourney />
+      <LandingJourney floorProgress={showcaseTargetProgress} transitionDuration={showcaseTransitionDuration} />
 
       <section className={`landing-shell ${experienceStyles.finalCta}`} data-slot="landing-final-cta">
         <div className={experienceStyles.finalCtaCopy}>

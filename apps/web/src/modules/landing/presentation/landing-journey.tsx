@@ -9,7 +9,13 @@ import styles from "./landing-experience.module.css";
 
 const journeySteps = landingFlowConfig.journey.steps;
 
-export function LandingJourney() {
+export function LandingJourney({
+  floorProgress,
+  transitionDuration,
+}: {
+  floorProgress: number;
+  transitionDuration: number;
+}) {
   const t = useTranslations("Home.landing.journey");
   const activeView = useLandingPhoneStory();
   const storyStarted = useLandingPhoneStoryStarted();
@@ -18,7 +24,7 @@ export function LandingJourney() {
 
   return (
     <>
-      <LandingStoryEnvironment active />
+      <LandingStoryEnvironment active cameraProgress={floorProgress} transitionDuration={transitionDuration} />
       <section
         id="landing-journey"
         className={`landing-shell ${styles.journey}`}

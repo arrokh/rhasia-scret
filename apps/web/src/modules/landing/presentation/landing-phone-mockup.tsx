@@ -24,7 +24,7 @@ export type { LandingDeviceKind, LandingPhoneView } from "./landing-flow.config"
 type LandingPhoneMockupProps = {
   view: LandingPhoneView;
   layout: "story" | "scene";
-  /** The parent phase signal invalidates layers; StoryEnvironment owns the shared CSS background. */
+  /** The parent phase signal invalidates layers; StoryEnvironment owns the shared WebGL floor. */
   transparentFloor?: boolean;
   startUnlockDemo?: boolean;
   unlockDemoResetToken?: number;
@@ -40,6 +40,11 @@ type LandingModelKey = "iphone" | "macbook";
 
 const LANDING_PHONE_MODEL_ID = landingFlowConfig.showcase.phoneModelId;
 const LANDING_FLOOR_LEVEL = -0.17;
+const LANDING_FLOOR_APPEARANCE = Object.freeze({
+  color: 0xf8f4ed,
+  gridStrength: 1,
+  toneMapped: false,
+} as const);
 const PHONE_SCREEN_STYLESHEET_WARMUP_MS = 320;
 
 const landingModelPaths: Readonly<Record<LandingModelKey, string>> = landingFlowConfig.showcase.modelPaths;
@@ -528,9 +533,158 @@ export function LandingPhoneMockup({
   );
 }
 
-export function LandingStoryEnvironment({ active }: { active: boolean }) {
+export function LandingStoryEnvironment({
+  active,
+  cameraProgress,
+  transitionDuration,
+}: {
+  active: boolean;
+  cameraProgress: number;
+  transitionDuration: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const renderEnvironmentRef = useRef<() => void>(() => undefined);
+  const floorCameraProgressRef = useRef<(progress: number) => void>(() => undefined);
+  const [floorTransition] = useState(() => createLandingProgressTransitionDriver(cameraProgress));
+  const [floorReady, setFloorReady] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let disposed = false;
+    setFloorReady(false);
+    container.dataset.ready = "false";
+    let resizeObserver: ResizeObserver | undefined;
+    let cleanupScene = () => undefined;
+
+    void import("three")
+      .then((three) => {
+        if (disposed) return;
+
+        const scene = new three.Scene();
+        scene.background = new three.Color(LANDING_FLOOR_APPEARANCE.color);
+
+        const topCamera = new three.PerspectiveCamera(48, 1, 0.1, 120);
+        topCamera.up.set(0, 0, -1);
+        topCamera.position.set(0, 16.5, 0.01);
+        topCamera.lookAt(0, 0, 0);
+        const sideCamera = new three.PerspectiveCamera(44, 1, 0.1, 120);
+        sideCamera.up.set(0, 1, 0);
+        sideCamera.position.set(0, 18, 25);
+        sideCamera.lookAt(0, 0, 0);
+        const compactSideCamera = new three.PerspectiveCamera(44, 1, 0.1, 120);
+        compactSideCamera.up.set(0, 1, 0);
+        compactSideCamera.position.set(0, 30, 15);
+        compactSideCamera.lookAt(0, 0, 0);
+        const camera = new three.PerspectiveCamera(48, 1, 0.1, 120);
+        const topPosition = topCamera.position.clone();
+        const topRotation = topCamera.quaternion.clone();
+        const sideRotation = sideCamera.quaternion.clone();
+        const compactSideRotation = compactSideCamera.quaternion.clone();
+
+        const renderer = new three.WebGLRenderer({
+          alpha: false,
+          antialias: true,
+          powerPreference: "low-power",
+          stencil: false,
+        });
+        renderer.setClearColor(LANDING_FLOOR_APPEARANCE.color, 1);
+        renderer.outputColorSpace = three.SRGBColorSpace;
+        renderer.toneMapping = three.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1;
+        renderer.domElement.className = styles.storyEnvironmentCanvas;
+        renderer.domElement.setAttribute("aria-hidden", "true");
+        container.append(renderer.domElement);
+
+        const floorTexture = createFloorTexture(three, LANDING_FLOOR_APPEARANCE.gridStrength);
+        const floorMaterial = new three.MeshBasicMaterial({
+          map: floorTexture,
+          toneMapped: LANDING_FLOOR_APPEARANCE.toneMapped,
+        });
+        const floor = new three.Mesh(createLandingCycloramaGeometry(three), floorMaterial);
+        floor.position.y = LANDING_FLOOR_LEVEL;
+        scene.add(floor);
+
+        const render = () => renderer.render(scene, camera);
+        const applyFloorProgress = (progress: number) => {
+          const expanded = Math.max(0, Math.min(1, progress * 2));
+          const leaving = Math.max(0, Math.min(1, (progress - 0.5) * 2));
+          const sideAmount = expanded * (1 - leaving);
+          const compactLayout = container.clientWidth <= 900;
+          const nextSidePosition = compactLayout ? compactSideCamera.position : sideCamera.position;
+          const nextSideRotation = compactLayout ? compactSideRotation : sideRotation;
+          camera.position.lerpVectors(topPosition, nextSidePosition, sideAmount);
+          camera.quaternion.slerpQuaternions(topRotation, nextSideRotation, sideAmount);
+          camera.fov = 48 - 4 * sideAmount;
+          camera.aspect = container.clientWidth / Math.max(container.clientHeight, 1);
+          camera.updateProjectionMatrix();
+          render();
+        };
+        renderEnvironmentRef.current = render;
+        floorCameraProgressRef.current = applyFloorProgress;
+        const resize = () => {
+          if (disposed) return;
+          const width = container.clientWidth;
+          const height = container.clientHeight;
+          if (width < 1 || height < 1) return;
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+          renderer.setSize(width, height, false);
+          applyFloorProgress(floorTransition.getCurrentProgress());
+          container.dataset.ready = "true";
+          setFloorReady(true);
+        };
+
+        resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(container);
+        resize();
+        cleanupScene = () => {
+          resizeObserver?.disconnect();
+          renderer.dispose();
+          floorTexture.dispose();
+          floor.geometry.dispose();
+          floorMaterial.dispose();
+          container.replaceChildren();
+          renderEnvironmentRef.current = () => undefined;
+          floorCameraProgressRef.current = () => undefined;
+        };
+      })
+      .catch(() => {
+        if (!disposed) container.replaceChildren();
+      });
+
+    return () => {
+      disposed = true;
+      resizeObserver?.disconnect();
+      floorTransition.cancelAnimation();
+      cleanupScene();
+    };
+  }, [floorTransition]);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    floorTransition.setTarget({
+      progress: cameraProgress,
+      duration: transitionDuration,
+      available: floorReady,
+      snap: reducedMotion,
+      applyProgress: (progress) => floorCameraProgressRef.current(progress),
+      onComplete: () => undefined,
+    });
+  }, [cameraProgress, floorReady, floorTransition, transitionDuration]);
+
+  useEffect(() => {
+    if (active) renderEnvironmentRef.current();
+  }, [active]);
+
   return (
-    <div className={styles.storyEnvironment} data-landing-story-environment data-visible={active} aria-hidden="true" />
+    <div
+      ref={containerRef}
+      className={styles.storyEnvironment}
+      data-landing-story-environment
+      data-visible={active}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -757,7 +911,7 @@ async function initializePhoneScene(
   const phoneSource = await loadLandingModel("iphone", three, gltfLoader, meshoptDecoder);
   const scene = new three.Scene();
   scene.background = null;
-  // The persistent CSS StoryEnvironment owns the background behind both device renderers.
+  // The persistent StoryEnvironment owns the WebGL floor behind both transparent device renderers.
 
   const camera = new three.PerspectiveCamera(48, 1, 0.1, 100);
   camera.up.set(0, 0, -1);
@@ -1515,6 +1669,108 @@ function roundedRectangle(three: ThreeRuntime, width: number, height: number, ra
   shape.lineTo(left, bottom + radius);
   shape.quadraticCurveTo(left, bottom, left + radius, bottom);
   return shape;
+}
+
+function createLandingCycloramaGeometry(three: ThreeRuntime) {
+  const floorLevel = 0;
+  const floorFrontZ = 80;
+  const floorBackZ = -26;
+  const curveRadius = 14;
+  const curveSegments = 24;
+  const wallHeight = 120;
+  const xExtent = 80;
+  const xSegments = 40;
+  const profile: Array<{ y: number; z: number; distance: number }> = [];
+  let distance = 0;
+  const addProfilePoint = (y: number, z: number) => {
+    const previous = profile.at(-1);
+    if (previous) distance += Math.hypot(y - previous.y, z - previous.z);
+    profile.push({ y, z, distance });
+  };
+
+  addProfilePoint(floorLevel, floorFrontZ);
+  addProfilePoint(floorLevel, floorBackZ);
+  for (let segment = 1; segment <= curveSegments; segment += 1) {
+    const angle = (segment / curveSegments) * (Math.PI / 2);
+    addProfilePoint(floorLevel + curveRadius * (1 - Math.cos(angle)), floorBackZ - curveRadius * Math.sin(angle));
+  }
+  addProfilePoint(wallHeight, floorBackZ - curveRadius);
+
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (let xSegment = 0; xSegment <= xSegments; xSegment += 1) {
+    const x = -xExtent + ((xExtent * 2) / xSegments) * xSegment;
+    for (const point of profile) {
+      positions.push(x, point.y, point.z);
+      uvs.push((x + xExtent) / 120, point.distance / 120);
+    }
+  }
+
+  const profileCount = profile.length;
+  for (let xSegment = 0; xSegment < xSegments; xSegment += 1) {
+    for (let profileIndex = 0; profileIndex < profileCount - 1; profileIndex += 1) {
+      const current = xSegment * profileCount + profileIndex;
+      const nextX = current + profileCount;
+      indices.push(current, nextX, current + 1, current + 1, nextX, nextX + 1);
+    }
+  }
+
+  const geometry = new three.BufferGeometry();
+  geometry.setAttribute("position", new three.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new three.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createFloorTexture(three: ThreeRuntime, gridStrength = LANDING_FLOOR_APPEARANCE.gridStrength) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.fillStyle = `#${LANDING_FLOOR_APPEARANCE.color.toString(16).padStart(6, "0")}`;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    for (let offset = 0; offset <= 256; offset += 64) {
+      const isMajorGridLine = offset % 128 === 0;
+      const majorGridOpacity = 0.15 * gridStrength;
+      const minorGridOpacity = 0.09 * gridStrength;
+      context.strokeStyle = isMajorGridLine
+        ? `rgba(39, 48, 57, ${majorGridOpacity})`
+        : `rgba(39, 48, 57, ${minorGridOpacity})`;
+      context.lineWidth = isMajorGridLine ? 1.5 : 1;
+      context.beginPath();
+      context.moveTo(offset + 0.5, 0);
+      context.lineTo(offset + 0.5, 256);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(0, offset + 0.5);
+      context.lineTo(256, offset + 0.5);
+      context.stroke();
+    }
+    for (let x = 0; x <= 256; x += 64) {
+      for (let y = 0; y <= 256; y += 64) {
+        const isMajorIntersection = x % 128 === 0 && y % 128 === 0;
+        const majorIntersectionOpacity = 0.25 * gridStrength;
+        const minorIntersectionOpacity = 0.14 * gridStrength;
+        context.fillStyle = isMajorIntersection
+          ? `rgba(200, 135, 23, ${majorIntersectionOpacity})`
+          : `rgba(200, 135, 23, ${minorIntersectionOpacity})`;
+        context.beginPath();
+        context.arc(x, y, isMajorIntersection ? 1.8 : 1.2, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+  }
+
+  const texture = new three.CanvasTexture(canvas);
+  texture.colorSpace = three.SRGBColorSpace;
+  texture.wrapS = three.RepeatWrapping;
+  texture.wrapT = three.RepeatWrapping;
+  texture.repeat.set(45, 45);
+  texture.anisotropy = 4;
+  return texture;
 }
 
 function createPhoneShadowTexture(

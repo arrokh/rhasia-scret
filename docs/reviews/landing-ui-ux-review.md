@@ -14,15 +14,15 @@ The hero overlay used a translucent gradient and backdrop blur. Dark devices beh
 
 Use the existing `--background` token as an opaque hero surface. Keep the original shape, placement, shadow, and transition. Preserve readable amber text through the existing warning token.
 
-Use the same background token for the CSS story environment, model-failure fallback, and landing footer. Make the footer opaque so the grid does not bleed through it.
+Keep the story environment plain ivory while the shared WebGL floor loads. Make the footer opaque so the grid does not bleed through it.
 
 ## Single background implementation
 
-User screenshots exposed a second issue: the initial CSS grid used different spacing and detail from the WebGL floor that replaced it after loading. The user explicitly requested one implementation, not separate initial, fallback, and showcase backgrounds.
+User screenshots exposed a second issue: the initial CSS grid used different spacing and detail from the WebGL floor that replaced it after loading. The user selected one implementation: the shared WebGL floor shown after loading.
 
-`LandingStoryEnvironment` now owns one persistent CSS background for the initial phone, device showcase, journey, and model-failure states. Both device renderers have transparent clears and no scene background. Remove the redundant background renderer, floor texture, cyclorama geometry, and obsolete resource cleanup. Keep device/camera animation and shadow placement; retain the existing floor-height constant only for positioning devices and their shadows.
+`LandingStoryEnvironment` owns one persistent WebGL cyclorama floor for the initial phone, device showcase, journey, and model-failure states. It stays hidden while Three.js initializes; the underlying surface is plain ivory. Reveal the floor only after its first successful render. Both device renderers remain transparent and draw devices and shadows only. There must be no CSS grid fallback or second floor renderer.
 
-The grid is visible without waiting for JavaScript imports or model readiness and is never replaced by a canvas. In a desktop browser check, the same background node and grid size survived the initial-to-showcase transition, both device canvases reported alpha-enabled contexts, and an unobstructed background crop had zero changed pixels between phases. No source pixel-regression test was added for this cosmetic invariant.
+The shared floor camera follows the showcase camera's top/side progress and transition duration so the floor recedes in perspective while the devices expand, then returns overhead as they leave. Keep device/camera animation and shadow placement unchanged. No source pixel-regression test was added for this cosmetic invariant.
 
 The phone appeared after model loading during reproduction. A permanent missing-phone failure was not reproduced and is not claimed fixed by the background change.
 
