@@ -16,7 +16,15 @@ Use the existing `--background` token as an opaque hero surface. Keep the origin
 
 Use the same background token for the CSS story environment, model-failure fallback, and landing footer. Make the footer opaque so the grid does not bleed through it.
 
-The perspective grid inside the device showcase and the overhead grid in the initial scene are intentional parts of the original camera sequence; this change does not replace that sequence or the rendering model.
+## Single background implementation
+
+User screenshots exposed a second issue: the initial CSS grid used different spacing and detail from the WebGL floor that replaced it after loading. The user explicitly requested one implementation, not separate initial, fallback, and showcase backgrounds.
+
+`LandingStoryEnvironment` now owns one persistent CSS background for the initial phone, device showcase, journey, and model-failure states. Both device renderers have transparent clears and no scene background. Remove the redundant background renderer, floor texture, cyclorama geometry, and obsolete resource cleanup. Keep device/camera animation and shadow placement; retain the existing floor-height constant only for positioning devices and their shadows.
+
+The grid is visible without waiting for JavaScript imports or model readiness and is never replaced by a canvas. In a desktop browser check, the same background node and grid size survived the initial-to-showcase transition, both device canvases reported alpha-enabled contexts, and an unobstructed background crop had zero changed pixels between phases. No source pixel-regression test was added for this cosmetic invariant.
+
+The phone appeared after model loading during reproduction. A permanent missing-phone failure was not reproduced and is not claimed fixed by the background change.
 
 ## Verification scope
 

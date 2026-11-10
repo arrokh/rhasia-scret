@@ -288,7 +288,6 @@
   display: grid;
   place-items: center;
   padding: 3rem;
-  background: var(--background);
   pointer-events: none;
 }
 
@@ -362,9 +361,23 @@
   overflow: hidden;
   background-color: var(--background);
   background-image:
-    linear-gradient(rgb(39 48 57 / 8%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(39 48 57 / 8%) 1px, transparent 1px);
-  background-size: 64px 64px;
+    radial-gradient(circle, rgb(200 135 23 / 25%) 1.5px, transparent 1.5px),
+    linear-gradient(rgb(39 48 57 / 15%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(39 48 57 / 15%) 1px, transparent 1px),
+    linear-gradient(rgb(39 48 57 / 9%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(39 48 57 / 9%) 1px, transparent 1px);
+  background-size:
+    9svh 9svh,
+    9svh 9svh,
+    9svh 9svh,
+    4.5svh 4.5svh,
+    4.5svh 4.5svh;
+  background-position:
+    calc(50% - 4.5svh) calc(50% - 4.5svh),
+    center,
+    center,
+    center,
+    center;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -374,15 +387,6 @@
 .storyEnvironment[data-visible="true"] {
   opacity: 1;
   visibility: visible;
-}
-
-.storyEnvironmentCanvas {
-  position: absolute !important;
-  inset: 0;
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none;
 }
 
 .phoneScene[data-layout="scene"] {
