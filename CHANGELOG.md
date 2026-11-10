@@ -33,6 +33,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.3.2]
+
+<!-- Draft generated from first-parent history v0.3.1..e05750015ee5c50c4891ae0acbca5468ed01d73c (first-parent, exclusive of tag); release-base e05750015ee5c50c4891ae0acbca5468ed01d73c. Review and curate before publication. -->
+
+### Changes
+
+- [infra][fix] Align release browser concurrency with CI (#323)
+- [web][test] Allow landing client readiness in locale smoke (#324)
+- [infra][fix] Disable interactive release pagers (#325)
+
 ## [0.3.1]
 
 <!-- Draft generated from first-parent history v0.3.0..bc29818c5419a17b56677d095c8f69c2dcdc3a90 (first-parent, exclusive of tag); release-base bc29818c5419a17b56677d095c8f69c2dcdc3a90. Review and curate before publication. -->
