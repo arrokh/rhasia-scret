@@ -148,6 +148,7 @@ function JourneyCard({
       data-landing-phone-view={trackView ? step.phoneView : undefined}
       data-landing-phone-guide={trackGuide ? (instance === "mobile" ? "mobile" : side) : undefined}
       data-active={isActive}
+      aria-current={isActive ? "step" : undefined}
       className={`${styles.journeyCard} ${styles[`journeyCard${side === "left" ? "Left" : "Right"}`]}`}
       style={{ animationDelay: entranceDelay }}
     >
