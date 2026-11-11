@@ -33,6 +33,14 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.3.3]
+
+<!-- Draft generated from first-parent history v0.3.2..e9c94ab664df560aa38a66c1f6cd8eaef46bd0df (first-parent, exclusive of tag); release-base e9c94ab664df560aa38a66c1f6cd8eaef46bd0df. Review and curate before publication. -->
+
+### Changes
+
+- [web][fix] Restore and refine the landing experience (#327)
+
 ## [0.3.2]
 
 <!-- Draft generated from first-parent history v0.3.1..e05750015ee5c50c4891ae0acbca5468ed01d73c (first-parent, exclusive of tag); release-base e05750015ee5c50c4891ae0acbca5468ed01d73c. Review and curate before publication. -->
