@@ -19,6 +19,7 @@ type StoryFixture = {
   journeySection: HTMLElement;
   journeyAnchor: HTMLElement;
   stage: HTMLElement;
+  guide: HTMLElement;
 };
 
 let root: Root | undefined;
@@ -43,6 +44,14 @@ async function flushAnimationFrames() {
       for (const callback of pending) callback(performance.now());
     });
   }
+}
+
+async function flushOneAnimationFrame(timestamp: number) {
+  const pending = [...frames.values()];
+  frames.clear();
+  await act(async () => {
+    for (const callback of pending) callback(timestamp);
+  });
 }
 
 function makeRect(left: number, top: number, width: number, height: number) {
@@ -119,11 +128,13 @@ function createStoryFixture(): StoryFixture {
   const guide = document.createElement("article");
   guide.dataset.landingPhoneGuide = "right";
   guide.dataset.active = "true";
+  guide.style.borderTopLeftRadius = "24px";
+  guide.style.borderBottomLeftRadius = "24px";
   setRect(guide, () => makeRect(20, 300, 300, 200));
 
   const container = document.createElement("div");
   document.body.append(heroSection, journeySection, stage, guide, container);
-  return { container, heroSection, heroAnchor, journeySection, journeyAnchor, stage };
+  return { container, heroSection, heroAnchor, journeySection, journeyAnchor, stage, guide };
 }
 
 function StoryStateProbe() {
@@ -149,6 +160,7 @@ describe("LandingPhoneStoryProvider", () => {
   afterEach(async () => {
     await act(async () => root?.unmount());
     fixture?.container.parentElement?.replaceChildren();
+    document.body.replaceChildren();
     fixture = undefined;
     root = undefined;
     frames.clear();
@@ -191,8 +203,11 @@ describe("LandingPhoneStoryProvider", () => {
 
       const connectorPath = fixture.container.querySelector("svg path");
       const connectorDot = fixture.container.querySelector("svg circle");
+      const guideNode = fixture.container.querySelector<SVGCircleElement>("[data-landing-guide-node]");
       const renderedFrame = frame.getBoundingClientRect();
-      expect(connectorPath?.getAttribute("d")).toMatch(/^M 40 301 C /);
+      expect(connectorPath?.getAttribute("d")).toMatch(/^M 24 328 C /);
+      expect(guideNode?.getAttribute("cx")).toBe("24");
+      expect(guideNode?.getAttribute("cy")).toBe("328");
       expect(connectorPath?.getAttribute("d")).toMatch(/ 792.5 210$/);
       expect(connectorDot?.getAttribute("cx")).toBe("792.5");
       expect(connectorDot?.getAttribute("cy")).toBe("210");
@@ -222,6 +237,117 @@ describe("LandingPhoneStoryProvider", () => {
       await flushAnimationFrames();
       expect(connectorPath?.getAttribute("d")).toBe("");
       expect(connectorDot?.getAttribute("visibility")).toBe("hidden");
+    },
+  );
+
+  it.each([false, true])(
+    "carries both connector nodes into the next card (reduced motion: %s)",
+    async (reducedMotion) => {
+      installFrameQueue();
+      let now = 1000;
+      vi.spyOn(performance, "now").mockImplementation(() => now);
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: reducedMotion && query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: 1000 });
+      fixture = createStoryFixture();
+      setRect(fixture.journeySection, () => makeRect(0, -window.scrollY, 1000, 2000));
+      fixture.guide.dataset.landingPhoneView = "accounts";
+      setRect(fixture.guide, () => makeRect(500, 320 - window.scrollY, 300, 180));
+
+      const nextCard = document.createElement("article");
+      nextCard.dataset.landingPhoneGuide = "right";
+      nextCard.dataset.landingPhoneView = "scan";
+      nextCard.dataset.active = "false";
+      nextCard.style.borderTopLeftRadius = "24px";
+      nextCard.style.borderBottomLeftRadius = "24px";
+      setRect(nextCard, () => makeRect(500, 540 - window.scrollY, 300, 180));
+      fixture.journeySection.append(fixture.guide, nextCard, fixture.container);
+
+      const phoneBounds = document.createElement("div");
+      phoneBounds.dataset.landingPhoneBodyBounds = "";
+      setRect(phoneBounds, () => makeRect(300, 360, 300, 300));
+      fixture.stage.append(phoneBounds);
+
+      const frame = document.createElement("iframe");
+      frame.dataset.deviceKind = "phone";
+      frame.dataset.slot = "landing-phone-screen";
+      fixture.stage.append(frame);
+      const frameDocument = frame.contentDocument;
+      const frameWindow = frame.contentWindow;
+      if (!frameDocument || !frameWindow) throw new Error("The test phone iframe is unavailable.");
+      Object.defineProperty(frameWindow, "innerWidth", { configurable: true, value: 390 });
+      Object.defineProperty(frameWindow, "innerHeight", { configurable: true, value: 844 });
+      const target = frameDocument.createElement("button");
+      target.dataset.landingPhoneTarget = "scan";
+      setRect(target, () => makeRect(100, 200, 80, 40));
+      frameDocument.body.append(target);
+      setRenderedStageRect(fixture.stage);
+      setRenderedPhoneFrameRect(frame, fixture.stage, fixture.stage, makeRect(300, 100, 195, 422));
+
+      await renderStory(true);
+      await flushAnimationFrames();
+      const guideNode = fixture.container.querySelector<SVGCircleElement>("[data-landing-guide-node]");
+      const phoneNode = fixture.container.querySelector<SVGCircleElement>("svg circle");
+      const probe = fixture.container.querySelector<HTMLOutputElement>("[data-story-probe]");
+      if (!guideNode || !phoneNode) throw new Error("The connector nodes are unavailable.");
+      expect(probe?.dataset.storyView).toBe("accounts");
+      expect(guideNode.getAttribute("visibility")).toBe("visible");
+
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 200 });
+      now = 1016;
+      await act(async () => window.dispatchEvent(new Event("scroll")));
+      await flushOneAnimationFrame(now);
+      expect(probe?.dataset.storyView).toBe("scan");
+
+      fixture.guide.dataset.active = "false";
+      nextCard.dataset.active = "true";
+      now = 1032;
+      await act(async () => window.dispatchEvent(new Event("scroll")));
+      await flushOneAnimationFrame(now);
+      const travelStartY = Number(guideNode.getAttribute("cy"));
+      const travelStartPhoneY = Number(phoneNode.getAttribute("cy"));
+      expect(Number.isFinite(travelStartPhoneY)).toBe(true);
+      expect(fixture.container.querySelector("svg path")?.getAttribute("d")).not.toBe("");
+      const getTargetGuideY = () => {
+        const cardRect = nextCard.getBoundingClientRect();
+        const phoneY = Number(phoneNode.getAttribute("cy"));
+        return Math.max(cardRect.top + 28, Math.min(phoneY, cardRect.bottom - 28));
+      };
+      if (reducedMotion) {
+        expect(travelStartY).toBeCloseTo(getTargetGuideY());
+      } else {
+        expect(travelStartY).toBeLessThan(nextCard.getBoundingClientRect().top);
+      }
+
+      now = 1140;
+      await flushOneAnimationFrame(now);
+      const midpointY = Number(guideNode.getAttribute("cy"));
+      if (reducedMotion) {
+        expect(midpointY).toBeCloseTo(travelStartY);
+        expect(Number(guideNode.getAttribute("r"))).toBe(3);
+      } else {
+        expect(midpointY).toBeGreaterThan(travelStartY);
+        expect(midpointY).toBeLessThan(nextCard.getBoundingClientRect().top + 40);
+        expect(Number(guideNode.getAttribute("r"))).toBeGreaterThan(3);
+      }
+
+      now = 1600;
+      await flushAnimationFrames();
+      const phoneY = Number(phoneNode.getAttribute("cy"));
+      const cardRect = nextCard.getBoundingClientRect();
+      const targetGuideY = Math.max(cardRect.top + 28, Math.min(phoneY, cardRect.bottom - 28));
+      expect(Number(guideNode.getAttribute("cy"))).toBeCloseTo(targetGuideY);
+      expect(guideNode.getAttribute("r")).toBe("3");
     },
   );
 
@@ -479,6 +605,46 @@ describe("LandingPhoneStoryProvider", () => {
       await flushAnimationFrames();
       expect(probe?.dataset.storyView).toBe(step.phoneView);
     }
+  });
+
+  it("keeps the active journey card stable around a scroll-direction reversal", async () => {
+    installFrameQueue();
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 1000 });
+    fixture = createStoryFixture();
+    setRect(fixture.journeySection, () => makeRect(0, -window.scrollY, 1000, 2000));
+    const phoneBounds = document.createElement("div");
+    phoneBounds.dataset.landingPhoneBodyBounds = "";
+    setRect(phoneBounds, () => makeRect(300, 130, 300, 500));
+    fixture.stage.append(phoneBounds);
+
+    const accountsCard = document.createElement("article");
+    accountsCard.dataset.landingPhoneView = "accounts";
+    setRect(accountsCard, () => makeRect(300, 130 - window.scrollY, 300, 200));
+    const scanCard = document.createElement("article");
+    scanCard.dataset.landingPhoneView = "scan";
+    setRect(scanCard, () => makeRect(300, 330 - window.scrollY, 300, 200));
+    fixture.journeySection.append(accountsCard, scanCard);
+
+    await renderStory(true);
+    const probe = fixture.container.querySelector<HTMLOutputElement>("[data-story-probe]");
+    expect(probe?.dataset.storyView).toBe("accounts");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 300 });
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(probe?.dataset.storyView).toBe("scan");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 150 });
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(probe?.dataset.storyView).toBe("scan");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    await act(async () => window.dispatchEvent(new Event("scroll")));
+    await flushAnimationFrames();
+    expect(probe?.dataset.storyView).toBe("accounts");
   });
 
   it("selects the visible responsive journey anchor after a viewport change", async () => {

@@ -45,7 +45,16 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
     let animationFrame = 0;
     let disposed = false;
     let phoneSceneScale = 1;
+    let selectedView = initialPhoneView;
     let plannedMobileJourneyFit: MobileJourneyPhoneFit | null = null;
+    const connectorMotion: ConnectorMotionState = {
+      activeCard: null,
+      isMobile: null,
+      phonePoint: null,
+      guidePointDocument: null,
+      phoneBounds: null,
+      travel: null,
+    };
     let handoffStartScrollY: number | null = null;
 
     const getVisibleJourneyAnchor = () =>
@@ -54,22 +63,40 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       );
     const updateActiveView = () => {
       if (!storyStageStartedRef.current) {
-        setActiveView((current) => (current === initialPhoneView ? current : initialPhoneView));
+        if (selectedView !== initialPhoneView) {
+          selectedView = initialPhoneView;
+          setActiveView(initialPhoneView);
+        }
         return;
       }
       const isMobile = window.innerWidth <= 720;
-      const viewportCenter = window.innerHeight * (isMobile ? 0.78 : 0.5);
-      const activeCard = Array.from(journeySection.querySelectorAll<HTMLElement>("[data-landing-phone-view]"))
+      const cards = Array.from(journeySection.querySelectorAll<HTMLElement>("[data-landing-phone-view]"))
         .filter((card) => card.getClientRects().length > 0)
-        .map((card) => {
-          const bounds = card.getBoundingClientRect();
-          const nearestPoint = Math.max(bounds.top, Math.min(viewportCenter, bounds.bottom));
-          return { card, distance: Math.abs(nearestPoint - viewportCenter) };
+        .map((card) => ({ card, bounds: card.getBoundingClientRect() }));
+      const phoneTop = stage
+        .querySelector<HTMLElement>("[data-landing-phone-body-bounds]")
+        ?.getBoundingClientRect().top;
+      const firstCardHeight = cards[0]?.bounds.height ?? 0;
+      const desktopAnchor = phoneTop === undefined ? window.innerHeight / 2 : phoneTop + firstCardHeight / 2;
+      const activeCardAnchor = isMobile
+        ? window.innerHeight * 0.78
+        : Math.max(0, Math.min(window.innerHeight, desktopAnchor));
+      const candidates = cards
+        .map(({ card, bounds }) => {
+          const nearestPoint = Math.max(bounds.top, Math.min(activeCardAnchor, bounds.bottom));
+          return { card, distance: Math.abs(nearestPoint - activeCardAnchor) };
         })
-        .sort((first, second) => first.distance - second.distance)[0]?.card;
+        .sort((first, second) => first.distance - second.distance);
+      const closestCard = candidates[0];
+      const currentCard = candidates.find(({ card }) => card.dataset.landingPhoneView === selectedView);
+      const activeCard =
+        currentCard && closestCard && currentCard.distance <= closestCard.distance + ACTIVE_VIEW_SWITCH_HYSTERESIS_PX
+          ? currentCard.card
+          : closestCard?.card;
       const nextView = activeCard?.dataset.landingPhoneView;
-      if (nextView && phoneViews.includes(nextView as LandingPhoneView)) {
-        setActiveView((current) => (current === nextView ? current : (nextView as LandingPhoneView)));
+      if (nextView && phoneViews.includes(nextView as LandingPhoneView) && nextView !== selectedView) {
+        selectedView = nextView as LandingPhoneView;
+        setActiveView(selectedView);
       }
     };
 
@@ -87,7 +114,10 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
         journeySection.style.setProperty("--landing-mobile-stage-top", `${top}px`);
       }
       const journeyAnchor = getVisibleJourneyAnchor();
-      if (!journeyAnchor) return;
+      if (!journeyAnchor) {
+        clearConnector(connectorPathRef.current, connectorDotRef.current, guideNodeRef.current, connectorMotion);
+        return;
+      }
 
       const scrollY = window.scrollY;
       const journeyRect = journeyAnchor.getBoundingClientRect();
@@ -128,7 +158,7 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
         stage.style.top = `${top}px`;
         stage.style.width = `${window.innerWidth}px`;
         stage.style.height = `${window.innerHeight}px`;
-        clearConnector(connectorPathRef.current, connectorDotRef.current, guideNodeRef.current);
+        clearConnector(connectorPathRef.current, connectorDotRef.current, guideNodeRef.current, connectorMotion);
         return;
       }
 
@@ -184,27 +214,30 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       journeySection.dataset.phoneVisible = phoneFitsJourneyEnd ? "true" : "false";
       if (!phoneFitsJourneyEnd) {
         stage.style.visibility = "hidden";
-        clearConnector(connectorPathRef.current, connectorDotRef.current, guideNodeRef.current);
+        clearConnector(connectorPathRef.current, connectorDotRef.current, guideNodeRef.current, connectorMotion);
         return;
       }
-      updateConnector(
+      const connectorIsTraveling = updateConnector(
         stage,
         connectorPathRef.current,
         connectorDotRef.current,
         guideNodeRef.current,
         isMobile,
         journeyGuideActive,
+        connectorMotion,
+        prefersReducedMotion,
       );
+      if (connectorIsTraveling) scheduleUpdate();
     };
 
-    const scheduleUpdate = () => {
+    function scheduleUpdate() {
       if (animationFrame !== 0) return;
       animationFrame = window.requestAnimationFrame(() => {
         animationFrame = 0;
         updateLayout();
         updateActiveView();
       });
-    };
+    }
     const handleReducedMotionChange = () => {
       prefersReducedMotion = reducedMotionQuery.matches;
       scheduleUpdate();
@@ -327,7 +360,7 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
       <LandingPhoneStoryContext.Provider value={activeView}>
         {children}
         <svg className={styles.phoneStoryConnector} aria-hidden="true">
-          <g key={`${storyStageStarted ? "story" : "intro"}-${activeView}`} className={styles.phoneConnectorTransition}>
+          <g>
             <path ref={connectorPathRef} />
             <circle ref={connectorDotRef} r="3.5" visibility="hidden" />
             <circle ref={guideNodeRef} data-landing-guide-node r="3" visibility="hidden" />
@@ -339,7 +372,23 @@ export function LandingPhoneStoryProvider({ children }: { children: ReactNode })
 }
 
 type PhoneRect = Readonly<{ left: number; right: number; top: number; bottom: number }>;
+type ConnectorPoint = Readonly<{ x: number; y: number }>;
 type PhoneTarget = Readonly<{ x: number; y: number; phoneBounds: PhoneRect }>;
+type ConnectorTravel = {
+  fromPhone: ConnectorPoint;
+  fromGuideDocument: ConnectorPoint;
+  lastPhoneBounds: PhoneRect;
+  startedAt: number;
+  duration: number;
+};
+type ConnectorMotionState = {
+  activeCard: HTMLElement | null;
+  isMobile: boolean | null;
+  phonePoint: ConnectorPoint | null;
+  guidePointDocument: ConnectorPoint | null;
+  phoneBounds: PhoneRect | null;
+  travel: ConnectorTravel | null;
+};
 type MobileJourneyPhoneFit = Readonly<{
   scale: number;
   centerX: number;
@@ -359,7 +408,13 @@ type MobileJourneyFitArea = Readonly<{
 const PHONE_SCREEN_FIT_RATIO = 0.86;
 const PHONE_TARGET_HIGHLIGHT_OUTSET = 5;
 const PHONE_GUIDE_INSET = 20;
+const PHONE_GUIDE_BORDER_CLEARANCE = 4;
+const PHONE_MOBILE_GUIDE_ROUTE_OFFSET = 5;
 const PHONE_BOUNDARY_CLEARANCE = 24;
+const ACTIVE_VIEW_SWITCH_HYSTERESIS_PX = 64;
+const CONNECTOR_TRAVEL_BASE_DURATION_MS = 180;
+const CONNECTOR_TRAVEL_DISTANCE_DURATION_MS_PER_PX = 0.28;
+const CONNECTOR_TRAVEL_MAX_DURATION_MS = 340;
 
 function setPhoneSceneScale(stage: HTMLElement, scale: number) {
   const phoneScene = stage.querySelector<HTMLElement>('[data-layout="scene"]');
@@ -552,10 +607,26 @@ function getPhoneTarget(stage: HTMLElement): PhoneTarget | null {
   }
 }
 
-function clearConnector(path: SVGPathElement | null, dot: SVGCircleElement | null, guideNode: SVGCircleElement | null) {
+function clearConnector(
+  path: SVGPathElement | null,
+  dot: SVGCircleElement | null,
+  guideNode: SVGCircleElement | null,
+  motion: ConnectorMotionState,
+) {
   path?.setAttribute("d", "");
   dot?.setAttribute("visibility", "hidden");
   guideNode?.setAttribute("visibility", "hidden");
+  guideNode?.setAttribute("r", "3");
+  resetConnectorMotion(motion);
+}
+
+function resetConnectorMotion(motion: ConnectorMotionState) {
+  motion.activeCard = null;
+  motion.isMobile = null;
+  motion.phonePoint = null;
+  motion.guidePointDocument = null;
+  motion.phoneBounds = null;
+  motion.travel = null;
 }
 
 function keepPhoneWithinJourneyEnd(stage: HTMLElement, journeySection: HTMLElement) {
@@ -603,8 +674,10 @@ function updateConnector(
   guideNode: SVGCircleElement | null,
   isMobile: boolean,
   journeyGuideActive: boolean,
-) {
-  if (!path || !dot || !guideNode) return;
+  motion: ConnectorMotionState,
+  prefersReducedMotion: boolean,
+): boolean {
+  if (!path || !dot || !guideNode) return false;
   const guideSelector = isMobile
     ? '[data-landing-phone-guide="mobile"][data-active="true"]'
     : '[data-landing-phone-guide="right"][data-active="true"]';
@@ -621,50 +694,145 @@ function updateConnector(
     target.y < 0 ||
     target.y > window.innerHeight
   ) {
-    clearConnector(path, dot, guideNode);
-    return;
+    clearConnector(path, dot, guideNode, motion);
+    return false;
   }
 
   const cardRect = card.getBoundingClientRect();
   if (cardRect.bottom <= 0 || cardRect.top >= window.innerHeight) {
-    clearConnector(path, dot, guideNode);
-    return;
+    clearConnector(path, dot, guideNode, motion);
+    return false;
   }
 
-  const guideX = isMobile ? cardRect.right - PHONE_GUIDE_INSET : cardRect.left + PHONE_GUIDE_INSET;
-  const guideY = cardRect.top + 1;
+  const destinationGuideX = isMobile
+    ? cardRect.right - PHONE_GUIDE_INSET
+    : cardRect.left + PHONE_GUIDE_BORDER_CLEARANCE;
+  let destinationGuideY = cardRect.top + 1;
+  if (!isMobile) {
+    const cardStyle = getComputedStyle(card);
+    const topCornerRadius = Number.parseFloat(cardStyle.borderTopLeftRadius) || 0;
+    const bottomCornerRadius = Number.parseFloat(cardStyle.borderBottomLeftRadius) || 0;
+    const minimumGuideY = cardRect.top + topCornerRadius + PHONE_GUIDE_BORDER_CLEARANCE;
+    const maximumGuideY = cardRect.bottom - bottomCornerRadius - PHONE_GUIDE_BORDER_CLEARANCE;
+    destinationGuideY = Math.max(minimumGuideY, Math.min(target.y, maximumGuideY));
+  }
+
+  const destinationPhonePoint = { x: target.x, y: target.y };
+  const destinationGuideDocumentPoint = {
+    x: destinationGuideX + window.scrollX,
+    y: destinationGuideY + window.scrollY,
+  };
+  if (motion.activeCard !== card || motion.isMobile !== isMobile) {
+    const fromPhone = motion.phonePoint;
+    const fromGuideDocument = motion.guidePointDocument;
+    motion.travel = null;
+    if (
+      motion.activeCard !== null &&
+      motion.isMobile === isMobile &&
+      fromPhone &&
+      fromGuideDocument &&
+      !prefersReducedMotion
+    ) {
+      motion.travel = {
+        fromPhone,
+        fromGuideDocument,
+        lastPhoneBounds: motion.phoneBounds ?? target.phoneBounds,
+        startedAt: performance.now(),
+        duration: getConnectorTravelDuration(
+          Math.max(
+            getConnectorPointDistance(fromPhone, destinationPhonePoint),
+            getConnectorPointDistance(fromGuideDocument, destinationGuideDocumentPoint),
+          ),
+        ),
+      };
+    }
+    motion.activeCard = card;
+    motion.isMobile = isMobile;
+  }
+  if (prefersReducedMotion) motion.travel = null;
+
+  let phonePoint = destinationPhonePoint;
+  let guideDocumentPoint = destinationGuideDocumentPoint;
+  let travelProgress = 1;
+  if (motion.travel) {
+    const phoneBoundsDeltaX = target.phoneBounds.left - motion.travel.lastPhoneBounds.left;
+    const phoneBoundsDeltaY = target.phoneBounds.top - motion.travel.lastPhoneBounds.top;
+    motion.travel.fromPhone = {
+      x: motion.travel.fromPhone.x + phoneBoundsDeltaX,
+      y: motion.travel.fromPhone.y + phoneBoundsDeltaY,
+    };
+    motion.travel.lastPhoneBounds = target.phoneBounds;
+
+    travelProgress = Math.min(1, Math.max(0, (performance.now() - motion.travel.startedAt) / motion.travel.duration));
+    const easedProgress = 1 - (1 - travelProgress) ** 3;
+    phonePoint = interpolateConnectorPoint(motion.travel.fromPhone, destinationPhonePoint, easedProgress);
+    guideDocumentPoint = interpolateConnectorPoint(
+      motion.travel.fromGuideDocument,
+      destinationGuideDocumentPoint,
+      easedProgress,
+    );
+    if (travelProgress >= 1) motion.travel = null;
+  }
+
+  motion.phonePoint = phonePoint;
+  motion.guidePointDocument = guideDocumentPoint;
+  motion.phoneBounds = target.phoneBounds;
+
+  const guideX = guideDocumentPoint.x - window.scrollX;
+  const guideY = guideDocumentPoint.y - window.scrollY;
+  const phoneX = phonePoint.x;
+  const phoneY = phonePoint.y;
   let connectorPath: string;
   if (isMobile) {
     const caption = getVisibleElement("[data-landing-phone-caption]");
     const captionBounds = caption ? toPhoneRect(caption.getBoundingClientRect()) : null;
-    const phoneBounds = target.phoneBounds;
     const rightExitX = Math.min(
       window.innerWidth - 4,
-      Math.max(Math.max(phoneBounds.right, captionBounds?.right ?? phoneBounds.right) + 14, guideX + 16),
+      Math.max(Math.max(target.phoneBounds.right, captionBounds?.right ?? target.phoneBounds.right) + 14, guideX + 16),
     );
-    const routeBottom = cardRect.top - 4;
-    const obstaclesBottom = Math.max(phoneBounds.bottom, captionBounds?.bottom ?? phoneBounds.bottom);
-    if (rightExitX <= target.x || routeBottom < obstaclesBottom + 2 || guideY >= window.innerHeight) {
-      clearConnector(path, dot, guideNode);
-      return;
+    const routeBottom = guideY - PHONE_MOBILE_GUIDE_ROUTE_OFFSET;
+    const obstaclesBottom = Math.max(target.phoneBounds.bottom, captionBounds?.bottom ?? target.phoneBounds.bottom);
+    if (rightExitX <= phoneX || routeBottom < obstaclesBottom + 2 || guideY >= window.innerHeight) {
+      clearConnector(path, dot, guideNode, motion);
+      return false;
     }
     connectorPath =
-      `M ${target.x} ${target.y} ` +
-      `C ${rightExitX} ${target.y}, ${rightExitX} ${target.y}, ${rightExitX} ${target.y + 12} ` +
+      `M ${phoneX} ${phoneY} ` +
+      `C ${rightExitX} ${phoneY}, ${rightExitX} ${phoneY}, ${rightExitX} ${phoneY + 12} ` +
       `L ${rightExitX} ${routeBottom - 8} ` +
       `Q ${rightExitX} ${routeBottom}, ${rightExitX - 8} ${routeBottom} ` +
       `L ${guideX + 8} ${routeBottom} ` +
       `Q ${guideX} ${routeBottom}, ${guideX} ${guideY}`;
   } else {
     connectorPath =
-      `M ${guideX} ${guideY} ` + `C ${guideX - 82} ${guideY}, ${target.x + 86} ${target.y}, ${target.x} ${target.y}`;
+      `M ${guideX} ${guideY} ` + `C ${guideX - 82} ${guideY}, ${phoneX + 86} ${phoneY}, ${phoneX} ${phoneY}`;
   }
 
   path.setAttribute("d", connectorPath);
-  dot.setAttribute("cx", `${target.x}`);
-  dot.setAttribute("cy", `${target.y}`);
+  dot.setAttribute("cx", `${phoneX}`);
+  dot.setAttribute("cy", `${phoneY}`);
   dot.setAttribute("visibility", "visible");
   guideNode.setAttribute("cx", `${guideX}`);
   guideNode.setAttribute("cy", `${guideY}`);
+  guideNode.setAttribute("r", `${3 + (motion.travel ? Math.sin(Math.PI * travelProgress) * 1.2 : 0)}`);
   guideNode.setAttribute("visibility", "visible");
+  return motion.travel !== null;
+}
+
+function getConnectorPointDistance(from: ConnectorPoint, to: ConnectorPoint) {
+  return Math.hypot(to.x - from.x, to.y - from.y);
+}
+
+function getConnectorTravelDuration(distance: number) {
+  return Math.min(
+    CONNECTOR_TRAVEL_MAX_DURATION_MS,
+    CONNECTOR_TRAVEL_BASE_DURATION_MS + distance * CONNECTOR_TRAVEL_DISTANCE_DURATION_MS_PER_PX,
+  );
+}
+
+function interpolateConnectorPoint(from: ConnectorPoint, to: ConnectorPoint, progress: number): ConnectorPoint {
+  return {
+    x: from.x + (to.x - from.x) * progress,
+    y: from.y + (to.y - from.y) * progress,
+  };
 }
