@@ -21,11 +21,11 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "dotenv": "^18.0.9",
+    "dotenv": "^18.0.10",
     "eslint": "^10.14.0",
     "testcontainers": "^12.2.1",
     "tsx": "4.23.15",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "5.1.0"
   }
 }
