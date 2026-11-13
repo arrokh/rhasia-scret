@@ -4,7 +4,7 @@
 
 Vercel Cron or a provider-neutral scheduler invokes the authenticated API endpoint every day at 03:00 UTC. Configure `CRON_SECRET` in the API environment with at least 32 random bytes. The bounded endpoint is `/v1/internal/retention-purge` and accepts `Authorization: Bearer <CRON_SECRET>`; it fails closed when the secret is absent, too short, or incorrect.
 
-The standalone Bun/Node API service uses server-side Prisma only; the web service has no database connection. Self-hosted Compose uses the same endpoint through `docker/retention-purge.mjs`. Each run drains at most 10 batches of 100 records for each category:
+The standalone Go/Echo API uses server-side PostgreSQL access; the web service has no database connection. Vercel Cron or a provider-neutral scheduler calls the same endpoint. Self-hosted Compose runs the Go API image's `retention-purge` command, which invokes that endpoint with the configured secret. Each run drains at most 10 batches of 100 records for each category, including authentication state:
 
 1. expired soft-deleted Authenticator Accounts;
 2. expired Shared Vaults and their encrypted accounts, memberships, and invitations;
@@ -25,11 +25,15 @@ Account and Vault selection uses PostgreSQL row locks with `SKIP LOCKED`, so con
 
 ## Observability and recovery
 
-Successful logs use the event `retention_purge_completed` and contain only:
+Successful endpoint logs use the event `retention_purge_completed` and contain only:
 
 - an opaque job ID;
-- purged opaque IDs and counts for accounts, Vaults, and audit events; and
-- one backlog flag per category.
+- counts for purged accounts, Vaults, audit events, and authentication records; and
+- backlog flags for accounts, Vaults, audit events, and authentication state.
+
+Authentication cleanup limits each of its five tables to 100 rows per transaction batch. The auth backlog flag is set when any table fills a batch at the run limit; a later scheduled invocation continues the cleanup.
+
+They do not include purged record IDs. Scheduler logs record only the request outcome and HTTP status.
 
 Failures use `retention_purge_failed` with only the opaque job ID. Raw database errors are deliberately excluded from production logs and responses because they may contain query parameters. A non-zero backlog flag means the bounded run reached its work limit; the next scheduled run safely continues. Persistent backlog or repeated failures should alert the operator to inspect database availability and job duration without querying encrypted payload columns.
 

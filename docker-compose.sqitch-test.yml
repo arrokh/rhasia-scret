@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set to the synthetic test database}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set to the synthetic test user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set to a synthetic test password}
+    volumes:
+      - sqitch-test-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:?POSTGRES_PORT must bind PostgreSQL to a local loopback port}:5432"
+    networks: [sqitch-test]
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  sqitch:
+    image: sqitch/sqitch:v1.6.1.1@sha256:ccc468702782f376647f7febf06a616ffacf01bd5f066ad589298e387583c60d
+    working_dir: /workspace/apps/api
+    volumes:
+      - ./:/workspace:ro
+    environment:
+      SQITCH_TARGET: db:pg://db:5432/${POSTGRES_DB:?POSTGRES_DB must be set to the synthetic test database}
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:?POSTGRES_DB must be set to the synthetic test database}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER must be set to the synthetic test user}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set to a synthetic test password}
+      PGOPTIONS: -c search_path=public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [sqitch-test]
+
+networks:
+  sqitch-test:
+    driver: bridge
+
+volumes:
+  sqitch-test-postgres-data:

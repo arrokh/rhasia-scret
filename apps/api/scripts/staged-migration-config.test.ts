@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, readlink, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createStagedMigrationConfig } from "./staged-migration-config";
+import { createStagedMigrationConfig } from "../prisma/archive/passwordless-transition/staged-migration-config";
 
 const temporaryDirectories: string[] = [];
 

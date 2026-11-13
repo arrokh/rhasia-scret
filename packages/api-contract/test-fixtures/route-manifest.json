@@ -1,0 +1,282 @@
+[
+  {
+    "method": "POST",
+    "route": "/auth/magic-link/request"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/magic-link/redeem"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/pwa/session"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/session/refresh"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/session/revoke"
+  },
+  {
+    "method": "GET",
+    "route": "/health"
+  },
+  {
+    "method": "GET",
+    "route": "/time"
+  },
+  {
+    "method": "GET",
+    "route": "/internal/retention-purge"
+  },
+  {
+    "method": "GET",
+    "route": "/me"
+  },
+  {
+    "method": "DELETE",
+    "route": "/me"
+  },
+  {
+    "method": "GET",
+    "route": "/me/deletion/preview"
+  },
+  {
+    "method": "POST",
+    "route": "/me/deletion/otp/request"
+  },
+  {
+    "method": "POST",
+    "route": "/me/deletion/otp/verify"
+  },
+  {
+    "method": "POST",
+    "route": "/passkey-recovery/registration/options"
+  },
+  {
+    "method": "POST",
+    "route": "/passkey-recovery/registration/verify"
+  },
+  {
+    "method": "POST",
+    "route": "/passkey-recovery/authentication/options"
+  },
+  {
+    "method": "POST",
+    "route": "/passkey-recovery/authentication/verify"
+  },
+  {
+    "method": "GET",
+    "route": "/passkey-recovery/status"
+  },
+  {
+    "method": "DELETE",
+    "route": "/passkey-recovery"
+  },
+  {
+    "method": "GET",
+    "route": "/personal-vault"
+  },
+  {
+    "method": "POST",
+    "route": "/personal-vault/initialize"
+  },
+  {
+    "method": "POST",
+    "route": "/personal-vault/name/migration"
+  },
+  {
+    "method": "GET",
+    "route": "/personal-vault/destructive-reset"
+  },
+  {
+    "method": "POST",
+    "route": "/personal-vault/destructive-reset"
+  },
+  {
+    "method": "GET",
+    "route": "/user-crypto-profile"
+  },
+  {
+    "method": "POST",
+    "route": "/user-crypto-profile/rewrap"
+  },
+  {
+    "method": "POST",
+    "route": "/user-crypto-profile/migration"
+  },
+  {
+    "method": "PUT",
+    "route": "/user-encryption-identity"
+  },
+  {
+    "method": "POST",
+    "route": "/user-encryption-identity/migration"
+  },
+  {
+    "method": "GET",
+    "route": "/user-encryption-identity/rotation"
+  },
+  {
+    "method": "PATCH",
+    "route": "/user-encryption-identity/rotation"
+  },
+  {
+    "method": "POST",
+    "route": "/vault-imports"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults/:vaultId"
+  },
+  {
+    "method": "PATCH",
+    "route": "/shared-vaults/:vaultId"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/name/migration"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/key-wrap/migration"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/accounts/migration"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/accounts"
+  },
+  {
+    "method": "PATCH",
+    "route": "/shared-vaults/:vaultId/accounts"
+  },
+  {
+    "method": "DELETE",
+    "route": "/shared-vaults/:vaultId/accounts"
+  },
+  {
+    "method": "PUT",
+    "route": "/shared-vaults/:vaultId/accounts"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults/:vaultId/audit-events"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/audit-events"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/leave"
+  },
+  {
+    "method": "DELETE",
+    "route": "/shared-vaults/:vaultId/lifecycle"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/lifecycle"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults/:vaultId/member-permissions"
+  },
+  {
+    "method": "PATCH",
+    "route": "/shared-vaults/:vaultId/member-permissions"
+  },
+  {
+    "method": "PATCH",
+    "route": "/shared-vaults/:vaultId/members/:userId"
+  },
+  {
+    "method": "DELETE",
+    "route": "/shared-vaults/:vaultId/members/:userId"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults/:vaultId/participants"
+  },
+  {
+    "method": "GET",
+    "route": "/shared-vaults/:vaultId/rotation"
+  },
+  {
+    "method": "PATCH",
+    "route": "/shared-vaults/:vaultId/rotation"
+  },
+  {
+    "method": "POST",
+    "route": "/shared-vaults/:vaultId/share-links"
+  },
+  {
+    "method": "DELETE",
+    "route": "/shared-vaults/:vaultId/share-links/:invitationId"
+  },
+  {
+    "method": "GET",
+    "route": "/secure-share-links"
+  },
+  {
+    "method": "POST",
+    "route": "/secure-share-links"
+  },
+  {
+    "method": "GET",
+    "route": "/vaults/:vaultId/accounts"
+  },
+  {
+    "method": "POST",
+    "route": "/vaults/:vaultId/accounts/migration"
+  },
+  {
+    "method": "POST",
+    "route": "/vaults/:vaultId/accounts"
+  },
+  {
+    "method": "PATCH",
+    "route": "/vaults/:vaultId/accounts"
+  },
+  {
+    "method": "DELETE",
+    "route": "/vaults/:vaultId/accounts"
+  },
+  {
+    "method": "PUT",
+    "route": "/vaults/:vaultId/accounts"
+  },
+  {
+    "method": "POST",
+    "route": "/vaults/:vaultId/archive-exports"
+  },
+  {
+    "method": "GET",
+    "route": "/vaults/:vaultId/audit-events"
+  },
+  {
+    "method": "POST",
+    "route": "/vaults/:vaultId/audit-events"
+  },
+  {
+    "method": "GET",
+    "route": "/sync/offline-bundle"
+  },
+  {
+    "method": "GET",
+    "route": "/sync/workspace-bundle"
+  }
+]

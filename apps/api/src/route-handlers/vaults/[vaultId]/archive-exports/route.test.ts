@@ -23,23 +23,27 @@ describe("POST /v1/vaults/:vaultId/archive-exports contract", () => {
     expect(audit.recordArchiveExport).toHaveBeenCalledWith("owner-1", "vault-1");
   });
 
-  it("accepts a semantically bodyless request represented by an empty stream", async () => {
+  it("rejects a headerless stream without reading it or recording an audit event", async () => {
+    let reads = 0;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          reads += 1;
+          controller.enqueue(new Uint8Array([1]));
+          controller.close();
+        },
+      },
+      { highWaterMark: 0 },
+    );
     const audit = createAudit();
     const post = createVaultArchiveExportAuditHandler({ authenticate: async () => user, audit });
     const response = await post(
-      request({
-        method: "POST",
-        body: new ReadableStream({
-          start(controller) {
-            controller.close();
-          },
-        }),
-        duplex: "half",
-      } as RequestInit & { duplex: "half" }),
+      request({ method: "POST", body, duplex: "half" } as RequestInit & { duplex: "half" }),
       context,
     );
-    expect(response.status).toBe(204);
-    expect(audit.recordArchiveExport).toHaveBeenCalledWith("owner-1", "vault-1");
+    expect(response.status).toBe(400);
+    expect(reads).toBe(0);
+    expect(audit.recordArchiveExport).not.toHaveBeenCalled();
   });
 
   it("rejects request content without auditing it", async () => {

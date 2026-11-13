@@ -54,6 +54,8 @@ if (typeof hostedFullGate !== "string" || /verify:release-evidence:(?:current|re
 
 for (const command of [
   "pnpm run test:full:core",
+  "pnpm run verify:api-go",
+  "pnpm run verify:api-contract",
   "pnpm audit --prod --audit-level=high",
   "pnpm run verify:dependency-licenses",
   "pnpm --filter @rhasia-scret/web run lint",
@@ -105,6 +107,14 @@ if (/pnpm run prisma:migrate:deploy/.test(browserSmoke))
   failures.push("browser smoke must not apply database migrations");
 if (!/^    services:\n      postgres:/m.test(browserE2e))
   failures.push("browser E2E must retain its PostgreSQL service");
+if (!/Sqitch migration image/.test(browserE2e) || !/docker run --rm/.test(browserE2e))
+  failures.push("browser E2E must provision PostgreSQL with the Go/Sqitch migration image");
+if (/prisma:migrate:deploy/.test(ci) || /prisma:migrate:deploy/.test(releaseEvidence))
+  failures.push("CI and release-evidence workflows must not apply Prisma migrations");
+if (!/pnpm --filter @rhasia-scret\/api-parity run test:full/.test(ci))
+  failures.push("CI quality must test the TypeScript API parity package");
+if (!/actions\/setup-go@[0-9a-f]{40}/.test(ci) || !/go-version: 1\.27\.4/.test(ci))
+  failures.push("CI must install the pinned Go 1.27.4 toolchain");
 if (/pnpm run format:check/.test(ci)) failures.push("CI must not duplicate the dedicated Format workflow");
 
 const ciTimeoutCount = (ci.match(/^\s+timeout-minutes: 8$/gm) ?? []).length;
@@ -165,6 +175,42 @@ requireText(
 requireText(
   ".github/workflows/codeql.yml",
   codeql,
+  /languages:\s*javascript-typescript, go/,
+  "analyze both TypeScript and Go",
+);
+requireText(
+  ".github/workflows/codeql.yml",
+  codeql,
+  /name:\s*CodeQL JavaScript and TypeScript/,
+  "preserve the established CodeQL required-check context",
+);
+requireText(
+  ".github/workflows/codeql.yml",
+  codeql,
+  /go-version:\s*1\.27\.4[\s\S]*?cache-dependency-path:\s*apps\/api\/go\.sum/,
+  "use the pinned Go toolchain for CodeQL",
+);
+requireText(
+  ".github/workflows/codeql.yml",
+  codeql,
+  /working-directory:\s*apps\/api[\s\S]*?run:\s*go build \.\/\.\.\./,
+  "build Go packages during CodeQL extraction",
+);
+requireText(
+  "tools/verify-go.mjs",
+  read("tools/verify-go.mjs"),
+  /govulncheck@v1\.8\.0/,
+  "run the pinned Go vulnerability scanner",
+);
+requireText(
+  "tools/verify-go.mjs",
+  read("tools/verify-go.mjs"),
+  /go-licenses\/v2@v2\.0\.1[\s\S]*?--disallowed_types=forbidden,unknown/,
+  "check Go dependency licenses and reject unknown/forbidden terms",
+);
+requireText(
+  ".github/workflows/codeql.yml",
+  codeql,
   /github\.event\.pull_request\.head\.repo\.fork/,
   "handle fork pull requests without assuming write access",
 );
@@ -207,6 +253,12 @@ requireText(
   dependabot,
   /package-ecosystem:\s*["']?npm["']?/,
   "update workspace dependencies",
+);
+requireText(
+  ".github/dependabot.yml",
+  dependabot,
+  /package-ecosystem:\s*["']?gomod["']?[\s\S]*?directory:\s*\/apps\/api/,
+  "update the Go API module dependencies",
 );
 requireText(
   ".github/dependabot.yml",

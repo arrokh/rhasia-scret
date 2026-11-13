@@ -1,11 +1,36 @@
 import { Buffer } from "node:buffer";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import {
+  renderAccountDeletionCompletionEmail,
+  renderAccountDeletionOtpEmail,
+} from "@api/modules/account-deletion/infrastructure/account-deletion-email-template";
+import { renderMagicLinkEmail } from "@api/shared/infrastructure/email-templates/magic-link-email-template";
 import {
   createSmtpEmailSenders,
   readSmtpEmailConfiguration,
   type MailTransport,
   type NodemailerTransportFactory,
 } from "@api/smtp-email-senders";
+import { z } from "zod";
+
+const emailMessageSchema = z.object({ subject: z.string(), text: z.string(), html: z.string() }).strict();
+const emailGolden = z
+  .object({
+    note: z.string(),
+    magicLink: emailMessageSchema,
+    accountDeletionOtp: emailMessageSchema,
+    accountDeletionCompletion: emailMessageSchema,
+  })
+  .strict()
+  .parse(
+    JSON.parse(
+      readFileSync(
+        new URL("../../../../../packages/api-contract/test-fixtures/email-golden.json", import.meta.url),
+        "utf8",
+      ),
+    ),
+  );
 
 const valid = {
   NODE_ENV: "test",
@@ -20,6 +45,22 @@ const valid = {
 };
 
 describe("SMTP email delivery", () => {
+  it("matches the shared synthetic English rendering fixture", () => {
+    const actionUrl = new URL(
+      "https://vault.example.test/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults&handoff=abcdefghijklmnop",
+    );
+    expect(renderMagicLinkEmail(actionUrl)).toEqual(emailGolden.magicLink);
+    expect(renderAccountDeletionOtpEmail({ recipientEmail: "person@example.test", otp: "001234" })).toEqual(
+      emailGolden.accountDeletionOtp,
+    );
+    expect(
+      renderAccountDeletionCompletionEmail({
+        recipientEmail: "person@example.test",
+        receiptId: "synthetic-receipt-id",
+      }),
+    ).toEqual(emailGolden.accountDeletionCompletion);
+  });
+
   it("reads server-only SMTP configuration", () => {
     expect(readSmtpEmailConfiguration(valid)).toEqual({
       smtp: {

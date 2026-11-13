@@ -50,6 +50,7 @@ export class PrismaEncryptedVaultImportRepository implements EncryptedVaultImpor
           : [];
         if (existingAccounts.length > 0) {
           if (
+            (request.destination.kind !== "NEW_SHARED" || destination !== undefined) &&
             existingAccounts.length === request.accounts.length &&
             existingAccounts.every(({ vaultId }) => vaultId === request.destination.vaultId)
           ) {

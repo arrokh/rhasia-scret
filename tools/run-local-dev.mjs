@@ -10,6 +10,8 @@ if (process.argv.slice(2).some((argument) => argument !== "--api-only")) {
   throw new Error("Unsupported local development argument.");
 }
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const miseCommand = process.platform === "win32" ? "mise.exe" : "mise";
+const apiDirectory = resolve(repositoryRoot, "apps/api");
 const children = new Set();
 // Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
@@ -120,7 +122,10 @@ await waitForChildrenToExit();
 
 async function run(apiEnvironment, webEnvironment, apiOnly) {
   if (stopping) return;
-  const api = startChild("api", ["--dir", "apps/api", "run", "dev"], apiEnvironment);
+  const api = startChild("api", ["exec", "go@1.27.4", "--", "go", "run", "./cmd/api", "serve"], apiEnvironment, {
+    command: miseCommand,
+    directory: apiDirectory,
+  });
   await waitForApi(api, apiOrigin);
 
   if (stopping) return;
@@ -196,9 +201,9 @@ function portFor(origin, fallback) {
   return String(port);
 }
 
-function startChild(name, args, environment) {
-  const child = spawn(pnpmCommand, args, {
-    cwd: repositoryRoot,
+function startChild(name, args, environment, { command = pnpmCommand, directory = repositoryRoot } = {}) {
+  const child = spawn(command, args, {
+    cwd: directory,
     env: environment,
     stdio: "inherit",
     detached: process.platform !== "win32",

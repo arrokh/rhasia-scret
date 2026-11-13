@@ -21,7 +21,12 @@ function request(body: unknown, requestOrigin = "https://web.example.test"): Api
   });
 }
 
-function setup(overrides: Partial<AccountDeletionRepository> = {}) {
+function setup(
+  overrides: Partial<AccountDeletionRepository> = {},
+  terminateSession: (request: ApiRequest, cookies: ApiResponse["cookies"]) => Promise<void> = vi
+    .fn()
+    .mockResolvedValue(undefined),
+) {
   const repository = {
     findCompletedDeletion: vi.fn().mockResolvedValue(null),
     deleteUser: vi.fn().mockResolvedValue({
@@ -43,10 +48,10 @@ function setup(overrides: Partial<AccountDeletionRepository> = {}) {
     authenticateMutation: vi.fn(async () => user),
     repository,
     sender,
-    terminateSession: vi.fn().mockResolvedValue(undefined),
+    terminateSession,
     now: () => new Date("2026-09-15T00:00:00.000Z"),
   });
-  return { handler, repository, sender };
+  return { handler, repository, sender, terminateSession };
 }
 
 describe("DELETE /v1/me account deletion contract", () => {
@@ -78,6 +83,42 @@ describe("DELETE /v1/me account deletion contract", () => {
     expect(response.cookies.getAll().join("\n")).toContain("rhsia-account-deletion-authorization");
   });
 
+  it("clears all session cookies even when best-effort session termination fails", async () => {
+    const terminateSession = vi.fn().mockRejectedValue(new Error("synthetic revoke failure"));
+    const test = setup({}, terminateSession);
+    const response = await test.handler(
+      request({ confirmation: "HAPUS AKUN", acknowledged: true, vaultDecisions: [] }),
+    );
+    expect(response.status).toBe(200);
+    const setCookies = response.cookies.getAll().join("\\n");
+    for (const name of [
+      "rhsia-passwordless-access",
+      "rhsia-passwordless-refresh",
+      "rhsia-passwordless-assertion",
+      "rhsia-account-deletion-authorization",
+    ]) {
+      expect(setCookies).toContain(`${name}=`);
+    }
+    expect(terminateSession).toHaveBeenCalledOnce();
+  });
+
+  it("maps a pending receipt email status to the stable failed response contract", async () => {
+    const repository = {
+      findCompletedDeletion: vi.fn().mockResolvedValue({ receiptId: "receipt_1", emailDeliveryStatus: "PENDING" }),
+      deleteUser: vi.fn(),
+    } as unknown as AccountDeletionRepository;
+    const handler = createDeleteMeHandler({
+      authenticateMutation: vi.fn(async () => user),
+      repository,
+      sender: { sendDeletionCompletionEmail: vi.fn() },
+      terminateSession: vi.fn(),
+      now: () => new Date(),
+    });
+    const response = await handler(request({ confirmation: "HAPUS AKUN", acknowledged: true, vaultDecisions: [] }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ receiptId: "receipt_1", emailDelivery: "failed" });
+  });
+
   it("returns an existing receipt idempotently without authenticating a deleted user", async () => {
     const repository = {
       findCompletedDeletion: vi.fn().mockResolvedValue({ receiptId: "receipt_1", emailDeliveryStatus: "SENT" }),
@@ -86,17 +127,28 @@ describe("DELETE /v1/me account deletion contract", () => {
     const authenticateMutation = vi.fn(async () =>
       ApiResponse.json({ error: "should_not_authenticate" }, { status: 401 }),
     );
+    const terminateSession = vi.fn();
     const handler = createDeleteMeHandler({
       authenticateMutation,
       repository,
       sender: { sendDeletionCompletionEmail: vi.fn() },
-      terminateSession: vi.fn(),
+      terminateSession,
       now: () => new Date(),
     });
 
     const response = await handler(request({ confirmation: "HAPUS AKUN", acknowledged: true, vaultDecisions: [] }));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ receiptId: "receipt_1", emailDelivery: "sent" });
+    const setCookies = response.cookies.getAll().join("\\n");
+    for (const name of [
+      "rhsia-passwordless-access",
+      "rhsia-passwordless-refresh",
+      "rhsia-passwordless-assertion",
+      "rhsia-account-deletion-authorization",
+    ]) {
+      expect(setCookies).toContain(`${name}=`);
+    }
     expect(authenticateMutation).not.toHaveBeenCalled();
+    expect(terminateSession).not.toHaveBeenCalled();
   });
 });

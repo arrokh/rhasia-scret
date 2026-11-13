@@ -117,6 +117,7 @@ export type PasswordlessAuthDependencies = Readonly<{
   sender: MagicLinkEmailSender;
   generateToken(): Readonly<{ rawToken: string; digest: Uint8Array }>;
   digestToken(token: string): Uint8Array;
+  digestSessionCredential(token: string): Uint8Array;
   buildActionUrl(
     client: PasswordlessClient,
     rawToken: string,
@@ -198,7 +199,7 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
 
     async verifyAccessToken(token: string): Promise<VerifiedPrincipal | null> {
       if (!isSessionToken(token)) return null;
-      return dependencies.repository.verifyAccessToken(dependencies.digestToken(token), now());
+      return dependencies.repository.verifyAccessToken(dependencies.digestSessionCredential(token), now());
     },
 
     async verifyBrowserSession(sessionId: string): Promise<VerifiedPrincipal | null> {
@@ -218,7 +219,7 @@ export function createPasswordlessAuthService(dependencies: PasswordlessAuthDepe
       if (
         !sessionId ||
         !(await dependencies.repository.publishPwaHandoff(
-          dependencies.digestToken(refreshToken),
+          dependencies.digestSessionCredential(refreshToken),
           sessionId,
           dependencies.digestToken(handoffId),
           now(),

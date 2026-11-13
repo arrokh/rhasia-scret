@@ -181,6 +181,12 @@ export function verifyReleaseWorkflowPolicy(source) {
     /--build-arg "COMMIT_SHA=\$\{SOURCE_SHA\}"/.test(
       imageJob,
     ), "Docker Hub images must record the verified source and explicit supported platform.");
+  require(/if \[\[ "\$DOCKERFILE" == "apps\/api\/Dockerfile" \]\]; then[\s\S]*?BUILD_ARGS\+\=\(--build-arg "PRODUCT_VERSION=\$\{VERSION\}"\)/.test(
+    imageJob,
+  ) &&
+    /docker build "\$\{BUILD_ARGS\[@\]\}"/.test(
+      imageJob,
+    ), "The Go API release image must embed the root product SemVer.");
   require(imageJob.includes('[[ "$RELEASE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]') &&
     /release-tag=%s/.test(imageJob) &&
     /source-commit=%s/.test(imageJob) &&

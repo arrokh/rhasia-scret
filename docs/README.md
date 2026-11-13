@@ -53,9 +53,11 @@ docs/
 - [`release-process.md`](release-process.md) — versioning, compatibility, candidate verification, provenance, rollback, and signing boundaries.
 - [`../ROADMAP.md`](../ROADMAP.md) / [`../CHANGELOG.md`](../CHANGELOG.md) — public launch priorities and unreleased change record.
 - [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation record for local version preparation and exact-SHA source-tag/GitHub Release publication.
-- [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — standalone Bun-primary API, Node/Vercel adapters, deployment contract, and historical rollout guidance.
-- [`api-architecture-deepening.md`](api-architecture-deepening.md) — implemented API composition, identity lifecycle, authenticated-access, and account-deletion seams.
-- [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — canonical `/v1/**` route and transport-parity manifest.
+- [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — historical Hono/Bun API extraction record; superseded runtime guidance is in the Go/Echo and Sqitch migration plan.
+- [`api-architecture-deepening.md`](api-architecture-deepening.md) — historical TypeScript/Hono API composition notes; the Go runtime architecture is documented in the migration plan.
+- [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — normative 70-operation `/v1/**` manifest aligned with the canonical OpenAPI contract and Go/TypeScript parity suites.
+- [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md) — implementation plan and evidence record for the Go/Echo API rewrite and Sqitch migration transition.
+- [`research/go-echo-sqitch-primary-source-research.md`](research/go-echo-sqitch-primary-source-research.md) — official-source findings for Echo, Sqitch, Vercel Go, and WebAuthn PRF.
 - [Release readiness records](release-readiness/README.md) — candidate-specific evidence and historical snapshots; no record establishes readiness for a different candidate or current deployment.
 - [`browser-test-runtime.md`](browser-test-runtime.md) — browser-gate topology, worker controls, and reproducible test commands.
 - [`monorepo.md`](monorepo.md) — workspace ownership, package commands, deployment assumptions, and local verification.

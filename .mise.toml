@@ -2,6 +2,7 @@
 java = "21.0.2"
 k6 = "0.57.0"
 node = "24.19.0"
+go = "1.27.4"
 
 [tasks.setup]
 description = "Install the pinned pnpm version and enable the repository Git hooks"

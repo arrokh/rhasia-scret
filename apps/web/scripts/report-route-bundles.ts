@@ -12,7 +12,8 @@ const routeManifests = {
 
 const budgets = {
   rawBytes: 750_000,
-  gzipBytes: 225_250,
+  // Keep the established vault-route bundle bound while allowing the client-only PRF sanitization/zeroization path.
+  gzipBytes: 225_600,
 } as const;
 
 type ClientReferenceManifest = {

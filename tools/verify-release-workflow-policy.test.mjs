@@ -177,6 +177,19 @@ test("rejects publishing without full isolated tests or when deployment/migratio
   );
 });
 
+test("publishes the product SemVer in the Go API image", () => {
+  const missingProductVersion = workflow.replace(
+    '            BUILD_ARGS+=(--build-arg "PRODUCT_VERSION=${VERSION}")\n',
+    "",
+  );
+
+  assert.ok(
+    verifyReleaseWorkflowPolicy(missingProductVersion).failures.some((failure) =>
+      failure.includes("Go API release image must embed the root product SemVer"),
+    ),
+  );
+});
+
 test("publishes one version tag per Docker Hub image and summarizes all three images", () => {
   const missingReleaseDependency = workflow.replace(
     "needs: [candidate, verify, publish]",

@@ -1,5 +1,7 @@
 # rhasia-scret — MVP Plan
 
+> Historical record of implemented product scope and the original vertical-slice sequence. Product and security decisions remain useful; stack-specific references to Hono and Prisma describe the earlier implementation. Current API runtime and migration ownership are documented in [`monorepo.md`](monorepo.md) and [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md).
+
 ## Outcome
 
 Build a responsive, installable web/PWA client for a zero-knowledge shared authenticator. Users create or access hosted Application Users through verified passwordless email links. Each user has one non-deletable Personal Vault; owners can create Shared Vaults, invite exact recipients with encrypted one-time links, and viewers can locally generate and copy TOTP codes. The Next.js web application is the sole supported client; its responsive layouts support desktop and mobile browsers. The server enforces authorization and persists encrypted content plus only required authorization/lifecycle metadata; it never receives plaintext TOTP secrets, OTPs, raw QR data, vault names, vault keys, private keys, or Vault Unlock Secrets.

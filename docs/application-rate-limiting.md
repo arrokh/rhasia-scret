@@ -2,7 +2,9 @@
 
 ## Scope
 
-Authenticated application mutations under the API's `/v1/**` route tree use the budgets in `apps/api/src/modules/rate-limiting/domain/application-rate-limit-policy.ts`. The web `/api/v1/**` proxy is transport-only; its route inventory at `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts` records browser mutation coverage. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
+The TypeScript paths and route inventory in this document describe the parity oracle and client. The Go API is the runtime.
+
+Authenticated application mutations under the Go API's `/v1/**` route tree use the budgets in `apps/api/internal/modules/rate-limiting/infrastructure/postgres_application_rate_limiter.go`. The TypeScript parity oracle retains equivalent behavior for comparison. The web `/api/v1/**` proxy is transport-only; its route inventory at `apps/web/src/modules/rate-limiting/presentation/authenticated-mutation-rate-limit-inventory.ts` records browser mutation coverage. Budgets are shared by opaque `ApplicationUser` and operation class, so alternate routes for one use case cannot multiply a budget. The machine-authenticated retention route and passwordless session/link routes are outside authenticated-user budgets because they have no authenticated Application User.
 
 Anonymous passwordless link requests use two layers: when the API's `TURNSTILE_SECRET_KEY` is configured, browser and installed-PWA requests first pass Cloudflare Turnstile validation; then all clients use separate PostgreSQL-backed 15-minute windows. Without the API secret, Turnstile validation is skipped and the database-backed limits still apply. The Web site key is configured separately; the self-hosted installer validates that it and the API secret are either both set or both absent.
 
@@ -40,6 +42,6 @@ Operational logs contain only operation/outcome counters. Never log user identif
 
 ## Deployment
 
-Apply the Prisma-generated authentication and application-rate-limit migrations through `DIRECT_URL` before deploying application code. Runtime traffic uses `DATABASE_URL`; production pooled and direct endpoints must be distinct. Atomic database upserts provide cross-instance safety without process memory or client-supplied identity headers.
+The immutable Sqitch `init` baseline includes the authentication and application-rate-limit tables; no runtime migration runs on startup. Fresh and disposable test databases deploy/verify the baseline through the isolated Sqitch runner. Any operation against a persistent database needs exact-target approval and schema verification. Runtime traffic uses `DATABASE_URL`; the migration runner alone receives `DIRECT_URL`. Atomic database upserts provide cross-instance safety without process memory or client-supplied identity headers.
 
 The checked-in policy table is production configuration. Change budgets through a reviewed code change with matching tests and documentation, not ad hoc per-instance overrides.

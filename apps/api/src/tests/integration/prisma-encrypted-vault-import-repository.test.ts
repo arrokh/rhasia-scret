@@ -243,6 +243,43 @@ describe("PrismaEncryptedVaultImportRepository", () => {
   );
 
   it.skipIf(!process.env.DATABASE_URL)(
+    "does not acknowledge an unauthorized NEW_SHARED replay for an existing Vault",
+    async () => {
+      const owner = await createUser("replay-owner");
+      const outsider = await createUser("replay-outsider");
+      const vault = await createVault(owner.id, "SHARED");
+      const account = await prisma.authenticatorAccount.create({
+        data: { vaultId: vault.id, encryptedPayload: bytes("synthetic-existing-ciphertext"), encryptionVersion: 1 },
+      });
+      await prisma.vaultMember.create({
+        data: {
+          vaultId: vault.id,
+          userId: owner.id,
+          role: "OWNER",
+          encryptedVaultKey: bytes("synthetic-owner-key"),
+          keyVersion: 1,
+        },
+      });
+
+      await expect(
+        new PrismaEncryptedVaultImportRepository(prisma).import(outsider.id, {
+          destination: {
+            kind: "NEW_SHARED",
+            vaultId: vault.id,
+            encryptedName: bytes("synthetic-name"),
+            encryptedOwnerVaultKey: bytes("synthetic-owner-key"),
+            expectedOwnerPublicKey: publicKey,
+            encryptionVersion: 1,
+          },
+          accounts: [{ id: account.id, encryptedPayload: bytes("synthetic-replay"), encryptionVersion: 1 }],
+        }),
+      ).resolves.toEqual({ status: "CONFLICT" });
+      expect(await prisma.authenticatorAccount.count({ where: { id: account.id } })).toBe(1);
+      expect(await prisma.vaultAuditEvent.count({ where: { vaultId: vault.id } })).toBe(0);
+    },
+  );
+
+  it.skipIf(!process.env.DATABASE_URL)(
     "rejects unauthorized destinations and conflicting identifiers without partial writes",
     async () => {
       const owner = await createUser("authorized-owner");

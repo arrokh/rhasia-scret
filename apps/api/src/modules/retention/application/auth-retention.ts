@@ -1,7 +1,14 @@
+export type AuthStatePurgeResult = Readonly<{ count: number; backlogRemaining: boolean }>;
+
 export interface ExpiredAuthStateRepository {
-  purgeExpiredAuthState(now: Date): Promise<number>;
+  purgeExpiredAuthState(now: Date, batchSize: number, maxBatches: number): Promise<AuthStatePurgeResult>;
 }
 
-export function purgeExpiredAuthState(repository: ExpiredAuthStateRepository, now: Date): Promise<number> {
-  return repository.purgeExpiredAuthState(now);
+export function purgeExpiredAuthState(
+  repository: ExpiredAuthStateRepository,
+  now: Date,
+  batchSize: number,
+  maxBatches: number,
+): Promise<AuthStatePurgeResult> {
+  return repository.purgeExpiredAuthState(now, batchSize, maxBatches);
 }

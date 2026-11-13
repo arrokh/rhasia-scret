@@ -8,6 +8,8 @@ services:
   api:
     build: !reset null
     image: docker.io/arrokh/rhasia-scret-api:${IMAGE_TAG:?IMAGE_TAG must be set in .env}
+    environment:
+      DEPLOYMENT_TARGET: selfhosted
 
   web:
     build: !reset null

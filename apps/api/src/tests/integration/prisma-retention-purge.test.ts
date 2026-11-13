@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { PrismaExpiredAccountPurgeRepository } from "@api/modules/authenticator-account/infrastructure/prisma-expired-account-purge-repository";
+import { PrismaAuthRetentionRepository } from "@api/modules/retention/infrastructure/prisma-auth-retention-repository";
 import { PrismaSharedAccountRepository } from "@api/modules/authenticator-account/infrastructure/prisma-shared-account-repository";
 import { auditPurgeAfter } from "@api/modules/audit/server";
 import { PrismaExpiredVaultAuditRepository } from "@api/modules/audit/infrastructure/prisma-expired-vault-audit-repository";
@@ -12,24 +13,49 @@ import { prisma } from "@api/tests/integration/prisma";
 
 const userIds: string[] = [];
 const vaultIds: string[] = [];
+const authChallengeIds: string[] = [];
 
 afterEach(async () => {
   await prisma.vaultAuditEvent.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.authenticatorAccount.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.vaultInvitation.deleteMany({ where: { vaultId: { in: vaultIds } } });
   await prisma.vaultMember.deleteMany({ where: { vaultId: { in: vaultIds } } });
+  await prisma.magicLinkChallenge.deleteMany({ where: { id: { in: authChallengeIds.splice(0) } } });
   await prisma.vault.deleteMany({ where: { id: { in: vaultIds.splice(0) } } });
   await prisma.applicationUser.deleteMany({ where: { id: { in: userIds.splice(0) } } });
   await prisma.$disconnect();
 });
 
 describe("Prisma retention purge", () => {
+  it.skipIf(!process.env.DATABASE_URL)("bounds expired auth-state cleanup and reports remaining work", async () => {
+    const prefix = `synthetic-retention-${randomUUID()}`;
+    const now = retentionTestNow();
+    const ids = Array.from({ length: 25 }, (_, index) => `${prefix}-${index}`);
+    authChallengeIds.push(...ids);
+    await prisma.magicLinkChallenge.createMany({
+      data: ids.map((id) => ({
+        id,
+        normalizedEmail: `${prefix}-${id.split("-").at(-1)}@example.test`,
+        tokenDigest: Buffer.from(randomUUID()),
+        client: "browser",
+        returnPath: "/",
+        expiresAt: new Date(now.getTime() - 1),
+        createdAt: now,
+      })),
+    });
+
+    const repository = new PrismaAuthRetentionRepository(prisma);
+    await expect(repository.purgeExpiredAuthState(now, 10, 2)).resolves.toEqual({ count: 20, backlogRemaining: true });
+    expect(await prisma.magicLinkChallenge.count({ where: { id: { in: ids } } })).toBe(5);
+    await expect(repository.purgeExpiredAuthState(now, 10, 2)).resolves.toEqual({ count: 5, backlogRemaining: false });
+  });
+
   it.skipIf(!process.env.DATABASE_URL)(
     "purges only eligible accounts at their deadlines and is idempotent",
     async () => {
       const owner = await createUser("account-owner");
       const vault = await createSharedVault(owner.id);
-      const now = new Date("2026-07-26T12:00:00.000Z");
+      const now = retentionTestNow();
       const expired = await createAccount(vault.id, new Date(now.getTime() - 1));
       const future = await createAccount(vault.id, new Date(now.getTime() + 1));
       const active = await createAccount(vault.id, null);
@@ -91,7 +117,7 @@ describe("Prisma retention purge", () => {
     async () => {
       const owner = await createUser("legacy-vault-owner");
       const vault = await createSharedVault(owner.id);
-      const now = new Date("2026-07-26T12:00:00.000Z");
+      const now = retentionTestNow();
       const deletedAt = new Date(now.getTime() - 31 * 24 * 60 * 60 * 1000);
       await prisma.vault.update({
         where: { id: vault.id },
@@ -126,7 +152,9 @@ describe("Prisma retention purge", () => {
         },
       });
       await new PrismaVaultAuditRepository(prisma).recordAccountAccess(viewer.id, vault.id, account.id);
-      const deletedAt = new Date("2026-07-26T12:00:00.000Z");
+      const deletedAt = retentionTestNow();
+      const vaultDeadline = vaultPurgeAfter(deletedAt);
+      const auditDeadline = auditPurgeAfter(deletedAt);
       await expect(
         new PrismaSharedVaultRecoveryRepository(prisma, () => deletedAt).delete(owner.id, vault.id),
       ).resolves.toBe(true);
@@ -135,9 +163,9 @@ describe("Prisma retention purge", () => {
         where: { id: vault.id },
         select: { deletedAt: true, purgeAfter: true },
       });
-      expect(stored).toEqual({ deletedAt, purgeAfter: new Date("2026-08-25T12:00:00.000Z") });
+      expect(stored).toEqual({ deletedAt, purgeAfter: vaultDeadline });
       await expect(
-        new PrismaVaultAuditRepository(prisma, () => new Date("2026-08-01T00:00:00.000Z")).listForOwner(
+        new PrismaVaultAuditRepository(prisma, () => new Date(deletedAt.getTime() + 1)).listForOwner(
           owner.id,
           vault.id,
         ),
@@ -152,10 +180,10 @@ describe("Prisma retention purge", () => {
       await expect(new PrismaVaultAuditRepository(prisma).listForOwner(viewer.id, vault.id)).resolves.toBeNull();
 
       const retention = new PrismaExpiredVaultRetentionRepository(prisma);
-      const beforeDeadline = await retention.purgeExpiredVaults(new Date("2026-08-25T11:59:59.999Z"), 100);
+      const beforeDeadline = await retention.purgeExpiredVaults(new Date(vaultDeadline.getTime() - 1), 100);
       expect(beforeDeadline.purgedIds).not.toContain(vault.id);
       expect(await prisma.authenticatorAccount.count({ where: { vaultId: vault.id } })).toBe(1);
-      const atDeadline = await retention.purgeExpiredVaults(new Date("2026-08-25T12:00:00.000Z"), 100);
+      const atDeadline = await retention.purgeExpiredVaults(vaultDeadline, 100);
       expect(atDeadline.purgedIds).toContain(vault.id);
       expect(await prisma.vault.findUnique({ where: { id: vault.id } })).toBeNull();
       expect(await prisma.authenticatorAccount.findUnique({ where: { id: account.id } })).toBeNull();
@@ -163,7 +191,7 @@ describe("Prisma retention purge", () => {
       expect(await prisma.vaultInvitation.findUnique({ where: { id: invitation.id } })).toBeNull();
       const retainedAuditPage = await new PrismaVaultAuditRepository(
         prisma,
-        () => new Date("2027-07-26T11:59:59.999Z"),
+        () => new Date(auditDeadline.getTime() - 1),
       ).listForOwner(owner.id, vault.id);
       expect(retainedAuditPage?.items).toHaveLength(2);
       await expect(new PrismaVaultAuditRepository(prisma).listForOwner(viewer.id, vault.id)).resolves.toBeNull();
@@ -173,22 +201,16 @@ describe("Prisma retention purge", () => {
       ).map(({ id }) => id);
       const auditRetention = new PrismaExpiredVaultAuditRepository(prisma);
       const auditBeforeDeadline = await auditRetention.purgeExpiredAuditEvents(
-        new Date("2027-07-26T11:59:59.999Z"),
+        new Date(auditDeadline.getTime() - 1),
         100,
       );
       expect(ownAuditIds.every((id) => !auditBeforeDeadline.purgedIds.includes(id))).toBe(true);
-      const purgedAudit = await auditRetention.purgeExpiredAuditEvents(new Date("2027-07-26T12:00:00.000Z"), 100);
+      const purgedAudit = await auditRetention.purgeExpiredAuditEvents(auditDeadline, 100);
       expect(purgedAudit.purgedIds).toEqual(expect.arrayContaining(ownAuditIds));
-      const repeatedAuditPurge = await auditRetention.purgeExpiredAuditEvents(
-        new Date("2027-07-26T12:00:00.000Z"),
-        100,
-      );
+      const repeatedAuditPurge = await auditRetention.purgeExpiredAuditEvents(auditDeadline, 100);
       expect(ownAuditIds.every((id) => !repeatedAuditPurge.purgedIds.includes(id))).toBe(true);
       await expect(
-        new PrismaVaultAuditRepository(prisma, () => new Date("2027-07-26T12:00:00.000Z")).listForOwner(
-          owner.id,
-          vault.id,
-        ),
+        new PrismaVaultAuditRepository(prisma, () => auditDeadline).listForOwner(owner.id, vault.id),
       ).resolves.toBeNull();
     },
   );
@@ -199,7 +221,7 @@ describe("Prisma retention purge", () => {
       const owner = await createUser("race-owner");
       const vault = await createSharedVault(owner.id);
       const account = await createAccount(vault.id, null);
-      const deletedAt = new Date("2026-01-01T00:00:00.000Z");
+      const deletedAt = retentionTestNow();
       const deadline = vaultPurgeAfter(deletedAt);
       await prisma.authenticatorAccount.update({
         where: { id: account.id },
@@ -289,6 +311,10 @@ function createAccount(vaultId: string, purgeAfter: Date | null) {
       purgeAfter,
     },
   });
+}
+
+function retentionTestNow(): Date {
+  return new Date("1900-01-02T03:04:05.000Z");
 }
 
 function bytes(value: string): Uint8Array<ArrayBuffer> {

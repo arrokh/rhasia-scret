@@ -29,7 +29,7 @@ Candidate readiness records are not generated or required by this automated rele
 
 Vercel deployments remain path-driven and independent of repository releases. A root product-version-only change rebuilds Web so its compiled footer version updates; API skips the version-only synchronization. Other source and build-input changes retain normal service-specific deployment behavior.
 
-Repository publication never deploys to Vercel or migrates a persistent, development, staging, or production database. The complete verification gate may apply checked-in migrations only inside its own disposable Testcontainers PostgreSQL instance. Operational migrations and service deployments require their existing target-specific authorization.
+Repository publication never deploys to Vercel or migrates a persistent, development, staging, or production database. The complete verification gate may apply the Sqitch baseline only inside its own disposable Testcontainers PostgreSQL instance. Operational migrations and service deployments require their existing target-specific authorization.
 
 ## Evidence and tests
 

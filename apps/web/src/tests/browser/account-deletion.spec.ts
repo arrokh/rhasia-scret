@@ -2,7 +2,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { cleanBrowserE2eUsers } from "./support/e2e-database";
 import { e2eUserAlias, e2eUserEmail } from "./support/e2e-users";
 
-const baseUrl = `http://127.0.0.1:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
+const baseUrl = `http://localhost:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
 
 test("web Account Deletion completes the guarded flow and preserves Local Profile data", async ({
   page,

@@ -20,6 +20,7 @@ type Dependencies = {
 
 export function createRetentionPurgeHandler({ secret, purge, logger, createJobId }: Dependencies) {
   return async function GET(request: Request) {
+    if (request.method === "HEAD") return json({ error: "method_not_allowed" }, 405);
     if (!secret || secret.length < 32) return json({ error: "retention_purge_not_configured" }, 503);
     if (!authorized(request.headers.get("authorization"), secret)) return json({ error: "unauthorized" }, 401);
 
@@ -36,6 +37,7 @@ export function createRetentionPurgeHandler({ secret, purge, logger, createJobId
         accountBacklogRemaining: report.accountBacklogRemaining,
         vaultBacklogRemaining: report.vaultBacklogRemaining,
         auditBacklogRemaining: report.auditBacklogRemaining,
+        authBacklogRemaining: report.authBacklogRemaining,
       });
       return json({
         jobId,
@@ -46,6 +48,7 @@ export function createRetentionPurgeHandler({ secret, purge, logger, createJobId
         accountBacklogRemaining: report.accountBacklogRemaining,
         vaultBacklogRemaining: report.vaultBacklogRemaining,
         auditBacklogRemaining: report.auditBacklogRemaining,
+        authBacklogRemaining: report.authBacklogRemaining,
       });
     } catch {
       logger.error({ event: "retention_purge_failed", jobId });

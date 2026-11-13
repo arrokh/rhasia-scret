@@ -63,10 +63,16 @@ or user-provided Vault/account labels.
 
 ## Database and migration rules
 
-- Use `DATABASE_URL` for pooled runtime traffic and require `DIRECT_URL` for
-  Prisma migrations, introspection, and administrative tooling.
-- Generate Prisma migrations only with `prisma migrate dev`; never author
-  migration SQL by hand.
+- Use `DATABASE_URL` for pooled Go runtime traffic. Use `DIRECT_URL` only for
+  Sqitch migrations, verified disposable test wrappers, and explicitly
+  authorized administrative tooling.
+- Sqitch is the sole schema-migration authority for `apps/api`. Every new
+  change needs deploy, revert, and verify scripts; make irreversible changes
+  fail closed and document forward recovery.
+- Treat `apps/api/prisma/archive/` as historical, read-only evidence. Do not
+  use Prisma Migrate, `db push`, or archived scripts to change a database.
+  Prisma client/schema tooling is confined to the test-only TypeScript parity
+  oracle.
 - Store domain enum values as database strings and keep strict TypeScript
   unions/enums in code.
 - Add authorization, revision, retention, and redaction tests for affected

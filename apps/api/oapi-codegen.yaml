@@ -1,0 +1,8 @@
+package: httpapi
+generate:
+  echo5-server: true
+  models: true
+  strict-server: true
+output: internal/httpapi/openapi.gen.go
+output-options:
+  skip-prune: true

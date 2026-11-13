@@ -19,11 +19,13 @@ export function createPasswordlessAuthServiceForApi(
 ) {
   const authConfiguration = readApiPasswordlessConfiguration(bindings);
   const tokenGenerator = createPasswordlessTokenGenerator(authConfiguration.magicLinkSecret);
+  const sessionCredentialGenerator = createPasswordlessTokenGenerator(authConfiguration.sessionSecret);
   return createPasswordlessAuthService({
     repository: new PrismaPasswordlessAuthRepository(database, authConfiguration),
     sender,
     generateToken: () => tokenGenerator.generate(),
     digestToken: (token) => tokenGenerator.digest(token),
+    digestSessionCredential: (token) => sessionCredentialGenerator.digest(token),
     buildActionUrl: (client, rawToken, returnPath, handoffId) =>
       buildActionUrl(authConfiguration.appOrigin, client, rawToken, returnPath, handoffId),
     magicLinkTtlSeconds: authConfiguration.magicLinkTtlSeconds,

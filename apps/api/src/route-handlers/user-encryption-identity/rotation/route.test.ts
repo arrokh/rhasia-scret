@@ -77,6 +77,20 @@ describe("User Encryption Key Pair rotation routes", () => {
     await expect(response.json()).resolves.toEqual({ error: "identity_rotation_unavailable" });
   });
 
+  it("rejects a persisted private-key envelope shorter than the supported minimum", async () => {
+    mocks.snapshot.mockResolvedValue({
+      publicKey,
+      encryptedPrivateKey: Buffer.alloc(12, 1),
+      encryptionVersion: 1,
+      memberships: [],
+    });
+
+    const response = await GET(request("GET"));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ error: "identity_rotation_unavailable" });
+  });
+
   it("strictly maps a complete encrypted identity and membership replacement", async () => {
     mocks.rotate.mockResolvedValue(true);
     const body = {

@@ -18,9 +18,12 @@ the action required when it is redistributed.
 
 ## JavaScript dependencies
 
-The lockfile is the complete dependency input for the API, web, and shared
-client packages. At the current lockfile revision, the mise-managed command
-reviews 992 dependency entries across 20 license expressions. The observed
+The pnpm lockfile is the complete JavaScript dependency input for the web,
+shared client packages, and the TypeScript API parity oracle. The Go API runtime
+uses the separate module graph in `apps/api/go.mod` and `apps/api/go.sum`, which
+has its own vulnerability and license checks. At the current lockfile revision,
+the mise-managed command reviews 992 JavaScript dependency entries across 20
+license expressions. The observed
 license families include MIT, Apache-2.0, ISC, 0BSD, MIT-0, BSD-2-Clause,
 BSD-3-Clause, BlueOak-1.0.0, CC0-1.0, CC-BY-4.0, EPL-2.0, LGPL-3.0-or-later,
 MPL-2.0, Python-2.0, Unlicense, and selectable dual-license expressions. Packages with an `OR`
@@ -42,6 +45,16 @@ The verification script fails closed for AGPL, GPL-only, SSPL, unknown, and
 unlicensed dependency identifiers. A license expression that offers a
 compatible non-prohibited alternative is not rejected automatically, but the
 release owner must review the package terms before shipping.
+
+## Go API dependencies
+
+The Go module graph is checked with pinned `govulncheck` v1.8.0 and
+`go-licenses` v2.0.1 during `pnpm run verify:api-go`. The license check ignores
+only the first-party Go module and rejects forbidden or unknown dependency
+license types. The last verification found no reachable Go vulnerabilities and
+no forbidden or unknown licenses. Go 1.27.3's standard-library finding
+GO-2026-6859 was fixed by upgrading the pinned toolchain to Go 1.27.4. Review
+new or updated module terms and advisories with each dependency change.
 
 ## Copied snippets and future additions
 
