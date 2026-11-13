@@ -72,7 +72,7 @@ func (handlers *DeleteMeHandlers) deleteMe(ctx *echo.Context) error {
 		return mapDeletionValidationError(ctx, err)
 	}
 	completedDeletion, err := application.CompleteDeletion(
-		ctx.Request().Context(), handlers.repository, handlers.sender, user.ID, authorizationToken, request, handlers.now(),
+		ctx.Request().Context(), handlers.repository, handlers.sender, user.ID, authorizationToken, request, httpapi.RequestLocale(ctx.Request()), handlers.now(),
 	)
 	if err != nil {
 		return mapDeletionOperationError(ctx, err)

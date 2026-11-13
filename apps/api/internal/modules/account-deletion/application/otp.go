@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 const (
@@ -40,5 +42,5 @@ type PasswordlessOTPRepository interface {
 }
 
 type PasswordlessOTPEmailSender interface {
-	SendDeletionOTP(context.Context, string, string) error
+	SendDeletionOTP(context.Context, string, string, localization.Locale) error
 }

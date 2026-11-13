@@ -4,7 +4,7 @@
 - Date: 2026-09-14
 - Supersedes: ADR-0043 and ADR-0048 for hosted authentication delivery
 
-> Current applicability: provider-neutral identity/session records and installed-PWA handoff remain. Native-client authentication and bearer transport were retired under ADR-0054; native-specific behavior below is historical implementation context only.
+> Current applicability: provider-neutral identity/session records and installed-PWA handoff remain. Native-client authentication and bearer transport were retired under ADR-0054; native-specific behavior below is historical implementation context only. The Prisma-generated migration details in this record describe the earlier rollout; current schema changes use Sqitch, and the Go/Echo API owns SMTP delivery.
 
 ## Context
 

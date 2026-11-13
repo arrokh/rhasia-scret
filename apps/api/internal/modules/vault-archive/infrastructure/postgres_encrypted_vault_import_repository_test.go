@@ -164,7 +164,7 @@ func TestEncryptedVaultImportDomainAllowsEmptyArchiveButRejectsInvalidCiphertext
 		Accounts: []vaultdomain.EncryptedImportedAccount{},
 	}
 	if err := vaultdomain.ValidateEncryptedVaultImport(personal); err != nil {
-		t.Fatalf("empty archive should preserve TypeScript behavior: %v", err)
+		t.Fatalf("empty archive should preserve the established API behavior: %v", err)
 	}
 	personal.Accounts = []vaultdomain.EncryptedImportedAccount{{ID: "synthetic-account", EncryptedPayload: []byte("invalid"), EncryptionVersion: 1}}
 	if err := vaultdomain.ValidateEncryptedVaultImport(personal); err == nil {

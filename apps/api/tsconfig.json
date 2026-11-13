@@ -8,10 +8,7 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "paths": {
-      "@api/*": ["./src/*"]
-    }
+    "types": ["node"]
   },
-  "include": ["api/**/*.ts", "src/**/*.ts", "scripts/**/*.ts"]
+  "include": ["scripts/**/*.ts"]
 }

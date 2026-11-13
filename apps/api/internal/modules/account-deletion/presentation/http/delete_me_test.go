@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/account-deletion/application"
 	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
 )
@@ -54,12 +55,14 @@ type completionEmailSenderStub struct {
 	calls     int
 	recipient string
 	receiptID string
+	locale    localization.Locale
 }
 
-func (sender *completionEmailSenderStub) SendDeletionCompletion(_ context.Context, recipient string, receiptID string) error {
+func (sender *completionEmailSenderStub) SendDeletionCompletion(_ context.Context, recipient string, receiptID string, locale localization.Locale) error {
 	sender.calls++
 	sender.recipient = recipient
 	sender.receiptID = receiptID
+	sender.locale = locale
 	return sender.err
 }
 
@@ -171,13 +174,13 @@ func TestDeleteMeDeletesAccountPersistsEmailDeliveryAndClearsCookies(t *testing.
 	sender := &completionEmailSenderStub{}
 	handler := NewDeleteMeHandlers(authorizer, repository, sender, previewWebOrigin, func() time.Time { return now }).OperationHandlers()["deleteMe"]
 	body := `{"confirmation":"HAPUS AKUN","acknowledged":true,"vaultDecisions":[]}`
-	response := invokeDeleteMe(t, handler, body, previewWebOrigin, "", deletionAuthorizationCookieName+"="+syntheticDeletionAuthorization)
+	response := invokeDeleteMe(t, handler, body, previewWebOrigin, "", deletionAuthorizationCookieName+"="+syntheticDeletionAuthorization+"; "+localization.CookieName+"="+string(localization.English))
 	if response.Code != http.StatusOK || response.Body.String() != "{\"receiptId\":\"synthetic-receipt-0001\",\"emailDelivery\":\"sent\"}\n" || response.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("delete response=%d body=%q headers=%v", response.Code, response.Body.String(), response.Header())
 	}
 	if authorizer.calls != 1 || authorizer.mutation != "destructive_mutation" || repository.findCalls != 1 || repository.deleteCalls != 1 ||
 		repository.userID != "synthetic-user-00001" || repository.authorization != syntheticDeletionAuthorization || repository.request.Confirmation != application.DeletionConfirmation ||
-		sender.calls != 1 || sender.recipient != "owner@example.test" || sender.receiptID != "synthetic-receipt-0001" || strings.Join(repository.statusCalls, ",") != "SENT" {
+		sender.calls != 1 || sender.recipient != "owner@example.test" || sender.receiptID != "synthetic-receipt-0001" || sender.locale != localization.English || strings.Join(repository.statusCalls, ",") != "SENT" {
 		t.Fatalf("deletion flow dependencies mismatch: authorizer=%#v repository=%#v sender=%#v", authorizer, repository, sender)
 	}
 	cookieNames := make(map[string]struct{})

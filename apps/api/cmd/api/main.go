@@ -50,6 +50,8 @@ func run() error {
 			return errors.New("API healthcheck configuration is invalid")
 		}
 		return runHealthcheck(environment.Port)
+	case "smtp-preflight":
+		return runSMTPPreflight()
 	case "verify-config":
 		if err := verifyDeploymentConfiguration(os.LookupEnv); err != nil {
 			return err

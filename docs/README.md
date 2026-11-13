@@ -55,7 +55,7 @@ docs/
 - [`release-version-automation-plan.md`](release-version-automation-plan.md) — implementation record for local version preparation and exact-SHA source-tag/GitHub Release publication.
 - [`api-service-extraction-plan.md`](api-service-extraction-plan.md) — historical Hono/Bun API extraction record; superseded runtime guidance is in the Go/Echo and Sqitch migration plan.
 - [`api-architecture-deepening.md`](api-architecture-deepening.md) — historical TypeScript/Hono API composition notes; the Go runtime architecture is documented in the migration plan.
-- [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — normative 70-operation `/v1/**` manifest aligned with the canonical OpenAPI contract and Go/TypeScript parity suites.
+- [`api-service-extraction-route-parity.md`](api-service-extraction-route-parity.md) — historical 70-operation `/v1/**` inventory aligned with the canonical OpenAPI contract; current registration and contract checks run against Go.
 - [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md) — implementation plan and evidence record for the Go/Echo API rewrite and Sqitch migration transition.
 - [`research/go-echo-sqitch-primary-source-research.md`](research/go-echo-sqitch-primary-source-research.md) — official-source findings for Echo, Sqitch, Vercel Go, and WebAuthn PRF.
 - [Release readiness records](release-readiness/README.md) — candidate-specific evidence and historical snapshots; no record establishes readiness for a different candidate or current deployment.

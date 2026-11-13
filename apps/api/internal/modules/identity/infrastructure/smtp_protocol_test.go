@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 type smtpProtocolCapture struct {
@@ -265,7 +267,7 @@ func TestSMTPEmailSenderAuthenticatesOnlyAfterVerifiedStartTLS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse synthetic sign-in link: %v", err)
 	}
-	if err := sender.SendMagicLink(context.Background(), "person@example.test", link); err != nil {
+	if err := sender.SendMagicLink(context.Background(), "person@example.test", link, localization.English); err != nil {
 		t.Fatalf("deliver synthetic magic-link email: %v", err)
 	}
 

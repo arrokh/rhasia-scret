@@ -132,6 +132,55 @@ func TestPostgresSharedAccountRepositoryAuthorizesMutationsAndAuditsAtomically(t
 	}
 }
 
+func TestPostgresSharedAccountRepositoryRejectsCreateWithoutAddPermission(t *testing.T) {
+	pool := testsupport.NewDisposablePostgresPool(t)
+	ctx := context.Background()
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	tests := []struct {
+		name     string
+		defaults [3]bool
+		override *bool
+	}{
+		{name: "inherited false Vault default", defaults: [3]bool{false, false, true}},
+		{name: "explicit false member override over true default", defaults: [3]bool{true, false, true}, override: ptrBool(false)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			overrides := [3]*bool{test.override, nil, nil}
+			ownerID, memberID, vaultID := createActiveSyntheticSharedVault(t, ctx, pool, now, test.defaults, overrides)
+			repository, err := NewPostgresSharedAccountRepository(pool, func() time.Time { return now })
+			if err != nil {
+				t.Fatalf("create Shared Account repository: %v", err)
+			}
+
+			payload := syntheticPersonalAccountEnvelope(1, 64)
+			denied, err := repository.Create(ctx, memberID, vaultID, payload, 1, 1)
+			if err != nil || denied.Status != accountapp.SharedAccountMutationPermissionDenied || denied.Account != nil {
+				t.Fatalf("viewer account creation without permission=%#v err=%v; want permission denied", denied, err)
+			}
+			var accountCount, addAuditCount int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM authenticator_accounts WHERE vault_id = $1`, vaultID).Scan(&accountCount); err != nil || accountCount != 0 {
+				t.Fatalf("denied Viewer account count=%d err=%v; want no persisted account", accountCount, err)
+			}
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND event_type = 'ACCOUNT_ADDED'`, vaultID).Scan(&addAuditCount); err != nil || addAuditCount != 0 {
+				t.Fatalf("denied Viewer ACCOUNT_ADDED audit count=%d err=%v; want no audit event", addAuditCount, err)
+			}
+
+			ownerCreate, err := repository.Create(ctx, ownerID, vaultID, payload, 1, 1)
+			if err != nil || ownerCreate.Status != accountapp.SharedAccountMutationSuccess || ownerCreate.Account == nil {
+				t.Fatalf("Owner account creation control=%#v err=%v; want success", ownerCreate, err)
+			}
+			ownerCreate.Account.Clear()
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM authenticator_accounts WHERE vault_id = $1`, vaultID).Scan(&accountCount); err != nil || accountCount != 1 {
+				t.Fatalf("Owner control account count=%d err=%v; want one persisted account", accountCount, err)
+			}
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND event_type = 'ACCOUNT_ADDED'`, vaultID).Scan(&addAuditCount); err != nil || addAuditCount != 1 {
+				t.Fatalf("Owner control ACCOUNT_ADDED audit count=%d err=%v; want one event", addAuditCount, err)
+			}
+		})
+	}
+}
+
 func TestPostgresSharedAccountRepositoryMigratesForActiveMemberAndReplays(t *testing.T) {
 	pool := testsupport.NewDisposablePostgresPool(t)
 	ctx := context.Background()

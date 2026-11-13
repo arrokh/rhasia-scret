@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 const (
@@ -88,7 +90,7 @@ type PasswordlessAuthRepository interface {
 }
 
 type MagicLinkEmailSender interface {
-	SendMagicLink(context.Context, string, *url.URL) error
+	SendMagicLink(context.Context, string, *url.URL, localization.Locale) error
 }
 
 type PasswordlessConfiguration struct {
@@ -145,6 +147,7 @@ func (service *PasswordlessAuthService) RequestLink(ctx context.Context, input s
 	Email           string
 	Client          PasswordlessClient
 	ReturnPath      PasswordlessReturnPath
+	Locale          localization.Locale
 	TurnstileToken  string
 	HandoffID       string
 	HandoffVerifier string
@@ -183,7 +186,7 @@ func (service *PasswordlessAuthService) RequestLink(ctx context.Context, input s
 	if err != nil {
 		return fmt.Errorf("build magic-link action URL: %w", err)
 	}
-	if err := service.sender.SendMagicLink(ctx, email, actionURL); err != nil {
+	if err := service.sender.SendMagicLink(ctx, email, actionURL, localization.ResolveLocale(string(input.Locale))); err != nil {
 		return &PasswordlessEmailDeliveryError{cause: err}
 	}
 	return nil

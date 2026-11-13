@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 type passwordlessRepositoryStub struct {
@@ -89,15 +91,17 @@ func (repository *passwordlessRepositoryStub) RedeemPWAHandoff(context.Context, 
 }
 
 type magicLinkSenderStub struct {
-	email string
-	url   *url.URL
-	err   error
-	calls int
+	email  string
+	url    *url.URL
+	locale localization.Locale
+	err    error
+	calls  int
 }
 
-func (sender *magicLinkSenderStub) SendMagicLink(_ context.Context, email string, link *url.URL) error {
+func (sender *magicLinkSenderStub) SendMagicLink(_ context.Context, email string, link *url.URL, locale localization.Locale) error {
 	sender.calls++
 	sender.email = email
+	sender.locale = locale
 	copyOfURL := *link
 	sender.url = &copyOfURL
 	return sender.err
@@ -133,6 +137,7 @@ func TestPasswordlessRequestPersistsOnlyDigestsAndBuildsFragmentURL(t *testing.T
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
@@ -146,7 +151,7 @@ func TestPasswordlessRequestPersistsOnlyDigestsAndBuildsFragmentURL(t *testing.T
 	if !repository.expiresAt.Equal(now.Add(600 * time.Second)) {
 		t.Fatalf("challenge expiry mismatch: expires=%v", repository.expiresAt)
 	}
-	if sender.calls != 1 || sender.email != "person@example.test" || sender.url == nil {
+	if sender.calls != 1 || sender.email != "person@example.test" || sender.url == nil || sender.locale != localization.Indonesian {
 		t.Fatalf("unexpected email send: %#v", sender)
 	}
 	if sender.url.Scheme != "https" || sender.url.Host != "auth.example.test" || sender.url.Path != "/auth/confirm" || sender.url.RawQuery != "" {
@@ -172,17 +177,18 @@ func TestPasswordlessPWARequestPersistsSeparateHandoffDigests(t *testing.T) {
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
-	}{Email: "person@example.test", Client: PasswordlessClientPWA, ReturnPath: PasswordlessReturnPathInvitationRedeem, HandoffID: handoffID, HandoffVerifier: verifier}
+	}{Email: "person@example.test", Client: PasswordlessClientPWA, ReturnPath: PasswordlessReturnPathInvitationRedeem, Locale: localization.English, HandoffID: handoffID, HandoffVerifier: verifier}
 	if err := service.RequestLink(context.Background(), input); err != nil {
 		t.Fatalf("request PWA magic link: %v", err)
 	}
 	if repository.handoff == nil || string(repository.handoff.IDDigest) != string(service.digestMagicToken(handoffID)) || string(repository.handoff.VerifierDigest) != string(service.digestMagicToken(verifier)) || !repository.handoff.ExpiresAt.Equal(now.Add(600*time.Second)) {
 		t.Fatalf("unexpected persisted handoff: %#v", repository.handoff)
 	}
-	if sender.url == nil || sender.url.Path != "/auth/pwa-confirm" {
+	if sender.url == nil || sender.url.Path != "/auth/pwa-confirm" || sender.locale != localization.English {
 		t.Fatalf("unexpected PWA action URL: %#v", sender.url)
 	}
 	fragment, err := url.ParseQuery(sender.url.Fragment)
@@ -199,6 +205,7 @@ func TestPasswordlessRequestRejectsMalformedEmailBeforePersistence(t *testing.T)
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
@@ -213,6 +220,7 @@ func TestPasswordlessRequestMapsPersistenceAndDeliveryFailures(t *testing.T) {
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string

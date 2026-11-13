@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/account-deletion/application"
 	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
 )
@@ -63,16 +64,18 @@ type otpEmailSenderStub struct {
 	calls     int
 	recipient string
 	otp       string
+	locale    localization.Locale
 }
 
-func (sender *otpEmailSenderStub) SendDeletionOTP(_ context.Context, recipient string, otp string) error {
+func (sender *otpEmailSenderStub) SendDeletionOTP(_ context.Context, recipient string, otp string, locale localization.Locale) error {
 	sender.calls++
 	sender.recipient = recipient
 	sender.otp = otp
+	sender.locale = locale
 	return sender.err
 }
 
-func invokeOTPHandler(t *testing.T, handler func(*echo.Context) error, method string, body string, origin string, authorization string) *httptest.ResponseRecorder {
+func invokeOTPHandler(t *testing.T, handler func(*echo.Context) error, method string, body string, origin string, authorization string, locale ...string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequest(method, "/v1/me/deletion/otp", strings.NewReader(body))
 	if body != "" {
@@ -83,6 +86,9 @@ func invokeOTPHandler(t *testing.T, handler func(*echo.Context) error, method st
 	}
 	if authorization != "" {
 		request.Header.Set("Authorization", authorization)
+	}
+	if len(locale) > 0 {
+		request.AddCookie(&http.Cookie{Name: localization.CookieName, Value: locale[0]})
 	}
 	response := httptest.NewRecorder()
 	context := echo.New().NewContext(request, response)
@@ -98,12 +104,12 @@ func TestAccountDeletionOTPRequestSendsOnlyForFreshSameOriginPasswordlessUser(t 
 	repository := &otpRepositoryStub{challenge: application.PasswordlessOTPChallenge{ID: "synthetic-challenge", OTP: "001234"}}
 	sender := &otpEmailSenderStub{}
 	handler := NewOTPHandlers(authorizer, repository, sender, "passwordless", previewWebOrigin, func() time.Time { return now }).OperationHandlers()["postMeDeletionOtpRequest"]
-	response := invokeOTPHandler(t, handler, http.MethodPost, "", previewWebOrigin, "")
+	response := invokeOTPHandler(t, handler, http.MethodPost, "", previewWebOrigin, "", string(localization.English))
 	if response.Code != http.StatusNoContent || response.Header().Get("Cache-Control") != "no-store" || response.Body.Len() != 0 {
 		t.Fatalf("OTP request response=%d body=%q headers=%v", response.Code, response.Body.String(), response.Header())
 	}
 	if authorizer.calls != 1 || authorizer.mutation != "account_deletion_authentication" || repository.createCalls != 1 ||
-		repository.userID != "synthetic-user" || sender.calls != 1 || sender.recipient != "owner@example.test" || sender.otp != "001234" {
+		repository.userID != "synthetic-user" || sender.calls != 1 || sender.recipient != "owner@example.test" || sender.otp != "001234" || sender.locale != localization.English {
 		t.Fatalf("OTP request dependencies called unexpectedly: authorizer=%#v repository=%#v sender=%#v", authorizer, repository, sender)
 	}
 }

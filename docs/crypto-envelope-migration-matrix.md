@@ -1,6 +1,6 @@
 # Context-bound envelope migration matrix
 
-This is the source-trace inventory for encrypted payloads in PR #239. The envelope version is the first ciphertext byte. Database/API fields such as `encryptionVersion`, `keyVersion`, account `revision`, and key-wrap JSON `version` are separate metadata and do not prove the inner ciphertext is v2. Native-specific test and storage evidence from the original inventory predates ADR-0054; the responsive web/PWA is the sole supported client.
+This is the source-trace inventory for encrypted payloads in PR #239. Repository test paths in the matrix and the verification snapshot below refer to the pre-Go TypeScript/Prisma implementation and are retained as historical evidence, not current source paths or current verification. The active API persistence implementation is Go; its current repository coverage lives under `apps/api/internal/modules/`, with retirement replacements reviewed in [`core-flow-test-review.md`](reviews/core-flow-test-review.md). The envelope version is the first ciphertext byte. Database/API fields such as `encryptionVersion`, `keyVersion`, account `revision`, and key-wrap JSON `version` are separate metadata and do not prove the inner ciphertext is v2. Native-specific test and storage evidence from the original inventory predates ADR-0054; the responsive web/PWA is the sole supported client.
 
 ## Payload and context matrix
 
