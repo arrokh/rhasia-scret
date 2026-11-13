@@ -162,7 +162,7 @@ func TestEncryptedVaultImportAcceptsAnEmptyArchiveAccountList(t *testing.T) {
 	repository := &archiveImportRepositoryStub{result: vaultarchivedomain.EncryptedVaultImportResult{Status: vaultarchivedomain.ImportStatusImported}}
 	response := invokeArchiveImport(t, NewEncryptedVaultImportHandlers(authorizer, repository), validArchiveImportBody(t, "PERSONAL", "[]"), nil)
 	if response.Code != http.StatusCreated || repository.calls != 1 || repository.request.Accounts == nil {
-		t.Fatalf("empty archive parity changed: status=%d calls=%d accounts=%#v", response.Code, repository.calls, repository.request.Accounts)
+		t.Fatalf("empty archive behavior changed: status=%d calls=%d accounts=%#v", response.Code, repository.calls, repository.request.Accounts)
 	}
 }
 

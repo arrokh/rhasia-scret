@@ -59,7 +59,7 @@ func (handlers *OTPHandlers) requestOTP(ctx *echo.Context) error {
 	if err != nil {
 		return writeOTPError(ctx, http.StatusServiceUnavailable, "deletion_otp_delivery_failed")
 	}
-	if err := handlers.sender.SendDeletionOTP(ctx.Request().Context(), user.Email, challenge.OTP); err != nil {
+	if err := handlers.sender.SendDeletionOTP(ctx.Request().Context(), user.Email, challenge.OTP, httpapi.RequestLocale(ctx.Request())); err != nil {
 		return writeOTPError(ctx, http.StatusServiceUnavailable, "deletion_otp_delivery_failed")
 	}
 	return ctx.NoContent(http.StatusNoContent)

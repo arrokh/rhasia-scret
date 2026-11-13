@@ -95,7 +95,7 @@ describe("browser-delivery security boundaries", () => {
     expect(worker).toContain('response.type === "basic"');
   });
 
-  it("keeps Account Tag names inside encrypted client payloads, never server or query contracts", () => {
+  it("keeps Account Tag names inside encrypted payloads and rejects plaintext tags at the Go API boundary", () => {
     const payload = read(
       "../../packages/client-vault-core/src/modules/authenticator-account/application/account-payload.ts",
     );
@@ -106,8 +106,18 @@ describe("browser-delivery security boundaries", () => {
     const mutationHooks = read(
       "src/modules/authenticator-account/presentation/hooks/use-authenticator-account-mutations.ts",
     );
-    const personalApi = read("../../apps/api/src/route-handlers/vaults/[vaultId]/accounts/route.ts");
-    const sharedApi = read("../../apps/api/src/route-handlers/shared-vaults/[vaultId]/accounts/route.ts");
+    const personalApi = read(
+      "../../apps/api/internal/modules/authenticator-account/presentation/http/personal_account_handlers.go",
+    );
+    const sharedApi = read(
+      "../../apps/api/internal/modules/authenticator-account/presentation/http/shared_account_handlers.go",
+    );
+    const personalApiTest = read(
+      "../../apps/api/internal/modules/authenticator-account/presentation/http/personal_account_handlers_test.go",
+    );
+    const sharedApiTest = read(
+      "../../apps/api/internal/modules/authenticator-account/presentation/http/shared_account_handlers_test.go",
+    );
 
     expect(payload).toContain("tags,");
     expect(payload).toContain("version: 2");
@@ -117,8 +127,10 @@ describe("browser-delivery security boundaries", () => {
       expect(boundary).toContain("encryptedPayload");
       expect(boundary).not.toMatch(/\btags?\b/i);
     }
-    expect(personalApi).toContain(".strict()");
-    expect(sharedApi).toContain(".strict()");
+    expect(personalApiTest).toContain('"tags":["Synthetic"]');
+    expect(personalApiTest).toContain("repository.createCalls != 0");
+    expect(sharedApiTest).toContain('"tags":[]');
+    expect(sharedApiTest).toContain("repository.createCalls != 0");
   });
 
   it("accepts messages only from the application origin", () => {

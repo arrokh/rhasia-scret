@@ -69,11 +69,11 @@ func TestPostgresSharedVaultRepositoryCreatesOwnerVaultOnlyForCurrentIdentity(t 
 	if vaultType != "SHARED" || lifecycle != "ACTIVE" || owner != ownerID || string(encryptedName) != "synthetic-encrypted-name" || encryptionVersion != 1 ||
 		addDefault || editDefault || deleteDefault || role != "OWNER" || status != "ACTIVE" ||
 		string(encryptedOwnerKey) != "synthetic-owner-key-wrap" || keyVersion != 1 || addOverride != nil || editOverride != nil || deleteOverride != nil {
-		t.Fatalf("created Shared Vault metadata differs from the TypeScript contract")
+		t.Fatalf("created Shared Vault metadata differs from the API contract")
 	}
 	var auditCount int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1`, vaultID).Scan(&auditCount); err != nil || auditCount != 0 {
-		t.Fatalf("Shared Vault creation audit count=%d err=%v; TypeScript create does not append an audit event", auditCount, err)
+		t.Fatalf("Shared Vault creation audit count=%d err=%v; creation does not append an audit event", auditCount, err)
 	}
 
 	changedKey := syntheticPublicEncryptionKey(t, "C")

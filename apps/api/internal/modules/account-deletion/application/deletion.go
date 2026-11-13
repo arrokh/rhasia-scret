@@ -7,6 +7,8 @@ import (
 	"errors"
 	"regexp"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 const (
@@ -129,5 +131,5 @@ type DeletionRepository interface {
 }
 
 type CompletionEmailSender interface {
-	SendDeletionCompletion(context.Context, string, string) error
+	SendDeletionCompletion(context.Context, string, string, localization.Locale) error
 }

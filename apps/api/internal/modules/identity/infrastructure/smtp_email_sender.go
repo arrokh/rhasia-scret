@@ -24,6 +24,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 	identity "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity"
 	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
 )
@@ -139,11 +140,11 @@ func NewSMTPEmailSender(configuration SMTPConfiguration) (*SMTPEmailSender, erro
 	return &SMTPEmailSender{configuration: configuration}, nil
 }
 
-func (sender *SMTPEmailSender) SendMagicLink(ctx context.Context, recipient string, actionURL *url.URL) error {
+func (sender *SMTPEmailSender) SendMagicLink(ctx context.Context, recipient string, actionURL *url.URL, locale localization.Locale) error {
 	if !isSafeMagicLinkURL(actionURL) {
 		return errors.New("magic-link email request is invalid")
 	}
-	content := renderMagicLinkEmail(actionURL.String())
+	content := renderMagicLinkEmail(actionURL.String(), locale)
 	if err := sender.SendEmail(ctx, recipient, identity.EmailMessage{Subject: content.Subject, Text: content.Text, HTML: content.HTML}); err != nil {
 		return errors.New("magic-link email delivery failed")
 	}
@@ -392,8 +393,8 @@ func isSafeMagicLinkURL(value *url.URL) bool {
 	return len(handoffIDs) == 0
 }
 
-func renderMagicLinkMessage(from mail.Address, recipient string, link string) ([]byte, error) {
-	content := renderMagicLinkEmail(link)
+func renderMagicLinkMessage(from mail.Address, recipient string, link string, locale localization.Locale) ([]byte, error) {
+	content := renderMagicLinkEmail(link, locale)
 	return renderSMTPMessage(from, recipient, content.Subject, content.Text, content.HTML)
 }
 
@@ -431,16 +432,35 @@ type magicLinkEmailContent struct {
 	HTML    string
 }
 
-func renderMagicLinkEmail(link string) magicLinkEmailContent {
-	const (
-		subject     = "rhasia-scret sign-in link"
-		title       = "Sign in to rhasia-scret"
-		description = "Use the button below to sign in or create your hosted account."
-		button      = "Sign in"
-		fallback    = "If the button does not work, open this link:"
-		ignore      = "If you did not request this link, you can ignore this email."
-	)
-	text := strings.Join([]string{title, description, button + ": " + link, fallback + "\n" + link, ignore}, "\n\n")
+type magicLinkEmailCopy struct {
+	Language    string
+	Subject     string
+	Title       string
+	Description string
+	Button      string
+	Fallback    string
+	Ignore      string
+	FooterBy    string
+}
+
+func magicLinkCopy(locale localization.Locale) magicLinkEmailCopy {
+	if localization.ResolveLocale(string(locale)) == localization.English {
+		return magicLinkEmailCopy{
+			Language: "en", Subject: "rhasia-scret sign-in link", Title: "Sign in to rhasia-scret",
+			Description: "Use the button below to sign in or create your hosted account.", Button: "Sign in",
+			Fallback: "If the button does not work, open this link:", Ignore: "If you did not request this link, you can ignore this email.", FooterBy: "by",
+		}
+	}
+	return magicLinkEmailCopy{
+		Language: "id", Subject: "Tautan masuk rhasia-scret", Title: "Masuk ke rhasia-scret",
+		Description: "Gunakan tombol di bawah untuk masuk atau membuat akun hosted Anda.", Button: "Masuk",
+		Fallback: "Jika tombol tidak bekerja, buka tautan ini:", Ignore: "Jika Anda tidak meminta tautan ini, abaikan email ini.", FooterBy: "oleh",
+	}
+}
+
+func renderMagicLinkEmail(link string, locale localization.Locale) magicLinkEmailContent {
+	copy := magicLinkCopy(locale)
+	text := strings.Join([]string{copy.Title, copy.Description, copy.Button + ": " + link, copy.Fallback + "\n" + link, copy.Ignore}, "\n\n")
 	escapedLink := html.EscapeString(link)
 	const font = "Manrope, Arial, Helvetica, sans-serif"
 	const (
@@ -455,11 +475,11 @@ func renderMagicLinkEmail(link string) magicLinkEmailContent {
 		goldStrong   = "#c88717"
 		mutedText    = "#737b81"
 	)
-	escapedTitle := html.EscapeString(title)
-	escapedDescription := html.EscapeString(description)
-	escapedButton := html.EscapeString(button)
-	escapedFallback := html.EscapeString(fallback)
-	escapedIgnore := html.EscapeString(ignore)
+	escapedTitle := html.EscapeString(copy.Title)
+	escapedDescription := html.EscapeString(copy.Description)
+	escapedButton := html.EscapeString(copy.Button)
+	escapedFallback := html.EscapeString(copy.Fallback)
+	escapedIgnore := html.EscapeString(copy.Ignore)
 	content := []string{
 		fmt.Sprintf(`<h1 style="margin:0 0 12px;color:%s;font-size:24px;line-height:32px;font-weight:700;letter-spacing:-0.02em;">%s</h1>`, inkStrong, escapedTitle),
 		fmt.Sprintf(`<p style="margin:0 0 24px;color:%s;font-size:16px;line-height:24px;">%s</p>`, ink, escapedDescription),
@@ -477,11 +497,11 @@ func renderMagicLinkEmail(link string) magicLinkEmailContent {
 	wordmark := `<span style="color:#273039;">rhasia-</span><span style="color:#e5a72e;">scret</span>`
 	htmlBody := strings.Join([]string{
 		"<!doctype html>",
-		`<html lang="en">`,
+		fmt.Sprintf(`<html lang="%s">`, copy.Language),
 		"<head>",
 		`<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">`,
 		`<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
-		"<title>" + html.EscapeString(subject) + "</title>",
+		"<title>" + html.EscapeString(copy.Subject) + "</title>",
 		"</head>",
 		fmt.Sprintf(`<body style="margin:0;background-color:%s;color:%s;font-family:%s;-webkit-text-size-adjust:100%%;">`, background, ink, font),
 		fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="width:100%%;background-color:%s;">`, background),
@@ -500,7 +520,7 @@ func renderMagicLinkEmail(link string) magicLinkEmailContent {
 		"  </tr>",
 		"  <tr>",
 		fmt.Sprintf(`    <td align="center" style="padding:16px 32px 20px;border-top:1px solid %s;color:%s;">`, subtleBorder, mutedText),
-		fmt.Sprintf(`      <p style="margin:0;color:%s;font-size:12px;line-height:16px;">%s <span>by</span> <a href="https://nooroctavian.id/" style="color:%s;font-weight:700;text-decoration:none;">nooroctavian.id</a></p>`, mutedText, wordmark, ink),
+		fmt.Sprintf(`      <p style="margin:0;color:%s;font-size:12px;line-height:16px;">%s <span>%s</span> <a href="https://nooroctavian.id/" style="color:%s;font-weight:700;text-decoration:none;">nooroctavian.id</a></p>`, mutedText, wordmark, copy.FooterBy, ink),
 		"    </td>",
 		"  </tr>",
 		"</table>",
@@ -510,7 +530,7 @@ func renderMagicLinkEmail(link string) magicLinkEmailContent {
 		"</body>",
 		"</html>",
 	}, "\n")
-	return magicLinkEmailContent{Subject: subject, Text: text, HTML: htmlBody}
+	return magicLinkEmailContent{Subject: copy.Subject, Text: text, HTML: htmlBody}
 }
 
 func writeQuotedPrintablePart(writer *multipart.Writer, contentType string, body string) error {

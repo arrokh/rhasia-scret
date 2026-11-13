@@ -179,7 +179,7 @@ func TestPasskeyRecoveryRegistrationOptionsRequirePRFAndExcludeCurrentCredential
 	if err := json.Unmarshal(payload["pubKeyCredParams"], &credentialParameters); err != nil || len(credentialParameters) != 4 ||
 		credentialParameters[0].Algorithm != webauthncose.AlgMLDSA44 || credentialParameters[1].Algorithm != webauthncose.AlgEdDSA ||
 		credentialParameters[2].Algorithm != webauthncose.AlgES256 || credentialParameters[3].Algorithm != webauthncose.AlgRS256 {
-		t.Fatalf("registration algorithm order differs from the TypeScript Node 24 default: %#v (%v)", credentialParameters, err)
+		t.Fatalf("registration algorithm order differs from the historical API default: %#v (%v)", credentialParameters, err)
 	}
 	var extensions map[string]json.RawMessage
 	if err := json.Unmarshal(payload["extensions"], &extensions); err != nil || string(extensions[protocol.ExtensionPRF]) != "{}" ||
@@ -188,11 +188,11 @@ func TestPasskeyRecoveryRegistrationOptionsRequirePRFAndExcludeCurrentCredential
 	}
 	var timeout int
 	if err := json.Unmarshal(payload["timeout"], &timeout); err != nil || timeout != 60_000 {
-		t.Fatalf("registration timeout=%d (%v); want the TypeScript Node default", timeout, err)
+		t.Fatalf("registration timeout=%d (%v); want the historical API default", timeout, err)
 	}
 	var user protocol.UserEntity
 	if err := json.Unmarshal(payload["user"], &user); err != nil || user.DisplayName != "" {
-		t.Fatalf("registration display name=%q (%v); want the TypeScript default", user.DisplayName, err)
+		t.Fatalf("registration display name=%q (%v); want the historical API default", user.DisplayName, err)
 	}
 	assertEmptyWebAuthnHints(t, payload)
 	var exclude []protocol.CredentialDescriptor
@@ -213,7 +213,7 @@ func TestPasskeyRecoveryRegistrationOptionsRequirePRFAndExcludeCurrentCredential
 	}
 }
 
-func TestPasskeyRecoveryRegistrationOptionsMatchTypeScriptDefaultsWithoutCredential(t *testing.T) {
+func TestPasskeyRecoveryRegistrationOptionsMatchHistoricalDefaultsWithoutCredential(t *testing.T) {
 	repository := &passkeyRecoveryRepositoryStub{}
 	dependencies, _, _ := authenticatedPasskeyRecoveryDependencies(repository)
 	handler := NewHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryRegistrationOptions"]
@@ -267,7 +267,7 @@ func TestPasskeyRecoveryAuthenticationOptionsReturnOnlyCredentialIDAndOpaquePack
 	}
 	var timeout int
 	if err := json.Unmarshal(payload["timeout"], &timeout); err != nil || timeout != 60_000 {
-		t.Fatalf("authentication timeout=%d (%v); want the TypeScript Node default", timeout, err)
+		t.Fatalf("authentication timeout=%d (%v); want the historical API default", timeout, err)
 	}
 	var allow []protocol.CredentialDescriptor
 	if err := json.Unmarshal(payload["allowCredentials"], &allow); err != nil || len(allow) != 1 ||

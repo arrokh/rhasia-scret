@@ -6,7 +6,7 @@
 
 Issue: [#186 — Complete user-facing key rotation workflows](https://github.com/arrokh/rhasia-scret/issues/186)
 
-This implementation record predates native-client retirement under ADR-0054. Any compatibility or native-test references below are historical evidence only; the responsive web/PWA is the sole supported client now.
+This implementation record predates native-client retirement under ADR-0054 and the Go/Echo API cutover. Native-client references and Prisma schema/repository test paths below describe the earlier implementation and are historical evidence only; the responsive web/PWA is the sole supported client, and current server persistence coverage lives under `apps/api/internal/`.
 
 ## Goal and boundaries
 

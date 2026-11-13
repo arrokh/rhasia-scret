@@ -2,7 +2,7 @@
 
 See [`monorepo.md`](./monorepo.md) for pnpm workspace ownership and command contracts.
 
-This inventory records the package-boundary decisions made for issue #102 and reviewed after issue #243 retired the Expo client. `apps/web` is now the sole supported client; both `apps/web` and `apps/api` continue to consume `packages/client-vault-core`. The platform-neutral workflows remain in that package because its public protocols and authorization policies are shared by both applications and remain independent of browser presentation and server infrastructure; no native application or native-only adapter is part of the current product.
+This inventory records the package-boundary decisions made for issue #102 and reviewed after issue #243 retired the Expo client. `apps/web` is now the sole supported client and the sole consumer of `packages/client-vault-core`. The platform-neutral workflows remain in that package because their public protocols and authorization policies are shared across Web contexts while remaining independent of browser presentation; no native application or native-only adapter is part of the current product.
 
 ## Decisions
 
@@ -23,9 +23,9 @@ Native-only Expo composition, bearer transport, native cryptography/storage, cam
 
 ## Package contract
 
-`packages/client-vault-core` exports its supported API through `src/index.ts`; `apps/web` and `apps/api` consume its public API through `workspace:*` dependencies and must not reach into package internals. The package has no Next.js, React, PostgreSQL, filesystem, browser API, or platform-storage imports. The TypeScript/Prisma implementation in `@rhasia-scret/api-parity` is an API test oracle, not a runtime dependency. Client-only workflows accept cryptographic primitives, transport, time, storage, download, and UI effects through injected ports; API consumers use only permitted platform-neutral policies and encrypted contracts.
+`packages/client-vault-core` exports its supported API through `src/index.ts`; `apps/web` consumes its public API through a `workspace:*` dependency and must not reach into package internals. The Go API does not import the TypeScript package. The package has no Next.js, React, PostgreSQL, filesystem, browser API, or platform-storage imports. Client-only workflows accept cryptographic primitives, transport, time, storage, download, and UI effects through injected ports; Web server-side consumers use only explicitly permitted platform-neutral policies and encrypted contracts.
 
-The package boundary is covered by its typecheck/unit suite and the web/API consumer suites. API and web architecture tests enforce import boundaries and one-way workspace dependencies. Retired `apps/mobile` paths remain classified as unknown by CI change detection so historical paths conservatively select all checks.
+The package boundary is covered by its typecheck/unit suite and the Web consumer suite. Go module/build, OpenAPI code-generation, and API deployment-configuration checks cover the server boundary; Web architecture tests enforce import boundaries and one-way workspace dependencies. Retired `apps/mobile` paths remain classified as unknown by CI change detection so historical paths conservatively select all checks.
 
 ## Sensitive-data review
 

@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
 	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/infrastructure"
 )
@@ -32,6 +33,7 @@ type PasswordlessService interface {
 		Email           string
 		Client          identityapp.PasswordlessClient
 		ReturnPath      identityapp.PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
@@ -190,6 +192,7 @@ func (handlers *Handlers) requestMagicLink(ctx *echo.Context) error {
 		Email           string
 		Client          identityapp.PasswordlessClient
 		ReturnPath      identityapp.PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
@@ -197,6 +200,7 @@ func (handlers *Handlers) requestMagicLink(ctx *echo.Context) error {
 		Email:          strings.TrimSpace(body.Email),
 		Client:         identityapp.PasswordlessClient(body.Client),
 		ReturnPath:     identityapp.PasswordlessReturnPath(body.ReturnPath),
+		Locale:         httpapi.RequestLocale(request),
 		TurnstileToken: turnstileToken,
 	}
 	if body.Client == string(identityapp.PasswordlessClientPWA) {

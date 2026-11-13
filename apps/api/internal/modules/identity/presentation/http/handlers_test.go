@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
 	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/infrastructure"
 )
@@ -27,6 +28,7 @@ type fakePasswordlessService struct {
 		Email           string
 		Client          identityapp.PasswordlessClient
 		ReturnPath      identityapp.PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
@@ -51,6 +53,7 @@ func (service *fakePasswordlessService) RequestLink(_ context.Context, input str
 	Email           string
 	Client          identityapp.PasswordlessClient
 	ReturnPath      identityapp.PasswordlessReturnPath
+	Locale          localization.Locale
 	TurnstileToken  string
 	HandoffID       string
 	HandoffVerifier string
@@ -59,10 +62,11 @@ func (service *fakePasswordlessService) RequestLink(_ context.Context, input str
 		Email           string
 		Client          identityapp.PasswordlessClient
 		ReturnPath      identityapp.PasswordlessReturnPath
+		Locale          localization.Locale
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
-	}{input.Email, input.Client, input.ReturnPath, input.TurnstileToken, input.HandoffID, input.HandoffVerifier}
+	}{input.Email, input.Client, input.ReturnPath, input.Locale, input.TurnstileToken, input.HandoffID, input.HandoffVerifier}
 	return service.requestError
 }
 
@@ -330,14 +334,16 @@ func TestMagicLinkRequestAppliesTurnstileAndAnonymousRateLimits(t *testing.T) {
 	dependencies.Passwordless = service
 	logger = &fakeLogger{}
 	dependencies.Logger = logger
-	response := invokeHandler(t, NewHandlers(dependencies).OperationHandlers()["postAuthMagiclinkRequest"], http.MethodPost, "/v1/auth/magic-link/request", body, requestHeaders(testWebOrigin), true)
+	headers := requestHeaders(testWebOrigin)
+	headers.Set("Cookie", "RHSIA_LOCALE=en")
+	response := invokeHandler(t, NewHandlers(dependencies).OperationHandlers()["postAuthMagiclinkRequest"], http.MethodPost, "/v1/auth/magic-link/request", body, headers, true)
 	if response.Code != http.StatusOK || response.Body.String() != "{\"sent\":true}\n" {
 		t.Fatalf("successful request response = %d %q", response.Code, response.Body.String())
 	}
 	if dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter).email != "person@example.test" || dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter).clientIP != "" {
 		t.Fatal("untrusted client IP or non-normalized email reached limiter")
 	}
-	if service.requestInput == nil || service.requestInput.Email != "Person@Example.test" || service.requestInput.ReturnPath != identityapp.PasswordlessReturnPathInvitationRedeem {
+	if service.requestInput == nil || service.requestInput.Email != "Person@Example.test" || service.requestInput.ReturnPath != identityapp.PasswordlessReturnPathInvitationRedeem || service.requestInput.Locale != localization.English {
 		t.Fatalf("unexpected service request: %#v", service.requestInput)
 	}
 	if strings.Contains(response.Body.String(), "turnstile") || strings.Contains(response.Body.String(), "person@example.test") {

@@ -606,11 +606,17 @@ test("authenticated rate-limit setup types into the controlled sign-in email fie
 test("K6 rate-limit boundary thresholds match the API policies", () => {
   const script = readFileSync(new URL("../performance/k6/rate-limits.js", import.meta.url), "utf8");
   const applicationPolicy = readFileSync(
-    new URL("../apps/api/src/modules/rate-limiting/domain/application-rate-limit-policy.ts", import.meta.url),
+    new URL(
+      "../apps/api/internal/modules/rate-limiting/infrastructure/postgres_application_rate_limiter.go",
+      import.meta.url,
+    ),
     "utf8",
   );
   const anonymousPolicy = readFileSync(
-    new URL("../apps/api/src/modules/identity/infrastructure/prisma-anonymous-auth-rate-limiter.ts", import.meta.url),
+    new URL(
+      "../apps/api/internal/modules/identity/infrastructure/postgres_anonymous_auth_rate_limiter.go",
+      import.meta.url,
+    ),
     "utf8",
   );
   const applicationBoundaries = [
@@ -622,14 +628,14 @@ test("K6 rate-limit boundary thresholds match the API policies", () => {
   for (const [operation, limit, windowSeconds] of applicationBoundaries) {
     assert.match(
       applicationPolicy,
-      new RegExp(`${operation}:\\s*\\{\\s*limit:\\s*${limit}\\s*,\\s*windowSeconds:\\s*${windowSeconds}\\s*\\}`),
+      new RegExp(`"${operation}":\\s*\\{\\s*Limit:\\s*${limit}\\s*,\\s*WindowSeconds:\\s*${windowSeconds}\\s*\\}`),
     );
     assert.match(script, new RegExp(`verifyPolicyBoundary\\("${operation}",\\s*${limit},`));
   }
-  assert.match(anonymousPolicy, /const WINDOW_SECONDS = 15 \* 60;/);
-  assert.match(anonymousPolicy, /operation: "magic-link-email", maximum: 5/);
-  assert.match(anonymousPolicy, /operation: "magic-link-ip", maximum: 20/);
-  assert.match(anonymousPolicy, /operation: "magic-link-unattributed", maximum: 20/);
+  assert.match(anonymousPolicy, /const anonymousAuthWindowSeconds int64 = 15 \* 60(?:;)?/);
+  assert.match(anonymousPolicy, /operation: "magic-link-email", value: email, maximum: 5/);
+  assert.match(anonymousPolicy, /operation: "magic-link-ip", value: clientIP, maximum: 20/);
+  assert.match(anonymousPolicy, /operation: "magic-link-unattributed", value: "all-untrusted-clients", maximum: 20/);
   assert(script.includes("runAnonymousBoundary(5, true)"));
   assert(script.includes("runAnonymousBoundary(20, false)"));
 });

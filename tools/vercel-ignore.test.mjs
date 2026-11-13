@@ -28,8 +28,8 @@ test("follows each app's workspace dependency graph", () => {
   const webScopes = serviceScopePaths("web", repositoryRoot);
 
   assert.ok(apiScopes.includes("apps/api"));
-  assert.ok(apiScopes.includes("packages/api-contract"));
-  assert.ok(apiScopes.includes("packages/client-vault-core"));
+  assert.ok(!apiScopes.includes("packages/api-contract"));
+  assert.ok(!apiScopes.includes("packages/client-vault-core"));
   assert.ok(!apiScopes.includes("packages/api-client"));
 
   assert.ok(webScopes.includes("apps/web"));
@@ -39,13 +39,13 @@ test("follows each app's workspace dependency graph", () => {
 });
 
 test("selects only the Vercel service affected by app or shared-package changes", () => {
-  assert.equal(isServiceAffected("api", ["apps/api/src/routes/v1.ts"]), true);
+  assert.equal(isServiceAffected("api", ["apps/api/internal/httpapi/router.go"]), true);
   assert.equal(isServiceAffected("api", ["apps/web/src/app/page.tsx"]), false);
-  assert.equal(isServiceAffected("api", ["packages/api-contract/src/index.ts"]), true);
+  assert.equal(isServiceAffected("api", ["packages/api-contract/src/index.ts"]), false);
   assert.equal(isServiceAffected("api", ["packages/api-client/src/index.ts"]), false);
 
   assert.equal(isServiceAffected("web", ["apps/web/src/app/page.tsx"]), true);
-  assert.equal(isServiceAffected("web", ["apps/api/src/routes/v1.ts"]), false);
+  assert.equal(isServiceAffected("web", ["apps/api/internal/httpapi/router.go"]), false);
   assert.equal(isServiceAffected("web", ["packages/client-vault-core/src/index.ts"]), true);
   assert.equal(isServiceAffected("web", ["packages/api-client/src/index.ts"]), false);
 });
@@ -135,8 +135,8 @@ test("keeps service, dependency, and non-version manifest changes as deployment 
     const sharedManifest = JSON.parse(readFileSync(join(root, "packages/shared/package.json"), "utf8"));
     sharedManifest.dependencies = { added: "1.0.0" };
     writeFileSync(join(root, "packages/shared/package.json"), JSON.stringify(sharedManifest, null, 2));
-    mkdirSync(join(root, "apps/api/src"), { recursive: true });
-    writeFileSync(join(root, "apps/api/src/index.js"), "export const changed = true;\n");
+    mkdirSync(join(root, "apps/api/internal/httpapi"), { recursive: true });
+    writeFileSync(join(root, "apps/api/internal/httpapi/router.go"), "package httpapi\n");
     const currentSha = commitAll(root, "build inputs");
     const changedPaths = changedPathsIn(root, baseSha, currentSha);
     const effectivePaths = filterVersionOnlyManifestChanges(baseSha, currentSha, changedPaths, root);
@@ -151,18 +151,18 @@ test("keeps service, dependency, and non-version manifest changes as deployment 
 test("does not suppress version-only changes to nested non-workspace manifests", () => {
   const root = createGitFixture();
   try {
-    writeFixtureFile(root, "apps/api/src/plugin/package.json", {
+    writeFixtureFile(root, "apps/api/internal/plugin/package.json", {
       name: "@fixture/api-plugin",
       version: "0.1.0",
     });
     const baseSha = commitAll(root, "baseline");
-    const nestedManifest = JSON.parse(readFileSync(join(root, "apps/api/src/plugin/package.json"), "utf8"));
+    const nestedManifest = JSON.parse(readFileSync(join(root, "apps/api/internal/plugin/package.json"), "utf8"));
     nestedManifest.version = "0.1.1";
-    writeFileSync(join(root, "apps/api/src/plugin/package.json"), `${JSON.stringify(nestedManifest, null, 2)}\n`);
+    writeFileSync(join(root, "apps/api/internal/plugin/package.json"), `${JSON.stringify(nestedManifest, null, 2)}\n`);
     const currentSha = commitAll(root, "nested package version change");
     const changedPaths = changedPathsIn(root, baseSha, currentSha);
     const effectivePaths = filterVersionOnlyManifestChanges(baseSha, currentSha, changedPaths, root);
-    assert.deepEqual(effectivePaths, ["apps/api/src/plugin/package.json"]);
+    assert.deepEqual(effectivePaths, ["apps/api/internal/plugin/package.json"]);
     assert.equal(isServiceAffected("api", effectivePaths, root), true);
   } finally {
     rmSync(root, { recursive: true, force: true });

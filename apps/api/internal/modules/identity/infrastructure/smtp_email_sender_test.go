@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 func stringPointer(value string) *string {
@@ -161,7 +163,7 @@ func TestRenderMagicLinkMessage(t *testing.T) {
 	if !isSafeMagicLinkURL(link) {
 		t.Fatal("expected a valid PWA action URL")
 	}
-	message, err := renderMagicLinkMessage(mail.Address{Name: "rhasia-scret", Address: "no-reply@example.test"}, "person@example.test", link.String())
+	message, err := renderMagicLinkMessage(mail.Address{Name: "rhasia-scret", Address: "no-reply@example.test"}, "person@example.test", link.String(), localization.English)
 	if err != nil {
 		t.Fatalf("render email: %v", err)
 	}
@@ -182,7 +184,7 @@ func TestRenderMagicLinkMessage(t *testing.T) {
 			t.Errorf("email missing expected content %q", expected)
 		}
 	}
-	content := renderMagicLinkEmail(link.String())
+	content := renderMagicLinkEmail(link.String(), localization.English)
 	if !strings.Contains(content.Text, link.String()) || !strings.Contains(content.HTML, "&amp;next=%2Fvaults&amp;handoff=abcdefghijklmnop") {
 		t.Error("rendered email does not preserve the text link and escape HTML fragment delimiters")
 	}
@@ -210,9 +212,25 @@ func TestMagicLinkEmailMatchesSharedSyntheticGolden(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse synthetic action URL: %v", err)
 	}
-	actual := renderMagicLinkEmail(link.String())
+	actual := renderMagicLinkEmail(link.String(), localization.English)
 	if actual.Subject != fixture.MagicLink.Subject || actual.Text != fixture.MagicLink.Text || actual.HTML != fixture.MagicLink.HTML {
-		t.Fatal("Go magic-link email differs from the shared TypeScript rendering fixture")
+		t.Fatal("Go magic-link email differs from the shared email compatibility fixture")
+	}
+}
+
+func TestMagicLinkEmailUsesIndonesianCopyAndLanguageMetadata(t *testing.T) {
+	link := "https://auth.example.test/auth/confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&next=%2Fvaults"
+	content := renderMagicLinkEmail(link, localization.Indonesian)
+	if content.Subject != "Tautan masuk rhasia-scret" || !strings.Contains(content.Text, "Masuk ke rhasia-scret") ||
+		!strings.Contains(content.Text, "Gunakan tombol di bawah untuk masuk atau membuat akun hosted Anda.") ||
+		!strings.Contains(content.Text, "Jika Anda tidak meminta tautan ini, abaikan email ini.") ||
+		!strings.Contains(content.HTML, `<html lang="id">`) || !strings.Contains(content.HTML, "Jika tombol tidak bekerja, buka tautan ini:") ||
+		!strings.Contains(content.HTML, "<span>oleh</span>") {
+		t.Fatalf("Indonesian magic-link email did not use its localized copy: %#v", content)
+	}
+	unsupported := renderMagicLinkEmail(link, localization.Locale("fr"))
+	if unsupported.Subject != content.Subject || unsupported.HTML != content.HTML {
+		t.Fatal("unsupported email locale did not fall back to Indonesian")
 	}
 }
 
@@ -251,7 +269,7 @@ func TestSMTPEmailSenderRejectsInvalidLinkBeforeNetworking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create sender: %v", err)
 	}
-	err = sender.SendMagicLink(context.Background(), "person@example.test", &url.URL{Scheme: "https", Host: "auth.example.test", Path: "/auth/confirm"})
+	err = sender.SendMagicLink(context.Background(), "person@example.test", &url.URL{Scheme: "https", Host: "auth.example.test", Path: "/auth/confirm"}, localization.English)
 	if err == nil || !strings.Contains(err.Error(), "invalid") {
 		t.Fatalf("expected invalid link error, got %v", err)
 	}

@@ -72,10 +72,6 @@ jobs:
           printf 'RHSIA_DISPOSABLE_RUN_ID=%016x\n' "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
           printf 'RHSIA_DISPOSABLE_DATA_CLASSIFICATION=synthetic\n' >> "$GITHUB_ENV"
           printf 'RHSIA_GO_INTEGRATION_DATABASE_URL=%s\n' "$DATABASE_URL" >> "$GITHUB_ENV"
-      - name: Generate Prisma parity client and validate the reference schema
-        run: |
-          pnpm --filter @rhasia-scret/api-parity run test:parity:generate
-          pnpm --filter @rhasia-scret/api-parity run test:parity:validate
       - name: Build the Sqitch migration image
         run: docker build --file apps/api/Dockerfile.migration --target migration --tag "rhasia-scret-api-migrate-evidence:${GITHUB_RUN_ID}" .
       - name: Deploy and verify the Sqitch baseline

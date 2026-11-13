@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
 )
 
 type deletionRepositoryStub struct {
@@ -33,12 +35,14 @@ type completionEmailSenderStub struct {
 	calls     int
 	recipient string
 	receiptID string
+	locale    localization.Locale
 }
 
-func (sender *completionEmailSenderStub) SendDeletionCompletion(_ context.Context, recipient string, receiptID string) error {
+func (sender *completionEmailSenderStub) SendDeletionCompletion(_ context.Context, recipient string, receiptID string, locale localization.Locale) error {
 	sender.calls++
 	sender.recipient = recipient
 	sender.receiptID = receiptID
+	sender.locale = locale
 	return sender.err
 }
 
@@ -46,7 +50,7 @@ func TestCompleteDeletionCommitsBeforeBestEffortReceiptEmail(t *testing.T) {
 	request := DeletionRequest{Confirmation: DeletionConfirmation, Acknowledged: true, VaultDecisions: []VaultDecision{}}
 	repository := &deletionRepositoryStub{result: DeletionResult{ReceiptID: "synthetic-receipt-0001", Email: "owner@example.test"}, statusErrors: map[string]error{}}
 	sender := &completionEmailSenderStub{}
-	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", request, time.Unix(1_800_000_000, 0))
+	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", request, localization.Indonesian, time.Unix(1_800_000_000, 0))
 	if err != nil || completed.EmailDelivery != "sent" || completed.Deletion.ReceiptID != "synthetic-receipt-0001" {
 		t.Fatalf("completed deletion=%#v err=%v", completed, err)
 	}
@@ -56,7 +60,7 @@ func TestCompleteDeletionCommitsBeforeBestEffortReceiptEmail(t *testing.T) {
 
 	repository = &deletionRepositoryStub{result: DeletionResult{ReceiptID: "synthetic-receipt-0002", Email: "owner@example.test"}, statusErrors: map[string]error{}}
 	sender = &completionEmailSenderStub{err: errors.New("synthetic email failure")}
-	completed, err = CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", request, time.Unix(1_800_000_000, 0))
+	completed, err = CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", request, localization.Indonesian, time.Unix(1_800_000_000, 0))
 	if err != nil || completed.EmailDelivery != "failed" || completed.Deletion.ReceiptID != "synthetic-receipt-0002" || !reflect.DeepEqual(repository.statuses, []string{"FAILED"}) {
 		t.Fatalf("best-effort email failure undid account deletion: result=%#v err=%v statuses=%v", completed, err, repository.statuses)
 	}
@@ -68,7 +72,7 @@ func TestCompleteDeletionMapsEmailStatusPersistenceFailureToFailedWithoutUndoing
 		statusErrors: map[string]error{"SENT": errors.New("synthetic update failure"), "FAILED": errors.New("synthetic retry failure")},
 	}
 	sender := &completionEmailSenderStub{}
-	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", DeletionRequest{}, time.Time{})
+	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", DeletionRequest{}, localization.Indonesian, time.Time{})
 	if err != nil || completed.EmailDelivery != "failed" || sender.calls != 1 || !reflect.DeepEqual(repository.statuses, []string{"SENT", "FAILED"}) {
 		t.Fatalf("receipt status failure changed committed deletion: result=%#v err=%v sender=%#v statuses=%v", completed, err, sender, repository.statuses)
 	}
@@ -77,7 +81,7 @@ func TestCompleteDeletionMapsEmailStatusPersistenceFailureToFailedWithoutUndoing
 func TestCompleteDeletionDoesNotSendEmailWhenRepositoryRejectsDeletion(t *testing.T) {
 	repository := &deletionRepositoryStub{deleteError: ErrDeletionPlanStale}
 	sender := &completionEmailSenderStub{}
-	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", DeletionRequest{}, time.Time{})
+	completed, err := CompleteDeletion(context.Background(), repository, sender, "synthetic-user-00001", "synthetic-token", DeletionRequest{}, localization.Indonesian, time.Time{})
 	if !errors.Is(err, ErrDeletionPlanStale) || completed.Deletion.ReceiptID != "" || sender.calls != 0 {
 		t.Fatalf("failed deletion sent completion email: result=%#v err=%v sender=%#v", completed, err, sender)
 	}
