@@ -25,7 +25,7 @@ describe("runRetentionPurge", () => {
         return { purgedIds: auditBatches.shift() ?? [] };
       }),
     };
-    const auth = { purgeExpiredAuthState: vi.fn(async () => 3) };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => ({ count: 3, backlogRemaining: false })) };
 
     const report = await runRetentionPurge({
       accounts,
@@ -45,16 +45,18 @@ describe("runRetentionPurge", () => {
       vaultBacklogRemaining: false,
       auditBacklogRemaining: false,
       authRecordsPurged: 3,
+      authBacklogRemaining: false,
     });
     expect(order).toEqual(["accounts", "accounts", "vaults", "audit", "audit"]);
     expect(accounts.purgeExpired).toHaveBeenCalledWith(new Date("2026-01-01T00:00:00.000Z"), 2);
+    expect(auth.purgeExpiredAuthState).toHaveBeenCalledWith(new Date("2026-01-01T00:00:00.000Z"), 2, 3);
   });
 
   it("stops at the configured maximum and flags possible backlog without unbounded work", async () => {
     const accounts = { purgeExpired: vi.fn(async () => ({ purgedIds: ["account_1"] })) };
     const vaults = { purgeExpiredVaults: vi.fn(async () => ({ purgedIds: ["vault_1"] })) };
     const audit = { purgeExpiredAuditEvents: vi.fn(async () => ({ purgedIds: ["event_1"] })) };
-    const auth = { purgeExpiredAuthState: vi.fn(async () => 0) };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => ({ count: 0, backlogRemaining: true })) };
 
     const report = await runRetentionPurge({
       accounts,
@@ -74,6 +76,7 @@ describe("runRetentionPurge", () => {
         accountBacklogRemaining: true,
         vaultBacklogRemaining: true,
         auditBacklogRemaining: true,
+        authBacklogRemaining: true,
       }),
     );
   });
@@ -82,12 +85,19 @@ describe("runRetentionPurge", () => {
     const accounts = { purgeExpired: vi.fn(async () => ({ purgedIds: [] })) };
     const vaults = { purgeExpiredVaults: vi.fn(async () => ({ purgedIds: [] })) };
     const audit = { purgeExpiredAuditEvents: vi.fn(async () => ({ purgedIds: [] })) };
-    const auth = { purgeExpiredAuthState: vi.fn(async () => 0) };
+    const auth = { purgeExpiredAuthState: vi.fn(async () => ({ count: 0, backlogRemaining: false })) };
 
-    const first = await runRetentionPurge({ accounts, vaults, audit, auth, now: new Date() });
+    const first = await runRetentionPurge({
+      accounts,
+      vaults,
+      audit,
+      auth,
+      now: new Date(),
+    });
     const second = await runRetentionPurge({ accounts, vaults, audit, auth, now: new Date() });
 
     expect(first.accountIds).toEqual([]);
     expect(second).toEqual(first);
+    expect(first.authBacklogRemaining).toBe(false);
   });
 });

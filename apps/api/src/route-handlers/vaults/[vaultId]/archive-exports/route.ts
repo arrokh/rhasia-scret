@@ -21,7 +21,9 @@ export function createVaultArchiveExportAuditHandler(dependencies: {
 
 function requestDeclaresContent(request: Request): boolean {
   const contentLength = request.headers.get("content-length");
-  return request.headers.has("content-type") || (contentLength !== null && contentLength !== "0");
+  return (
+    request.body !== null || request.headers.has("content-type") || (contentLength !== null && contentLength !== "0")
+  );
 }
 
 export async function POST(request: ApiRequest, context: { params: Promise<{ vaultId: string }> }) {

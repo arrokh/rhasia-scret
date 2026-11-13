@@ -17,6 +17,7 @@ import {
   type AccountDeletionEmailSender,
   type AccountDeletionRepository,
 } from "@api/modules/account-deletion/server";
+import { clearPasswordlessSessionCookies } from "@api/modules/identity/server";
 
 const deletionAuthorizationTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
 const deletionRequestSchema = z
@@ -76,9 +77,10 @@ export function createDeleteMeHandler({
     const completed = await repository.findCompletedDeletion(authorizationToken);
     if (completed) {
       const response = ApiResponse.json(
-        { receiptId: completed.receiptId, emailDelivery: completed.emailDeliveryStatus.toLowerCase() },
+        { receiptId: completed.receiptId, emailDelivery: completed.emailDeliveryStatus === "SENT" ? "sent" : "failed" },
         { headers: noStoreHeaders() },
       );
+      clearPasswordlessSessionCookies(response.cookies);
       clearDeletionCookies(response.cookies);
       return response;
     }
@@ -108,6 +110,7 @@ export function createDeleteMeHandler({
       } catch {
         // The response still clears cookies below; browser storage cleanup is client-owned.
       }
+      clearPasswordlessSessionCookies(response.cookies);
       clearDeletionCookies(response.cookies);
       return response;
     } catch (error) {

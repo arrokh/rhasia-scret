@@ -1,0 +1,42 @@
+{
+  "note": "Synthetic wire examples only. No real credentials, users, vault content, or secrets.",
+  "health": {
+    "method": "GET",
+    "path": "/health",
+    "status": 200,
+    "headers": {
+      "cache-control": "no-store",
+      "x-request-id": "0123456789abcdef0123456789abcdef"
+    },
+    "body": { "status": "ok" }
+  },
+  "time": {
+    "method": "GET",
+    "path": "/time",
+    "status": 200,
+    "headers": {
+      "cache-control": "no-store",
+      "x-request-id": "0123456789abcdef0123456789abcdef"
+    },
+    "body": { "now": "2026-11-10T00:00:00.000Z" }
+  },
+  "sessionRevoke": {
+    "method": "POST",
+    "path": "/auth/session/revoke",
+    "status": 204,
+    "body": ""
+  },
+  "invalidProxy": {
+    "method": "GET",
+    "path": "/health",
+    "status": 403,
+    "body": { "error": "forbidden" },
+    "mustNotEchoHeaders": ["x-rhasia-proxy-secret", "set-cookie"]
+  },
+  "headHealth": {
+    "method": "HEAD",
+    "path": "/health",
+    "status": 200,
+    "body": ""
+  }
+}

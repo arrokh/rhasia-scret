@@ -313,7 +313,7 @@ test("root deployment configuration verification keeps API-only values out of th
     CRON_SECRET: "c".repeat(32),
     NODE_ENV: "development",
     VERIFY_DEPLOYMENT_PRODUCTION: "",
-    DEPLOYMENT_TARGET: "bun",
+    DEPLOYMENT_TARGET: "vercel",
   };
   const packageManager = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
   const result = spawnSync(packageManager, ["run", "verify:deployment-config"], {
@@ -329,10 +329,11 @@ test("root deployment configuration verification keeps API-only values out of th
     0,
     `Deployment configuration checks should pass with their respective runtime environments.\n${output}`,
   );
+  assert.match(output, /API deployment configuration verified\./u);
   assert.equal(
     (output.match(/\{"valid":true/gu) ?? []).length,
-    2,
-    "Both runtime checks should report valid configuration.",
+    1,
+    "The Web runtime check should report valid configuration.",
   );
 });
 

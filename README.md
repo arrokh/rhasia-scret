@@ -35,7 +35,7 @@ pnpm selfhosted:install
 
 `pnpm selfhosted:install` configures and starts the app. It defaults to `AUTH_BACKEND=none` for browser-local use; add `--interactive` for browser-based setup.
 
-With an existing `.env`, choose reuse or replacement; replacement backs up the file. Setup verifies database access and asks before applying migrations.
+With an existing `.env`, choose reuse or replacement; replacement backs up the file. Setup verifies database access and asks before applying the Sqitch baseline to a fresh database. For an existing application schema, follow the read-only comparison and approved log-only adoption procedure in the [self-hosting guide](docs/self-hosting.md); never run the baseline DDL over existing tables.
 
 If PostgreSQL data exists but `.env` is missing, restore the matching file—don't generate a new database password.
 
@@ -56,8 +56,8 @@ flowchart LR
     BrowserStorage["apps/web browser adapters<br/>Local Vault storage"]
     Local[("IndexedDB<br/>Local Profile and Local Vault")]
     Web["apps/web · Next.js<br/>presentation and same-origin /api/v1 proxy"]
-    API["apps/api · Hono<br/>API and authorization"]
-    DB[("PostgreSQL via Prisma<br/>ciphertext and permitted metadata")]
+    API["apps/api · Go/Echo<br/>API and authorization"]
+    DB[("PostgreSQL via pgx<br/>Sqitch manages schema")]
 
     Client --> Crypto
     Client --> BrowserStorage

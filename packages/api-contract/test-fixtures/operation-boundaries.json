@@ -1,0 +1,989 @@
+{
+  "note": "Synthetic anonymous-boundary outcomes captured from the current TypeScript reference runtime. Each non-GET request sends an empty JSON object. This is transport-boundary parity evidence, not a replacement for operation-specific success and persistence tests.",
+  "request": {
+    "origin": "https://web.example.test",
+    "requestId": "0123456789abcdef0123456789abcdef",
+    "contentType": "application/json",
+    "nonGetBody": "{}",
+    "fixedTime": "2026-11-10T00:00:00.000Z"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/v1/auth/magic-link/request",
+      "status": 400,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "invalid_request"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/magic-link/redeem",
+      "status": 400,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "invalid_request"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/pwa/session",
+      "status": 400,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "invalid_request"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/session/refresh",
+      "status": 400,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "invalid_request"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/session/revoke",
+      "status": 204,
+      "headers": {
+        "cache-control": "no-store",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": ""
+    },
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "status": 200,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "status": "ok"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/time",
+      "status": 200,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "now": "2026-11-10T00:00:00.000Z"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/internal/retention-purge",
+      "status": 503,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "retention_purge_not_configured"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/me",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "deletion_reauthentication_required"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/deletion/preview",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/deletion/otp/request",
+      "status": 409,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "passwordless_reauthentication_unavailable"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/deletion/otp/verify",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/registration/options",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/registration/verify",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/authentication/options",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/authentication/verify",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/passkey-recovery/status",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/passkey-recovery",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personal-vault",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/initialize",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/name/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personal-vault/destructive-reset",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/destructive-reset",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/user-crypto-profile",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-crypto-profile/rewrap",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-crypto-profile/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/user-encryption-identity",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-encryption-identity/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/user-encryption-identity/rotation",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/user-encryption-identity/rotation",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vault-imports",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/vault_1",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/vault_1",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/name/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/key-wrap/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/accounts/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/shared-vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/vault_1/audit-events",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/audit-events",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/leave",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/vault_1/lifecycle",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/lifecycle",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/vault_1/member-permissions",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/vault_1/member-permissions",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/vault_1/members/user_1",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/vault_1/members/user_1",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/vault_1/participants",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/vault_1/rotation",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/vault_1/rotation",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/vault_1/share-links",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/vault_1/share-links/invitation_1",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/secure-share-links",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/secure-share-links",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/vault_1/accounts/migration",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/vaults/vault_1/accounts",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/vault_1/archive-exports",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/vaults/vault_1/audit-events",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/vault_1/audit-events",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sync/offline-bundle",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sync/workspace-bundle",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=UTF-8",
+        "access-control-allow-origin": "https://web.example.test",
+        "x-request-id": "0123456789abcdef0123456789abcdef"
+      },
+      "body": {
+        "error": "unauthenticated"
+      }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Standalone API service and deployment plan
 
+> Historical Hono/Bun API extraction record. Its runtime and migration instructions are superseded by [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md). Dated verification evidence below remains historical and does not describe the current Go/Sqitch runtime.
+
 ## Objective
 
 Run `apps/api` as a standalone Hono service with Bun as the primary runtime and Node.js compatibility for Vercel and other hosts. The implementation removes the Cloudflare Worker and Hyperdrive deployment path while preserving the `/v1/**` API contract, authentication behavior, encrypted-content boundary, shared SMTP delivery, and client-only invitation secrets.
@@ -106,7 +108,7 @@ pnpm run test:full
 
 Additional evidence must cover:
 
-- `SMOKE_API_ORIGIN=https://api.rhasia-scret.nooroctavian.id pnpm --filter @rhasia-scret/api smoke:deployment`, which verifies health, time, no-store headers, and unauthenticated retention rejection without sending a purge credential;
+- `SMOKE_API_ORIGIN=https://api.rhasia-scret.nooroctavian.id pnpm --filter @rhasia-scret/api-parity smoke:deployment`, which verifies health, time, no-store headers, and unauthenticated retention rejection without sending a purge credential;
 - Bun startup/shutdown and `/v1/health`;
 - Node production artifact startup and `/v1/health`;
 - Vercel path normalization, streaming, repeated cookies, and public `/v1/**` routing;

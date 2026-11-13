@@ -10,10 +10,12 @@ const report = {
   vaultBacklogRemaining: false,
   auditBacklogRemaining: false,
   authRecordsPurged: 0,
+  authBacklogRemaining: false,
 };
 
-const request = (authorization?: string) =>
+const request = (authorization?: string, method = "GET") =>
   new Request("https://api.example.test/v1/internal/retention-purge", {
+    method,
     headers: authorization ? { authorization } : undefined,
   });
 
@@ -40,6 +42,21 @@ describe("GET /v1/internal/retention-purge contract", () => {
     expect((await unconfigured(request(`Bearer ${secret}`))).status).toBe(503);
   });
 
+  it("rejects HEAD without running cleanup", async () => {
+    const purge = vi.fn(async () => report);
+    const handler = createRetentionPurgeHandler({
+      secret,
+      purge,
+      logger: { info: vi.fn(), error: vi.fn() },
+      createJobId: () => "job_1",
+    });
+
+    const response = await handler(request(`Bearer ${secret}`, "HEAD"));
+
+    expect(response.status).toBe(405);
+    expect(purge).not.toHaveBeenCalled();
+  });
+
   it("returns counts and logs only bounded metadata", async () => {
     const info = vi.fn();
     const handler = createRetentionPurgeHandler({
@@ -62,6 +79,7 @@ describe("GET /v1/internal/retention-purge contract", () => {
       accountBacklogRemaining: false,
       vaultBacklogRemaining: false,
       auditBacklogRemaining: false,
+      authBacklogRemaining: false,
     });
     expect(info).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -69,6 +87,7 @@ describe("GET /v1/internal/retention-purge contract", () => {
         accountCount: 1,
         vaultCount: 1,
         auditEventCount: 1,
+        authBacklogRemaining: false,
       }),
     );
     expect(JSON.stringify(info.mock.calls)).not.toMatch(

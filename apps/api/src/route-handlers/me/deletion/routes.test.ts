@@ -60,16 +60,14 @@ afterEach(() => vi.clearAllMocks());
 describe("account deletion API routes", () => {
   it("returns only the deletion preview metadata", async () => {
     mocks.repo.getPreview.mockResolvedValue({
-      passkeyRecoveryEnrolled: false,
-      activeOwnedSharedVaults: 1,
-      activeOwnedSharedVaultIds: ["vault-1"],
+      personalVaultId: "synthetic-personal-vault-0001",
+      ownedSharedVaults: [{ id: "synthetic-shared-vault-0001", lifecycle: "ACTIVE", viewerCandidates: [] }],
     });
     const response = await preview(request("/v1/me/deletion/preview"));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      passkeyRecoveryEnrolled: false,
-      activeOwnedSharedVaults: 1,
-      activeOwnedSharedVaultIds: ["vault-1"],
+      personalVaultId: "synthetic-personal-vault-0001",
+      ownedSharedVaults: [{ id: "synthetic-shared-vault-0001", lifecycle: "ACTIVE", viewerCandidates: [] }],
     });
   });
 
@@ -109,6 +107,24 @@ describe("account deletion API routes", () => {
       request("/v1/me/deletion/otp/verify", { method: "POST", body: JSON.stringify({ otp: "123456" }) }),
     );
     expect(invalid.status).toBe(400);
+  });
+
+  it("preserves mutation rate limiting and Retry-After before OTP verification", async () => {
+    mocks.authenticateMutation.mockResolvedValueOnce(
+      ApiResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } }),
+    );
+    const handler = createVerifyDeletionOtpHandler({
+      authenticate: mocks.authenticateMutation,
+      repository: mocks.repo,
+    });
+
+    const response = await handler(
+      request("/v1/me/deletion/otp/verify", { method: "POST", body: JSON.stringify({ otp: "123456" }) }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(mocks.repo.verifyPasswordlessOtp).not.toHaveBeenCalled();
   });
 
   it("does not run deletion handlers after authentication failure", async () => {

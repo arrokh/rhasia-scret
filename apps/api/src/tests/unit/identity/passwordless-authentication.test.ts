@@ -62,6 +62,7 @@ describe("passwordless authentication application service", () => {
       sender,
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1, 2, 3]) }),
       digestToken: () => new Uint8Array([4, 5, 6]),
+      digestSessionCredential: () => new Uint8Array([7, 8, 9]),
       buildActionUrl,
       magicLinkTtlSeconds: 900,
       now: () => new Date("2026-09-14T00:00:00.000Z"),
@@ -102,6 +103,7 @@ describe("passwordless authentication application service", () => {
       sender,
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1, 2, 3]) }),
       digestToken: () => new Uint8Array([4, 5, 6]),
+      digestSessionCredential: () => new Uint8Array([7, 8, 9]),
       buildActionUrl: () => new URL(`https://vault.example.test/auth/confirm#token=${token}`),
       magicLinkTtlSeconds: 900,
     });
@@ -147,6 +149,7 @@ describe("passwordless authentication application service", () => {
       sender: { sendMagicLinkEmail: vi.fn().mockResolvedValue(undefined) },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1, 2, 3]) }),
       digestToken: () => new Uint8Array([4, 5, 6]),
+      digestSessionCredential: () => new Uint8Array([7, 8, 9]),
       buildActionUrl,
       magicLinkTtlSeconds: 900,
       now: () => new Date("2026-09-14T00:00:00.000Z"),
@@ -189,11 +192,13 @@ describe("passwordless authentication application service", () => {
       redeemPwaHandoff: vi.fn(),
     };
     const digestToken = vi.fn(() => new Uint8Array([9]));
+    const digestSessionCredential = vi.fn(() => new Uint8Array([8]));
     const service = createPasswordlessAuthService({
       repository,
       sender: { sendMagicLinkEmail: vi.fn() },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
       digestToken,
+      digestSessionCredential,
       buildActionUrl: () => new URL("https://vault.example.test/auth/pwa-confirm"),
       magicLinkTtlSeconds: 900,
       now: () => new Date("2026-09-14T00:00:00.000Z"),
@@ -202,12 +207,13 @@ describe("passwordless authentication application service", () => {
     await service.publishPwaHandoff(sessionToken, pwaHandoffId);
 
     expect(repository.publishPwaHandoff).toHaveBeenCalledWith(
-      new Uint8Array([9]),
+      new Uint8Array([8]),
       "0123456789abcdef",
       new Uint8Array([9]),
       new Date("2026-09-14T00:00:00.000Z"),
     );
-    expect(digestToken).toHaveBeenCalledTimes(2);
+    expect(digestSessionCredential).toHaveBeenCalledWith(sessionToken);
+    expect(digestToken).toHaveBeenCalledWith(pwaHandoffId);
   });
 
   it("rejects a PWA link request without a safe handoff verifier", async () => {
@@ -228,6 +234,7 @@ describe("passwordless authentication application service", () => {
       sender: { sendMagicLinkEmail: vi.fn() },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
       digestToken: () => new Uint8Array([9]),
+      digestSessionCredential: () => new Uint8Array([8]),
       buildActionUrl: () => new URL("https://vault.example.test/auth/pwa-confirm"),
       magicLinkTtlSeconds: 900,
     });
@@ -266,6 +273,7 @@ describe("passwordless authentication application service", () => {
       sender: { sendMagicLinkEmail: vi.fn() },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
       digestToken: vi.fn(() => new Uint8Array([9])),
+      digestSessionCredential: () => new Uint8Array([8]),
       buildActionUrl: () => new URL("https://vault.example.test/auth/confirm"),
       magicLinkTtlSeconds: 900,
     });
@@ -277,6 +285,40 @@ describe("passwordless authentication application service", () => {
       expect.objectContaining({ applicationUserId: "user-id" }),
       expect.any(Date),
     );
+  });
+
+  it("uses the session credential digest when verifying access tokens", async () => {
+    const repository = {
+      createChallenge: vi.fn(),
+      consumeChallenge: vi.fn(),
+      findOrCreateAccount: vi.fn(),
+      createSession: vi.fn(),
+      verifyAccessToken: vi.fn().mockResolvedValue(null),
+      verifyBrowserSession: vi.fn(),
+      rotateRefreshToken: vi.fn(),
+      revokeSession: vi.fn(),
+      publishPwaHandoff: vi.fn(),
+      redeemPwaHandoff: vi.fn(),
+    };
+    const digestToken = vi.fn(() => new Uint8Array([1]));
+    const digestSessionCredential = vi.fn(() => new Uint8Array([2]));
+    const now = new Date("2026-09-14T00:00:00.000Z");
+    const service = createPasswordlessAuthService({
+      repository,
+      sender: { sendMagicLinkEmail: vi.fn() },
+      generateToken: () => ({ rawToken: token, digest: new Uint8Array([3]) }),
+      digestToken,
+      digestSessionCredential,
+      buildActionUrl: () => new URL("https://vault.example.test/auth/confirm"),
+      magicLinkTtlSeconds: 900,
+      now: () => now,
+    });
+
+    await service.verifyAccessToken(sessionToken);
+
+    expect(digestSessionCredential).toHaveBeenCalledWith(sessionToken);
+    expect(repository.verifyAccessToken).toHaveBeenCalledWith(new Uint8Array([2]), now);
+    expect(digestToken).not.toHaveBeenCalled();
   });
 
   it("rejects malformed credentials before touching persistence", async () => {
@@ -297,6 +339,7 @@ describe("passwordless authentication application service", () => {
       sender: { sendMagicLinkEmail: vi.fn() },
       generateToken: () => ({ rawToken: token, digest: new Uint8Array([1]) }),
       digestToken: vi.fn(() => new Uint8Array([9])),
+      digestSessionCredential: () => new Uint8Array([8]),
       buildActionUrl: () => new URL("https://vault.example.test/auth/confirm"),
       magicLinkTtlSeconds: 900,
     });

@@ -54,6 +54,7 @@ export async function GET(request: ApiRequest) {
   if (!snapshot) return ApiResponse.json({ error: "identity_rotation_unavailable" }, { status: 409 });
   if (
     snapshot.encryptionVersion !== 1 ||
+    snapshot.encryptedPrivateKey.length < 13 ||
     snapshot.encryptedPrivateKey.length > MAX_ENCRYPTED_BLOB_BYTES ||
     snapshot.memberships.length > MAX_ROTATION_MEMBER_PACKAGES ||
     snapshot.memberships.some(

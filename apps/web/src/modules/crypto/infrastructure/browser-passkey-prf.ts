@@ -12,12 +12,19 @@ export class PasskeyPrfUnsupportedError extends Error {
 export async function createPasskeyCredential(
   options: PublicKeyCredentialCreationOptionsJSON,
 ): Promise<{ registrationResponse: unknown; prfOutput: Uint8Array; prfSalt: Uint8Array }> {
+  if (!options.rp.id) throw new Error("Passkey relying-party identifier is missing.");
   const credential = await navigator.credentials.create({ publicKey: registrationOptions(options) });
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Passkey registration was cancelled.");
   const prfSalt = randomBytes(32);
-  if (!options.rp.id) throw new Error("Passkey relying-party identifier is missing.");
-  const prfOutput = await evaluatePrf(toArrayBuffer(credential.rawId), options.rp.id, prfSalt);
-  return { registrationResponse: registrationResponseJson(credential), prfOutput, prfSalt };
+  let prfOutput: Uint8Array | undefined;
+  try {
+    prfOutput = await evaluatePrf(toArrayBuffer(credential.rawId), options.rp.id, prfSalt);
+    return { registrationResponse: registrationResponseJson(credential), prfOutput, prfSalt };
+  } catch (error) {
+    prfOutput?.fill(0);
+    prfSalt.fill(0);
+    throw error;
+  }
 }
 
 export async function evaluatePasskeyPrf(
@@ -53,9 +60,10 @@ export async function authenticatePasskey(
   if (!(credential instanceof PublicKeyCredential) || !(credential.response instanceof AuthenticatorAssertionResponse))
     throw new Error("Passkey recovery was cancelled.");
   const response = credential.response;
-  const first = prfResult(credential.getClientExtensionResults());
+  const clientExtensionResults = credential.getClientExtensionResults();
+  const first = prfResult(clientExtensionResults);
   if (!first || first.byteLength !== 32) {
-    if (first) new Uint8Array(first).fill(0);
+    clearPrfResult(clientExtensionResults);
     throw new PasskeyPrfUnsupportedError();
   }
   try {
@@ -70,11 +78,11 @@ export async function authenticatePasskey(
         signature: toBase64Url(response.signature),
         userHandle: response.userHandle ? toBase64Url(response.userHandle) : undefined,
       },
-      clientExtensionResults: serverSafeExtensionResults(credential.getClientExtensionResults()),
+      clientExtensionResults: serverSafeExtensionResults(clientExtensionResults),
     };
     return { response: assertion, prfOutput: new Uint8Array(first.slice(0)) };
   } finally {
-    new Uint8Array(first).fill(0);
+    clearPrfResult(clientExtensionResults);
   }
 }
 
@@ -95,8 +103,15 @@ async function evaluatePrf(credentialId: ArrayBuffer, rpId: string, prfSalt: Uin
   if (!(credential instanceof PublicKeyCredential)) throw new Error("Passkey recovery was cancelled.");
   const result = credential.getClientExtensionResults() as unknown;
   const first = prfResult(result);
-  if (!first) throw new PasskeyPrfUnsupportedError();
-  return new Uint8Array(first);
+  if (!first) {
+    clearPrfResult(result);
+    throw new PasskeyPrfUnsupportedError();
+  }
+  try {
+    return new Uint8Array(first.slice(0));
+  } finally {
+    clearPrfResult(result);
+  }
 }
 
 function registrationOptions(options: PublicKeyCredentialCreationOptionsJSON): PublicKeyCredentialCreationOptions {
@@ -118,25 +133,49 @@ function registrationOptions(options: PublicKeyCredentialCreationOptionsJSON): P
 }
 
 function registrationResponseJson(credential: PublicKeyCredential): unknown {
-  const response = credential.response;
-  if (!(response instanceof AuthenticatorAttestationResponse))
-    throw new Error("Passkey registration response is invalid.");
-  return {
-    id: credential.id,
-    rawId: toBase64Url(credential.rawId),
-    type: credential.type,
-    response: {
-      attestationObject: toBase64Url(response.attestationObject),
-      clientDataJSON: toBase64Url(response.clientDataJSON),
-      transports: response.getTransports(),
-    },
-    clientExtensionResults: credential.getClientExtensionResults(),
-  };
+  const clientExtensionResults = credential.getClientExtensionResults();
+  try {
+    const response = credential.response;
+    if (!(response instanceof AuthenticatorAttestationResponse))
+      throw new Error("Passkey registration response is invalid.");
+    return {
+      id: credential.id,
+      rawId: toBase64Url(credential.rawId),
+      type: credential.type,
+      response: {
+        attestationObject: toBase64Url(response.attestationObject),
+        clientDataJSON: toBase64Url(response.clientDataJSON),
+        transports: response.getTransports(),
+      },
+      clientExtensionResults: serverSafeRegistrationExtensionResults(clientExtensionResults),
+    };
+  } finally {
+    clearPrfResult(clientExtensionResults);
+  }
+}
+
+function serverSafeRegistrationExtensionResults(value: unknown): Record<string, unknown> {
+  if (!isObject(value)) return {};
+  const safe: Record<string, unknown> = {};
+  if (value.browserE2eTest === true) safe.browserE2eTest = true;
+  if (isObject(value.prf) && typeof value.prf.enabled === "boolean") safe.prf = { enabled: value.prf.enabled };
+  return safe;
 }
 
 function serverSafeExtensionResults(value: unknown): Record<string, true> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return (value as Record<string, unknown>).browserE2eTest === true ? { browserE2eTest: true } : {};
+  if (!isObject(value)) return {};
+  return value.browserE2eTest === true ? { browserE2eTest: true } : {};
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function clearPrfResult(value: unknown): void {
+  if (!isObject(value) || !isObject(value.prf) || !isObject(value.prf.results)) return;
+  for (const output of Object.values(value.prf.results)) {
+    if (output instanceof ArrayBuffer) new Uint8Array(output).fill(0);
+  }
 }
 
 function prfResult(value: unknown): ArrayBuffer | null {

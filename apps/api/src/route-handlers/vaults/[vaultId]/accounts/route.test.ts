@@ -156,6 +156,57 @@ describe("Personal Vault account route contracts", () => {
     expect(restore).toHaveBeenCalledWith("user-1", "vault-1", "account-1");
   });
 
+  it("preserves the redacted unavailable mapping when Personal Account repositories fail", async () => {
+    const failedRepositoryCall = vi.fn(async () => {
+      throw new Error("synthetic repository detail");
+    });
+    const handlers = createPersonalAccountsHandlers({
+      ...authenticationDependencies(),
+      accounts: {
+        create: failedRepositoryCall,
+        list: failedRepositoryCall,
+        update: failedRepositoryCall,
+        delete: failedRepositoryCall,
+        restore: failedRepositoryCall,
+      },
+    });
+    const context = { params: Promise.resolve({ vaultId: "vault-1" }) };
+    const responses = [
+      await handlers.GET(request("/v1/vaults/vault-1/accounts"), context),
+      await handlers.POST(
+        request("/v1/vaults/vault-1/accounts", { method: "POST", body: JSON.stringify(payload) }),
+        context,
+      ),
+      await handlers.PATCH(
+        request("/v1/vaults/vault-1/accounts", {
+          method: "PATCH",
+          body: JSON.stringify({ ...payload, accountId: "account-1", expectedRevision: 1 }),
+        }),
+        context,
+      ),
+      await handlers.DELETE(
+        request("/v1/vaults/vault-1/accounts", {
+          method: "DELETE",
+          body: JSON.stringify({ accountId: "account-1", expectedRevision: 1 }),
+        }),
+        context,
+      ),
+      await handlers.PUT(
+        request("/v1/vaults/vault-1/accounts", {
+          method: "PUT",
+          body: JSON.stringify({ accountId: "account-1" }),
+        }),
+        context,
+      ),
+    ];
+
+    for (const response of responses) {
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ error: "vault_unavailable" });
+    }
+    expect(failedRepositoryCall).toHaveBeenCalledTimes(5);
+  });
+
   it("does not list accounts for an unauthenticated caller", async () => {
     const handlers = createPersonalAccountsHandlers({
       authenticateReader: async () => ApiResponse.json({ error: "unauthenticated" }, { status: 401 }),

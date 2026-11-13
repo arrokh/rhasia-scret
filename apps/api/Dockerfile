@@ -1,67 +1,32 @@
 # syntax=docker/dockerfile:1
 
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine3.24@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS build
+ARG TARGETOS
+ARG TARGETARCH
 ARG COMMIT_SHA=unknown
-FROM node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS base
-ENV PNPM_HOME=/pnpm
-ENV PATH=${PNPM_HOME}:${PATH}
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/* \
-  && corepack enable \
-  && corepack prepare pnpm@11.17.0 --activate \
-  && pnpm config set store-dir /pnpm/store
-WORKDIR /workspace
+ARG PRODUCT_VERSION=dev
+WORKDIR /workspace/apps/api
+COPY apps/api/go.mod apps/api/go.sum ./
+RUN go mod download
+COPY apps/api/cmd ./cmd
+COPY apps/api/internal ./internal
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -buildvcs=false \
+      -ldflags="-s -w -X github.com/nooroctavian/rhasia-scret/apps/api/internal/buildinfo.Version=${PRODUCT_VERSION} -X github.com/nooroctavian/rhasia-scret/apps/api/internal/buildinfo.Commit=${COMMIT_SHA}" \
+      -o /out/api ./cmd/api
 
-FROM base AS dependencies
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches patches
-COPY apps/api/package.json apps/api/package.json
-COPY packages/api-contract/package.json packages/api-contract/package.json
-COPY packages/client-vault-core/package.json packages/client-vault-core/package.json
-COPY tools/api-migration-runtime/package.json tools/api-migration-runtime/package.json
-# Defer workspace lifecycle scripts until the source stage has the Prisma schema.
-RUN --mount=type=cache,id=rhasia-scret-pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @rhasia-scret/api... --ignore-scripts
-
-FROM dependencies AS source
-COPY apps/api apps/api
-COPY packages/api-contract packages/api-contract
-COPY packages/client-vault-core packages/client-vault-core
-# Prisma 7 loads prisma.config.ts even for generation; this is never a runtime or migration URL.
-ENV DIRECT_URL=postgresql://localhost:5432/rhasia_scret_generate
-RUN cd apps/api && ./node_modules/.bin/prisma generate --config prisma.config.ts
-
-FROM source AS build
-# Prisma Client is generated in the source stage; only bundle the Node artifact here.
-RUN pnpm --filter @rhasia-scret/api build:node
-
-FROM source AS production
-RUN pnpm --filter @rhasia-scret/api deploy --prod --legacy --ignore-scripts /tmp/api \
-  && prisma_package="$(find /tmp/api/node_modules/.pnpm -maxdepth 1 -type d -name 'prisma@*' -print -quit)" \
-  && test -n "$prisma_package" \
-  && ln -s ".pnpm/$(basename "$prisma_package")/node_modules/prisma" /tmp/api/node_modules/prisma \
-  && mkdir -p /tmp/api/node_modules/.bin \
-  && ln -s "../prisma/build/index.js" /tmp/api/node_modules/.bin/prisma \
-  && DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate /tmp/api/node_modules/.bin/prisma generate --config /tmp/api/prisma.config.ts
-
-FROM production AS runtime-prepared
-# The API runtime does not need Prisma CLI, Studio, or other optional tooling after
-# generation. Redeploy without optional dependencies, then use the full deployment's
-# CLI only during this build stage to generate the client into the lean deployment.
-RUN pnpm --filter @rhasia-scret/api deploy --prod --no-optional --legacy --ignore-scripts /tmp/api-runtime \
-  && printf '%s\n' 'import { defineConfig, env } from "prisma/config"; export default defineConfig({ schema: "/tmp/api-runtime/prisma/schema.prisma", datasource: { url: env("DIRECT_URL") } });' > /tmp/api/runtime.prisma.config.ts \
-  && cd /tmp/api-runtime \
-  && DIRECT_URL=postgresql://127.0.0.1:5432/rhasia_scret_generate /tmp/api/node_modules/.bin/prisma generate --config /tmp/api/runtime.prisma.config.ts
-
-FROM oven/bun:1.3.9-alpine@sha256:9028ee7a60a04777190f0c3129ce49c73384d3fc918f3e5c75f5af188e431981 AS runtime
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS runtime
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
+RUN apk add --no-cache ca-certificates \
+  && addgroup -S -g 10001 api \
+  && adduser -S -D -H -u 10001 -G api api
 ENV NODE_ENV=production
 ENV PORT=8787
+ENV HOME=/tmp
 WORKDIR /app
-# The self-hosted runtime remains Bun-primary and receives the lean deployment
-# without Prisma's migration/Studio tooling.
-COPY --from=runtime-prepared --chown=bun:bun /tmp/api-runtime ./apps/api
-COPY docker/retention-purge.mjs /usr/local/bin/retention-purge.mjs
-USER bun
-WORKDIR /app/apps/api
+COPY --from=build --chown=10001:10001 /out/api /usr/local/bin/api
+USER 10001:10001
 EXPOSE 8787
-CMD ["bun", "run", "src/bun.ts"]
+ENTRYPOINT ["/usr/local/bin/api"]
+CMD ["serve"]

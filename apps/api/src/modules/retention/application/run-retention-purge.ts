@@ -14,6 +14,7 @@ export type RetentionPurgeReport = {
   vaultBacklogRemaining: boolean;
   auditBacklogRemaining: boolean;
   authRecordsPurged: number;
+  authBacklogRemaining: boolean;
 };
 
 export async function runRetentionPurge({
@@ -33,6 +34,8 @@ export async function runRetentionPurge({
   batchSize?: number;
   maxBatches?: number;
 }): Promise<RetentionPurgeReport> {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500)
+    throw new Error("Retention purge batch size must be between 1 and 500.");
   if (!Number.isSafeInteger(maxBatches) || maxBatches < 1 || maxBatches > 20)
     throw new Error("Retention purge max batches must be between 1 and 20.");
 
@@ -43,7 +46,7 @@ export async function runRetentionPurge({
   );
   const vaultResult = await drain((size) => purgeExpiredSharedVaults(vaults, now, size), batchSize, maxBatches);
   const auditResult = await drain((size) => purgeExpiredVaultAuditEvents(audit, now, size), batchSize, maxBatches);
-  const authRecordsPurged = await purgeExpiredAuthState(auth, now);
+  const authResult = await purgeExpiredAuthState(auth, now, batchSize, maxBatches);
   return {
     accountIds: accountResult.ids,
     vaultIds: vaultResult.ids,
@@ -51,7 +54,8 @@ export async function runRetentionPurge({
     accountBacklogRemaining: accountResult.backlogRemaining,
     vaultBacklogRemaining: vaultResult.backlogRemaining,
     auditBacklogRemaining: auditResult.backlogRemaining,
-    authRecordsPurged,
+    authRecordsPurged: authResult.count,
+    authBacklogRemaining: authResult.backlogRemaining,
   };
 }
 

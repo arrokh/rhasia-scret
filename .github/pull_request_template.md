@@ -24,5 +24,5 @@
 
 - [ ] The change preserves bounded-context and client/server boundaries.
 - [ ] Security-sensitive behavior has focused tests and an ADR when needed.
-- [ ] Database changes use Prisma-generated migrations only.
+- [ ] Database changes use Sqitch deploy/revert/verify scripts and respect exact-target authorization.
 - [ ] Required CODEOWNERS review and maintainer approval are present.

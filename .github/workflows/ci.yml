@@ -135,20 +135,20 @@ jobs:
       cancel-in-progress: true
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: shared_totp_vault_test
+          POSTGRES_USER: rhasia_test
+          POSTGRES_PASSWORD: rhasia_test_password
+          POSTGRES_DB: rhasia_scret_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d shared_totp_vault_test"
+          --health-cmd "pg_isready -U rhasia_test -d rhasia_scret_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shared_totp_vault_test?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/shared_totp_vault_test?schema=public
+      DATABASE_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
+      DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
       REQUIRE_DATABASE_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -175,14 +175,41 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Generate Prisma Client
-        run: pnpm run prisma:generate
-      - name: Validate Prisma schema
-        run: pnpm run prisma:validate
-      - name: Apply migrations
-        run: pnpm run prisma:migrate:deploy
-      - name: Run API unit and PostgreSQL integration tests
-        run: pnpm --filter @rhasia-scret/api run test:full
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.27.4
+          cache-dependency-path: apps/api/go.sum
+      - name: Mark job-owned synthetic database scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'RHSIA_DISPOSABLE_RUN_ID=%016x\n' "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          printf 'RHSIA_DISPOSABLE_DATA_CLASSIFICATION=synthetic\n' >> "$GITHUB_ENV"
+          printf 'RHSIA_GO_INTEGRATION_DATABASE_URL=%s\n' "$DATABASE_URL" >> "$GITHUB_ENV"
+      - name: Generate Prisma parity client and validate the reference schema
+        run: |
+          pnpm --filter @rhasia-scret/api-parity run test:parity:generate
+          pnpm --filter @rhasia-scret/api-parity run test:parity:validate
+      - name: Build the Sqitch migration image
+        run: docker build --file apps/api/Dockerfile.migration --target migration --tag "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}" .
+      - name: Deploy and verify the Sqitch baseline
+        env:
+          DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@host.docker.internal:5432/rhasia_scret_test?schema=public
+        run: >-
+          docker run --rm --name "rhasia-scret-ci-sqitch-${GITHUB_RUN_ID}"
+          --add-host=host.docker.internal:host-gateway --env DIRECT_URL
+          "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}"
+      - name: Remove the run-owned Sqitch migration image
+        if: always()
+        run: |
+          image="rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}"
+          if docker image inspect "$image" >/dev/null 2>&1; then docker image rm "$image"; fi
+      - name: Verify generated API contracts
+        run: pnpm run verify:api-contract
+      - name: Verify Go API unit, integration, race, and build gates
+        run: pnpm run verify:api-go
+      - name: Run TypeScript parity unit and PostgreSQL integration tests
+        run: pnpm --filter @rhasia-scret/api-parity run test:full
       - name: Lint
         run: pnpm --filter @rhasia-scret/web run lint
       - name: Typecheck
@@ -284,6 +311,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.27.4
+          cache-dependency-path: apps/api/go.sum
       - name: Install Playwright system dependencies
         run: pnpm --filter @rhasia-scret/web exec playwright install-deps "${{ matrix.browser }}"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -320,20 +351,20 @@ jobs:
           # - webkit: intentionally deferred from hosted CI coverage
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: browser_smoke
+          POSTGRES_USER: rhasia_test
+          POSTGRES_PASSWORD: rhasia_test_password
+          POSTGRES_DB: rhasia_scret_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d browser_smoke"
+          --health-cmd "pg_isready -U rhasia_test -d rhasia_scret_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
+      DATABASE_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
+      DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
       # E2E test fixtures require a database; run encrypted workflows with two workers.
       PLAYWRIGHT_WORKERS: 1
       PLAYWRIGHT_E2E_WORKERS: 2
@@ -372,10 +403,26 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Generate Prisma Client
-        run: pnpm run prisma:generate
-      - name: Apply migrations
-        run: pnpm run prisma:migrate:deploy
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.27.4
+          cache-dependency-path: apps/api/go.sum
+      - name: Generate Prisma parity client
+        run: pnpm --filter @rhasia-scret/api-parity run test:parity:generate
+      - name: Build the Sqitch migration image
+        run: docker build --file apps/api/Dockerfile.migration --target migration --tag "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-e2e" .
+      - name: Deploy and verify the Sqitch baseline
+        env:
+          DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@host.docker.internal:5432/rhasia_scret_test?schema=public
+        run: >-
+          docker run --rm --name "rhasia-scret-ci-sqitch-${GITHUB_RUN_ID}-e2e"
+          --add-host=host.docker.internal:host-gateway --env DIRECT_URL
+          "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-e2e"
+      - name: Remove the run-owned Sqitch migration image
+        if: always()
+        run: |
+          image="rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-e2e"
+          if docker image inspect "$image" >/dev/null 2>&1; then docker image rm "$image"; fi
       - name: Install Playwright system dependencies
         run: pnpm --filter @rhasia-scret/web exec playwright install-deps "${{ matrix.browser }}"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -405,20 +452,20 @@ jobs:
       cancel-in-progress: true
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: browser_smoke
+          POSTGRES_USER: rhasia_test
+          POSTGRES_PASSWORD: rhasia_test_password
+          POSTGRES_DB: rhasia_scret_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d browser_smoke"
+          --health-cmd "pg_isready -U rhasia_test -d rhasia_scret_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/browser_smoke?schema=public
+      DATABASE_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
+      DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
       PLAYWRIGHT_WORKERS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -455,10 +502,26 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Generate Prisma Client
-        run: pnpm run prisma:generate
-      - name: Apply migrations
-        run: pnpm run prisma:migrate:deploy
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.27.4
+          cache-dependency-path: apps/api/go.sum
+      - name: Generate Prisma parity client
+        run: pnpm --filter @rhasia-scret/api-parity run test:parity:generate
+      - name: Build the Sqitch migration image
+        run: docker build --file apps/api/Dockerfile.migration --target migration --tag "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-production" .
+      - name: Deploy and verify the Sqitch baseline
+        env:
+          DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@host.docker.internal:5432/rhasia_scret_test?schema=public
+        run: >-
+          docker run --rm --name "rhasia-scret-ci-sqitch-${GITHUB_RUN_ID}-production"
+          --add-host=host.docker.internal:host-gateway --env DIRECT_URL
+          "rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-production"
+      - name: Remove the run-owned Sqitch migration image
+        if: always()
+        run: |
+          image="rhasia-scret-api-migrate-ci:${GITHUB_RUN_ID}-production"
+          if docker image inspect "$image" >/dev/null 2>&1; then docker image rm "$image"; fi
       - name: Install Playwright system dependencies
         run: pnpm --filter @rhasia-scret/web exec playwright install-deps chromium
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0

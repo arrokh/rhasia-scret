@@ -25,20 +25,21 @@ jobs:
     timeout-minutes: 90
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: release_evidence
+          POSTGRES_USER: rhasia_test
+          POSTGRES_PASSWORD: rhasia_test_password
+          POSTGRES_DB: rhasia_scret_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d release_evidence"
+          --health-cmd "pg_isready -U rhasia_test -d rhasia_scret_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/release_evidence?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/release_evidence?schema=public
+      DATABASE_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
+      DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@127.0.0.1:5432/rhasia_scret_test?schema=public
+      REQUIRE_DATABASE_INTEGRATION: "1"
       PLAYWRIGHT_WORKERS: 2
       BROWSER_TEST_SEQUENTIAL: 1
       PLAYWRIGHT_SMOKE_WORKERS: 1
@@ -57,9 +58,38 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.19.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.27.4
+          cache-dependency-path: apps/api/go.sum
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Mark job-owned synthetic database scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'RHSIA_DISPOSABLE_RUN_ID=%016x\n' "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          printf 'RHSIA_DISPOSABLE_DATA_CLASSIFICATION=synthetic\n' >> "$GITHUB_ENV"
+          printf 'RHSIA_GO_INTEGRATION_DATABASE_URL=%s\n' "$DATABASE_URL" >> "$GITHUB_ENV"
+      - name: Generate Prisma parity client and validate the reference schema
+        run: |
+          pnpm --filter @rhasia-scret/api-parity run test:parity:generate
+          pnpm --filter @rhasia-scret/api-parity run test:parity:validate
+      - name: Build the Sqitch migration image
+        run: docker build --file apps/api/Dockerfile.migration --target migration --tag "rhasia-scret-api-migrate-evidence:${GITHUB_RUN_ID}" .
+      - name: Deploy and verify the Sqitch baseline
+        env:
+          DIRECT_URL: postgresql://rhasia_test:rhasia_test_password@host.docker.internal:5432/rhasia_scret_test?schema=public
+        run: >-
+          docker run --rm --name "rhasia-scret-evidence-sqitch-${GITHUB_RUN_ID}"
+          --add-host=host.docker.internal:host-gateway --env DIRECT_URL
+          "rhasia-scret-api-migrate-evidence:${GITHUB_RUN_ID}"
+      - name: Remove the run-owned Sqitch migration image
+        if: always()
+        run: |
+          image="rhasia-scret-api-migrate-evidence:${GITHUB_RUN_ID}"
+          if docker image inspect "$image" >/dev/null 2>&1; then docker image rm "$image"; fi
       - name: Verify repository release evidence
         env:
           RELEASE_READINESS_RECORD: ${{ inputs.readiness_record }}

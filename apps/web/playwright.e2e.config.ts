@@ -10,7 +10,7 @@ import {
 } from "./src/tests/browser/support/playwright-concurrency";
 
 const browserTestPort = process.env.BROWSER_TEST_PORT ?? "3100";
-const browserTestBaseUrl = `http://127.0.0.1:${browserTestPort}`;
+const browserTestBaseUrl = `http://localhost:${browserTestPort}`;
 const e2eUsers = configuredE2eBrowserUsers();
 
 export default defineConfig({
@@ -28,7 +28,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `pnpm exec tsx scripts/run-browser-server.ts ${browserTestPort}`,
+    command: `pnpm exec tsx scripts/run-browser-server.ts ${browserTestPort} localhost`,
     url: browserTestBaseUrl,
     reuseExistingServer: false,
     timeout: 120_000,

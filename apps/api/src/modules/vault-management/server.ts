@@ -3,7 +3,9 @@ import { PrismaExpiredVaultRetentionRepository } from "./infrastructure/prisma-e
 import { PrismaPersonalVaultRepository } from "./infrastructure/prisma-personal-vault-repository";
 import { PrismaSharedVaultRecoveryRepository } from "./infrastructure/prisma-shared-vault-recovery-repository";
 import { PrismaSharedVaultRepository } from "./infrastructure/prisma-shared-vault-repository";
+import { PrismaOwnerVaultDeletionPreviewRepository } from "./infrastructure/prisma-owner-vault-deletion-preview-repository";
 import { PrismaVaultKeyRotationRepository } from "./infrastructure/prisma-vault-key-rotation-repository";
+import type { OwnerVaultDeletionPreview } from "./application/owner-vault-deletion-preview";
 import type { PrismaDatabase } from "@api/shared/infrastructure/prisma-client";
 
 export {
@@ -14,6 +16,10 @@ export {
 } from "./application/destructive-personal-vault-reset";
 export type { DestructivePersonalVaultResetRepository } from "./application/destructive-personal-vault-reset";
 export { ensurePersonalVault } from "./application/ensure-personal-vault";
+export {
+  getOwnerVaultDeletionPreview,
+  type OwnerVaultDeletionPreview,
+} from "./application/owner-vault-deletion-preview";
 export { initializePersonalVault } from "./application/initialize-personal-vault";
 export type { PersonalVaultInitializer } from "./application/initialize-personal-vault";
 export type { PersonalVaultRepository } from "./application/personal-vault-repository";
@@ -36,6 +42,13 @@ export function createDestructivePersonalVaultResetRepository(
 
 export function createExpiredVaultRetentionRepository(database: PrismaDatabase): PrismaExpiredVaultRetentionRepository {
   return new PrismaExpiredVaultRetentionRepository(database);
+}
+
+export function getOwnerVaultDeletionPreviewForUser(
+  database: PrismaDatabase,
+  ownerId: string,
+): Promise<OwnerVaultDeletionPreview> {
+  return new PrismaOwnerVaultDeletionPreviewRepository(database).getForOwner(ownerId);
 }
 
 export function createPersonalVaultRepository(database: PrismaDatabase): PrismaPersonalVaultRepository {

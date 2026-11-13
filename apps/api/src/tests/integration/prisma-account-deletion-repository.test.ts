@@ -52,6 +52,64 @@ afterEach(cleanup);
 
 describe("PrismaAccountDeletionRepository", () => {
   it.skipIf(!process.env.DATABASE_URL)(
+    "uses the vault-management preview API and excludes unusable transfer keys",
+    async () => {
+      const owner = await createUser();
+      const eligibleViewer = await createUser();
+      const emptyKeyViewer = await createUser();
+      const zeroVersionViewer = await createUser();
+      const personalVault = await prisma.vault.create({
+        data: {
+          ownerId: owner.id,
+          type: "PERSONAL",
+          lifecycle: "ACTIVE",
+          encryptedName: bytes("synthetic-personal-vault-name"),
+          encryptionVersion: 1,
+          members: { create: { userId: owner.id, role: "OWNER" } },
+        },
+      });
+      const sharedVault = await prisma.vault.create({
+        data: {
+          ownerId: owner.id,
+          type: "SHARED",
+          lifecycle: "ACTIVE",
+          encryptedName: bytes("synthetic-shared-vault-name"),
+          encryptionVersion: 1,
+          members: {
+            create: [
+              { userId: owner.id, role: "OWNER", encryptedVaultKey: bytes("synthetic-owner-key"), keyVersion: 1 },
+              {
+                userId: eligibleViewer.id,
+                role: "VIEWER",
+                encryptedVaultKey: bytes("synthetic-viewer-key"),
+                keyVersion: 1,
+              },
+              { userId: emptyKeyViewer.id, role: "VIEWER", encryptedVaultKey: new Uint8Array(), keyVersion: 1 },
+              {
+                userId: zeroVersionViewer.id,
+                role: "VIEWER",
+                encryptedVaultKey: bytes("synthetic-viewer-key"),
+                keyVersion: 0,
+              },
+            ],
+          },
+        },
+      });
+      const repository = new PrismaAccountDeletionRepository(bytes("synthetic-deletion-secret"), prisma);
+      await expect(repository.getPreview(owner.id)).resolves.toEqual({
+        personalVaultId: personalVault.id,
+        ownedSharedVaults: [
+          {
+            id: sharedVault.id,
+            lifecycle: "ACTIVE",
+            viewerCandidates: [{ id: eligibleViewer.id, email: eligibleViewer.email }],
+          },
+        ],
+      });
+    },
+  );
+
+  it.skipIf(!process.env.DATABASE_URL)(
     "hard-deletes owned data while preserving transferred Vault content",
     async () => {
       const deletingUser = await createUser("delete-me@example.test");

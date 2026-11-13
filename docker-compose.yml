@@ -28,10 +28,8 @@ services:
     restart: "no"
     working_dir: /workspace/apps/api
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
       DIRECT_URL: postgresql://${POSTGRES_USER:-rhasia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shared_totp_vault}?schema=public
-      NODE_ENV: production
-    command: ["node", "scripts/deploy-passwordless-migrations.mjs"]
+    command: ["deploy", "--verify"]
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +46,7 @@ services:
       target: runtime
       args:
         COMMIT_SHA: ${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-dev}
     image: rhasia-scret-api:${COMMIT_SHA:?COMMIT_SHA must be set to the current short Git SHA}
     restart: unless-stopped
     init: true
@@ -83,13 +82,7 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     healthcheck:
-      test:
-        [
-          "CMD",
-          "bun",
-          "-e",
-          "fetch('http://127.0.0.1:8787/v1/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
+      test: ["CMD", "/usr/local/bin/api", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -161,7 +154,7 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    command: ["bun", "/usr/local/bin/retention-purge.mjs"]
+    command: ["retention-purge"]
 
 networks:
   backend:

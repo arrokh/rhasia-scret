@@ -1,6 +1,7 @@
 import { constantTimeEqual, hmacSha256, randomBase64Url, randomInt } from "@api/shared/infrastructure/crypto";
 import { Buffer } from "@api/shared/infrastructure/base64";
 import { Prisma } from "@prisma/client";
+import { getOwnerVaultDeletionPreviewForUser } from "@api/modules/vault-management/server";
 import type {
   AccountDeletionChallengePurpose,
   AccountDeletionPreview,
@@ -45,40 +46,8 @@ export class PrismaAccountDeletionRepository implements AccountDeletionRepositor
     private readonly anonymousAuthSecret: Uint8Array = secret,
   ) {}
 
-  public async getPreview(applicationUserId: string): Promise<AccountDeletionPreview> {
-    const [personalVault, sharedVaults] = await Promise.all([
-      this.database.vault.findFirst({
-        where: { ownerId: applicationUserId, type: "PERSONAL" },
-        select: { id: true },
-        orderBy: { createdAt: "asc" },
-      }),
-      this.database.vault.findMany({
-        where: { ownerId: applicationUserId, type: "SHARED" },
-        select: {
-          id: true,
-          lifecycle: true,
-          members: {
-            where: { role: "VIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
-            select: { userId: true, user: { select: { email: true } }, encryptedVaultKey: true, keyVersion: true },
-            orderBy: { createdAt: "asc" },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      }),
-    ]);
-    return {
-      personalVaultId: personalVault?.id ?? null,
-      ownedSharedVaults: sharedVaults.map((vault) => ({
-        id: vault.id,
-        lifecycle: vault.lifecycle,
-        viewerCandidates:
-          vault.lifecycle === "ACTIVE"
-            ? vault.members.flatMap((member) =>
-                member.encryptedVaultKey && member.keyVersion ? [{ id: member.userId, email: member.user.email }] : [],
-              )
-            : [],
-      })),
-    };
+  public getPreview(applicationUserId: string): Promise<AccountDeletionPreview> {
+    return getOwnerVaultDeletionPreviewForUser(this.database, applicationUserId);
   }
 
   public async createPasswordlessOtpChallenge(
@@ -390,7 +359,9 @@ async function transferVault(
     targetMembership?.role !== "VIEWER" ||
     targetMembership.status !== "ACTIVE" ||
     !targetMembership.encryptedVaultKey ||
-    !targetMembership.keyVersion
+    targetMembership.encryptedVaultKey.byteLength === 0 ||
+    targetMembership.keyVersion === null ||
+    targetMembership.keyVersion === 0
   )
     throw new AccountDeletionPlanStaleError("Shared Vault transfer target is unavailable.");
   const promoted = await transaction.vaultMember.updateMany({

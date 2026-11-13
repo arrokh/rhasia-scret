@@ -145,7 +145,9 @@ test("wires package selection to every consuming job without cancelling a differ
   const browserE2e = job("browser-e2e");
   assert.match(browserE2e, /^    name: Browser e2e \(\$\{\{ matrix\.browser \}\}\)$/m);
   assert.match(browserE2e, /^    services:\n      postgres:/m);
-  assert.match(browserE2e, /prisma:migrate:deploy/);
+  assert.match(browserE2e, /Sqitch migration image/);
+  assert.match(browserE2e, /docker run --rm/);
+  assert.doesNotMatch(browserE2e, /prisma:migrate:deploy/);
   const repository = job("repository");
   assert.doesNotMatch(repository, /format:check/);
   assert.doesNotMatch(repository, /^    (?:if|needs):/m);

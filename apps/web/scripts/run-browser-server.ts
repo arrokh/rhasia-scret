@@ -1,11 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { resolve } from "node:path";
 import { waitForBrowserApi } from "./browser-api-readiness";
 
 const webPort = process.argv[2] ?? process.env.BROWSER_TEST_PORT ?? "3100";
 const apiPort = process.env.BROWSER_API_PORT ?? String(Number(webPort) + 5687);
-const webOrigin = `http://127.0.0.1:${webPort}`;
+const webHost = process.argv[3] ?? "127.0.0.1";
+const webOrigin = `http://${webHost}:${webPort}`;
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
-const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const goCommand = process.platform === "win32" ? "go.exe" : "go";
+const apiDirectory = resolve(process.cwd(), "../api");
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
 // Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
@@ -55,8 +59,9 @@ const children = new Set<ChildProcess>();
 let stopping = false;
 
 async function main(): Promise<void> {
-  const api = spawn(command, ["--dir", "../api", "run", "dev"], {
-    cwd: process.cwd(),
+  const apiMode = process.env.E2E_BROWSER_TESTS === "1" ? "serve" : "serve-system";
+  const api = spawn(goCommand, ["run", "./cmd/api", apiMode], {
+    cwd: apiDirectory,
     env: createScopedEnvironment(
       {
         PORT: apiPort,
@@ -96,7 +101,7 @@ async function main(): Promise<void> {
 
   try {
     await waitForBrowserApi(apiOrigin, () => apiStartupFailure);
-    const web = spawn(command, ["exec", "next", "dev", "-p", webPort], {
+    const web = spawn(pnpmCommand, ["exec", "next", "dev", "-p", webPort], {
       cwd: process.cwd(),
       env: createScopedEnvironment(
         {

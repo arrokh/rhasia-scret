@@ -4,7 +4,7 @@ import { cleanBrowserE2eUsers } from "./support/e2e-database";
 import { e2eUserAlias, e2eUserEmail, type E2E_BROWSER_SCENARIOS, type E2E_BROWSER_ROLES } from "./support/e2e-users";
 import { expectVaultLockAction, lockVaultFromSettings } from "./support/vault-account-settings";
 
-const baseUrl = `http://127.0.0.1:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
+const baseUrl = `http://localhost:${process.env.BROWSER_TEST_PORT ?? "3100"}`;
 const personalSecret = "e2e personal vault passphrase";
 const personalName = "E2E Personal Vault";
 const imageTotpSecret = ["JBSW", "Y3DP", "EHPK", "3PXP"].join("");

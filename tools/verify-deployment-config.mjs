@@ -35,12 +35,16 @@ export function createDeploymentConfigVerificationSteps(environment = process.en
   return [
     {
       label: "API",
-      arguments: ["--filter", "@rhasia-scret/api", "verify:deployment-config"],
+      command: "go",
+      arguments: ["run", "./cmd/api", "verify-config"],
+      directory: "apps/api",
       environment: apiEnvironment,
     },
     {
       label: "Web",
-      arguments: ["--filter", "@rhasia-scret/web", "verify:deployment-config"],
+      command: pnpmCommand,
+      arguments: ["--filter", "@rhasia-scret/web", "run", "verify:deployment-config"],
+      directory: ".",
       environment: webEnvironment,
     },
   ];
@@ -48,8 +52,8 @@ export function createDeploymentConfigVerificationSteps(environment = process.en
 
 export function runDeploymentConfigVerification({ root = repositoryRoot, environment = process.env } = {}) {
   for (const step of createDeploymentConfigVerificationSteps(environment)) {
-    const result = spawnSync(pnpmCommand, step.arguments, {
-      cwd: root,
+    const result = spawnSync(step.command, step.arguments, {
+      cwd: resolve(root, step.directory),
       env: step.environment,
       shell: process.platform === "win32",
       stdio: "inherit",

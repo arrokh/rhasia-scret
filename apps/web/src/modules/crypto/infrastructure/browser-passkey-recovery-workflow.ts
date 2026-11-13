@@ -13,8 +13,8 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "./browser-passkey-recovery-client";
-import { authenticatePasskey, createPasskeyCredential } from "./browser-passkey-prf";
 import { wrapUserRootKeyWithVaultUnlockSecret } from "./browser-vault-unlock-secret-change";
+import { authenticatePasskey, createPasskeyCredential } from "./browser-passkey-prf";
 
 export async function enrollPasskeyRecovery(userRootKey: Uint8Array): Promise<void> {
   const options = await loadPasskeyRegistrationOptions();
@@ -26,6 +26,7 @@ export async function enrollPasskeyRecovery(userRootKey: Uint8Array): Promise<vo
     await verifyPasskeyRegistration({ response: credential.registrationResponse, encryptedRecoveryPackage });
   } finally {
     credential.prfOutput.fill(0);
+    credential.prfSalt.fill(0);
   }
 }
 

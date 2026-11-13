@@ -1,7 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "tools/api-migration-runtime"
 
 overrides:
   # Fix GHSA-3g3m-2fjr-6pw4; archiver-utils uses the retained CommonJS sync API.

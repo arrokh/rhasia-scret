@@ -1,5 +1,7 @@
 # API architecture deepening
 
+> Historical record of the TypeScript/Hono API implementation. The runtime has since moved to Go/Echo; see [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md). These notes describe the retained TypeScript parity oracle, not production runtime composition.
+
 ## Status — 2026-09-21
 
 The API extraction now implements four bounded-context deepening changes identified during the `apps/api` architecture review. These changes preserve the `/v1/**` contract and do not change the encrypted-content or client-only secret boundary.
@@ -63,9 +65,9 @@ The API extraction now implements four bounded-context deepening changes identif
 The focused API evidence for this change is:
 
 ```text
-pnpm --filter @rhasia-scret/api lint
-pnpm --filter @rhasia-scret/api typecheck
-pnpm --filter @rhasia-scret/api test:unit
+pnpm --filter @rhasia-scret/api-parity lint
+pnpm --filter @rhasia-scret/api-parity typecheck
+pnpm --filter @rhasia-scret/api-parity test:unit
 ```
 
 The repository completion gate remains `mise exec -- pnpm run test:full`. This architecture document does not establish production operations evidence. The [`v0.1.0` candidate readiness record](release-readiness/v0.1.0.md) preserves maintainer-reported Vercel and self-hosted evidence for that candidate only; it does not establish readiness for later releases.

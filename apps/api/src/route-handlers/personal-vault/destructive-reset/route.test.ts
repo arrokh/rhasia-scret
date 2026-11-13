@@ -48,6 +48,14 @@ describe("POST /v1/personal-vault/destructive-reset contract", () => {
     await expect(response.json()).resolves.toEqual({ error: "passkey_recovery_available" });
   });
 
+  it("maps unexpected reset failures to the operation-specific error", async () => {
+    const response = await handler(vi.fn().mockRejectedValue(new Error("synthetic repository failure")))(
+      request(DESTRUCTIVE_RESET_CONFIRMATION),
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "destructive_reset_failed" });
+  });
+
   it("blocks users who still own an active Shared Vault", async () => {
     const response = await handler(vi.fn().mockRejectedValue(new ActiveOwnedSharedVaultsPreventResetError(2)))(
       request(DESTRUCTIVE_RESET_CONFIRMATION),

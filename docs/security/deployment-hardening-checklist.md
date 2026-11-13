@@ -40,7 +40,7 @@ Review the passwordless implementation, SMTP provider, and relevant dependency a
 ## Supply chain and CI
 
 - [ ] `pnpm install --frozen-lockfile` succeeds and the lockfile is reviewed as the source of exact resolution.
-- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, and generated Prisma/schema validation pass; exceptions are documented with expiry and owner in `docs/security/dependency-audit-exceptions.md`.
+- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, test-only Prisma parity-client/schema validation, and Sqitch baseline verification pass; exceptions are documented with expiry and owner in `docs/security/dependency-audit-exceptions.md`.
 - [ ] Security-critical GitHub Actions are pinned to commit SHAs and repository/workflow permissions remain least privilege.
 - [ ] Dependency update cadence, emergency patch path, artifact provenance, cache isolation, retention, and rollback are recorded for the release.
 - [ ] CI and release-check fixtures use synthetic, non-PII values and contain no real or user-provided Vault/account data, labels, issuer names, keys, OTPs, QR data, cookies, credentials, or authentication tokens.
@@ -48,9 +48,9 @@ Review the passwordless implementation, SMTP provider, and relevant dependency a
 ## Provider, database, and platform evidence
 
 - [ ] Passwordless SMTP/account settings, secret rotation, session-revocation checks, unsupported-backend rejection, and authentication dependency reviews are attached.
-- [ ] PostgreSQL roles, pooled/direct URL use, TLS, migrations, passwordless identity seed verification, backups/PITR, restore drill, purge jobs, audit retention, and monitoring evidence are attached.
+- [ ] PostgreSQL roles, pooled/direct URL use, TLS, Sqitch deploy/verify/revert policy, backups/PITR, restore drills, purge jobs, audit retention, and monitoring evidence are attached.
 - [ ] Vercel or equivalent host environment scopes, deployment protection, headers, source-map policy, CDN/cache behavior, forced update path, and release provenance are attached.
-- [ ] The API is deployed as a separate Node/Bun service/project; Web has no API secrets, database URLs, SMTP credentials, or migration URL, and API provider log/retention settings are documented.
+- [ ] The Go/Echo API is deployed as a separate service/project; Web has no API secrets, database URLs, SMTP credentials, or migration URL, and API provider log/retention settings are documented.
 - [ ] The 03:00 UTC retention scheduler authenticates with `CRON_SECRET`, fails closed on invalid credentials, exposes bounded counts only, and has failure/backlog monitoring.
 
 ## Release decision

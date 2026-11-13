@@ -107,7 +107,9 @@ describe("browser test gate inventory", () => {
       'pnpm run test:browser:smoke --project="${{ matrix.browser }}" --shard="${{ matrix.shard }}/3"',
     );
     expect(e2eJob).toContain("services:\n      postgres:");
-    expect(e2eJob).toContain("prisma:migrate:deploy");
+    expect(e2eJob).toContain("Sqitch migration image");
+    expect(e2eJob).toContain("docker run --rm");
+    expect(e2eJob).not.toContain("prisma:migrate:deploy");
     expect(e2eJob).toContain("PLAYWRIGHT_WORKERS: 1");
     expect(workflow).toContain("PLAYWRIGHT_E2E_WORKERS: 2");
     expect(workflow).toContain("restore-keys:");

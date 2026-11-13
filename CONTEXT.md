@@ -152,7 +152,7 @@ The web-only, immediate and permanent destruction of one hosted Application User
 _Avoid_: Authenticator Account reset, Local Profile deletion, soft-delete recovery window, email-based identity deletion
 
 **Account Deletion Ledger**:
-The intentionally retained, non-foreign-key record of a completed Application User Deletion. It contains an opaque receipt ID, email, former Application User ID, issuer/subject identity tombstones, timestamps, authentication backend, delivery status, and bounded deletion counts so pre-deletion credentials cannot resurrect access. It is not a Vault audit record and never contains archive keys, Vault Names, TOTP configuration, or decrypted content.
+The intentionally retained, non-foreign-key record of a completed Application User Deletion. It contains an opaque receipt ID, email, former Application User ID, issuer/subject identity tombstones, timestamps, authentication backend, delivery status, and bounded deletion counts so pre-deletion credentials cannot resurrect access. A passwordless link consumed just before deletion cannot recreate the user afterward; only a challenge created after deletion may admit a fresh Application User with the same email. It is not a Vault audit record and never contains archive keys, Vault Names, TOTP configuration, or decrypted content.
 _Avoid_: preserved user account, retained Vault audit history, deletion backup
 
 **Application Admission**:
