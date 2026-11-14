@@ -1,13 +1,6 @@
 package identity
 
-import "context"
+import identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
 
-type EmailMessage struct {
-	Subject string
-	Text    string
-	HTML    string
-}
-
-type EmailDelivery interface {
-	SendEmail(context.Context, string, EmailMessage) error
-}
+type EmailMessage = identityapp.EmailMessage
+type EmailDelivery = identityapp.EmailDelivery

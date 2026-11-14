@@ -1,7 +1,5 @@
 package identity
 
-import "context"
+import identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
 
-type ApplicationUserEmailReader interface {
-	ReadApplicationUserEmails(context.Context, []string) (map[string]string, error)
-}
+type ApplicationUserEmailReader = identityapp.ApplicationUserEmailReader

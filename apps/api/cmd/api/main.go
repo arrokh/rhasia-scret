@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	servercomposition "github.com/nooroctavian/rhasia-scret/apps/api/internal/app/api"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/buildinfo"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
-	servercomposition "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/server-composition"
 )
 
 const shutdownTimeout = 10 * time.Second

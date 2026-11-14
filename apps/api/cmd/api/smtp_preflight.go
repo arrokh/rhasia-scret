@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/adapter/identity"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
-	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/infrastructure"
 )
 
 func runSMTPPreflight() error {

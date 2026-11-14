@@ -2,103 +2,61 @@ package audit
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
-	"github.com/nooroctavian/rhasia-scret/apps/api/internal/postgres"
+	auditentity "github.com/nooroctavian/rhasia-scret/apps/api/internal/entity/audit"
+	auditrepository "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/audit"
 )
 
-type Action string
-type RedactedAction string
+type Action = auditentity.Action
+type RedactedAction = auditentity.RedactedAction
+type VaultAuditAppend = auditentity.VaultAuditAppend
+
+type PostgreSQLBeginner = auditrepository.PostgreSQLBeginner
+type VaultAuditTransaction = auditrepository.VaultAuditTransaction
+type auditRetentionQueryer = auditrepository.AuditRetentionQueryer
 
 const (
-	UnknownSecurityActivity                    RedactedAction = "UNKNOWN_SECURITY_ACTIVITY"
-	ActionVaultCreated                         Action         = "VAULT_CREATED"
-	ActionAccountAdded                         Action         = "ACCOUNT_ADDED"
-	ActionAccountUpdated                       Action         = "ACCOUNT_UPDATED"
-	ActionAccountDeleted                       Action         = "ACCOUNT_DELETED"
-	ActionAccountRestored                      Action         = "ACCOUNT_RESTORED"
-	ActionMemberRevoked                        Action         = "MEMBER_REVOKED"
-	ActionMemberPermissionsUpdated             Action         = "MEMBER_PERMISSIONS_UPDATED"
-	ActionVaultMemberDefaultPermissionsUpdated Action         = "VAULT_MEMBER_DEFAULT_PERMISSIONS_UPDATED"
-	ActionAccountAccessed                      Action         = "ACCOUNT_ACCESSED"
-	ActionAccountCopiedFromLocal               Action         = "ACCOUNT_COPIED_FROM_LOCAL"
-	ActionAccountCopiedToLocal                 Action         = "ACCOUNT_COPIED_TO_LOCAL"
-	ActionArchiveExported                      Action         = "ARCHIVE_EXPORTED"
-	ActionArchiveImported                      Action         = "ARCHIVE_IMPORTED"
-	ActionVaultDeleted                         Action         = "VAULT_DELETED"
-	ActionVaultRestored                        Action         = "VAULT_RESTORED"
-	ActionVaultKeyRotated                      Action         = "VAULT_KEY_ROTATED"
-	ActionUserEncryptionKeyPairRotated         Action         = "USER_ENCRYPTION_KEY_PAIR_ROTATED"
+	UnknownSecurityActivity                    = auditentity.UnknownSecurityActivity
+	ActionVaultCreated                         = auditentity.ActionVaultCreated
+	ActionAccountAdded                         = auditentity.ActionAccountAdded
+	ActionAccountUpdated                       = auditentity.ActionAccountUpdated
+	ActionAccountDeleted                       = auditentity.ActionAccountDeleted
+	ActionAccountRestored                      = auditentity.ActionAccountRestored
+	ActionMemberRevoked                        = auditentity.ActionMemberRevoked
+	ActionMemberPermissionsUpdated             = auditentity.ActionMemberPermissionsUpdated
+	ActionVaultMemberDefaultPermissionsUpdated = auditentity.ActionVaultMemberDefaultPermissionsUpdated
+	ActionAccountAccessed                      = auditentity.ActionAccountAccessed
+	ActionAccountCopiedFromLocal               = auditentity.ActionAccountCopiedFromLocal
+	ActionAccountCopiedToLocal                 = auditentity.ActionAccountCopiedToLocal
+	ActionArchiveExported                      = auditentity.ActionArchiveExported
+	ActionArchiveImported                      = auditentity.ActionArchiveImported
+	ActionVaultDeleted                         = auditentity.ActionVaultDeleted
+	ActionVaultRestored                        = auditentity.ActionVaultRestored
+	ActionVaultKeyRotated                      = auditentity.ActionVaultKeyRotated
+	ActionUserEncryptionKeyPairRotated         = auditentity.ActionUserEncryptionKeyPairRotated
 )
 
-type VaultAuditAppend struct {
-	VaultID             string
-	OwnerID             string
-	ActorUserID         string
-	Action              Action
-	TargetID            string
-	RetentionPurgeAfter *time.Time
-}
-
-func AppendVaultAuditEvent(ctx context.Context, transaction pgx.Tx, event VaultAuditAppend) error {
-	if transaction == nil || event.VaultID == "" || event.OwnerID == "" || event.ActorUserID == "" || !validAction(event.Action) {
-		return errors.New("Vault audit event is invalid")
-	}
-	eventID, err := postgres.NewCUID()
-	if err != nil {
-		return err
-	}
-	var targetID any
-	if event.TargetID != "" {
-		targetID = event.TargetID
-	}
-	if _, err := transaction.Exec(ctx, `
-		INSERT INTO vault_audit_events
-			(id, vault_id, owner_id, actor_user_id, event_type, target_id, retention_purge_after)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		eventID, event.VaultID, event.OwnerID, event.ActorUserID, string(event.Action), targetID, event.RetentionPurgeAfter); err != nil {
-		return fmt.Errorf("append Vault audit event: %w", err)
-	}
-	return nil
+func AppendVaultAuditEvent(ctx context.Context, transaction VaultAuditTransaction, event VaultAuditAppend) error {
+	return auditrepository.AppendVaultAuditEvent(ctx, transaction, event)
 }
 
 func RedactAction(value string) RedactedAction {
-	action := Action(value)
-	if validAction(action) {
-		return RedactedAction(action)
-	}
-	return UnknownSecurityActivity
+	return auditentity.RedactAction(value)
 }
 
 func AuditPurgeAfter(vaultDeletedAt time.Time) time.Time {
-	return vaultDeletedAt.UTC().AddDate(1, 0, 0)
+	return auditentity.AuditPurgeAfter(vaultDeletedAt)
 }
 
-func validAction(action Action) bool {
-	switch action {
-	case ActionVaultCreated,
-		ActionAccountAdded,
-		ActionAccountUpdated,
-		ActionAccountDeleted,
-		ActionAccountRestored,
-		ActionMemberRevoked,
-		ActionMemberPermissionsUpdated,
-		ActionVaultMemberDefaultPermissionsUpdated,
-		ActionAccountAccessed,
-		ActionAccountCopiedFromLocal,
-		ActionAccountCopiedToLocal,
-		ActionArchiveExported,
-		ActionArchiveImported,
-		ActionVaultDeleted,
-		ActionVaultRestored,
-		ActionVaultKeyRotated,
-		ActionUserEncryptionKeyPairRotated:
-		return true
-	default:
-		return false
-	}
+func RecordArchiveExport(ctx context.Context, database PostgreSQLBeginner, ownerID string, vaultID string) (bool, error) {
+	return auditrepository.RecordArchiveExport(ctx, database, ownerID, vaultID)
+}
+
+func SetVaultAuditRetention(ctx context.Context, transaction VaultAuditTransaction, vaultID, ownerID string, retainUntil time.Time) error {
+	return auditrepository.SetVaultAuditRetention(ctx, transaction, vaultID, ownerID, retainUntil)
+}
+
+func PurgeExpiredVaultAuditEvents(ctx context.Context, database auditRetentionQueryer, now time.Time, batchSize int) ([]string, error) {
+	return auditrepository.PurgeExpiredVaultAuditEvents(ctx, database, now, batchSize)
 }

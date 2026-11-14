@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/application"
+	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
 )
 
 type ApplicationRequestAuthorizer interface {

@@ -49,12 +49,26 @@ flowchart LR
 
 ## Ownership and boundaries
 
-| Workspace                                       | Owns                                                                                                                                                                                                                                                                                                     |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api`                                      | Canonical `/v1/**` Go/Echo runtime, bounded contexts, pgx persistence, Sqitch migrations, email/auth adapters, retention scheduling, and deployment configuration. Vercel and Docker use the same Go API. Its small Node workspace package contains test/development tooling only, not API runtime code. |
-| `apps/web`                                      | Next.js presentation, same-origin `/api/v1/**` proxy, browser adapters, localization catalogs, SSR API gateway, and web tests/configuration. It has no database or backend-module ownership.                                                                                                             |
-| `packages/client-vault-core`                    | Platform-neutral client workflows and contracts. It exposes `src/index.ts`; it does not depend on either application, React, Prisma, filesystem, browser, or platform-storage APIs.                                                                                                                      |
-| `packages/api-contract` / `packages/api-client` | Shared API schemas and a platform-neutral direct HTTP adapter.                                                                                                                                                                                                                                           |
+| Workspace                                       | Owns                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/api`                                      | Canonical `/v1/**` Go/Echo runtime with layer-first `handler`, `service`, `repository`, `adapter`, and `entity` packages organized into context subpackages; pgx persistence, Sqitch migrations, retention scheduling, and deployment configuration. Vercel and Docker use the same Go API. Its small Node workspace package contains test/development tooling only, not API runtime code. |
+| `apps/web`                                      | Next.js presentation, same-origin `/api/v1/**` proxy, browser adapters, localization catalogs, SSR API gateway, and web tests/configuration. It has no database or backend-module ownership.                                                                                                                                                                                               |
+| `packages/client-vault-core`                    | Platform-neutral client workflows and contracts. It exposes `src/index.ts`; it does not depend on either application, React, Prisma, filesystem, browser, or platform-storage APIs.                                                                                                                                                                                                        |
+| `packages/api-contract` / `packages/api-client` | Shared API schemas and a platform-neutral direct HTTP adapter.                                                                                                                                                                                                                                                                                                                             |
+
+### Go API internal layout
+
+The API is organized by technical layer first, then context. `internal/modules/<context>` remains for context-owned public APIs where needed; new implementation packages belong under the horizontal layer directories.
+
+```text
+apps/api/internal/
+├── app/api/             # Server composition
+├── handler/<context>/   # HTTP handlers
+├── service/<context>/   # Application workflows
+├── repository/<context>/ # PostgreSQL persistence
+├── adapter/<context>/   # Email and auth adapters
+└── entity/<context>/    # Domain rules and types
+```
 
 Applications may depend on shared packages through `workspace:*`, but must not import each other or reach into shared-package internals. Browser capabilities remain injected ports implemented by `apps/web`. Server-owned web code may import only the encrypted Personal-only snapshot, transient workspace parser/contracts, and deterministic Shared Vault permission policy/types from `client-vault-core`. An architecture test rejects all other package symbols—including crypto, decryption, unlock, archive-opening, Secure Share, and OTP workflows—as well as default, namespace, wildcard, inline, and dynamic package imports at server boundaries.
 
