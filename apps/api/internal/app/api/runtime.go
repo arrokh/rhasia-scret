@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 
-	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/adapter/identity"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/postgres"
+	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
 )
 
 const (
@@ -134,12 +134,12 @@ func newVercelHandler(lookup config.LookupEnv, logger httpapi.APIEventLogger, op
 		if environmentErr != nil {
 			configurationFailureLogged.Do(func() {
 				event := "api_runtime_configuration_invalid"
-				if errors.Is(environmentErr, identityinfra.ErrAuthenticationConfiguration) {
+				if errors.Is(environmentErr, apiService.ErrAuthenticationConfiguration) {
 					event = "api_authentication_misconfigured"
 				}
 				logger.Log("error", event, map[string]any{"requestId": "startup"})
 			})
-			if errors.Is(environmentErr, identityinfra.ErrAuthenticationConfiguration) {
+			if errors.Is(environmentErr, apiService.ErrAuthenticationConfiguration) {
 				authenticationUnavailableRouter.ServeHTTP(writer, normalized)
 				return
 			}
@@ -155,7 +155,7 @@ func newVercelHandler(lookup config.LookupEnv, logger httpapi.APIEventLogger, op
 		}
 		activeRuntime, activeRuntimeErr := runtime, runtimeErr
 		runtimeMutex.Unlock()
-		if errors.Is(activeRuntimeErr, identityinfra.ErrAuthenticationConfiguration) {
+		if errors.Is(activeRuntimeErr, apiService.ErrAuthenticationConfiguration) {
 			runtimeFailureLogged.Do(func() {
 				logger.Log("error", "api_authentication_misconfigured", map[string]any{"requestId": "startup"})
 			})

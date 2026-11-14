@@ -12,37 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 
-	accountdeletionadapter "github.com/nooroctavian/rhasia-scret/apps/api/internal/adapter/account-deletion"
-	identityadapter "github.com/nooroctavian/rhasia-scret/apps/api/internal/adapter/identity"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
-	accountdeletionhttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/account-deletion"
-	audithttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/audit"
-	accounthttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/authenticator-account"
-	identityhttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/identity"
-	retentionhttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/retention"
-	synchtml "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/sync"
-	vaultarchivehttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/vault-archive"
-	vaultmanagementhttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/vault-management"
-	vaultmembershiphttp "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler/vault-membership"
+	apiHandler "github.com/nooroctavian/rhasia-scret/apps/api/internal/handler"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
-	identity "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity"
-	accountdeletioninfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/account-deletion"
-	auditinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/audit"
-	accountinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/authenticator-account"
-	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/identity"
-	rateinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/rate-limiting"
-	retentioninfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/retention"
-	syncinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/sync"
-	vaultarchiveinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/vault-archive"
-	vaultmanagementinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/vault-management"
-	vaultmembershipinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository/vault-membership"
-	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
-	retentionapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/retention"
-	vaultmanagementapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/vault-management"
+	apiRepository "github.com/nooroctavian/rhasia-scret/apps/api/internal/repository"
+	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
 )
 
-func readAuthConfiguration(environment config.Environment) (identityadapter.AuthConfiguration, error) {
-	authEnvironment := identityadapter.AuthEnvironment{
+func readAuthConfiguration(environment config.Environment) (apiService.AuthConfiguration, error) {
+	authEnvironment := apiService.AuthEnvironment{
 		AuthBackend:            environment.AuthBackend,
 		NodeEnvironment:        environment.NodeEnvironment,
 		DeploymentTarget:       environment.DeploymentTarget,
@@ -55,20 +33,20 @@ func readAuthConfiguration(environment config.Environment) (identityadapter.Auth
 		AccessTokenTTLSeconds:  environment.AuthAccessTokenTTL,
 		RefreshTokenTTLSeconds: environment.AuthRefreshTokenTTL,
 	}
-	authConfiguration, err := identityadapter.ReadAuthConfiguration(authEnvironment)
+	authConfiguration, err := apiService.ReadAuthConfiguration(authEnvironment)
 	if err != nil {
-		return identityadapter.AuthConfiguration{}, fmt.Errorf("read API authentication configuration: %w", err)
+		return apiService.AuthConfiguration{}, fmt.Errorf("read API authentication configuration: %w", err)
 	}
 	return authConfiguration, nil
 }
 
 func newApplicationSessionVerifier(
 	environment config.Environment,
-	authentication identityadapter.AuthConfiguration,
+	authentication apiService.AuthConfiguration,
 	pool *pgxpool.Pool,
 	clock func() time.Time,
-) (identityapp.SessionVerifier, error) {
-	e2eVerifier := identityadapter.NewE2ESessionVerifier(
+) (apiService.SessionVerifier, error) {
+	e2eVerifier := apiService.NewE2ESessionVerifier(
 		environment.NodeEnvironment,
 		environment.E2EBrowserTests,
 		environment.E2EBrowserTestUsers,
@@ -76,13 +54,13 @@ func newApplicationSessionVerifier(
 	if e2eVerifier != nil {
 		return e2eVerifier, nil
 	}
-	if authentication.Backend != identityadapter.AuthBackendPasswordless {
+	if authentication.Backend != apiService.AuthBackendPasswordless {
 		return disabledSessionVerifier{}, nil
 	}
 	if authentication.Passwordless == nil {
 		return nil, errors.New("passwordless session configuration is unavailable")
 	}
-	verifier, err := identityinfra.NewPostgresSessionVerifier(pool, authentication.Passwordless.SessionSecret, clock)
+	verifier, err := apiRepository.NewSessionVerifier(pool, authentication.Passwordless.SessionSecret, clock)
 	if err != nil {
 		return nil, err
 	}
@@ -116,23 +94,23 @@ func NewRouter(
 	if err != nil {
 		return nil, err
 	}
-	turnstileConfiguration := identityadapter.TurnstileConfiguration{}
-	if authConfiguration.Backend == identityadapter.AuthBackendPasswordless {
+	turnstileConfiguration := apiService.TurnstileConfiguration{}
+	if authConfiguration.Backend == apiService.AuthBackendPasswordless {
 		turnstileConfiguration = authConfiguration.Turnstile
-	} else if authConfiguration.Backend != identityadapter.AuthBackendNone {
+	} else if authConfiguration.Backend != apiService.AuthBackendNone {
 		return nil, errors.New("API authentication backend is unsupported")
 	}
-	turnstile, err := identityadapter.NewTurnstileValidator(turnstileConfiguration, nil)
+	turnstile, err := apiService.NewTurnstileValidator(turnstileConfiguration, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create Turnstile validator: %w", err)
 	}
 
-	applicationRateLimiter, err := rateinfra.NewPostgresApplicationRateLimiter(pool)
+	applicationRateLimiter, err := apiRepository.NewApplicationRateLimiter(pool)
 	if err != nil {
 		return nil, fmt.Errorf("create application rate limiter: %w", err)
 	}
-	allowNewUsers := authConfiguration.Backend == identityadapter.AuthBackendPasswordless
-	userProvisioner, err := identityinfra.NewPostgresUserProvisioner(pool, clock, allowNewUsers)
+	allowNewUsers := authConfiguration.Backend == apiService.AuthBackendPasswordless
+	userProvisioner, err := apiRepository.NewUserProvisioner(pool, clock, allowNewUsers)
 	if err != nil {
 		return nil, fmt.Errorf("create Application User provisioner: %w", err)
 	}
@@ -141,18 +119,18 @@ func NewRouter(
 		return nil, fmt.Errorf("create passwordless session verifier: %w", err)
 	}
 
-	userCryptoProfiles, err := identityinfra.NewPostgresUserCryptoProfileRepository(pool, clock)
+	userCryptoProfiles, err := apiRepository.NewUserCryptoProfileRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create User Crypto Profile repository: %w", err)
 	}
-	userCryptoProfileService := identityapp.NewUserCryptoProfileService(userCryptoProfiles)
-	userEncryptionIdentityService := identityapp.NewUserEncryptionIdentityService(userCryptoProfiles)
-	userEncryptionIdentityRotationRepository, err := identityinfra.NewPostgresUserEncryptionIdentityRotationRepository(pool, clock)
+	userCryptoProfileService := apiService.NewUserCryptoProfileService(userCryptoProfiles)
+	userEncryptionIdentityService := apiService.NewUserEncryptionIdentityService(userCryptoProfiles)
+	userEncryptionIdentityRotationRepository, err := apiRepository.NewUserEncryptionIdentityRotationRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create User Encryption identity rotation repository: %w", err)
 	}
-	userEncryptionIdentityRotationService := identityapp.NewUserEncryptionIdentityRotationService(userEncryptionIdentityRotationRepository)
-	passkeyRecovery, err := identityinfra.NewPostgresPasskeyRecoveryRepository(pool, clock)
+	userEncryptionIdentityRotationService := apiService.NewUserEncryptionIdentityRotationService(userEncryptionIdentityRotationRepository)
+	passkeyRecovery, err := apiRepository.NewPasskeyRecoveryRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Passkey Recovery repository: %w", err)
 	}
@@ -161,29 +139,29 @@ func NewRouter(
 		logger.Log("warn", "passkey_recovery_configuration_invalid", map[string]any{"requestId": "startup"})
 	}
 
-	var passwordlessService identityhttp.PasswordlessService
-	var anonymousRateLimiter identityhttp.AnonymousAuthRateLimiter
-	if authConfiguration.Backend == identityadapter.AuthBackendPasswordless {
-		passwordlessRepository, repositoryErr := identityinfra.NewPostgresPasswordlessAuthRepository(pool, *authConfiguration.Passwordless)
+	var passwordlessService apiHandler.PasswordlessService
+	var anonymousRateLimiter apiHandler.AnonymousAuthRateLimiter
+	if authConfiguration.Backend == apiService.AuthBackendPasswordless {
+		passwordlessRepository, repositoryErr := apiRepository.NewPasswordlessAuthRepository(pool, *authConfiguration.Passwordless)
 		if repositoryErr != nil {
 			return nil, fmt.Errorf("create passwordless authentication repository: %w", repositoryErr)
 		}
-		passwordlessService, err = identityapp.NewPasswordlessAuthService(passwordlessRepository, passwordlessEmailSender, *authConfiguration.Passwordless, clock)
+		passwordlessService, err = apiService.NewPasswordlessAuthService(passwordlessRepository, passwordlessEmailSender, *authConfiguration.Passwordless, clock)
 		if err != nil {
 			return nil, fmt.Errorf("create passwordless authentication service: %w", err)
 		}
-		anonymousRateLimiter, err = identityinfra.NewPostgresAnonymousAuthRateLimiter(pool, authConfiguration.Passwordless.MagicLinkSecret)
+		anonymousRateLimiter, err = apiRepository.NewAnonymousAuthRateLimiter(pool, authConfiguration.Passwordless.MagicLinkSecret)
 		if err != nil {
 			return nil, fmt.Errorf("create anonymous authentication rate limiter: %w", err)
 		}
 	}
 
-	authenticator := identityapp.Authenticator{
+	authenticator := apiService.Authenticator{
 		Sessions:    sessionVerifier,
 		Users:       userProvisioner,
 		RateLimiter: applicationRateLimiter,
 	}
-	identityHandlers := identityhttp.NewHandlers(identityhttp.Dependencies{
+	identityHandlers := apiHandler.NewIdentityHandlers(apiHandler.IdentityDependencies{
 		WebOrigin:                  environment.WebOrigin,
 		Backend:                    authConfiguration.Backend,
 		Passwordless:               passwordlessService,
@@ -203,101 +181,101 @@ func NewRouter(
 		Now:                        clock,
 	})
 
-	personalAccountRepository, err := accountinfra.NewPostgresPersonalAccountRepository(pool, clock)
+	personalAccountRepository, err := apiRepository.NewPersonalAccountRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Personal Account repository: %w", err)
 	}
-	sharedAccountRepository, err := accountinfra.NewPostgresSharedAccountRepository(pool, clock)
+	sharedAccountRepository, err := apiRepository.NewSharedAccountRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Shared Account repository: %w", err)
 	}
 
-	personalVaultRepository, err := vaultmanagementinfra.NewPostgresPersonalVaultRepository(pool, clock)
+	personalVaultRepository, err := apiRepository.NewPersonalVaultRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Personal Vault repository: %w", err)
 	}
-	sharedVaultRepository, err := vaultmanagementinfra.NewPostgresSharedVaultRepository(pool, clock)
+	sharedVaultRepository, err := apiRepository.NewSharedVaultRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Shared Vault repository: %w", err)
 	}
-	personalVaultInitializer, err := vaultmanagementinfra.NewPostgresPersonalVaultInitializer(pool, clock)
+	personalVaultInitializer, err := apiRepository.NewPersonalVaultInitializer(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Personal Vault initializer: %w", err)
 	}
-	personalVaultInitializationService := vaultmanagementapp.NewPersonalVaultInitializationService(personalVaultInitializer)
-	destructivePersonalVaultResetRepository, err := vaultmanagementinfra.NewPostgresDestructivePersonalVaultResetRepository(pool, clock)
+	personalVaultInitializationService := apiService.NewPersonalVaultInitializationService(personalVaultInitializer)
+	destructivePersonalVaultResetRepository, err := apiRepository.NewDestructivePersonalVaultResetRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create destructive Personal Vault reset repository: %w", err)
 	}
-	sharedVaultRecoveryRepository, err := vaultmanagementinfra.NewPostgresSharedVaultRecoveryRepository(pool, clock)
+	sharedVaultRecoveryRepository, err := apiRepository.NewSharedVaultRecoveryRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Shared Vault recovery repository: %w", err)
 	}
-	vaultKeyRotationRepository, err := vaultmanagementinfra.NewPostgresVaultKeyRotationRepository(pool, clock)
+	vaultKeyRotationRepository, err := apiRepository.NewVaultKeyRotationRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Vault key rotation repository: %w", err)
 	}
 
-	sharedVaultAccessRepository, err := vaultmembershipinfra.NewPostgresSharedVaultAccessRepository(pool)
+	sharedVaultAccessRepository, err := apiRepository.NewSharedVaultAccessRepository(pool)
 	if err != nil {
 		return nil, fmt.Errorf("create Shared Vault access repository: %w", err)
 	}
-	membershipLifecycleRepository, err := vaultmembershipinfra.NewPostgresMembershipLifecycleRepository(pool, clock)
+	membershipLifecycleRepository, err := apiRepository.NewMembershipLifecycleRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create membership lifecycle repository: %w", err)
 	}
-	secureShareLinkRepository, err := vaultmembershipinfra.NewPostgresSecureShareLinkRepository(pool, clock)
+	secureShareLinkRepository, err := apiRepository.NewSecureShareLinkRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Secure Share Link repository: %w", err)
 	}
-	sharedVaultPermissionRepository, err := vaultmembershipinfra.NewPostgresSharedVaultAccountPermissionRepository(pool, clock)
+	sharedVaultPermissionRepository, err := apiRepository.NewSharedVaultAccountPermissionRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Shared Vault permission repository: %w", err)
 	}
-	applicationUserEmailReader, err := identityinfra.NewPostgresApplicationUserEmailReader(pool)
+	applicationUserEmailReader, err := apiRepository.NewApplicationUserEmailReader(pool)
 	if err != nil {
 		return nil, fmt.Errorf("create Application User email reader: %w", err)
 	}
-	vaultParticipantRepository, err := vaultmembershipinfra.NewPostgresVaultParticipantRepository(pool, applicationUserEmailReader, clock)
+	vaultParticipantRepository, err := apiRepository.NewVaultParticipantRepository(pool, applicationUserEmailReader, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Vault participant repository: %w", err)
 	}
 
-	vaultAuditRepository, err := auditinfra.NewPostgresVaultAuditRepository(pool, clock)
+	vaultAuditRepository, err := apiRepository.NewVaultAuditRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create Vault audit repository: %w", err)
 	}
-	workspaceBundleReader, err := syncinfra.NewPostgresWorkspaceBundleReader(pool, clock)
+	workspaceBundleReader, err := apiRepository.NewWorkspaceBundleReader(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create workspace bundle reader: %w", err)
 	}
-	encryptedVaultImportRepository, err := vaultarchiveinfra.NewPostgresEncryptedVaultImportRepository(pool, clock)
+	encryptedVaultImportRepository, err := apiRepository.NewEncryptedVaultImportRepository(pool, clock)
 	if err != nil {
 		return nil, fmt.Errorf("create encrypted Vault import repository: %w", err)
 	}
-	retentionRepository, err := retentioninfra.NewPostgresRetentionPurgeRepository(pool)
+	retentionRepository, err := apiRepository.NewRetentionPurgeRepository(pool)
 	if err != nil {
 		return nil, fmt.Errorf("create retention repository: %w", err)
 	}
-	retentionService := retentionapp.NewService(retentionRepository)
+	retentionService := apiService.NewService(retentionRepository)
 
 	deletionSessionSecret, deletionAnonymousSecret, err := accountDeletionSecrets(authConfiguration)
 	if err != nil {
 		return nil, err
 	}
-	previewRepository, err := accountdeletioninfra.NewPostgresPreviewRepository(pool)
+	previewRepository, err := apiRepository.NewPreviewRepository(pool)
 	if err != nil {
 		return nil, fmt.Errorf("create account deletion preview repository: %w", err)
 	}
-	deletionRepository, err := accountdeletioninfra.NewPostgresDeletionRepository(pool, deletionSessionSecret, deletionAnonymousSecret)
+	deletionRepository, err := apiRepository.NewDeletionRepository(pool, deletionSessionSecret, deletionAnonymousSecret)
 	if err != nil {
 		return nil, fmt.Errorf("create account deletion repository: %w", err)
 	}
-	otpRepository, err := accountdeletioninfra.NewPostgresPasswordlessOTPRepository(pool, deletionSessionSecret)
+	otpRepository, err := apiRepository.NewPasswordlessOTPRepository(pool, deletionSessionSecret)
 	if err != nil {
 		return nil, fmt.Errorf("create account deletion OTP repository: %w", err)
 	}
-	deletionEmailSender, err := accountdeletionadapter.NewSMTPEmailSender(emailDelivery)
+	deletionEmailSender, err := apiService.NewAccountDeletionSMTPEmailSender(emailDelivery)
 	if err != nil {
 		return nil, fmt.Errorf("create account deletion email sender: %w", err)
 	}
@@ -305,7 +283,7 @@ func NewRouter(
 	groups := []map[string]httpapi.OperationHandler{
 		httpapi.SystemHandlers(clock),
 		identityHandlers.OperationHandlers(),
-		accountdeletionhttp.NewHandlers(
+		apiHandler.NewAccountDeletionHandlers(
 			identityHandlers,
 			previewRepository,
 			otpRepository,
@@ -316,27 +294,27 @@ func NewRouter(
 			environment.WebOrigin,
 			clock,
 		).OperationHandlers(),
-		accounthttp.NewPersonalAccountHandlers(identityHandlers, personalAccountRepository).OperationHandlers(),
-		accounthttp.NewSharedAccountHandlers(identityHandlers, sharedAccountRepository).OperationHandlers(),
-		vaultmanagementhttp.NewHandlers(vaultmanagementhttp.Dependencies{
+		apiHandler.NewPersonalAccountHandlers(identityHandlers, personalAccountRepository).OperationHandlers(),
+		apiHandler.NewSharedAccountHandlers(identityHandlers, sharedAccountRepository).OperationHandlers(),
+		apiHandler.NewVaultManagementHandlers(apiHandler.VaultManagementDependencies{
 			Authorizer:     identityHandlers,
 			Initializer:    personalVaultInitializationService,
 			PersonalVaults: personalVaultRepository,
 			SharedVaults:   sharedVaultRepository,
 			Resets:         destructivePersonalVaultResetRepository,
 		}).OperationHandlers(),
-		vaultmanagementhttp.NewSharedVaultRecoveryHandlers(identityHandlers, sharedVaultRecoveryRepository).OperationHandlers(),
-		vaultmanagementhttp.NewVaultKeyRotationHandlers(identityHandlers, vaultKeyRotationRepository).OperationHandlers(),
-		vaultmembershiphttp.NewSharedVaultAccessHandlers(identityHandlers, sharedVaultAccessRepository).OperationHandlers(),
-		vaultmembershiphttp.NewMembershipLifecycleHandlers(identityHandlers, membershipLifecycleRepository).OperationHandlers(),
-		vaultmembershiphttp.NewSecureShareLinkHandlers(identityHandlers, secureShareLinkRepository).OperationHandlers(),
-		vaultmembershiphttp.NewSharedVaultPermissionHandlers(identityHandlers, sharedVaultPermissionRepository).OperationHandlers(),
-		vaultmembershiphttp.NewVaultParticipantHandlers(identityHandlers, vaultParticipantRepository).OperationHandlers(),
-		audithttp.NewVaultAuditHandlers(identityHandlers, vaultAuditRepository).OperationHandlers(),
-		vaultarchivehttp.NewArchiveExportHandlers(identityHandlers, vaultAuditRepository).OperationHandlers(),
-		vaultarchivehttp.NewEncryptedVaultImportHandlers(identityHandlers, encryptedVaultImportRepository).OperationHandlers(),
-		synchtml.NewHandlers(identityHandlers, workspaceBundleReader).OperationHandlers(),
-		retentionhttp.NewHandlers(environment.CronSecret, retentionService, logger, clock, nil).OperationHandlers(),
+		apiHandler.NewSharedVaultRecoveryHandlers(identityHandlers, sharedVaultRecoveryRepository).OperationHandlers(),
+		apiHandler.NewVaultKeyRotationHandlers(identityHandlers, vaultKeyRotationRepository).OperationHandlers(),
+		apiHandler.NewSharedVaultAccessHandlers(identityHandlers, sharedVaultAccessRepository).OperationHandlers(),
+		apiHandler.NewMembershipLifecycleHandlers(identityHandlers, membershipLifecycleRepository).OperationHandlers(),
+		apiHandler.NewSecureShareLinkHandlers(identityHandlers, secureShareLinkRepository).OperationHandlers(),
+		apiHandler.NewSharedVaultPermissionHandlers(identityHandlers, sharedVaultPermissionRepository).OperationHandlers(),
+		apiHandler.NewVaultParticipantHandlers(identityHandlers, vaultParticipantRepository).OperationHandlers(),
+		apiHandler.NewVaultAuditHandlers(identityHandlers, vaultAuditRepository).OperationHandlers(),
+		apiHandler.NewArchiveExportHandlers(identityHandlers, vaultAuditRepository).OperationHandlers(),
+		apiHandler.NewEncryptedVaultImportHandlers(identityHandlers, encryptedVaultImportRepository).OperationHandlers(),
+		apiHandler.NewSyncHandlers(identityHandlers, workspaceBundleReader).OperationHandlers(),
+		apiHandler.NewRetentionHandlers(environment.CronSecret, retentionService, logger, clock, nil).OperationHandlers(),
 	}
 	handlers, err := mergeOperationHandlers(groups...)
 	if err != nil {
@@ -351,15 +329,15 @@ func NewRouter(
 
 func createEmailDelivery(
 	environment config.Environment,
-	authConfiguration identityadapter.AuthConfiguration,
-) (identity.EmailDelivery, identityapp.MagicLinkEmailSender, error) {
-	if authConfiguration.Backend == identityadapter.AuthBackendNone {
+	authConfiguration apiService.AuthConfiguration,
+) (apiService.EmailDelivery, apiService.MagicLinkEmailSender, error) {
+	if authConfiguration.Backend == apiService.AuthBackendNone {
 		return unavailableEmailDelivery{}, nil, nil
 	}
-	if authConfiguration.Backend != identityadapter.AuthBackendPasswordless {
+	if authConfiguration.Backend != apiService.AuthBackendPasswordless {
 		return nil, nil, errors.New("API authentication backend is unsupported")
 	}
-	smtpConfiguration, err := identityadapter.ReadSMTPConfiguration(identityadapter.SMTPEnvironment{
+	smtpConfiguration, err := apiService.ReadSMTPConfiguration(apiService.SMTPEnvironment{
 		Host:        environment.SMTPHost,
 		Port:        environment.SMTPPort,
 		Production:  environment.NodeEnvironment == "production",
@@ -374,7 +352,7 @@ func createEmailDelivery(
 	if err != nil {
 		return nil, nil, fmt.Errorf("read SMTP configuration: %w", err)
 	}
-	sender, err := identityadapter.NewSMTPEmailSender(smtpConfiguration)
+	sender, err := apiService.NewIdentitySMTPEmailSender(smtpConfiguration)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create SMTP email sender: %w", err)
 	}
@@ -385,19 +363,19 @@ func createPasskeyRecoveryWebAuthn(environment config.Environment) *webauthn.Web
 	if environment.PasskeyRPID == "" || environment.PasskeyOrigin == "" {
 		return nil
 	}
-	configuration, err := identityadapter.ReadPasskeyRecoveryConfiguration(environment.PasskeyRPID, environment.PasskeyOrigin)
+	configuration, err := apiService.ReadPasskeyRecoveryConfiguration(environment.PasskeyRPID, environment.PasskeyOrigin)
 	if err != nil {
 		return nil
 	}
-	webAuthn, err := identityadapter.NewPasskeyRecoveryWebAuthn(configuration)
+	webAuthn, err := apiService.NewPasskeyRecoveryWebAuthn(configuration)
 	if err != nil {
 		return nil
 	}
 	return webAuthn
 }
 
-func accountDeletionSecrets(configuration identityadapter.AuthConfiguration) ([]byte, []byte, error) {
-	if configuration.Backend == identityadapter.AuthBackendPasswordless && configuration.Passwordless != nil {
+func accountDeletionSecrets(configuration apiService.AuthConfiguration) ([]byte, []byte, error) {
+	if configuration.Backend == apiService.AuthBackendPasswordless && configuration.Passwordless != nil {
 		return configuration.Passwordless.SessionSecret, configuration.Passwordless.MagicLinkSecret, nil
 	}
 	sessionSecret := make([]byte, 32)
@@ -427,16 +405,16 @@ func mergeOperationHandlers(groups ...map[string]httpapi.OperationHandler) (map[
 
 type disabledSessionVerifier struct{}
 
-func (disabledSessionVerifier) Verify(context.Context, identityapp.SessionCredentials, identityapp.SessionAssurance) (*identityapp.Principal, error) {
+func (disabledSessionVerifier) Verify(context.Context, apiService.SessionCredentials, apiService.SessionAssurance) (*apiService.Principal, error) {
 	return nil, nil
 }
 
 type unavailableEmailDelivery struct{}
 
-func (unavailableEmailDelivery) SendEmail(context.Context, string, identity.EmailMessage) error {
+func (unavailableEmailDelivery) SendEmail(context.Context, string, apiService.EmailMessage) error {
 	return errors.New("email delivery is unavailable")
 }
 
-var _ identityapp.SessionVerifier = disabledSessionVerifier{}
-var _ identity.EmailDelivery = unavailableEmailDelivery{}
+var _ apiService.SessionVerifier = disabledSessionVerifier{}
+var _ apiService.EmailDelivery = unavailableEmailDelivery{}
 var _ http.Handler = (*echo.Echo)(nil)

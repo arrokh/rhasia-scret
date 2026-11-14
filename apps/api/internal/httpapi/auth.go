@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
+	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
 )
 
 type ApplicationRequestAuthorizer interface {
@@ -13,21 +13,21 @@ type ApplicationRequestAuthorizer interface {
 }
 
 type ApplicationUserRequestAuthorizer interface {
-	AuthorizeApplicationUserRequest(*echo.Context, string) (identityapp.ApplicationUser, bool, error)
+	AuthorizeApplicationUserRequest(*echo.Context, string) (apiService.ApplicationUser, bool, error)
 }
 
-func AuthenticateApplicationReader(ctx *echo.Context, authenticator identityapp.Authenticator, assurance identityapp.SessionAssurance) (*identityapp.ApplicationUser, error) {
+func AuthenticateApplicationReader(ctx *echo.Context, authenticator apiService.Authenticator, assurance apiService.SessionAssurance) (*apiService.ApplicationUser, error) {
 	return authenticateApplicationRequest(ctx, authenticator, assurance, "")
 }
 
-func AuthenticateApplicationMutation(ctx *echo.Context, authenticator identityapp.Authenticator, operation string, assurance identityapp.SessionAssurance) (*identityapp.ApplicationUser, error) {
+func AuthenticateApplicationMutation(ctx *echo.Context, authenticator apiService.Authenticator, operation string, assurance apiService.SessionAssurance) (*apiService.ApplicationUser, error) {
 	return authenticateApplicationRequest(ctx, authenticator, assurance, operation)
 }
 
-func authenticateApplicationRequest(ctx *echo.Context, authenticator identityapp.Authenticator, assurance identityapp.SessionAssurance, operation string) (*identityapp.ApplicationUser, error) {
+func authenticateApplicationRequest(ctx *echo.Context, authenticator apiService.Authenticator, assurance apiService.SessionAssurance, operation string) (*apiService.ApplicationUser, error) {
 	request := ctx.Request()
-	result, err := authenticator.Authorize(request.Context(), identityapp.RequestAuthorization{
-		Credentials: identityapp.SessionCredentials{
+	result, err := authenticator.Authorize(request.Context(), apiService.RequestAuthorization{
+		Credentials: apiService.SessionCredentials{
 			AuthorizationPresent: len(request.Header.Values("Authorization")) > 0,
 			CookieHeader:         request.Header.Get("Cookie"),
 			TrustedProxy:         IsProxyRequest(ctx),

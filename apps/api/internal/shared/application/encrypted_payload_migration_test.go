@@ -1,6 +1,8 @@
 package application
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestValidateEncryptedPayloadMigration(t *testing.T) {
 	expected := make([]byte, 64)

@@ -17,7 +17,7 @@ Do not add arbitrary support modules, route-local component directories, infrast
 | Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
 | Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                             |
 | Reusable UI primitives                                                 | `src/components/ui/`                                                                                   |
-| API route handlers and server composition                              | `apps/api/internal/handler/<context>/` and `apps/api/internal/app/api/`                                |
+| API route handlers and server composition                              | `apps/api/internal/handler/` and `apps/api/internal/app/api/`                                          |
 | Same-origin browser API proxy                                          | `src/app/api/[...path]/route.ts`                                                                       |
 | Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                           |
 | Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                             |

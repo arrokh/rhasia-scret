@@ -10,10 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/adapter/identity"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
-	identityapp "github.com/nooroctavian/rhasia-scret/apps/api/internal/service/identity"
+	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
 )
 
 func TestNewRouterRegistersEveryOpenAPIOperation(t *testing.T) {
@@ -47,9 +46,9 @@ func TestAuthBackendNoneFailsClosedForApplicationRoutes(t *testing.T) {
 func TestNewApplicationSessionVerifierUsesPasswordlessWhenE2EIsDisabled(t *testing.T) {
 	verifier, err := newApplicationSessionVerifier(
 		config.Environment{NodeEnvironment: "development", E2EBrowserTests: "0"},
-		identityinfra.AuthConfiguration{
-			Backend: identityinfra.AuthBackendPasswordless,
-			Passwordless: &identityapp.PasswordlessConfiguration{
+		apiService.AuthConfiguration{
+			Backend: apiService.AuthBackendPasswordless,
+			Passwordless: &apiService.PasswordlessConfiguration{
 				SessionSecret: []byte(strings.Repeat("x", 32)),
 			},
 		},
@@ -69,14 +68,14 @@ func TestNewApplicationSessionVerifierUsesEnabledE2EVerifier(t *testing.T) {
 		config.Environment{
 			NodeEnvironment: "development", E2EBrowserTests: "1", E2EBrowserTestUsers: "{}",
 		},
-		identityinfra.AuthConfiguration{Backend: identityinfra.AuthBackendPasswordless},
+		apiService.AuthConfiguration{Backend: apiService.AuthBackendPasswordless},
 		nil,
 		time.Now,
 	)
 	if err != nil {
 		t.Fatalf("enabled E2E verifier error = %v", err)
 	}
-	if _, ok := verifier.(*identityinfra.E2ESessionVerifier); !ok {
+	if _, ok := verifier.(*apiService.E2ESessionVerifier); !ok {
 		t.Fatalf("session verifier = %T, want *E2ESessionVerifier", verifier)
 	}
 }

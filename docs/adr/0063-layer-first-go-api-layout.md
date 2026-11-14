@@ -6,36 +6,32 @@
 
 ## Context
 
-The Go API was initially organized by bounded context, with application, domain, infrastructure, and HTTP packages nested under each context. The maintainer requested a flatter, horizontal layout modeled on the BGN API so a contributor can find a technical layer from one stable location.
+The Go API was initially organized by bounded context, with application, domain, infrastructure, and HTTP packages nested under each context. The maintainer requested a flatter layout modeled on the BGN API so contributors can find a technical layer from one stable location.
 
-The API also carries strict authorization, encryption, and client/server boundaries. A single global Go package per layer would erase useful package boundaries, create identifier collisions, and make unrelated contexts easier to couple. Some module-root packages are intentional cross-context APIs.
+The API also has strict authorization, encryption, and client/server boundaries. Context subpackages preserve Go package-level isolation, but make the layout less like the reference and introduce many import paths. The maintainer approved flattening each implementation layer into a single Go package to match the reference more closely.
 
 ## Decision
 
-Organize implementation packages by technical layer first and bounded context second:
+Organize implementation code by technical layer and keep each layer in one flat Go package:
 
 ```text
 apps/api/internal/
-├── app/api/                 # Runtime composition
-├── adapter/<context>/       # SMTP, auth-provider, and other outbound adapters
-├── entity/<context>/        # Domain types and rules
-├── handler/<context>/       # HTTP presentation handlers
-├── repository/<context>/    # PostgreSQL persistence adapters
-├── service/<context>/       # Application use cases and ports
-└── modules/<context>/       # Context-owned public APIs where required
+├── app/api/       # Runtime composition
+├── entity/        # Domain types and rules
+├── handler/       # HTTP presentation handlers
+├── repository/    # PostgreSQL persistence adapters
+└── service/       # Application use cases, ports, and outbound adapters
 ```
 
-Move HTTP handlers out of `modules/<context>/presentation/http`, application workflows out of `modules/<context>/application`, domain code out of `modules/<context>/domain`, and infrastructure into `repository` or `adapter` according to its role. The server-composition package belongs under `internal/app/api`.
+Use context-prefixed filenames (for example, `identity_*.go` and `vault_membership_*.go`) to keep ownership visible. The old `adapter/<context>` implementations now live in `service`; `modules/<context>` facades are removed. Shared transport, configuration, PostgreSQL-pool, localization, and test-support packages retain their existing ownership.
 
-Keep one package per context inside each technical layer. Do not merge every context into one giant `handler`, `service`, or `repository` Go package. Cross-context calls continue through the owning context's public API where one exists. Module-root packages may expose aliases and delegate to the owning layer, but SQL persistence and outbound-provider implementations belong in `repository` or `adapter`, not in those facades. Shared transport, configuration, PostgreSQL-pool, and test-support packages retain their existing ownership.
-
-This is a directory and import-path change only. Preserve all HTTP routes and wire contracts, SQL behavior, authorization order, encryption boundaries, audit redaction, logging, lifecycle behavior, and dependency/toolchain choices. Do not add a new ORM or runtime framework to imitate the reference API.
+This intentionally trades package-level isolation between bounded contexts for the single-package-per-layer layout. Preserve context ownership in names, interfaces, and use-case design; do not use the flatter package as a reason to couple unrelated contexts or weaken authorization, encryption, audit-redaction, or client/server boundaries. Keep composition in `internal/app/api`. This is a directory and import-path change only: preserve routes and wire contracts, SQL behavior, authorization order, encryption boundaries, logging, lifecycle behavior, and dependency/toolchain choices. Do not add an ORM or runtime framework to imitate the reference API.
 
 This ADR supersedes the prior Go API plan's package-layout recommendation only. The plan's Go/Echo, pgx, OpenAPI, Sqitch, deployment, and security decisions remain in force.
 
 ## Consequences
 
-- `apps/api/internal` exposes a short, stable list of horizontal layers while context subpackages preserve ownership and package isolation.
-- Go import paths change and all code, tests, architecture fixtures, tooling, and current documentation must use the new paths.
+- `apps/api/internal` exposes four flat implementation packages. Go package-level context isolation is no longer enforced by directories, so names and tests must keep ownership explicit.
+- Go import paths change and all code, tests, architecture fixtures, tooling, and current documentation must use the flat layer paths.
 - The generated OpenAPI contract and deployed `/v1/**` behavior do not change.
-- A Go architecture test prevents implementation layers from being nested back under `internal/modules/<context>`.
+- A Go architecture test prevents implementation files from being nested under the flat layer roots and checks that each root contains its matching package. It also guards removal of the obsolete `adapter` and `modules` directories.
