@@ -33,6 +33,15 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.4.0]
+
+<!-- Draft generated from first-parent history v0.3.3..0e3a5151502712f1df28b836ff71a78893c72489 (first-parent, exclusive of tag); release-base 0e3a5151502712f1df28b836ff71a78893c72489. Review and curate before publication. -->
+
+### Changes
+
+- [api][chore] Migrate API runtime and schema to Go and Sqitch (#329)
+- [api][chore] Retire TypeScript API oracle and localize email (#333)
+
 ## [0.3.3]
 
 <!-- Draft generated from first-parent history v0.3.2..e9c94ab664df560aa38a66c1f6cd8eaef46bd0df (first-parent, exclusive of tag); release-base e9c94ab664df560aa38a66c1f6cd8eaef46bd0df. Review and curate before publication. -->
