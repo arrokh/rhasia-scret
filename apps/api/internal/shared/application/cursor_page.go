@@ -1,6 +1,8 @@
 package application
 
-import "time"
+import (
+	"time"
+)
 
 type TimestampCursor struct {
 	CreatedAt time.Time

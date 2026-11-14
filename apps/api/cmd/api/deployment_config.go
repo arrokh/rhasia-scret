@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/app/api"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
-	"github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/server-composition"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/postgres"
 )
 

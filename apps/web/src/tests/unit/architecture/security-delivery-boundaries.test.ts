@@ -106,18 +106,12 @@ describe("browser-delivery security boundaries", () => {
     const mutationHooks = read(
       "src/modules/authenticator-account/presentation/hooks/use-authenticator-account-mutations.ts",
     );
-    const personalApi = read(
-      "../../apps/api/internal/modules/authenticator-account/presentation/http/personal_account_handlers.go",
-    );
-    const sharedApi = read(
-      "../../apps/api/internal/modules/authenticator-account/presentation/http/shared_account_handlers.go",
-    );
+    const personalApi = read("../../apps/api/internal/handler/authenticator_account_personal_account_handlers.go");
+    const sharedApi = read("../../apps/api/internal/handler/authenticator_account_shared_account_handlers.go");
     const personalApiTest = read(
-      "../../apps/api/internal/modules/authenticator-account/presentation/http/personal_account_handlers_test.go",
+      "../../apps/api/internal/handler/authenticator_account_personal_account_handlers_test.go",
     );
-    const sharedApiTest = read(
-      "../../apps/api/internal/modules/authenticator-account/presentation/http/shared_account_handlers_test.go",
-    );
+    const sharedApiTest = read("../../apps/api/internal/handler/authenticator_account_shared_account_handlers_test.go");
 
     expect(payload).toContain("tags,");
     expect(payload).toContain("version: 2");

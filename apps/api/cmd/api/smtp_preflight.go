@@ -9,7 +9,7 @@ import (
 
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/localization"
-	identityinfra "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/identity/infrastructure"
+	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
 )
 
 func runSMTPPreflight() error {
@@ -19,7 +19,7 @@ func runSMTPPreflight() error {
 	if err != nil {
 		return errors.New("SMTP preflight configuration is invalid")
 	}
-	configuration, err := identityinfra.ReadSMTPConfiguration(identityinfra.SMTPEnvironment{
+	configuration, err := apiService.ReadSMTPConfiguration(apiService.SMTPEnvironment{
 		Host:        environment.SMTPHost,
 		Port:        environment.SMTPPort,
 		Production:  environment.NodeEnvironment == "production",
@@ -34,7 +34,7 @@ func runSMTPPreflight() error {
 	if err != nil {
 		return errors.New("SMTP preflight configuration is invalid")
 	}
-	sender, err := identityinfra.NewSMTPEmailSender(configuration)
+	sender, err := apiService.NewIdentitySMTPEmailSender(configuration)
 	if err != nil {
 		return errors.New("SMTP preflight sender is not configured")
 	}
