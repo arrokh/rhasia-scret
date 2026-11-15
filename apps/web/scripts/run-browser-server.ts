@@ -13,6 +13,7 @@ const apiDirectory = resolve(process.cwd(), "../api");
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
 // Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
+  "NODE_ENV",
   "DIRECT_URL",
   "API_PROXY_SECRET",
   "POSTGRES_DB",
@@ -27,6 +28,7 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
   "AUTH_ADMITTED_EMAILS",
 ];
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
+  "RHSIA_RUNTIME_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "POSTGRES_DB",
@@ -66,6 +68,7 @@ async function main(): Promise<void> {
       {
         PORT: apiPort,
         NODE_ENV: "development",
+        RHSIA_RUNTIME_ENV: "development",
         WEB_ORIGIN: webOrigin,
         PROXY_SECRET: proxySecret,
         API_ORIGIN: apiOrigin,

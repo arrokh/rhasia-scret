@@ -22,7 +22,7 @@ import (
 func readAuthConfiguration(environment config.Environment) (apiService.AuthConfiguration, error) {
 	authEnvironment := apiService.AuthEnvironment{
 		AuthBackend:            environment.AuthBackend,
-		NodeEnvironment:        environment.NodeEnvironment,
+		RuntimeEnvironment:     environment.RuntimeEnvironment,
 		DeploymentTarget:       environment.DeploymentTarget,
 		WebOrigin:              environment.WebOrigin,
 		AuthAppOrigin:          environment.AuthAppOrigin,
@@ -47,7 +47,7 @@ func newApplicationSessionVerifier(
 	clock func() time.Time,
 ) (apiService.SessionVerifier, error) {
 	e2eVerifier := apiService.NewE2ESessionVerifier(
-		environment.NodeEnvironment,
+		environment.RuntimeEnvironment,
 		environment.E2EBrowserTests,
 		environment.E2EBrowserTestUsers,
 	)
@@ -176,7 +176,7 @@ func NewRouter(
 		AnonymousRateLimiter:       anonymousRateLimiter,
 		Turnstile:                  turnstile,
 		Logger:                     logger,
-		NodeEnvironment:            environment.NodeEnvironment,
+		RuntimeEnvironment:         environment.RuntimeEnvironment,
 		E2EBrowserTests:            environment.E2EBrowserTests,
 		Now:                        clock,
 	})
@@ -340,7 +340,7 @@ func createEmailDelivery(
 	smtpConfiguration, err := apiService.ReadSMTPConfiguration(apiService.SMTPEnvironment{
 		Host:        environment.SMTPHost,
 		Port:        environment.SMTPPort,
-		Production:  environment.NodeEnvironment == "production",
+		Production:  environment.RuntimeEnvironment == "production",
 		Secure:      environment.SMTPSecure,
 		RequireTLS:  environment.SMTPRequireTLS,
 		Username:    environment.SMTPUser,

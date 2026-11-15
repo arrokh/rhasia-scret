@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     init: true
     environment:
-      NODE_ENV: production
+      RHSIA_RUNTIME_ENV: production
       PORT: 8787
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       PROXY_SECRET: ${PROXY_SECRET:?PROXY_SECRET must be set in .env}

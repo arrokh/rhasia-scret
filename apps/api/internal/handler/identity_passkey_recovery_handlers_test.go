@@ -321,7 +321,7 @@ func TestPasskeyRecoveryRegistrationVerificationGatesE2EAndClearsInputs(t *testi
 	body := `{"response":` + responseJSON + `,"encryptedRecoveryPackage":"` + base64.StdEncoding.EncodeToString(packageBytes) + `"}`
 	repository := &passkeyRecoveryRepositoryStub{challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryRegistrationPurpose}
 	dependencies, limiter, verifier := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryRegistrationVerify"]
 	requestBody := body
@@ -356,7 +356,7 @@ func TestPasskeyRecoveryRealRegistrationAndAuthenticationCeremonies(t *testing.T
 	recoveryPackage := syntheticPasskeyPackage(16)
 	repository := &passkeyRecoveryRepositoryStub{updated: true}
 	dependencies, limiter, verifier := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "production"
+	dependencies.RuntimeEnvironment = "production"
 	dependencies.E2EBrowserTests = "1"
 	handlers := NewIdentityHandlers(dependencies).OperationHandlers()
 
@@ -495,7 +495,7 @@ func TestPasskeyRecoveryRegistrationRejectsPRFResultsAndExpiredChallenge(t *test
 	body := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(credentialID) + `","type":"public-key","clientExtensionResults":{"prf":{"enabled":true,"results":{"first":"synthetic-prf-output"}}}},"encryptedRecoveryPackage":"` + packageBytes + `"}`
 	repository := &passkeyRecoveryRepositoryStub{challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryRegistrationPurpose}
 	dependencies, _, _ := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "production"
+	dependencies.RuntimeEnvironment = "production"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryRegistrationVerify"]
 	response := invokePasskeyRecoveryHandler(t, handler, http.MethodPost, "/v1/passkey-recovery/registration/verify", body)
@@ -521,7 +521,7 @@ func TestPasskeyRecoveryRegistrationRejectsPRFOutputEvenOnE2EPath(t *testing.T) 
 	body := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(credentialID) + `","type":"public-key","clientExtensionResults":{"browserE2eTest":true,"prf":{"enabled":true,"results":{"first":"synthetic-prf-output"}}}},"encryptedRecoveryPackage":"` + packageBytes + `"}`
 	repository := &passkeyRecoveryRepositoryStub{challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryRegistrationPurpose}
 	dependencies, _, _ := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryRegistrationVerify"]
 	response := invokePasskeyRecoveryHandler(t, handler, http.MethodPost, "/v1/passkey-recovery/registration/verify", body)
@@ -541,7 +541,7 @@ func TestPasskeyRecoveryAuthenticationVerificationCASAndRejectsPRFOutput(t *test
 		challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryAuthenticationPurpose, updated: true,
 	}
 	dependencies, limiter, verifier := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryAuthenticationVerify"]
 	body := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(credentialID) + `","type":"public-key","clientExtensionResults":{"browserE2eTest":true},"response":{}}}`
@@ -564,7 +564,7 @@ func TestPasskeyRecoveryAuthenticationVerificationCASAndRejectsPRFOutput(t *test
 		challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryAuthenticationPurpose,
 	}
 	dependencies, _, _ = authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler = NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryAuthenticationVerify"]
 	leakedPRF := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(credentialID) + `","type":"public-key","clientExtensionResults":{"browserE2eTest":true,"prf":{"results":{"first":"synthetic-prf-output"}}},"response":{}}}`
@@ -585,7 +585,7 @@ func TestPasskeyRecoveryAuthenticationVerificationRequiresCounterCAS(t *testing.
 		challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryAuthenticationPurpose,
 	}
 	dependencies, _, _ := authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryAuthenticationVerify"]
 	body := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(credentialID) + `","type":"public-key","clientExtensionResults":{"browserE2eTest":true},"response":{}}}`
@@ -599,7 +599,7 @@ func TestPasskeyRecoveryAuthenticationRejectsMissingCredentialAndExtensionOutput
 	dependencies, _, _ := authenticatedPasskeyRecoveryDependencies(&passkeyRecoveryRepositoryStub{
 		challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryAuthenticationPurpose,
 	})
-	dependencies.NodeEnvironment = "production"
+	dependencies.RuntimeEnvironment = "production"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryAuthenticationVerify"]
 	response := invokePasskeyRecoveryHandler(t, handler, http.MethodPost, "/v1/passkey-recovery/authentication/verify", `{"response":{}}`)
 	if response.Code != http.StatusBadRequest || response.Body.String() != "{\"error\":\"passkey_challenge_expired\"}\n" {
@@ -615,7 +615,7 @@ func TestPasskeyRecoveryAuthenticationRejectsMissingCredentialAndExtensionOutput
 		challenge: passkeyTestChallenge(), challengePurpose: apiService.PasskeyRecoveryAuthenticationPurpose,
 	}
 	dependencies, _, _ = authenticatedPasskeyRecoveryDependencies(repository)
-	dependencies.NodeEnvironment = "production"
+	dependencies.RuntimeEnvironment = "production"
 	handler = NewIdentityHandlers(dependencies).OperationHandlers()["postPasskeyrecoveryAuthenticationVerify"]
 	body := `{"response":{"id":"` + base64.RawURLEncoding.EncodeToString(validID) + `","type":"public-key","clientExtensionResults":{"hmacGetSecret":{"output1":"synthetic-secret"}},"response":{}}}`
 	response = invokePasskeyRecoveryHandler(t, handler, http.MethodPost, "/v1/passkey-recovery/authentication/verify", body)

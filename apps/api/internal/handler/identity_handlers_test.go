@@ -515,7 +515,7 @@ func TestRevokeSessionIsIdempotentAndClearsCredentialCookies(t *testing.T) {
 	service := &fakePasswordlessService{revokeError: errors.New("synthetic database error")}
 	dependencies := defaultDependencies()
 	dependencies.Passwordless = service
-	dependencies.NodeEnvironment = "development"
+	dependencies.RuntimeEnvironment = "development"
 	dependencies.E2EBrowserTests = "1"
 	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postAuthSessionRevoke"]
 	headers := requestHeaders(testWebOrigin)

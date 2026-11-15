@@ -22,7 +22,7 @@ func runSMTPPreflight() error {
 	configuration, err := apiService.ReadSMTPConfiguration(apiService.SMTPEnvironment{
 		Host:        environment.SMTPHost,
 		Port:        environment.SMTPPort,
-		Production:  environment.NodeEnvironment == "production",
+		Production:  environment.RuntimeEnvironment == "production",
 		Secure:      environment.SMTPSecure,
 		RequireTLS:  environment.SMTPRequireTLS,
 		Username:    environment.SMTPUser,

@@ -26,7 +26,7 @@ The smoke allowlist deliberately excludes real-stack E2E, offline/PWA, and the s
 
 Passwordless email delivery and WebAuthn attestation cannot be exercised against external production services deterministically in CI. The suite therefore provides narrowly scoped deterministic adapter seams that:
 
-- are enabled only when both `NODE_ENV=development` and `E2E_BROWSER_TESTS=1`;
+- are enabled only when `E2E_BROWSER_TESTS=1` and the owning runtime is in development mode: the Go API uses `RHSIA_RUNTIME_ENV=development`, while Web-only seams use `NODE_ENV=development`;
 - accept only identities listed in `E2E_BROWSER_TEST_USERS`;
 - use an HTTP-only same-origin test cookie;
 - replace only external session and passkey verification while retaining the real encrypted recovery-package and authorization workflows;

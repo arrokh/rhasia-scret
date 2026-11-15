@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 )
 
-func BrowserE2ERegistrationCredential(response []byte, nodeEnvironment string, enabled string) ([]byte, bool) {
-	if !BrowserE2ETestsEnabled(nodeEnvironment, enabled) {
+func BrowserE2ERegistrationCredential(response []byte, runtimeEnvironment string, enabled string) ([]byte, bool) {
+	if !BrowserE2ETestsEnabled(runtimeEnvironment, enabled) {
 		return nil, false
 	}
 	fields, ok := passkeyJSONObject(response)
@@ -36,8 +36,8 @@ func BrowserE2ERegistrationCredential(response []byte, nodeEnvironment string, e
 	return credentialID, true
 }
 
-func BrowserE2EAuthenticationVerified(response []byte, expectedCredentialID []byte, nodeEnvironment string, enabled string) bool {
-	if !BrowserE2ETestsEnabled(nodeEnvironment, enabled) {
+func BrowserE2EAuthenticationVerified(response []byte, expectedCredentialID []byte, runtimeEnvironment string, enabled string) bool {
+	if !BrowserE2ETestsEnabled(runtimeEnvironment, enabled) {
 		return false
 	}
 	fields, ok := passkeyJSONObject(response)
@@ -62,8 +62,8 @@ func BrowserE2EAuthenticationVerified(response []byte, expectedCredentialID []by
 	return !userHandlePresent
 }
 
-func BrowserE2ETestsEnabled(nodeEnvironment string, enabled string) bool {
-	return nodeEnvironment == "development" && enabled == "1"
+func BrowserE2ETestsEnabled(runtimeEnvironment string, enabled string) bool {
+	return runtimeEnvironment == "development" && enabled == "1"
 }
 
 func passkeyJSONObject(raw json.RawMessage) (map[string]json.RawMessage, bool) {

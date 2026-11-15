@@ -8,7 +8,7 @@ import (
 func validAuthEnvironment() AuthEnvironment {
 	return AuthEnvironment{
 		AuthBackend:        "passwordless",
-		NodeEnvironment:    "test",
+		RuntimeEnvironment: "test",
 		WebOrigin:          "https://web.example.test",
 		AuthAppOrigin:      "https://auth.example.test",
 		MagicLinkSecret:    strings.Repeat("m", 32),
@@ -19,7 +19,7 @@ func validAuthEnvironment() AuthEnvironment {
 
 func TestReadAuthConfiguration(t *testing.T) {
 	t.Run("rejects implicit production backend", func(t *testing.T) {
-		_, err := ReadAuthConfiguration(AuthEnvironment{NodeEnvironment: "production"})
+		_, err := ReadAuthConfiguration(AuthEnvironment{RuntimeEnvironment: "production"})
 		if err == nil || !strings.Contains(err.Error(), "AUTH_BACKEND") {
 			t.Fatalf("expected explicit production backend error, got %v", err)
 		}
@@ -41,7 +41,7 @@ func TestReadAuthConfiguration(t *testing.T) {
 	})
 
 	t.Run("allows disabled authentication outside production without passwordless settings", func(t *testing.T) {
-		configuration, err := ReadAuthConfiguration(AuthEnvironment{AuthBackend: "none", NodeEnvironment: "test", TurnstileSecretKey: "invalid-for-passwordless"})
+		configuration, err := ReadAuthConfiguration(AuthEnvironment{AuthBackend: "none", RuntimeEnvironment: "test", TurnstileSecretKey: "invalid-for-passwordless"})
 		if err != nil {
 			t.Fatalf("read disabled configuration: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestReadAuthConfiguration(t *testing.T) {
 
 	t.Run("allows disabled authentication for self-hosted production", func(t *testing.T) {
 		configuration, err := ReadAuthConfiguration(AuthEnvironment{
-			AuthBackend: "none", NodeEnvironment: "production", DeploymentTarget: " selfhosted ",
+			AuthBackend: "none", RuntimeEnvironment: "production", DeploymentTarget: " selfhosted ",
 		})
 		if err != nil {
 			t.Fatalf("read local-only configuration: %v", err)
@@ -64,17 +64,17 @@ func TestReadAuthConfiguration(t *testing.T) {
 
 	t.Run("rejects disabled authentication in production unless self-hosted", func(t *testing.T) {
 		for _, test := range []struct {
-			name    string
-			nodeEnv string
-			target  string
+			name       string
+			runtimeEnv string
+			target     string
 		}{
-			{name: "production without a target", nodeEnv: "production"},
-			{name: "Vercel production", nodeEnv: "production", target: "vercel"},
-			{name: "unknown production target", nodeEnv: "production", target: "unknown"},
+			{name: "production without a target", runtimeEnv: "production"},
+			{name: "Vercel production", runtimeEnv: "production", target: "vercel"},
+			{name: "unknown production target", runtimeEnv: "production", target: "unknown"},
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				_, err := ReadAuthConfiguration(AuthEnvironment{
-					AuthBackend: "none", NodeEnvironment: test.nodeEnv, DeploymentTarget: test.target,
+					AuthBackend: "none", RuntimeEnvironment: test.runtimeEnv, DeploymentTarget: test.target,
 				})
 				if err == nil || !strings.Contains(err.Error(), "AUTH_BACKEND=none") {
 					t.Fatalf("expected hosted disabled-backend rejection, got %v", err)
@@ -85,7 +85,7 @@ func TestReadAuthConfiguration(t *testing.T) {
 
 	t.Run("allows disabled authentication in non-production Vercel previews", func(t *testing.T) {
 		configuration, err := ReadAuthConfiguration(AuthEnvironment{
-			AuthBackend: "none", NodeEnvironment: "test", DeploymentTarget: "vercel",
+			AuthBackend: "none", RuntimeEnvironment: "test", DeploymentTarget: "vercel",
 		})
 		if err != nil || configuration.Backend != AuthBackendNone {
 			t.Fatalf("read preview configuration = %#v, %v", configuration, err)
@@ -116,7 +116,7 @@ func TestReadAuthConfiguration(t *testing.T) {
 		{name: "rejects unsupported backend", mutate: func(environment *AuthEnvironment) { environment.AuthBackend = "oidc" }, wantMessage: "AUTH_BACKEND"},
 		{name: "requires HTTPS origin remotely", mutate: func(environment *AuthEnvironment) { environment.AuthAppOrigin = "http://auth.example.test" }, wantMessage: "HTTPS"},
 		{name: "rejects localhost auth origin in production", mutate: func(environment *AuthEnvironment) {
-			environment.NodeEnvironment = "production"
+			environment.RuntimeEnvironment = "production"
 			environment.AuthAppOrigin = "http://localhost:4000"
 		}, wantMessage: "HTTPS in production"},
 		{name: "rejects path in app origin", mutate: func(environment *AuthEnvironment) { environment.AuthAppOrigin = "https://auth.example.test/path" }, wantMessage: "only an origin"},
@@ -164,7 +164,7 @@ func TestReadTurnstileConfiguration(t *testing.T) {
 
 	t.Run("allows test keys only for local self-hosted production origins", func(t *testing.T) {
 		environment := validAuthEnvironment()
-		environment.NodeEnvironment = "production"
+		environment.RuntimeEnvironment = "production"
 		environment.TurnstileSecretKey = "1x0000000000000000000000000000000AA"
 		environment.WebOrigin = "http://localhost:3000"
 		environment.AuthAppOrigin = "http://localhost:4000"

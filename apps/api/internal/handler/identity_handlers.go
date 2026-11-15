@@ -70,7 +70,7 @@ type IdentityDependencies struct {
 	AnonymousRateLimiter       AnonymousAuthRateLimiter
 	Turnstile                  TurnstileValidator
 	Logger                     httpapi.APIEventLogger
-	NodeEnvironment            string
+	RuntimeEnvironment         string
 	E2EBrowserTests            string
 	Now                        func() time.Time
 }
@@ -357,7 +357,7 @@ func (handlers *IdentityHandlers) revokeSession(ctx *echo.Context) error {
 	if !isSameOriginIfPresent(request, handlers.dependencies.WebOrigin) {
 		return ctx.NoContent(http.StatusForbidden)
 	}
-	if handlers.dependencies.NodeEnvironment == "development" && handlers.dependencies.E2EBrowserTests == "1" {
+	if handlers.dependencies.RuntimeEnvironment == "development" && handlers.dependencies.E2EBrowserTests == "1" {
 		appendCookie(ctx, e2eSessionCookie, "", true, 0)
 	}
 	if handlers.dependencies.Passwordless != nil {

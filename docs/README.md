@@ -47,6 +47,7 @@ docs/
 
 - [`authentication-configuration.md`](authentication-configuration.md) — passwordless and no-sign-in configuration, route protection, sessions, and logout.
 - [`self-hosting.md`](self-hosting.md) — supported host/database/authentication matrix, environment contract, deployment procedure, local setup, and smoke test.
+- [`../apps/api/README.md`](../apps/api/README.md) — Go-only API runtime, Node tooling boundary, and API environment mode.
 - [`self-hosting-tailscale-plan.md`](self-hosting-tailscale-plan.md) — English implementation record and operator-verification checklist for terminal, browser, or manual `.env` setup and operator-selected Tailscale Serve or Funnel.
 - [`continuous-integration.md`](continuous-integration.md) — required pull-request checks, security automation, fork safety, and maintenance cadence.
 - [`retention-purge-operations.md`](retention-purge-operations.md) — scheduled deletion and audit-retention operations.

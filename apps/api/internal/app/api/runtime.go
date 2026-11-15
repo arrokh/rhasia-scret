@@ -98,7 +98,7 @@ func newVercelHandler(lookup config.LookupEnv, logger httpapi.APIEventLogger, op
 		environment.DeploymentTarget = "vercel"
 	}
 	if environmentErr == nil && isProductionDeployment(environment, lookup) {
-		environment.NodeEnvironment = "production"
+		environment.RuntimeEnvironment = "production"
 		environmentErr = config.ValidateProductionDeployment(environment)
 		if environmentErr == nil {
 			if _, err := postgres.ParseRuntimePoolConfig(environment.DatabaseURL); err != nil {
@@ -174,14 +174,12 @@ func newVercelHandler(lookup config.LookupEnv, logger httpapi.APIEventLogger, op
 }
 
 func isProductionDeployment(environment config.Environment, lookup config.LookupEnv) bool {
-	if environment.NodeEnvironment == "production" {
-		return true
+	if lookup != nil {
+		if vercelEnvironment, ok := lookup("VERCEL_ENV"); ok && vercelEnvironment != "" {
+			return vercelEnvironment == "production"
+		}
 	}
-	if lookup == nil {
-		return false
-	}
-	vercelEnvironment, _ := lookup("VERCEL_ENV")
-	return vercelEnvironment == "production"
+	return environment.RuntimeEnvironment == "production"
 }
 
 func normalizeVercelRequest(request *http.Request) *http.Request {

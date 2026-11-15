@@ -20,8 +20,8 @@ type E2ESessionVerifier struct {
 	sessions map[string]e2eConfiguredSession
 }
 
-func NewE2ESessionVerifier(nodeEnvironment string, enabled string, configuredUsers string) *E2ESessionVerifier {
-	if nodeEnvironment != "development" || enabled != "1" {
+func NewE2ESessionVerifier(runtimeEnvironment string, enabled string, configuredUsers string) *E2ESessionVerifier {
+	if runtimeEnvironment != "development" || enabled != "1" {
 		return nil
 	}
 	return &E2ESessionVerifier{sessions: parseE2EConfiguredSessions(configuredUsers)}

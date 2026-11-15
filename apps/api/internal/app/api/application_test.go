@@ -17,7 +17,7 @@ import (
 
 func TestNewRouterRegistersEveryOpenAPIOperation(t *testing.T) {
 	pool := &pgxpool.Pool{}
-	router, err := NewRouter(pool, config.Environment{AuthBackend: "none", NodeEnvironment: "development"}, quietLogger(), time.Now)
+	router, err := NewRouter(pool, config.Environment{AuthBackend: "none", RuntimeEnvironment: "development"}, quietLogger(), time.Now)
 	if err != nil {
 		t.Fatalf("NewRouter() error = %v", err)
 	}
@@ -28,7 +28,7 @@ func TestNewRouterRegistersEveryOpenAPIOperation(t *testing.T) {
 
 func TestAuthBackendNoneFailsClosedForApplicationRoutes(t *testing.T) {
 	router, err := NewRouter(&pgxpool.Pool{}, config.Environment{
-		AuthBackend: "none", NodeEnvironment: "development",
+		AuthBackend: "none", RuntimeEnvironment: "development",
 	}, quietLogger(), time.Now)
 	if err != nil {
 		t.Fatalf("NewRouter() error = %v", err)
@@ -45,7 +45,7 @@ func TestAuthBackendNoneFailsClosedForApplicationRoutes(t *testing.T) {
 
 func TestNewApplicationSessionVerifierUsesPasswordlessWhenE2EIsDisabled(t *testing.T) {
 	verifier, err := newApplicationSessionVerifier(
-		config.Environment{NodeEnvironment: "development", E2EBrowserTests: "0"},
+		config.Environment{RuntimeEnvironment: "development", E2EBrowserTests: "0"},
 		apiService.AuthConfiguration{
 			Backend: apiService.AuthBackendPasswordless,
 			Passwordless: &apiService.PasswordlessConfiguration{
@@ -66,7 +66,7 @@ func TestNewApplicationSessionVerifierUsesPasswordlessWhenE2EIsDisabled(t *testi
 func TestNewApplicationSessionVerifierUsesEnabledE2EVerifier(t *testing.T) {
 	verifier, err := newApplicationSessionVerifier(
 		config.Environment{
-			NodeEnvironment: "development", E2EBrowserTests: "1", E2EBrowserTestUsers: "{}",
+			RuntimeEnvironment: "development", E2EBrowserTests: "1", E2EBrowserTestUsers: "{}",
 		},
 		apiService.AuthConfiguration{Backend: apiService.AuthBackendPasswordless},
 		nil,
@@ -94,11 +94,49 @@ func TestCreatePasskeyRecoveryWebAuthnPreservesOptionalConfiguration(t *testing.
 	}
 }
 
+func TestIsProductionDeploymentUsesGoAndVercelEnvironmentFlags(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		environment config.Environment
+		values      map[string]string
+		want        bool
+	}{
+		{name: "Go production", environment: config.Environment{RuntimeEnvironment: "production"}, want: true},
+		{
+			name:        "Vercel production overrides Go development",
+			environment: config.Environment{RuntimeEnvironment: "development"},
+			values:      map[string]string{"VERCEL_ENV": "production"},
+			want:        true,
+		},
+		{
+			name:        "Vercel preview overrides Go production",
+			environment: config.Environment{RuntimeEnvironment: "production"},
+			values:      map[string]string{"VERCEL_ENV": "preview"},
+			want:        false,
+		},
+		{
+			name:   "ignores Node mode",
+			values: map[string]string{"NODE_ENV": "production", "VERCEL_ENV": "preview"},
+			want:   false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := isProductionDeployment(test.environment, func(name string) (string, bool) {
+				value, ok := test.values[name]
+				return value, ok
+			})
+			if got != test.want {
+				t.Fatalf("isProductionDeployment() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
 func TestNewVercelHandlerMapsAuthenticationConfigurationErrors(t *testing.T) {
 	values := map[string]string{
 		"AUTH_BACKEND": "invalid-backend",
 		"DATABASE_URL": "postgresql://synthetic:synthetic@127.0.0.1:54321/rhasia_test?sslmode=disable",
-		"NODE_ENV":     "production",
+		"VERCEL_ENV":   "production",
 		"WEB_ORIGIN":   "https://web.example.test",
 		"PROXY_SECRET": strings.Repeat("p", 32),
 		"CRON_SECRET":  strings.Repeat("c", 32),
@@ -135,12 +173,12 @@ func TestNewVercelHandlerMapsAuthenticationConfigurationErrors(t *testing.T) {
 
 func TestVercelProductionEnvironmentFailsClosedBeforeRuntimeButKeepsSystemProbes(t *testing.T) {
 	values := map[string]string{
-		"NODE_ENV":     "development",
-		"VERCEL_ENV":   "production",
-		"AUTH_BACKEND": "none",
-		"WEB_ORIGIN":   "https://web.example.test",
-		"CRON_SECRET":  strings.Repeat("c", 32),
-		"DATABASE_URL": "postgresql://synthetic:synthetic@127.0.0.1:54321/rhasia_test?sslmode=disable",
+		"RHSIA_RUNTIME_ENV": "development",
+		"VERCEL_ENV":        "production",
+		"AUTH_BACKEND":      "none",
+		"WEB_ORIGIN":        "https://web.example.test",
+		"CRON_SECRET":       strings.Repeat("c", 32),
+		"DATABASE_URL":      "postgresql://synthetic:synthetic@127.0.0.1:54321/rhasia_test?sslmode=disable",
 	}
 	openAttempts := 0
 	handler := newVercelHandler(func(name string) (string, bool) {
@@ -164,9 +202,9 @@ func TestVercelProductionEnvironmentFailsClosedBeforeRuntimeButKeepsSystemProbes
 	}
 }
 
-func TestVercelProductionTargetValidatesAuthDespiteDevelopmentNodeEnvironment(t *testing.T) {
+func TestVercelProductionTargetValidatesAuthDespiteDevelopmentRuntimeEnvironment(t *testing.T) {
 	values := map[string]string{
-		"NODE_ENV":          "development",
+		"RHSIA_RUNTIME_ENV": "development",
 		"VERCEL_ENV":        "production",
 		"DEPLOYMENT_TARGET": "selfhosted",
 		"AUTH_BACKEND":      "none",
@@ -194,7 +232,7 @@ func TestVercelProductionTargetValidatesAuthDespiteDevelopmentNodeEnvironment(t 
 
 func TestNewVercelHandlerRetriesTransientRuntimeStartupFailure(t *testing.T) {
 	now := time.Date(2026, time.July, 8, 9, 10, 11, 0, time.UTC)
-	values := map[string]string{"AUTH_BACKEND": "none", "NODE_ENV": "development"}
+	values := map[string]string{"AUTH_BACKEND": "none", "RHSIA_RUNTIME_ENV": "development"}
 	attempts := 0
 	opener := func(_ config.Environment, _ httpapi.APIEventLogger) (*Runtime, error) {
 		attempts++
@@ -225,7 +263,7 @@ func TestNewVercelHandlerRetriesTransientRuntimeStartupFailure(t *testing.T) {
 }
 
 func TestNewVercelHandlerServesSystemEndpointsWithoutDatabase(t *testing.T) {
-	values := map[string]string{"AUTH_BACKEND": "none", "NODE_ENV": "production"}
+	values := map[string]string{"AUTH_BACKEND": "none", "RHSIA_RUNTIME_ENV": "production"}
 	handler := NewVercelHandler(func(name string) (string, bool) {
 		value, ok := values[name]
 		return value, ok

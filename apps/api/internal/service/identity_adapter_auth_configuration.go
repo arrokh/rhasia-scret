@@ -26,7 +26,7 @@ const (
 
 type AuthEnvironment struct {
 	AuthBackend            string
-	NodeEnvironment        string
+	RuntimeEnvironment     string
 	DeploymentTarget       string
 	WebOrigin              string
 	AuthAppOrigin          string
@@ -53,14 +53,14 @@ func ReadAuthConfiguration(environment AuthEnvironment) (configuration AuthConfi
 
 	backend := strings.TrimSpace(environment.AuthBackend)
 	if backend == "" {
-		if environment.NodeEnvironment == "production" {
+		if environment.RuntimeEnvironment == "production" {
 			return AuthConfiguration{}, errors.New("AUTH_BACKEND must be set explicitly in production")
 		}
 		backend = string(AuthBackendPasswordless)
 	}
 	if backend == string(AuthBackendNone) {
 		deploymentTarget := strings.TrimSpace(environment.DeploymentTarget)
-		if environment.NodeEnvironment == "production" && deploymentTarget != "selfhosted" {
+		if environment.RuntimeEnvironment == "production" && deploymentTarget != "selfhosted" {
 			return AuthConfiguration{}, errors.New("AUTH_BACKEND=none is allowed only for the self-hosted local-only target")
 		}
 		return AuthConfiguration{Backend: AuthBackendNone}, nil
@@ -72,7 +72,7 @@ func ReadAuthConfiguration(environment AuthEnvironment) (configuration AuthConfi
 	if err != nil {
 		return AuthConfiguration{}, err
 	}
-	if environment.NodeEnvironment == "production" && appOrigin.Scheme != "https" {
+	if environment.RuntimeEnvironment == "production" && appOrigin.Scheme != "https" {
 		return AuthConfiguration{}, errors.New("AUTH_APP_ORIGIN must use HTTPS in production")
 	}
 	magicLinkSecret := strings.TrimSpace(environment.MagicLinkSecret)
@@ -119,7 +119,7 @@ func ReadTurnstileConfiguration(environment AuthEnvironment) (TurnstileConfigura
 		return TurnstileConfiguration{}, nil
 	}
 	if isCloudflareTestingSecret(secretKey) {
-		if environment.NodeEnvironment == "production" && !isLocalHTTPSelfHosted(environment.WebOrigin, environment.AuthAppOrigin) {
+		if environment.RuntimeEnvironment == "production" && !isLocalHTTPSelfHosted(environment.WebOrigin, environment.AuthAppOrigin) {
 			return TurnstileConfiguration{}, errors.New("Cloudflare Turnstile testing keys are not allowed in production")
 		}
 		policy := TurnstilePolicy{Kind: TurnstilePolicySandbox}

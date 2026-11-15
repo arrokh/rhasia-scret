@@ -50,10 +50,10 @@ func TestGoRuntimeMatchesFrozenAnonymousBoundaryForEveryOperation(t *testing.T) 
 		t.Fatalf("parse fixture clock: %v", err)
 	}
 	router, err := NewRouter(pool, config.Environment{
-		NodeEnvironment: "test",
-		WebOrigin:       fixture.Request.Origin,
-		ProxySecret:     "proxy-secret-that-is-long-enough-for-tests-123456",
-		AuthBackend:     "none",
+		RuntimeEnvironment: "test",
+		WebOrigin:          fixture.Request.Origin,
+		ProxySecret:        "proxy-secret-that-is-long-enough-for-tests-123456",
+		AuthBackend:        "none",
 	}, routeBoundaryTestLogger{}, func() time.Time { return fixedTime })
 	if err != nil {
 		t.Fatalf("compose Go API runtime: %v", err)

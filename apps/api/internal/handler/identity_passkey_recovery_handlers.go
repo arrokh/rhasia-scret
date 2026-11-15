@@ -154,7 +154,7 @@ func (handlers *IdentityHandlers) passkeyRecoveryRegistrationVerify(ctx *echo.Co
 	if !safeExtensions {
 		return writeAPIError(ctx, http.StatusBadRequest, "passkey_verification_failed")
 	}
-	if credentialID, isE2E := apiService.BrowserE2ERegistrationCredential(body.Response, handlers.dependencies.NodeEnvironment, handlers.dependencies.E2EBrowserTests); isE2E {
+	if credentialID, isE2E := apiService.BrowserE2ERegistrationCredential(body.Response, handlers.dependencies.RuntimeEnvironment, handlers.dependencies.E2EBrowserTests); isE2E {
 		defer clear(credentialID)
 		registration := apiService.PasskeyRecoveryRegistration{
 			CredentialID: credentialID, PublicKey: []byte{1, 2, 3, 4}, Counter: 0,
@@ -277,7 +277,7 @@ func (handlers *IdentityHandlers) passkeyRecoveryAuthenticationVerify(ctx *echo.
 	if !passkeyRecoveryAuthenticationExtensionsSafe(body.Response) {
 		return writeAPIError(ctx, http.StatusBadRequest, "passkey_verification_failed")
 	}
-	if apiService.BrowserE2EAuthenticationVerified(body.Response, credential.CredentialID, handlers.dependencies.NodeEnvironment, handlers.dependencies.E2EBrowserTests) {
+	if apiService.BrowserE2EAuthenticationVerified(body.Response, credential.CredentialID, handlers.dependencies.RuntimeEnvironment, handlers.dependencies.E2EBrowserTests) {
 		if credential.Counter == math.MaxInt64 {
 			return writeAPIError(ctx, http.StatusBadRequest, "passkey_verification_failed")
 		}
