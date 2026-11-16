@@ -7,10 +7,11 @@ import test from "node:test";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apiVercelConfig = JSON.parse(readFileSync(resolve(repositoryRoot, "apps/api/vercel.json"), "utf8"));
 
-test("API Vercel skips the Node build script, auto-detects Go functions, and keeps main-only deployment", () => {
+test("API Vercel auto-detects Go functions without a static build or output directory", () => {
   assert.equal(apiVercelConfig.framework, null);
   assert.equal(apiVercelConfig.installCommand, "true");
-  assert.equal(apiVercelConfig.buildCommand, "true");
+  assert.equal(Object.hasOwn(apiVercelConfig, "buildCommand"), false);
+  assert.equal(Object.hasOwn(apiVercelConfig, "outputDirectory"), false);
   assert.match(apiVercelConfig.ignoreCommand, /^node .*tools\/vercel-ignore\.mjs api$/u);
   assert.deepEqual(apiVercelConfig.git.deploymentEnabled, { main: true, "**": false });
   assert.ok(apiVercelConfig.functions["api/index.go"]);

@@ -97,16 +97,17 @@ func TestProductionAPIRuntimesUseGoEntrypoints(t *testing.T) {
 		t.Fatalf("read API Vercel configuration: %v", err)
 	}
 	var vercel struct {
-		IgnoreCommand  string                     `json:"ignoreCommand"`
-		InstallCommand string                     `json:"installCommand"`
-		BuildCommand   string                     `json:"buildCommand"`
-		Functions      map[string]json.RawMessage `json:"functions"`
+		IgnoreCommand   string                     `json:"ignoreCommand"`
+		InstallCommand  string                     `json:"installCommand"`
+		BuildCommand    json.RawMessage            `json:"buildCommand"`
+		OutputDirectory json.RawMessage            `json:"outputDirectory"`
+		Functions       map[string]json.RawMessage `json:"functions"`
 	}
 	if err := json.Unmarshal(vercelConfig, &vercel); err != nil {
 		t.Fatalf("parse API Vercel configuration: %v", err)
 	}
-	if vercel.InstallCommand != "true" || vercel.BuildCommand != "true" {
-		t.Errorf("Vercel API must not install or bundle a Node runtime: install=%q build=%q", vercel.InstallCommand, vercel.BuildCommand)
+	if vercel.InstallCommand != "true" || len(vercel.BuildCommand) != 0 || len(vercel.OutputDirectory) != 0 {
+		t.Errorf("Vercel API must use Go functions without a static build or output directory: install=%q build=%s output=%s", vercel.InstallCommand, vercel.BuildCommand, vercel.OutputDirectory)
 	}
 	if vercel.IgnoreCommand != "node ../../tools/vercel-ignore.mjs api" {
 		t.Errorf("Vercel API ignore command changed unexpectedly: %q", vercel.IgnoreCommand)
