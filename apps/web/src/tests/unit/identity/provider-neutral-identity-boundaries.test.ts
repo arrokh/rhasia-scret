@@ -47,11 +47,11 @@ describe("provider-neutral identity boundaries", () => {
   it("keeps Go authentication passwordless and rejects unsupported identity providers", () => {
     const apiRoot = join(process.cwd(), "../api");
     const authConfiguration = readFileSync(
-      join(apiRoot, "internal/modules/identity/infrastructure/auth_configuration.go"),
+      join(apiRoot, "internal/service/identity_adapter_auth_configuration.go"),
       "utf8",
     );
     const authTests = readFileSync(
-      join(apiRoot, "internal/modules/identity/infrastructure/auth_configuration_test.go"),
+      join(apiRoot, "internal/service/identity_adapter_auth_configuration_test.go"),
       "utf8",
     );
     expect(authConfiguration).toContain('AuthBackendPasswordless AuthBackend = "passwordless"');

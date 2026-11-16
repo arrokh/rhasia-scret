@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/nooroctavian/rhasia-scret/apps/api/internal/app/api"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/config"
-	"github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/server-composition"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/postgres"
 )
 
@@ -17,7 +17,7 @@ func verifyDeploymentConfiguration(lookup config.LookupEnv) error {
 	if err != nil {
 		return errors.New("API deployment configuration is invalid")
 	}
-	production := environment.NodeEnvironment == "production"
+	production := environment.RuntimeEnvironment == "production"
 	if value, _ := lookup("VERIFY_DEPLOYMENT_PRODUCTION"); value == "1" {
 		production = true
 	}
@@ -45,7 +45,7 @@ func verifyDeploymentConfiguration(lookup config.LookupEnv) error {
 	}
 	validationEnvironment := environment
 	if production {
-		validationEnvironment.NodeEnvironment = "production"
+		validationEnvironment.RuntimeEnvironment = "production"
 	}
 	if err := servercomposition.ValidateEnvironment(validationEnvironment); err != nil {
 		failures = append(failures, "authentication or SMTP configuration is invalid.")

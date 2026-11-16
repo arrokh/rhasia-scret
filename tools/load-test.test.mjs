@@ -606,17 +606,11 @@ test("authenticated rate-limit setup types into the controlled sign-in email fie
 test("K6 rate-limit boundary thresholds match the API policies", () => {
   const script = readFileSync(new URL("../performance/k6/rate-limits.js", import.meta.url), "utf8");
   const applicationPolicy = readFileSync(
-    new URL(
-      "../apps/api/internal/modules/rate-limiting/infrastructure/postgres_application_rate_limiter.go",
-      import.meta.url,
-    ),
+    new URL("../apps/api/internal/repository/rate_limiting_application_rate_limiter.go", import.meta.url),
     "utf8",
   );
   const anonymousPolicy = readFileSync(
-    new URL(
-      "../apps/api/internal/modules/identity/infrastructure/postgres_anonymous_auth_rate_limiter.go",
-      import.meta.url,
-    ),
+    new URL("../apps/api/internal/repository/identity_anonymous_auth_rate_limiter.go", import.meta.url),
     "utf8",
   );
   const applicationBoundaries = [

@@ -10,17 +10,17 @@ Do not add arbitrary support modules, route-local component directories, infrast
 
 ## Ownership
 
-| Concern                                                                | Location                                                                                                     |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Domain or use-case presentation                                        | `src/modules/<context>/presentation/`                                                                        |
-| Context preview harnesses                                              | Owning context presentation, exposed through `modules/<context>/preview.ts`                                  |
-| Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts`       |
-| Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                                   |
-| Reusable UI primitives                                                 | `src/components/ui/`                                                                                         |
-| API route handlers and server composition                              | `apps/api/internal/modules/<context>/presentation/http/` and `apps/api/internal/modules/server-composition/` |
-| Same-origin browser API proxy                                          | `src/app/api/[...path]/route.ts`                                                                             |
-| Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                                 |
-| Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                                   |
+| Concern                                                                | Location                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Domain or use-case presentation                                        | `src/modules/<context>/presentation/`                                                                  |
+| Context preview harnesses                                              | Owning context presentation, exposed through `modules/<context>/preview.ts`                            |
+| Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
+| Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                             |
+| Reusable UI primitives                                                 | `src/components/ui/`                                                                                   |
+| API route handlers and server composition                              | `apps/api/internal/handler/` and `apps/api/internal/app/api/`                                          |
+| Same-origin browser API proxy                                          | `src/app/api/[...path]/route.ts`                                                                       |
+| Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                           |
+| Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                             |
 
 App Router convention files resolve framework concerns such as route parameters, localization, redirects, streaming boundaries, and HTTP request/response mapping, then compose behavior through owning module entry points. They must not become an alternate home for domain behavior or presentation implementations.
 

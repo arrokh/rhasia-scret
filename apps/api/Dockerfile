@@ -21,7 +21,7 @@ LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 RUN apk add --no-cache ca-certificates \
   && addgroup -S -g 10001 api \
   && adduser -S -D -H -u 10001 -G api api
-ENV NODE_ENV=production
+ENV RHSIA_RUNTIME_ENV=production
 ENV PORT=8787
 ENV HOME=/tmp
 WORKDIR /app
