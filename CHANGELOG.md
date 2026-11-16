@@ -33,6 +33,17 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.4.0]
+
+<!-- Draft generated from first-parent history v0.3.3..c57e8fa8b9057156295b271cb53ff846c38b9b6d (first-parent, exclusive of tag); release-base c57e8fa8b9057156295b271cb53ff846c38b9b6d. Review and curate before publication. -->
+
+### Changes
+
+- Migrated the API runtime and schema migrations to Go and Sqitch, then retired the TypeScript API oracle (#329, #333).
+- Added localized API email delivery (#333).
+- Organized the Go API into layer-based packages (#336).
+- Updated API, workspace, and GitHub Actions dependencies (#330, #331, #337, #338).
+
 ## [0.3.3]
 
 <!-- Draft generated from first-parent history v0.3.2..e9c94ab664df560aa38a66c1f6cd8eaef46bd0df (first-parent, exclusive of tag); release-base e9c94ab664df560aa38a66c1f6cd8eaef46bd0df. Review and curate before publication. -->
