@@ -91,8 +91,8 @@
     "fast-uri": "4.2.3",
     "ip-address": "10.7.6",
     "lint-staged": "17.6.0",
-    "prettier": "3.9.10",
-    "vite": "8.3.6",
+    "prettier": "3.10.1",
+    "vite": "8.3.8",
     "zod": "^4.6.7"
   },
   "lint-staged": {
