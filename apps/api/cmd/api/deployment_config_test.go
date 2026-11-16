@@ -9,10 +9,10 @@ func TestVerifyDeploymentConfigurationAcceptsLocalNoneBackend(t *testing.T) {
 	t.Parallel()
 
 	values := map[string]string{
-		"NODE_ENV":     "development",
-		"AUTH_BACKEND": "none",
-		"WEB_ORIGIN":   "http://localhost:3000",
-		"DATABASE_URL": "postgresql://synthetic:synthetic@127.0.0.1:5432/synthetic?schema=public",
+		"RHSIA_RUNTIME_ENV": "development",
+		"AUTH_BACKEND":      "none",
+		"WEB_ORIGIN":        "http://localhost:3000",
+		"DATABASE_URL":      "postgresql://synthetic:synthetic@127.0.0.1:5432/synthetic?schema=public",
 	}
 	if err := verifyDeploymentConfiguration(lookupConfiguration(values)); err != nil {
 		t.Fatalf("verifyDeploymentConfiguration(): %v", err)
@@ -23,7 +23,7 @@ func TestVerifyDeploymentConfigurationRequiresProductionSettings(t *testing.T) {
 	t.Parallel()
 
 	values := map[string]string{
-		"NODE_ENV": "production",
+		"RHSIA_RUNTIME_ENV": "production",
 	}
 	err := verifyDeploymentConfiguration(lookupConfiguration(values))
 	if err == nil {
@@ -40,7 +40,7 @@ func TestVerifyDeploymentConfigurationRejectsProductionNoneBackend(t *testing.T)
 	t.Parallel()
 
 	values := map[string]string{
-		"NODE_ENV":          "production",
+		"RHSIA_RUNTIME_ENV": "production",
 		"DEPLOYMENT_TARGET": "vercel",
 		"AUTH_BACKEND":      "none",
 		"WEB_ORIGIN":        "https://web.example.test",
@@ -58,7 +58,7 @@ func TestVerifyDeploymentConfigurationAcceptsSelfHostedProductionNoneBackend(t *
 	t.Parallel()
 
 	values := map[string]string{
-		"NODE_ENV":          "production",
+		"RHSIA_RUNTIME_ENV": "production",
 		"DEPLOYMENT_TARGET": "selfhosted",
 		"AUTH_BACKEND":      "none",
 		"WEB_ORIGIN":        "https://web.example.test",
@@ -84,7 +84,7 @@ func TestVerifyDeploymentConfigurationEnforcesProductionSMTPPolicyForProductionT
 	t.Parallel()
 
 	values := validProductionDeploymentConfiguration()
-	values["NODE_ENV"] = "development"
+	values["RHSIA_RUNTIME_ENV"] = "development"
 	values["VERIFY_DEPLOYMENT_PRODUCTION"] = "1"
 	values["SMTP_PORT"] = "2525"
 	if err := verifyDeploymentConfiguration(lookupConfiguration(values)); err == nil || !strings.Contains(err.Error(), "authentication or SMTP configuration is invalid") {
@@ -96,7 +96,7 @@ func TestVerifyDeploymentConfigurationEnforcesProductionTurnstilePolicyForProduc
 	t.Parallel()
 
 	values := validProductionDeploymentConfiguration()
-	values["NODE_ENV"] = "development"
+	values["RHSIA_RUNTIME_ENV"] = "development"
 	values["VERIFY_DEPLOYMENT_PRODUCTION"] = "1"
 	values["TURNSTILE_SECRET_KEY"] = "1x0000000000000000000000000000000AA"
 	if err := verifyDeploymentConfiguration(lookupConfiguration(values)); err == nil || !strings.Contains(err.Error(), "authentication or SMTP configuration is invalid") {
@@ -118,7 +118,7 @@ func TestVerifyDeploymentConfigurationRejectsE2EIdentityConfigurationForProducti
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			values := validProductionDeploymentConfiguration()
-			values["NODE_ENV"] = "development"
+			values["RHSIA_RUNTIME_ENV"] = "development"
 			values["VERIFY_DEPLOYMENT_PRODUCTION"] = "1"
 			values[test.key] = test.value
 			if err := verifyDeploymentConfiguration(lookupConfiguration(values)); err == nil || !strings.Contains(err.Error(), "E2E_BROWSER_TESTS and E2E_BROWSER_TEST_USERS are not allowed in production") {
@@ -130,7 +130,7 @@ func TestVerifyDeploymentConfigurationRejectsE2EIdentityConfigurationForProducti
 
 func validProductionDeploymentConfiguration() map[string]string {
 	return map[string]string{
-		"NODE_ENV":               "production",
+		"RHSIA_RUNTIME_ENV":      "production",
 		"AUTH_BACKEND":           "passwordless",
 		"WEB_ORIGIN":             "https://web.example.test",
 		"PROXY_SECRET":           strings.Repeat("p", 32),

@@ -41,7 +41,11 @@ import {
   runSelfHostedInstall,
 } from "./self-hosted-install.mjs";
 import { applyTerminalTailscaleChoice, askLanguage, startConfigurationWizard } from "./self-hosted-configure.mjs";
-import { WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS } from "./verify-deployment-config.mjs";
+import {
+  API_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS,
+  WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS,
+  createDeploymentConfigVerificationSteps,
+} from "./verify-deployment-config.mjs";
 import { parseCanonicalOrigin } from "./self-hosted-origin.mjs";
 import { createServer } from "node:http";
 
@@ -312,6 +316,7 @@ test("root deployment configuration verification keeps API-only values out of th
     AUTH_EMAIL_FROM_NAME: "Rhasia Example",
     CRON_SECRET: "c".repeat(32),
     NODE_ENV: "development",
+    RHSIA_RUNTIME_ENV: "development",
     VERIFY_DEPLOYMENT_PRODUCTION: "",
     DEPLOYMENT_TARGET: "vercel",
   };
@@ -335,6 +340,21 @@ test("root deployment configuration verification keeps API-only values out of th
     1,
     "The Web runtime check should report valid configuration.",
   );
+});
+
+test("deployment configuration verification separates Go API and Node web runtime variables", () => {
+  const [api, web] = createDeploymentConfigVerificationSteps({
+    NODE_ENV: "production",
+    RHSIA_RUNTIME_ENV: "development",
+    DATABASE_URL: "synthetic-database-url",
+  });
+
+  assert.equal(api.environment.NODE_ENV, undefined);
+  assert.equal(api.environment.RHSIA_RUNTIME_ENV, "development");
+  assert.equal(web.environment.NODE_ENV, "production");
+  assert.equal(web.environment.RHSIA_RUNTIME_ENV, undefined);
+  assert.equal(web.environment.DATABASE_URL, undefined);
+  assert.deepEqual(API_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS, ["NODE_ENV"]);
 });
 
 test("root deployment verification excludes every API-only key rejected by Web", () => {

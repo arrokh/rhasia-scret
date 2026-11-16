@@ -1,6 +1,6 @@
 # API architecture deepening
 
-> Historical record of the TypeScript/Hono API implementation. The runtime has since moved to Go/Echo; see [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md). These notes describe the retained TypeScript parity oracle, not production runtime composition.
+> Historical record of the retired TypeScript/Hono API implementation. The Go/Echo runtime is deployed and the TypeScript/Prisma oracle has been removed; see [`api-go-echo-sqitch-migration-plan.md`](api-go-echo-sqitch-migration-plan.md) for migration evidence and [`monorepo.md`](monorepo.md) for current boundaries. Source paths and commands below describe the old implementation and are not runnable or current instructions.
 
 ## Status — 2026-09-21
 
@@ -62,7 +62,7 @@ The API extraction now implements four bounded-context deepening changes identif
 
 ## Verification
 
-The focused API evidence for this change is:
+The focused API evidence recorded at the time of this historical change was:
 
 ```text
 pnpm --filter @rhasia-scret/api-parity lint
@@ -70,4 +70,4 @@ pnpm --filter @rhasia-scret/api-parity typecheck
 pnpm --filter @rhasia-scret/api-parity test:unit
 ```
 
-The repository completion gate remains `mise exec -- pnpm run test:full`. This architecture document does not establish production operations evidence. The [`v0.1.0` candidate readiness record](release-readiness/v0.1.0.md) preserves maintainer-reported Vercel and self-hosted evidence for that candidate only; it does not establish readiness for later releases.
+The repository completion gate at the time was `mise exec -- pnpm run test:full`. This architecture document does not establish production operations evidence. The [`v0.1.0` candidate readiness record](release-readiness/v0.1.0.md) preserves maintainer-reported Vercel and self-hosted evidence for that candidate only; it does not establish readiness for later releases.

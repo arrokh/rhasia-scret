@@ -17,7 +17,7 @@ Do not add arbitrary support modules, route-local component directories, infrast
 | Next page composition shared by one context                            | Owning context presentation, exposed through a context entry point such as `modules/<context>/page.ts` |
 | Shared presentation mechanics and global styles                        | `src/shared/presentation/`                                                                             |
 | Reusable UI primitives                                                 | `src/components/ui/`                                                                                   |
-| API route handlers and server adapter composition                      | `apps/api/src/route-handlers/` and `apps/api/src/modules/<context>/server.ts`                          |
+| API route handlers and server composition                              | `apps/api/internal/handler/` and `apps/api/internal/app/api/`                                          |
 | Same-origin browser API proxy                                          | `src/app/api/[...path]/route.ts`                                                                       |
 | Static favicon, icon, image, and media assets                          | `public/assets/` or a capability-specific `public` directory                                           |
 | Next route, layout, loading, error, and generated-metadata conventions | `src/app/`                                                                                             |
@@ -28,4 +28,4 @@ Development-preview routes follow the same rule. Their `page.tsx` files remain u
 
 ## Enforcement
 
-`apps/api/src/architecture.test.ts` and the web dependency-cruiser rules verify the API/web ownership split; the catch-all proxy is the only file under `src/app/api`. When Next.js introduces a new convention, update the inventory deliberately instead of adding a blanket exception.
+The web dependency-cruiser rules and API contract/Go architecture checks verify the API/web ownership split; the catch-all proxy is the only file under `src/app/api`. When Next.js introduces a new convention, update the inventory deliberately instead of adding a blanket exception.

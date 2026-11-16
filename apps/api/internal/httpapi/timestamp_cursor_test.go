@@ -42,7 +42,7 @@ func TestTimestampCursorPageRequestUsesDefaultsAndCoercesIntegerLimits(t *testin
 	}
 }
 
-func TestTimestampCursorEncodingMatchesCanonicalTypeScriptPayload(t *testing.T) {
+func TestTimestampCursorEncodingMatchesCanonicalPayloadFixture(t *testing.T) {
 	createdAt := time.Date(2026, time.June, 7, 8, 9, 10, 123_000_000, time.FixedZone("synthetic-offset", -7*60*60))
 	cursor := sharedapp.TimestampCursor{CreatedAt: createdAt, Key: "member:synthetic-user"}
 	encoded, err := EncodeTimestampCursor(cursor, "vault-participants:synthetic-vault")

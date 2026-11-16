@@ -59,7 +59,7 @@ export async function verifySmtpPreflight(project, state, signal) {
   const recipient = "smtp-preflight@loadtest.invalid";
   try {
     await clearMailpitMessages(signal);
-    runCompose(project, state, ["exec", "--no-TTY", "api", "bun", "scripts/load-test-smtp-preflight.mjs"], {
+    runCompose(project, state, ["exec", "--no-TTY", "api", "/usr/local/bin/api", "smtp-preflight"], {
       timeout: 20_000,
     });
     const deadline = Date.now() + 10_000;

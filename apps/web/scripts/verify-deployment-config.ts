@@ -8,6 +8,7 @@ const errors: string[] = [];
 const checked = new Set<string>();
 const backend = process.env.AUTH_BACKEND?.trim() || "passwordless";
 const API_ONLY_ENVIRONMENT_KEYS = [
+  "RHSIA_RUNTIME_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "POSTGRES_DB",

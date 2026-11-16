@@ -12,10 +12,10 @@ const DefaultPort = 8787
 type LookupEnv func(string) (string, bool)
 
 type Environment struct {
-	DatabaseURL      string
-	Port             int
-	NodeEnvironment  string
-	DeploymentTarget string
+	DatabaseURL        string
+	Port               int
+	RuntimeEnvironment string
+	DeploymentTarget   string
 
 	WebOrigin   string
 	ProxySecret string
@@ -78,7 +78,7 @@ func ReadEnvironment(lookup LookupEnv) (Environment, error) {
 	return Environment{
 		DatabaseURL:         read("DATABASE_URL"),
 		Port:                port,
-		NodeEnvironment:     read("NODE_ENV"),
+		RuntimeEnvironment:  read("RHSIA_RUNTIME_ENV"),
 		DeploymentTarget:    read("DEPLOYMENT_TARGET"),
 		WebOrigin:           read("WEB_ORIGIN"),
 		ProxySecret:         read("PROXY_SECRET"),

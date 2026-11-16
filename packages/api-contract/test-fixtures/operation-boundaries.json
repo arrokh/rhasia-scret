@@ -1,5 +1,5 @@
 {
-  "note": "Synthetic anonymous-boundary outcomes captured from the current TypeScript reference runtime. Each non-GET request sends an empty JSON object. This is transport-boundary parity evidence, not a replacement for operation-specific success and persistence tests.",
+  "note": "Synthetic anonymous-boundary outcomes captured from the pre-cutover implementation as a frozen compatibility baseline. Each non-GET request sends an empty JSON object. This is transport-boundary compatibility evidence, not an active runtime comparison or a replacement for operation-specific success and persistence tests.",
   "request": {
     "origin": "https://web.example.test",
     "requestId": "0123456789abcdef0123456789abcdef",

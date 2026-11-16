@@ -98,6 +98,7 @@ requireText(
 const browserSmoke = ci.match(/^  browser-smoke:\n([\s\S]*?)(?=^  browser-e2e:)/m)?.[1] ?? "";
 const browserSmokeShards = ci.match(/^  browser-smoke-shards:\n([\s\S]*?)(?=^  browser-e2e:)/m)?.[1] ?? "";
 const browserE2e = ci.match(/^  browser-e2e:\n([\s\S]*?)(?=^  browser-production:)/m)?.[1] ?? "";
+const browserProduction = ci.slice(ci.indexOf("  browser-production:"));
 if (/^    services:/m.test(browserSmoke)) failures.push("browser smoke must not start PostgreSQL");
 if (
   !/DATABASE_URL: postgresql:\/\/browser-smoke:unused@127\.0\.0\.1:1\/browser_smoke\?schema=public/.test(browserSmoke)
@@ -109,10 +110,24 @@ if (!/^    services:\n      postgres:/m.test(browserE2e))
   failures.push("browser E2E must retain its PostgreSQL service");
 if (!/Sqitch migration image/.test(browserE2e) || !/docker run --rm/.test(browserE2e))
   failures.push("browser E2E must provision PostgreSQL with the Go/Sqitch migration image");
+for (const [jobName, job] of [
+  ["browser E2E", browserE2e],
+  ["production PWA", browserProduction],
+]) {
+  if (
+    !/Mark job-owned synthetic database scope/.test(job) ||
+    !/RHSIA_DISPOSABLE_DATA_CLASSIFICATION=synthetic/.test(job) ||
+    !/RHSIA_GO_INTEGRATION_DATABASE_URL=%s.*DATABASE_URL/.test(job)
+  ) {
+    failures.push(`${jobName} must provide the explicit synthetic database scope required by Go E2E cleanup`);
+  }
+}
 if (/prisma:migrate:deploy/.test(ci) || /prisma:migrate:deploy/.test(releaseEvidence))
   failures.push("CI and release-evidence workflows must not apply Prisma migrations");
-if (!/pnpm --filter @rhasia-scret\/api-parity run test:full/.test(ci))
-  failures.push("CI quality must test the TypeScript API parity package");
+if (/api-parity|test:parity:|Generate Prisma parity/.test(`${ci}\n${releaseEvidence}`))
+  failures.push("CI and release-evidence workflows must not depend on the retired TypeScript/Prisma oracle");
+if (!/pnpm --filter @rhasia-scret\/api-test-tools run test:full/.test(ci))
+  failures.push("CI quality must test the API tooling package without a Node API runtime");
 if (!/actions\/setup-go@[0-9a-f]{40}/.test(ci) || !/go-version: 1\.27\.4/.test(ci))
   failures.push("CI must install the pinned Go 1.27.4 toolchain");
 if (/pnpm run format:check/.test(ci)) failures.push("CI must not duplicate the dedicated Format workflow");

@@ -40,7 +40,7 @@ Review the passwordless implementation, SMTP provider, and relevant dependency a
 ## Supply chain and CI
 
 - [ ] `pnpm install --frozen-lockfile` succeeds and the lockfile is reviewed as the source of exact resolution.
-- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, test-only Prisma parity-client/schema validation, and Sqitch baseline verification pass; exceptions are documented with expiry and owner in `docs/security/dependency-audit-exceptions.md`.
+- [ ] `pnpm audit --prod --audit-level=high`, secret scanning, license/provenance review, Go/API contract verification, and Sqitch baseline verification pass; exceptions are documented with expiry and owner in `docs/security/dependency-audit-exceptions.md`.
 - [ ] Security-critical GitHub Actions are pinned to commit SHAs and repository/workflow permissions remain least privilege.
 - [ ] Dependency update cadence, emergency patch path, artifact provenance, cache isolation, retention, and rollback are recorded for the release.
 - [ ] CI and release-check fixtures use synthetic, non-PII values and contain no real or user-provided Vault/account data, labels, issuer names, keys, OTPs, QR data, cookies, credentials, or authentication tokens.

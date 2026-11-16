@@ -1,3 +1,5 @@
 # Server-only data access until RLS hardening
 
-The MVP accesses application tables only through server-side Prisma. database/API hardening is explicitly deferred, so clients and REST must not access application tables until a tracked security migration enables RLS and supplies appropriate policies.
+> Current implementation: the Go/Echo API uses server-side pgx. The original Prisma implementation detail below is historical; the server-only data-access boundary remains in force.
+
+The MVP accesses application tables only through the server-side API. Database/API hardening is explicitly deferred, so browsers must not access application tables directly until a tracked security migration enables RLS and supplies appropriate policies.

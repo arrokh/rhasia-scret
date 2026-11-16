@@ -71,8 +71,8 @@ or user-provided Vault/account labels.
   fail closed and document forward recovery.
 - Treat `apps/api/prisma/archive/` as historical, read-only evidence. Do not
   use Prisma Migrate, `db push`, or archived scripts to change a database.
-  Prisma client/schema tooling is confined to the test-only TypeScript parity
-  oracle.
+  Active API persistence and schema management use Go/pgx and Sqitch; no Prisma
+  client or schema tooling is part of the active workspace.
 - Store domain enum values as database strings and keep strict TypeScript
   unions/enums in code.
 - Add authorization, revision, retention, and redaction tests for affected

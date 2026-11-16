@@ -30,10 +30,8 @@ class LoopbackPostgresContainer extends GenericContainer {
 
 async function main(): Promise<number> {
   const mode = process.argv[2];
-  if (mode !== "--integration" && mode !== "--test" && mode !== "--full" && mode !== "--runtime-parity") {
-    console.error(
-      "Usage: pnpm test:integration:container|test:container|test:full:container|test:runtime-parity:container",
-    );
+  if (mode !== "--integration" && mode !== "--test" && mode !== "--full") {
+    console.error("Usage: pnpm test:integration:container|test:container|test:full:container");
     return 2;
   }
   loadWorkspaceEnvironment();
@@ -45,7 +43,6 @@ async function main(): Promise<number> {
   let migrationImage: string | undefined;
   let migrationContainer: string | undefined;
   let adoptionMigrationContainer: string | undefined;
-  let parityDatabaseNames: string[] = [];
   let containerVolumes: string[] = [];
   const handleTermination = (signal: TerminationSignal) => {
     terminationSignal = signal;
@@ -101,6 +98,8 @@ async function main(): Promise<number> {
       RHSIA_DISPOSABLE_RUN_ID: runId,
       RHSIA_DISPOSABLE_DATA_CLASSIFICATION: "synthetic",
       RHSIA_TESTCONTAINER_ID: containerID,
+      RHSIA_BROWSER_E2E_CLEANUP: "",
+      RHSIA_BROWSER_E2E_CLEANUP_EMAILS: "",
       COMPOSE_PROJECT_NAME: "",
       REQUIRE_DATABASE_INTEGRATION: "1",
     };
@@ -136,16 +135,6 @@ async function main(): Promise<number> {
     adoptionMigrationContainer = `rhasia-scret-sqitch-adoption-${runId}`;
     verifySqitchLegacyAdoption(containerID, adoptionMigrationContainer, imageTag, sqitchURL.toString(), runId);
 
-    const parityDatabases = createRuntimeParityDatabases(containerID, runId, connectionString, (databaseName) =>
-      parityDatabaseNames.push(databaseName),
-    );
-    parityDatabaseNames = parityDatabases.names;
-    const parityEnvironment = {
-      ...environment,
-      RHSIA_API_PARITY_GO_DATABASE_URL: parityDatabases.goURL,
-      RHSIA_API_PARITY_TS_DATABASE_URL: parityDatabases.tsURL,
-    };
-
     const runPackage = (args: string[], cwd: string, childEnvironment = environment) =>
       runCommand(pnpmCommand(), args, cwd, childEnvironment, (child) => {
         activeChild = child;
@@ -157,31 +146,7 @@ async function main(): Promise<number> {
         if (terminationSignal) child.kill(terminationSignal);
       });
 
-    const runtimeParityExitCode = await runPackage(
-      ["--filter", "@rhasia-scret/api-parity", "run", "test:runtime-parity"],
-      repositoryRoot,
-      parityEnvironment,
-    );
-    if (terminationSignal || runtimeParityExitCode !== 0) return terminationSignal ? 1 : runtimeParityExitCode;
-    if (mode === "--runtime-parity") return 0;
-
-    if (mode === "--integration") {
-      const integrationExitCode = await runPackage(
-        ["--filter", "@rhasia-scret/api-parity", "test:integration"],
-        repositoryRoot,
-      );
-      if (terminationSignal || integrationExitCode !== 0) return terminationSignal ? 1 : integrationExitCode;
-      const goExitCode = await runGo(["test", "./...", "-count=1"]);
-      return goExitCode;
-    }
-
-    const prismaGenerationExitCode = await runPackage(
-      ["--filter", "@rhasia-scret/api-parity", "run", "test:parity:generate"],
-      repositoryRoot,
-    );
-    if (terminationSignal || prismaGenerationExitCode !== 0) {
-      return terminationSignal ? 1 : prismaGenerationExitCode;
-    }
+    if (mode === "--integration") return runGo(["test", "-p=1", "./...", "-count=1"]);
 
     const hostedCommand = mode === "--test" ? "test:hosted" : "test:full:hosted";
     const hostedExitCode = await runPackage(["run", hostedCommand], repositoryRoot);
@@ -194,13 +159,6 @@ async function main(): Promise<number> {
     }
     const cleanupErrors: string[] = [];
     if (container) {
-      for (const databaseName of parityDatabaseNames) {
-        try {
-          dropRuntimeParityDatabase(container.getId(), databaseName);
-        } catch {
-          cleanupErrors.push("Run-owned runtime-parity database could not be removed and verified absent.");
-        }
-      }
       try {
         await stopTestContainer(container, containerVolumes);
       } catch (error: unknown) {
@@ -463,56 +421,6 @@ function verifySqitchLegacyAdoption(
   console.info(
     "Synthetic legacy schema matched fresh Sqitch init; log-only adoption preserved schema and sentinel rows.",
   );
-}
-
-function createRuntimeParityDatabases(
-  postgresContainerID: string,
-  runID: string,
-  templateURL: string,
-  recordCreated: (databaseName: string) => void,
-): { goURL: string; tsURL: string; names: string[] } {
-  if (!/^[0-9a-f]{16}$/.test(runID)) throw new Error("Runtime-parity database run ID is invalid.");
-  const names = [`rhasia_scret_parity_go_${runID}`, `rhasia_scret_parity_ts_${runID}`];
-  for (const databaseName of names) {
-    if (!/^rhasia_scret_parity_(?:go|ts)_[0-9a-f]{16}$/.test(databaseName)) {
-      throw new Error("Runtime-parity database name is invalid.");
-    }
-    const existing = runPostgresSQL(
-      postgresContainerID,
-      "postgres",
-      `SELECT count(*)::text FROM pg_database WHERE datname = '${databaseName}';`,
-      undefined,
-      true,
-    );
-    if (existing !== "0") throw new Error("A runtime-parity database already exists for this disposable run.");
-    runPostgresSQL(
-      postgresContainerID,
-      "postgres",
-      `CREATE DATABASE ${databaseName} WITH TEMPLATE ${POSTGRES_DATABASE};`,
-    );
-    recordCreated(databaseName);
-  }
-
-  const goURL = new URL(templateURL);
-  goURL.pathname = `/${names[0]}`;
-  const tsURL = new URL(templateURL);
-  tsURL.pathname = `/${names[1]}`;
-  return { goURL: goURL.toString(), tsURL: tsURL.toString(), names };
-}
-
-function dropRuntimeParityDatabase(postgresContainerID: string, databaseName: string): void {
-  if (!/^rhasia_scret_parity_(?:go|ts)_[0-9a-f]{16}$/.test(databaseName)) {
-    throw new Error("Refusing to drop a database outside the disposable runtime-parity namespace.");
-  }
-  runPostgresSQL(postgresContainerID, "postgres", `DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE);`);
-  const remaining = runPostgresSQL(
-    postgresContainerID,
-    "postgres",
-    `SELECT count(*)::text FROM pg_database WHERE datname = '${databaseName}';`,
-    undefined,
-    true,
-  );
-  if (remaining !== "0") throw new Error("Run-owned runtime-parity database remains after cleanup.");
 }
 
 function runPostgresSQL(

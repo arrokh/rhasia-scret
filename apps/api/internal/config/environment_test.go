@@ -48,6 +48,23 @@ func TestReadEnvironment(t *testing.T) {
 	}
 }
 
+func TestReadEnvironmentUsesGoRuntimeSettingInsteadOfNodeEnvironment(t *testing.T) {
+	values := map[string]string{
+		"NODE_ENV":          "production",
+		"RHSIA_RUNTIME_ENV": "development",
+	}
+	environment, err := ReadEnvironment(func(name string) (string, bool) {
+		value, ok := values[name]
+		return value, ok
+	})
+	if err != nil {
+		t.Fatalf("ReadEnvironment() error = %v", err)
+	}
+	if environment.RuntimeEnvironment != "development" {
+		t.Fatalf("runtime environment = %q, want development", environment.RuntimeEnvironment)
+	}
+}
+
 func TestRequireDatabaseURL(t *testing.T) {
 	if _, err := (Environment{}).RequireDatabaseURL(); err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
 		t.Fatalf("RequireDatabaseURL() error = %v, want DATABASE_URL error", err)

@@ -15,6 +15,7 @@ const apiDirectory = resolve(repositoryRoot, "apps/api");
 const children = new Set();
 // Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
+  "NODE_ENV",
   "DIRECT_URL",
   "API_PROXY_SECRET",
   "POSTGRES_DB",
@@ -33,6 +34,7 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
   "LOCAL_MAILPIT_UI_PORT",
 ];
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
+  "RHSIA_RUNTIME_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "POSTGRES_DB",
@@ -90,7 +92,7 @@ try {
   }
   const apiEnvironment = createScopedEnvironment(
     {
-      NODE_ENV: "development",
+      RHSIA_RUNTIME_ENV: "development",
       PORT: portFor(apiOrigin, 8787),
       WEB_ORIGIN: webOrigin,
       PROXY_SECRET: proxySecret,

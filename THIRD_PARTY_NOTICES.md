@@ -14,27 +14,25 @@ the action required when it is redistributed.
 | Font Awesome brand icon paths                   | `react-icons/fa6` imports in `apps/web/src/modules/landing/` | Font Awesome Free brand assets are available under CC BY 4.0 terms; the `react-icons` package is MIT.                                                                     | Retain the icon attribution in this notice and keep only the icons used by the product. Replace an icon if its upstream terms change.                                                                 |
 | Manrope and Roboto Mono web fonts               | `next/font/google` imports in `apps/web/src/app/layout.tsx`  | Google Fonts families are distributed under the SIL Open Font License 1.1.                                                                                                | The build bundles the selected fonts; retain the OFL attribution and do not rename or separately relicense the font files.                                                                            |
 | Product imagery, PWA icons, and landing pattern | `apps/web/public/`                                           | Maintainer-created or generated project assets. No third-party source or attribution is recorded in repository history.                                                   | Current decision: retain under the project MIT license as project-owned material. If a maintainer later cannot confirm authorship or permission for a specific asset, replace it before distribution. |
-| Next.js/Prisma generated output                 | Build directories and generated clients                      | Generated from repository source and dependency packages; build output is not committed.                                                                                  | Do not commit generated build output. Release artifacts must be built from a clean checkout and accompanied by this notice and the dependency-license result.                                         |
+| Next.js generated output                        | Build directories and generated files                        | Generated from repository source and dependency packages; build output is not committed.                                                                                  | Do not commit generated build output. Release artifacts must be built from a clean checkout and accompanied by this notice and the dependency-license result.                                         |
 
 ## JavaScript dependencies
 
 The pnpm lockfile is the complete JavaScript dependency input for the web,
-shared client packages, and the TypeScript API parity oracle. The Go API runtime
-uses the separate module graph in `apps/api/go.mod` and `apps/api/go.sum`, which
-has its own vulnerability and license checks. At the current lockfile revision,
-the mise-managed command reviews 992 JavaScript dependency entries across 20
-license expressions. The observed
-license families include MIT, Apache-2.0, ISC, 0BSD, MIT-0, BSD-2-Clause,
-BSD-3-Clause, BlueOak-1.0.0, CC0-1.0, CC-BY-4.0, EPL-2.0, LGPL-3.0-or-later,
-MPL-2.0, Python-2.0, Unlicense, and selectable dual-license expressions. Packages with an `OR`
-expression are used under the compatible alternative selected by the package's
-terms. SMTP delivery uses Nodemailer and its associated transport typings.
+shared client packages, API test tools, and repository automation. The Go API
+runtime uses the separate module graph in `apps/api/go.mod` and
+`apps/api/go.sum`, which has its own vulnerability and license checks. The
+mise-managed verification command derives its license inventory from the
+current lockfile. Observed license families include MIT, Apache-2.0, ISC, 0BSD,
+MIT-0, BSD-2-Clause, BSD-3-Clause, BlueOak-1.0.0, CC0-1.0, CC-BY-4.0,
+EPL-2.0, LGPL-3.0-or-later, MPL-2.0, Python-2.0, Unlicense, and selectable
+dual-license expressions. Packages with an `OR` expression are used under the
+compatible alternative selected by the package's terms.
 
-The most relevant direct packages include Next.js (MIT), React (MIT), Prisma
-(Apache-2.0), Nodemailer (MIT), PostHog (Apache-2.0 and MIT), Radix UI
-(MIT), Lucide React (ISC), React Icons (MIT), `@noble/hashes` (MIT), `jsqr` (Apache-2.0), ZXing
-(Apache-2.0), and `pg` (MIT). The authoritative current inventory is regenerated from the
-lockfile by:
+The most relevant direct packages include Next.js (MIT), React (MIT), PostHog
+(Apache-2.0 and MIT), Radix UI (MIT), Lucide React (ISC), React Icons (MIT),
+`@noble/hashes` (MIT), `jsqr` (Apache-2.0), and ZXing (Apache-2.0). The
+authoritative current inventory is regenerated from the lockfile by:
 
 ```bash
 mise exec -- pnpm licenses list --json

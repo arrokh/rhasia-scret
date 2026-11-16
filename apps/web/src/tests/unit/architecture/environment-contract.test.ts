@@ -21,6 +21,19 @@ describe("workspace environment contract", () => {
     expect(example).not.toContain("MOBILE_APPLE_TEAM_ID");
   });
 
+  it("sets the Go API runtime independently from the Node web runtime", () => {
+    const apiLaunchers = [
+      join(repositoryRoot, "tools", "run-local-dev.mjs"),
+      join(repositoryRoot, "apps", "web", "scripts", "run-browser-server.ts"),
+    ].map((path) => readFileSync(path, "utf8"));
+
+    for (const launcher of apiLaunchers) {
+      expect(launcher).toContain('RHSIA_RUNTIME_ENV: "development"');
+      expect(launcher).toContain('"NODE_ENV"');
+      expect(launcher).toContain("API_BLOCKED_ENVIRONMENT_KEYS");
+    }
+  });
+
   it("keeps API-only variables out of every local web runtime", () => {
     const webLaunchers = [
       join(repositoryRoot, "tools", "run-local-dev.mjs"),
@@ -30,6 +43,7 @@ describe("workspace environment contract", () => {
     for (const launcher of webLaunchers) {
       expect(launcher).toContain("WEB_BLOCKED_ENVIRONMENT_KEYS");
       for (const key of [
+        "RHSIA_RUNTIME_ENV",
         "DATABASE_URL",
         "SMTP_PASSWORD",
         "AUTH_EMAIL_FROM",

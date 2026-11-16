@@ -25,22 +25,18 @@ test("requires newly created GitHub Releases to use the exact version-only title
   }
 });
 
-test("requires the pinned Bun runtime for the exact-source browser gate", () => {
-  const missingBunSetup = workflow.replace(
-    /      - uses: oven-sh\/setup-bun@[0-9a-f]{40}[^\n]*\n        with:\n          bun-version: 1\.3\.9\n/,
-    "",
-  );
-  const unpinnedBunSetup = workflow.replace(
-    "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6",
-    "oven-sh/setup-bun@main",
-  );
-  const wrongBunVersion = workflow.replace("bun-version: 1.3.9", "bun-version: 1.3.8");
+test("does not install the retired Bun API runtime for the exact-source browser gate", () => {
+  assert.doesNotMatch(workflow, /oven-sh\/setup-bun|bun-version:/);
 
-  for (const modifiedWorkflow of [missingBunSetup, unpinnedBunSetup, wrongBunVersion]) {
-    assert.ok(
-      verifyReleaseWorkflowPolicy(modifiedWorkflow).failures.some((failure) => failure.includes("pinned Bun runtime")),
-    );
-  }
+  const restoredBunSetup = workflow.replace(
+    "      - name: Install locked dependencies",
+    "      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0\n        with:\n          bun-version: 1.3.9\n      - name: Install locked dependencies",
+  );
+  assert.ok(
+    verifyReleaseWorkflowPolicy(restoredBunSetup).failures.some((failure) =>
+      failure.includes("retired Bun API runtime"),
+    ),
+  );
 });
 
 test("installs Chromium and its system dependencies before the exact-source browser gate", () => {

@@ -1,6 +1,6 @@
 # Cookie-based English and Indonesian localization
 
-The responsive web application and installable PWA support Indonesian (`id`) and English (`en`) through `next-intl`, with Indonesian as the deterministic default. A validated first-party `RHSIA_LOCALE` cookie stores only the selected web locale. The selected locale is never persisted in Prisma, IndexedDB, TanStack Query, or encrypted payloads, and the web application does not infer it from `Accept-Language`.
+The responsive web application and installable PWA support Indonesian (`id`) and English (`en`) through `next-intl`, with Indonesian as the deterministic default. A validated first-party `RHSIA_LOCALE` cookie stores only the selected web locale. The selected locale is never persisted in the application database, IndexedDB, TanStack Query, or encrypted payloads, and the web application does not infer it from `Accept-Language`.
 
 Locale selection does not alter paths. Public, authenticated, callback, offline, and Secure Share Link URLs remain unchanged, including secret-bearing URL fragments. This avoids coupling presentation language to authentication redirects, authorization matching, PWA scope, or cryptographic link contracts in a passwordless email-authenticated application where localized SEO paths are not required. Reading the cookie in the root layout makes otherwise static public and preview routes request-rendered; this is accepted so server-rendered content and accessibility metadata use the selected language.
 

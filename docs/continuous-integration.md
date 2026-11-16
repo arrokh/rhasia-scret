@@ -23,14 +23,19 @@ The main-push and pull-request workflow selects affected applications and runs i
 
 - **Repository:** frozen-lockfile installation, version/policy/release-evidence checks, release-automation tests, formatting, production dependency audit, and license review.
 - **Core:** shared client package typecheck and tests when shared code changes.
-- **Quality:** Prisma client/schema checks for the test-only parity oracle, the Sqitch baseline deploy/verify and synthetic legacy-adoption check, Go format/vet/unit/integration/race/native/Linux build plus pinned vulnerability/license scans, TypeScript parity tests, Web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
+- **Quality:** the Sqitch baseline deploy/verify and synthetic legacy-adoption check, Go format/vet/unit/integration/race/native/Linux build plus pinned vulnerability/license scans, API test-tool lint/typecheck/tests, shared API contract checks, Web lint/typecheck/unit/integration/contract/architecture checks, production build, and route-bundle budgets when web code changes.
 - **Browser matrix:** smoke and encrypted workflows for Chromium, plus a production PWA/navigation job for Chromium, when web code changes. Firefox and WebKit are commented out in both CI and Playwright configuration and are not test targets.
 
 Change detection, repository, core, and quality jobs have an eight-minute hard timeout. Browser smoke shards get twelve minutes because Playwright installs operating-system packages from Ubuntu mirrors; encrypted browser workflows and the combined production PWA/navigation job also get twelve minutes for cold browser setup and suite work. These limits are enforced after the work is distributed; they are not a substitute for measuring or fixing slow checks.
 
 The formatting gate applies Prettier to repository-owned JavaScript, TypeScript,
-JSON, Markdown, YAML, and CSS files, and applies the Prisma formatter only to the
-historical test-oracle schema. New application schema changes use reviewed Sqitch deploy/revert/verify scripts; they are not reformatted by Prettier. The archived passwordless preflight/seed/verification scripts are historical evidence, not an active migration path. The vendored Argon2 C/C++ implementation remains outside this automatic formatter until the project adopts a dedicated, compatible formatter.
+JSON, Markdown, YAML, and CSS files. Go formatting is checked separately by the
+API verification scripts. New application schema changes use reviewed Sqitch
+deploy/revert/verify scripts; SQL is not reformatted by Prettier. The archived
+passwordless preflight/seed/verification scripts are historical evidence, not an
+active migration path. The vendored Argon2 C/C++ implementation remains outside
+this automatic formatter until the project adopts a dedicated, compatible
+formatter.
 
 The dependency-review job runs on pull requests and rejects newly introduced dependencies with a high or critical advisory. `pnpm audit --prod --audit-level=high`, the JavaScript license policy, `govulncheck` v1.8.0, and `go-licenses` v2.0.1 remain main-push quality steps through `pnpm run verify:api-go`.
 
@@ -88,6 +93,6 @@ pnpm run test:container
 pnpm run test:full:container
 ```
 
-The container runner creates PostgreSQL itself, builds and runs the isolated Sqitch migration image to deploy/verify the baseline, materializes the checked-in schema-only legacy fixture in a separate logical database, compares the schema to the fresh baseline, and verifies log-only adoption leaves a sentinel unchanged. It generates Prisma Client for the test-only parity oracle and runs Go and TypeScript integration tests with `REQUIRE_DATABASE_INTEGRATION=1`. It then removes the database container and volume plus the run-owned migration containers/image and verifies cleanup. Because both database URLs are overridden only after the disposable container starts, the development/local database cannot be selected by this command. `pnpm run test:hosted` and `pnpm run test:full:hosted` are the explicit underlying commands for an already-provisioned database. GitHub Actions uses job-scoped PostgreSQL service containers instead of Testcontainers, applies and verifies the same Sqitch baseline before Go and TypeScript persistence tests, then runs the hosted gate with the same strict database-integration policy.
+The container runner creates PostgreSQL itself, builds and runs the isolated Sqitch migration image to deploy/verify the baseline, materializes the checked-in schema-only legacy fixture in a separate logical database, compares the schema to the fresh baseline, and verifies log-only adoption leaves a sentinel unchanged. It runs Go persistence tests with `REQUIRE_DATABASE_INTEGRATION=1`, then removes the database container and volume plus the run-owned migration containers/image and verifies cleanup. Because both database URLs are overridden only after the disposable container starts, the development/local database cannot be selected by this command. `pnpm run test:hosted` and `pnpm run test:full:hosted` are the explicit underlying commands for a pre-provisioned database. GitHub Actions uses job-scoped PostgreSQL service containers instead of Testcontainers, applies and verifies the same Sqitch baseline before Go persistence tests, then runs the hosted gate with the same strict database-integration policy.
 
 The policy verifier checks the main and pull-request quality triggers, pull-request security triggers, permissions, pinned security actions, fork-safe conditions, and Dependabot coverage. It validates repository policy text; the commands above verify the GitHub-hosted branch protection and secret-scanning settings, while completed workflow runs remain commit-specific evidence.

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	servercomposition "github.com/nooroctavian/rhasia-scret/apps/api/internal/app/api"
 	"github.com/nooroctavian/rhasia-scret/apps/api/internal/httpapi"
-	servercomposition "github.com/nooroctavian/rhasia-scret/apps/api/internal/modules/server-composition"
 )
 
 // NewAPIHandler creates the database-backed API handler with database-independent
