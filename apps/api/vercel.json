@@ -5,7 +5,6 @@
   "git": { "deploymentEnabled": { "main": true, "**": false } },
   "ignoreCommand": "node ../../tools/vercel-ignore.mjs api",
   "installCommand": "true",
-  "buildCommand": "true",
   "rewrites": [
     { "source": "/v1/health", "destination": "/api/health" },
     { "source": "/v1/time", "destination": "/api/time" },
