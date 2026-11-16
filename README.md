@@ -67,7 +67,7 @@ flowchart LR
     API --> DB
 ```
 
-The browser performs Vault encryption, decryption, and OTP generation. Local Vault data stays in browser storage; hosted requests pass through the web proxy, and the API persists encrypted content plus permitted authorization/lifecycle metadata. See the [documentation index](docs/README.md) and [monorepo guide](docs/monorepo.md) for boundaries and development commands.
+The browser performs Vault encryption, decryption, and OTP generation. Local Vault data stays in browser storage; hosted requests pass through the web proxy, and the Go/Echo API persists encrypted content plus permitted authorization/lifecycle metadata. Docker and Vercel use the same Go API; API-local Node.js tooling is limited to tests and deployment checks. See the [API service guide](apps/api/README.md), [documentation index](docs/README.md), and [monorepo guide](docs/monorepo.md) for boundaries and development commands.
 
 ## Security and limitations
 

@@ -73,7 +73,7 @@ func TestDeriveSqitchConfigurationRejectsUnsafeOrUnsupportedURLs(t *testing.T) {
 	}
 }
 
-func TestMigrationEnvironmentRemovesRuntimeAndInheritedPostgresURLs(t *testing.T) {
+func TestMigrationEnvironmentRemovesApplicationRuntimeAndInheritedPostgresURLs(t *testing.T) {
 	t.Parallel()
 
 	environment := migrationEnvironment([]string{
@@ -83,18 +83,19 @@ func TestMigrationEnvironmentRemovesRuntimeAndInheritedPostgresURLs(t *testing.T
 		"SQITCH_TARGET=db:pg://wrong:5432/wrong",
 		"PGHOST=wrong",
 		"NODE_ENV=production",
+		"RHSIA_RUNTIME_ENV=production",
 	}, "db:pg://right:5432/vault_db", map[string]string{
 		"PGHOST":     "right",
 		"PGDATABASE": "vault_db",
 		"PGUSER":     "synthetic",
 	})
 	joined := strings.Join(environment, "\n")
-	for _, forbidden := range []string{"DIRECT_URL=", "DATABASE_URL=", "private.invalid", "wrong:5432", "PGHOST=wrong"} {
+	for _, forbidden := range []string{"DIRECT_URL=", "DATABASE_URL=", "private.invalid", "wrong:5432", "PGHOST=wrong", "NODE_ENV=", "RHSIA_RUNTIME_ENV="} {
 		if strings.Contains(joined, forbidden) {
 			t.Errorf("migration environment contains %q", forbidden)
 		}
 	}
-	for _, expected := range []string{"PATH=/usr/bin", "NODE_ENV=production", "SQITCH_TARGET=db:pg://right:5432/vault_db", "PGHOST=right"} {
+	for _, expected := range []string{"PATH=/usr/bin", "SQITCH_TARGET=db:pg://right:5432/vault_db", "PGHOST=right"} {
 		if !strings.Contains(joined, expected) {
 			t.Errorf("migration environment is missing %q", expected)
 		}

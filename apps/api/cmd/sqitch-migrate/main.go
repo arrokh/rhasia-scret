@@ -126,7 +126,8 @@ func migrationEnvironment(current []string, target string, postgresEnvironment m
 	values := make(map[string]string, len(current)+len(postgresEnvironment)+1)
 	for _, entry := range current {
 		name, value, found := strings.Cut(entry, "=")
-		if !found || name == "DIRECT_URL" || name == "DATABASE_URL" || name == "SQITCH_TARGET" || strings.HasPrefix(name, "PG") {
+		if !found || name == "DIRECT_URL" || name == "DATABASE_URL" || name == "SQITCH_TARGET" ||
+			name == "NODE_ENV" || name == "RHSIA_RUNTIME_ENV" || strings.HasPrefix(name, "PG") {
 			continue
 		}
 		values[name] = value

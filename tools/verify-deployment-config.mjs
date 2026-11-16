@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+export const API_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS = ["NODE_ENV"];
 export const WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS = [
+  "RHSIA_RUNTIME_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "POSTGRES_DB",
@@ -30,6 +32,7 @@ export const WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS = [
 export function createDeploymentConfigVerificationSteps(environment = process.env) {
   const apiEnvironment = { ...environment };
   const webEnvironment = { ...environment };
+  for (const name of API_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS) delete apiEnvironment[name];
   for (const name of WEB_FORBIDDEN_RUNTIME_ENVIRONMENT_KEYS) delete webEnvironment[name];
 
   return [

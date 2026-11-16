@@ -458,7 +458,10 @@ function verifyDeploymentConfiguration(root) {
   const context = loadContext(root);
   runCommand(pnpmCommand, ["run", "verify:deployment-config"], {
     cwd: root,
-    env: createSelfHostedCommandEnvironment(context, { NODE_ENV: "development" }),
+    env: createSelfHostedCommandEnvironment(context, {
+      NODE_ENV: "development",
+      RHSIA_RUNTIME_ENV: "development",
+    }),
     label: "application configuration verification",
   });
 }
