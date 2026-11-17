@@ -33,6 +33,14 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.4.1]
+
+<!-- Draft generated from first-parent history v0.4.0..c4d9932858ee978409c988ec96a6fd60243a8c25 (first-parent, exclusive of tag); release-base c4d9932858ee978409c988ec96a6fd60243a8c25. Review and curate before publication. -->
+
+### Changes
+
+- [api][fix] Stop empty static build on Vercel API (#339)
+
 ## [0.4.0]
 
 <!-- Draft generated from first-parent history v0.3.3..c57e8fa8b9057156295b271cb53ff846c38b9b6d (first-parent, exclusive of tag); release-base c57e8fa8b9057156295b271cb53ff846c38b9b6d. Review and curate before publication. -->
