@@ -55,9 +55,9 @@ func TestPoolReplacesConnectionAfterStalledIdlePing(t *testing.T) {
 		t.Fatal("create PostgreSQL pool through local proxy")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := pool.Ping(ctx); err != nil {
+	setupContext, cancelSetup := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelSetup()
+	if err := pool.Ping(setupContext); err != nil {
 		t.Fatal("establish proxied PostgreSQL connection")
 	}
 	connectionsBefore := pool.Stat().NewConnsCount()
@@ -66,8 +66,10 @@ func TestPoolReplacesConnectionAfterStalledIdlePing(t *testing.T) {
 	}
 
 	proxy.StallExisting()
+	queryContext, cancelQuery := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelQuery()
 	var result int
-	if err := pool.QueryRow(ctx, `SELECT 1`).Scan(&result); err != nil {
+	if err := pool.QueryRow(queryContext, `SELECT 1`).Scan(&result); err != nil {
 		t.Fatalf("query after a stalled idle connection ping: %v", err)
 	}
 	if result != 1 {
