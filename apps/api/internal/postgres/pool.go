@@ -6,11 +6,17 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const APIConnectionLimit int32 = 5
+
+const (
+	apiConnectionTimeout = 5 * time.Second
+	apiPingTimeout       = time.Second
+)
 
 var ErrInvalidDatabaseURL = errors.New("invalid API database URL")
 
@@ -24,6 +30,13 @@ func ParseRuntimePoolConfig(databaseURL string) (*pgxpool.Config, error) {
 		return nil, fmt.Errorf("parse API database configuration: %w", err)
 	}
 	config.MaxConns = APIConnectionLimit
+	// Bound idle health pings and replacement dials instead of pgxpool's untimed ping/two-minute dial defaults.
+	if config.ConnConfig.ConnectTimeout <= 0 && !hasDatabaseURLParameter(normalized, "connect_timeout") {
+		config.ConnConfig.ConnectTimeout = apiConnectionTimeout
+	}
+	if config.PingTimeout <= 0 && !hasDatabaseURLParameter(normalized, "pool_ping_timeout") {
+		config.PingTimeout = apiPingTimeout
+	}
 	return config, nil
 }
 
@@ -37,6 +50,11 @@ func OpenPool(databaseURL string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("create API database pool: %w", err)
 	}
 	return pool, nil
+}
+
+func hasDatabaseURLParameter(databaseURL, parameter string) bool {
+	parsed, err := url.Parse(databaseURL)
+	return err == nil && parsed.Query().Has(parameter)
 }
 
 func normalizeDatabaseURL(databaseURL string) (string, error) {

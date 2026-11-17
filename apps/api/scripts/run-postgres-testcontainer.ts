@@ -146,7 +146,10 @@ async function main(): Promise<number> {
         if (terminationSignal) child.kill(terminationSignal);
       });
 
-    if (mode === "--integration") return runGo(["test", "-p=1", "./...", "-count=1"]);
+    if (mode === "--integration") {
+      const integrationExitCode = await runGo(["test", "-p=1", "./...", "-count=1"]);
+      return integrationExitCode;
+    }
 
     const hostedCommand = mode === "--test" ? "test:hosted" : "test:full:hosted";
     const hostedExitCode = await runPackage(["run", hostedCommand], repositoryRoot);
