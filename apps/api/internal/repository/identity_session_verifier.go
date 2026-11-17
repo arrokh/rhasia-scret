@@ -8,10 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	apiService "github.com/nooroctavian/rhasia-scret/apps/api/internal/service"
@@ -27,11 +30,18 @@ const (
 
 var errInvalidAssertion = errors.New("invalid passwordless assertion")
 
+type sessionVerifierDatabase interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
 type SessionVerifier struct {
-	pool          *pgxpool.Pool
+	pool          sessionVerifierDatabase
 	sessionSecret []byte
 	now           func() time.Time
 }
+
+const sessionVerifierReadRetryDelay = 25 * time.Millisecond
 
 func NewSessionVerifier(pool *pgxpool.Pool, sessionSecret []byte, now func() time.Time) (*SessionVerifier, error) {
 	if pool == nil || len(sessionSecret) < 32 {
@@ -122,21 +132,62 @@ func (verifier *SessionVerifier) loadPrincipal(ctx context.Context, condition st
 		` + condition
 	var row apiService.Principal
 	var emailVerifiedAt time.Time
-	err := verifier.pool.QueryRow(ctx, query, firstArgument, now, passwordlessIssuer).Scan(
-		&row.SessionID,
-		&row.SessionExpiresAt,
-		&row.IssuedAt,
-		&row.Issuer,
-		&row.Subject,
-		&row.Email,
-		&emailVerifiedAt,
-	)
+	err := retrySessionRead(ctx, func() error {
+		row = apiService.Principal{}
+		emailVerifiedAt = time.Time{}
+		return verifier.pool.QueryRow(ctx, query, firstArgument, now, passwordlessIssuer).Scan(
+			&row.SessionID,
+			&row.SessionExpiresAt,
+			&row.IssuedAt,
+			&row.Issuer,
+			&row.Subject,
+			&row.Email,
+			&emailVerifiedAt,
+		)
+	})
 	if err != nil {
 		return apiService.Principal{}, err
 	}
 	row.EmailVerified = true
 	row.Assurance = apiService.AssuranceActiveSession
 	return row, nil
+}
+
+// The session lookup is read-only, so retry one transient connection failure without
+// repeating any session mutation or retrying schema, permission, or other SQL errors.
+func retrySessionRead(ctx context.Context, query func() error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	err := query()
+	if err == nil || ctx.Err() != nil || !isRetryableSessionReadError(err) {
+		return err
+	}
+
+	timer := time.NewTimer(sessionVerifierReadRetryDelay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return query()
+}
+
+func isRetryableSessionReadError(err error) bool {
+	if pgconn.SafeToRetry(err) {
+		return true
+	}
+	var postgresError *pgconn.PgError
+	if errors.As(err, &postgresError) &&
+		(strings.HasPrefix(postgresError.Code, "08") || postgresError.Code == "57P01" || postgresError.Code == "57P02" || postgresError.Code == "57P03") {
+		return true
+	}
+	var networkError net.Error
+	return errors.As(err, &networkError) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, pgconn.ErrConnClosed)
 }
 
 func (verifier *SessionVerifier) digest(token string) []byte {
