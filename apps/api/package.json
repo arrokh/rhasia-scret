@@ -1,6 +1,6 @@
 {
   "name": "@rhasia-scret/api-test-tools",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Node-based test, development, and deployment-check tooling for the Go API; not a production runtime.",
   "private": true,
   "type": "module",
