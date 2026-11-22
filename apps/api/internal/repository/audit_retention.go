@@ -32,15 +32,17 @@ func PurgeExpiredVaultAuditEvents(ctx context.Context, database AuditRetentionQu
 		return nil, errors.New("Vault audit purge request is invalid")
 	}
 	rows, err := database.Query(ctx, `
-		DELETE FROM vault_audit_events
-		WHERE id IN (
+		WITH expired AS MATERIALIZED (
 			SELECT id FROM vault_audit_events
 			WHERE retention_purge_after IS NOT NULL AND retention_purge_after <= $1
 			ORDER BY retention_purge_after, id
-			FOR UPDATE SKIP LOCKED
 			LIMIT $2
+			FOR UPDATE SKIP LOCKED
 		)
-		RETURNING id`, now, batchSize)
+		DELETE FROM vault_audit_events AS event
+		USING expired
+		WHERE event.id = expired.id
+		RETURNING event.id`, now, batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("purge expired Vault audit events: %w", err)
 	}
