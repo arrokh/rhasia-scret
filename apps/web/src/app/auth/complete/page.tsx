@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { AppPage, Brand, SurfaceCard } from "@/shared/presentation/app-ui";
-import { AuthCompletionAnnouncement } from "@/modules/identity/presentation/auth-completion-announcement";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +11,6 @@ export default async function AuthCompletionPage() {
   return (
     <AppPage centered>
       <SurfaceCard className="w-full max-w-md px-5 py-7 sm:px-8 sm:py-9">
-        <AuthCompletionAnnouncement />
         <div className="flex flex-col items-center text-center">
           <h1>
             <Brand />

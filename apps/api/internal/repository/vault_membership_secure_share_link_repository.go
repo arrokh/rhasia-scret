@@ -89,12 +89,22 @@ func (repository *SecureShareLinkRepository) CreateForEmail(
 	if normalizeInvitationEmail(ownerEmail) == normalizedEmail {
 		return apiService.CreatedSecureShareLink{}, apiService.ErrInvitationRecipientUnavailable
 	}
+	// Application User emails are not identities; bind only the active, verified current Passwordless identity.
 	var recipientUserID *string
 	var activeRecipientID string
 	err = transaction.QueryRow(ctx, `
-		SELECT id FROM application_users
-		WHERE lower(email) = $1 AND status = 'ACTIVE'
-		LIMIT 1`, normalizedEmail).Scan(&activeRecipientID)
+		SELECT application_user.id
+		FROM passwordless_identities AS passwordless
+		JOIN external_identities AS external
+		  ON external.id = passwordless.external_identity_id
+		 AND external.issuer = $2
+		 AND external.email = passwordless.normalized_email
+		 AND external.email_verified_at IS NOT NULL
+		JOIN application_users AS application_user ON application_user.id = external.application_user_id
+		WHERE passwordless.normalized_email = $1
+		  AND application_user.email = passwordless.normalized_email
+		  AND application_user.status = 'ACTIVE'
+		LIMIT 1`, normalizedEmail, apiService.PasswordlessIssuer).Scan(&activeRecipientID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return apiService.CreatedSecureShareLink{}, fmt.Errorf("find Secure Share Link recipient: %w", err)
 	}

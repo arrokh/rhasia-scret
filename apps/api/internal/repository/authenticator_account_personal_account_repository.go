@@ -66,14 +66,15 @@ func (repository *PersonalAccountRepository) Create(ctx context.Context, ownerID
 	if err != nil {
 		return apiEntity.EncryptedAuthenticatorAccount{}, err
 	}
+	action := apiEntity.ActionAccountAdded
 	if input.Source == apiService.AccountCopySourceLocalVault {
-		if err := AppendVaultAuditEvent(ctx, transaction, apiEntity.VaultAuditAppend{
-			VaultID: vaultID, OwnerID: ownerID, ActorUserID: ownerID,
-			Action: apiEntity.ActionAccountCopiedFromLocal, TargetID: accountID,
-		}); err != nil {
-			account.Clear()
-			return apiEntity.EncryptedAuthenticatorAccount{}, err
-		}
+		action = apiEntity.ActionAccountCopiedFromLocal
+	}
+	if err := AppendVaultAuditEvent(ctx, transaction, apiEntity.VaultAuditAppend{
+		VaultID: vaultID, OwnerID: ownerID, ActorUserID: ownerID, Action: action, TargetID: accountID,
+	}); err != nil {
+		account.Clear()
+		return apiEntity.EncryptedAuthenticatorAccount{}, err
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		account.Clear()
@@ -188,36 +189,49 @@ func (repository *PersonalAccountRepository) MigratePayload(ctx context.Context,
 }
 
 func (repository *PersonalAccountRepository) Update(ctx context.Context, ownerID string, vaultID string, accountID string, expectedRevision int64, input apiService.NewEncryptedAccount) (*apiEntity.EncryptedAuthenticatorAccount, error) {
-	if err := AssertActivePersonalVault(ctx, repository.pool, ownerID, vaultID); err != nil {
+	transaction, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("begin Personal Vault account update: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	if _, active, err := LockActivePersonalVault(ctx, transaction, ownerID, vaultID); err != nil {
 		return nil, err
+	} else if !active {
+		return nil, errors.New("Personal Vault is unavailable")
 	}
 	payload := append([]byte(nil), input.EncryptedPayload...)
 	defer clear(payload)
-	command, err := repository.pool.Exec(ctx, `
-		UPDATE authenticator_accounts
-		SET encrypted_payload = $1, encryption_version = $2, revision = revision + 1, updated_at = $3
-		WHERE id = $4 AND vault_id = $5 AND revision = $6 AND deleted_at IS NULL`,
-		payload, input.EncryptionVersion, repository.now(), accountID, vaultID, expectedRevision)
-	if err != nil {
-		return nil, fmt.Errorf("update Personal Vault account: %w", err)
-	}
-	if command.RowsAffected() != 1 {
-		return nil, nil
-	}
 	var storedVaultID string
 	var storedPayload []byte
 	var encryptionVersion, revision int32
-	if err := repository.pool.QueryRow(ctx, `
-		SELECT vault_id, encrypted_payload, encryption_version, revision
-		FROM authenticator_accounts WHERE id = $1`, accountID).
-		Scan(&storedVaultID, &storedPayload, &encryptionVersion, &revision); err != nil {
+	err = transaction.QueryRow(ctx, `
+		UPDATE authenticator_accounts
+		SET encrypted_payload = $1, encryption_version = $2, revision = revision + 1, updated_at = $3
+		WHERE id = $4 AND vault_id = $5 AND revision = $6 AND deleted_at IS NULL
+		RETURNING vault_id, encrypted_payload, encryption_version, revision`,
+		payload, input.EncryptionVersion, repository.now(), accountID, vaultID, expectedRevision).
+		Scan(&storedVaultID, &storedPayload, &encryptionVersion, &revision)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
 		clear(storedPayload)
-		return nil, fmt.Errorf("load updated Personal Vault account: %w", err)
+		return nil, fmt.Errorf("update Personal Vault account: %w", err)
 	}
 	defer clear(storedPayload)
 	account, err := apiEntity.NewEncryptedAuthenticatorAccount(accountID, storedVaultID, storedPayload, int(encryptionVersion), int64(revision))
 	if err != nil {
 		return nil, err
+	}
+	if err := AppendVaultAuditEvent(ctx, transaction, apiEntity.VaultAuditAppend{
+		VaultID: vaultID, OwnerID: ownerID, ActorUserID: ownerID, Action: apiEntity.ActionAccountUpdated, TargetID: accountID,
+	}); err != nil {
+		account.Clear()
+		return nil, err
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		account.Clear()
+		return nil, fmt.Errorf("commit Personal Vault account update: %w", err)
 	}
 	return &account, nil
 }

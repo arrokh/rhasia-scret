@@ -64,6 +64,7 @@ export {
   browserVaultLockPort,
   cancelPwaUpdateLock,
   requestLocalVaultLock,
+  requestVaultSessionChange,
   subscribeToLocalVaultLock,
   trackVaultSensitiveOperation,
 } from "./infrastructure/browser-vault-lock";

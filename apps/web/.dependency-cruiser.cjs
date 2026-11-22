@@ -15,6 +15,12 @@ module.exports = {
       to: { path: "^src/modules/(crypto|otp-runtime)/(domain|application|infrastructure)/" },
     },
     {
+      name: "shared-no-context-dependencies",
+      severity: "error",
+      from: { path: "^src/shared/" },
+      to: { path: "^src/modules/" },
+    },
+    {
       name: "cross-context-internals-forbidden",
       severity: "error",
       from: { path: "^src/modules/([^/]+)/" },

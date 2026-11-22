@@ -1,7 +1,11 @@
 "use client";
 
 import { browserApiClient, BrowserApiError } from "@/shared/infrastructure/browser-api-client";
-import type { PasswordlessClient, PasswordlessReturnPath } from "../application/passwordless-client-contract";
+import {
+  isSafePasswordlessChallengeExpirySeconds,
+  type PasswordlessClient,
+  type PasswordlessReturnPath,
+} from "../application/passwordless-client-contract";
 import { isPwaDisplayMode, type PendingPwaAuthenticationHandoff } from "./pwa-authentication";
 import type { PasswordlessSignInClient } from "../presentation/request-email-sign-in-link";
 
@@ -9,14 +13,19 @@ export const browserPasswordlessClient: PasswordlessSignInClient = {
   async requestMagicLink({ email, returnPath, client, handoffId, handoffVerifier, turnstileToken }) {
     const resolvedClient: PasswordlessClient = client ?? (isPwaDisplayMode() ? "pwa" : "web");
     try {
-      await browserApiClient.postJson<{ sent: true }>("/api/v1/auth/magic-link/request", {
+      const response = await browserApiClient.postJson<{
+        sent: true;
+        challengeExpiresInSeconds: unknown;
+      }>("/api/v1/auth/magic-link/request", {
         email,
         client: resolvedClient,
         returnPath,
         ...(resolvedClient === "pwa" ? { handoffId, handoffVerifier } : {}),
         ...(turnstileToken ? { turnstileToken } : {}),
       });
-      return { error: null };
+      if (response.sent !== true || !isSafePasswordlessChallengeExpirySeconds(response.challengeExpiresInSeconds))
+        return { error: new Error("Passwordless challenge response is invalid.") };
+      return { error: null, challengeExpiresInSeconds: response.challengeExpiresInSeconds };
     } catch (error) {
       if (error instanceof BrowserApiError && error.status === 429) return { error: { status: 429 } };
       return { error };
@@ -49,5 +58,5 @@ export async function pollPwaAuthenticationHandoff(
 ): Promise<Readonly<{ pending: true } | { accepted: true; returnPath: PasswordlessReturnPath }>> {
   return browserApiClient.postJson<
     Readonly<{ pending: true } | { accepted: true; returnPath: PasswordlessReturnPath }>
-  >("/api/v1/auth/pwa/session", handoff);
+  >("/api/v1/auth/pwa/session", { handoffId: handoff.handoffId, verifier: handoff.verifier });
 }

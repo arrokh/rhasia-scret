@@ -6,13 +6,14 @@ import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/shared/presentation/app-ui";
+import { consumeBrowserLocationFragment } from "@/shared/infrastructure/browser-location-fragment";
 import {
   AUTH_COMPLETION_PATH,
   INVITATION_AUTH_RETURN_PATH,
   resolveAuthReturnPath,
 } from "../application/auth-return-path";
 import { isSafePwaHandoffId, isSessionToken } from "../application/passwordless-client-contract";
-import { announceAuthenticationCompletion, requestInvitationSecret } from "./auth-completion-channel";
+import { announceAuthenticationCompletion } from "./auth-completion-channel";
 import {
   pollPwaAuthenticationHandoff,
   publishPwaAuthenticationHandoff,
@@ -23,14 +24,13 @@ import {
   announcePwaAuthenticationCompletion,
   clearPwaAuthenticationHandoff,
   isPwaDisplayMode,
-  readPwaAuthenticationHandoff,
+  readPwaAuthenticationHandoffById,
   requestPwaAuthenticationVerifier,
+  subscribeToPwaAuthenticationCompletion,
   type PendingPwaAuthenticationHandoff,
 } from "../infrastructure/pwa-authentication";
 
 type MagicLinkConfirmationProps = { client?: "web" | "pwa"; navigate?: (path: string) => void };
-
-const INVITATION_SECRET_HANDOFF_TIMEOUT_MS = 3_000;
 
 export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps> = ({ client = "web", navigate }) => {
   const t = useTranslations("Identity.confirm");
@@ -43,8 +43,10 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
   );
   const [failed, setFailed] = useState(false);
   const [handoffFailed, setHandoffFailed] = useState(false);
-  const [pwaHandoffSent, setPwaHandoffSent] = useState(false);
+  const [pwaHandoffPending, setPwaHandoffPending] = useState(false);
   const redemptionAttempted = useRef(false);
+  const pwaCompletionHandled = useRef(false);
+  const pwaCompletionUnsubscribe = useRef<(() => void) | null>(null);
   const mounted = useRef(false);
 
   useEffect(() => {
@@ -52,55 +54,85 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
     if (redemptionAttempted.current)
       return () => {
         mounted.current = false;
+        pwaCompletionUnsubscribe.current?.();
+        pwaCompletionUnsubscribe.current = null;
       };
     redemptionAttempted.current = true;
     void (async () => {
-      const fragment = readAndClearFragment();
-      if (!fragment.token) {
-        if (mounted.current) setFailed(true);
-        return;
-      }
       let completingHandoff = false;
+      let pwaHandoffPublished = false;
       try {
+        const fragment = readAndClearFragment();
+        if (!fragment.token) {
+          if (mounted.current) setFailed(true);
+          return;
+        }
         if (client === "pwa") {
-          if (!fragment.handoffId || !isSafePwaHandoffId(fragment.handoffId)) throw new Error("Invalid PWA handoff.");
+          const handoffId = fragment.handoffId;
+          if (!handoffId || !isSafePwaHandoffId(handoffId)) throw new Error("Invalid PWA handoff.");
           const pwaDisplayMode = isPwaDisplayMode();
+          const finishPwaHandoff = (acceptedReturnPathValue: unknown, announceCompletion: boolean) => {
+            if (pwaCompletionHandled.current) return;
+            pwaCompletionHandled.current = true;
+            clearPwaAuthenticationHandoff(handoffId);
+            pwaCompletionUnsubscribe.current?.();
+            pwaCompletionUnsubscribe.current = null;
+            const returnPath = resolveAuthReturnPath(acceptedReturnPathValue);
+            if (mounted.current) goTo(returnPath === INVITATION_AUTH_RETURN_PATH ? AUTH_COMPLETION_PATH : returnPath);
+            if (announceCompletion) {
+              try {
+                announcePwaAuthenticationCompletion(handoffId, returnPath);
+              } catch {
+                // The server accepted authentication; completion announcements are best-effort.
+              }
+              try {
+                announceAuthenticationCompletion();
+              } catch {
+                // A failed session-change announcement must not block successful sign-in navigation.
+              }
+            }
+          };
           completingHandoff = pwaDisplayMode;
-          const pending = pwaDisplayMode ? await resolvePwaAuthenticationHandoff(fragment.handoffId) : null;
+          const pending = pwaDisplayMode ? await resolvePwaAuthenticationHandoff(handoffId) : null;
           if (pwaDisplayMode && !pending) throw new Error("PWA handoff is unavailable.");
+          if (pwaDisplayMode) {
+            pwaCompletionUnsubscribe.current?.();
+            pwaCompletionUnsubscribe.current = subscribeToPwaAuthenticationCompletion((completedId, returnPath) => {
+              if (completedId !== handoffId) return;
+              finishPwaHandoff(returnPath, false);
+            });
+          }
           completingHandoff = false;
           const result = await redeemPwaMagicLink(fragment.token);
           completingHandoff = true;
           if (!isSessionToken(result.refreshToken)) throw new Error("Invalid PWA session handoff.");
-          await publishPwaAuthenticationHandoff(fragment.handoffId, result.refreshToken);
+          await publishPwaAuthenticationHandoff(handoffId, result.refreshToken);
+          pwaHandoffPublished = true;
           if (pwaDisplayMode) {
             if (!pending) throw new Error("PWA handoff is unavailable.");
             const accepted = await pollPwaAuthenticationHandoff(pending);
-            if (!("accepted" in accepted)) throw new Error("PWA handoff is pending.");
-            clearPwaAuthenticationHandoff();
-            announcePwaAuthenticationCompletion(fragment.handoffId);
-            announceAuthenticationCompletion();
-            if (mounted.current) goTo(accepted.returnPath);
+            if (!("accepted" in accepted)) {
+              if (pwaCompletionHandled.current) return;
+              if (mounted.current) setPwaHandoffPending(true);
+              return;
+            }
+            finishPwaHandoff(accepted.returnPath, true);
             return;
           }
-          if (mounted.current) setPwaHandoffSent(true);
+          if (mounted.current) setPwaHandoffPending(true);
           return;
         }
         const returnPath = resolveAuthReturnPath((await redeemBrowserMagicLink(fragment.token)).returnPath);
-        const invitationSecretPromise =
-          returnPath === INVITATION_AUTH_RETURN_PATH
-            ? requestInvitationSecret(INVITATION_SECRET_HANDOFF_TIMEOUT_MS)
-            : Promise.resolve(null);
-        announceAuthenticationCompletion();
-        const invitationSecret = await invitationSecretPromise;
         if (mounted.current) {
-          goTo(
-            returnPath === INVITATION_AUTH_RETURN_PATH && !invitationSecret
-              ? AUTH_COMPLETION_PATH
-              : buildAuthenticatedDestination(returnPath, invitationSecret),
-          );
+          goTo(returnPath === INVITATION_AUTH_RETURN_PATH ? AUTH_COMPLETION_PATH : returnPath);
         }
+        announceAuthenticationCompletion();
       } catch {
+        if (pwaCompletionHandled.current) return;
+        if (pwaHandoffPublished && mounted.current) {
+          setPwaHandoffPending(true);
+          return;
+        }
         if (mounted.current) {
           setHandoffFailed(completingHandoff);
           setFailed(true);
@@ -109,6 +141,8 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
     })();
     return () => {
       mounted.current = false;
+      pwaCompletionUnsubscribe.current?.();
+      pwaCompletionUnsubscribe.current = null;
     };
   }, [client, goTo]);
 
@@ -129,7 +163,7 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
       </>
     );
   }
-  if (pwaHandoffSent) {
+  if (pwaHandoffPending) {
     return (
       <>
         <StatusBanner tone="success" role="status">
@@ -151,24 +185,17 @@ export const MagicLinkConfirmation: FunctionComponent<MagicLinkConfirmationProps
   );
 };
 
-function buildAuthenticatedDestination(returnPath: string, invitationSecret: string | null): string {
-  if (returnPath !== INVITATION_AUTH_RETURN_PATH || !invitationSecret) return returnPath;
-  const destination = new URL(returnPath, window.location.origin);
-  destination.hash = invitationSecret;
-  return `${destination.pathname}${destination.search}${destination.hash}`;
-}
-
 async function resolvePwaAuthenticationHandoff(handoffId: string): Promise<PendingPwaAuthenticationHandoff | null> {
-  const pending = readPwaAuthenticationHandoff();
-  if (pending?.handoffId === handoffId) return pending;
+  const pending = readPwaAuthenticationHandoffById(handoffId);
+  if (pending) return pending;
   const verifier = await requestPwaAuthenticationVerifier(handoffId);
   return verifier ? { handoffId, verifier } : null;
 }
 
 function readAndClearFragment(): Readonly<{ token: string | null; handoffId: string | null }> {
-  const hash = window.location.hash;
-  window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
-  const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+  const fragment = consumeBrowserLocationFragment();
+  if (fragment === null) throw new Error("Could not safely consume the authentication fragment.");
+  const params = new URLSearchParams(fragment);
   const token = params.get("token");
   const handoffId = params.get("handoff");
   return {

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 
 	apiEntity "github.com/nooroctavian/rhasia-scret/apps/api/internal/entity"
 )
+
+const initialSharedVaultMemberKeyVersion int32 = 1
 
 type EncryptedVaultImportRepository struct {
 	pool *pgxpool.Pool
@@ -92,33 +95,26 @@ func (repository *EncryptedVaultImportRepository) importInTransaction(
 	if request.Destination.Kind == apiEntity.DestinationExisting && !found {
 		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusDestinationUnavailable}, nil
 	}
-	if request.Destination.Kind == apiEntity.DestinationNewShared && found {
-		return replayResult(ctx, transaction, request, true)
+	if request.Destination.Kind == apiEntity.DestinationExisting && request.Destination.Existing.VaultType == "SHARED" &&
+		!sharedImportKeyVersionMatches(destination, request.Destination.Existing.ExpectedKeyVersion) {
+		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
 	}
-	existingAccounts, err := readExistingAccountVaults(ctx, transaction, request.Accounts)
+	if request.Destination.Kind == apiEntity.DestinationNewShared && found {
+		return replayResult(ctx, transaction, actorUserID, request)
+	}
+	existingCount, exactReplay, err := readExistingImportedAccounts(ctx, transaction, request.Destination.VaultID(), request.Accounts)
 	if err != nil {
 		return apiEntity.EncryptedVaultImportResult{}, err
 	}
-	if len(existingAccounts) > 0 {
-		allFromDestination := len(existingAccounts) == len(request.Accounts)
-		for _, existingVaultID := range existingAccounts {
-			if existingVaultID != request.Destination.VaultID() {
-				allFromDestination = false
-				break
-			}
-		}
-		if allFromDestination && (request.Destination.Kind != apiEntity.DestinationNewShared || found) {
+	if existingCount > 0 {
+		if exactReplay && existingCount == len(request.Accounts) &&
+			(request.Destination.Kind != apiEntity.DestinationNewShared || found) {
 			return apiEntity.EncryptedVaultImportResult{
-				Status:       apiEntity.ImportStatusReplayed,
-				VaultID:      request.Destination.VaultID(),
-				AccountIDs:   importedAccountIDs(request.Accounts),
-				VaultCreated: request.Destination.Kind == apiEntity.DestinationNewShared,
+				Status:     apiEntity.ImportStatusReplayed,
+				VaultID:    request.Destination.VaultID(),
+				AccountIDs: importedAccountIDs(request.Accounts),
 			}, nil
 		}
-		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
-	}
-	if request.Destination.Kind == apiEntity.DestinationExisting && request.Destination.Existing.VaultType == "SHARED" &&
-		(destination.keyVersion == nil || *destination.keyVersion != *request.Destination.Existing.ExpectedKeyVersion) {
 		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
 	}
 	if request.Destination.Kind == apiEntity.DestinationNewShared {
@@ -204,64 +200,124 @@ func lockAuthorizedImportDestination(
 	}, true, nil
 }
 
-func readExistingAccountVaults(ctx context.Context, transaction pgx.Tx, accounts []apiEntity.EncryptedImportedAccount) ([]string, error) {
-	if len(accounts) == 0 {
-		return []string{}, nil
-	}
-	ids := make([]string, 0, len(accounts))
+func sharedImportKeyVersionMatches(destination authorizedImportDestination, expected *int64) bool {
+	return expected != nil && destination.keyVersion != nil && *destination.keyVersion == *expected
+}
+
+func readExistingImportedAccounts(
+	ctx context.Context,
+	transaction pgx.Tx,
+	destinationVaultID string,
+	accounts []apiEntity.EncryptedImportedAccount,
+) (int, bool, error) {
+	requested := make(map[string]apiEntity.EncryptedImportedAccount, len(accounts))
 	for _, account := range accounts {
-		ids = append(ids, account.ID)
+		requested[account.ID] = account
 	}
-	rows, err := transaction.Query(ctx, `SELECT vault_id FROM authenticator_accounts WHERE id = ANY($1::text[])`, ids)
+	rows, err := transaction.Query(ctx, `
+		SELECT id, vault_id, encrypted_payload, encryption_version, deleted_at
+		FROM authenticator_accounts
+		WHERE id = ANY($1::text[])
+		ORDER BY id
+		FOR UPDATE`, importedAccountIDs(accounts))
 	if err != nil {
-		return nil, fmt.Errorf("check encrypted Vault import account identifiers: %w", err)
+		return 0, false, fmt.Errorf("check encrypted Vault import replay content: %w", err)
 	}
 	defer rows.Close()
-	vaultIDs := make([]string, 0, len(ids))
+	existingCount := 0
+	exactReplay := true
 	for rows.Next() {
-		var vaultID string
-		if err := rows.Scan(&vaultID); err != nil {
-			return nil, fmt.Errorf("scan existing encrypted Vault import account: %w", err)
+		var id, vaultID string
+		var payload []byte
+		var encryptionVersion int32
+		var deletedAt pgtype.Timestamptz
+		if err := rows.Scan(&id, &vaultID, &payload, &encryptionVersion, &deletedAt); err != nil {
+			clear(payload)
+			return 0, false, fmt.Errorf("scan encrypted Vault import replay content: %w", err)
 		}
-		vaultIDs = append(vaultIDs, vaultID)
+		existingCount++
+		requestedAccount, found := requested[id]
+		if !found || vaultID != destinationVaultID || deletedAt.Valid ||
+			encryptionVersion != int32(requestedAccount.EncryptionVersion) || !bytes.Equal(payload, requestedAccount.EncryptedPayload) {
+			exactReplay = false
+		}
+		clear(payload)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate existing encrypted Vault import accounts: %w", err)
+		return 0, false, fmt.Errorf("iterate encrypted Vault import replay content: %w", err)
 	}
-	return vaultIDs, nil
+	return existingCount, exactReplay, nil
+}
+
+func existingNewSharedVaultMatches(
+	ctx context.Context,
+	transaction pgx.Tx,
+	ownerID string,
+	destination apiEntity.NewSharedVaultDestination,
+) (bool, error) {
+	var encryptedName, encryptedOwnerVaultKey []byte
+	var encryptionVersion int32
+	var keyVersion pgtype.Int4
+	err := transaction.QueryRow(ctx, `
+		SELECT vault.encrypted_name, vault.encryption_version, member.encrypted_vault_key, member.key_version
+		FROM vaults AS vault
+		JOIN vault_members AS member ON member.vault_id = vault.id
+		WHERE vault.id = $1 AND vault.owner_id = $2 AND vault.type = 'SHARED'
+		  AND vault.lifecycle = 'ACTIVE' AND vault.deleted_at IS NULL
+		  AND member.user_id = $2 AND member.role = 'OWNER' AND member.status = 'ACTIVE'`,
+		destination.VaultID, ownerID).Scan(&encryptedName, &encryptionVersion, &encryptedOwnerVaultKey, &keyVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		clear(encryptedName)
+		clear(encryptedOwnerVaultKey)
+		return false, nil
+	}
+	if err != nil {
+		clear(encryptedName)
+		clear(encryptedOwnerVaultKey)
+		return false, fmt.Errorf("read existing Shared Vault archive destination: %w", err)
+	}
+	defer clear(encryptedName)
+	defer clear(encryptedOwnerVaultKey)
+	return bytes.Equal(encryptedName, destination.EncryptedName) &&
+		bytes.Equal(encryptedOwnerVaultKey, destination.EncryptedOwnerVaultKey) &&
+		encryptionVersion == int32(destination.EncryptionVersion) &&
+		keyVersion.Valid && keyVersion.Int32 == initialSharedVaultMemberKeyVersion, nil
 }
 
 func replayResult(
 	ctx context.Context,
 	transaction pgx.Tx,
+	actorUserID string,
 	request apiEntity.EncryptedVaultImport,
-	vaultCreated bool,
 ) (apiEntity.EncryptedVaultImportResult, error) {
 	vaultID := request.Destination.VaultID()
-	rows, err := transaction.Query(ctx, `
-		SELECT id FROM authenticator_accounts
-		WHERE id = ANY($1::text[]) AND vault_id = $2`, importedAccountIDs(request.Accounts), vaultID)
-	if err != nil {
-		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("check new Shared Vault archive replay: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var accountID string
-		if err := rows.Scan(&accountID); err != nil {
-			return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("scan replayed Vault archive account: %w", err)
+	if request.Destination.Kind == apiEntity.DestinationNewShared {
+		matchesIdentity, err := MatchesUserEncryptionPublicKey(ctx, transaction, actorUserID, request.Destination.NewShared.ExpectedOwnerPublicKey)
+		if err != nil {
+			return apiEntity.EncryptedVaultImportResult{}, err
 		}
-		count++
+		if !matchesIdentity {
+			return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
+		}
+		matchesVault, err := existingNewSharedVaultMatches(ctx, transaction, actorUserID, request.Destination.NewShared)
+		if err != nil {
+			return apiEntity.EncryptedVaultImportResult{}, err
+		}
+		if !matchesVault {
+			return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
+		}
 	}
-	if err := rows.Err(); err != nil {
-		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("iterate replayed Vault archive accounts: %w", err)
+	existingCount, exactReplay, err := readExistingImportedAccounts(ctx, transaction, vaultID, request.Accounts)
+	if err != nil {
+		return apiEntity.EncryptedVaultImportResult{}, err
 	}
-	if count != len(request.Accounts) {
+	if existingCount != len(request.Accounts) || !exactReplay {
 		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
 	}
 	return apiEntity.EncryptedVaultImportResult{
 		Status: apiEntity.ImportStatusReplayed, VaultID: vaultID,
-		AccountIDs: importedAccountIDs(request.Accounts), VaultCreated: vaultCreated,
+		AccountIDs:   importedAccountIDs(request.Accounts),
+		VaultCreated: request.Destination.Kind == apiEntity.DestinationNewShared,
 	}, nil
 }
 
@@ -281,7 +337,8 @@ func (repository *EncryptedVaultImportRepository) createSharedVaultAndAccounts(
 	}
 	if _, err := transaction.Exec(ctx, `
 		INSERT INTO vault_members (vault_id, user_id, role, status, encrypted_vault_key, key_version, created_at, updated_at)
-		VALUES ($1, $2, 'OWNER', 'ACTIVE', $3, 1, $4, $4)`, destination.VaultID, actorUserID, destination.EncryptedOwnerVaultKey, now); err != nil {
+		VALUES ($1, $2, 'OWNER', 'ACTIVE', $3, $4, $5, $5)`, destination.VaultID, actorUserID,
+		destination.EncryptedOwnerVaultKey, initialSharedVaultMemberKeyVersion, now); err != nil {
 		return fmt.Errorf("create Shared Vault owner membership from archive: %w", err)
 	}
 	if err := repository.createAccounts(ctx, transaction, request); err != nil {
@@ -317,84 +374,33 @@ func (repository *EncryptedVaultImportRepository) readReplayOrConflict(
 	actorUserID string,
 	request apiEntity.EncryptedVaultImport,
 ) (apiEntity.EncryptedVaultImportResult, error) {
-	authorized, err := repository.currentlyAuthorized(ctx, actorUserID, request.Destination)
+	transaction, err := repository.pool.Begin(ctx)
+	if err != nil {
+		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("begin encrypted Vault import replay verification: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	destination, authorized, err := lockAuthorizedImportDestination(ctx, transaction, actorUserID, request.Destination)
 	if err != nil {
 		return apiEntity.EncryptedVaultImportResult{}, err
 	}
 	if !authorized {
 		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
 	}
-	rows, err := repository.pool.Query(ctx, `
-		SELECT id FROM authenticator_accounts WHERE id = ANY($1::text[]) AND vault_id = $2`,
-		importedAccountIDs(request.Accounts), request.Destination.VaultID())
-	if err != nil {
-		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("recheck authorization for encrypted Vault import replay: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var accountID string
-		if err := rows.Scan(&accountID); err != nil {
-			return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("scan replayed encrypted Vault import: %w", err)
-		}
-		count++
-	}
-	if err := rows.Err(); err != nil {
-		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("iterate replayed encrypted Vault import: %w", err)
-	}
-	if count != len(request.Accounts) {
+	if request.Destination.Kind == apiEntity.DestinationExisting && request.Destination.Existing.VaultType == "SHARED" &&
+		!sharedImportKeyVersionMatches(destination, request.Destination.Existing.ExpectedKeyVersion) {
 		return apiEntity.EncryptedVaultImportResult{Status: apiEntity.ImportStatusConflict}, nil
 	}
-	return apiEntity.EncryptedVaultImportResult{
-		Status: apiEntity.ImportStatusReplayed, VaultID: request.Destination.VaultID(),
-		AccountIDs: importedAccountIDs(request.Accounts), VaultCreated: request.Destination.Kind == apiEntity.DestinationNewShared,
-	}, nil
-}
-
-func (repository *EncryptedVaultImportRepository) currentlyAuthorized(
-	ctx context.Context,
-	actorUserID string,
-	destination apiEntity.Destination,
-) (bool, error) {
-	vaultID := destination.VaultID()
-	vaultType := destination.VaultType()
-	var ownerID string
-	var membersCanAdd, membersCanEdit, membersCanDelete bool
-	err := repository.pool.QueryRow(ctx, `
-		SELECT owner_id, members_can_add_accounts, members_can_edit_accounts, members_can_delete_accounts
-		FROM vaults WHERE id = $1 AND type = $2 AND lifecycle = 'ACTIVE' AND deleted_at IS NULL`, vaultID, vaultType).
-		Scan(&ownerID, &membersCanAdd, &membersCanEdit, &membersCanDelete)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
+	result, err := replayResult(ctx, transaction, actorUserID, request)
 	if err != nil {
-		return false, fmt.Errorf("recheck encrypted Vault import destination: %w", err)
+		return apiEntity.EncryptedVaultImportResult{}, err
 	}
-	if ownerID == actorUserID {
-		return true, nil
+	if result.Status != apiEntity.ImportStatusReplayed {
+		return result, nil
 	}
-	if destination.Kind != apiEntity.DestinationExisting || vaultType != "SHARED" {
-		return false, nil
+	if err := transaction.Commit(ctx); err != nil {
+		return apiEntity.EncryptedVaultImportResult{}, fmt.Errorf("commit encrypted Vault import replay verification: %w", err)
 	}
-	var canAdd, canEdit, canDelete pgtype.Bool
-	err = repository.pool.QueryRow(ctx, `
-		SELECT can_add_accounts_override, can_edit_accounts_override, can_delete_accounts_override
-		FROM vault_members WHERE vault_id = $1 AND user_id = $2 AND role = 'VIEWER' AND status = 'ACTIVE'`,
-		vaultID, actorUserID).Scan(&canAdd, &canEdit, &canDelete)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("recheck Shared Vault import permission: %w", err)
-	}
-	permissions := apiEntity.EffectiveSharedVaultAccountPermissionsFor(apiEntity.SharedVaultMemberRoleViewer,
-		apiEntity.SharedVaultAccountPermissions{
-			CanAddAccounts: membersCanAdd, CanEditAccounts: membersCanEdit, CanDeleteAccounts: membersCanDelete,
-		}, apiEntity.SharedVaultAccountPermissionOverrides{
-			CanAddAccounts: nullableImportPermission(canAdd), CanEditAccounts: nullableImportPermission(canEdit),
-			CanDeleteAccounts: nullableImportPermission(canDelete),
-		})
-	return permissions.Permissions.CanAddAccounts, nil
+	return result, nil
 }
 
 func importedAccountIDs(accounts []apiEntity.EncryptedImportedAccount) []string {
@@ -403,14 +409,6 @@ func importedAccountIDs(accounts []apiEntity.EncryptedImportedAccount) []string 
 		ids[index] = account.ID
 	}
 	return ids
-}
-
-func nullableImportPermission(value pgtype.Bool) *bool {
-	if !value.Valid {
-		return nil
-	}
-	permission := value.Bool
-	return &permission
 }
 
 func isVaultArchiveUniqueViolation(err error) bool {

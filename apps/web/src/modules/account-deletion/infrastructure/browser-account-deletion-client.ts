@@ -1,7 +1,7 @@
 "use client";
 
 import { clearAccountDirectoryPreferences } from "@/modules/authenticator-account";
-import { clearAllOfflineVaultData, requestLocalVaultLock } from "@/modules/sync";
+import { terminateBrowserSession } from "@/modules/identity";
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 import type { AccountDeletionPreview, AccountDeletionResult } from "../application/account-deletion-repository";
 import type { AccountDeletionRequest } from "../domain/account-deletion-policy";
@@ -31,9 +31,24 @@ export async function deleteAccount(
 }
 
 export async function clearDeletedBrowserState(): Promise<void> {
-  requestLocalVaultLock();
-  clearAccountDirectoryPreferences();
-  await clearAllOfflineVaultData();
-  const response = await browserApiClient.post("/auth/logout");
-  if (!response.ok) throw new Error("Browser session cleanup failed.");
+  let sessionTerminationFailed = false;
+  let sessionTerminationError: unknown;
+  try {
+    await terminateBrowserSession();
+  } catch (error) {
+    sessionTerminationFailed = true;
+    sessionTerminationError = error;
+  }
+
+  let directoryCleanupFailed = false;
+  let directoryCleanupError: unknown;
+  try {
+    clearAccountDirectoryPreferences();
+  } catch (error) {
+    directoryCleanupFailed = true;
+    directoryCleanupError = error;
+  }
+
+  if (sessionTerminationFailed) throw sessionTerminationError;
+  if (directoryCleanupFailed) throw directoryCleanupError;
 }

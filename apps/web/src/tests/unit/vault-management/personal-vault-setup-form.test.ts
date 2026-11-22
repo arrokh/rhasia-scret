@@ -229,27 +229,19 @@ describe("PersonalVaultSetupForm", () => {
     await act(async () => root?.unmount());
   });
 
-  it("returns to invitation redemption while preserving its client-only fragment after setup", async () => {
+  it("refreshes the current invitation route after setup without adding a URL fragment", async () => {
     cryptoMocks.generateVaultUnlockSecret.mockReset();
     cryptoMocks.generateVaultUnlockSecret.mockReturnValue("picnic trophy sheriff coin wire ocean");
     cryptoMocks.initializePersonalVaultInBrowser.mockResolvedValue(initializationMaterial());
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState(null, "", "/vaults/invitations/redeem#client-only-secret");
+    window.history.replaceState(null, "", "/vaults/invitations/redeem");
     const container = document.createElement("div");
     let root: Root | undefined;
 
     await act(async () => {
       root = createRoot(container);
-      root.render(
-        createElement(
-          TestQueryProvider,
-          null,
-          createElement(PersonalVaultSetupForm, {
-            afterInitializationPath: "/vaults/invitations/redeem",
-          }),
-        ),
-      );
+      root.render(createElement(TestQueryProvider, null, createElement(PersonalVaultSetupForm)));
     });
 
     const form = container.querySelector<HTMLFormElement>("form");
@@ -261,8 +253,9 @@ describe("PersonalVaultSetupForm", () => {
       form?.requestSubmit();
     });
 
-    expect(navigationMocks.replace).toHaveBeenCalledWith("/vaults/invitations/redeem#client-only-secret");
+    expect(navigationMocks.replace).not.toHaveBeenCalled();
     expect(navigationMocks.refresh).toHaveBeenCalledOnce();
+    expect(window.location.hash).toBe("");
 
     window.history.replaceState(null, "", "/");
     await act(async () => root?.unmount());

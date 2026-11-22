@@ -41,6 +41,7 @@ export interface WorkspaceLifecycleAdapter<Workspace extends WorkspaceLifecycleV
   clear(workspace: Workspace | null): void;
   evictShared?(workspace: Workspace): Workspace;
   classifyFailure(error: unknown): WorkspaceRefreshFailure;
+  onAuthenticationFailure?(): void;
   readOnlyReason(workspace: Workspace): string;
 }
 
@@ -226,6 +227,11 @@ export class WorkspaceLifecycle<Workspace extends WorkspaceLifecycleValue> {
         const failure = this.ports.workspace.classifyFailure(error);
         if (failure === "AUTHENTICATION") {
           this.lock();
+          try {
+            this.ports.workspace.onAuthenticationFailure?.();
+          } catch {
+            // Cross-tab notification is best-effort; local key erasure is mandatory.
+          }
         } else {
           const evicted = evictShared(this.ports.workspace, this.current);
           this.current = {

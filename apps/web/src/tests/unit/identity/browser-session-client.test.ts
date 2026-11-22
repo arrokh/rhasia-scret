@@ -1,12 +1,17 @@
 /** @vitest-environment jsdom */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { browserApiClient } from "@/shared/infrastructure/browser-api-client";
 
-const mocks = vi.hoisted(() => ({ clearAllOfflineVaultData: vi.fn(), requestLocalVaultLock: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  clearAllOfflineVaultData: vi.fn(),
+  requestLocalVaultLock: vi.fn(),
+  requestVaultSessionChange: vi.fn(),
+}));
 vi.mock("@/modules/sync", () => ({
   clearAllOfflineVaultData: mocks.clearAllOfflineVaultData,
   requestLocalVaultLock: mocks.requestLocalVaultLock,
+  requestVaultSessionChange: mocks.requestVaultSessionChange,
 }));
 
 import {
@@ -15,7 +20,12 @@ import {
 } from "@/modules/identity/infrastructure/browser-session-client";
 
 describe("terminateBrowserSession", () => {
+  beforeEach(() => {
+    mocks.requestVaultSessionChange.mockImplementation(() => mocks.requestLocalVaultLock());
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
     vi.restoreAllMocks();
@@ -36,10 +46,14 @@ describe("terminateBrowserSession", () => {
     await expect(refreshBrowserSessionAssertion()).resolves.toBeUndefined();
   });
 
-  it("clears all local snapshot and Remembered Browser data before successful server logout", async () => {
+  it("starts local cleanup before the parallel successful server logout attempt", async () => {
     const order: string[] = [];
     mocks.requestLocalVaultLock.mockImplementation(() => {
-      order.push("in-memory-lock");
+      order.push("local-lock");
+    });
+    mocks.requestVaultSessionChange.mockImplementation(() => {
+      mocks.requestLocalVaultLock();
+      order.push("cross-tab-lock");
     });
     mocks.clearAllOfflineVaultData.mockImplementation(async () => {
       order.push("local-cleanup");
@@ -48,30 +62,176 @@ describe("terminateBrowserSession", () => {
       "fetch",
       vi.fn(async () => {
         order.push("server-logout");
-        return { ok: true, url: "/sign-in?auth=signed_out" };
+        return { ok: true, url: `${window.location.origin}/sign-in?auth=signed_out` };
       }),
     );
 
     await expect(terminateBrowserSession()).resolves.toBe("/sign-in?auth=signed_out");
-    expect(order).toEqual(["in-memory-lock", "local-cleanup", "server-logout"]);
-    expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+    expect(order).toEqual([
+      "local-lock",
+      "cross-tab-lock",
+      "local-cleanup",
+      "server-logout",
+      "local-lock",
+      "cross-tab-lock",
+    ]);
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledTimes(2);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
   });
 
-  it("falls back to sign in when a successful logout response omits its URL", async () => {
+  it("retries the session-change announcement after an initial failure", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    mocks.requestVaultSessionChange.mockImplementationOnce(() => {
+      throw new Error("synthetic initial announcement failure");
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        url: `${window.location.origin}/sign-in?auth=signed_out`,
+      }),
+    );
+
+    await expect(terminateBrowserSession()).resolves.toBe("/sign-in?auth=signed_out");
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports the retry session-change error when both announcements fail", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    mocks.requestVaultSessionChange
+      .mockImplementationOnce(() => {
+        throw new Error("synthetic initial announcement failure");
+      })
+      .mockImplementationOnce(() => {
+        throw new Error("synthetic retry announcement failure");
+      });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        url: `${window.location.origin}/sign-in?auth=signed_out`,
+      }),
+    );
+
+    await expect(terminateBrowserSession()).rejects.toThrow("synthetic retry announcement failure");
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a followed logout-failure redirect as a failed revocation", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        url: `${window.location.origin}/sign-in?auth=logout_failed`,
+      }),
+    );
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledTimes(2);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("classifies an authenticated-user logout failure redirect as an error", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        url: `${window.location.origin}/vaults?logout=failed`,
+      }),
+    );
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a sign-in destination without an explicit signed-out outcome", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, url: `${window.location.origin}/sign-in` }));
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a foreign-origin logout destination", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, url: "https://other.test/sign-in?auth=signed_out" }));
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects unexpected same-origin logout destinations", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, url: `${window.location.origin}//other.test/path` }));
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed when a successful logout response omits its URL", async () => {
     mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, url: "" }));
 
-    await expect(terminateBrowserSession()).resolves.toBe("/sign-in");
+    await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledTimes(2);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
   });
 
-  it("locks in-memory keys even when local cleanup fails", async () => {
+  it("attempts server revocation even when local cleanup fails", async () => {
     mocks.clearAllOfflineVaultData.mockRejectedValue(new Error("IndexedDB unavailable"));
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
+    const order: string[] = [];
+    mocks.requestLocalVaultLock.mockImplementation(() => order.push("local-lock"));
+    mocks.requestVaultSessionChange.mockImplementation(() => {
+      mocks.requestLocalVaultLock();
+      order.push("cross-tab-lock");
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        order.push("server-logout");
+        return { ok: true, url: `${window.location.origin}/sign-in?auth=signed_out` };
+      }),
+    );
 
     await expect(terminateBrowserSession()).rejects.toThrow(/IndexedDB unavailable/);
+    expect(order).toEqual(["local-lock", "cross-tab-lock", "server-logout", "local-lock", "cross-tab-lock"]);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("announces session change and attempts revocation before bounded cleanup completes", async () => {
+    vi.useFakeTimers();
+    mocks.clearAllOfflineVaultData.mockReturnValue(new Promise(() => undefined));
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      url: `${window.location.origin}/sign-in?auth=signed_out`,
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const result = terminateBrowserSession();
+    const resultAssertion = expect(result).rejects.toThrow(/cleanup did not complete before the timeout/);
     expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await resultAssertion;
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledTimes(2);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("bounds the server request and treats a timeout as a failed logout", async () => {
+    mocks.clearAllOfflineVaultData.mockResolvedValue(undefined);
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      throw new DOMException("Request timed out", "TimeoutError");
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(terminateBrowserSession()).rejects.toThrow(/timed out/);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
   });
 
   it("keeps local cleanup complete when server logout fails", async () => {
@@ -80,6 +240,7 @@ describe("terminateBrowserSession", () => {
 
     await expect(terminateBrowserSession()).rejects.toThrow(/termination failed/);
     expect(mocks.clearAllOfflineVaultData).toHaveBeenCalledOnce();
-    expect(mocks.requestLocalVaultLock).toHaveBeenCalledOnce();
+    expect(mocks.requestLocalVaultLock).toHaveBeenCalledTimes(2);
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledTimes(2);
   });
 });

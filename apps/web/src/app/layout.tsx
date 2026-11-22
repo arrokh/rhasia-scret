@@ -91,19 +91,17 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale}>
       <body className={cn(manrope.variable, robotoMono.variable, "font-sans")}>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={deterministicTimeZone}>
-          <QueryProvider>
-            {readWebAuthBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
-            <BrowserAnalyticsBootstrap configuration={browserAnalyticsConfiguration} />
-            <ServiceWorkerRegistration />
-            <OfflineAccessPrompt />
-            <Suspense fallback={null}>
-              <NavigationProgress />
-            </Suspense>
-            <div className="min-h-dvh">
-              {children}
-              <AppFooter />
-            </div>
-          </QueryProvider>
+          {readWebAuthBackend() === "passwordless" ? <BrowserSessionRefresh /> : null}
+          <BrowserAnalyticsBootstrap configuration={browserAnalyticsConfiguration} />
+          <ServiceWorkerRegistration />
+          <OfflineAccessPrompt />
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          <div className="min-h-dvh">
+            <QueryProvider>{children}</QueryProvider>
+            <AppFooter />
+          </div>
         </NextIntlClientProvider>
       </body>
     </html>

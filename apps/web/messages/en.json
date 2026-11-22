@@ -484,8 +484,8 @@
       "notice": {
         "required": "Sign in to continue.",
         "invitationRequired": "Sign in to accept the invitation. Keep this tab open; it will continue automatically after verification.",
-        "signedOut": "You have signed out.",
-        "logoutFailed": "Sign-out could not be completed. Try again.",
+        "signedOut": "This browser is signed out.",
+        "logoutFailed": "Sign-out could not be fully confirmed. The server session may still be active or local cleanup may be incomplete. Reconnect, lock any open Vaults, and try again.",
         "configurationError": "The sign-in service is not configured. Contact an administrator.",
         "serviceUnavailable": "Hosted Vault access is temporarily unavailable. Try again later, or use Local Vault/offline access.",
         "verificationFailed": "The sign-in link could not be verified. Request a new link."
@@ -504,8 +504,8 @@
       "backToSignIn": "Back to sign in",
       "backToHome": "Back to home",
       "doNotClose": "This page will continue automatically after verification.",
-      "pwaCompleted": "The link is verified. rhasia-scret is opening the session in your installed app.",
-      "pwaDoNotClose": "Return to the installed app to finish signing in. If it was closed, request a new link from the app.",
+      "pwaCompleted": "Your sign-in link is verified. The session is ready for your installed app.",
+      "pwaDoNotClose": "Return to the installed app to finish signing in. If it does not continue, request a new sign-in link from the app.",
       "pwaFailed": "The sign-in session could not be handed back to the installed app. Return to the app and request a new link."
     },
     "signIn": {
@@ -524,7 +524,7 @@
       "sent": "Check your inbox for a sign-in link. A new hosted account becomes available after email verification.",
       "sentInvitation": "Check your inbox. Keep this invitation tab open; it will continue automatically after verification.",
       "sentPwa": "Check your inbox. Keep this installed app open; the session will be handed back automatically after you open the link.",
-      "authenticating": "Handing the sign-in session back to the installed app…",
+      "authenticating": "Signing you in…",
       "securityCheck": "Security verification",
       "turnstileRequired": "Complete the security verification before continuing.",
       "turnstileError": "The security verification could not be loaded. Try again.",
@@ -548,7 +548,7 @@
       "userAccount": "User account",
       "leaving": "Signing out…",
       "leave": "Sign out",
-      "cleanupError": "The vault was locked, but device data or the server session could not be cleared. Close the app, remove this browser's site data, then try signing out again while online.",
+      "cleanupError": "Sign-out could not be fully confirmed. The server session may still be active or local cleanup may be incomplete. Lock any open Vaults, reconnect, and try again.",
       "confirmTitle": "Sign out of the app?",
       "confirmDescription": "Your open vault session will close, and you will need to unlock it again after signing in."
     },
@@ -1475,6 +1475,8 @@
       "redeeming": "Accepting invitation…",
       "redeem": "Accept invitation",
       "error": "The invitation cannot be used. The link may already have been used or may belong to another account.",
+      "errorHelp": "If the error persists or the link is lost, reopen the original invitation link. If it still fails, ask the owner to send a new invitation.",
+      "previousAccepted": "The previous invitation was accepted. This new invitation is still available above.",
       "identityChanged": "Your encryption identity changed. Your workspace was refreshed; try accepting the invitation again."
     }
   },
@@ -1508,6 +1510,7 @@
     "offline": {
       "title": "Offline vault access",
       "description": "Unlock an encrypted Personal Vault snapshot on this device without contacting the server. Shared Vaults are online-only.",
+      "logoutFailedOffline": "Sign-out could not be fully confirmed. The server session may still be active or local cleanup may be incomplete. Reconnect, lock any open Vaults, and try again.",
       "readOnly": "Read-only mode",
       "readOnlyDescription": "Authorization cannot be checked until online synchronization succeeds. Changes and access audits are not stored or replayed.",
       "searching": "Looking for encrypted snapshots…",

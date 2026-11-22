@@ -270,7 +270,7 @@ function proxyErrorResponse(
   logWebServerEvent("error", "web_api_proxy_failure", {
     requestId: correlationId,
     method: request.method,
-    path: request.nextUrl.pathname,
+    route: "/api/[...path]",
     status,
     error,
     errorType: errorType(cause),

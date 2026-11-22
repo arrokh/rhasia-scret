@@ -49,6 +49,13 @@ describe("offline PWA architecture boundaries", () => {
     }
   });
 
+  it("places the offline logout query consumer below a Suspense boundary", () => {
+    const shell = readFileSync(join(sourceRoot, "modules/sync/presentation/offline-vault-shell.tsx"), "utf8");
+    expect(shell).toContain("function OfflineLogoutFailureNotice()");
+    expect(shell).toContain("useSearchParams()");
+    expect(shell).toMatch(/<Suspense[^>]*>[\s\S]*?<OfflineLogoutFailureNotice\s*\/>[\s\S]*?<\/Suspense>/);
+  });
+
   it("keeps browser-storage readiness and export metadata outside server, analytics, and offline caches", () => {
     const persistenceClient = readFileSync(
       join(sourceRoot, "modules/local-vault/infrastructure/browser-origin-storage-persistence.ts"),

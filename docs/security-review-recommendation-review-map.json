@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "description": "Concise reviewer-record index for the recommendation rows in security-review-coverage.md. Individual review evidence remains private. Entries distinguish review of a finding/source from independent review of its final fix; an empty reviewRecords list is intentional when no record is retained.",
+  "recommendations": [
+    {
+      "recommendation": "Proxy error logs must not expose raw paths/error text",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "bounded source review of the redaction behavior",
+      "outcome": "Both reviewers confirmed fixed route labels and absence of raw path/error text in their reviewed snapshot.",
+      "limitations": "Static review only; neither report is a complete audit or hosted-log review."
+    },
+    {
+      "recommendation": "Exclude nested environment files from Git and Docker build contexts",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "finding reviewed; post-fix Git-rule review not recorded",
+      "outcome": "CUX-13 identified the missing general .env.* Git exclusion; the source was fixed and synthetic ignore/matcher tests passed.",
+      "limitations": "CUX-8 checked Docker patterns before the Git fix; no retained independent reviewer record confirms the final Git ignore rule. No environment-file contents were read."
+    },
+    {
+      "recommendation": "Keep offline shell public-only and fail closed on redirect/cache update failure",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt", "CUX-FINAL-REVIEW-22.txt"],
+      "status": "bounded source review",
+      "outcome": "Reviewers found no actionable issue in public-shell caching, service-worker API/auth bypasses, and redirect-failure handling.",
+      "limitations": "Static checks do not establish true-device PWA behavior or deployed service-worker identity."
+    },
+    {
+      "recommendation": "Lock/zeroize workspaces and clear account-scoped query state on auth identity change",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-13.txt",
+        "CUX-FINAL-REVIEW-15.txt",
+        "CUX-FINAL-REVIEW-16.txt",
+        "CUX-FINAL-REVIEW-17.txt",
+        "CUX-FINAL-REVIEW-18.txt",
+        "CUX-FINAL-REVIEW-19.txt",
+        "CUX-FINAL-REVIEW-26.txt",
+        "INDEPENDENT-REVIEW-27.txt"
+      ],
+      "status": "iterative scoped reviews of source changes and final test probe",
+      "outcome": "CUX-13 identified cache invalidation on authentication failure; later reviews examined the lifecycle/cache changes and test gaps. Review 27 found no remaining concern in its final E2E, test-probe and PWA-locator scope.",
+      "limitations": "The reports cover different snapshots and scopes; they do not constitute a comprehensive security audit or hosted review."
+    },
+    {
+      "recommendation": "Clear fragments before use; fail closed if URL cleanup fails; keep Secure Share Link secret client-only",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-8.txt",
+        "CUX-FINAL-REVIEW-13.txt",
+        "CUX-FINAL-REVIEW-20.txt",
+        "CUX-FINAL-REVIEW-21.txt",
+        "CUX-FINAL-REVIEW-22.txt",
+        "CUX-FINAL-REVIEW-23.txt",
+        "CUX-FINAL-REVIEW-24.txt",
+        "CUX-FINAL-REVIEW-25.txt",
+        "CUX-FINAL-REVIEW-26.txt",
+        "INDEPENDENT-REVIEW-28.txt"
+      ],
+      "status": "bounded iterative source and cleanup-fallback review",
+      "outcome": "Review 28 found no actionable issue in cleanup fallback and fail-closed callers, including failure of both cleanup methods.",
+      "limitations": "If both cleanup methods fail, the fragment remains in the URL; callers do not return or send it. Reviews do not prove behavior in all browsers."
+    },
+    {
+      "recommendation": "Keep invitation authentication handoff single-consumer and avoid sending the secret over cross-tab channels",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-8.txt",
+        "CUX-FINAL-REVIEW-13.txt",
+        "CUX-FINAL-REVIEW-14.txt",
+        "CUX-FINAL-REVIEW-21.txt",
+        "CUX-FINAL-REVIEW-22.txt",
+        "CUX-FINAL-REVIEW-23.txt",
+        "CUX-FINAL-REVIEW-24.txt",
+        "CUX-FINAL-REVIEW-25.txt",
+        "CUX-FINAL-REVIEW-26.txt",
+        "INDEPENDENT-REVIEW-27.txt",
+        "INDEPENDENT-REVIEW-28.txt"
+      ],
+      "status": "bounded reviews; superseded test evidence explicitly excluded",
+      "outcome": "Reviewers checked the generic completion message, source-tab in-memory secret, callback routing, single-consumer flow and fragment cleanup; the old red-first BroadcastChannel-secret log is not evidence for current behavior.",
+      "limitations": "CUX-13 did not inspect IDENTITY-TRACE.md and only skimmed tests. Review 27/28 cover only their stated subscopes."
+    },
+    {
+      "recommendation": "Ensure PWA passwordless poll failures stay neutral; bound active polling and database counter churn",
+      "reviewRecords": [
+        "INDEPENDENT-REVIEW-12.txt",
+        "CUX-FINAL-REVIEW-13.txt",
+        "CUX-FINAL-REVIEW-14.txt",
+        "CUX-FINAL-REVIEW-15.txt"
+      ],
+      "status": "bounded source review; operational assurance remains open",
+      "outcome": "Review 12 identified the missing repository poll budget; after the HMAC limiter fix, a follow-up review found no actionable issue in the limiter and budget/backoff relation.",
+      "limitations": "Trusted-proxy behavior, direct API reachability, aggregate row growth, database capacity and hosted edge limits remain unverified. The client does not honor Retry-After."
+    },
+    {
+      "recommendation": "Make Personal Account create/update audit writes atomic; check Vault owner scope",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-8.txt",
+        "CUX-FINAL-REVIEW-13.txt",
+        "INDEPENDENT-REVIEW-32.txt",
+        "INDEPENDENT-REVIEW-36-RESTORE-PERSONAL-ACCOUNT.txt",
+        "INDEPENDENT-REVIEW-38-FINAL-FIX-VERIFICATION.txt"
+      ],
+      "status": "Restore wording and Personal Account foreign-owner regression independently reviewed; test gap corrected and verified",
+      "outcome": "Review 32 identified missing foreign-owner/cross-Vault test cases and an inaccurate restore-revision claim. Review 36 confirmed Restore has no expected-revision predicate but identified that the test lacked a foreign-owner attempt against the actual owner's Vault/account. The regression now checks that attempt and confirms the account remains deleted; review 38 confirmed the fix. No authorization implementation defect was reported. Targeted and full test execution evidence is separate.",
+      "limitations": "Reviewers did not run tests. Review 36/38 are bounded source reviews, not hosted validation. Assessment 35 used a local LM Studio model, was not counted as independent-review evidence, and its offset Restore line citation was cross-checked. Disposable database tests and the full root gate are separate execution evidence. Delete/restore audit events remain documented non-findings."
+    },
+    {
+      "recommendation": "Bind invitation recipient to current verified identity and prevent duplicate normalized-email selection",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "bounded source/schema review",
+      "outcome": "CUX-8 confirmed binding to the active verified identity in its snapshot; CUX-13 checked the related invitation path and noted the then-current email fallback behavior.",
+      "limitations": "No persistent database operation or hosted identity-provider check was performed; the final schema/source behavior is covered by local regression tests."
+    },
+    {
+      "recommendation": "Recheck archive destination authorization and current key version on replay recovery",
+      "reviewRecords": ["CUX-FINAL-REVIEW-3.txt", "CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "bounded source review of replay authorization and stale-key recovery",
+      "outcome": "Review 3 checked the current-key-version comparison on both normal and unique-violation replay paths; reviews 8 and 13 checked destination authorization and replay behavior.",
+      "limitations": "Reviewers ran no tests; the disposable PostgreSQL integration is separate local regression evidence."
+    },
+    {
+      "recommendation": "Keep logout/session revocation available during offline/read-only state; require explicit successful outcome",
+      "reviewRecords": ["CUX-FINAL-REVIEW-22.txt", "CUX-FINAL-REVIEW-23.txt", "INDEPENDENT-REVIEW-29.txt"],
+      "status": "bounded post-fix review found no actionable issue; final root gate passed after error-detail assertions",
+      "outcome": "The independent reviewer checked the handler, OpenAPI/generated contract and web client; it found generic 503/cookie-clearing behavior aligned. Parent added assertions that verifier/revoker detail is not exposed; focused Go handler test passed.",
+      "limitations": "The reviewer inspected but did not run tests. The fresh root full gate passed after the final test changes; hosted revocation behavior remains unverified."
+    },
+    {
+      "recommendation": "Keep test database operations isolated and strip cleanup authority from app child processes",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "bounded source review and local synthetic tests",
+      "outcome": "Review 8 checked Testcontainer image allow-lists and child-environment stripping; the final architecture and disposable-wrapper tests cover the same boundaries.",
+      "limitations": "No hosted database was accessed. This does not independently confirm every current test-wrapper implementation detail."
+    },
+    {
+      "recommendation": "Reconcile release patch automation and user migration-policy exception",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "source/documentation reviewed; hosted controls unresolved",
+      "outcome": "CUX-8 checked Dependabot source and documented the Shared Vault migration integrity exposure; CUX-13 checked the migration documentation claim against MigrateName.",
+      "limitations": "Hosted Dependabot/security-update settings and the product choice to restrict legacy migration authority require owner evidence/direction."
+    },
+    {
+      "recommendation": "Preserve failure-safe logout, account deletion and destructive-reset cleanup ordering",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-18.txt",
+        "CUX-FINAL-REVIEW-19.txt",
+        "CUX-FINAL-REVIEW-21.txt",
+        "CUX-FINAL-REVIEW-22.txt",
+        "CUX-FINAL-REVIEW-23.txt",
+        "CUX-FINAL-REVIEW-24.txt",
+        "CUX-FINAL-REVIEW-25.txt",
+        "CUX-FINAL-REVIEW-26.txt",
+        "INDEPENDENT-REVIEW-27.txt"
+      ],
+      "status": "bounded client-flow review; server revocation follow-up separate",
+      "outcome": "Later reviews checked cleanup ordering, session-change announcement, response validation and focused tests; Review 27 checked the latest session-query E2E assertions.",
+      "limitations": "The current CUX-22/23 server false-success fix is a separate unreviewed change; no review here covers hosted behavior."
+    },
+    {
+      "recommendation": "Guard all lazy landing previews so offline recovery remains available on chunk-load failure",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "bounded source review; browser evidence separate",
+      "outcome": "Review 8 checked the landing error boundary and public-shell behavior; CUX-13 reported no actionable landing-boundary issue in the reviewed scope.",
+      "limitations": "The reviewers did not run browser tests; Chromium PWA results are separate local evidence."
+    },
+    {
+      "recommendation": "Keep route/policy inventory and App Router export contract aligned",
+      "reviewRecords": [
+        "CUX-FINAL-REVIEW-8.txt",
+        "CUX-FINAL-REVIEW-13.txt",
+        "INDEPENDENT-REVIEW-30.txt",
+        "INDEPENDENT-REVIEW-31.txt",
+        "INDEPENDENT-REVIEW-32.txt",
+        "INDEPENDENT-REVIEW-36-RESTORE-PERSONAL-ACCOUNT.txt",
+        "INDEPENDENT-REVIEW-37-SYNC-ISOLATION.txt",
+        "INDEPENDENT-REVIEW-38-FINAL-FIX-VERIFICATION.txt"
+      ],
+      "status": "three route partitions and post-review-32 correction/test changes independently reviewed",
+      "outcome": "Reviews 30–32 examined operations 1–62. Review 36 identified a missing direct foreign-owner Restore regression; review 37 identified distinct-ciphertext and active-Viewer-control gaps in the sync isolation regression. The tests were strengthened, and review 38 verified both fixes with no further actionable gap. No authorization implementation defect was reported in these bounded reviews. Targeted Go and full root test results are separate execution evidence.",
+      "limitations": "Review 31's row-range headings around participant/invitation operations are imprecise, though its narrative describes these paths and reports all 27 inspected. Reviewers did not run tests. Assessment 35 was a bounded local-model check and is not counted as independent-review evidence. Inventory tests do not prove authorization correctness; hosted/deployed behavior remains unverified."
+    },
+    {
+      "recommendation": "Keep the route-bundle budget narrow and measured",
+      "reviewRecords": [],
+      "status": "No retained independent review record; budget is measured locally",
+      "outcome": "The prior full gate measured 745,263 raw / 226,877 gzip bytes per Vault route against 750,000 / 227,000 limits.",
+      "limitations": "A prior note attributed the budget decision to an independent reviewer, but no matching report is retained in this audit directory; do not count that attribution as verified independent evidence."
+    },
+    {
+      "recommendation": "Keep environment-file commit exclusion distinct from Docker context exclusion",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "finding reviewed; post-fix combined-rule review not recorded",
+      "outcome": "CUX-13 found the missing general Git exclusion and CUX-8 checked Docker exclusions; final synthetic architecture checks cover both boundaries.",
+      "limitations": "No retained reviewer report confirms the final combined Git/Docker rule sets after remediation."
+    },
+    {
+      "recommendation": "Mark hosted controls, deployment identity and external scanning as unresolved",
+      "reviewRecords": ["CUX-FINAL-REVIEW-8.txt", "CUX-FINAL-REVIEW-13.txt"],
+      "status": "intentionally unresolved; owner evidence required",
+      "outcome": "Both reviewers explicitly left hosted controls and deployed artifact identity unverified; this entry is a non-fix disposition, not a claim of security.",
+      "limitations": "No hosted settings, deployment, external scanner or control plane was accessed."
+    }
+  ]
+}

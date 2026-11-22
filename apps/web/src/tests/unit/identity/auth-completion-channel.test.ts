@@ -2,16 +2,17 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({ requestVaultSessionChange: vi.fn() }));
+vi.mock("@/modules/sync", () => ({ requestVaultSessionChange: mocks.requestVaultSessionChange }));
+
 import {
   announceAuthenticationCompletion,
-  requestInvitationSecret,
   subscribeToAuthenticationCompletion,
 } from "@/modules/identity/presentation/auth-completion-channel";
 
 type MessageListener = (event: MessageEvent<unknown>) => void;
-
 const channels = new Set<FakeBroadcastChannel>();
-let messageDelayMs = 0;
+const postedMessages: unknown[] = [];
 
 class FakeBroadcastChannel {
   private readonly listeners = new Set<MessageListener>();
@@ -29,14 +30,11 @@ class FakeBroadcastChannel {
   }
 
   public postMessage(data: unknown): void {
-    const deliver = () => {
-      for (const channel of channels) {
-        if (channel === this || channel.name !== this.name) continue;
-        for (const listener of channel.listeners) listener(new MessageEvent("message", { data }));
-      }
-    };
-    if (messageDelayMs > 0) window.setTimeout(deliver, messageDelayMs);
-    else deliver();
+    postedMessages.push(data);
+    for (const channel of channels) {
+      if (channel === this || channel.name !== this.name) continue;
+      for (const listener of channel.listeners) listener(new MessageEvent("message", { data }));
+    }
   }
 
   public close(): void {
@@ -47,9 +45,11 @@ class FakeBroadcastChannel {
 describe("auth completion channel", () => {
   afterEach(() => {
     channels.clear();
-    messageDelayMs = 0;
-    vi.useRealTimers();
+    postedMessages.length = 0;
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("announces authentication without sending invitation material", () => {
@@ -60,9 +60,26 @@ describe("auth completion channel", () => {
     announceAuthenticationCompletion();
 
     expect(onComplete).toHaveBeenCalledOnce();
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledOnce();
+    expect(postedMessages).toEqual([{ type: "authenticated" }]);
     unsubscribe();
     announceAuthenticationCompletion();
     expect(onComplete).toHaveBeenCalledOnce();
+  });
+
+  it("notifies the source tab even when the session-change announcement fails", () => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    const onComplete = vi.fn();
+    const unsubscribe = subscribeToAuthenticationCompletion(onComplete);
+    mocks.requestVaultSessionChange.mockImplementationOnce(() => {
+      throw new Error("synthetic session-change failure");
+    });
+
+    expect(announceAuthenticationCompletion).not.toThrow();
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(postedMessages).toEqual([{ type: "authenticated" }]);
+
+    unsubscribe();
   });
 
   it("ignores unrelated messages", () => {
@@ -78,33 +95,70 @@ describe("auth completion channel", () => {
     sender.close();
   });
 
-  it("hands the invitation fragment between open client tabs without persistence", async () => {
-    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
-    vi.stubGlobal("crypto", { randomUUID: () => "request-id" });
-    const unsubscribe = subscribeToAuthenticationCompletion(
-      () => undefined,
-      () => "invitation-secret-value",
+  it("uses the sender's local signal and a separate receiver's storage signal when channel construction fails", () => {
+    const sourceWindow = window;
+    const localStorage = sourceWindow.localStorage;
+    const receiverWindow = new EventTarget();
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+    vi.stubGlobal(
+      "BroadcastChannel",
+      class {
+        public constructor() {
+          throw new Error("unavailable");
+        }
+      },
     );
+    const onSourceComplete = vi.fn();
+    const unsubscribeSource = subscribeToAuthenticationCompletion(onSourceComplete);
+    vi.stubGlobal("window", receiverWindow);
+    const onReceiverComplete = vi.fn();
+    const unsubscribeReceiver = subscribeToAuthenticationCompletion(onReceiverComplete);
 
-    await expect(requestInvitationSecret()).resolves.toBe("invitation-secret-value");
+    vi.stubGlobal("window", sourceWindow);
+    expect(announceAuthenticationCompletion).not.toThrow();
+    expect(onSourceComplete).toHaveBeenCalledOnce();
+    expect(onReceiverComplete).not.toHaveBeenCalled();
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledOnce();
+    expect(setItem).toHaveBeenCalledWith("rhasia-scret:authentication-complete", "authenticated");
+    expect(removeItem).toHaveBeenCalledWith("rhasia-scret:authentication-complete");
+    expect(setItem.mock.contexts).toContain(localStorage);
+    expect(removeItem.mock.contexts).toContain(localStorage);
 
-    unsubscribe();
+    receiverWindow.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "rhasia-scret:authentication-complete",
+        newValue: "authenticated",
+      }),
+    );
+    expect(onReceiverComplete).toHaveBeenCalledOnce();
+    vi.stubGlobal("window", receiverWindow);
+    unsubscribeReceiver();
+    vi.stubGlobal("window", sourceWindow);
+    unsubscribeSource();
   });
 
-  it("waits up to 15 seconds for a backgrounded invitation tab to answer the secret request", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
-    vi.stubGlobal("crypto", { randomUUID: () => "request-id" });
-    messageDelayMs = 7_000;
-    const unsubscribe = subscribeToAuthenticationCompletion(
-      () => undefined,
-      () => "invitation-secret-value",
-    );
+  it("falls back to local and storage completion signals when channel posting fails", () => {
+    const localStorage = window.localStorage;
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+    class ThrowingPostBroadcastChannel extends FakeBroadcastChannel {
+      public override postMessage(_data: unknown): void {
+        throw new Error("unavailable");
+      }
+    }
+    vi.stubGlobal("BroadcastChannel", ThrowingPostBroadcastChannel);
+    const onComplete = vi.fn();
+    const unsubscribe = subscribeToAuthenticationCompletion(onComplete);
 
-    const secret = requestInvitationSecret();
-    await vi.advanceTimersByTimeAsync(14_500);
+    expect(announceAuthenticationCompletion).not.toThrow();
 
-    await expect(secret).resolves.toBe("invitation-secret-value");
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(mocks.requestVaultSessionChange).toHaveBeenCalledOnce();
+    expect(setItem).toHaveBeenCalledWith("rhasia-scret:authentication-complete", "authenticated");
+    expect(removeItem).toHaveBeenCalledWith("rhasia-scret:authentication-complete");
+    expect(setItem.mock.contexts).toContain(localStorage);
+    expect(removeItem.mock.contexts).toContain(localStorage);
     unsubscribe();
   });
 });

@@ -67,7 +67,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const user = context?.user;
   // The self-hosted image receives this public key at runtime, after `next build`.
   const turnstileSiteKey = backend === "passwordless" ? readRuntimeTurnstileSiteKey() : undefined;
-  if (user) redirect(nextPath);
+  if (user) redirect(auth === "logout_failed" ? "/vaults?logout=failed" : nextPath);
 
   const notice = authNotice(
     serviceUnavailable ? "service_unavailable" : configurationError ? "configuration_error" : auth,

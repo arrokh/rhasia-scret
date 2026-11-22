@@ -11,10 +11,17 @@ const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const goCommand = process.platform === "win32" ? "go.exe" : "go";
 const apiDirectory = resolve(process.cwd(), "../api");
 const proxySecret = process.env.API_PROXY_SECRET ?? "browser-test-proxy-secret-12345678901234567890";
-// Strip stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
+// Strip test-harness and stale provider-only settings from child runtimes; AUTH_BACKEND remains for fail-closed validation.
 const API_BLOCKED_ENVIRONMENT_KEYS = [
   "NODE_ENV",
   "DIRECT_URL",
+  "RHSIA_GO_INTEGRATION_DATABASE_URL",
+  "RHSIA_TESTCONTAINER_ID",
+  "RHSIA_DISPOSABLE_RUN_ID",
+  "RHSIA_DISPOSABLE_DATA_CLASSIFICATION",
+  "RHSIA_BROWSER_E2E_CLEANUP",
+  "RHSIA_BROWSER_E2E_CLEANUP_EMAILS",
+  "COMPOSE_PROJECT_NAME",
   "API_PROXY_SECRET",
   "POSTGRES_DB",
   "POSTGRES_USER",
@@ -30,6 +37,13 @@ const API_BLOCKED_ENVIRONMENT_KEYS = [
 const WEB_BLOCKED_ENVIRONMENT_KEYS = [
   "RHSIA_RUNTIME_ENV",
   "DATABASE_URL",
+  "RHSIA_GO_INTEGRATION_DATABASE_URL",
+  "RHSIA_TESTCONTAINER_ID",
+  "RHSIA_DISPOSABLE_RUN_ID",
+  "RHSIA_DISPOSABLE_DATA_CLASSIFICATION",
+  "RHSIA_BROWSER_E2E_CLEANUP",
+  "RHSIA_BROWSER_E2E_CLEANUP_EMAILS",
+  "COMPOSE_PROJECT_NAME",
   "DIRECT_URL",
   "POSTGRES_DB",
   "POSTGRES_USER",

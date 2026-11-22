@@ -37,7 +37,7 @@ type PasswordlessService interface {
 		TurnstileToken  string
 		HandoffID       string
 		HandoffVerifier string
-	}) error
+	}) (time.Time, error)
 	Redeem(context.Context, string, apiService.PasswordlessClient) (*apiService.PasswordlessSession, apiService.PasswordlessReturnPath, error)
 	VerifyAccessToken(context.Context, string) (*apiService.Principal, error)
 	VerifyBrowserSession(context.Context, string) (*apiService.Principal, error)
@@ -49,6 +49,7 @@ type PasswordlessService interface {
 
 type AnonymousAuthRateLimiter interface {
 	Check(context.Context, string, string, time.Time) (apiRepository.AnonymousAuthRateLimitResult, error)
+	CheckPwaSessionPoll(context.Context, string, string, time.Time) (apiRepository.AnonymousAuthRateLimitResult, error)
 }
 
 type TurnstileValidator interface {
@@ -207,10 +208,18 @@ func (handlers *IdentityHandlers) requestMagicLink(ctx *echo.Context) error {
 		input.HandoffID = body.HandoffID.Value
 		input.HandoffVerifier = body.HandoffVerifier.Value
 	}
-	if err := handlers.dependencies.Passwordless.RequestLink(request.Context(), input); err != nil {
+	expiresAt, err := handlers.dependencies.Passwordless.RequestLink(request.Context(), input)
+	if err != nil {
 		return handlers.emailDeliveryFailed(ctx, body.Client, err, startedAt)
 	}
-	return ctx.JSON(http.StatusOK, map[string]bool{"sent": true})
+	challengeExpiresInSeconds := int(expiresAt.Sub(handlers.dependencies.Now()) / time.Second)
+	if challengeExpiresInSeconds < 1 {
+		challengeExpiresInSeconds = 1
+	}
+	if challengeExpiresInSeconds > 3_600 {
+		challengeExpiresInSeconds = 3_600
+	}
+	return ctx.JSON(http.StatusOK, map[string]any{"sent": true, "challengeExpiresInSeconds": challengeExpiresInSeconds})
 }
 
 type magicLinkRedeemRequest struct {
@@ -269,15 +278,35 @@ func (handlers *IdentityHandlers) pwaSession(ctx *echo.Context) error {
 		return ctx.NoContent(http.StatusForbidden)
 	}
 	if publishing {
-		if handlers.dependencies.Passwordless != nil {
-			if err := handlers.dependencies.Passwordless.PublishPWAHandoff(ctx.Request().Context(), body.RefreshToken.Value, body.HandoffID); err != nil {
-				return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
-			}
+		if handlers.dependencies.Passwordless == nil {
+			return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
+		}
+		if err := handlers.dependencies.Passwordless.PublishPWAHandoff(ctx.Request().Context(), body.RefreshToken.Value, body.HandoffID); err != nil {
+			return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
 		}
 		return ctx.JSON(http.StatusOK, map[string]bool{"published": true})
 	}
 	if handlers.dependencies.Passwordless == nil {
 		return ctx.JSON(http.StatusAccepted, map[string]bool{"pending": true})
+	}
+	if handlers.dependencies.Configuration == nil {
+		return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
+	}
+	if handlers.dependencies.AnonymousRateLimiter == nil {
+		return handlers.pwaSessionPollRateLimitUnavailable(ctx, nil)
+	}
+	limit, err := handlers.dependencies.AnonymousRateLimiter.CheckPwaSessionPoll(
+		ctx.Request().Context(),
+		body.HandoffID,
+		requestClientIP(ctx.Request(), httpapi.IsProxyRequest(ctx)),
+		handlers.dependencies.Now(),
+	)
+	if err != nil {
+		return handlers.pwaSessionPollRateLimitUnavailable(ctx, err)
+	}
+	if !limit.Allowed {
+		ctx.Response().Header().Set("Retry-After", strconvItoa(limit.RetryAfterSeconds))
+		return writeAPIError(ctx, http.StatusTooManyRequests, "rate_limited")
 	}
 	session, returnPath, err := handlers.dependencies.Passwordless.RedeemPWAHandoff(ctx.Request().Context(), body.HandoffID, body.Verifier.Value)
 	if err != nil {
@@ -285,9 +314,6 @@ func (handlers *IdentityHandlers) pwaSession(ctx *echo.Context) error {
 	}
 	if session == nil {
 		return ctx.JSON(http.StatusAccepted, map[string]bool{"pending": true})
-	}
-	if handlers.dependencies.Configuration == nil {
-		return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
 	}
 	if err := handlers.setPasswordlessSessionCookies(ctx, *session); err != nil {
 		return writeAPIError(ctx, http.StatusUnauthorized, "handoff_failed")
@@ -360,22 +386,28 @@ func (handlers *IdentityHandlers) revokeSession(ctx *echo.Context) error {
 	if handlers.dependencies.RuntimeEnvironment == "development" && handlers.dependencies.E2EBrowserTests == "1" {
 		appendCookie(ctx, e2eSessionCookie, "", true, 0)
 	}
+	terminationFailed := false
 	if handlers.dependencies.Passwordless != nil {
 		cookies := parseCookies(request.Header.Get("Cookie"))
 		if refreshToken := cookies[passwordlessRefreshCookie]; refreshToken != "" {
 			sessionID, _, _ := strings.Cut(refreshToken, ".")
-			if sessionID != "" {
-				_ = handlers.dependencies.Passwordless.Revoke(request.Context(), sessionID, "logout")
+			if sessionID != "" && handlers.dependencies.Passwordless.Revoke(request.Context(), sessionID, "logout") != nil {
+				terminationFailed = true
 			}
 		} else if accessToken := cookies[passwordlessAccessCookie]; accessToken != "" {
 			principal, err := handlers.dependencies.Passwordless.VerifyAccessToken(request.Context(), accessToken)
-			if err == nil && principal != nil && principal.SessionID != "" {
-				_ = handlers.dependencies.Passwordless.Revoke(request.Context(), principal.SessionID, "logout")
+			if err != nil {
+				terminationFailed = true
+			} else if principal != nil && principal.SessionID != "" && handlers.dependencies.Passwordless.Revoke(request.Context(), principal.SessionID, "logout") != nil {
+				terminationFailed = true
 			}
 		}
 	}
 	clearIdentityPasswordlessSessionCookies(ctx)
 	appendCookie(ctx, passwordlessAssertionCookie, "", true, 0)
+	if terminationFailed {
+		return writeAPIError(ctx, http.StatusServiceUnavailable, "session_revocation_unavailable")
+	}
 	return ctx.NoContent(http.StatusNoContent)
 }
 
@@ -407,6 +439,15 @@ func (handlers *IdentityHandlers) turnstileUnavailable(ctx *echo.Context, client
 	handlers.log(ctx, "error", "magic_link_request_turnstile_unavailable", fields)
 	ctx.Response().Header().Set("Retry-After", "5")
 	return writeAPIError(ctx, http.StatusServiceUnavailable, "turnstile_unavailable")
+}
+
+func (handlers *IdentityHandlers) pwaSessionPollRateLimitUnavailable(ctx *echo.Context, cause error) error {
+	handlers.log(ctx, "error", "pwa_session_poll_rate_limit_unavailable", map[string]any{
+		"dependency": "anonymous_auth_rate_limiter",
+		"reason":     safeErrorCategory(cause),
+	})
+	ctx.Response().Header().Set("Retry-After", "5")
+	return writeAPIError(ctx, http.StatusServiceUnavailable, "rate_limit_unavailable")
 }
 
 func (handlers *IdentityHandlers) rateLimitUnavailable(ctx *echo.Context, client string, cause error) error {

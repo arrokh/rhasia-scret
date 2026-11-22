@@ -6,6 +6,24 @@ const repositoryRoot = join(process.cwd(), "../..");
 const rootExample = join(repositoryRoot, ".env.example");
 
 describe("workspace environment contract", () => {
+  it("excludes root and nested environment files from Git and Docker contexts but preserves examples", () => {
+    const dockerRules = readFileSync(join(repositoryRoot, ".dockerignore"), "utf8").split(/\r?\n/);
+    const dockerRootEnvironmentRule = dockerRules.indexOf("**/.env");
+    const dockerVariantsRule = dockerRules.indexOf("**/.env.*");
+    const dockerExampleException = dockerRules.indexOf("!**/.env.example");
+
+    expect(dockerRootEnvironmentRule).toBeGreaterThanOrEqual(0);
+    expect(dockerVariantsRule).toBeGreaterThan(dockerRootEnvironmentRule);
+    expect(dockerExampleException).toBeGreaterThan(dockerVariantsRule);
+
+    const gitRules = readFileSync(join(repositoryRoot, ".gitignore"), "utf8").split(/\r?\n/);
+    const gitVariantsRule = gitRules.indexOf(".env.*");
+    const gitExampleException = gitRules.indexOf("!.env.example");
+
+    expect(gitVariantsRule).toBeGreaterThanOrEqual(0);
+    expect(gitExampleException).toBeGreaterThan(gitVariantsRule);
+  });
+
   it("keeps one root example with explicit service sections", () => {
     const example = readFileSync(rootExample, "utf8");
 
@@ -45,6 +63,13 @@ describe("workspace environment contract", () => {
       for (const key of [
         "RHSIA_RUNTIME_ENV",
         "DATABASE_URL",
+        "RHSIA_GO_INTEGRATION_DATABASE_URL",
+        "RHSIA_TESTCONTAINER_ID",
+        "RHSIA_DISPOSABLE_RUN_ID",
+        "RHSIA_DISPOSABLE_DATA_CLASSIFICATION",
+        "RHSIA_BROWSER_E2E_CLEANUP",
+        "RHSIA_BROWSER_E2E_CLEANUP_EMAILS",
+        "COMPOSE_PROJECT_NAME",
         "SMTP_PASSWORD",
         "AUTH_EMAIL_FROM",
         "AUTH_ADMITTED_EMAILS",
@@ -59,6 +84,25 @@ describe("workspace environment contract", () => {
         expect(launcher).toContain(`"${key}"`);
       expect(launcher).toContain("createScopedEnvironment");
     }
+
+    const pwaServerEnvironment = readFileSync(
+      join(repositoryRoot, "apps", "web", "scripts", "pwa-server-environment.ts"),
+      "utf8",
+    );
+    expect(pwaServerEnvironment).toContain("ISOLATED_SERVER_ENVIRONMENT_KEYS");
+    expect(pwaServerEnvironment).toContain(
+      'for (const name of ISOLATED_SERVER_ENVIRONMENT_KEYS) environment[name] = ""',
+    );
+    for (const key of [
+      "RHSIA_GO_INTEGRATION_DATABASE_URL",
+      "RHSIA_TESTCONTAINER_ID",
+      "RHSIA_DISPOSABLE_RUN_ID",
+      "RHSIA_DISPOSABLE_DATA_CLASSIFICATION",
+      "RHSIA_BROWSER_E2E_CLEANUP",
+      "RHSIA_BROWSER_E2E_CLEANUP_EMAILS",
+      "COMPOSE_PROJECT_NAME",
+    ])
+      expect(pwaServerEnvironment).toContain(`"${key}"`);
 
     const nextConfig = readFileSync(join(repositoryRoot, "apps", "web", "next.config.ts"), "utf8");
     const deploymentConfig = readFileSync(

@@ -49,6 +49,18 @@ describe("BrowserApiClient", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("allows the explicit logout operation while ordinary workspace writes are read-only", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    setBrowserWritesReadOnly("offline test");
+    const client = new BrowserApiClient();
+    const signal = new AbortController().signal;
+
+    await expect(client.postSessionRevocation({ signal })).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledWith("/auth/logout", { signal, method: "POST" });
+  });
+
   it("disposes platform cancellation listeners after the request settles", async () => {
     let disposed = false;
     const cancellation = {

@@ -42,10 +42,32 @@ func (limiter *AnonymousAuthRateLimiter) Check(ctx context.Context, email string
 	if clientIP != "" {
 		ipBucket = anonymousAuthRateLimitBucket{operation: "magic-link-ip", value: clientIP, maximum: 20}
 	}
-	buckets := []anonymousAuthRateLimitBucket{
+	return limiter.check(ctx, []anonymousAuthRateLimitBucket{
 		{operation: "magic-link-email", value: email, maximum: 5},
 		ipBucket,
+	}, now)
+}
+
+func (limiter *AnonymousAuthRateLimiter) CheckPwaSessionPoll(ctx context.Context, handoffID string, clientIP string, now time.Time) (AnonymousAuthRateLimitResult, error) {
+	ipBucket := anonymousAuthRateLimitBucket{operation: "pwa-session-unattributed", value: "all-untrusted-clients", maximum: 10_000}
+	if clientIP != "" {
+		ipBucket = anonymousAuthRateLimitBucket{operation: "pwa-session-ip", value: clientIP, maximum: 10_000}
 	}
+	ipResult, err := limiter.increment(ctx, ipBucket, now)
+	if err != nil {
+		return AnonymousAuthRateLimitResult{}, err
+	}
+	if !ipResult.Allowed {
+		return ipResult, nil
+	}
+	return limiter.increment(ctx, anonymousAuthRateLimitBucket{
+		operation: "pwa-session-handoff",
+		value:     handoffID,
+		maximum:   300,
+	}, now)
+}
+
+func (limiter *AnonymousAuthRateLimiter) check(ctx context.Context, buckets []anonymousAuthRateLimitBucket, now time.Time) (AnonymousAuthRateLimitResult, error) {
 	results := make([]AnonymousAuthRateLimitResult, len(buckets))
 	errorsByIndex := make([]error, len(buckets))
 	var workers sync.WaitGroup

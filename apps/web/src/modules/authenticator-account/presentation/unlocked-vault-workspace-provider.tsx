@@ -39,9 +39,17 @@ export function UnlockedVaultWorkspaceProvider({
   const { workspace, setWorkspace, replaceWorkspace, lockWorkspace, refreshWorkspaceAuthorization } =
     useWorkspaceLifecycle(initialWorkspace, (cleared) => {
       lastClearedWorkspaceRef.current = cleared;
+      if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
+      const target = window as typeof window & { __RHSIA_E2E_LAST_CLEAR_ALL_ZERO__?: boolean };
+      target.__RHSIA_E2E_LAST_CLEAR_ALL_ZERO__ = workspaceKeyMaterialIsCleared(cleared);
     });
   useEffect(() => {
     workspaceRef.current = workspace;
+    if (!workspace) return;
+    lastClearedWorkspaceRef.current = null;
+    if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
+    const target = window as typeof window & { __RHSIA_E2E_LAST_CLEAR_ALL_ZERO__?: boolean };
+    target.__RHSIA_E2E_LAST_CLEAR_ALL_ZERO__ = undefined;
   }, [workspace]);
 
   useEffect(() => {
@@ -52,13 +60,16 @@ export function UnlockedVaultWorkspaceProvider({
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_E2E_BROWSER_TESTS !== "1") return;
-    const target = window as typeof window & { __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown };
+    const target = window as typeof window & {
+      __RHSIA_E2E_LAST_CLEAR_ALL_ZERO__?: boolean;
+      __RHSIA_E2E_WORKSPACE_STATE__?: () => unknown;
+    };
     target.__RHSIA_E2E_WORKSPACE_STATE__ = () => ({
       workspacePresent: workspaceRef.current !== null,
       lastClearedAllZero: lastClearedWorkspaceRef.current
         ? workspaceKeyMaterialIsCleared(lastClearedWorkspaceRef.current)
-        : null,
-      activeKeyMaterial: workspaceRef.current ? workspaceKeyMaterial(workspaceRef.current).map(bytesToBase64) : [],
+        : (target.__RHSIA_E2E_LAST_CLEAR_ALL_ZERO__ ?? null),
+      activeKeyMaterialCount: workspaceRef.current ? workspaceKeyMaterial(workspaceRef.current).length : 0,
     });
     return () => {
       delete target.__RHSIA_E2E_WORKSPACE_STATE__;
@@ -104,10 +115,6 @@ function workspaceKeyMaterial(workspace: UnlockedVaultWorkspace): Uint8Array[] {
     ...workspace.vaults.map((vault) => vault.key),
     ...workspace.accounts.map((account) => account.secret),
   ];
-}
-
-function bytesToBase64(value: Uint8Array): string {
-  return btoa(String.fromCharCode(...value));
 }
 
 export function useUnlockedVaultWorkspace(): UnlockedVaultWorkspaceSession {

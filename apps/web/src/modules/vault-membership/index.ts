@@ -11,6 +11,16 @@ export type {
   SharedVaultAccountPermissionOverrides,
   SharedVaultAccountPermissions,
 } from "@rhasia-scret/client-vault-core";
+export { consumeSecureShareLinkSecretFromLocation } from "./infrastructure/browser-secure-share-link-fragment";
+export { SECURE_SHARE_LINK_MEMORY_MAX_AGE_MS } from "./infrastructure/browser-secure-share-link-secret-state";
+export {
+  beginSecureShareLinkAuthentication,
+  clearPendingSecureShareLinkAuthentication,
+  consumeSecureShareLinkAuthenticationCompletion,
+  replacePendingSecureShareLinkSecret,
+  retainSecureShareLinkAuthentication,
+  scheduleSecureShareLinkAuthenticationClear,
+} from "./infrastructure/browser-secure-share-link-auth-state";
 export { createSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
 export type { SecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link";
 export { redeemSecureShareLinkMaterial } from "./infrastructure/browser-secure-share-link-redemption";
@@ -29,6 +39,10 @@ export { redeemSecureShareLink } from "@rhasia-scret/client-vault-core";
 export { unlockSharedVault } from "./infrastructure/browser-shared-vault-unlock";
 export { createSharedVaultInvitation } from "./infrastructure/browser-shared-vault-invitation";
 export { SecureShareLinkRedemption } from "./presentation/secure-share-link-redemption";
+export {
+  SecureShareLinkSecretProvider,
+  useSecureShareLinkSecret,
+} from "./presentation/secure-share-link-secret-provider";
 export {
   VaultMemberPermissionNotice,
   VaultMembershipDefaults,

@@ -7,5 +7,6 @@ export function useTerminateSessionMutation() {
   return useMutation({
     mutationKey: ["identity", "terminate-session"],
     mutationFn: terminateBrowserSession,
+    networkMode: "always",
   });
 }

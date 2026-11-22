@@ -3,6 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryProvider } from "@/shared/presentation/query-provider";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks = vi.hoisted(() => ({ mutateAsync: vi.fn(() => new Promise<string>(() => undefined)) }));
@@ -15,8 +16,9 @@ import { LogoutForm } from "@/modules/identity/presentation/logout-form";
 describe("LogoutForm", () => {
   let root: Root | undefined;
   afterEach(async () => {
-    mocks.mutateAsync.mockClear();
     await act(async () => root?.unmount());
+    mocks.mutateAsync.mockReset();
+    mocks.mutateAsync.mockImplementation(() => new Promise<string>(() => undefined));
     document.body.innerHTML = "";
   });
 
@@ -39,5 +41,37 @@ describe("LogoutForm", () => {
     );
     await act(async () => confirm?.click());
     expect(mocks.mutateAsync).toHaveBeenCalledOnce();
+  });
+
+  it("reports logout failure after a session change remounts the form", async () => {
+    let rejectMutation: (() => void) | undefined;
+    mocks.mutateAsync.mockImplementation(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          rejectMutation = () => reject(new Error("synthetic logout failure"));
+        }),
+    );
+    window.history.replaceState(null, "", "/vaults");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const navigate = vi.fn();
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(QueryProvider, null, createElement(LogoutForm, { navigate }))));
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Pengaturan akun"]');
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    await act(async () => document.body.querySelector<HTMLFormElement>("form")?.requestSubmit());
+    const dialog = document.body.querySelector('[role="dialog"]');
+    const confirm = [...(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+      (button) => button.textContent === "Keluar",
+    );
+    await act(async () => confirm?.click());
+    expect(mocks.mutateAsync).toHaveBeenCalledOnce();
+
+    await act(async () => window.dispatchEvent(new Event("rhasia-scret:session-change")));
+    if (!rejectMutation) throw new Error("The logout mutation did not expose its rejection.");
+    await act(async () => rejectMutation?.());
+
+    expect(navigate).toHaveBeenCalledWith("/sign-in?auth=logout_failed");
   });
 });

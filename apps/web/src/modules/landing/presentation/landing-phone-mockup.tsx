@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Component, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type * as ThreeTypes from "three";
@@ -18,6 +19,31 @@ const LandingHostedVaultScreen = dynamic(
   () => import("./landing-hosted-vault-screen").then((module) => module.LandingHostedVaultScreen),
   { ssr: false },
 );
+
+type LandingScreenErrorBoundaryState = { hasError: boolean };
+
+class LandingScreenErrorBoundary extends Component<
+  Readonly<{ children: ReactNode; fallback: ReactNode }>,
+  LandingScreenErrorBoundaryState
+> {
+  state: LandingScreenErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): LandingScreenErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  render(): ReactNode {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+function DecorativeLandingHostedVaultScreen(props: ComponentProps<typeof LandingHostedVaultScreen>) {
+  return (
+    <LandingScreenErrorBoundary fallback={null}>
+      <LandingHostedVaultScreen {...props} />
+    </LandingScreenErrorBoundary>
+  );
+}
 
 export type { LandingDeviceKind, LandingPhoneView } from "./landing-flow.config";
 
@@ -483,7 +509,8 @@ export function LandingPhoneMockup({
 
   const hostedScreen = (
     <div className={styles.phoneScreenEntry} data-landing-phone-screen-entry={view}>
-      <LandingHostedVaultScreen view={view} />
+      {/* This preview is decorative; an uncached chunk must not crash offline access. */}
+      <DecorativeLandingHostedVaultScreen view={view} />
     </div>
   );
   const screen = (
@@ -811,14 +838,18 @@ export function LandingDeviceShowcase({
       {sceneError && (
         <div className={styles.showcaseFallback} aria-hidden="true">
           <div className={styles.phoneFallbackFrame}>
-            <LandingHostedVaultScreen view="accounts" />
+            <DecorativeLandingHostedVaultScreen view="accounts" />
           </div>
         </div>
       )}
       {screenPortals.map(({ host, device }) =>
         createPortal(
           <div inert>
-            <LandingHostedVaultScreen view={device.view} accountCount={device.accountCount} deviceKind={device.kind} />
+            <DecorativeLandingHostedVaultScreen
+              view={device.view}
+              accountCount={device.accountCount}
+              deviceKind={device.kind}
+            />
           </div>,
           host,
           `landing-showcase-screen-${device.kind}-${device.accountCount}`,

@@ -1761,7 +1761,9 @@ type MagicLinkRequestWebClient string
 
 // MagicLinkSentResponse defines model for MagicLinkSentResponse.
 type MagicLinkSentResponse struct {
-	Sent MagicLinkSentResponseSent `json:"sent"`
+	// ChallengeExpiresInSeconds Remaining lifetime of the passwordless challenge.
+	ChallengeExpiresInSeconds int                       `json:"challengeExpiresInSeconds"`
+	Sent                      MagicLinkSentResponseSent `json:"sent"`
 }
 
 // MagicLinkSentResponseSent defines model for MagicLinkSentResponse.Sent.
@@ -6363,6 +6365,38 @@ func (response PostAuthPwaSession403JSONResponse) VisitPostAuthPwaSessionRespons
 	return err
 }
 
+type PostAuthPwaSession429ResponseHeaders struct {
+	CacheControl *string
+	RetryAfter   *string
+	XRequestId   *string
+}
+
+type PostAuthPwaSession429JSONResponse struct {
+	Body    ApiError
+	Headers PostAuthPwaSession429ResponseHeaders
+}
+
+func (response PostAuthPwaSession429JSONResponse) VisitPostAuthPwaSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	if response.Headers.XRequestId != nil {
+		w.Header().Set("X-Request-Id", fmt.Sprint(*response.Headers.XRequestId))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAuthPwaSession500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response PostAuthPwaSession500JSONResponse) VisitPostAuthPwaSessionResponse(w http.ResponseWriter) error {
@@ -6383,7 +6417,16 @@ func (response PostAuthPwaSession500JSONResponse) VisitPostAuthPwaSessionRespons
 	return err
 }
 
-type PostAuthPwaSession503JSONResponse struct{ ApiUnavailableJSONResponse }
+type PostAuthPwaSession503ResponseHeaders struct {
+	CacheControl *string
+	RetryAfter   *string
+	XRequestId   *string
+}
+
+type PostAuthPwaSession503JSONResponse struct {
+	Body    ApiError
+	Headers PostAuthPwaSession503ResponseHeaders
+}
 
 func (response PostAuthPwaSession503JSONResponse) VisitPostAuthPwaSessionResponse(w http.ResponseWriter) error {
 
@@ -6394,6 +6437,9 @@ func (response PostAuthPwaSession503JSONResponse) VisitPostAuthPwaSessionRespons
 	w.Header().Set("Content-Type", "application/json")
 	if response.Headers.CacheControl != nil {
 		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
 	if response.Headers.XRequestId != nil {
 		w.Header().Set("X-Request-Id", fmt.Sprint(*response.Headers.XRequestId))

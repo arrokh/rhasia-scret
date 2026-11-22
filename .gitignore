@@ -22,11 +22,7 @@ artifacts/
 *.tsbuildinfo
 next-env.d.ts
 .env
-.env.local
-.env.test
-.env.prod
-.env.setup-*
-.env.backup-*
+.env.*
 !.env.example
 .tailscale-rhasia.json
 .vscode/settings.json

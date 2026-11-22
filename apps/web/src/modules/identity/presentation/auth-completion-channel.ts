@@ -1,98 +1,105 @@
-const AUTH_COMPLETION_CHANNEL_NAME = "rhasia-scret:authentication-complete";
-const AUTHENTICATED_MESSAGE = "authenticated";
-const INVITATION_SECRET_REQUEST_MESSAGE = "invitation-secret-request";
-const INVITATION_SECRET_RESPONSE_MESSAGE = "invitation-secret-response";
-// Backgrounded browsers can delay BroadcastChannel delivery while the email callback is foregrounded.
-const INVITATION_SECRET_REQUEST_TIMEOUT_MS = 15_000;
+import { requestVaultSessionChange } from "@/modules/sync";
 
-type AuthCompletionMessage = { type: typeof AUTHENTICATED_MESSAGE };
-type InvitationSecretRequestMessage = { type: typeof INVITATION_SECRET_REQUEST_MESSAGE; requestId: string };
-type InvitationSecretResponseMessage = {
-  type: typeof INVITATION_SECRET_RESPONSE_MESSAGE;
-  requestId: string;
-  secret: string;
-};
+const AUTH_COMPLETION_CHANNEL_NAME = "rhasia-scret:authentication-complete";
+const AUTH_COMPLETION_MESSAGE = "authenticated";
+const AUTH_COMPLETION_EVENT = "rhasia-scret:authentication-complete";
+const AUTH_COMPLETION_STORAGE_KEY = "rhasia-scret:authentication-complete";
+const AUTH_COMPLETION_STORAGE_VALUE = "authenticated";
+
+type AuthCompletionMessage = { type: typeof AUTH_COMPLETION_MESSAGE };
 
 export function announceAuthenticationCompletion(): void {
-  if (typeof BroadcastChannel === "undefined") return;
-  const channel = new BroadcastChannel(AUTH_COMPLETION_CHANNEL_NAME);
-  channel.postMessage({ type: AUTHENTICATED_MESSAGE } satisfies AuthCompletionMessage);
-  channel.close();
+  try {
+    requestVaultSessionChange();
+  } catch {
+    // Notify the source tab even if local session cleanup signaling fails.
+  }
+  const channel = createAuthenticationChannel();
+  let announcedWithChannel = false;
+  if (channel) {
+    try {
+      channel.postMessage({ type: AUTH_COMPLETION_MESSAGE } satisfies AuthCompletionMessage);
+      announcedWithChannel = true;
+    } catch {
+      // Use local and storage events when the channel cannot post.
+    }
+    closeAuthenticationChannel(channel);
+  }
+  if (!announcedWithChannel) announceLocalAuthenticationCompletion();
+  announceAuthenticationCompletionWithStorageEvent();
 }
 
-export function subscribeToAuthenticationCompletion(
-  onComplete: () => void,
-  getInvitationSecret?: () => string,
-): () => void {
-  if (typeof BroadcastChannel === "undefined") return () => undefined;
-  const channel = new BroadcastChannel(AUTH_COMPLETION_CHANNEL_NAME);
+export function subscribeToAuthenticationCompletion(onComplete: () => void): () => void {
   const onMessage = (event: MessageEvent<unknown>) => {
     if (isAuthCompletionMessage(event.data)) onComplete();
-    if (getInvitationSecret && isInvitationSecretRequestMessage(event.data)) {
-      const secret = getInvitationSecret();
-      if (isSafeInvitationSecret(secret)) {
-        channel.postMessage({
-          type: INVITATION_SECRET_RESPONSE_MESSAGE,
-          requestId: event.data.requestId,
-          secret,
-        } satisfies InvitationSecretResponseMessage);
-      }
-    }
   };
-  channel.addEventListener("message", onMessage);
+  const onLocalCompletion = () => onComplete();
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === AUTH_COMPLETION_STORAGE_KEY && event.newValue === AUTH_COMPLETION_STORAGE_VALUE) onComplete();
+  };
+  const channel = createAuthenticationChannel();
+  window.addEventListener(AUTH_COMPLETION_EVENT, onLocalCompletion);
+  window.addEventListener("storage", onStorage);
+  if (!channel)
+    return () => {
+      window.removeEventListener(AUTH_COMPLETION_EVENT, onLocalCompletion);
+      window.removeEventListener("storage", onStorage);
+    };
+  try {
+    channel.addEventListener("message", onMessage);
+  } catch {
+    closeAuthenticationChannel(channel);
+    return () => {
+      window.removeEventListener(AUTH_COMPLETION_EVENT, onLocalCompletion);
+      window.removeEventListener("storage", onStorage);
+    };
+  }
   return () => {
-    channel.removeEventListener("message", onMessage);
-    channel.close();
+    window.removeEventListener(AUTH_COMPLETION_EVENT, onLocalCompletion);
+    window.removeEventListener("storage", onStorage);
+    try {
+      channel.removeEventListener("message", onMessage);
+    } catch {
+      // Closing the channel still releases its listener.
+    }
+    closeAuthenticationChannel(channel);
   };
 }
 
-export function requestInvitationSecret(timeoutMs = INVITATION_SECRET_REQUEST_TIMEOUT_MS): Promise<string | null> {
-  if (typeof BroadcastChannel === "undefined") return Promise.resolve(null);
-  const requestId = crypto.randomUUID();
-  const channel = new BroadcastChannel(AUTH_COMPLETION_CHANNEL_NAME);
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(() => finish(null), timeoutMs);
-    const onMessage = (event: MessageEvent<unknown>) => {
-      if (isInvitationSecretResponseMessage(event.data) && event.data.requestId === requestId)
-        finish(isSafeInvitationSecret(event.data.secret) ? event.data.secret : null);
-    };
-    function finish(secret: string | null): void {
-      window.clearTimeout(timeout);
-      channel.removeEventListener("message", onMessage);
-      channel.close();
-      resolve(secret);
-    }
-    channel.addEventListener("message", onMessage);
-    channel.postMessage({
-      type: INVITATION_SECRET_REQUEST_MESSAGE,
-      requestId,
-    } satisfies InvitationSecretRequestMessage);
-  });
+function createAuthenticationChannel(): BroadcastChannel | undefined {
+  if (typeof BroadcastChannel === "undefined") return undefined;
+  try {
+    return new BroadcastChannel(AUTH_COMPLETION_CHANNEL_NAME);
+  } catch {
+    return undefined;
+  }
+}
+
+function closeAuthenticationChannel(channel: BroadcastChannel): void {
+  try {
+    channel.close();
+  } catch {
+    // A failed transport must not turn a completed sign-in into a page error.
+  }
+}
+
+function announceLocalAuthenticationCompletion(): void {
+  try {
+    window.dispatchEvent(new Event(AUTH_COMPLETION_EVENT));
+  } catch {
+    // The storage fallback can still notify another tab.
+  }
+}
+
+function announceAuthenticationCompletionWithStorageEvent(): void {
+  try {
+    window.localStorage.setItem(AUTH_COMPLETION_STORAGE_KEY, AUTH_COMPLETION_STORAGE_VALUE);
+    window.localStorage.removeItem(AUTH_COMPLETION_STORAGE_KEY);
+  } catch {
+    // Session change and local completion were already attempted; no cross-tab transport is available.
+  }
 }
 
 function isAuthCompletionMessage(value: unknown): value is AuthCompletionMessage {
-  return !!value && typeof value === "object" && (value as { type?: unknown }).type === AUTHENTICATED_MESSAGE;
-}
-
-function isInvitationSecretRequestMessage(value: unknown): value is InvitationSecretRequestMessage {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { type?: unknown }).type === INVITATION_SECRET_REQUEST_MESSAGE &&
-    typeof (value as { requestId?: unknown }).requestId === "string"
-  );
-}
-
-function isSafeInvitationSecret(value: string): boolean {
-  return /^[A-Za-z0-9_-]{16,4096}$/.test(value);
-}
-
-function isInvitationSecretResponseMessage(value: unknown): value is InvitationSecretResponseMessage {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { type?: unknown }).type === INVITATION_SECRET_RESPONSE_MESSAGE &&
-    typeof (value as { requestId?: unknown }).requestId === "string" &&
-    typeof (value as { secret?: unknown }).secret === "string"
-  );
+  return !!value && typeof value === "object" && (value as { type?: unknown }).type === AUTH_COMPLETION_MESSAGE;
 }

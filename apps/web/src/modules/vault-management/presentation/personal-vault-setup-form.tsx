@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FunctionComponent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm } from "@tanstack/react-form";
@@ -36,12 +36,7 @@ type SetupFailureCategory =
   | "request_failure"
   | "post_initialization_failure";
 type SetupFailureStage = "client_crypto" | "request" | "post_initialization";
-export type PersonalVaultSetupFormProps = Readonly<{
-  afterInitializationPath?: "/vaults/invitations/redeem";
-}>;
-
-export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormProps> = (props = {}) => {
-  const { afterInitializationPath } = props;
+export function PersonalVaultSetupForm() {
   const t = useTranslations("VaultManagement.setup");
   const router = useRouter();
   const generatedSecret = useRef<string | null>(null);
@@ -78,17 +73,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
         });
         failureStage = "post_initialization";
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitialized);
-        if (afterInitializationPath) {
-          const fragment = window.location.hash;
-          const secret = fragment.slice(1);
-          const destination = /^[A-Za-z0-9_-]{16,4096}$/.test(secret)
-            ? `${afterInitializationPath}${fragment}`
-            : afterInitializationPath;
-          router.replace(destination);
-          router.refresh();
-        } else {
-          router.refresh();
-        }
+        router.refresh();
       } catch (error) {
         captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultInitializationFailed);
         setInitializationFailureCategory(getSetupFailureCategory(failureStage, error));
@@ -330,7 +315,7 @@ export const PersonalVaultSetupForm: FunctionComponent<PersonalVaultSetupFormPro
       )}
     </form>
   );
-};
+}
 
 function Field({ children }: { children: React.ReactNode }) {
   return <div className="grid gap-2">{children}</div>;
