@@ -20,15 +20,20 @@ const eslintRequire = createRequire(apiRequire.resolve("eslint"));
 const { Minimatch } = eslintRequire("minimatch");
 
 test("modern minimatch bounds optimization-level-2 pattern amplification", () => {
-  const matcher = new Minimatch(Array(30).fill("**/../a/b").join("/"), {
+  const matcher = new Minimatch(Array(6).fill("**/../a/b").join("/"), {
     optimizationLevel: 2,
     braceExpandMax: 64,
   });
   assert.equal(matcher.set.length, 64);
+  assert.throws(
+    () => new Minimatch(Array(7).fill("**/../a/b").join("/"), { optimizationLevel: 2, braceExpandMax: 64 }),
+    { name: "RangeError", message: /too many patterns/ },
+  );
   const large = new Minimatch("{x,*}/{0..999}", { optimizationLevel: 2 });
-  assert.equal(large.set.length, 2000);
+  assert.equal(large.match("x/0"), true);
   assert.equal(large.match("y/999"), true);
   assert.equal(large.match(".y/5"), false);
+  assert.equal(large.match("y/1000"), false);
 });
 
 test("legacy minimatch callers retain the callable API without the affected preprocessing", () => {
