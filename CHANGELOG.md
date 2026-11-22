@@ -33,6 +33,16 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.4.2]
+
+<!-- Draft generated from first-parent history v0.4.1..c4cd876e4038bb577289e2408e4f9c2485e78817 (first-parent, exclusive of tag); release-base c4cd876e4038bb577289e2408e4f9c2485e78817. Review and curate before publication. -->
+
+### Changes
+
+- [api][fix] Retry transient session database reads (#341)
+- [api][fix] Bound PostgreSQL pool recovery timeouts (#342)
+- [security][fix] Harden Vault and session isolation (#343)
+
 ## [0.4.1]
 
 <!-- Draft generated from first-parent history v0.4.0..c4d9932858ee978409c988ec96a6fd60243a8c25 (first-parent, exclusive of tag); release-base c4d9932858ee978409c988ec96a6fd60243a8c25. Review and curate before publication. -->
