@@ -29,6 +29,8 @@ COPY packages/api-contract packages/api-contract
 COPY tools/self-hosted-configure.mjs tools/self-hosted-configure.d.mts tools/self-hosted.mjs tools/self-hosted-origin.mjs tools/self-hosted-configure-page.mjs tools/
 RUN pnpm --filter @rhasia-scret/web build
 
+FROM node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS node-runtime
+
 FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS runtime
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
@@ -37,7 +39,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 WORKDIR /app
-COPY --from=base /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 RUN apk add --no-cache ca-certificates libc6-compat libstdc++ openssl \
   && addgroup -S -g 1001 nodejs \
   && adduser -S -D -H -u 1001 -G nodejs nextjs
