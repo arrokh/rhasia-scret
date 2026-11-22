@@ -4,12 +4,12 @@ This guide describes the supported deployment contract for rhasia-scret. The web
 
 ## Supported deployment matrix
 
-| Layer              | Reference                                        | Supported alternatives                                                        | Unsupported                                                                          |
-| ------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Web host           | Vercel with Node.js 24.x                         | Checked-in Docker Compose or another Node.js host behind HTTPS                | Static export                                                                        |
-| API host           | Go/Echo service in Docker or Vercel Go functions | Another Go host behind HTTPS                                                  | Next.js API routes or a TypeScript API runtime                                       |
-| Database           | PostgreSQL 16 compatibility target               | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints | SQLite, MySQL, browser database access                                               |
-| Web authentication | `passwordless` for hosted account access         | `none` for local browser use or Tailscale-exposed local-only features         | OIDC or other hosted providers, password-based app auth, email-based account merging |
+| Layer              | Reference                                        | Supported alternatives                                                                                                    | Unsupported                                                                          |
+| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Web host           | Vercel with Node.js 24.x                         | Checked-in Docker Compose (Node.js 26.13.1 runtime; Node.js 24.19.0 build) or another supported Node.js host behind HTTPS | Static export                                                                        |
+| API host           | Go/Echo service in Docker or Vercel Go functions | Another Go host behind HTTPS                                                                                              | Next.js API routes or a TypeScript API runtime                                       |
+| Database           | PostgreSQL 16 compatibility target               | Managed/operator-run PostgreSQL with TLS and separate pooled/direct endpoints                                             | SQLite, MySQL, browser database access                                               |
+| Web authentication | `passwordless` for hosted account access         | `none` for local browser use or Tailscale-exposed local-only features                                                     | OIDC or other hosted providers, password-based app auth, email-based account merging |
 
 All providers must satisfy PostgreSQL compatibility, TLS, backup/PITR, restore, retention scheduling, least-privilege access, and pooled/direct connection requirements. CI PostgreSQL proves application compatibility; it is not production infrastructure.
 
