@@ -484,8 +484,8 @@
       "notice": {
         "required": "Silakan masuk untuk melanjutkan.",
         "invitationRequired": "Masuk untuk menerima undangan. Biarkan tab ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
-        "signedOut": "Anda telah keluar.",
-        "logoutFailed": "Proses keluar tidak dapat diselesaikan. Coba lagi.",
+        "signedOut": "Browser ini telah keluar.",
+        "logoutFailed": "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif atau pembersihan lokal belum lengkap. Sambungkan kembali, kunci brankas yang terbuka, lalu coba lagi.",
         "configurationError": "Layanan masuk belum dikonfigurasi. Hubungi administrator.",
         "serviceUnavailable": "Akses Brankas Hosted sedang tidak tersedia. Coba lagi nanti atau gunakan Brankas Lokal/snapshot luring.",
         "verificationFailed": "Tautan masuk tidak dapat diverifikasi. Minta tautan baru."
@@ -504,8 +504,8 @@
       "backToSignIn": "Kembali ke halaman masuk",
       "backToHome": "Kembali ke beranda",
       "doNotClose": "Halaman ini akan melanjutkan secara otomatis setelah verifikasi.",
-      "pwaCompleted": "Tautan terverifikasi. rhasia-scret sedang membuka sesi di aplikasi terpasang Anda.",
-      "pwaDoNotClose": "Kembali ke aplikasi terpasang untuk menyelesaikan proses masuk. Jika aplikasi sudah ditutup, minta tautan baru dari aplikasi.",
+      "pwaCompleted": "Tautan masuk terverifikasi. Sesi siap diteruskan ke aplikasi terpasang Anda.",
+      "pwaDoNotClose": "Kembali ke aplikasi terpasang untuk menyelesaikan proses masuk. Jika aplikasi tidak melanjutkan, minta tautan masuk baru dari aplikasi.",
       "pwaFailed": "Sesi masuk tidak dapat diteruskan ke aplikasi terpasang. Kembali ke aplikasi dan minta tautan baru."
     },
     "signIn": {
@@ -524,7 +524,7 @@
       "sent": "Periksa kotak masuk untuk tautan masuk. Akun hosted baru tersedia setelah email diverifikasi.",
       "sentInvitation": "Periksa kotak masuk. Biarkan tab undangan ini tetap terbuka; proses akan berlanjut otomatis setelah verifikasi.",
       "sentPwa": "Periksa kotak masuk. Biarkan aplikasi terpasang ini tetap terbuka; sesi akan diteruskan otomatis setelah tautan dibuka.",
-      "authenticating": "Meneruskan sesi masuk ke aplikasi terpasang…",
+      "authenticating": "Sedang masuk…",
       "securityCheck": "Verifikasi keamanan",
       "turnstileRequired": "Selesaikan verifikasi keamanan sebelum melanjutkan.",
       "turnstileError": "Verifikasi keamanan tidak dapat dimuat. Coba lagi.",
@@ -548,7 +548,7 @@
       "userAccount": "Akun pengguna",
       "leaving": "Keluar…",
       "leave": "Keluar",
-      "cleanupError": "Brankas telah dikunci, tetapi data perangkat atau sesi server tidak dapat dibersihkan. Tutup aplikasi, hapus data situs browser ini, lalu coba keluar lagi saat daring.",
+      "cleanupError": "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif atau pembersihan lokal belum lengkap. Kunci brankas yang terbuka, sambungkan kembali, lalu coba lagi.",
       "confirmTitle": "Keluar dari aplikasi?",
       "confirmDescription": "Sesi brankas yang sedang terbuka akan ditutup dan Anda perlu membukanya kembali setelah masuk."
     },
@@ -1475,6 +1475,8 @@
       "redeeming": "Menerima undangan…",
       "redeem": "Terima undangan",
       "error": "Undangan tidak dapat digunakan. Tautan mungkin sudah pernah digunakan atau bukan untuk akun ini.",
+      "errorHelp": "Jika kesalahan tetap terjadi atau tautan hilang, buka kembali tautan undangan asli. Jika masih gagal, minta pemilik mengirim undangan baru.",
+      "previousAccepted": "Undangan sebelumnya telah diterima. Undangan baru ini masih tersedia di atas.",
       "identityChanged": "Identitas enkripsi Anda berubah. Ruang kerja telah dimuat ulang; coba terima undangan lagi."
     }
   },
@@ -1508,6 +1510,7 @@
     "offline": {
       "title": "Akses brankas luring",
       "description": "Buka snapshot Brankas Pribadi terenkripsi di perangkat ini tanpa menghubungi server. Brankas Bersama hanya tersedia saat daring.",
+      "logoutFailedOffline": "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif atau pembersihan lokal belum lengkap. Sambungkan kembali, kunci brankas yang terbuka, lalu coba lagi.",
       "readOnly": "Mode baca-saja",
       "readOnlyDescription": "Otorisasi tidak dapat diperiksa sampai sinkronisasi daring berhasil. Perubahan dan audit akses tidak disimpan atau diputar ulang.",
       "searching": "Mencari snapshot terenkripsi…",

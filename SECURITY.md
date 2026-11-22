@@ -10,6 +10,44 @@ its delivery infrastructure is outside the current MVP guarantee. Read the
 [security documentation](docs/README.md#security) before relying on a
 deployment.
 
+## Threat model for reviewers and scanners
+
+- **Browser → API:** Treat requests from signed-in users as untrusted. Check
+  membership and role on each Vault read or mutation, including after removal.
+  Authentication alone must not grant access to another user's ciphertext.
+- **Client → storage and telemetry:** Vault names, account labels, TOTP seeds,
+  codes and decryption keys must not reach the API, logs, analytics, Query
+  caches or service-worker caches. Check error and offline paths as well as
+  successful requests. A Secure Share Link fragment belongs only in client
+  memory after opening; it must not travel with the request.
+- **Source → delivered client:** A modified client could read unlocked secrets.
+  Review dependency changes, build inputs and release permissions. Untrusted
+  contributions must not gain publishing authority or access to deploy keys.
+
+## Dependency patches
+
+Enable the dependency graph, Dependabot alerts and Dependabot security updates
+in GitHub repository settings. These generate security PRs independently of
+scheduled version updates. The release owner should triage a reachable high
+or critical advisory within one day and target a tested release within three
+days of a fix. If blocked, record the mitigation, owner and next review date
+privately. A merged dependency PR is not evidence of deployment.
+
+## Provider credential rotation
+
+Inventory credentials by provider, project, environment, owner and consuming
+service; record identifiers, never values. Use separate identities for CI,
+runtime and administration. For AI tools, restrict keys to the intended
+project, endpoints and models where supported; set usage alerts and quotas.
+Do not give a browser bundle or a pull-request build a provider secret.
+
+For routine rotation, create a least-privilege replacement in the provider
+console, put it in the consumer's secret store, reload the consumer and verify
+one expected operation. Revoke the old key, verify revocation in the provider
+console and check usage for unexpected activity. If theft is suspected,
+contain immediately rather than waiting for a routine cutover. These steps
+apply to service credentials, not client-held Vault encryption keys.
+
 ## Reporting a vulnerability
 
 Do not report a vulnerability in a public issue, pull request, discussion, or

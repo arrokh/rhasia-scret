@@ -1,0 +1,797 @@
+{
+  "schemaVersion": 1,
+  "description": "Operation-level actor-to-resource decision map. Detailed SQL/source reasoning and historical review notes remain private. Paths are server-relative OpenAPI paths prefixed with /v1.",
+  "canonicalOperationCount": 70,
+  "inScopeOperationCount": 62,
+  "excludedOperations": [
+    {
+      "method": "POST",
+      "path": "/v1/auth/magic-link/request",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/magic-link/redeem",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/pwa/session",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/session/refresh",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/session/revoke",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/time",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me",
+      "reason": "Not a Vault/resource or Vault-lifecycle operation: authentication/session establishment, health/time utility, or current-user profile read."
+    }
+  ],
+  "families": {
+    "personal-vault-read": {
+      "actor": "Session-verifier-derived Application User ID; request cannot choose an owner.",
+      "decision": "GET may initialize the actor’s own Personal Vault; repository returns only a Vault whose owner_id is that actor.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_personal_vault_read.go",
+        "apps/api/internal/repository/vault_management_personal_vault_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_personal_vault_routes_test.go",
+        "apps/api/internal/repository/vault_management_personal_vault_repository_test.go"
+      ]
+    },
+    "personal-vault-initialize": {
+      "actor": "Session-verifier-derived Application User ID.",
+      "decision": "Rechecks the actor’s own uninitialized Personal Vault; initializes the actor crypto profile and encrypted name atomically.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_handlers.go",
+        "apps/api/internal/repository/vault_management_personal_vault_initializer.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_personal_vault_routes_test.go",
+        "apps/api/internal/repository/vault_management_personal_vault_initializer_test.go"
+      ]
+    },
+    "personal-vault-name-migration": {
+      "actor": "Session-verifier-derived owner ID; submitted Vault ID is only a target.",
+      "decision": "Requires the actor-owned active Personal Vault, expected key/envelope version, source digest and ciphertext CAS.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_personal_vault_name_migration.go",
+        "apps/api/internal/repository/vault_management_personal_vault_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_personal_vault_routes_test.go",
+        "apps/api/internal/repository/vault_management_personal_vault_repository_test.go"
+      ]
+    },
+    "personal-vault-reset-preview": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Returns only the actor’s reset eligibility; it does not authorize a later write.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_destructive_personal_vault_reset.go",
+        "apps/api/internal/repository/vault_management_destructive_personal_vault_reset_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_destructive_personal_vault_reset_test.go",
+        "apps/api/internal/repository/vault_management_destructive_personal_vault_reset_repository_test.go"
+      ]
+    },
+    "personal-vault-reset": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Under a user-scoped transaction lock, rechecks eligibility/ownership/memberships and performs cleanup only for that actor’s Vault and memberships.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_destructive_personal_vault_reset.go",
+        "apps/api/internal/repository/vault_management_destructive_personal_vault_reset_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_destructive_personal_vault_reset_test.go",
+        "apps/api/internal/repository/vault_management_destructive_personal_vault_reset_repository_test.go"
+      ]
+    },
+    "personal-account-read": {
+      "actor": "Session-verifier-derived owner ID plus route Vault ID.",
+      "decision": "Requires an active Personal Vault owned by the actor, then returns only that Vault’s active account ciphertext.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_personal_account_handlers.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_personal_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository_test.go"
+      ]
+    },
+    "personal-account-mutate": {
+      "actor": "Session-verifier-derived owner ID; Vault/account IDs and revision are targets.",
+      "decision": "All mutations require the actor-owned active Vault. Update/delete scope by Vault/account and expected revision; restore scopes by Vault/account and recovery deadline, with no expected-revision predicate. Create/update audit writes are transactional.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_personal_account_handlers.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_personal_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository_test.go"
+      ]
+    },
+    "personal-account-migration": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Locks actor-owned active Vault and checks Vault key version, account/Vault association, revision, legacy envelope and source digest before ciphertext CAS.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_personal_account_migration.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_personal_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_personal_account_repository_test.go"
+      ]
+    },
+    "shared-vault-create": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Checks actor’s current public key and transactionally creates the Shared Vault and its owner membership for the same actor.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers_test.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository_test.go"
+      ]
+    },
+    "shared-vault-read": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Requires active membership in an active, undeleted Shared Vault; account ciphertext is selected only through that actor’s membership.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository_test.go"
+      ]
+    },
+    "shared-vault-rename": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Requires active Shared Vault whose owner_id is the actor, active OWNER membership and current key version.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_shared_vault_handlers_test.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository_test.go"
+      ]
+    },
+    "shared-vault-name-migration": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Requires active Shared Vault, actor’s active membership, key version and source digest; accepts active members as a documented ciphertext-maintenance exception, with semantic equivalence unprovable server-side.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_shared_vault_migration.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_shared_vault_migration_test.go",
+        "apps/api/internal/repository/vault_management_shared_vault_repository_test.go"
+      ]
+    },
+    "shared-account-mutate": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Locks active Vault and actor membership, resolves effective Add/Edit/Delete permission and applies account/Vault/revision scope; owner bypasses member defaults.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository_test.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository_test.go"
+      ]
+    },
+    "shared-account-restore": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Restore requires the active Vault owner, scopes by account/Vault, and enforces the recovery deadline.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository_test.go"
+      ]
+    },
+    "shared-account-migration": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Requires active membership and current key version, then CASes ciphertext by Vault/account/revision/source digest; the documented migration exception does not prove semantic equivalence.",
+      "sources": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/authenticator_account_shared_account_handlers_test.go",
+        "apps/api/internal/repository/authenticator_account_shared_account_repository_test.go"
+      ]
+    },
+    "shared-key-wrap-migration": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Locks only that actor’s membership; requires active membership/Vault and expected member key version, then CASes only that actor’s wrap.",
+      "sources": [
+        "apps/api/internal/handler/vault_membership_key_wrap_migration.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_membership_shared_vault_access_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_access_repository_test.go"
+      ]
+    },
+    "archive-import": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Destination must be actor-owned or an active Shared Vault role with required Add permission; replay rechecks destination authorization, current membership key version, ciphertext/version and conflict state.",
+      "sources": [
+        "apps/api/internal/handler/vault_archive_archive_import.go",
+        "apps/api/internal/repository/vault_archive_encrypted_vault_import_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_archive_archive_import_test.go",
+        "apps/api/internal/repository/vault_archive_encrypted_vault_import_repository_test.go"
+      ]
+    },
+    "shared-vault-lifecycle": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Delete/restore are owner-scoped; repository rechecks lifecycle state and retention deadlines under lock and records redacted audit events transactionally.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_shared_vault_recovery.go",
+        "apps/api/internal/repository/vault_management_shared_vault_recovery_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_shared_vault_recovery_test.go",
+        "apps/api/internal/repository/vault_management_shared_vault_recovery_repository_test.go"
+      ]
+    },
+    "membership-lifecycle": {
+      "actor": "Session-verifier-derived leave actor or owner; target member ID is separate.",
+      "decision": "Leave changes only the actor’s own active Viewer membership; revoke requires an owner, active Vault and separately scoped active Viewer target.",
+      "sources": [
+        "apps/api/internal/handler/vault_membership_membership_lifecycle_handlers.go",
+        "apps/api/internal/repository/vault_membership_membership_lifecycle_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_membership_membership_lifecycle_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_membership_lifecycle_repository_test.go"
+      ]
+    },
+    "member-permissions": {
+      "actor": "Session-verifier-derived owner ID; target Viewer is separate.",
+      "decision": "Requires active owner-owned Shared Vault; default and member override writes are revision-checked and scoped to active Viewer targets.",
+      "sources": [
+        "apps/api/internal/handler/vault_membership_shared_vault_permission_handlers.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_permission_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_membership_shared_vault_permission_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_shared_vault_permission_repository_test.go"
+      ]
+    },
+    "participants-and-invite-cancel": {
+      "actor": "Session-verifier-derived owner ID; invitation ID is a target.",
+      "decision": "Participant listing/cancellation require active owner-owned Vault; listing is bounded and cancellation applies only to a pending invitation in that Vault.",
+      "sources": [
+        "apps/api/internal/handler/vault_membership_vault_participant_handlers.go",
+        "apps/api/internal/handler/vault_membership_secure_share_link_handlers.go",
+        "apps/api/internal/repository/vault_membership_vault_participant_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_membership_vault_participant_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_vault_participant_repository_test.go"
+      ]
+    },
+    "secure-share-links": {
+      "actor": "Creation uses session-derived owner; lookup/redemption uses verified recipient session or pending invitation email.",
+      "decision": "Creation is owner/Vault/key-version scoped; lookup/redemption recheck recipient binding, expiry, Vault/owner/key state and membership under locks, then consume atomically.",
+      "sources": [
+        "apps/api/internal/handler/vault_membership_secure_share_link_handlers.go",
+        "apps/api/internal/repository/vault_membership_secure_share_link_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_membership_secure_share_link_handlers_test.go",
+        "apps/api/internal/repository/vault_membership_secure_share_link_repository_test.go"
+      ]
+    },
+    "shared-vault-key-rotation": {
+      "actor": "Session-derived owner ID; submitted member/account IDs are replacement targets.",
+      "decision": "Snapshot is owner-scoped; rotate locks Vault/member/account sets and compares exact current sets, versions and revisions before atomic write.",
+      "sources": [
+        "apps/api/internal/handler/vault_management_vault_key_rotation.go",
+        "apps/api/internal/repository/vault_management_vault_key_rotation_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_management_vault_key_rotation_test.go",
+        "apps/api/internal/repository/vault_management_vault_key_rotation_repository_test.go"
+      ]
+    },
+    "audit-read": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Personal and Shared Vault audit reads are owner-scoped, including retained owner_id and deadline after Vault purge; cursors bind Vault/filter scope.",
+      "sources": [
+        "apps/api/internal/handler/audit_vault_audit_handlers.go",
+        "apps/api/internal/repository/audit_vault_audit_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/audit_vault_audit_handlers_test.go",
+        "apps/api/internal/repository/audit_vault_audit_repository_test.go"
+      ]
+    },
+    "shared-account-access-audit": {
+      "actor": "Session-verifier-derived actor ID.",
+      "decision": "Requires active Shared Vault, active membership and active account belonging to that Vault before recording access.",
+      "sources": [
+        "apps/api/internal/handler/audit_vault_audit_handlers.go",
+        "apps/api/internal/repository/audit_vault_audit_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/audit_vault_audit_handlers_test.go",
+        "apps/api/internal/repository/audit_vault_audit_repository_test.go"
+      ]
+    },
+    "personal-audit": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Requires active actor-owned Personal Vault and verifies every account ID is active in that Vault before recording copy events.",
+      "sources": [
+        "apps/api/internal/handler/audit_vault_audit_handlers.go",
+        "apps/api/internal/repository/audit_vault_audit_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/audit_vault_audit_handlers_test.go",
+        "apps/api/internal/repository/audit_vault_audit_repository_test.go"
+      ]
+    },
+    "archive-export-audit": {
+      "actor": "Session-verifier-derived owner ID.",
+      "decision": "Rejects request bodies, requires active owner-owned Vault and records only a redacted event before client export.",
+      "sources": [
+        "apps/api/internal/handler/vault_archive_archive_export.go",
+        "apps/api/internal/repository/audit_archive_export.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/vault_archive_archive_export_test.go",
+        "apps/api/internal/repository/audit_archive_export_test.go"
+      ]
+    },
+    "sync-bundles": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Repeatable-read snapshot selects Personal data by owner and Shared data only through active membership; workspace bundle’s offline projection is Personal-only and responses are private/no-store.",
+      "sources": [
+        "apps/api/internal/handler/sync_handlers.go",
+        "apps/api/internal/repository/sync_workspace_bundle_reader.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/sync_handlers_test.go",
+        "apps/api/internal/repository/sync_workspace_bundle_reader_test.go"
+      ]
+    },
+    "user-crypto-profile": {
+      "actor": "Session-verifier-derived user ID; no request-selected target user.",
+      "decision": "Profile read/rewrap/migration use only actor user_id and persist encrypted wrappers/private-key envelopes plus allowed public/version metadata.",
+      "sources": [
+        "apps/api/internal/handler/identity_user_crypto_profile_handlers.go",
+        "apps/api/internal/repository/identity_user_crypto_profile_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/identity_user_crypto_profile_handlers_test.go",
+        "apps/api/internal/repository/identity_user_crypto_profile_repository_test.go"
+      ]
+    },
+    "user-encryption-identity": {
+      "actor": "Session-verifier-derived user ID; no request-selected target user.",
+      "decision": "Register/migrate use only actor user_id; inputs are bounded; stored private key is encrypted and public/version metadata is separately typed.",
+      "sources": [
+        "apps/api/internal/handler/identity_user_encryption_identity_handlers.go",
+        "apps/api/internal/repository/identity_user_crypto_profile_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/identity_user_encryption_identity_handlers_test.go",
+        "apps/api/internal/repository/identity_user_encryption_identity_repository_test.go"
+      ]
+    },
+    "passkey-recovery": {
+      "actor": "Session-verifier-derived user ID for every challenge/credential operation.",
+      "decision": "Challenges and credentials are actor-scoped; production verifies WebAuthn challenge/RP/origin/signature/counter/PRF; test bypass requires development plus E2E flag.",
+      "sources": [
+        "apps/api/internal/handler/identity_passkey_recovery_handlers.go",
+        "apps/api/internal/repository/identity_passkey_recovery_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/identity_passkey_recovery_handlers_test.go",
+        "apps/api/internal/repository/identity_passkey_recovery_repository_test.go"
+      ]
+    },
+    "user-key-rotation": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Snapshot reads only actor crypto profile/memberships; rotate locks actor profile/membership set, compares exact submissions and atomically replaces only actor wraps.",
+      "sources": [
+        "apps/api/internal/handler/identity_user_encryption_identity_handlers.go",
+        "apps/api/internal/repository/identity_user_encryption_identity_rotation_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/identity_user_encryption_identity_handlers_test.go",
+        "apps/api/internal/repository/identity_user_encryption_identity_rotation_repository_test.go"
+      ]
+    },
+    "account-deletion-preview": {
+      "actor": "Session-verifier-derived user ID.",
+      "decision": "Returns only the actor’s deletion plan and currently eligible active Viewer transfer candidates; it grants no deletion authority.",
+      "sources": [
+        "apps/api/internal/handler/account_deletion_preview.go",
+        "apps/api/internal/repository/account_deletion_preview_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/account_deletion_preview_test.go",
+        "apps/api/internal/repository/account_deletion_preview_repository_test.go"
+      ]
+    },
+    "account-deletion-otp": {
+      "actor": "Session-verifier-derived user ID; same-origin request required.",
+      "decision": "Creates/consumes only that actor’s expiring OTP challenge with bounded attempts; successful verify returns short-lived HttpOnly deletion authorization.",
+      "sources": [
+        "apps/api/internal/handler/account_deletion_otp_handlers.go",
+        "apps/api/internal/repository/account_deletion_otp_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/account_deletion_otp_handlers_test.go",
+        "apps/api/internal/repository/account_deletion_otp_repository_test.go"
+      ]
+    },
+    "account-deletion": {
+      "actor": "Session-verifier-derived user ID plus same-origin and one-time deletion authorization cookie.",
+      "decision": "Validates the exact current plan, then rechecks user-bound authorization digest, owned Vault decisions and transfer recipients under transaction locks before atomically deleting/transferring state.",
+      "sources": [
+        "apps/api/internal/handler/account_deletion_delete_me.go",
+        "apps/api/internal/repository/account_deletion_deletion_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/account_deletion_delete_me_test.go",
+        "apps/api/internal/repository/account_deletion_deletion_repository_test.go"
+      ]
+    },
+    "retention-purge": {
+      "actor": "Configured system bearer secret; deliberately not an Application User.",
+      "decision": "Constant-time configured-secret check authorizes bounded retention service batches; repository removes only deadline-expired rows in bounded SKIP LOCKED work.",
+      "sources": [
+        "apps/api/internal/handler/retention_handlers.go",
+        "apps/api/internal/repository/retention_retention_purge_repository.go"
+      ],
+      "tests": [
+        "apps/api/internal/handler/retention_handlers_test.go",
+        "apps/api/internal/repository/retention_retention_purge_repository_test.go"
+      ]
+    }
+  },
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/v1/internal/retention-purge",
+      "family": "retention-purge"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/me",
+      "family": "account-deletion"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/deletion/preview",
+      "family": "account-deletion-preview"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/deletion/otp/request",
+      "family": "account-deletion-otp"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/deletion/otp/verify",
+      "family": "account-deletion-otp"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/registration/options",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/registration/verify",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/authentication/options",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/passkey-recovery/authentication/verify",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/passkey-recovery/status",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/passkey-recovery",
+      "family": "passkey-recovery"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personal-vault",
+      "family": "personal-vault-read"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/initialize",
+      "family": "personal-vault-initialize"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/name/migration",
+      "family": "personal-vault-name-migration"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personal-vault/destructive-reset",
+      "family": "personal-vault-reset-preview"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personal-vault/destructive-reset",
+      "family": "personal-vault-reset"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/user-crypto-profile",
+      "family": "user-crypto-profile"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-crypto-profile/rewrap",
+      "family": "user-crypto-profile"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-crypto-profile/migration",
+      "family": "user-crypto-profile"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/user-encryption-identity",
+      "family": "user-encryption-identity"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/user-encryption-identity/migration",
+      "family": "user-encryption-identity"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/user-encryption-identity/rotation",
+      "family": "user-key-rotation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/user-encryption-identity/rotation",
+      "family": "user-key-rotation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vault-imports",
+      "family": "archive-import"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults",
+      "family": "shared-vault-read"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults",
+      "family": "shared-vault-create"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/:vaultId",
+      "family": "shared-vault-read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/:vaultId",
+      "family": "shared-vault-rename"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/name/migration",
+      "family": "shared-vault-name-migration"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/key-wrap/migration",
+      "family": "shared-key-wrap-migration"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/accounts/migration",
+      "family": "shared-account-migration"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/accounts",
+      "family": "shared-account-mutate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/:vaultId/accounts",
+      "family": "shared-account-mutate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/:vaultId/accounts",
+      "family": "shared-account-mutate"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/shared-vaults/:vaultId/accounts",
+      "family": "shared-account-restore"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/:vaultId/audit-events",
+      "family": "audit-read"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/audit-events",
+      "family": "shared-account-access-audit"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/leave",
+      "family": "membership-lifecycle"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/:vaultId/lifecycle",
+      "family": "shared-vault-lifecycle"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/lifecycle",
+      "family": "shared-vault-lifecycle"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/:vaultId/member-permissions",
+      "family": "member-permissions"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/:vaultId/member-permissions",
+      "family": "member-permissions"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/:vaultId/members/:userId",
+      "family": "member-permissions"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/:vaultId/members/:userId",
+      "family": "membership-lifecycle"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/:vaultId/participants",
+      "family": "participants-and-invite-cancel"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared-vaults/:vaultId/rotation",
+      "family": "shared-vault-key-rotation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/shared-vaults/:vaultId/rotation",
+      "family": "shared-vault-key-rotation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shared-vaults/:vaultId/share-links",
+      "family": "secure-share-links"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/shared-vaults/:vaultId/share-links/:invitationId",
+      "family": "participants-and-invite-cancel"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/secure-share-links",
+      "family": "secure-share-links"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/secure-share-links",
+      "family": "secure-share-links"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/vaults/:vaultId/accounts",
+      "family": "personal-account-read"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/:vaultId/accounts/migration",
+      "family": "personal-account-migration"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/:vaultId/accounts",
+      "family": "personal-account-mutate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/vaults/:vaultId/accounts",
+      "family": "personal-account-mutate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/vaults/:vaultId/accounts",
+      "family": "personal-account-mutate"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/vaults/:vaultId/accounts",
+      "family": "personal-account-mutate"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/:vaultId/archive-exports",
+      "family": "archive-export-audit"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/vaults/:vaultId/audit-events",
+      "family": "audit-read"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/vaults/:vaultId/audit-events",
+      "family": "personal-audit"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sync/offline-bundle",
+      "family": "sync-bundles"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sync/workspace-bundle",
+      "family": "sync-bundles"
+    }
+  ]
+}

@@ -19,6 +19,9 @@ test("hands an external-browser session to a resumed PWA with isolated storage",
   try {
     await pwa.addInitScript((pending) => {
       Object.defineProperty(navigator, "standalone", { value: true });
+      const seedMarkerKey = "rhasia-scret:test:pwa-handoff-seeded";
+      if (sessionStorage.getItem(seedMarkerKey) === "true") return;
+      sessionStorage.setItem(seedMarkerKey, "true");
       sessionStorage.setItem("rhasia-scret:pwa-auth-handoff", JSON.stringify(pending));
     }, handoff);
     await pwa.route("**/api/v1/auth/pwa/session", async (route) => {
@@ -69,15 +72,22 @@ test("hands an external-browser session to a resumed PWA with isolated storage",
     await callback.goto(
       "/auth/pwa-confirm#token=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK&handoff=pwa-handoff-123456",
     );
-    await expect(callback.getByText("Tautan terverifikasi.", { exact: false })).toBeVisible();
+    await expect(callback.getByText("Tautan masuk terverifikasi.", { exact: false })).toBeVisible();
     expect(await callback.evaluate(() => sessionStorage.getItem("rhasia-scret:pwa-auth-handoff"))).toBeNull();
     expect(new URL(callback.url()).hash).toBe("");
     // Paused timers ensure the scheduled poll cannot hide a missing resume listener.
     expect(accepted).toBe(false);
     await app.evaluate(() => window.dispatchEvent(new Event("pageshow")));
     await expect.poll(() => accepted).toBe(true);
-    await expect(app.getByText("Meneruskan sesi masuk ke aplikasi terpasang…")).toBeVisible();
-    expect(await app.evaluate(() => sessionStorage.getItem("rhasia-scret:pwa-auth-handoff"))).toBeNull();
+    await expect(app).toHaveURL(/\/auth\/complete$/);
+    await expect(app.getByText(/buka kembali tautan undangan asli/i)).toBeVisible();
+    expect(
+      await app.evaluate(() => {
+        const handoff = sessionStorage.getItem("rhasia-scret:pwa-auth-handoff");
+        sessionStorage.removeItem("rhasia-scret:test:pwa-handoff-seeded");
+        return handoff;
+      }),
+    ).toBeNull();
   } finally {
     await pwa.close();
     await external.close();

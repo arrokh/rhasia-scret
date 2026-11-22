@@ -14,33 +14,44 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
-import { StatusBanner } from "@/shared/presentation/app-ui";
 import { LocaleChangeConfirmation, LocaleSwitcher } from "@/i18n/locale-switcher";
 import type { AppLocale } from "@/i18n/config";
 import { useTerminateSessionMutation } from "./hooks/use-session-mutations";
 
-export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockLabel?: string; onLock?: () => void }) {
+export function LogoutForm({
+  email,
+  lockLabel,
+  onLock,
+  navigate,
+}: {
+  email?: string;
+  lockLabel?: string;
+  onLock?: () => void;
+  navigate?: (path: string) => void;
+}) {
   const t = useTranslations("Identity.logout");
-  const [error, setError] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [localeToConfirm, setLocaleToConfirm] = useState<AppLocale | null>(null);
   const terminateMutation = useTerminateSessionMutation();
   const form = useForm({
     defaultValues: {},
-    onSubmit: () => {
-      setError(false);
-      setConfirming(true);
-    },
+    onSubmit: () => setConfirming(true),
   });
 
+  function navigateTo(path: string) {
+    if (navigate) {
+      navigate(path);
+      return;
+    }
+    window.location.assign(path);
+  }
+
   async function confirmLogout() {
-    setError(false);
     try {
-      window.location.assign(await terminateMutation.mutateAsync());
+      navigateTo(await terminateMutation.mutateAsync());
     } catch {
-      setConfirming(false);
-      setError(true);
+      navigateTo("/sign-in?auth=logout_failed");
     }
   }
 
@@ -121,13 +132,6 @@ export function LogoutForm({ email, lockLabel, onLock }: { email?: string; lockL
               )}
             </form.Subscribe>
           </form>
-          {error && (
-            <div className="mt-2">
-              <StatusBanner tone="danger" role="alert">
-                {t("cleanupError")}
-              </StatusBanner>
-            </div>
-          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {confirming && (

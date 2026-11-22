@@ -93,6 +93,103 @@ func waitForPersonalVaultRowLock(t *testing.T, ctx context.Context, pool *pgxpoo
 	t.Fatal("concurrent Personal Account creation did not wait on the Personal Vault row lock")
 }
 
+func TestPersonalAccountRepositoryRejectsCrossOwnerAndCrossVaultTargets(t *testing.T) {
+	pool := testsupport.NewDisposablePostgresPool(t)
+	ctx := context.Background()
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	firstOwnerID, firstVaultID := createActiveSyntheticPersonalVault(t, ctx, pool, now)
+	secondOwnerID, secondVaultID := createActiveSyntheticPersonalVault(t, ctx, pool, now)
+	repository, err := NewPersonalAccountRepository(pool, func() time.Time { return now })
+	if err != nil {
+		t.Fatalf("create Personal Account repository: %v", err)
+	}
+
+	firstPayload := syntheticPersonalAccountEnvelope(1, 64)
+	defer clear(firstPayload)
+	firstAccount, err := repository.Create(ctx, firstOwnerID, firstVaultID, apiService.NewEncryptedAccount{
+		EncryptedPayload: firstPayload, EncryptionVersion: 1,
+	})
+	if err != nil {
+		t.Fatalf("create first synthetic account: %v", err)
+	}
+	defer firstAccount.Clear()
+
+	secondPayload := syntheticPersonalAccountEnvelope(1, 65)
+	defer clear(secondPayload)
+	secondAccount, err := repository.Create(ctx, secondOwnerID, secondVaultID, apiService.NewEncryptedAccount{
+		EncryptedPayload: secondPayload, EncryptionVersion: 1,
+	})
+	if err != nil {
+		t.Fatalf("create second synthetic account: %v", err)
+	}
+	defer secondAccount.Clear()
+
+	if _, err := repository.List(ctx, secondOwnerID, firstVaultID); err == nil {
+		t.Fatal("foreign owner listed another actor's Personal Vault accounts")
+	}
+	if _, err := repository.List(ctx, firstOwnerID, secondVaultID); err == nil {
+		t.Fatal("owner listed accounts through another actor's Personal Vault ID")
+	}
+	if _, err := repository.Create(ctx, secondOwnerID, firstVaultID, apiService.NewEncryptedAccount{
+		EncryptedPayload: syntheticPersonalAccountEnvelope(1, 66), EncryptionVersion: 1,
+	}); err == nil {
+		t.Fatal("foreign owner created an account in another actor's Personal Vault")
+	}
+	if _, err := repository.Delete(ctx, secondOwnerID, firstVaultID, firstAccount.ID, firstAccount.Revision); err == nil {
+		t.Fatal("foreign owner deleted an account in another actor's Personal Vault")
+	}
+
+	updated, err := repository.Update(ctx, firstOwnerID, firstVaultID, secondAccount.ID, secondAccount.Revision, apiService.NewEncryptedAccount{
+		EncryptedPayload: syntheticPersonalAccountEnvelope(1, 67), EncryptionVersion: 1,
+	})
+	if err != nil || updated != nil {
+		if updated != nil {
+			updated.Clear()
+		}
+		t.Fatalf("cross-Vault account update=%#v err=%v; want no result and no error", updated, err)
+	}
+
+	replacement := syntheticPersonalAccountEnvelope(2, 68)
+	defer clear(replacement)
+	migration := userEncryptedPayloadMigration(secondPayload, replacement, sharedapp.SHA256Base64URL(replacement))
+	migrationResult, err := repository.MigratePayload(ctx, firstOwnerID, firstVaultID, secondAccount.ID, 1, 1, migration)
+	if err != nil || migrationResult != sharedapp.EncryptedPayloadMigrationConflict {
+		t.Fatalf("cross-Vault account migration=%q err=%v; want conflict", migrationResult, err)
+	}
+
+	deleted, err := repository.Delete(ctx, firstOwnerID, firstVaultID, secondAccount.ID, secondAccount.Revision)
+	if err != nil || deleted {
+		t.Fatalf("cross-Vault account deletion=%v err=%v; want false", deleted, err)
+	}
+	deleted, err = repository.Delete(ctx, secondOwnerID, secondVaultID, secondAccount.ID, secondAccount.Revision)
+	if err != nil || !deleted {
+		t.Fatalf("delete second actor's account for restore check: deleted=%v err=%v", deleted, err)
+	}
+	restored, err := repository.Restore(ctx, firstOwnerID, secondVaultID, secondAccount.ID)
+	if err == nil || restored {
+		t.Fatalf("foreign owner restore=%v err=%v; want unavailable error and no restore", restored, err)
+	}
+	var secondAccountStillDeleted bool
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM authenticator_accounts
+			WHERE id = $1 AND vault_id = $2 AND deleted_at IS NOT NULL
+		)`, secondAccount.ID, secondVaultID).Scan(&secondAccountStillDeleted); err != nil || !secondAccountStillDeleted {
+		t.Fatalf("foreign Restore changed the real owner's account deletion state=%v err=%v", secondAccountStillDeleted, err)
+	}
+	restored, err = repository.Restore(ctx, firstOwnerID, firstVaultID, secondAccount.ID)
+	if err != nil || restored {
+		t.Fatalf("cross-Vault account restore=%v err=%v; want false", restored, err)
+	}
+
+	listed, err := repository.List(ctx, firstOwnerID, firstVaultID)
+	if err != nil || len(listed) != 1 || listed[0].ID != firstAccount.ID {
+		clearPersonalAccounts(listed)
+		t.Fatalf("first actor's accounts after foreign mutations=%#v err=%v", listed, err)
+	}
+	clearPersonalAccounts(listed)
+}
+
 func TestPersonalAccountRepositoryIntegration(t *testing.T) {
 	pool := testsupport.NewDisposablePostgresPool(t)
 	ctx := context.Background()
@@ -140,6 +237,12 @@ func TestPersonalAccountRepositoryIntegration(t *testing.T) {
 			t.Fatalf("create synthetic Personal Account: %v", err)
 		}
 		defer account.Clear()
+		var addedEvents int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND target_id = $2 AND event_type = 'ACCOUNT_ADDED'`,
+			vaultID, account.ID).Scan(&addedEvents); err != nil || addedEvents != 1 {
+			t.Fatalf("Personal Account add audit count=%d err=%v; want one", addedEvents, err)
+		}
 		updatedPayload := syntheticPersonalAccountEnvelope(1, 65)
 		updated, err := repository.Update(ctx, ownerID, vaultID, account.ID, 1, apiService.NewEncryptedAccount{
 			EncryptedPayload: updatedPayload, EncryptionVersion: 1,
@@ -150,6 +253,25 @@ func TestPersonalAccountRepositoryIntegration(t *testing.T) {
 		defer updated.Clear()
 		if updated.Revision != 2 || string(updated.EncryptedPayload) != string(updatedPayload) {
 			t.Fatal("Personal Account update did not advance revision and replace ciphertext")
+		}
+		var updatedEvents int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND target_id = $2 AND event_type = 'ACCOUNT_UPDATED'`,
+			vaultID, account.ID).Scan(&updatedEvents); err != nil || updatedEvents != 1 {
+			t.Fatalf("Personal Account update audit count=%d err=%v; want one", updatedEvents, err)
+		}
+		stalePayload := syntheticPersonalAccountEnvelope(1, 66)
+		staleUpdate, staleErr := repository.Update(ctx, ownerID, vaultID, account.ID, 1, apiService.NewEncryptedAccount{
+			EncryptedPayload: stalePayload, EncryptionVersion: 1,
+		})
+		clear(stalePayload)
+		if staleErr != nil || staleUpdate != nil {
+			t.Fatalf("stale Personal Account update=%#v err=%v; want no result and no error", staleUpdate, staleErr)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND target_id = $2 AND event_type = 'ACCOUNT_UPDATED'`,
+			vaultID, account.ID).Scan(&updatedEvents); err != nil || updatedEvents != 1 {
+			t.Fatalf("stale Personal Account update audit count=%d err=%v; want unchanged one", updatedEvents, err)
 		}
 		listed, err := repository.List(ctx, ownerID, vaultID)
 		if err != nil {

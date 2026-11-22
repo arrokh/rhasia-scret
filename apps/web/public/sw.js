@@ -40,7 +40,8 @@ async function precachePublicShells(expectedLocale) {
 async function fetchNavigationShell(pathname) {
   const response = await fetch(pathname === LANDING_SHELL ? LANDING_ROUTE : pathname, {
     cache: "reload",
-    credentials: "include",
+    credentials: "include", // Keep the validated locale cookie for public shells.
+    redirect: "error", // Never cache HTML from a different route as a public shell.
   });
   if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html"))
     throw new Error(`Navigation shell could not be cached: ${pathname}`);

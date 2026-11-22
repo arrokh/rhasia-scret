@@ -267,8 +267,10 @@ describe("web API proxy", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("provider secret must not be logged")));
 
     const response = await GET(
-      request("/api/v1/personal-vault", { headers: { "x-request-id": "abcdef0123456789abcdef0123456789" } }),
-      { params: Promise.resolve({ path: ["v1", "personal-vault"] }) },
+      request("/api/v1/shared-vaults/dummy-vault-marker", {
+        headers: { "x-request-id": "abcdef0123456789abcdef0123456789" },
+      }),
+      { params: Promise.resolve({ path: ["v1", "shared-vaults", "dummy-vault-marker"] }) },
     );
 
     expect(response.status).toBe(502);
@@ -278,13 +280,15 @@ describe("web API proxy", () => {
         event: "web_api_proxy_failure",
         requestId: "abcdef0123456789abcdef0123456789",
         method: "GET",
-        path: "/api/v1/personal-vault",
+        route: "/api/[...path]",
         status: 502,
         error: "upstream_unavailable",
         errorType: "Error",
       }),
     );
-    expect(errorSpy.mock.calls.flat().join(" ")).not.toContain("provider secret must not be logged");
+    const logs = errorSpy.mock.calls.flat().join(" ");
+    expect(logs).not.toContain("provider secret must not be logged");
+    expect(logs).not.toContain("dummy-vault-marker");
   });
 
   it("does not expose unversioned proxy aliases", async () => {

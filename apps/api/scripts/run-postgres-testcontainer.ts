@@ -574,7 +574,7 @@ async function stopTestContainer(container: StartedTestContainer, volumes: strin
 function resourceIsAbsent(kind: "container" | "volume" | "image", identifier: string): boolean {
   const args =
     kind === "container"
-      ? ["inspect", identifier]
+      ? ["container", "inspect", identifier]
       : kind === "image"
         ? ["image", "inspect", identifier]
         : ["volume", "inspect", identifier];

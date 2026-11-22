@@ -133,7 +133,7 @@ func TestPasswordlessRequestPersistsOnlyDigestsAndBuildsFragmentURL(t *testing.T
 	sender := &magicLinkSenderStub{}
 	service := newPasswordlessServiceForTest(t, repository, sender, now)
 
-	err := service.RequestLink(context.Background(), struct {
+	expiresAt, err := service.RequestLink(context.Background(), struct {
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
@@ -148,8 +148,8 @@ func TestPasswordlessRequestPersistsOnlyDigestsAndBuildsFragmentURL(t *testing.T
 	if repository.challenge == nil || repository.challenge.Email != "person@example.test" || repository.challenge.Client != PasswordlessClientWeb || repository.challenge.ReturnPath != PasswordlessReturnPathVaults {
 		t.Fatalf("unexpected persisted challenge: %#v", repository.challenge)
 	}
-	if !repository.expiresAt.Equal(now.Add(600 * time.Second)) {
-		t.Fatalf("challenge expiry mismatch: expires=%v", repository.expiresAt)
+	if !repository.expiresAt.Equal(now.Add(600*time.Second)) || !expiresAt.Equal(repository.expiresAt) {
+		t.Fatalf("challenge expiry mismatch: repository=%v result=%v", repository.expiresAt, expiresAt)
 	}
 	if sender.calls != 1 || sender.email != "person@example.test" || sender.url == nil || sender.locale != localization.Indonesian {
 		t.Fatalf("unexpected email send: %#v", sender)
@@ -182,11 +182,12 @@ func TestPasswordlessPWARequestPersistsSeparateHandoffDigests(t *testing.T) {
 		HandoffID       string
 		HandoffVerifier string
 	}{Email: "person@example.test", Client: PasswordlessClientPWA, ReturnPath: PasswordlessReturnPathInvitationRedeem, Locale: localization.English, HandoffID: handoffID, HandoffVerifier: verifier}
-	if err := service.RequestLink(context.Background(), input); err != nil {
+	expiresAt, err := service.RequestLink(context.Background(), input)
+	if err != nil {
 		t.Fatalf("request PWA magic link: %v", err)
 	}
-	if repository.handoff == nil || string(repository.handoff.IDDigest) != string(service.digestMagicToken(handoffID)) || string(repository.handoff.VerifierDigest) != string(service.digestMagicToken(verifier)) || !repository.handoff.ExpiresAt.Equal(now.Add(600*time.Second)) {
-		t.Fatalf("unexpected persisted handoff: %#v", repository.handoff)
+	if repository.handoff == nil || string(repository.handoff.IDDigest) != string(service.digestMagicToken(handoffID)) || string(repository.handoff.VerifierDigest) != string(service.digestMagicToken(verifier)) || !repository.handoff.ExpiresAt.Equal(now.Add(600*time.Second)) || !expiresAt.Equal(repository.handoff.ExpiresAt) {
+		t.Fatalf("unexpected persisted handoff: %#v result expiry=%v", repository.handoff, expiresAt)
 	}
 	if sender.url == nil || sender.url.Path != "/auth/pwa-confirm" || sender.locale != localization.English {
 		t.Fatalf("unexpected PWA action URL: %#v", sender.url)
@@ -201,7 +202,7 @@ func TestPasswordlessRequestRejectsMalformedEmailBeforePersistence(t *testing.T)
 	repository := &passwordlessRepositoryStub{}
 	sender := &magicLinkSenderStub{}
 	service := newPasswordlessServiceForTest(t, repository, sender, time.Now())
-	err := service.RequestLink(context.Background(), struct {
+	_, err := service.RequestLink(context.Background(), struct {
 		Email           string
 		Client          PasswordlessClient
 		ReturnPath      PasswordlessReturnPath
@@ -230,7 +231,7 @@ func TestPasswordlessRequestMapsPersistenceAndDeliveryFailures(t *testing.T) {
 	t.Run("challenge persistence", func(t *testing.T) {
 		repository := &passwordlessRepositoryStub{createErr: cause}
 		service := newPasswordlessServiceForTest(t, repository, &magicLinkSenderStub{}, time.Now())
-		err := service.RequestLink(context.Background(), input)
+		_, err := service.RequestLink(context.Background(), input)
 		var persistenceError *PasswordlessChallengePersistenceError
 		if !errors.As(err, &persistenceError) {
 			t.Fatalf("request error = %v; want typed persistence failure", err)
@@ -241,7 +242,7 @@ func TestPasswordlessRequestMapsPersistenceAndDeliveryFailures(t *testing.T) {
 		repository := &passwordlessRepositoryStub{}
 		sender := &magicLinkSenderStub{err: cause}
 		service := newPasswordlessServiceForTest(t, repository, sender, time.Now())
-		err := service.RequestLink(context.Background(), input)
+		_, err := service.RequestLink(context.Background(), input)
 		var deliveryError *PasswordlessEmailDeliveryError
 		if !errors.As(err, &deliveryError) {
 			t.Fatalf("request error = %v; want typed email delivery failure", err)

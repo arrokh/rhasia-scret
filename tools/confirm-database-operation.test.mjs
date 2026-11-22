@@ -127,6 +127,22 @@ test("accepts a run-owned PostgreSQL database with synthetic fixtures and loopba
   assert.deepEqual(validate(), []);
 });
 
+test("accepts Docker Hub's canonical Postgres image reference but rejects other registries", () => {
+  const canonicalImageContainer = {
+    ...container,
+    Config: { ...container.Config, Image: "docker.io/library/postgres:16-alpine" },
+  };
+  assert.deepEqual(validate({ container: canonicalImageContainer }), []);
+
+  const untrustedImageContainer = {
+    ...container,
+    Config: { ...container.Config, Image: "registry.example.test/library/postgres:16-alpine" },
+  };
+  assert.ok(
+    validate({ container: untrustedImageContainer }).includes("The run-owned database must use the PostgreSQL image."),
+  );
+});
+
 test("accepts Compose-internal database URLs only on the inspected run-owned network", () => {
   const networkName = `${projectName}_default`;
   const composeEnvironment = {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "@tanstack/react-form";
 import { useLocale, useTranslations } from "next-intl";
@@ -36,6 +37,7 @@ export function OfflineVaultShell() {
   const [status, setStatus] = useState<
     "loading" | "ready" | "empty" | "unlock_error" | "remembered_error" | "storage_error" | "migration_required"
   >("loading");
+
   const [secretVisible, setSecretVisible] = useState(false);
   const [repository] = useState(() => new BrowserOfflineVaultRepository());
   const form = useForm({
@@ -123,6 +125,9 @@ export function OfflineVaultShell() {
       <PageHeader title={t("title")} description={t("description")} action={<Brand compact />} />
       <SurfaceCard className="grid gap-5 p-5 sm:p-6">
         <VaultStatusIndicator origin="SNAPSHOT" syncState="OFFLINE" />
+        <Suspense fallback={null}>
+          <OfflineLogoutFailureNotice />
+        </Suspense>
         <StatusBanner tone="offline" title={t("readOnly")}>
           {t("readOnlyDescription")}
         </StatusBanner>
@@ -223,6 +228,17 @@ export function OfflineVaultShell() {
         </div>
       </SurfaceCard>
     </AppPage>
+  );
+}
+
+function OfflineLogoutFailureNotice() {
+  const t = useTranslations("Sync.offline");
+  const searchParams = useSearchParams();
+  if (searchParams.get("auth") !== "logout_failed" && searchParams.get("logout") !== "failed") return null;
+  return (
+    <StatusBanner tone="danger" role="alert">
+      {t("logoutFailedOffline")}
+    </StatusBanner>
   );
 }
 

@@ -31,11 +31,30 @@ describe("Remembered Browser production boundaries", () => {
 
   it("clears application-owned packages on logout, reset, and explicit device removal", () => {
     const logout = source("src/modules/identity/infrastructure/browser-session-client.ts");
+    const deletion = source("src/modules/account-deletion/infrastructure/browser-account-deletion-client.ts");
     const reset = source("src/modules/vault-management/presentation/destructive-personal-vault-reset-form.tsx");
     const offline = source("src/modules/sync/presentation/offline-vault-shell.tsx");
+    const vaultLock = source("src/modules/sync/infrastructure/browser-vault-lock.ts");
     expect(logout).toContain("clearAllOfflineVaultData()");
-    expect(logout.indexOf("requestLocalVaultLock()")).toBeLessThan(logout.indexOf("clearAllOfflineVaultData()"));
-    expect(logout.indexOf("clearAllOfflineVaultData()")).toBeLessThan(logout.indexOf('post("/auth/logout")'));
+    expect(logout).not.toContain("requestLocalVaultLock()");
+    expect(logout.indexOf("requestVaultSessionChange()")).toBeLessThan(logout.indexOf("clearAllOfflineVaultData()"));
+    expect(logout.indexOf("await Promise.all")).toBeLessThan(logout.lastIndexOf("requestVaultSessionChange()"));
+    expect(logout.match(/requestVaultSessionChange\(\)/g)).toHaveLength(2);
+    expect(logout).toContain(
+      "const localCleanup = settleBeforeTimeout(localCleanupPromise, LOCAL_CLEANUP_TIMEOUT_MS);\n  const logout = revokeServerSession();",
+    );
+    expect(vaultLock).toContain(
+      "export function requestVaultSessionChange(): void {\n  requestLocalVaultLock();\n  announceVaultSessionChange();\n}",
+    );
+    expect(deletion.indexOf("terminateBrowserSession()")).toBeLessThan(
+      deletion.indexOf("clearAccountDirectoryPreferences()"),
+    );
+    expect(deletion).not.toContain("requestVaultSessionChange()");
+    expect(deletion.indexOf("terminateBrowserSession()")).toBeLessThan(
+      deletion.indexOf("clearAccountDirectoryPreferences()"),
+    );
+    expect(deletion).not.toContain('post("/auth/logout")');
+    expect(reset).toContain("requestVaultSessionChange()");
     expect(reset).toContain("clearAllOfflineVaultData()");
     expect(offline).toContain("repository.clearAll()");
   });

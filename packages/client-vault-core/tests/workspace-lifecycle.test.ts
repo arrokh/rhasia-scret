@@ -9,11 +9,14 @@ import type {
   NetworkStatusPort,
   PortDisposer,
 } from "../src/shared/application/platform-ports";
+import { WorkspacePrincipalMismatchError } from "../src/modules/authenticator-account/application/vault-workspace";
 
 type Workspace = {
   profileId: string;
   syncState: "OFFLINE" | "STALE" | "SYNCING" | "CURRENT" | "AUTH_REQUIRED" | "ERROR" | "LOCAL_STORAGE_ERROR";
   userRootKey: Uint8Array;
+  personalVaultKey: Uint8Array;
+  accountSecret: Uint8Array;
   value: string;
 };
 
@@ -49,10 +52,21 @@ class Lifecycle implements ApplicationLifecyclePort {
 }
 
 function workspace(syncState: Workspace["syncState"] = "CURRENT", value = "old"): Workspace {
-  return { profileId: "profile-1", syncState, userRootKey: Uint8Array.of(7, 8), value };
+  return {
+    profileId: "profile-1",
+    syncState,
+    userRootKey: Uint8Array.of(7, 8),
+    personalVaultKey: Uint8Array.of(9, 10),
+    accountSecret: Uint8Array.of(11, 12),
+    value,
+  };
 }
 
-function harness(initial = workspace("CURRENT"), evictShared?: (value: Workspace) => Workspace) {
+function harness(
+  initial = workspace("CURRENT"),
+  evictShared?: (value: Workspace) => Workspace,
+  onAuthenticationFailure?: () => void,
+) {
   const network = new Network();
   const applicationLifecycle = new Lifecycle();
   let lockListener: (() => void) | undefined;
@@ -77,15 +91,18 @@ function harness(initial = workspace("CURRENT"), evictShared?: (value: Workspace
         if (value) {
           cleared.push(value);
           value.userRootKey.fill(0);
+          value.personalVaultKey.fill(0);
+          value.accountSecret.fill(0);
         }
       },
       evictShared,
       classifyFailure: (error) =>
-        error instanceof Error && error.message === "auth"
+        error instanceof WorkspacePrincipalMismatchError || (error instanceof Error && error.message === "auth")
           ? "AUTHENTICATION"
           : error instanceof Error && error.message === "storage"
             ? "LOCAL_STORAGE"
             : "SYNC",
+      onAuthenticationFailure,
       readOnlyReason: (value) => `Workspace is ${value.syncState}.`,
     },
   };
@@ -143,6 +160,40 @@ describe("WorkspaceLifecycle", () => {
     }
     await vi.waitFor(() => expect(test.controller.workspace?.syncState).toBe(expected));
     expect(test.writeReasons.at(-1)).toBe(`Workspace is ${expected}.`);
+  });
+
+  it("clears all unlocked material and announces authentication failure when authorization refresh finds a different principal", async () => {
+    const initial = workspace("CURRENT");
+    const onAuthenticationFailure = vi.fn(() => expect(initial.userRootKey).toEqual(Uint8Array.of(0, 0)));
+    const test = harness(initial, undefined, onAuthenticationFailure);
+    const mismatch = new WorkspacePrincipalMismatchError();
+    test.refresh.mockRejectedValue(mismatch);
+
+    await expect(test.controller.refreshAuthorization()).rejects.toBe(mismatch);
+
+    expect(test.controller.workspace).toBeNull();
+    expect(onAuthenticationFailure).toHaveBeenCalledOnce();
+    expect(test.cleared).toContain(initial);
+    expect(initial.userRootKey).toEqual(Uint8Array.of(0, 0));
+    expect(initial.personalVaultKey).toEqual(Uint8Array.of(0, 0));
+    expect(initial.accountSecret).toEqual(Uint8Array.of(0, 0));
+  });
+
+  it("still locks and erases keys if cross-tab authentication notification fails", async () => {
+    const initial = workspace("CURRENT");
+    const onAuthenticationFailure = vi.fn(() => {
+      expect(initial.userRootKey).toEqual(Uint8Array.of(0, 0));
+      throw new Error("synthetic channel failure");
+    });
+    const test = harness(initial, undefined, onAuthenticationFailure);
+    const mismatch = new WorkspacePrincipalMismatchError();
+    test.refresh.mockRejectedValue(mismatch);
+
+    await expect(test.controller.refreshAuthorization()).rejects.toBe(mismatch);
+
+    expect(onAuthenticationFailure).toHaveBeenCalledOnce();
+    expect(test.controller.workspace).toBeNull();
+    expect(initial.userRootKey).toEqual(Uint8Array.of(0, 0));
   });
 
   it("revalidates a currently authorized workspace when the application becomes visible", async () => {

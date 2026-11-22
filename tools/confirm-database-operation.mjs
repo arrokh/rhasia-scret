@@ -232,7 +232,7 @@ function parseEnvironment(entries) {
 }
 
 function isPostgresImage(image) {
-  return typeof image === "string" && /^postgres(?::|@)/iu.test(image);
+  return typeof image === "string" && /^(?:postgres|docker\.io\/library\/postgres)(?::|@)/iu.test(image);
 }
 
 function isRepositoryPath(path) {

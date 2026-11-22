@@ -160,6 +160,15 @@ func sameDatabase(first, second *url.URL) bool {
 	return firstHasPassword == secondHasPassword && firstPassword == secondPassword
 }
 
+func isPostgres16Image(image string) bool {
+	for _, prefix := range []string{"postgres:16", "docker.io/library/postgres:16"} {
+		if image == prefix || strings.HasPrefix(image, prefix+"-") || strings.HasPrefix(image, prefix+"@") {
+			return true
+		}
+	}
+	return false
+}
+
 func verifyDisposableComposeDatabase(t *testing.T, runID, dsn string, runtimeURL, directURL *url.URL) {
 	t.Helper()
 	projectName := "rhasia-scret-test-" + runID
@@ -179,7 +188,7 @@ func verifyDisposableComposeDatabase(t *testing.T, runID, dsn string, runtimeURL
 	container := inspectDockerContainer(t, containerIDs[0])
 	labels := container.Config.Labels
 	if container.State.Status != "running" || labels["com.docker.compose.project"] != projectName || labels["com.docker.compose.service"] != "db" ||
-		!strings.HasPrefix(container.Config.Image, "postgres:16") || !isRepositoryComposeProject(labels["com.docker.compose.project.working_dir"]) {
+		!isPostgres16Image(container.Config.Image) || !isRepositoryComposeProject(labels["com.docker.compose.project.working_dir"]) {
 		t.Fatal("Go integration database is not the expected repository-owned PostgreSQL 16 Compose service")
 	}
 	verifySyntheticPostgresEnvironment(t, container.Config.Env)
@@ -312,7 +321,8 @@ func verifyTestcontainer(t *testing.T, containerID string, databaseURL *url.URL)
 		t.Fatal("run-owned PostgreSQL Testcontainer ID is invalid")
 	}
 	container := inspectDockerContainer(t, containerID)
-	if !container.State.Running || container.Config.Image != "postgres:16-alpine" ||
+	postgresImage := container.Config.Image == "postgres:16-alpine" || container.Config.Image == "docker.io/library/postgres:16-alpine"
+	if !container.State.Running || !postgresImage ||
 		container.Config.Labels["org.testcontainers"] != "true" || container.Config.Labels["org.testcontainers.lang"] != "node" {
 		t.Fatal("Go integration database is not the expected run-owned PostgreSQL Testcontainer")
 	}

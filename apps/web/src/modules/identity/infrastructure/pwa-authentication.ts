@@ -1,8 +1,14 @@
 "use client";
 
-import { isSafePwaHandoffId, isSafePwaHandoffVerifier } from "../application/passwordless-client-contract";
+import { DEFAULT_AUTH_RETURN_PATH, INVITATION_AUTH_RETURN_PATH } from "../application/auth-return-path";
+import {
+  isSafePwaHandoffId,
+  isSafePwaHandoffVerifier,
+  type PasswordlessReturnPath,
+} from "../application/passwordless-client-contract";
 
 const PWA_AUTH_HANDOFF_STORAGE_KEY = "rhasia-scret:pwa-auth-handoff";
+const PWA_AUTH_PROVISIONAL_HANDOFF_STORAGE_KEY = "rhasia-scret:pwa-auth-handoff:provisional";
 const PWA_AUTH_HANDOFF_CHANNEL_NAME = "rhasia-scret:pwa-authentication-handoff";
 const PWA_HANDOFF_VERIFIER_REQUEST = "request-verifier";
 const PWA_HANDOFF_VERIFIER_RESPONSE = "verifier";
@@ -25,11 +31,17 @@ type PwaHandoffVerifierResponse = Readonly<{
 type PwaHandoffCompleted = Readonly<{
   type: typeof PWA_HANDOFF_COMPLETED;
   handoffId: string;
+  returnPath: PasswordlessReturnPath;
 }>;
 
 export type PendingPwaAuthenticationHandoff = Readonly<{
   handoffId: string;
   verifier: string;
+}>;
+
+export type ProvisionalPwaAuthenticationHandoff = Readonly<{
+  handoff: PendingPwaAuthenticationHandoff;
+  expiresAt: number;
 }>;
 
 export function isPwaDisplayMode(): boolean {
@@ -39,70 +51,150 @@ export function isPwaDisplayMode(): boolean {
 }
 
 export function readPwaAuthenticationHandoff(): PendingPwaAuthenticationHandoff | null {
-  try {
-    const value: unknown = JSON.parse(window.sessionStorage.getItem(PWA_AUTH_HANDOFF_STORAGE_KEY) ?? "null");
-    if (!value || typeof value !== "object") return null;
-    const handoff = value as Partial<PendingPwaAuthenticationHandoff>;
-    const handoffId = handoff.handoffId;
-    const verifier = handoff.verifier;
-    return typeof handoffId === "string" &&
-      typeof verifier === "string" &&
-      isSafePwaHandoffId(handoffId) &&
-      isSafePwaHandoffVerifier(verifier)
-      ? { handoffId, verifier }
-      : null;
-  } catch {
+  const active = readStoredPwaAuthenticationHandoff(PWA_AUTH_HANDOFF_STORAGE_KEY);
+  if (!active) return null;
+  if (active.expiresAt !== null && active.expiresAt <= Date.now()) {
+    clearPwaAuthenticationHandoff(active.handoff.handoffId);
     return null;
+  }
+  return active.handoff;
+}
+
+export function readPwaAuthenticationHandoffById(handoffId: string): PendingPwaAuthenticationHandoff | null {
+  if (!isSafePwaHandoffId(handoffId)) return null;
+  const active = readStoredPwaAuthenticationHandoff(PWA_AUTH_HANDOFF_STORAGE_KEY);
+  if (active?.handoff.handoffId === handoffId) {
+    if (active.expiresAt !== null && active.expiresAt <= Date.now()) {
+      clearPwaAuthenticationHandoff(handoffId);
+      return null;
+    }
+    return active.handoff;
+  }
+  const provisional = readProvisionalPwaAuthenticationHandoff();
+  return provisional?.handoff.handoffId === handoffId ? provisional.handoff : null;
+}
+
+export function readProvisionalPwaAuthenticationHandoff(): ProvisionalPwaAuthenticationHandoff | null {
+  const provisional = readStoredPwaAuthenticationHandoff(PWA_AUTH_PROVISIONAL_HANDOFF_STORAGE_KEY);
+  if (!provisional) return null;
+  if (provisional.expiresAt === null || provisional.expiresAt <= Date.now()) {
+    clearPwaAuthenticationProvisionalHandoff(provisional.handoff.handoffId);
+    return null;
+  }
+  return { handoff: provisional.handoff, expiresAt: provisional.expiresAt };
+}
+
+export function readPwaAuthenticationHandoffExpiresAt(handoffId: string): number | null {
+  const active = readStoredPwaAuthenticationHandoff(PWA_AUTH_HANDOFF_STORAGE_KEY);
+  if (active?.handoff.handoffId === handoffId) return active.expiresAt;
+  const provisional = readProvisionalPwaAuthenticationHandoff();
+  return provisional?.handoff.handoffId === handoffId ? provisional.expiresAt : null;
+}
+
+export function storePwaAuthenticationHandoff(handoff: PendingPwaAuthenticationHandoff, expiresAt: number): boolean {
+  if (!isValidStoredHandoff(handoff, expiresAt)) return false;
+  try {
+    window.sessionStorage.setItem(PWA_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify({ ...handoff, expiresAt }));
+    clearPwaAuthenticationProvisionalHandoff(handoff.handoffId);
+    return true;
+  } catch {
+    // The handoff remains usable while the PWA page stays open; keep any provisional record on storage failure.
+    return false;
+  }
+}
+
+export function storeProvisionalPwaAuthenticationHandoff(
+  handoff: PendingPwaAuthenticationHandoff,
+  expiresAt: number,
+): boolean {
+  if (!isValidStoredHandoff(handoff, expiresAt)) return false;
+  try {
+    window.sessionStorage.setItem(PWA_AUTH_PROVISIONAL_HANDOFF_STORAGE_KEY, JSON.stringify({ ...handoff, expiresAt }));
+    return true;
+  } catch {
+    // The sign-in window keeps the provisional verifier in memory when session storage is blocked.
+    return false;
   }
 }
 
 export function subscribeToPwaAuthenticationVerifierRequests(
   getVerifier: (handoffId: string) => string | null,
 ): () => void {
-  if (typeof BroadcastChannel === "undefined") return () => undefined;
-  const channel = new BroadcastChannel(PWA_AUTH_HANDOFF_CHANNEL_NAME);
+  const channel = createPwaAuthenticationChannel();
+  if (!channel) return () => undefined;
   const onMessage = (event: MessageEvent<unknown>) => {
     if (!isPwaHandoffVerifierRequest(event.data)) return;
-    const verifier = getVerifier(event.data.handoffId);
-    if (!verifier || !isSafePwaHandoffVerifier(verifier)) return;
-    channel.postMessage({
-      type: PWA_HANDOFF_VERIFIER_RESPONSE,
-      requestId: event.data.requestId,
-      handoffId: event.data.handoffId,
-      verifier,
-    } satisfies PwaHandoffVerifierResponse);
+    try {
+      const verifier = getVerifier(event.data.handoffId);
+      if (!verifier || !isSafePwaHandoffVerifier(verifier)) return;
+      channel.postMessage({
+        type: PWA_HANDOFF_VERIFIER_RESPONSE,
+        requestId: event.data.requestId,
+        handoffId: event.data.handoffId,
+        verifier,
+      } satisfies PwaHandoffVerifierResponse);
+    } catch {
+      // A blocked channel or storage read cannot expose the verifier or break sign-in.
+    }
   };
-  channel.addEventListener("message", onMessage);
+  try {
+    channel.addEventListener("message", onMessage);
+  } catch {
+    closePwaAuthenticationChannel(channel);
+    return () => undefined;
+  }
   return () => {
-    channel.removeEventListener("message", onMessage);
-    channel.close();
+    try {
+      channel.removeEventListener("message", onMessage);
+    } catch {
+      // Closing the channel still releases its listener.
+    }
+    closePwaAuthenticationChannel(channel);
   };
 }
 
-export function announcePwaAuthenticationCompletion(handoffId: string): void {
-  if (typeof BroadcastChannel === "undefined" || !isSafePwaHandoffId(handoffId)) return;
-  const channel = new BroadcastChannel(PWA_AUTH_HANDOFF_CHANNEL_NAME);
-  channel.postMessage({ type: PWA_HANDOFF_COMPLETED, handoffId } satisfies PwaHandoffCompleted);
-  channel.close();
+export function announcePwaAuthenticationCompletion(handoffId: string, returnPath: PasswordlessReturnPath): void {
+  if (!isSafePwaHandoffId(handoffId) || !isPasswordlessReturnPath(returnPath)) return;
+  const channel = createPwaAuthenticationChannel();
+  if (!channel) return;
+  try {
+    channel.postMessage({ type: PWA_HANDOFF_COMPLETED, handoffId, returnPath } satisfies PwaHandoffCompleted);
+  } catch {
+    // Completion announcements are best effort after the server has accepted the handoff.
+  }
+  closePwaAuthenticationChannel(channel);
 }
 
-export function subscribeToPwaAuthenticationCompletion(onComplete: (handoffId: string) => void): () => void {
-  if (typeof BroadcastChannel === "undefined") return () => undefined;
-  const channel = new BroadcastChannel(PWA_AUTH_HANDOFF_CHANNEL_NAME);
+export function subscribeToPwaAuthenticationCompletion(
+  onComplete: (handoffId: string, returnPath: PasswordlessReturnPath) => void,
+): () => void {
+  const channel = createPwaAuthenticationChannel();
+  if (!channel) return () => undefined;
   const onMessage = (event: MessageEvent<unknown>) => {
-    if (isPwaHandoffCompleted(event.data)) onComplete(event.data.handoffId);
+    if (isPwaHandoffCompleted(event.data)) onComplete(event.data.handoffId, event.data.returnPath);
   };
-  channel.addEventListener("message", onMessage);
+  try {
+    channel.addEventListener("message", onMessage);
+  } catch {
+    closePwaAuthenticationChannel(channel);
+    return () => undefined;
+  }
   return () => {
-    channel.removeEventListener("message", onMessage);
-    channel.close();
+    try {
+      channel.removeEventListener("message", onMessage);
+    } catch {
+      // Closing the channel still releases its listener.
+    }
+    closePwaAuthenticationChannel(channel);
   };
 }
 
 export function requestPwaAuthenticationVerifier(handoffId: string): Promise<string | null> {
-  if (typeof BroadcastChannel === "undefined" || !isSafePwaHandoffId(handoffId)) return Promise.resolve(null);
+  if (!isSafePwaHandoffId(handoffId)) return Promise.resolve(null);
+  const channel = createPwaAuthenticationChannel();
+  if (!channel) return Promise.resolve(null);
+  const activeChannel: BroadcastChannel = channel;
   const requestId = window.crypto.randomUUID();
-  const channel = new BroadcastChannel(PWA_AUTH_HANDOFF_CHANNEL_NAME);
   return new Promise((resolve) => {
     const timeout = window.setTimeout(() => finish(null), PWA_HANDOFF_VERIFIER_REQUEST_TIMEOUT_MS);
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -115,16 +207,24 @@ export function requestPwaAuthenticationVerifier(handoffId: string): Promise<str
     };
     function finish(verifier: string | null): void {
       window.clearTimeout(timeout);
-      channel.removeEventListener("message", onMessage);
-      channel.close();
+      try {
+        activeChannel.removeEventListener("message", onMessage);
+      } catch {
+        // Closing the channel still releases its listener.
+      }
+      closePwaAuthenticationChannel(activeChannel);
       resolve(verifier);
     }
-    channel.addEventListener("message", onMessage);
-    channel.postMessage({
-      type: PWA_HANDOFF_VERIFIER_REQUEST,
-      requestId,
-      handoffId,
-    } satisfies PwaHandoffVerifierRequest);
+    try {
+      activeChannel.addEventListener("message", onMessage);
+      activeChannel.postMessage({
+        type: PWA_HANDOFF_VERIFIER_REQUEST,
+        requestId,
+        handoffId,
+      } satisfies PwaHandoffVerifierRequest);
+    } catch {
+      finish(null);
+    }
   });
 }
 
@@ -133,20 +233,81 @@ export function createPwaAuthenticationHandoff(): PendingPwaAuthenticationHandof
   const verifier = encodeVerifier(window.crypto.getRandomValues(new Uint8Array(32)));
   if (!isSafePwaHandoffId(handoffId) || !isSafePwaHandoffVerifier(verifier))
     throw new Error("PWA authentication handoff is invalid.");
-  const handoff = { handoffId, verifier } satisfies PendingPwaAuthenticationHandoff;
-  try {
-    window.sessionStorage.setItem(PWA_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(handoff));
-  } catch {
-    // The handoff remains usable while the PWA page stays open.
-  }
-  return handoff;
+  return { handoffId, verifier } satisfies PendingPwaAuthenticationHandoff;
 }
 
-export function clearPwaAuthenticationHandoff(): void {
+export function clearPwaAuthenticationHandoff(expectedHandoffId?: string): void {
+  if (expectedHandoffId !== undefined && !isSafePwaHandoffId(expectedHandoffId)) return;
+  clearStoredPwaAuthenticationHandoff(PWA_AUTH_HANDOFF_STORAGE_KEY, expectedHandoffId);
+  clearStoredPwaAuthenticationHandoff(PWA_AUTH_PROVISIONAL_HANDOFF_STORAGE_KEY, expectedHandoffId);
+}
+
+export function clearPwaAuthenticationProvisionalHandoff(expectedHandoffId: string): void {
+  if (!isSafePwaHandoffId(expectedHandoffId)) return;
+  clearStoredPwaAuthenticationHandoff(PWA_AUTH_PROVISIONAL_HANDOFF_STORAGE_KEY, expectedHandoffId);
+}
+
+function clearStoredPwaAuthenticationHandoff(storageKey: string, expectedHandoffId?: string): void {
   try {
-    window.sessionStorage.removeItem(PWA_AUTH_HANDOFF_STORAGE_KEY);
+    if (
+      expectedHandoffId !== undefined &&
+      readStoredPwaAuthenticationHandoff(storageKey)?.handoff.handoffId !== expectedHandoffId
+    )
+      return;
+    window.sessionStorage.removeItem(storageKey);
   } catch {
     // Storage cleanup is best effort; the verifier is short-lived and client-only.
+  }
+}
+
+function isValidStoredHandoff(handoff: PendingPwaAuthenticationHandoff, expiresAt: number): boolean {
+  return (
+    isSafePwaHandoffId(handoff.handoffId) &&
+    isSafePwaHandoffVerifier(handoff.verifier) &&
+    Number.isSafeInteger(expiresAt) &&
+    expiresAt > 0
+  );
+}
+
+function readStoredPwaAuthenticationHandoff(storageKey: string): Readonly<{
+  handoff: PendingPwaAuthenticationHandoff;
+  expiresAt: number | null;
+}> | null {
+  try {
+    const value: unknown = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null");
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Partial<PendingPwaAuthenticationHandoff> & { expiresAt?: unknown };
+    const handoffId = candidate.handoffId;
+    const verifier = candidate.verifier;
+    if (
+      typeof handoffId !== "string" ||
+      typeof verifier !== "string" ||
+      !isSafePwaHandoffId(handoffId) ||
+      !isSafePwaHandoffVerifier(verifier)
+    )
+      return null;
+    const expiresAt =
+      Number.isSafeInteger(candidate.expiresAt) && Number(candidate.expiresAt) > 0 ? Number(candidate.expiresAt) : null;
+    return { handoff: { handoffId, verifier }, expiresAt };
+  } catch {
+    return null;
+  }
+}
+
+function createPwaAuthenticationChannel(): BroadcastChannel | undefined {
+  if (typeof BroadcastChannel === "undefined") return undefined;
+  try {
+    return new BroadcastChannel(PWA_AUTH_HANDOFF_CHANNEL_NAME);
+  } catch {
+    return undefined;
+  }
+}
+
+function closePwaAuthenticationChannel(channel: BroadcastChannel): void {
+  try {
+    channel.close();
+  } catch {
+    // A platform cleanup failure must not turn a completed authentication into an error.
   }
 }
 
@@ -167,8 +328,13 @@ function isPwaHandoffCompleted(value: unknown): value is PwaHandoffCompleted {
   return (
     candidate.type === PWA_HANDOFF_COMPLETED &&
     typeof candidate.handoffId === "string" &&
-    isSafePwaHandoffId(candidate.handoffId)
+    isSafePwaHandoffId(candidate.handoffId) &&
+    isPasswordlessReturnPath(candidate.returnPath)
   );
+}
+
+function isPasswordlessReturnPath(value: unknown): value is PasswordlessReturnPath {
+  return value === DEFAULT_AUTH_RETURN_PATH || value === INVITATION_AUTH_RETURN_PATH;
 }
 
 function isPwaHandoffVerifierResponse(value: unknown): value is PwaHandoffVerifierResponse {

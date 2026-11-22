@@ -54,6 +54,11 @@ export class BrowserApiClient {
     return this.request(url, this.jsonInit("POST", body, init));
   }
 
+  postSessionRevocation(options?: Readonly<{ signal?: AbortSignal }>): Promise<Response> {
+    // Logout is an authentication safety action, not a Vault write; it must still be attempted offline.
+    return fetch("/auth/logout", { method: "POST", signal: options?.signal });
+  }
+
   async postJson<T>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
     return this.readJsonResponse(await this.post(url, body, init));
   }

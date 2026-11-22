@@ -13,12 +13,11 @@ import { Label } from "@/components/ui/label";
 import { ConfirmationDialog } from "@/shared/presentation/confirmation-dialog";
 import { FormFieldError } from "@/shared/presentation/form-field-error";
 import { StatusBanner } from "@/shared/presentation/app-ui";
-import { clearAllOfflineVaultData, requestLocalVaultLock } from "@/modules/sync";
+import { clearAllOfflineVaultData, requestVaultSessionChange } from "@/modules/sync";
 import { DESTRUCTIVE_RESET_CONFIRMATION } from "../application/destructive-personal-vault-reset";
 import { useDestructivePersonalVaultResetMutation } from "./hooks/use-personal-vault-mutations";
 
-type Status =
-  "idle" | "confirming" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error" | "cleanup_error";
+type Status = "idle" | "confirming" | "resetting" | "invalid_confirmation" | "blocked" | "reset_error";
 
 export function DestructivePersonalVaultResetForm() {
   const t = useTranslations("VaultManagement.destructiveReset");
@@ -47,13 +46,22 @@ export function DestructivePersonalVaultResetForm() {
         return;
       }
       resetCompleted = true;
-      captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultResetCompleted);
-      requestLocalVaultLock();
+      requestVaultSessionChange();
       await clearAllOfflineVaultData();
+      try {
+        captureAnalyticsEvent(ANALYTICS_EVENTS.personalVaultResetCompleted);
+      } catch {
+        // Analytics must not turn a completed local reset into a cleanup failure.
+      }
       router.replace("/vaults");
       router.refresh();
     } catch {
-      setStatus(resetCompleted ? "cleanup_error" : "reset_error");
+      if (!resetCompleted) {
+        setStatus("reset_error");
+        return;
+      }
+      router.replace("/vaults?reset=cleanup-warning");
+      router.refresh();
     }
   }
 
@@ -132,11 +140,6 @@ export function DestructivePersonalVaultResetForm() {
       {status === "reset_error" && (
         <StatusBanner tone="danger" role="alert">
           {t("error")}
-        </StatusBanner>
-      )}
-      {status === "cleanup_error" && (
-        <StatusBanner tone="danger" role="alert">
-          {t("cleanupError")}
         </StatusBanner>
       )}
       {status === "confirming" && (

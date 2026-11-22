@@ -397,10 +397,36 @@
               $ref: "#/components/headers/NoStore"
             X-Request-Id:
               $ref: "#/components/headers/RequestId"
+        "429":
+          "description": "The PWA session poll exceeded its per-handoff or client-IP budget."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+          "x-rhasia-error-codes": ["rate_limited"]
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/RetryAfter"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
         "500":
           $ref: "#/components/responses/InternalError"
         "503":
-          $ref: "#/components/responses/ApiUnavailable"
+          "description": "The poll rate limiter is unavailable; redemption fails closed."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ApiError"
+          "x-rhasia-error-codes": ["rate_limit_unavailable"]
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/RetryAfter"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
       "security": []
       "x-rhasia-auth": "one-time-handoff-proof"
       "x-rhasia-origin": "required-same-origin"
@@ -483,11 +509,13 @@
       "summary": "POST /auth/session/revoke"
       "tags":
         - "auth"
-      "description": "Idempotently terminates the current browser session. Termination
-        failures are intentionally swallowed and do not reveal session state."
+      "description": "Idempotently terminates the current browser session. Unknown or
+        already-ended sessions return the same success response without revealing
+        session state. A runtime failure to verify or revoke an identified session
+        returns a generic unavailable response after the browser cookies are cleared."
       "responses":
         "204":
-          "description": "Session termination completed or was already complete."
+          "description": "The session was terminated or no active session could be identified."
           "headers":
             "Cache-Control":
               "$ref": "#/components/headers/NoStore"
@@ -5415,9 +5443,14 @@
       "additionalProperties": false
     "MagicLinkSentResponse":
       "type": "object"
-      "required": ["sent"]
+      "required": ["sent", "challengeExpiresInSeconds"]
       "properties":
         "sent": { "type": "boolean", "const": true }
+        "challengeExpiresInSeconds":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 3600
+          "description": "Remaining lifetime of the passwordless challenge."
       "additionalProperties": false
     "MagicLinkRedeemWebResponse":
       "type": "object"
@@ -7425,6 +7458,7 @@
       x-rhasia-error-codes:
         - api_misconfigured
         - authentication_misconfigured
+        - session_revocation_unavailable
       headers:
         Cache-Control:
           $ref: "#/components/headers/NoStore"

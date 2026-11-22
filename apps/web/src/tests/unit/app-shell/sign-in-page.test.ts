@@ -48,6 +48,14 @@ describe("SignInPage", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/vaults");
   });
 
+  it("preserves a failed logout notice for an authenticated user", async () => {
+    mocks.loadServerVaultPageContext.mockResolvedValue({
+      user: { id: "user", email: "user@example.test", status: "ACTIVE" },
+    });
+    await SignInPage({ searchParams: Promise.resolve({ auth: "logout_failed" }) });
+    expect(mocks.redirect).toHaveBeenCalledWith("/vaults?logout=failed");
+  });
+
   it("returns an authenticated invitation recipient to redemption", async () => {
     mocks.loadServerVaultPageContext.mockResolvedValue({
       user: { id: "user", email: "user@example.test", status: "ACTIVE" },
@@ -129,7 +137,7 @@ describe("SignInPage", () => {
     mocks.loadServerVaultPageContext.mockResolvedValue(null);
     const page = await SignInPage({ searchParams: Promise.resolve({ auth: ["signed_out", "ignored"] }) });
     const markup = renderToStaticMarkup(createElement("div", null, page));
-    expect(markup).toContain("Anda telah keluar.");
+    expect(markup).toContain("Browser ini telah keluar.");
     expect(markup).toContain('aria-label="Formulir masuk"');
     expect(markup).toContain('href="/offline"');
     expect(markup).toContain("Masuk atau buat akun dengan alamat email terverifikasi.");

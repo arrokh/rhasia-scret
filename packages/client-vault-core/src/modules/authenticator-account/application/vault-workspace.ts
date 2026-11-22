@@ -52,6 +52,13 @@ export class LocalStorageSyncError extends Error {
   }
 }
 
+export class WorkspacePrincipalMismatchError extends Error {
+  public constructor() {
+    super("The authenticated profile does not match the unlocked workspace.");
+    this.name = "WorkspacePrincipalMismatchError";
+  }
+}
+
 export type VaultWorkspaceUnlockFailureStage =
   | "workspace-response"
   | "workspace-bundle"
@@ -280,8 +287,7 @@ export async function refreshUnlockedVaultWorkspace(
     const response = await fetchMeasuredAuthorizedWorkspaceBundle(ports, signal);
     if (signal?.aborted) throw cancellationError("Workspace refresh was cancelled.");
     const bundle = composeOnlineWorkspaceBundle(response);
-    if (bundle.profileId !== expectedProfileId)
-      throw new Error("The authenticated profile does not match the unlocked Local Vault Snapshot.");
+    if (bundle.profileId !== expectedProfileId) throw new WorkspacePrincipalMismatchError();
     const unlocked = await ports.crypto.unlockPersonalVaultWithUserRootKey(
       retainedUserRootKey,
       profileMaterial(response.personalSnapshot),

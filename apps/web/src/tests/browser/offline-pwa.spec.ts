@@ -79,6 +79,18 @@ test.describe("encrypted read-only offline PWA", () => {
     );
     expect(marker).toBe("preserved");
 
+    for (const failureRoute of ["/sign-in?auth=logout_failed", "/vaults?logout=failed"]) {
+      await page.goto(failureRoute, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { name: "Akses brankas luring" })).toBeVisible();
+      await expect(
+        page
+          .getByRole("alert")
+          .filter({ hasText: "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif" }),
+      ).toContainText(
+        "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif atau pembersihan lokal belum lengkap.",
+      );
+    }
+
     test.info().annotations.push({
       type: "capability",
       description:
@@ -86,60 +98,64 @@ test.describe("encrypted read-only offline PWA", () => {
     });
   });
 
-  test("keeps the previous offline shells when one locale refresh fails", async ({ page, context, baseURL }) => {
-    if (!baseURL) throw new Error("The browser test base URL is unavailable.");
-    await context.addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseURL }]);
-    await page.goto("/offline");
-    await page.evaluate(() => navigator.serviceWorker.ready);
-    await page.reload();
-    await page.evaluate(async () => {
-      await navigator.serviceWorker.ready;
-      if (!navigator.serviceWorker.controller) throw new Error("The offline page is not controlled by its worker.");
-    });
-    const previousShells = await page.evaluate(async () => {
-      const cacheName = (await caches.keys()).find((name) => name.startsWith("rhasia-scret-static-"));
-      if (!cacheName) throw new Error("The static app cache is unavailable.");
-      const cache = await caches.open(cacheName);
-      const landingShell = await cache.match("/");
-      const offlineShell = await cache.match("/offline");
-      if (!landingShell || !offlineShell) throw new Error("The navigation shells are not cached.");
-      return [await landingShell.text(), await offlineShell.text()];
-    });
-    await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseURL }]);
-    await context.route("**/offline", (route) => route.abort());
-    const refreshResult = await page.evaluate(
-      () =>
-        new Promise<string>((resolve, reject) => {
-          const controller = navigator.serviceWorker.controller;
-          if (!controller) {
-            reject(new Error("The service worker controller is unavailable."));
-            return;
-          }
-          const channel = new MessageChannel();
-          const timeout = window.setTimeout(() => reject(new Error("The worker did not reply.")), 10_000);
-          channel.port1.onmessage = (event: MessageEvent<{ type?: string }>) => {
-            window.clearTimeout(timeout);
-            resolve(event.data?.type ?? "missing-response");
-            channel.port1.close();
-            channel.port2.close();
-          };
-          controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: "en" }, [channel.port2]);
-        }),
-    );
-    await context.unroute("**/offline");
-    const currentShells = await page.evaluate(async () => {
-      const cacheName = (await caches.keys()).find((name) => name.startsWith("rhasia-scret-static-"));
-      if (!cacheName) throw new Error("The static app cache is unavailable.");
-      const cache = await caches.open(cacheName);
-      const landingShell = await cache.match("/");
-      const offlineShell = await cache.match("/offline");
-      if (!landingShell || !offlineShell) throw new Error("The navigation shells are not cached.");
-      return [await landingShell.text(), await offlineShell.text()];
-    });
+  for (const failure of ["network error", "redirect"] as const) {
+    test(`keeps the previous offline shells after a locale refresh ${failure}`, async ({ page, context, baseURL }) => {
+      if (!baseURL) throw new Error("The browser test base URL is unavailable.");
+      await context.addCookies([{ name: "RHSIA_LOCALE", value: "id", url: baseURL }]);
+      await page.goto("/offline");
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.reload();
+      await page.evaluate(async () => {
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller) throw new Error("The offline page is not controlled by its worker.");
+      });
+      const previousShells = await page.evaluate(async () => {
+        const cacheName = (await caches.keys()).find((name) => name.startsWith("rhasia-scret-static-"));
+        if (!cacheName) throw new Error("The static app cache is unavailable.");
+        const cache = await caches.open(cacheName);
+        const landingShell = await cache.match("/");
+        const offlineShell = await cache.match("/offline");
+        if (!landingShell || !offlineShell) throw new Error("The navigation shells are not cached.");
+        return [await landingShell.text(), await offlineShell.text()];
+      });
+      await context.addCookies([{ name: "RHSIA_LOCALE", value: "en", url: baseURL }]);
+      await context.route("**/offline", (route) =>
+        failure === "redirect" ? route.fulfill({ status: 302, headers: { location: "/landing" } }) : route.abort(),
+      );
+      const refreshResult = await page.evaluate(
+        () =>
+          new Promise<string>((resolve, reject) => {
+            const controller = navigator.serviceWorker.controller;
+            if (!controller) {
+              reject(new Error("The service worker controller is unavailable."));
+              return;
+            }
+            const channel = new MessageChannel();
+            const timeout = window.setTimeout(() => reject(new Error("The worker did not reply.")), 10_000);
+            channel.port1.onmessage = (event: MessageEvent<{ type?: string }>) => {
+              window.clearTimeout(timeout);
+              resolve(event.data?.type ?? "missing-response");
+              channel.port1.close();
+              channel.port2.close();
+            };
+            controller.postMessage({ type: "RHSIA_REFRESH_OFFLINE_SHELL", locale: "en" }, [channel.port2]);
+          }),
+      );
+      await context.unroute("**/offline");
+      const currentShells = await page.evaluate(async () => {
+        const cacheName = (await caches.keys()).find((name) => name.startsWith("rhasia-scret-static-"));
+        if (!cacheName) throw new Error("The static app cache is unavailable.");
+        const cache = await caches.open(cacheName);
+        const landingShell = await cache.match("/");
+        const offlineShell = await cache.match("/offline");
+        if (!landingShell || !offlineShell) throw new Error("The navigation shells are not cached.");
+        return [await landingShell.text(), await offlineShell.text()];
+      });
 
-    expect(refreshResult).toBe("RHSIA_OFFLINE_SHELL_REFRESH_FAILED");
-    expect(currentShells).toEqual(previousShells);
-  });
+      expect(refreshResult).toBe("RHSIA_OFFLINE_SHELL_REFRESH_FAILED");
+      expect(currentShells).toEqual(previousShells);
+    });
+  }
 
   test("restores every owned offline shell when a later cache write fails", async ({ page, context, baseURL }) => {
     if (!baseURL) throw new Error("The browser test base URL is unavailable.");
@@ -771,6 +787,20 @@ test.describe("encrypted read-only offline PWA", () => {
     await expect(page.getByRole("button", { name: /^Kelola/ })).toHaveCount(0);
 
     const persisted = await storedBundleText(page);
+    const cachedShellText = await page.evaluate(async () => {
+      const cacheNames = (await caches.keys()).filter((name) => name.startsWith("rhasia-scret-static-"));
+      if (cacheNames.length === 0) throw new Error("The public-shell cache is unavailable.");
+      const shells = await Promise.all(
+        cacheNames.flatMap((name) =>
+          ["/", "/offline"].map(async (pathname) => {
+            const response = await (await caches.open(name)).match(pathname);
+            if (!response) throw new Error(`The public shell is not cached: ${pathname}`);
+            return response.text();
+          }),
+        ),
+      );
+      return shells.join("\n");
+    });
     for (const plaintext of [
       ...initial.accounts.flatMap((account) => [account.issuer, account.accountName, account.secretBase64]),
       ...initial.vaultNames,
@@ -778,6 +808,7 @@ test.describe("encrypted read-only offline PWA", () => {
       ...copiedCodes,
     ]) {
       expect(persisted).not.toContain(plaintext);
+      expect(cachedShellText).not.toContain(plaintext);
     }
 
     await page.route("**/api/v1/sync/workspace-bundle", (route) =>
@@ -947,9 +978,11 @@ async function encryptedFixture({
     keyVersion: 1,
     accounts: [record],
   });
-  const sharedVaults = [await sharedVault("owner_vault", "Owner Vault", "OWNER", ownerKey, ownerAccount.record)];
+  const ownerVaultName = "Offline Fixture Owner Vault 8f3d";
+  const viewerVaultName = "Offline Fixture Viewer Vault 8f3d";
+  const sharedVaults = [await sharedVault("owner_vault", ownerVaultName, "OWNER", ownerKey, ownerAccount.record)];
   if (includeViewer)
-    sharedVaults.push(await sharedVault("viewer_vault", "Viewer Vault", "VIEWER", viewerKey, viewerAccount.record));
+    sharedVaults.push(await sharedVault("viewer_vault", viewerVaultName, "VIEWER", viewerKey, viewerAccount.record));
   const personalSnapshot = {
     schemaVersion: 3,
     profileId: "profile_fixture",
@@ -977,7 +1010,7 @@ async function encryptedFixture({
       vaultId: "personal_vault",
       lifecycle: "ACTIVE",
       encryptedName: base64(
-        await encrypted(personalKey, new TextEncoder().encode("Personal Vault"), {
+        await encrypted(personalKey, new TextEncoder().encode("Offline Fixture Personal Vault 8f3d"), {
           purpose: "vault-name",
           payloadType: "vault-name",
           keyVersion: 1,
@@ -1000,7 +1033,9 @@ async function encryptedFixture({
     workspace,
     secret,
     accounts: [personalAccount.fixture],
-    vaultNames: includeViewer ? ["Personal Vault", "Owner Vault", "Viewer Vault"] : ["Personal Vault", "Owner Vault"],
+    vaultNames: includeViewer
+      ? ["Offline Fixture Personal Vault 8f3d", ownerVaultName, viewerVaultName]
+      : ["Offline Fixture Personal Vault 8f3d", ownerVaultName],
     sensitiveValues: [secret, base64(userRootKey), base64(personalKey), base64(ownerKey), base64(viewerKey)],
   };
 }

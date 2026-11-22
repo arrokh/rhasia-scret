@@ -34,6 +34,7 @@ type fakePasswordlessService struct {
 		HandoffVerifier string
 	}
 	requestError         error
+	requestExpiresAt     time.Time
 	redeemSession        *apiService.PasswordlessSession
 	redeemPath           apiService.PasswordlessReturnPath
 	redeemError          error
@@ -45,6 +46,7 @@ type fakePasswordlessService struct {
 	redeemHandoffSession *apiService.PasswordlessSession
 	redeemHandoffPath    apiService.PasswordlessReturnPath
 	redeemHandoffError   error
+	redeemHandoffCalls   int
 	signedAssertion      string
 	signError            error
 }
@@ -57,7 +59,7 @@ func (service *fakePasswordlessService) RequestLink(_ context.Context, input str
 	TurnstileToken  string
 	HandoffID       string
 	HandoffVerifier string
-}) error {
+}) (time.Time, error) {
 	service.requestInput = &struct {
 		Email           string
 		Client          apiService.PasswordlessClient
@@ -67,7 +69,7 @@ func (service *fakePasswordlessService) RequestLink(_ context.Context, input str
 		HandoffID       string
 		HandoffVerifier string
 	}{input.Email, input.Client, input.ReturnPath, input.Locale, input.TurnstileToken, input.HandoffID, input.HandoffVerifier}
-	return service.requestError
+	return service.requestExpiresAt, service.requestError
 }
 
 func (service *fakePasswordlessService) Redeem(context.Context, string, apiService.PasswordlessClient) (*apiService.PasswordlessSession, apiService.PasswordlessReturnPath, error) {
@@ -92,6 +94,7 @@ func (service *fakePasswordlessService) PublishPWAHandoff(context.Context, strin
 }
 
 func (service *fakePasswordlessService) RedeemPWAHandoff(context.Context, string, string) (*apiService.PasswordlessSession, apiService.PasswordlessReturnPath, error) {
+	service.redeemHandoffCalls++
 	return service.redeemHandoffSession, service.redeemHandoffPath, service.redeemHandoffError
 }
 
@@ -103,11 +106,16 @@ func (service *fakePasswordlessService) SignBrowserAssertion(string, time.Time) 
 }
 
 type fakeAnonymousLimiter struct {
-	result   apiRepository.AnonymousAuthRateLimitResult
-	err      error
-	calls    int
-	email    string
-	clientIP string
+	result        apiRepository.AnonymousAuthRateLimitResult
+	pollResult    apiRepository.AnonymousAuthRateLimitResult
+	err           error
+	pollErr       error
+	calls         int
+	pollCalls     int
+	email         string
+	clientIP      string
+	pollHandoffID string
+	pollClientIP  string
 }
 
 func (limiter *fakeAnonymousLimiter) Check(_ context.Context, email string, clientIP string, _ time.Time) (apiRepository.AnonymousAuthRateLimitResult, error) {
@@ -115,6 +123,13 @@ func (limiter *fakeAnonymousLimiter) Check(_ context.Context, email string, clie
 	limiter.email = email
 	limiter.clientIP = clientIP
 	return limiter.result, limiter.err
+}
+
+func (limiter *fakeAnonymousLimiter) CheckPwaSessionPoll(_ context.Context, handoffID string, clientIP string, _ time.Time) (apiRepository.AnonymousAuthRateLimitResult, error) {
+	limiter.pollCalls++
+	limiter.pollHandoffID = handoffID
+	limiter.pollClientIP = clientIP
+	return limiter.pollResult, limiter.pollErr
 }
 
 type fakeTurnstile struct {
@@ -195,12 +210,15 @@ func defaultDependencies() IdentityDependencies {
 		RefreshTokenTTLSeconds: 2_592_000,
 	}
 	return IdentityDependencies{
-		WebOrigin:            testWebOrigin,
-		Configuration:        configuration,
-		Passwordless:         &fakePasswordlessService{signedAssertion: "signed-assertion"},
-		AnonymousRateLimiter: &fakeAnonymousLimiter{result: apiRepository.AnonymousAuthRateLimitResult{Allowed: true}},
-		Turnstile:            &fakeTurnstile{outcome: apiService.TurnstileValid},
-		Now:                  func() time.Time { return testNow },
+		WebOrigin:     testWebOrigin,
+		Configuration: configuration,
+		Passwordless:  &fakePasswordlessService{signedAssertion: "signed-assertion"},
+		AnonymousRateLimiter: &fakeAnonymousLimiter{
+			result:     apiRepository.AnonymousAuthRateLimitResult{Allowed: true},
+			pollResult: apiRepository.AnonymousAuthRateLimitResult{Allowed: true},
+		},
+		Turnstile: &fakeTurnstile{outcome: apiService.TurnstileValid},
+		Now:       func() time.Time { return testNow },
 	}
 }
 
@@ -330,14 +348,17 @@ func TestMagicLinkRequestAppliesTurnstileAndAnonymousRateLimits(t *testing.T) {
 	dependencies := defaultDependencies()
 	dependencies.Turnstile = &fakeTurnstile{outcome: apiService.TurnstileValid}
 	dependencies.AnonymousRateLimiter = &fakeAnonymousLimiter{result: apiRepository.AnonymousAuthRateLimitResult{Allowed: true}}
-	service := &fakePasswordlessService{signedAssertion: "signed-assertion"}
+	service := &fakePasswordlessService{
+		signedAssertion:  "signed-assertion",
+		requestExpiresAt: testNow.Add(900 * time.Second),
+	}
 	dependencies.Passwordless = service
 	logger = &fakeLogger{}
 	dependencies.Logger = logger
 	headers := requestHeaders(testWebOrigin)
 	headers.Set("Cookie", "RHSIA_LOCALE=en")
 	response := invokeHandler(t, NewIdentityHandlers(dependencies).OperationHandlers()["postAuthMagiclinkRequest"], http.MethodPost, "/v1/auth/magic-link/request", body, headers, true)
-	if response.Code != http.StatusOK || response.Body.String() != "{\"sent\":true}\n" {
+	if response.Code != http.StatusOK || response.Body.String() != "{\"challengeExpiresInSeconds\":900,\"sent\":true}\n" {
 		t.Fatalf("successful request response = %d %q", response.Code, response.Body.String())
 	}
 	if dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter).email != "person@example.test" || dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter).clientIP != "" {
@@ -356,7 +377,7 @@ func TestMagicLinkRequestUsesTrustedForwardedIPAndHandoffData(t *testing.T) {
 	dependencies := defaultDependencies()
 	limiter := &fakeAnonymousLimiter{result: apiRepository.AnonymousAuthRateLimitResult{Allowed: true}}
 	dependencies.AnonymousRateLimiter = limiter
-	service := &fakePasswordlessService{}
+	service := &fakePasswordlessService{requestExpiresAt: testNow.Add(510 * time.Second)}
 	dependencies.Passwordless = service
 	headers := requestHeaders(testWebOrigin)
 	headers.Set("X-Rhasia-Client-Ip", " 203.0.113.7 ")
@@ -365,8 +386,57 @@ func TestMagicLinkRequestUsesTrustedForwardedIPAndHandoffData(t *testing.T) {
 	if response.Code != http.StatusOK || limiter.clientIP != "203.0.113.7" {
 		t.Fatalf("PWA request status=%d clientIP=%q", response.Code, limiter.clientIP)
 	}
+	if response.Body.String() != `{"challengeExpiresInSeconds":510,"sent":true}`+"\n" {
+		t.Fatalf("PWA request expiry response = %q", response.Body.String())
+	}
 	if service.requestInput == nil || service.requestInput.HandoffID != "abcdefghijklmnop" || service.requestInput.HandoffVerifier == "" {
 		t.Fatalf("PWA handoff was not forwarded: %#v", service.requestInput)
+	}
+}
+
+func TestMagicLinkRequestClampsReportedChallengeLifetime(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		lifetime       time.Duration
+		responseString string
+	}{
+		{
+			name:           "minimum one second",
+			lifetime:       500 * time.Millisecond,
+			responseString: "{\"challengeExpiresInSeconds\":1,\"sent\":true}\n",
+		},
+		{
+			name:           "exact maximum one hour",
+			lifetime:       time.Hour,
+			responseString: "{\"challengeExpiresInSeconds\":3600,\"sent\":true}\n",
+		},
+		{
+			name:           "one second over maximum",
+			lifetime:       time.Hour + time.Second,
+			responseString: "{\"challengeExpiresInSeconds\":3600,\"sent\":true}\n",
+		},
+		{
+			name:           "expired challenge minimum",
+			lifetime:       -time.Second,
+			responseString: "{\"challengeExpiresInSeconds\":1,\"sent\":true}\n",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := defaultDependencies()
+			dependencies.Passwordless = &fakePasswordlessService{requestExpiresAt: testNow.Add(test.lifetime)}
+			response := invokeHandler(
+				t,
+				NewIdentityHandlers(dependencies).OperationHandlers()["postAuthMagiclinkRequest"],
+				http.MethodPost,
+				"/v1/auth/magic-link/request",
+				`{"client":"web","email":"person@example.test","returnPath":"/vaults"}`,
+				requestHeaders(testWebOrigin),
+				false,
+			)
+			if response.Code != http.StatusOK || response.Body.String() != test.responseString {
+				t.Fatalf("challenge lifetime response = %d %q", response.Code, response.Body.String())
+			}
+		})
 	}
 }
 
@@ -424,17 +494,29 @@ func TestMagicLinkRedemptionMapsDisabledExpiredAndMalformedRequests(t *testing.T
 }
 
 func TestPWAHandoffRequiresSameOriginAndReturnsPendingOrPublished(t *testing.T) {
-	operations := NewIdentityHandlers(defaultDependencies()).OperationHandlers()
-	handler := operations["postAuthPwaSession"]
+	dependencies := defaultDependencies()
+	limiter := dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter)
+	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postAuthPwaSession"]
 	body := `{"handoffId":"abcdefghijklmnop","verifier":"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK"}`
 	forbidden := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, requestHeaders("https://attacker.example.test"), false)
 	if forbidden.Code != http.StatusForbidden || forbidden.Body.Len() != 0 {
 		t.Fatalf("foreign origin response = %d %q", forbidden.Code, forbidden.Body.String())
 	}
-	pending := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, requestHeaders(testWebOrigin), false)
+	pendingHeaders := requestHeaders(testWebOrigin)
+	pendingHeaders.Set("X-Rhasia-Client-Ip", "203.0.113.9")
+	pending := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, pendingHeaders, true)
 	if pending.Code != http.StatusAccepted || pending.Body.String() != "{\"pending\":true}\n" {
 		t.Fatalf("pending response = %d %q", pending.Code, pending.Body.String())
 	}
+	if limiter.pollCalls != 1 || limiter.pollHandoffID != "abcdefghijklmnop" || limiter.pollClientIP != "203.0.113.9" {
+		t.Fatalf("PWA poll rate-limit input = calls:%d handoff:%q IP:%q", limiter.pollCalls, limiter.pollHandoffID, limiter.pollClientIP)
+	}
+	limiter.pollResult = apiRepository.AnonymousAuthRateLimitResult{Allowed: false, RetryAfterSeconds: 29}
+	limited := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, pendingHeaders, true)
+	if limited.Code != http.StatusTooManyRequests || limited.Header().Get("Retry-After") != "29" || !strings.Contains(limited.Body.String(), "rate_limited") {
+		t.Fatalf("limited poll response = %d headers=%v body=%s", limited.Code, limited.Header(), limited.Body.String())
+	}
+	limiter.pollResult = apiRepository.AnonymousAuthRateLimitResult{Allowed: true}
 	publishBody := `{"handoffId":"abcdefghijklmnop","refreshToken":"abcdefghijklmnop.` + strings.Repeat("r", 43) + `"}`
 	published := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", publishBody, requestHeaders(testWebOrigin), false)
 	if published.Code != http.StatusOK || published.Body.String() != "{\"published\":true}\n" {
@@ -443,6 +525,49 @@ func TestPWAHandoffRequiresSameOriginAndReturnsPendingOrPublished(t *testing.T) 
 	invalid := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", `{"handoffId":"abcdefghijklmnop","refreshToken":"x","verifier":"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK"}`, requestHeaders(testWebOrigin), false)
 	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), "invalid_request") {
 		t.Fatalf("union-invalid response = %d %s", invalid.Code, invalid.Body.String())
+	}
+}
+
+func TestPWAHandoffPollFailsClosedWhenRateLimiterIsUnavailable(t *testing.T) {
+	dependencies := defaultDependencies()
+	service := dependencies.Passwordless.(*fakePasswordlessService)
+	limiter := dependencies.AnonymousRateLimiter.(*fakeAnonymousLimiter)
+	limiter.pollErr = errors.New("synthetic limiter storage failure")
+	response := invokeHandler(
+		t,
+		NewIdentityHandlers(dependencies).OperationHandlers()["postAuthPwaSession"],
+		http.MethodPost,
+		"/v1/auth/pwa/session",
+		`{"handoffId":"abcdefghijklmnop","verifier":"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK"}`,
+		requestHeaders(testWebOrigin),
+		false,
+	)
+	if response.Code != http.StatusServiceUnavailable || response.Header().Get("Retry-After") != "5" || service.redeemHandoffCalls != 0 {
+		t.Fatalf("limiter unavailable response = %d headers=%v redeems=%d body=%s", response.Code, response.Header(), service.redeemHandoffCalls, response.Body.String())
+	}
+}
+
+func TestPWAHandoffRejectsMissingConfigurationBeforeConsuming(t *testing.T) {
+	service := &fakePasswordlessService{redeemHandoffSession: &apiService.PasswordlessSession{}}
+	dependencies := defaultDependencies()
+	dependencies.Passwordless = service
+	dependencies.Configuration = nil
+	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postAuthPwaSession"]
+	body := `{"handoffId":"abcdefghijklmnop","verifier":"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK"}`
+	response := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, requestHeaders(testWebOrigin), false)
+	if response.Code != http.StatusUnauthorized || service.redeemHandoffCalls != 0 {
+		t.Fatalf("missing configuration response = %d calls=%d body=%s", response.Code, service.redeemHandoffCalls, response.Body.String())
+	}
+}
+
+func TestPWAHandoffPublishingFailsClosedWhenPasswordlessIsDisabled(t *testing.T) {
+	dependencies := defaultDependencies()
+	dependencies.Passwordless = nil
+	handler := NewIdentityHandlers(dependencies).OperationHandlers()["postAuthPwaSession"]
+	body := `{"handoffId":"abcdefghijklmnop","refreshToken":"abcdefghijklmnop.` + strings.Repeat("r", 43) + `"}`
+	response := invokeHandler(t, handler, http.MethodPost, "/v1/auth/pwa/session", body, requestHeaders(testWebOrigin), false)
+	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), "handoff_failed") {
+		t.Fatalf("disabled publish response = %d %s", response.Code, response.Body.String())
 	}
 }
 
@@ -511,7 +636,7 @@ func TestRefreshSessionRenewsPasswordlessAssertionOnly(t *testing.T) {
 	}
 }
 
-func TestRevokeSessionIsIdempotentAndClearsCredentialCookies(t *testing.T) {
+func TestRevokeSessionReportsTerminationFailureAndClearsCredentialCookies(t *testing.T) {
 	service := &fakePasswordlessService{revokeError: errors.New("synthetic database error")}
 	dependencies := defaultDependencies()
 	dependencies.Passwordless = service
@@ -521,26 +646,50 @@ func TestRevokeSessionIsIdempotentAndClearsCredentialCookies(t *testing.T) {
 	headers := requestHeaders(testWebOrigin)
 	headers.Set("Cookie", passwordlessRefreshCookie+"=0123456789abcdef.abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJK")
 	response := invokeHandler(t, handler, http.MethodPost, "/v1/auth/session/revoke", "", headers, true)
-	if response.Code != http.StatusNoContent || response.Body.Len() != 0 {
-		t.Fatalf("logout response = %d %q", response.Code, response.Body.String())
+	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "session_revocation_unavailable") {
+		t.Fatalf("failed session revocation response = %d %q", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "synthetic database error") {
+		t.Fatalf("session revocation error leaked dependency detail: %q", response.Body.String())
 	}
 	if len(service.revokeCalls) != 1 || service.revokeCalls[0] != "0123456789abcdef" {
-		t.Fatalf("refresh-cookie logout did not revoke its session: %#v", service.revokeCalls)
+		t.Fatalf("refresh-cookie logout did not attempt session revocation: %#v", service.revokeCalls)
 	}
 	cookies := response.Header().Values("Set-Cookie")
 	if len(cookies) != 5 {
-		t.Fatalf("logout wrote %d cookies; want E2E plus three session clears and repeated assertion clear: %#v", len(cookies), cookies)
+		t.Fatalf("failed logout wrote %d cookies; want E2E plus three session clears and repeated assertion clear: %#v", len(cookies), cookies)
 	}
 	if !strings.HasPrefix(cookies[0], e2eSessionCookie+"=") || !strings.Contains(strings.Join(cookies, "\n"), "Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax") {
 		t.Fatalf("logout cookie clearing mismatch: %#v", cookies)
+	}
+
+	service.revokeError = nil
+	response = invokeHandler(t, handler, http.MethodPost, "/v1/auth/session/revoke", "", headers, true)
+	if response.Code != http.StatusNoContent || len(service.revokeCalls) != 2 {
+		t.Fatalf("successful refresh-cookie logout response=%d revocations=%#v", response.Code, service.revokeCalls)
 	}
 
 	accessOnly := requestHeaders(testWebOrigin)
 	accessOnly.Set("Cookie", passwordlessAccessCookie+"=0123456789abcdef."+strings.Repeat("a", 43))
 	service.accessPrincipal = &apiService.Principal{SessionID: "0123456789abcdef"}
 	response = invokeHandler(t, handler, http.MethodPost, "/v1/auth/session/revoke", "", accessOnly, true)
-	if response.Code != http.StatusNoContent || len(service.revokeCalls) != 2 || service.revokeCalls[1] != "0123456789abcdef" {
+	if response.Code != http.StatusNoContent || len(service.revokeCalls) != 3 || service.revokeCalls[2] != "0123456789abcdef" {
 		t.Fatalf("access-cookie logout response=%d revocations=%#v", response.Code, service.revokeCalls)
+	}
+
+	service.accessError = errors.New("synthetic verification failure")
+	response = invokeHandler(t, handler, http.MethodPost, "/v1/auth/session/revoke", "", accessOnly, true)
+	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "session_revocation_unavailable") || len(service.revokeCalls) != 3 {
+		t.Fatalf("failed access-token verification response=%d body=%q revocations=%#v", response.Code, response.Body.String(), service.revokeCalls)
+	}
+	if strings.Contains(response.Body.String(), "synthetic verification failure") {
+		t.Fatalf("access-token verification error leaked dependency detail: %q", response.Body.String())
+	}
+
+	noSession := requestHeaders(testWebOrigin)
+	response = invokeHandler(t, handler, http.MethodPost, "/v1/auth/session/revoke", "", noSession, true)
+	if response.Code != http.StatusNoContent || len(service.revokeCalls) != 3 {
+		t.Fatalf("idempotent logout without a session response=%d revocations=%#v", response.Code, service.revokeCalls)
 	}
 }
 

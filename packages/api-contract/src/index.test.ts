@@ -256,7 +256,7 @@ describe("API contract", () => {
         method: "post",
         operationId: "postAuthPwaSession",
         request: "PwaSessionRequest",
-        statuses: ["200", "202", "400", "401", "403"],
+        statuses: ["200", "202", "400", "401", "403", "429"],
       },
       {
         path: "/auth/session/refresh",
@@ -542,7 +542,17 @@ describe("API contract", () => {
           expect(z.array(z.string()).parse(response["x-rhasia-error-codes"]), label).toContain("invalid_request");
         if (status === "500")
           expect(z.array(z.string()).parse(response["x-rhasia-error-codes"]), label).toContain("internal_error");
-        if (status === "503")
+        if (status === "429") {
+          expect(z.array(z.string()).parse(response["x-rhasia-error-codes"]), label).toContain("rate_limited");
+          expect(headers["Retry-After"], label).toBeDefined();
+        }
+        if (status === "503" && path === "/auth/pwa/session") {
+          expect(z.array(z.string()).parse(response["x-rhasia-error-codes"]), label).toContain(
+            "rate_limit_unavailable",
+          );
+          expect(headers["Retry-After"], label).toBeDefined();
+        }
+        if (status === "503" && path !== "/auth/pwa/session")
           expect(z.array(z.string()).parse(response["x-rhasia-error-codes"]), label).toEqual(
             expect.arrayContaining(["api_misconfigured", "authentication_misconfigured"]),
           );

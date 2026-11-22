@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -35,6 +36,40 @@ func TestEncryptedVaultImportIntoPersonalVaultIsAtomicAndReplaySafe(t *testing.T
 	if err != nil || result.Status != apiEntity.ImportStatusReplayed || len(result.AccountIDs) != 2 {
 		t.Fatalf("replay encrypted Personal Vault import: result=%#v err=%v", result, err)
 	}
+	changedCiphertext := cloneSyntheticImportRequest(request)
+	changedCiphertext.Accounts[0].EncryptedPayload[1] ^= 1
+	result, err = repository.Import(ctx, ownerID, changedCiphertext)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("different ciphertext with existing Personal Vault account IDs: result=%#v err=%v", result, err)
+	}
+	var storedPayload []byte
+	if err := pool.QueryRow(ctx, `SELECT encrypted_payload FROM authenticator_accounts WHERE id = $1`, request.Accounts[0].ID).Scan(&storedPayload); err != nil {
+		t.Fatalf("read Personal Vault account after conflicting import: %v", err)
+	}
+	if !bytes.Equal(storedPayload, request.Accounts[0].EncryptedPayload) {
+		clear(storedPayload)
+		t.Fatal("conflicting archive import changed the existing encrypted account")
+	}
+	clear(storedPayload)
+	if _, err := pool.Exec(ctx, `UPDATE authenticator_accounts SET encryption_version = 2 WHERE id = $1`, request.Accounts[0].ID); err != nil {
+		t.Fatalf("change stored synthetic account encryption version: %v", err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("replay with changed stored account encryption version: result=%#v err=%v", result, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE authenticator_accounts SET encryption_version = 1 WHERE id = $1`, request.Accounts[0].ID); err != nil {
+		t.Fatalf("restore synthetic account encryption version: %v", err)
+	}
+	deletedAt := now
+	purgeAfter := apiEntity.AccountPurgeAfter(deletedAt)
+	if _, err := pool.Exec(ctx, `UPDATE authenticator_accounts SET deleted_at = $2, purge_after = $3 WHERE id = $1`, request.Accounts[1].ID, deletedAt, purgeAfter); err != nil {
+		t.Fatalf("soft-delete synthetic imported account: %v", err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("import over a soft-deleted Personal Vault account: result=%#v err=%v", result, err)
+	}
 	unauthorized, err := repository.Import(ctx, outsiderID, request)
 	if err != nil || unauthorized.Status != apiEntity.ImportStatusDestinationUnavailable {
 		t.Fatalf("unauthorized Personal Vault import: result=%#v err=%v", unauthorized, err)
@@ -45,6 +80,44 @@ func TestEncryptedVaultImportIntoPersonalVaultIsAtomicAndReplaySafe(t *testing.T
 	}
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND event_type = 'ARCHIVE_IMPORTED'`, vaultID).Scan(&auditCount); err != nil || auditCount != 1 {
 		t.Fatalf("archive import audit count=%d err=%v; want one", auditCount, err)
+	}
+}
+
+func TestEncryptedVaultImportSharedReplayRequiresCurrentMemberKeyVersion(t *testing.T) {
+	pool := testsupport.NewDisposablePostgresPool(t)
+	ctx := context.Background()
+	now := time.Date(2026, time.November, 4, 5, 6, 7, 0, time.UTC)
+	ownerID := testsupport.CreateSyntheticApplicationUser(t, pool)
+	vaultID := "synthetic-import-shared-key-version"
+	insertSyntheticImportVault(t, ctx, pool, vaultID, ownerID, "SHARED", now)
+	t.Cleanup(func() { deleteSyntheticImportVault(t, ctx, pool, vaultID) })
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO vault_members (vault_id, user_id, role, status, encrypted_vault_key, key_version, created_at, updated_at)
+		VALUES ($1, $2, 'OWNER', 'ACTIVE', $3, 1, $4, $4)`, vaultID, ownerID, []byte("synthetic-owner-wrap"), now); err != nil {
+		t.Fatalf("insert synthetic owner membership: %v", err)
+	}
+	keyVersion := int64(1)
+	request := syntheticExistingImport(vaultID, "SHARED", &keyVersion, "77777777-7777-4777-8777-777777777777")
+	repository := newSyntheticImportRepository(t, pool, now)
+
+	result, err := repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusImported {
+		t.Fatalf("import into existing Shared Vault: result=%#v err=%v", result, err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusReplayed {
+		t.Fatalf("replay into existing Shared Vault with current key version: result=%#v err=%v", result, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vault_members SET key_version = 2 WHERE vault_id = $1 AND user_id = $2`, vaultID, ownerID); err != nil {
+		t.Fatalf("advance synthetic Shared Vault owner key version: %v", err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("replay into Shared Vault with stale owner key version: result=%#v err=%v", result, err)
+	}
+	result, err = repository.readReplayOrConflict(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("unique-violation replay recovery with stale owner key version: result=%#v err=%v", result, err)
 	}
 }
 
@@ -80,6 +153,73 @@ func TestEncryptedVaultImportCreatesSharedVaultWithCurrentIdentity(t *testing.T)
 	if err != nil || result.Status != apiEntity.ImportStatusReplayed || !result.VaultCreated {
 		t.Fatalf("replay new Shared Vault archive import: result=%#v err=%v", result, err)
 	}
+	futureEncryptionVersionRequest := cloneSyntheticImportRequest(request)
+	futureEncryptionVersionRequest.Destination.NewShared.EncryptionVersion = 2
+	if _, err := pool.Exec(ctx, `UPDATE vaults SET encryption_version = 2 WHERE id = $1`, vaultID); err != nil {
+		t.Fatalf("advance synthetic Shared Vault encryption version: %v", err)
+	}
+	transaction, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin future-version replay verification: %v", err)
+	}
+	result, err = replayResult(ctx, transaction, ownerID, futureEncryptionVersionRequest)
+	if rollbackErr := transaction.Rollback(ctx); rollbackErr != nil {
+		t.Fatalf("roll back future-version replay verification: %v", rollbackErr)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vaults SET encryption_version = 1 WHERE id = $1`, vaultID); err != nil {
+		t.Fatalf("restore synthetic Shared Vault encryption version: %v", err)
+	}
+	if err != nil || result.Status != apiEntity.ImportStatusReplayed {
+		t.Fatalf("replay with an independent Vault encryption version: result=%#v err=%v", result, err)
+	}
+	mismatches := []struct {
+		name   string
+		change func(*apiEntity.EncryptedVaultImport)
+	}{
+		{name: "Vault name", change: func(importRequest *apiEntity.EncryptedVaultImport) {
+			importRequest.Destination.NewShared.EncryptedName[1] ^= 1
+		}},
+		{name: "owner key wrap", change: func(importRequest *apiEntity.EncryptedVaultImport) {
+			importRequest.Destination.NewShared.EncryptedOwnerVaultKey[1] ^= 1
+		}},
+		{name: "account ciphertext", change: func(importRequest *apiEntity.EncryptedVaultImport) {
+			importRequest.Accounts[0].EncryptedPayload[1] ^= 1
+		}},
+		{name: "owner public key", change: func(importRequest *apiEntity.EncryptedVaultImport) {
+			importRequest.Destination.NewShared.ExpectedOwnerPublicKey = syntheticImportPublicEncryptionKey(t, "G")
+		}},
+	}
+	for _, mismatch := range mismatches {
+		t.Run(mismatch.name, func(t *testing.T) {
+			altered := cloneSyntheticImportRequest(request)
+			mismatch.change(&altered)
+			result, err := repository.Import(ctx, ownerID, altered)
+			if err != nil || result.Status != apiEntity.ImportStatusConflict {
+				t.Fatalf("changed %s in an existing NEW_SHARED destination: result=%#v err=%v", mismatch.name, result, err)
+			}
+		})
+	}
+
+	if _, err := pool.Exec(ctx, `UPDATE vault_members SET key_version = 2 WHERE vault_id = $1 AND user_id = $2`, vaultID, ownerID); err != nil {
+		t.Fatalf("advance imported Shared Vault owner key generation: %v", err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("replay after owner key generation changed: result=%#v err=%v", result, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vault_members SET key_version = 1 WHERE vault_id = $1 AND user_id = $2`, vaultID, ownerID); err != nil {
+		t.Fatalf("restore imported Shared Vault owner key generation: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vaults SET encryption_version = 2 WHERE id = $1`, vaultID); err != nil {
+		t.Fatalf("change imported Shared Vault encryption version: %v", err)
+	}
+	result, err = repository.Import(ctx, ownerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("replay after stored Vault encryption version changed: result=%#v err=%v", result, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vaults SET encryption_version = 1 WHERE id = $1`, vaultID); err != nil {
+		t.Fatalf("restore imported Shared Vault encryption version: %v", err)
+	}
 
 	var owner, role, status string
 	var storedName, storedOwnerKey []byte
@@ -106,6 +246,72 @@ func TestEncryptedVaultImportCreatesSharedVaultWithCurrentIdentity(t *testing.T)
 	}
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1 AND event_type = 'ARCHIVE_IMPORTED'`, vaultID).Scan(&auditCount); err != nil || auditCount != 1 {
 		t.Fatalf("new Shared Vault archive audit count=%d err=%v", auditCount, err)
+	}
+}
+
+func TestEncryptedVaultImportUniqueViolationRecoveryRechecksMemberAuthorization(t *testing.T) {
+	pool := testsupport.NewDisposablePostgresPool(t)
+	ctx := context.Background()
+	now := time.Date(2026, time.December, 6, 7, 8, 9, 0, time.UTC)
+	ownerID := testsupport.CreateSyntheticApplicationUser(t, pool)
+	viewerID := testsupport.CreateSyntheticApplicationUser(t, pool)
+	vaultID := "synthetic-import-shared-unique-collision"
+	insertSyntheticImportVault(t, ctx, pool, vaultID, ownerID, "SHARED", now)
+	t.Cleanup(func() { deleteSyntheticImportVault(t, ctx, pool, vaultID) })
+	if _, err := pool.Exec(ctx, `UPDATE vaults SET members_can_add_accounts = true WHERE id = $1`, vaultID); err != nil {
+		t.Fatalf("enable synthetic Shared Vault add permission: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO vault_members (vault_id, user_id, role, status, encrypted_vault_key, key_version, created_at, updated_at)
+		VALUES ($1, $2, 'OWNER', 'ACTIVE', $3, 1, $4, $4),
+		       ($1, $5, 'VIEWER', 'ACTIVE', $6, 1, $4, $4)`,
+		vaultID, ownerID, []byte("synthetic-owner-wrap"), now, viewerID, []byte("synthetic-viewer-wrap")); err != nil {
+		t.Fatalf("insert synthetic Shared Vault memberships: %v", err)
+	}
+	indexName := "synthetic_archive_import_unique_vault_" + strings.ReplaceAll(vaultID, "-", "_")
+	if _, err := pool.Exec(ctx, `CREATE UNIQUE INDEX `+indexName+` ON authenticator_accounts (vault_id) WHERE vault_id = '`+vaultID+`'`); err != nil {
+		t.Fatalf("create disposable synthetic unique index: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DROP INDEX IF EXISTS `+indexName); err != nil {
+			t.Errorf("drop disposable synthetic unique index: %v", err)
+		}
+	})
+	keyVersion := int64(1)
+	request := syntheticExistingImport(vaultID, "SHARED", &keyVersion,
+		"88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999")
+	repository := newSyntheticImportRepository(t, pool, now)
+
+	result, err := repository.Import(ctx, viewerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("unique violation should recover to conflict without partial import: result=%#v err=%v", result, err)
+	}
+
+	transaction, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin synthetic unique violation recovery: %v", err)
+	}
+	_, importErr := repository.importInTransaction(ctx, transaction, viewerID, request)
+	if !isVaultArchiveUniqueViolation(importErr) {
+		_ = transaction.Rollback(ctx)
+		t.Fatalf("create synthetic import uniqueness collision: err=%v", importErr)
+	}
+	if err := transaction.Rollback(ctx); err != nil {
+		t.Fatalf("roll back synthetic colliding import: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE vault_members SET status = 'REVOKED' WHERE vault_id = $1 AND user_id = $2`, vaultID, viewerID); err != nil {
+		t.Fatalf("revoke synthetic Viewer before replay recovery: %v", err)
+	}
+	result, err = repository.readReplayOrConflict(ctx, viewerID, request)
+	if err != nil || result.Status != apiEntity.ImportStatusConflict {
+		t.Fatalf("unique violation recovery after Viewer revocation: result=%#v err=%v", result, err)
+	}
+	var accountCount, auditCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM authenticator_accounts WHERE vault_id = $1`, vaultID).Scan(&accountCount); err != nil || accountCount != 0 {
+		t.Fatalf("colliding import left accounts=%d err=%v", accountCount, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vault_audit_events WHERE vault_id = $1`, vaultID).Scan(&auditCount); err != nil || auditCount != 0 {
+		t.Fatalf("unauthorized replay wrote audit events=%d err=%v", auditCount, err)
 	}
 }
 
@@ -170,6 +376,18 @@ func TestEncryptedVaultImportDomainAllowsEmptyArchiveButRejectsInvalidCiphertext
 	if err := apiEntity.ValidateEncryptedVaultImport(personal); err == nil {
 		t.Fatal("invalid encrypted account payload should be rejected")
 	}
+}
+
+func cloneSyntheticImportRequest(request apiEntity.EncryptedVaultImport) apiEntity.EncryptedVaultImport {
+	clone := request
+	clone.Destination.NewShared.EncryptedName = append([]byte(nil), request.Destination.NewShared.EncryptedName...)
+	clone.Destination.NewShared.EncryptedOwnerVaultKey = append([]byte(nil), request.Destination.NewShared.EncryptedOwnerVaultKey...)
+	clone.Accounts = make([]apiEntity.EncryptedImportedAccount, len(request.Accounts))
+	for index, account := range request.Accounts {
+		clone.Accounts[index] = account
+		clone.Accounts[index].EncryptedPayload = append([]byte(nil), account.EncryptedPayload...)
+	}
+	return clone
 }
 
 func newSyntheticImportRepository(t *testing.T, pool *pgxpool.Pool, now time.Time) *EncryptedVaultImportRepository {

@@ -28,7 +28,7 @@ _Avoid_: repository release, product version
 A named collection of authenticator accounts controlled by its owner and, when shared, accessible to its members.
 
 **Vault Name**:
-The user-visible name of a Vault. It is encrypted vault content rather than server-visible metadata.
+The user-visible name of a Vault. It is encrypted vault content rather than server-visible metadata. Ordinary Shared Vault renaming is owner-only. A separate legacy v1-to-v2 envelope migration currently accepts an active member with the current key version; the API checks the source digest for a new commit; after current membership and key-version checks, an idempotent retry recognizes the stored replacement digest without rechecking the source. The API cannot verify that the replacement preserves the name. See `docs/crypto-envelope-migration-matrix.md` and ADR-0047.
 _Avoid_: Plaintext vault label
 
 **Personal Vault**:
@@ -80,7 +80,7 @@ A browser-mediated biometric or device-PIN check whose WebAuthn PRF output crypt
 _Avoid_: Vault Unlock Secret, server authentication, UI-only assertion gate
 
 **Unlocked Vault Session**:
-The period during which a Vault is available in the authenticated web client after it has been unlocked. It ends when the user explicitly locks the Vault or logs out. It is not a timer-based auto-lock interval.
+The period during which a Vault is available in the authenticated web client after it has been unlocked. It ends when the user explicitly locks the Vault or logs out. When authentication changes in another same-origin tab, the client also locks the affected workspace. It is not a timer-based auto-lock interval.
 _Avoid_: Timeout, auto-lock interval
 
 **Workspace Lifecycle**:
@@ -175,7 +175,7 @@ A versioned encrypted package that allows one User Encryption Key Pair to recove
 _Avoid_: Plaintext vault key, shared password
 
 **Invitation**:
-A no-acceptance request by a Shared Vault owner to give one exact recipient access. It includes a one-time Secure Share Link that expires exactly seven days after creation so the recipient can complete key delivery after cryptographic enrollment. Before the recipient first signs in, the server may bind the pending Invitation to the normalized invited email as permitted authorization metadata; redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User. An expired Invitation creates no Membership Grant and may be replaced through owner-initiated Re-invitation.
+A no-acceptance request by a Shared Vault owner to give one exact recipient access. It includes a one-time Secure Share Link that expires exactly seven days after creation so the recipient can complete key delivery after cryptographic enrollment. If an active Application User already has a verified External Identity for the normalized email under the current Passwordless Authentication Provider, the server may bind the pending Invitation to that exact Application User. Otherwise it remains email-bound until redemption; a legacy or duplicate Application User is never selected or linked by email alone. Redemption additionally requires an authenticated session whose verified email matches, and then binds the Invitation to the provisioned Application User. An expired Invitation creates no Membership Grant and may be replaced through owner-initiated Re-invitation.
 _Avoid_: Pending membership
 
 **Re-invitation**:
@@ -219,7 +219,7 @@ The sole member responsible for a Shared Vault’s membership, permissions, Vaul
 _Avoid_: Admin, editor
 
 **Vault Viewer**:
-A non-owner Shared Vault member who may read accounts and generate or copy OTPs. A Viewer may add, replace the complete encrypted payload of, or soft-delete Authenticator Accounts only when the corresponding Effective Shared Vault Account Permission allows it. A Viewer may leave the Vault but cannot restore accounts, manage the Vault or membership, see other members/invitations/Secure Share Links, or view Vault Audit History.
+A non-owner Shared Vault member who may read accounts and generate or copy OTPs. A Viewer may add, replace the complete encrypted payload of, or soft-delete Authenticator Accounts only when the corresponding Effective Shared Vault Account Permission allows it. Separately, the legacy v1-to-v2 envelope-migration routes currently allow an active member with the current key version to submit replacement ciphertext without CanEdit; the API checks source metadata but cannot verify plaintext equivalence. This maintenance exception does not permit ordinary account edits. A Viewer may leave the Vault but cannot restore accounts, manage the Vault or membership, see other members/invitations/Secure Share Links, or view Vault Audit History. See ADR-0047 and `docs/crypto-envelope-migration-matrix.md`.
 _Avoid_: Editor, collaborator
 
 **Deleted Vault**:
@@ -227,7 +227,7 @@ A Vault hidden from all users and denied all application access during its 30-da
 _Avoid_: Active vault, permanent archive
 
 **Authenticator Account**:
-A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A Shared Vault member may create, replace, or soft-delete it only through the corresponding Effective Shared Vault Account Permission. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable only by its owner before that deadline, and is then permanently purged by bounded server cleanup.
+A TOTP configuration stored in a Vault whose secret is only available on authorized client devices. A Shared Vault member may create, replace, or soft-delete it only through the corresponding Effective Shared Vault Account Permission. Legacy v1-to-v2 payload migration is a separate maintenance route available to active members with the current key version; the API cannot verify that the replacement preserves plaintext. A deleted account receives an explicit purge deadline exactly 30 days after deletion, remains recoverable only by its owner before that deadline, and is then permanently purged by bounded server cleanup.
 _Avoid_: Token, credential
 
 **Account Tag**:

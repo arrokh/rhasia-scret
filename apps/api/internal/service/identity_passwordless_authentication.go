@@ -151,22 +151,22 @@ func (service *PasswordlessAuthService) RequestLink(ctx context.Context, input s
 	TurnstileToken  string
 	HandoffID       string
 	HandoffVerifier string
-}) error {
+}) (time.Time, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	if len(email) == 0 || len(email) > 254 || !IsValidPasswordlessEmail(email) || !validPasswordlessClient(input.Client) || !validReturnPath(input.ReturnPath) {
-		return errors.New("magic-link request is invalid")
+		return time.Time{}, errors.New("magic-link request is invalid")
 	}
 	if input.Client == PasswordlessClientPWA {
 		if !safePWAHandoffID(input.HandoffID) || !safePWAHandoffVerifier(input.HandoffVerifier) {
-			return errors.New("PWA authentication handoff is invalid")
+			return time.Time{}, errors.New("PWA authentication handoff is invalid")
 		}
 	} else if input.HandoffID != "" || input.HandoffVerifier != "" {
-		return errors.New("PWA authentication handoff is invalid")
+		return time.Time{}, errors.New("PWA authentication handoff is invalid")
 	}
 
 	rawToken, err := randomBase64URLToken(32)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 	now := service.now()
 	expiresAt := now.Add(time.Duration(service.config.MagicLinkTTLSeconds) * time.Second)
@@ -180,16 +180,16 @@ func (service *PasswordlessAuthService) RequestLink(ctx context.Context, input s
 	}
 	challenge := MagicLinkChallenge{Email: email, Client: input.Client, ReturnPath: input.ReturnPath}
 	if err := service.repository.CreateChallenge(ctx, service.digestMagicToken(rawToken), challenge, expiresAt, handoff); err != nil {
-		return &PasswordlessChallengePersistenceError{cause: err}
+		return time.Time{}, &PasswordlessChallengePersistenceError{cause: err}
 	}
 	actionURL, err := buildPasswordlessActionURL(service.config.AppOrigin, input.Client, rawToken, input.ReturnPath, input.HandoffID)
 	if err != nil {
-		return fmt.Errorf("build magic-link action URL: %w", err)
+		return time.Time{}, fmt.Errorf("build magic-link action URL: %w", err)
 	}
 	if err := service.sender.SendMagicLink(ctx, email, actionURL, localization.ResolveLocale(string(input.Locale))); err != nil {
-		return &PasswordlessEmailDeliveryError{cause: err}
+		return time.Time{}, &PasswordlessEmailDeliveryError{cause: err}
 	}
-	return nil
+	return expiresAt, nil
 }
 
 func (service *PasswordlessAuthService) Redeem(ctx context.Context, token string, client PasswordlessClient) (*PasswordlessSession, PasswordlessReturnPath, error) {

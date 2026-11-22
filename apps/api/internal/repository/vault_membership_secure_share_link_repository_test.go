@@ -21,12 +21,16 @@ func TestSecureShareLinkBindsEmailAndRedeemsOnceAfterEnrollment(t *testing.T) {
 	ownerID := testsupport.CreateSyntheticApplicationUser(t, pool)
 	vaultID := insertAccessVault(t, ctx, pool, ownerID, "ACTIVE", []byte("synthetic-encrypted-name"), now, false)
 	insertAccessMembership(t, ctx, pool, vaultID, ownerID, "OWNER", "ACTIVE", []byte("synthetic-owner-key-wrap"), 1, nil, nil, nil, now)
-	t.Cleanup(func() { cleanupSecureShareVault(t, ctx, pool, vaultID) })
+	defer cleanupSecureShareVault(t, ctx, pool, vaultID)
 	repository, err := NewSecureShareLinkRepository(pool, func() time.Time { return now })
 	if err != nil {
 		t.Fatalf("create Secure Share Link repository: %v", err)
 	}
 	recipientEmail := "invited-before-signup@example.test"
+	legacyRecipientID := testsupport.CreateSyntheticApplicationUser(t, pool)
+	if _, err := pool.Exec(ctx, `UPDATE application_users SET email = $2 WHERE id = $1`, legacyRecipientID, recipientEmail); err != nil {
+		t.Fatalf("set synthetic legacy recipient email: %v", err)
+	}
 	verifier := bytesOfValue("synthetic-link-verifier", 32)
 	encryptedPackage := []byte("synthetic-encrypted-key-handoff-package")
 	created, err := repository.CreateForEmail(ctx, ownerID, vaultID, strings.ToUpper(recipientEmail), apiService.NewSecureShareLink{
@@ -52,7 +56,7 @@ func TestSecureShareLinkBindsEmailAndRedeemsOnceAfterEnrollment(t *testing.T) {
 		t.Fatal("stored Secure Share Link invitation differs from the email-bound encrypted contract")
 	}
 
-	recipientID := testsupport.CreateSyntheticApplicationUser(t, pool)
+	recipientID := createSyntheticPasswordlessAccount(t, ctx, pool, recipientEmail, now)
 	recipientKey := syntheticSharePublicKey(t, "A")
 	insertSecureShareCryptoProfile(t, ctx, pool, recipientID, recipientKey, now)
 	recipient := apiService.SecureShareLinkRecipient{UserID: recipientID, Email: strings.ToUpper(recipientEmail)}
@@ -190,10 +194,7 @@ func TestSecureShareLinkDoesNotFollowARecycledEmailBinding(t *testing.T) {
 	now := time.Date(2026, time.August, 10, 11, 12, 13, 0, time.UTC)
 	ownerID := testsupport.CreateSyntheticApplicationUser(t, pool)
 	recipientEmail := "recycled-share-recipient@example.test"
-	recipientID := testsupport.CreateSyntheticApplicationUser(t, pool)
-	if _, err := pool.Exec(ctx, `UPDATE application_users SET email = $2 WHERE id = $1`, recipientID, recipientEmail); err != nil {
-		t.Fatalf("set synthetic recipient email: %v", err)
-	}
+	recipientID := createSyntheticPasswordlessAccount(t, ctx, pool, recipientEmail, now)
 	vaultID := insertAccessVault(t, ctx, pool, ownerID, "ACTIVE", []byte("synthetic-encrypted-name"), now, false)
 	insertAccessMembership(t, ctx, pool, vaultID, ownerID, "OWNER", "ACTIVE", []byte("synthetic-owner-key-wrap"), 1, nil, nil, nil, now)
 	t.Cleanup(func() { cleanupSecureShareVault(t, ctx, pool, vaultID) })
@@ -208,13 +209,8 @@ func TestSecureShareLinkDoesNotFollowARecycledEmailBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ID-bound invitation: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE application_users SET email = $2 WHERE id = $1`, recipientID, "changed-recipient@example.test"); err != nil {
-		t.Fatalf("change original recipient email: %v", err)
-	}
-	otherID := testsupport.CreateSyntheticApplicationUser(t, pool)
-	if _, err := pool.Exec(ctx, `UPDATE application_users SET email = $2 WHERE id = $1`, otherID, recipientEmail); err != nil {
-		t.Fatalf("assign recycled email to a different synthetic user: %v", err)
-	}
+	setSyntheticPasswordlessAccountEmail(t, ctx, pool, recipientID, "changed-recipient@example.test", now)
+	otherID := createSyntheticPasswordlessAccount(t, ctx, pool, recipientEmail, now)
 	otherKey := syntheticSharePublicKey(t, "F")
 	insertSecureShareCryptoProfile(t, ctx, pool, otherID, otherKey, now)
 	if link, err := repository.FindForRecipient(ctx, apiService.SecureShareLinkRecipient{UserID: otherID, Email: recipientEmail}, verifier); err != nil || link != nil {
@@ -266,6 +262,56 @@ func cleanupSecureShareVault(t *testing.T, ctx context.Context, pool *pgxpool.Po
 		if _, err := pool.Exec(ctx, statement, vaultID); err != nil {
 			t.Errorf("clean synthetic Secure Share Vault: %v", err)
 		}
+	}
+}
+
+func createSyntheticPasswordlessAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email string, now time.Time) string {
+	t.Helper()
+	repository, err := NewPasswordlessAuthRepository(pool, apiService.PasswordlessConfiguration{
+		MagicLinkSecret: bytesOfValue("synthetic-passwordless-magic-link-secret", 32),
+		SessionSecret:   bytesOfValue("synthetic-passwordless-session-secret", 32),
+	})
+	if err != nil {
+		t.Fatalf("create synthetic Passwordless repository: %v", err)
+	}
+	account, err := repository.FindOrCreateAccount(ctx, email, now, now)
+	if err != nil {
+		t.Fatalf("create synthetic Passwordless account: %v", err)
+	}
+	registerPasswordlessFixtureCleanup(t, pool, email, account.ApplicationUserID)
+	return account.ApplicationUserID
+}
+
+func setSyntheticPasswordlessAccountEmail(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID, email string, now time.Time) {
+	t.Helper()
+	transaction, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin synthetic Passwordless email update: %v", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	identity, err := transaction.Exec(ctx, `
+		UPDATE external_identities
+		SET email = $2, email_verified_at = $3, updated_at = $3
+		WHERE application_user_id = $1 AND issuer = $4`, userID, email, now, apiService.PasswordlessIssuer)
+	if err != nil || identity.RowsAffected() != 1 {
+		t.Fatalf("update synthetic Passwordless external identity rows=%d err=%v", identity.RowsAffected(), err)
+	}
+	passwordless, err := transaction.Exec(ctx, `
+		UPDATE passwordless_identities
+		SET normalized_email = $2, updated_at = $3
+		WHERE external_identity_id = (
+			SELECT id FROM external_identities WHERE application_user_id = $1 AND issuer = $4
+		)`, userID, email, now, apiService.PasswordlessIssuer)
+	if err != nil || passwordless.RowsAffected() != 1 {
+		t.Fatalf("update synthetic Passwordless identity rows=%d err=%v", passwordless.RowsAffected(), err)
+	}
+	user, err := transaction.Exec(ctx, `
+		UPDATE application_users SET email = $2, updated_at = $3 WHERE id = $1`, userID, email, now)
+	if err != nil || user.RowsAffected() != 1 {
+		t.Fatalf("update synthetic application user email rows=%d err=%v", user.RowsAffected(), err)
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		t.Fatalf("commit synthetic Passwordless email update: %v", err)
 	}
 }
 

@@ -1,34 +1,71 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { INVITATION_AUTH_RETURN_PATH, resolveAuthReturnPath } from "../application/auth-return-path";
+import { useCallback, useEffect } from "react";
+import {
+  AUTH_COMPLETION_PATH,
+  INVITATION_AUTH_RETURN_PATH,
+  resolveAuthReturnPath,
+} from "../application/auth-return-path";
+import {
+  beginSecureShareLinkAuthentication,
+  clearPendingSecureShareLinkAuthentication,
+  consumeSecureShareLinkAuthenticationCompletion,
+  consumeSecureShareLinkSecretFromLocation,
+  replacePendingSecureShareLinkSecret,
+  retainSecureShareLinkAuthentication,
+  scheduleSecureShareLinkAuthenticationClear,
+} from "@/modules/vault-membership";
 import { subscribeToAuthenticationCompletion } from "./auth-completion-channel";
 
-export function InvitationAuthContinuation({ nextPath }: { nextPath: string }) {
-  const invitationSecret = useRef("");
-  const invitationSecretSent = useRef(false);
+export function InvitationAuthContinuation({
+  nextPath,
+  navigate,
+}: {
+  nextPath: string;
+  navigate?: (path: string) => void;
+}) {
+  const goTo = useCallback(
+    (path: string) => {
+      if (navigate) {
+        navigate(path);
+        return;
+      }
+      window.location.replace(path);
+    },
+    [navigate],
+  );
 
   useEffect(() => {
-    invitationSecret.current = "";
-    invitationSecretSent.current = false;
-    if (resolveAuthReturnPath(nextPath) !== INVITATION_AUTH_RETURN_PATH) return;
-    const fragment = window.location.hash.slice(1);
-    invitationSecret.current = /^[A-Za-z0-9_-]{16,4096}$/.test(fragment) ? fragment : "";
-    if (!invitationSecret.current) return;
+    if (resolveAuthReturnPath(nextPath) !== INVITATION_AUTH_RETURN_PATH) {
+      clearPendingSecureShareLinkAuthentication();
+      return;
+    }
 
-    return subscribeToAuthenticationCompletion(
-      () => {
-        const destination = new URL(INVITATION_AUTH_RETURN_PATH, window.location.origin);
-        destination.hash = invitationSecret.current;
-        window.location.replace(destination.toString());
-      },
-      () => {
-        if (invitationSecretSent.current) return "";
-        invitationSecretSent.current = true;
-        return invitationSecret.current;
-      },
-    );
-  }, [nextPath]);
+    retainSecureShareLinkAuthentication();
+    // Scrub every initial fragment so incomplete secrets never remain in the URL; later hash changes preserve ordinary anchors.
+    beginSecureShareLinkAuthentication(consumeSecureShareLinkSecretFromLocation());
+
+    function consumeChangedFragment() {
+      replacePendingSecureShareLinkSecret(consumeSecureShareLinkSecretFromLocation({ clearInvalidFragment: false }));
+    }
+    window.addEventListener("hashchange", consumeChangedFragment);
+    const unsubscribe = subscribeToAuthenticationCompletion(() => {
+      const secret = consumeSecureShareLinkAuthenticationCompletion();
+      if (secret === null) return;
+      if (!secret) {
+        goTo(AUTH_COMPLETION_PATH);
+        return;
+      }
+      const destination = new URL(INVITATION_AUTH_RETURN_PATH, window.location.origin);
+      destination.hash = secret;
+      goTo(destination.toString());
+    });
+    return () => {
+      window.removeEventListener("hashchange", consumeChangedFragment);
+      unsubscribe();
+      scheduleSecureShareLinkAuthenticationClear();
+    };
+  }, [goTo, nextPath]);
 
   return null;
 }

@@ -59,13 +59,20 @@ vi.mock("@/modules/authenticator-account/infrastructure/browser-account-payload"
 import {
   AuthorizedWorkspaceTransportError,
   PersonalVaultUnlockError,
+  WorkspaceLifecycle,
   UserEncryptionPrivateKeyRecoveryError,
   VaultWorkspaceUnlockError,
+  WorkspacePrincipalMismatchError,
   unwrapSharedVaultKeyWithCrypto,
   type AuthorizedWorkspaceResponse,
 } from "@rhasia-scret/client-vault-core";
 import { migrateLegacySharedVaultKeyWrapWithCrypto } from "@rhasia-scret/client-vault-core/modules/vault-membership/application/shared-vault-key-wrap-migration";
-import { beginPwaUpdateLock, cancelPwaUpdateLock } from "@/modules/sync/infrastructure/browser-vault-lock";
+import {
+  beginPwaUpdateLock,
+  cancelPwaUpdateLock,
+  requestLocalVaultLock,
+} from "@/modules/sync/infrastructure/browser-vault-lock";
+import { createBrowserWorkspaceLifecyclePorts } from "@/modules/sync/infrastructure/browser-workspace-lifecycle";
 import {
   classifyBrowserVaultWorkspaceUnlockFailure,
   clearUnlockedVaultWorkspace,
@@ -317,7 +324,9 @@ describe("Vault workspace loading", () => {
     response.personalSnapshot.profileId = "profile-2";
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
     const userRootKey = Uint8Array.of(7);
-    await expect(refreshUnlockedVaultWorkspace(userRootKey, "profile-1")).rejects.toThrow(/does not match/);
+    await expect(refreshUnlockedVaultWorkspace(userRootKey, "profile-1")).rejects.toBeInstanceOf(
+      WorkspacePrincipalMismatchError,
+    );
     expect([...userRootKey]).toEqual([7]);
   });
 
@@ -427,6 +436,38 @@ describe("Vault workspace loading", () => {
     }
   });
 
+  it("clears decrypted Personal material when a local lock reaches the real lifecycle adapter", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    vi.stubGlobal("window", new EventTarget());
+    vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "hidden" }));
+    const response = workspaceResponse();
+    const userRootKey = Uint8Array.of(1, 2);
+    const personalVaultKey = Uint8Array.of(3, 4);
+    mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
+    mocks.unlockPersonalVault.mockResolvedValue({ userRootKey, personalVaultKey });
+    mocks.decryptAccountConfiguration
+      .mockResolvedValueOnce(account("Personal", "synthetic-personal"))
+      .mockResolvedValueOnce(account("Shared", "synthetic-shared"));
+    const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
+    const personalVault = workspace.vaults.find((vault) => vault.type === "PERSONAL");
+    const personalAccount = workspace.accounts.find((item) => item.vaultType === "PERSONAL");
+    if (!personalVault || !personalAccount) throw new Error("Synthetic Personal workspace fixture is incomplete.");
+    const lifecycle = new WorkspaceLifecycle(workspace, createBrowserWorkspaceLifecyclePorts());
+
+    try {
+      lifecycle.start();
+      requestLocalVaultLock();
+
+      expect(lifecycle.workspace).toBeNull();
+      expect(workspace.userRootKey).toEqual(Uint8Array.of(0, 0));
+      expect(personalVault.key).toEqual(Uint8Array.of(0, 0));
+      expect(personalAccount.secret).toEqual(Uint8Array.of(0));
+    } finally {
+      lifecycle.dispose();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("clears personal and transient Shared key material when the workspace is locked", async () => {
     const response = workspaceResponse();
     mocks.fetchAuthorizedWorkspaceBundle.mockResolvedValue(response);
@@ -436,6 +477,7 @@ describe("Vault workspace loading", () => {
     const workspace = await loadUnlockedVaultWorkspace("secret", "personal-1");
     clearUnlockedVaultWorkspace(workspace);
     expect([...workspace.userRootKey]).toEqual([0]);
+    expect(workspace.vaults.find((vault) => vault.type === "PERSONAL")?.key).toEqual(Uint8Array.of(0));
     expect([...secret]).toEqual([0]);
   });
 });

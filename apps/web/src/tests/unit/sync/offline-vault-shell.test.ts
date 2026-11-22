@@ -26,6 +26,9 @@ vi.mock("@/modules/sync/infrastructure/browser-vault-workspace", () => ({
 vi.mock("@/shared/infrastructure/browser-analytics", () => ({
   captureAnalyticsEvent: mocks.captureAnalytics,
 }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
 vi.mock("@/modules/sync/infrastructure/browser-offline-vault-repository", () => ({
   BrowserOfflineVaultRepository: class {
     clearAll = mocks.clear;
@@ -41,6 +44,7 @@ describe("OfflineVaultShell", () => {
     await act(async () => root?.unmount());
     vi.clearAllMocks();
     document.body.innerHTML = "";
+    window.history.replaceState(null, "", "/");
   });
 
   it("links an empty offline state back to sign in", async () => {
@@ -52,6 +56,20 @@ describe("OfflineVaultShell", () => {
     await act(async () => root?.render(createElement(OfflineVaultShell)));
 
     expect(container.querySelector<HTMLAnchorElement>('a[href="/sign-in"]')?.textContent).toContain("Kembali ke masuk");
+  });
+
+  it("explains that an offline sign-out could not revoke the server session", async () => {
+    window.history.replaceState(null, "", "/sign-in?auth=logout_failed");
+    mocks.listProfiles.mockResolvedValue({ profiles: [], migrationRequired: false });
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => root?.render(createElement(OfflineVaultShell)));
+
+    expect(container.textContent).toContain(
+      "Proses keluar belum dapat dipastikan selesai. Sesi server mungkin masih aktif atau pembersihan lokal belum lengkap.",
+    );
   });
 
   it("shows reconnect guidance after legacy Shared Vault snapshot cleanup", async () => {
