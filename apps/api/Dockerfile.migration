@@ -9,7 +9,7 @@ COPY apps/api/cmd/sqitch-migrate ./cmd/sqitch-migrate
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -trimpath -buildvcs=false -o /out/rhasia-sqitch-migrate ./cmd/sqitch-migrate
 
-FROM sqitch/sqitch:v1.6.1.1@sha256:ccc468702782f376647f7febf06a616ffacf01bd5f066ad589298e387583c60d AS migration
+FROM sqitch/sqitch:v1.6.1.4@sha256:e0934eab9f7dd00c7467361e09970a553c10d971155e10ef2c3410242eb95dbc AS migration
 ARG COMMIT_SHA=unknown
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 WORKDIR /workspace/apps/api
