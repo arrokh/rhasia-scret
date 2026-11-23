@@ -33,6 +33,21 @@ notes follow the [repository release process](docs/release-process.md).
 - Dependency-license verification remains a required release check.
 - Full versioned release evidence is not implied by this unreleased entry.
 
+## [0.4.3]
+
+<!-- Draft generated from first-parent history v0.4.2..290aefa8d37ec276afa869d16817514f77f3cac5 (first-parent, exclusive of tag); release-base 290aefa8d37ec276afa869d16817514f77f3cac5. Review and curate before publication. -->
+
+### Changes
+
+- build(deps): bump github.com/labstack/echo/v5 from 5.4.5 to 5.4.6 in /apps/api in the go-modules group (#346)
+- build(deps): bump golang from `0a5f7fe` to `70bd7dd` in /apps/api (#345)
+- build(deps): bump sqitch/sqitch from v1.6.1.1 to v1.6.1.4 in /apps/api (#344)
+- build(deps): bump alpine from 3.24.1 to 3.24.4 in /apps/api (#347)
+- build(deps): bump alpine from 3.24.1 to 3.24.4 in /apps/web (#348)
+- build(deps): bump the github-actions group with 2 updates (#350)
+- build(deps): bump node from 24.19.0-alpine3.24 to 26.13.1-alpine3.24 in /apps/web (#349)
+- build(deps): bump the workspace-dependencies group across 1 directory with 13 updates (#352)
+
 ## [0.4.2]
 
 <!-- Draft generated from first-parent history v0.4.1..c4cd876e4038bb577289e2408e4f9c2485e78817 (first-parent, exclusive of tag); release-base c4cd876e4038bb577289e2408e4f9c2485e78817. Review and curate before publication. -->
