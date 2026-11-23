@@ -33,6 +33,8 @@ overrides:
   # Keep every transitive esbuild consumer on the release that fixes the
   # Windows development-server path traversal advisory (GHSA-g7r4-m6w7-qqqr).
   esbuild: 0.28.2
+  # Keep compatible use-intl formatting below the existing route-bundle budget.
+  "use-intl>intl-messageformat": 11.2.15
 
 allowBuilds:
   "@parcel/watcher": false
