@@ -7,8 +7,8 @@ toolchain go1.27.4
 require (
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/jackc/pgx/v5 v5.13.0
-	github.com/labstack/echo/v5 v5.4.6
-	github.com/oapi-codegen/runtime v1.9.0
+	github.com/labstack/echo/v5 v5.4.7
+	github.com/oapi-codegen/runtime v1.9.1
 )
 
 require (
